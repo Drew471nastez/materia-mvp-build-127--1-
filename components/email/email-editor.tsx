@@ -653,19 +653,6 @@ export function EmailEditor({
               />
             </div>
 
-            {/* Preview Text Card */}
-            <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-              <Label className="text-sm font-medium text-gray-700 mb-3 block">
-                Preview Text <span className="text-gray-400 font-normal">(optional)</span>
-              </Label>
-              <Input
-                value={previewText}
-                onChange={(e) => setPreviewText(e.target.value)}
-                placeholder="Brief text shown in inbox preview..."
-                className="h-12 text-base rounded-xl border-gray-200 focus:border-blue-400 focus:ring-blue-400/20"
-              />
-            </div>
-
             {/* Email Body Card */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
               <div className="px-5 py-3 border-b border-gray-100 bg-gray-50/50">
@@ -867,28 +854,6 @@ Tips:
               </div>
             </div>
 
-            {/* Audience Card */}
-            <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-              <Label className="text-sm font-medium text-gray-700 mb-3 block">Send To</Label>
-              <div className="flex gap-3">
-                <Select value={audienceType} onValueChange={onAudienceChange}>
-                  <SelectTrigger className="flex-1 h-12 rounded-xl border-gray-200">
-                    <SelectValue placeholder="Select audience" />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl">
-                    <SelectItem value="all">All Subscribers</SelectItem>
-                    <SelectItem value="store_builder">Store Builder Subscribers</SelectItem>
-                    <SelectItem value="onepage">OnePage Subscribers</SelectItem>
-                    {segments.map((segment) => (
-                      <SelectItem key={segment.id} value={`segment:${segment.id}`}>{segment.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button variant="outline" onClick={() => setShowSegmentDialog(true)} className="h-12 px-4 rounded-xl border-gray-200 hover:bg-gray-50">
-                  <Plus className="h-4 w-4 mr-2" />Custom
-                </Button>
-              </div>
-            </div>
           </div>
 
           {/* Preview Panel */}
@@ -896,31 +861,23 @@ Tips:
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
               <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
                 <Label className="text-sm font-medium text-gray-700">Live Preview</Label>
-                <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-                  <Button
-                    variant={previewMode === "desktop" ? "secondary" : "ghost"}
-                    size="sm"
-                    className={cn("h-7 px-3 rounded-md text-xs", previewMode === "desktop" ? "bg-white shadow-sm" : "")}
-                    onClick={() => setPreviewMode("desktop")}
-                  >
-                    <Monitor className="h-3.5 w-3.5 mr-1.5" />Desktop
-                  </Button>
-                  <Button
-                    variant={previewMode === "mobile" ? "secondary" : "ghost"}
-                    size="sm"
-                    className={cn("h-7 px-3 rounded-md text-xs", previewMode === "mobile" ? "bg-white shadow-sm" : "")}
-                    onClick={() => setPreviewMode("mobile")}
-                  >
-                    <Smartphone className="h-3.5 w-3.5 mr-1.5" />Mobile
-                  </Button>
-                </div>
+                <Select value={audienceType} onValueChange={onAudienceChange}>
+                  <SelectTrigger className="h-9 w-auto min-w-[160px] rounded-lg border-gray-200 text-sm">
+                    <SelectValue placeholder="Send to..." />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    <SelectItem value="all">All Subscribers</SelectItem>
+                    <SelectItem value="store_builder">Store Subscribers</SelectItem>
+                    <SelectItem value="onepage">OnePage Subscribers</SelectItem>
+                    {segments.map((segment) => (
+                      <SelectItem key={segment.id} value={`segment:${segment.id}`}>{segment.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="p-5 bg-gray-50/50 flex justify-center min-h-[500px]">
-                <div className={cn(
-                  "bg-white rounded-2xl shadow-lg overflow-hidden transition-all duration-300 border border-gray-100",
-                  previewMode === "mobile" ? "w-[320px]" : "w-full max-w-[480px]"
-                )}>
+                <div className="bg-white rounded-2xl shadow-lg overflow-hidden transition-all duration-300 border border-gray-100 w-full max-w-[480px]">
                   {/* Email Header Preview */}
                   <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/80">
                     <div className="flex items-center gap-3">
@@ -939,10 +896,10 @@ Tips:
                   </div>
 
                   {/* Email Body Preview */}
-                  <div className={cn("p-5", previewMode === "mobile" ? "p-4" : "p-5")}>
+                  <div className="p-5">
                     <div
                       className="prose prose-sm max-w-none text-gray-700"
-                      style={{ fontSize: previewMode === "mobile" ? "14px" : "15px", lineHeight: "1.7" }}
+                      style={{ fontSize: "15px", lineHeight: "1.7" }}
                       dangerouslySetInnerHTML={{
                         __html: previewBody || '<span class="text-gray-400 italic">Your email content will appear here...</span>'
                       }}

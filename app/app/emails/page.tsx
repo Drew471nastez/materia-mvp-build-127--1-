@@ -614,26 +614,64 @@ export default function EmailsPage() {
           </div>
         </div>
 
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
-          {/* Trigger Card */}
-          <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden mb-6">
-            <div className="p-5 border-b border-[#e5e7eb]/60 bg-gradient-to-r from-violet-50 to-purple-50">
-              <div className="flex items-center gap-3">
-                <div className={cn("p-2.5 rounded-xl", triggerInfo.color)}>
-                  <TriggerIcon className="h-5 w-5" />
-                </div>
-                <div>
-                  <div className="text-[11px] uppercase tracking-wider text-violet-600 font-semibold mb-0.5">Trigger</div>
-                  <h3 className="font-semibold text-[#1a1a2e]">{triggerInfo.name}</h3>
-                  <p className="text-[13px] text-[#6b7280]">{triggerInfo.description}</p>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+          <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
+            {/* Left Sidebar - Flow Steps List */}
+            <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden h-fit">
+              <div className="p-4 border-b border-[#e5e7eb]/60 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ChevronRight className="h-4 w-4 text-gray-400 rotate-90" />
+                  <span className="font-medium text-[#1a1a2e]">Email {(editingFlow.steps || []).filter(s => s.type === "email").length > 0 ? "1" : "0"} of {(editingFlow.steps || []).filter(s => s.type === "email").length}</span>
                 </div>
               </div>
-            </div>
-          </div>
+              <div className="p-3 space-y-2">
+                {/* Trigger Item */}
+                <div className="flex items-center gap-2 p-2 rounded-lg bg-gray-50">
+                  <div className={cn("p-1.5 rounded-lg", triggerInfo.color)}>
+                    <TriggerIcon className="h-3.5 w-3.5" />
+                  </div>
+                  <span className="text-sm text-violet-600">{triggerInfo.name}</span>
+                </div>
 
-          {/* Flow Steps */}
-          <div className="space-y-4">
-            {/* Connector Line */}
+                {/* Email Steps */}
+                {(editingFlow.steps || []).filter(s => s.type === "email").map((step, idx) => (
+                  <div key={step.id} className="flex items-start gap-2 p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
+                    <Mail className="h-4 w-4 text-gray-400 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-[#1a1a2e] truncate font-medium">
+                        {step.config.subject || "Untitled email"}
+                      </p>
+                      <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">Draft</span>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Add Email Button */}
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    const newStep: FlowStep = {
+                      id: `step_${Date.now()}`,
+                      type: "email",
+                      order: (editingFlow.steps || []).length,
+                      config: { subject: "", body: "", delay_value: 1, delay_unit: "minutes" }
+                    }
+                    setEditingFlow({
+                      ...editingFlow,
+                      steps: [...(editingFlow.steps || []), newStep]
+                    })
+                  }}
+                  className="w-full rounded-lg border-violet-300 text-violet-600 hover:bg-violet-50 hover:border-violet-400 h-10 mt-2"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Email
+                </Button>
+              </div>
+            </div>
+
+            {/* Right Side - Email Editor */}
+            <div className="space-y-4">
+              {/* Connector Line */}
             <div className="flex justify-center">
               <div className="w-0.5 h-8 bg-[#e5e7eb]"></div>
             </div>
@@ -692,22 +730,107 @@ export default function EmailsPage() {
                 ) : (
                   <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
                     <div className="p-5">
-                      <div className="flex items-start gap-3">
-                        <div className="p-2.5 rounded-xl bg-blue-100 text-blue-700">
-                          <Mail className="h-5 w-5" />
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2.5 rounded-xl bg-blue-100 text-blue-700">
+                            <Mail className="h-5 w-5" />
+                          </div>
+                          <div className="text-[11px] uppercase tracking-wider text-blue-600 font-semibold">Send Email</div>
                         </div>
-                        <div className="flex-1">
-                          <div className="text-[11px] uppercase tracking-wider text-blue-600 font-semibold mb-2">Send Email</div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-gray-400 hover:text-red-500 h-8 w-8"
+                          onClick={() => {
+                            const newSteps = (editingFlow.steps || []).filter((_, i) => i !== index)
+                            setEditingFlow({ ...editingFlow, steps: newSteps })
+                          }}
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </div>
+
+                      {/* Timing */}
+                      <div className="mb-4">
+                        <label className="text-sm font-medium text-gray-700 mb-2 block">Timing</label>
+                        <div className="flex items-center gap-2">
                           <Input
-                            value={step.config.subject || ""}
+                            type="number"
+                            min="1"
+                            value={step.config.delay_value || 1}
                             onChange={(e) => {
                               const newSteps = [...(editingFlow.steps || [])]
-                              newSteps[index].config.subject = e.target.value
+                              newSteps[index].config.delay_value = parseInt(e.target.value) || 1
                               setEditingFlow({ ...editingFlow, steps: newSteps })
                             }}
-                            placeholder="Email subject..."
-                            className="mb-3"
+                            className="w-20 h-10"
                           />
+                          <select
+                            value={step.config.delay_unit || "minutes"}
+                            onChange={(e) => {
+                              const newSteps = [...(editingFlow.steps || [])]
+                              newSteps[index].config.delay_unit = e.target.value as "minutes" | "hours" | "days"
+                              setEditingFlow({ ...editingFlow, steps: newSteps })
+                            }}
+                            className="h-10 px-3 border rounded-lg bg-white text-sm"
+                          >
+                            <option value="minutes">minutes</option>
+                            <option value="hours">hours</option>
+                            <option value="days">days</option>
+                          </select>
+                          <span className="text-sm text-gray-500">after purchase</span>
+                        </div>
+                      </div>
+
+                      {/* Email Subject */}
+                      <div className="mb-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="text-sm font-medium text-gray-700">Email Subject</label>
+                        </div>
+                        <Input
+                          value={step.config.subject || ""}
+                          onChange={(e) => {
+                            const newSteps = [...(editingFlow.steps || [])]
+                            newSteps[index].config.subject = e.target.value
+                            setEditingFlow({ ...editingFlow, steps: newSteps })
+                          }}
+                          placeholder="Customer Name, how did you like Product Name?"
+                          className="h-10"
+                        />
+                        <div className="flex items-center justify-between mt-2">
+                          <button className="text-xs text-violet-600 font-medium hover:text-violet-700">+ Personalize</button>
+                          <button className="text-xs text-violet-600 font-medium hover:text-violet-700">Restore Default</button>
+                        </div>
+                      </div>
+
+                      {/* Email Body */}
+                      <div>
+                        <label className="text-sm font-medium text-gray-700 mb-2 block">Email Body</label>
+                        <div className="border rounded-lg overflow-hidden">
+                          {/* Toolbar */}
+                          <div className="flex items-center gap-1 px-3 py-2 border-b bg-gray-50/50">
+                            <button className="p-1.5 rounded hover:bg-gray-100" title="Heading">
+                              <Type className="h-4 w-4 text-gray-500" />
+                            </button>
+                            <button className="p-1.5 rounded hover:bg-gray-100 font-bold text-gray-500" title="Bold">B</button>
+                            <button className="p-1.5 rounded hover:bg-gray-100 line-through text-gray-500" title="Strikethrough">S</button>
+                            <button className="p-1.5 rounded hover:bg-gray-100 italic text-gray-500" title="Italic">I</button>
+                            <button className="p-1.5 rounded hover:bg-gray-100" title="List">
+                              <FileText className="h-4 w-4 text-gray-500" />
+                            </button>
+                            <button className="p-1.5 rounded hover:bg-gray-100" title="Image">
+                              <Settings className="h-4 w-4 text-gray-500" />
+                            </button>
+                            <button className="p-1.5 rounded hover:bg-gray-100" title="Link">
+                              <Link2 className="h-4 w-4 text-gray-500" />
+                            </button>
+                            <div className="flex-1" />
+                            <button className="text-xs text-violet-600 font-medium hover:text-violet-700 px-2 py-1 rounded border border-violet-200 bg-violet-50">+ Personalize</button>
+                            <button className="text-xs text-violet-600 font-medium hover:text-violet-700 px-2 py-1 rounded border border-violet-200 bg-violet-50 flex items-center gap-1">
+                              <Link2 className="h-3 w-3" />
+                              Add Product Link
+                            </button>
+                          </div>
                           <textarea
                             value={step.config.body || ""}
                             onChange={(e) => {
@@ -715,22 +838,33 @@ export default function EmailsPage() {
                               newSteps[index].config.body = e.target.value
                               setEditingFlow({ ...editingFlow, steps: newSteps })
                             }}
-                            placeholder="Write your email content..."
-                            className="w-full min-h-[120px] p-3 border rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-violet-500"
+                            placeholder="Hi Customer Name!
+
+I'm so excited for you to take your first step on this journey. Product Name is a great place to start! I went through the same exact journey myself, and this is an accumulation of all of my lessons learned and what I wish I knew in achieving my goals.
+
+[Insert a few lines introducing yourself and sharing your story here!].
+
+So as you think about your own goals - do you have any questions for me? I'm here for you, just reply to this email!"
+                            className="w-full min-h-[200px] p-4 text-sm resize-none focus:outline-none"
                           />
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-gray-400 hover:text-red-500"
-                          onClick={() => {
-                            const newSteps = (editingFlow.steps || []).filter((_, i) => i !== index)
-                            setEditingFlow({ ...editingFlow, steps: newSteps })
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <div className="flex justify-end mt-2">
+                          <button className="text-xs text-violet-600 font-medium hover:text-violet-700">Restore Default</button>
+                        </div>
                       </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="px-5 py-4 border-t bg-gray-50/50 flex items-center justify-end gap-3">
+                      <Button variant="outline" className="rounded-lg border-violet-200 text-violet-600 hover:bg-violet-50">
+                        Test Send
+                      </Button>
+                      <Button variant="outline" className="rounded-lg border-violet-200 text-violet-600 hover:bg-violet-50">
+                        Save Draft
+                      </Button>
+                      <Button className="rounded-lg bg-violet-600 hover:bg-violet-700 text-white">
+                        Publish
+                      </Button>
                     </div>
                   </div>
                 )}
@@ -740,47 +874,6 @@ export default function EmailsPage() {
                 </div>
               </div>
             ))}
-
-            {/* Add Step Buttons */}
-            <div className="flex items-center justify-center gap-3">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  const newStep: FlowStep = {
-                    id: `step_${Date.now()}`,
-                    type: "email",
-                    order: (editingFlow.steps || []).length,
-                    config: { subject: "", body: "" }
-                  }
-                  setEditingFlow({
-                    ...editingFlow,
-                    steps: [...(editingFlow.steps || []), newStep]
-                  })
-                }}
-                className="rounded-xl"
-              >
-                <MailPlus className="h-4 w-4 mr-2" />
-                Add Email
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  const newStep: FlowStep = {
-                    id: `step_${Date.now()}`,
-                    type: "delay",
-                    order: (editingFlow.steps || []).length,
-                    config: { delay_value: 1, delay_unit: "days" }
-                  }
-                  setEditingFlow({
-                    ...editingFlow,
-                    steps: [...(editingFlow.steps || []), newStep]
-                  })
-                }}
-                className="rounded-xl"
-              >
-                <Timer className="h-4 w-4 mr-2" />
-                Add Delay
-              </Button>
             </div>
           </div>
         </div>
@@ -1124,7 +1217,7 @@ export default function EmailsPage() {
           </div>
 
           {/* Tabs - Pill Style */}
-          <div className="flex gap-1 mt-4 p-1 bg-[#f3f4f6] rounded-xl overflow-x-auto">
+          <div className="flex gap-1 mt-4 overflow-x-auto">
             {tabs.map((tab) => {
               const Icon = tab.icon
               return (
@@ -1132,10 +1225,10 @@ export default function EmailsPage() {
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
-                    "flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all whitespace-nowrap",
+                    "flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-full transition-all whitespace-nowrap cursor-pointer",
                     activeTab === tab.id
-                      ? "bg-white text-[#1a1a2e] shadow-sm"
-                      : "text-[#6b7280] hover:text-[#1a1a2e]",
+                      ? "bg-[#f3f4f6] text-[#1a1a2e]"
+                      : "text-[#6b7280] hover:text-[#1a1a2e] hover:bg-[#f9fafb]",
                   )}
                 >
                   <Icon className="h-4 w-4" />
@@ -1264,17 +1357,12 @@ export default function EmailsPage() {
                           </td>
                           <td className="px-4 py-3">
                             <span
-                              className={cn(
-                                "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium",
-                                subscriber.source === "onepage"
-                                  ? "bg-blue-50 text-blue-700"
-                                  : "bg-purple-50 text-purple-700",
-                              )}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[#f3f4f6] text-[#6b7280]"
                             >
                               {subscriber.source === "onepage" ? (
-                                <Link2 className="h-3 w-3" />
+                                <Link2 className="h-3 w-3 text-violet-500" />
                               ) : (
-                                <Store className="h-3 w-3" />
+                                <Store className="h-3 w-3 text-violet-500" />
                               )}
                               <span className="hidden sm:inline">
                                 {subscriber.source === "onepage" ? "OnePage" : "Store"}
