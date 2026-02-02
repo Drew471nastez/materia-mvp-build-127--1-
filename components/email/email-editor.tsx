@@ -603,7 +603,17 @@ export function EmailEditor({
   }
 
   const handleSend = async () => {
-    await onSend({ subject, body: generateEmailHTML(), previewText })
+    try {
+      console.log("[email-editor] Sending email with audienceType:", audienceType)
+      await onSend({ subject, body: generateEmailHTML(), previewText })
+    } catch (error) {
+      console.error("[email-editor] Send error:", error)
+      toast({
+        title: "Failed to send",
+        description: error instanceof Error ? error.message : "An error occurred while sending",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleSchedule = async () => {

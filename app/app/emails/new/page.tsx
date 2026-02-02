@@ -130,13 +130,19 @@ export default function NewEmailPage() {
   }
 
   const handleSend = async (data: { subject: string; body: string; previewText: string }) => {
-    if (!creatorId) return
+    if (!creatorId) {
+      console.error("[emails/new] No creatorId found")
+      toast({ title: "Error", description: "Creator not found", variant: "destructive" })
+      return
+    }
 
+    console.log("[emails/new] Starting send with audienceType:", audienceType)
     setIsSending(true)
     const supabase = createClient()
 
     try {
-      const { data: newCampaign } = await supabase
+      // Create campaign
+      const { data: newCampaign, error: insertError } = await supabase
         .from("email_campaigns")
         .insert({
           creator_id: creatorId,
@@ -149,8 +155,19 @@ export default function NewEmailPage() {
         .select()
         .single()
 
-      if (!newCampaign) throw new Error("Failed to create campaign")
+      if (insertError) {
+        console.error("[emails/new] Campaign insert error:", insertError)
+        throw new Error(`Failed to create campaign: ${insertError.message}`)
+      }
 
+      if (!newCampaign) {
+        console.error("[emails/new] No campaign returned after insert")
+        throw new Error("Failed to create campaign - no data returned")
+      }
+
+      console.log("[emails/new] Campaign created:", newCampaign.id, "with audience_type:", newCampaign.audience_type)
+
+      // Send campaign
       const response = await fetch("/api/email/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -158,6 +175,7 @@ export default function NewEmailPage() {
       })
 
       const responseData = await response.json()
+      console.log("[emails/new] Send API response:", responseData)
 
       if (!response.ok) {
         throw new Error(responseData.error || "Failed to send campaign")
@@ -170,6 +188,7 @@ export default function NewEmailPage() {
         description: `Successfully sent to ${responseData.sent} subscribers.`,
       })
     } catch (error) {
+      console.error("[emails/new] Send error:", error)
       toast({
         title: "Failed to send",
         description: error instanceof Error ? error.message : "An error occurred",

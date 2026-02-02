@@ -7,10 +7,13 @@ export const runtime = "nodejs"
 
 // POST - Send an email campaign
 export async function POST(request: NextRequest) {
+  console.log("[email/send] ========== START SEND REQUEST ==========")
   try {
     const { campaign_id, schedule_for, is_resend } = await request.json()
+    console.log("[email/send] Request params:", { campaign_id, schedule_for, is_resend })
 
     if (!campaign_id) {
+      console.log("[email/send] Missing campaign_id")
       return NextResponse.json({ error: "Missing campaign_id" }, { status: 400 })
     }
 
@@ -43,6 +46,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get the campaign
+    console.log("[email/send] Fetching campaign:", campaign_id, "for creator:", creator.id)
     const { data: campaign, error: campaignError } = await supabase
       .from("email_campaigns")
       .select("*")
@@ -51,8 +55,10 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (campaignError || !campaign) {
+      console.log("[email/send] Campaign not found:", campaignError)
       return NextResponse.json({ error: "Campaign not found" }, { status: 404 })
     }
+    console.log("[email/send] Campaign found with audience_type:", campaign.audience_type)
 
     if (is_resend) {
       const { data: existingResends } = await adminSupabase
@@ -123,13 +129,18 @@ export async function POST(request: NextRequest) {
     }
     // "all" audience_type doesn't need additional filtering
 
+    console.log("[email/send] Executing subscriber query for audience_type:", campaign.audience_type)
     const { data: subscribers, error: subscribersError } = await subscribersQuery
 
     if (subscribersError) {
+      console.log("[email/send] Subscriber query error:", subscribersError)
       return NextResponse.json({ error: "Failed to fetch subscribers" }, { status: 500 })
     }
 
+    console.log("[email/send] Found subscribers:", subscribers?.length || 0)
+
     if (!subscribers || subscribers.length === 0) {
+      console.log("[email/send] No subscribers found for audience_type:", campaign.audience_type)
       return NextResponse.json({ error: "No subscribers found for this audience" }, { status: 400 })
     }
 
