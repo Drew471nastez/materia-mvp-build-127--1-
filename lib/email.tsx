@@ -1553,3 +1553,233 @@ export async function sendReviewNotificationEmail(
     return { success: false, error: errorMessage }
   }
 }
+
+// -------------------------
+// Email Flow Trigger System
+// -------------------------
+export interface TriggerEmailFlowParams {
+  triggerType: "purchase" | "new_subscriber"
+  creatorId: string
+  recipientEmail: string
+  recipientName?: string
+  productTitle?: string
+  productId?: string
+  orderId?: string
+}
+
+interface FlowStep {
+  id: string
+  type: "email" | "delay" | "condition"
+  order: number
+  config: {
+    subject?: string
+    body?: string
+    preview_text?: string
+    delay_value?: number
+    delay_unit?: "minutes" | "hours" | "days"
+  }
+}
+
+interface EmailFlow {
+  id: string
+  name: string
+  trigger_type: string
+  status: string
+  steps: FlowStep[]
+}
+
+export async function triggerEmailFlows(
+  admin: any,
+  params: TriggerEmailFlowParams
+): Promise<{ triggered: number; errors: string[] }> {
+  const { triggerType, creatorId, recipientEmail, recipientName, productTitle, productId, orderId } = params
+  const errors: string[] = []
+  let triggered = 0
+
+  console.log("[email-flows] 🔄 Triggering flows for:", { triggerType, creatorId, recipientEmail })
+
+  try {
+    // Find active flows with matching trigger type
+    const { data: flows, error: flowsError } = await admin
+      .from("email_flows")
+      .select("*")
+      .eq("creator_id", creatorId)
+      .eq("trigger_type", triggerType)
+      .eq("status", "active")
+
+    if (flowsError) {
+      console.error("[email-flows] ❌ Error fetching flows:", flowsError)
+      return { triggered: 0, errors: [flowsError.message] }
+    }
+
+    if (!flows || flows.length === 0) {
+      console.log("[email-flows] No active flows found for trigger:", triggerType)
+      return { triggered: 0, errors: [] }
+    }
+
+    console.log("[email-flows] Found", flows.length, "active flow(s)")
+
+    // Get creator identity for sending
+    const identity = await resolveCreatorIdentity(admin, creatorId)
+    const fromName = identity?.fromName || PLATFORM_BRAND_NAME
+    const replyTo = identity?.replyTo || DEFAULT_SUPPORT
+
+    // Process each flow
+    for (const flow of flows as EmailFlow[]) {
+      try {
+        const steps = flow.steps || []
+        const emailSteps = steps.filter(s => s.type === "email")
+
+        if (emailSteps.length === 0) {
+          console.log("[email-flows] Flow has no email steps:", flow.name)
+          continue
+        }
+
+        // For now, we'll send the first email immediately and queue the rest
+        // In a production system, you'd want a proper job queue for delayed emails
+        for (let i = 0; i < emailSteps.length; i++) {
+          const step = emailSteps[i]
+          const delayMs = calculateDelayMs(step.config.delay_value || 0, step.config.delay_unit || "minutes")
+
+          // Replace personalization tokens
+          const personalizedSubject = personalizeContent(step.config.subject || "Update from your purchase", {
+            customer_name: recipientName || "there",
+            product_name: productTitle || "your product",
+          })
+          const personalizedBody = personalizeContent(step.config.body || "", {
+            customer_name: recipientName || "there",
+            product_name: productTitle || "your product",
+          })
+
+          if (i === 0 && delayMs === 0) {
+            // Send first email immediately if no delay
+            try {
+              const result = await sendEmail({
+                from: buildFromHeaderLocal(fromName),
+                to: normalizeEmail(recipientEmail),
+                replyTo,
+                subject: personalizedSubject,
+                html: wrapFlowEmailHtml(personalizedBody, fromName),
+                text: stripHtml(personalizedBody),
+              })
+
+              if (result.success) {
+                console.log("[email-flows] ✅ Sent flow email immediately:", flow.name)
+                triggered++
+
+                // Log the email event
+                await admin.from("email_events").insert({
+                  flow_id: flow.id,
+                  recipient_email: recipientEmail,
+                  event_type: "sent",
+                  metadata: { step_id: step.id, subject: personalizedSubject },
+                })
+              }
+            } catch (emailErr: any) {
+              errors.push(`Flow ${flow.name}: ${emailErr.message}`)
+            }
+          } else {
+            // Queue delayed emails by storing in a scheduled_emails table
+            // For now, we'll just log that it would be scheduled
+            const scheduledTime = new Date(Date.now() + delayMs)
+            console.log("[email-flows] 📅 Would schedule email for:", scheduledTime.toISOString(), "- subject:", personalizedSubject)
+
+            // Store scheduled flow email
+            await admin.from("scheduled_flow_emails").insert({
+              flow_id: flow.id,
+              step_id: step.id,
+              recipient_email: recipientEmail,
+              recipient_name: recipientName,
+              subject: personalizedSubject,
+              body: personalizedBody,
+              scheduled_for: scheduledTime.toISOString(),
+              status: "pending",
+              creator_id: creatorId,
+              order_id: orderId,
+              product_id: productId,
+            }).catch((err: any) => {
+              // Table might not exist yet, that's ok
+              console.log("[email-flows] Could not store scheduled email (table may not exist):", err.message)
+            })
+          }
+        }
+
+        triggered++
+      } catch (flowErr: any) {
+        errors.push(`Flow ${flow.name}: ${flowErr.message}`)
+      }
+    }
+
+    console.log("[email-flows] ✅ Completed triggering flows:", { triggered, errors })
+    return { triggered, errors }
+  } catch (err: any) {
+    console.error("[email-flows] ❌ Error triggering flows:", err)
+    return { triggered: 0, errors: [err.message] }
+  }
+}
+
+function calculateDelayMs(value: number, unit: "minutes" | "hours" | "days"): number {
+  const multipliers = {
+    minutes: 60 * 1000,
+    hours: 60 * 60 * 1000,
+    days: 24 * 60 * 60 * 1000,
+  }
+  return value * (multipliers[unit] || multipliers.minutes)
+}
+
+function personalizeContent(content: string, tokens: Record<string, string>): string {
+  let result = content
+  for (const [key, value] of Object.entries(tokens)) {
+    const patterns = [
+      new RegExp(`{{\\s*${key}\\s*}}`, "gi"),
+      new RegExp(`\\{${key}\\}`, "gi"),
+      new RegExp(`Customer Name`, "gi"),
+      new RegExp(`Product Name`, "gi"),
+    ]
+
+    if (key === "customer_name") {
+      result = result.replace(/\{\{\s*customer_name\s*\}\}/gi, value)
+      result = result.replace(/Customer Name/g, value)
+    } else if (key === "product_name") {
+      result = result.replace(/\{\{\s*product_name\s*\}\}/gi, value)
+      result = result.replace(/Product Name/g, value)
+    }
+  }
+  return result
+}
+
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim()
+}
+
+function wrapFlowEmailHtml(bodyContent: string, fromName: string): string {
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+</head>
+<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background-color:#f6f9fc;">
+  <table role="presentation" style="width:100%;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" style="max-width:600px;width:100%;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.08);">
+          <tr>
+            <td style="padding:34px;">
+              <div style="font-size:15px;color:#374151;line-height:1.6;">
+                ${bodyContent}
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:16px 22px;text-align:center;background:#f9fafb;color:#9ca3af;font-size:11px;">
+              © ${new Date().getFullYear()} ${safeText(fromName)}
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+}

@@ -167,6 +167,38 @@ export function EmailEditor({
   const [isUploadingImage, setIsUploadingImage] = useState(false)
   const [showImageMenu, setShowImageMenu] = useState(false)
   const [imageMenuPosition, setImageMenuPosition] = useState({ x: 0, y: 0 })
+  const [showUnsavedDialog, setShowUnsavedDialog] = useState(false)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+
+  // Track unsaved changes
+  useEffect(() => {
+    const subjectChanged = subject !== initialSubject
+    const contentChanged = editorContent !== initialBody && editorContent !== ""
+    setHasUnsavedChanges(subjectChanged || contentChanged)
+  }, [subject, editorContent, initialSubject, initialBody])
+
+  // Warn before page unload/refresh if there are unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault()
+        e.returnValue = "You have unsaved changes. Are you sure you want to leave?"
+        return e.returnValue
+      }
+    }
+
+    window.addEventListener("beforeunload", handleBeforeUnload)
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload)
+  }, [hasUnsavedChanges])
+
+  // Handle back button with confirmation
+  const handleBack = () => {
+    if (hasUnsavedChanges) {
+      setShowUnsavedDialog(true)
+    } else {
+      onBack()
+    }
+  }
 
   // Initialize editor content
   useEffect(() => {
@@ -610,7 +642,7 @@ export function EmailEditor({
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-3">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <Button variant="ghost" size="icon" onClick={onBack} className="h-10 w-10 rounded-xl hover:bg-gray-100">
+              <Button variant="ghost" size="icon" onClick={handleBack} className="h-10 w-10 rounded-xl hover:bg-gray-100">
                 <ArrowLeft className="h-5 w-5 text-gray-600" />
               </Button>
               <div>
@@ -1224,6 +1256,26 @@ Tips:
             <Button variant="outline" onClick={() => setShowSegmentDialog(false)} className="rounded-xl">Cancel</Button>
             <Button onClick={handleCreateSegment} disabled={!segmentName.trim() || selectedSubscriberIds.length === 0} className="bg-blue-500 hover:bg-blue-600 rounded-xl">
               Create Segment ({selectedSubscriberIds.length})
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Unsaved Changes Warning Dialog */}
+      <Dialog open={showUnsavedDialog} onOpenChange={setShowUnsavedDialog}>
+        <DialogContent className="sm:max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Unsaved Changes</DialogTitle>
+            <DialogDescription>
+              You have unsaved changes. Are you sure you want to leave? Your changes will be lost.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setShowUnsavedDialog(false)} className="rounded-xl">
+              Stay
+            </Button>
+            <Button variant="destructive" onClick={() => { setShowUnsavedDialog(false); onBack(); }} className="rounded-xl">
+              Leave Without Saving
             </Button>
           </DialogFooter>
         </DialogContent>

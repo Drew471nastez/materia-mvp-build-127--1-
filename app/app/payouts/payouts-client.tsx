@@ -357,36 +357,34 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
         </Alert>
       )}
 
-      {/* Stripe Connection Card - Purple Themed */}
+      {/* Stripe Connection Card - Light Themed */}
       {!isStripeConnected && (
-        <div className="bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed] rounded-2xl shadow-lg overflow-hidden">
+        <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
           <div className="p-6">
             <div className="flex flex-col sm:flex-row sm:items-start gap-5">
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
-                isStripePending
-                  ? "bg-white/20"
-                  : "bg-white/20"
-              }`}>
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 bg-[#f0f0ff]">
                 {isStripePending ? (
-                  <Clock className="h-6 w-6 text-white" />
+                  <Clock className="h-6 w-6 text-[#635bff]" />
                 ) : (
-                  <CreditCard className="h-6 w-6 text-white" />
+                  <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path fillRule="evenodd" clipRule="evenodd" d="M11.0863 6.00003C11.0863 5.37003 11.5963 4.91003 12.2563 4.91003C13.5363 4.91003 15.0963 5.48003 16.4463 6.31003V2.80003C15.0163 2.23003 13.6063 2.00003 12.2563 2.00003C9.38628 2.00003 7.48628 3.63003 7.48628 6.18003C7.48628 10.17 12.9063 9.50003 12.9063 11.27C12.9063 11.99 12.2663 12.42 11.5363 12.42C10.0363 12.42 8.29628 11.65 6.81628 10.68V14.24C8.41628 15.08 10.0363 15.43 11.5363 15.43C14.4663 15.43 16.5063 13.82 16.5063 11.23C16.4963 6.94003 11.0863 7.75003 11.0863 6.00003Z" fill="#635BFF"/>
+                  </svg>
                 )}
               </div>
               <div className="flex-1 space-y-3">
                 <div>
-                  <h3 className="text-[16px] font-semibold text-white">
+                  <h3 className="text-[16px] font-semibold text-[#1a1a2e]">
                     {isStripePending ? "Complete your Stripe setup" : "Connect Stripe to receive payouts"}
                   </h3>
-                  <p className="text-[14px] text-white/80 mt-1">
+                  <p className="text-[14px] text-[#6b7280] mt-1">
                     {isStripePending
                       ? "Your Stripe account needs additional verification to enable payouts."
                       : "Connect your bank account through Stripe to start receiving payments from your sales."}
                   </p>
                 </div>
                 {isStripePending && (
-                  <div className="flex items-center gap-2 text-[13px] text-amber-200">
-                    <div className="w-2 h-2 rounded-full bg-amber-300 animate-pulse" />
+                  <div className="flex items-center gap-2 text-[13px] text-amber-600">
+                    <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
                     <span>Verification required</span>
                   </div>
                 )}
@@ -394,7 +392,7 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
                   <Button
                     onClick={handleConnectStripe}
                     disabled={isConnecting}
-                    className="rounded-xl bg-white text-[#8b5cf6] hover:bg-white/90 font-medium"
+                    className="rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-medium"
                   >
                     {isConnecting ? (
                       <>
@@ -417,7 +415,7 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
                     href="https://stripe.com"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-[13px] text-white/70 hover:text-white transition-colors"
+                    className="text-[13px] text-[#6b7280] hover:text-[#1a1a2e] transition-colors"
                   >
                     Learn more
                   </a>
@@ -426,8 +424,8 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
             </div>
           </div>
           {!isStripePending && (
-            <div className="px-6 py-4 bg-black/10 border-t border-white/10">
-              <div className="flex items-center gap-4 text-[12px] text-white/70">
+            <div className="px-6 py-4 bg-[#f9fafb] border-t border-[#e5e7eb]/60">
+              <div className="flex items-center gap-4 text-[12px] text-[#6b7280]">
                 <div className="flex items-center gap-1.5">
                   <Shield className="h-3.5 w-3.5" />
                   <span>Secure payments</span>

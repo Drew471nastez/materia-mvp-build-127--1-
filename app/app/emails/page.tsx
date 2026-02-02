@@ -37,7 +37,9 @@ import {
   MailPlus,
   Timer,
   Sparkles,
+  Type,
 } from "lucide-react"
+import Link from "next/link"
 import { EmailEditor } from "@/components/email/email-editor"
 import {
   DropdownMenu,
@@ -202,6 +204,9 @@ export default function EmailsPage() {
   const [editingFlow, setEditingFlow] = useState<EmailFlow | null>(null)
   const [showCreateFlowDialog, setShowCreateFlowDialog] = useState(false)
 
+  // Store checkout buyers count (for Store KPI)
+  const [checkoutBuyersCount, setCheckoutBuyersCount] = useState(0)
+
   // Dialog states
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<{ type: "campaign" | "subscriber" | "flow"; id: string } | null>(null)
@@ -263,6 +268,32 @@ export default function EmailsPage() {
         .order("subscribed_at", { ascending: false })
 
       setSubscribers(data || [])
+
+      // Also count unique checkout buyers for Store KPI
+      const { data: products } = await supabase
+        .from("products")
+        .select("id")
+        .eq("creator_id", creator.id)
+
+      if (products && products.length > 0) {
+        const productIds = products.map(p => p.id)
+        const { data: orders } = await supabase
+          .from("orders")
+          .select("buyer_email")
+          .in("product_id", productIds)
+          .eq("status", "completed")
+
+        // Count unique buyer emails that are not already in subscribers
+        const subscriberEmails = new Set((data || []).map(s => s.email.toLowerCase()))
+        const uniqueBuyerEmails = new Set(
+          (orders || [])
+            .map(o => o.buyer_email?.toLowerCase())
+            .filter(email => email && !subscriberEmails.has(email))
+        )
+        setCheckoutBuyersCount(uniqueBuyerEmails.size)
+      } else {
+        setCheckoutBuyersCount(0)
+      }
     } else if (activeTab === "flows") {
       const { data } = await supabase
         .from("email_flows")
@@ -1202,6 +1233,26 @@ So as you think about your own goals - do you have any questions for me? I'm her
   // List View
   return (
     <div className="h-full overflow-y-auto page-scroll bg-[#fafafa]">
+      {/* Announcement Bar - Pro */}
+      <div className="bg-[#8b5cf6] text-white">
+        <div className="py-2 px-4 md:py-2.5">
+          <div className="max-w-[1200px] mx-auto flex items-center justify-center gap-2 md:gap-3 text-center">
+            <span className="text-[12px] md:text-[14px] text-white/90">
+              <span className="font-semibold text-white">Try Pro free</span>
+              <span className="hidden md:inline"> — our most popular plan for content creators and businesses.</span>
+            </span>
+            <Link
+              href="/upgrade"
+              className="relative inline-flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3 py-0.5 md:py-1 bg-gradient-to-r from-gray-900 to-black text-white text-[11px] md:text-[13px] font-medium rounded-full transition-all shrink-0 overflow-hidden group"
+            >
+              <span className="absolute inset-0 rounded-full border border-white/30 group-hover:border-white/50 transition-colors" />
+              <Sparkles className="h-3 w-3 md:h-3.5 md:w-3.5 relative z-10" />
+              <span className="relative z-10">Upgrade</span>
+            </Link>
+          </div>
+        </div>
+      </div>
+
       {/* Header */}
       <div className="bg-white border-b sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4">
@@ -1210,8 +1261,8 @@ So as you think about your own goals - do you have any questions for me? I'm her
               <h1 className="text-xl font-semibold text-gray-900">Emails</h1>
               <p className="text-sm text-gray-500 mt-0.5">Send updates and manage your subscribers</p>
             </div>
-            <Button onClick={handleNewEmail} className="bg-gray-900 hover:bg-gray-800 text-white h-9 px-4 rounded-lg">
-              <Plus className="h-4 w-4 mr-2" />
+            <Button onClick={handleNewEmail} className="bg-violet-600 hover:bg-violet-700 text-white h-9 px-4 rounded-lg group">
+              <Plus className="h-4 w-4 mr-2 transition-transform duration-300 group-hover:rotate-90" />
               New email
             </Button>
           </div>
@@ -1249,7 +1300,7 @@ So as you think about your own goals - do you have any questions for me? I'm her
               <div className="bg-white rounded-xl border p-4">
                 <p className="text-sm text-gray-500">Total</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {subscribers.filter((s) => s.status === "subscribed").length}
+                  {subscribers.filter((s) => s.status === "subscribed").length + checkoutBuyersCount}
                 </p>
               </div>
               <div className="bg-white rounded-xl border p-4">
@@ -1261,7 +1312,7 @@ So as you think about your own goals - do you have any questions for me? I'm her
               <div className="bg-white rounded-xl border p-4">
                 <p className="text-sm text-gray-500">Store</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {subscribers.filter((s) => s.source === "store_builder" && s.status === "subscribed").length}
+                  {subscribers.filter((s) => s.source === "store_builder" && s.status === "subscribed").length + checkoutBuyersCount}
                 </p>
               </div>
               <div className="bg-white rounded-xl border p-4">

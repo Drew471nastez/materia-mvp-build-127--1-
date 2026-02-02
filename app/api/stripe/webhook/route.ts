@@ -4,7 +4,7 @@ import type Stripe from "stripe"
 import { stripe } from "@/lib/stripe"
 import { createClient } from "@supabase/supabase-js"
 import { generateReceiptToken } from "@/lib/security"
-import { sendOrderEmails } from "@/lib/email"
+import { sendOrderEmails, triggerEmailFlows } from "@/lib/email"
 
 export const runtime = "nodejs"
 
@@ -360,6 +360,21 @@ export async function POST(request: Request) {
       })
 
       console.log("[v0] ✅ Email result:", emailResult)
+
+      // Trigger email flows for purchase
+      try {
+        await triggerEmailFlows(supabaseAdmin, {
+          triggerType: "purchase",
+          creatorId,
+          recipientEmail: buyerEmail,
+          recipientName: buyerFirstName,
+          productTitle,
+          productId,
+          orderId: order.id,
+        })
+      } catch (flowErr) {
+        console.error("[v0] Email flow trigger error (non-fatal):", flowErr)
+      }
     } catch (emailErr) {
       console.error("[v0] ❌ Email sending failed (order still ok):", emailErr)
       // IMPORTANT: do not fail webhook response — order is already created

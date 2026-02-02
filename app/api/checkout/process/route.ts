@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import { nanoid } from "nanoid"
 import { cookies } from "next/headers"
 import { generateReceiptToken } from "@/lib/security"
-import { sendOrderEmails } from "@/lib/email"
+import { sendOrderEmails, triggerEmailFlows } from "@/lib/email"
 import { collectOrderDeviceInfo } from "@/lib/device-info"
 
 export const runtime = "nodejs"
@@ -256,6 +256,22 @@ export async function POST(request: Request) {
     })
 
     console.log("[checkout/process] Email results:", emailResults)
+
+    // Trigger email flows for purchase
+    try {
+      await triggerEmailFlows(admin, {
+        triggerType: "purchase",
+        creatorId: product.creator.id,
+        recipientEmail: email.toLowerCase().trim(),
+        recipientName: firstName.trim(),
+        productTitle: product.title,
+        productId: product.id,
+        orderId: order.id,
+      })
+    } catch (flowErr) {
+      console.error("[checkout/process] Email flow trigger error (non-fatal):", flowErr)
+    }
+
     console.log("[checkout/process] ✅ Checkout complete, redirecting to receipt")
 
     return NextResponse.json({
