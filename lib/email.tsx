@@ -1651,9 +1651,11 @@ export async function triggerEmailFlows(
             product_name: productTitle || "your product",
           })
 
-          if (i === 0 && delayMs === 0) {
-            // Send first email immediately if no delay
+          // If delay is 0, send immediately; otherwise schedule for later
+          if (delayMs === 0) {
+            // Send email immediately (no delay)
             try {
+              console.log("[email-flows] 📧 Sending flow email immediately to:", recipientEmail)
               const result = await sendEmail({
                 from: buildFromHeaderLocal(fromName),
                 to: normalizeEmail(recipientEmail),
@@ -1664,47 +1666,57 @@ export async function triggerEmailFlows(
               })
 
               if (result.success) {
-                console.log("[email-flows] ✅ Sent flow email immediately:", flow.name)
+                console.log("[email-flows] ✅ Sent flow email immediately:", flow.name, "to:", recipientEmail)
                 triggered++
 
-                // Log the email event
+                // Log the email event (ignore errors if table doesn't exist)
                 await admin.from("email_events").insert({
                   flow_id: flow.id,
                   recipient_email: recipientEmail,
                   event_type: "sent",
                   metadata: { step_id: step.id, subject: personalizedSubject },
-                })
+                }).catch(() => {})
+              } else {
+                console.error("[email-flows] ❌ Failed to send flow email:", result.error)
+                errors.push(`Flow ${flow.name}: ${result.error || "Send failed"}`)
               }
             } catch (emailErr: any) {
+              console.error("[email-flows] ❌ Email send error:", emailErr)
               errors.push(`Flow ${flow.name}: ${emailErr.message}`)
             }
           } else {
-            // Queue delayed emails by storing in a scheduled_emails table
-            // For now, we'll just log that it would be scheduled
+            // Schedule email for later - store in scheduled_flow_emails table
             const scheduledTime = new Date(Date.now() + delayMs)
-            console.log("[email-flows] 📅 Would schedule email for:", scheduledTime.toISOString(), "- subject:", personalizedSubject)
+            console.log("[email-flows] 📅 Scheduling email for:", scheduledTime.toISOString(), "to:", recipientEmail)
 
-            // Store scheduled flow email
-            await admin.from("scheduled_flow_emails").insert({
-              flow_id: flow.id,
-              step_id: step.id,
-              recipient_email: recipientEmail,
-              recipient_name: recipientName,
-              subject: personalizedSubject,
-              body: personalizedBody,
-              scheduled_for: scheduledTime.toISOString(),
-              status: "pending",
-              creator_id: creatorId,
-              order_id: orderId,
-              product_id: productId,
-            }).catch((err: any) => {
-              // Table might not exist yet, that's ok
-              console.log("[email-flows] Could not store scheduled email (table may not exist):", err.message)
-            })
+            try {
+              const { error: scheduleError } = await admin.from("scheduled_flow_emails").insert({
+                flow_id: flow.id,
+                step_id: step.id,
+                recipient_email: recipientEmail,
+                recipient_name: recipientName || null,
+                subject: personalizedSubject,
+                body: personalizedBody,
+                scheduled_for: scheduledTime.toISOString(),
+                status: "pending",
+                creator_id: creatorId,
+                order_id: orderId || null,
+                product_id: productId || null,
+              })
+
+              if (scheduleError) {
+                console.error("[email-flows] ❌ Failed to schedule email:", scheduleError)
+                errors.push(`Flow ${flow.name}: Failed to schedule - ${scheduleError.message}`)
+              } else {
+                console.log("[email-flows] ✅ Email scheduled for:", scheduledTime.toISOString())
+                triggered++
+              }
+            } catch (err: any) {
+              console.error("[email-flows] ❌ Schedule error:", err)
+              errors.push(`Flow ${flow.name}: ${err.message}`)
+            }
           }
         }
-
-        triggered++
       } catch (flowErr: any) {
         errors.push(`Flow ${flow.name}: ${flowErr.message}`)
       }
