@@ -35,6 +35,13 @@ async function trackClick(sendId: string, campaignId: string, url: string, reque
     const ipAddress = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null
     const userAgent = request.headers.get("user-agent") || null
 
+    // Get campaign to find creator_id
+    const { data: campaign } = await adminSupabase
+      .from("email_campaigns")
+      .select("creator_id")
+      .eq("id", campaignId)
+      .single()
+
     // Get the send record to find subscriber info
     const { data: send } = await adminSupabase
       .from("email_sends")
@@ -48,17 +55,26 @@ async function trackClick(sendId: string, campaignId: string, url: string, reque
       decodedUrl = Buffer.from(url, "base64").toString("utf-8")
     } catch {}
 
-    // Record the click event
-    await adminSupabase.from("email_events").insert({
+    // Record the click event with correct schema
+    const { error: insertError } = await adminSupabase.from("email_events").insert({
       campaign_id: campaignId,
-      send_id: sendId,
-      subscriber_id: send?.subscriber_id || null,
-      email: send?.email || "unknown",
+      creator_id: campaign?.creator_id || null,
+      recipient_email: send?.email || "unknown",
       event_type: "clicked",
-      event_data: { url: decodedUrl },
-      user_agent: userAgent,
-      ip_address: ipAddress,
+      metadata: {
+        url: decodedUrl,
+        send_id: sendId,
+        clicked_at: new Date().toISOString(),
+        user_agent: userAgent,
+        ip_address: ipAddress,
+      },
     })
+
+    if (insertError) {
+      console.error("[click-track] Insert error:", insertError)
+    } else {
+      console.log("[click-track] Tracked click for campaign:", campaignId, "email:", send?.email)
+    }
 
     // Update the send record (only if not already clicked)
     await adminSupabase

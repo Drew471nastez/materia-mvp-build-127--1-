@@ -66,11 +66,12 @@ export async function GET(request: NextRequest) {
   if (recentCampaign) {
     await adminSupabase.from("email_events").insert({
       campaign_id: recentCampaign.id,
-      subscriber_id: subscriber.id,
-      email: subscriber.email,
+      creator_id: subscriber.creator_id,
+      recipient_email: subscriber.email,
       event_type: "unsubscribed",
-      event_data: { method: "link_click" },
+      metadata: { method: "link_click", unsubscribed_at: new Date().toISOString() },
     })
+    console.log("[unsubscribe] Tracked unsubscribe event for:", subscriber.email)
   }
 
   return new NextResponse(

@@ -83,29 +83,68 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ stats: counts })
     }
 
-    // Fetch all events for this creator using admin client (bypasses RLS)
-    const { data: events, error: eventsError } = await adminSupabase
-      .from("email_events")
-      .select("event_type, campaign_id, created_at")
-      .eq("creator_id", creator.id)
-      .gte("created_at", timeRangeDate.toISOString())
-
-    if (eventsError) {
-      console.error("[email/stats] Events query error:", eventsError)
-    }
-
-    // Count events by type
-    const opened = events?.filter((e) => e.event_type === "opened").length || 0
-    const clicked = events?.filter((e) => e.event_type === "clicked").length || 0
-    const unsubscribed = events?.filter((e) => e.event_type === "unsubscribed").length || 0
-
-    // Get campaigns for this creator to calculate total sent
+    // Get campaigns for this creator first
     const { data: campaigns } = await supabase
       .from("email_campaigns")
       .select("id, audience_count, status, sent_at")
       .eq("creator_id", creator.id)
       .eq("status", "sent")
       .gte("sent_at", timeRangeDate.toISOString())
+
+    const campaignIds = campaigns?.map((c) => c.id) || []
+
+    // Fetch all events for this creator's campaigns using admin client (bypasses RLS)
+    // Query by both creator_id AND campaign_id to catch all events
+    let allEvents: { event_type: string; campaign_id: string; created_at: string }[] = []
+
+    // First try by creator_id
+    const { data: eventsByCreator, error: eventsError1 } = await adminSupabase
+      .from("email_events")
+      .select("event_type, campaign_id, created_at")
+      .eq("creator_id", creator.id)
+      .gte("created_at", timeRangeDate.toISOString())
+
+    if (eventsError1) {
+      console.error("[email/stats] Events by creator query error:", eventsError1)
+    }
+
+    if (eventsByCreator) {
+      allEvents = [...eventsByCreator]
+    }
+
+    // Also query by campaign_ids to catch events without creator_id
+    if (campaignIds.length > 0) {
+      const { data: eventsByCampaign, error: eventsError2 } = await adminSupabase
+        .from("email_events")
+        .select("event_type, campaign_id, created_at")
+        .in("campaign_id", campaignIds)
+        .gte("created_at", timeRangeDate.toISOString())
+
+      if (eventsError2) {
+        console.error("[email/stats] Events by campaign query error:", eventsError2)
+      }
+
+      // Merge events, avoiding duplicates based on event properties
+      if (eventsByCampaign) {
+        const existingKeys = new Set(
+          allEvents.map((e) => `${e.campaign_id}-${e.event_type}-${e.created_at}`)
+        )
+        for (const event of eventsByCampaign) {
+          const key = `${event.campaign_id}-${event.event_type}-${event.created_at}`
+          if (!existingKeys.has(key)) {
+            allEvents.push(event)
+            existingKeys.add(key)
+          }
+        }
+      }
+    }
+
+    // Count events by type
+    const opened = allEvents.filter((e) => e.event_type === "opened").length
+    const clicked = allEvents.filter((e) => e.event_type === "clicked").length
+    const unsubscribed = allEvents.filter((e) => e.event_type === "unsubscribed").length
+
+    console.log("[email/stats] Found events:", { opened, clicked, unsubscribed, total: allEvents.length })
 
     const totalSent = campaigns?.reduce((sum, c) => sum + (c.audience_count || 0), 0) || 0
 
@@ -124,7 +163,7 @@ export async function GET(request: NextRequest) {
         unsubscribed,
         subscriberCount: subscriberCount || 0,
       },
-      events: events || [],
+      events: allEvents,
     })
   } catch (error) {
     console.error("[email/stats] Error:", error)
