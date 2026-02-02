@@ -104,7 +104,8 @@ async function trackOpen(campaignId: string, email: string, request: NextRequest
 
     // Only record if not already tracked
     if (!existingOpen) {
-      await adminSupabase.from("email_events").insert({
+      // Try insert with creator_id first
+      const { error: insertError } = await adminSupabase.from("email_events").insert({
         campaign_id: campaignId,
         creator_id: campaign?.creator_id || null,
         recipient_email: email,
@@ -115,7 +116,28 @@ async function trackOpen(campaignId: string, email: string, request: NextRequest
           ip_address: ipAddress,
         },
       })
-      console.log("[email-track] Tracked open for campaign:", campaignId, "email:", email)
+
+      if (insertError) {
+        console.error("[email-track] Insert error (trying without creator_id):", insertError.message)
+        // Try again without creator_id in case column doesn't exist
+        const { error: retryError } = await adminSupabase.from("email_events").insert({
+          campaign_id: campaignId,
+          recipient_email: email,
+          event_type: "opened",
+          metadata: {
+            opened_at: new Date().toISOString(),
+            user_agent: userAgent,
+            ip_address: ipAddress,
+          },
+        })
+        if (retryError) {
+          console.error("[email-track] Retry insert error:", retryError.message)
+        } else {
+          console.log("[email-track] Tracked open (without creator_id) for campaign:", campaignId, "email:", email)
+        }
+      } else {
+        console.log("[email-track] Tracked open for campaign:", campaignId, "email:", email)
+      }
     }
   } catch (error) {
     console.error("Track open error:", error)

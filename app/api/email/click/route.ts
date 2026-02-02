@@ -71,7 +71,25 @@ async function trackClick(sendId: string, campaignId: string, url: string, reque
     })
 
     if (insertError) {
-      console.error("[click-track] Insert error:", insertError)
+      console.error("[click-track] Insert error (trying without creator_id):", insertError.message)
+      // Try again without creator_id in case column doesn't exist
+      const { error: retryError } = await adminSupabase.from("email_events").insert({
+        campaign_id: campaignId,
+        recipient_email: send?.email || "unknown",
+        event_type: "clicked",
+        metadata: {
+          url: decodedUrl,
+          send_id: sendId,
+          clicked_at: new Date().toISOString(),
+          user_agent: userAgent,
+          ip_address: ipAddress,
+        },
+      })
+      if (retryError) {
+        console.error("[click-track] Retry insert error:", retryError.message)
+      } else {
+        console.log("[click-track] Tracked click (without creator_id) for campaign:", campaignId, "email:", send?.email)
+      }
     } else {
       console.log("[click-track] Tracked click for campaign:", campaignId, "email:", send?.email)
     }

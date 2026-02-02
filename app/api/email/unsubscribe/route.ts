@@ -64,14 +64,31 @@ export async function GET(request: NextRequest) {
     .single()
 
   if (recentCampaign) {
-    await adminSupabase.from("email_events").insert({
+    const { error: insertError } = await adminSupabase.from("email_events").insert({
       campaign_id: recentCampaign.id,
       creator_id: subscriber.creator_id,
       recipient_email: subscriber.email,
       event_type: "unsubscribed",
       metadata: { method: "link_click", unsubscribed_at: new Date().toISOString() },
     })
-    console.log("[unsubscribe] Tracked unsubscribe event for:", subscriber.email)
+
+    if (insertError) {
+      console.error("[unsubscribe] Insert error (trying without creator_id):", insertError.message)
+      // Try again without creator_id in case column doesn't exist
+      const { error: retryError } = await adminSupabase.from("email_events").insert({
+        campaign_id: recentCampaign.id,
+        recipient_email: subscriber.email,
+        event_type: "unsubscribed",
+        metadata: { method: "link_click", unsubscribed_at: new Date().toISOString() },
+      })
+      if (retryError) {
+        console.error("[unsubscribe] Retry insert error:", retryError.message)
+      } else {
+        console.log("[unsubscribe] Tracked unsubscribe (without creator_id) for:", subscriber.email)
+      }
+    } else {
+      console.log("[unsubscribe] Tracked unsubscribe event for:", subscriber.email)
+    }
   }
 
   return new NextResponse(
