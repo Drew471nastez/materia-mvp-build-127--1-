@@ -109,13 +109,17 @@ export async function POST(request: NextRequest) {
     // If segment is specified, apply segment filters
     let subscriberIds: string[] | null = null
     if (campaign.segment_id) {
-      const { data: segment } = await supabase
+      // Use admin client to bypass RLS for segment lookup
+      const { data: segment, error: segmentError } = await adminSupabase
         .from("email_segments")
-        .select("filters")
+        .select("filters, creator_id")
         .eq("id", campaign.segment_id)
         .single()
 
-      if (segment?.filters) {
+      // Verify segment belongs to the creator
+      if (segmentError) {
+        console.error("Error fetching segment:", segmentError)
+      } else if (segment && segment.creator_id === creator.id && segment.filters) {
         const filters = segment.filters as Record<string, any>
         // Handle custom segment with subscriber_ids (from email editor segment builder)
         if (filters.subscriber_ids && Array.isArray(filters.subscriber_ids) && filters.subscriber_ids.length > 0) {

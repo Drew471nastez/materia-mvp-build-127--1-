@@ -47,6 +47,7 @@ import {
   Undo,
   Redo,
   MousePointer2,
+  Minus,
 } from "lucide-react"
 import {
   Dialog,
@@ -354,6 +355,11 @@ export function EmailEditor({
   const undoAction = () => execCommand("undo")
   const redoAction = () => execCommand("redo")
 
+  const insertDivider = () => {
+    const dividerHtml = `<div style="margin: 24px 0; text-align: center;"><hr style="border: none; border-top: 1px solid #e5e7eb; margin: 0;" /></div>`
+    execCommand("insertHTML", dividerHtml)
+  }
+
   const insertLink = () => {
     const selection = window.getSelection()
     if (selection && selection.toString()) {
@@ -658,6 +664,11 @@ export function EmailEditor({
 
   // Segment quick select functions
   const selectAllSubscribers = () => setSelectedSubscriberIds(subscribers.map((s) => s.id))
+  const selectPast24Hours = () => {
+    const twentyFourHoursAgo = new Date()
+    twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24)
+    setSelectedSubscriberIds(subscribers.filter((s) => s.subscribed_at && new Date(s.subscribed_at) >= twentyFourHoursAgo).map((s) => s.id))
+  }
   const selectPast48Hours = () => {
     const fortyEightHoursAgo = new Date()
     fortyEightHoursAgo.setHours(fortyEightHoursAgo.getHours() - 48)
@@ -830,6 +841,9 @@ export function EmailEditor({
                 <Button variant="ghost" size="icon" onClick={insertButton} className="h-8 w-8 rounded-lg hover:bg-gray-100" title="Insert Button">
                   <MousePointer2 className="h-4 w-4 text-gray-500" />
                 </Button>
+                <Button variant="ghost" size="icon" onClick={insertDivider} className="h-8 w-8 rounded-lg hover:bg-gray-100" title="Insert Divider">
+                  <Minus className="h-4 w-4 text-gray-500" />
+                </Button>
                 <div className="w-px h-5 bg-gray-200 mx-1" />
                 <Button variant="outline" size="sm" onClick={() => {
                     // Save the current selection before opening dialog
@@ -889,7 +903,7 @@ Tips:
 
                 {/* Inline Button Edit Menu - Modern UI Dialog */}
                 <Dialog open={showButtonMenu} onOpenChange={(open) => { if (!open) { setShowButtonMenu(false); setSelectedButton(null); } }}>
-                  <DialogContent className="sm:max-w-[380px] p-0 rounded-2xl overflow-hidden" onClick={(e) => e.stopPropagation()} onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
+                  <DialogContent className="sm:max-w-[380px] p-0 rounded-2xl overflow-hidden" showCloseButton={false} onClick={(e) => e.stopPropagation()} onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
                     {/* Header */}
                     <div className="px-4 py-3 bg-gradient-to-r from-gray-50 to-gray-100/50 border-b border-gray-100">
                       <div className="flex items-center justify-between">
@@ -1355,7 +1369,7 @@ Tips:
               <div className="bg-gray-50 rounded-xl p-4">
                 <Label className="text-sm font-medium text-gray-700 mb-2 block flex items-center gap-2">
                   <Clock className="h-4 w-4 text-gray-500" />
-                  Filter by Subscription Date
+                  Quick Select by Timeframe
                 </Label>
                 <div className="flex flex-col sm:flex-row gap-2">
                   <Select
@@ -1363,6 +1377,7 @@ Tips:
                     onValueChange={(value) => {
                       setSelectedTimeframe(value)
                       if (value === "all") selectAllSubscribers()
+                      else if (value === "24h") selectPast24Hours()
                       else if (value === "48h") selectPast48Hours()
                       else if (value === "7days") selectPast7Days()
                       else if (value === "30days") selectPast30Days()
@@ -1374,6 +1389,7 @@ Tips:
                     </SelectTrigger>
                     <SelectContent className="rounded-xl">
                       <SelectItem value="all" className="cursor-pointer">All Subscribers</SelectItem>
+                      <SelectItem value="24h" className="cursor-pointer">Last 24 Hours</SelectItem>
                       <SelectItem value="48h" className="cursor-pointer">Last 48 Hours</SelectItem>
                       <SelectItem value="7days" className="cursor-pointer">Last 7 Days</SelectItem>
                       <SelectItem value="30days" className="cursor-pointer">Last 30 Days</SelectItem>

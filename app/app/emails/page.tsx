@@ -53,6 +53,7 @@ import {
   MousePointer2,
   Minimize2,
   Maximize2,
+  Minus,
 } from "lucide-react"
 import Link from "next/link"
 import { EmailEditor } from "@/components/email/email-editor"
@@ -847,6 +848,11 @@ export default function EmailsPage() {
     }, 100)
   }
 
+  const flowInsertDivider = () => {
+    const dividerHtml = `<div style="margin: 24px 0; text-align: center;"><hr style="border: none; border-top: 1px solid #e5e7eb; margin: 0;" /></div>`
+    flowExecCommand("insertHTML", dividerHtml)
+  }
+
   const flowSelectButton = (btn: HTMLElement) => {
     setFlowSelectedButton(btn)
     const linkEl = btn.tagName === 'A' ? btn : btn.querySelector('a')
@@ -1434,6 +1440,9 @@ export default function EmailsPage() {
                   <Button variant="ghost" size="icon" onClick={flowInsertButton} className="h-8 w-8 rounded-lg hover:bg-gray-100 cursor-pointer" title="Insert Button">
                     <MousePointer2 className="h-4 w-4 text-gray-500" />
                   </Button>
+                  <Button variant="ghost" size="icon" onClick={flowInsertDivider} className="h-8 w-8 rounded-lg hover:bg-gray-100 cursor-pointer" title="Insert Divider">
+                    <Minus className="h-4 w-4 text-gray-500" />
+                  </Button>
                   <div className="w-px h-5 bg-gray-200 mx-1" />
                   <Button variant="outline" size="sm" onClick={flowOpenProductDialog} className="h-8 px-3 rounded-lg border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300 cursor-pointer">
                     <ShoppingCart className="h-3.5 w-3.5 mr-1.5" />Product Link
@@ -1487,7 +1496,7 @@ Tips:
 
                   {/* Inline Button Edit Menu - Modern UI Dialog */}
                   <Dialog open={flowShowButtonMenu} onOpenChange={(open) => { if (!open) { setFlowShowButtonMenu(false); setFlowSelectedButton(null); } }}>
-                    <DialogContent className="sm:max-w-[380px] p-0 rounded-2xl overflow-hidden" onClick={(e) => e.stopPropagation()} onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
+                    <DialogContent className="sm:max-w-[380px] p-0 rounded-2xl overflow-hidden" showCloseButton={false} onClick={(e) => e.stopPropagation()} onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
                       {/* Header */}
                       <div className="px-4 py-3 bg-gradient-to-r from-gray-50 to-gray-100/50 border-b border-gray-100">
                         <div className="flex items-center justify-between">
