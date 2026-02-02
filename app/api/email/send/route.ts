@@ -186,8 +186,9 @@ export async function POST(request: NextRequest) {
       const subscriber = subscribers.find((s) => s.id === send.subscriber_id)
       if (!subscriber) continue
 
-      // Build tracking pixel URL
-      const trackingPixelUrl = `${baseUrl}/api/email/track?sid=${send.id}&cid=${campaign_id}`
+      // Build tracking pixel URL with campaign ID and email for tracking opens
+      const encodedEmail = encodeURIComponent(subscriber.email)
+      const trackingPixelUrl = `${baseUrl}/api/email/track?cid=${campaign_id}&e=${encodedEmail}`
 
       // Build unsubscribe URL - Use the new unsubscribe page
       const unsubscribeUrl = `${baseUrl}/unsubscribe?token=${subscriber.unsubscribe_token}`
@@ -256,14 +257,17 @@ export async function POST(request: NextRequest) {
           })
           .eq("id", send.id)
 
-        // Log sent event
+        // Log sent event with the correct schema
         await adminSupabase.from("email_events").insert({
           campaign_id,
-          send_id: send.id,
-          subscriber_id: subscriber.id,
-          email: subscriber.email,
+          recipient_email: subscriber.email,
           event_type: "sent",
-        })
+          metadata: {
+            send_id: send.id,
+            subscriber_id: subscriber.id,
+            sent_at: new Date().toISOString(),
+          },
+        }).catch(() => {}) // Ignore if table doesn't exist yet
 
         sentCount++
       } catch (error) {

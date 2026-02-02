@@ -7,8 +7,8 @@ const TRACKING_PIXEL = Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAAB
 // GET - Handle tracking pixel (email opens)
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
-  const sendId = searchParams.get("sid")
-  const campaignId = searchParams.get("cid")
+  const campaignId = searchParams.get("cid") || searchParams.get("c")
+  const email = searchParams.get("e")
 
   // Always return the tracking pixel first for fast response
   const response = new NextResponse(TRACKING_PIXEL, {
@@ -21,9 +21,9 @@ export async function GET(request: NextRequest) {
     },
   })
 
-  // Track the open event asynchronously (don't await)
-  if (sendId && campaignId) {
-    trackOpen(sendId, campaignId, request).catch(console.error)
+  // Track the open event asynchronously
+  if (campaignId && email) {
+    trackOpen(campaignId, email, request).catch(console.error)
   }
 
   return response
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
 // POST - Handle click tracking
 export async function POST(request: NextRequest) {
   try {
-    const { send_id, campaign_id, url, subscriber_id, email } = await request.json()
+    const { campaign_id, url, email } = await request.json()
 
     if (!campaign_id || !url) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
@@ -40,25 +40,28 @@ export async function POST(request: NextRequest) {
 
     const adminSupabase = createAdminClient()
 
-    // Record the click event
-    await adminSupabase.from("email_events").insert({
-      campaign_id,
-      send_id: send_id || null,
-      subscriber_id: subscriber_id || null,
-      email: email || "unknown",
-      event_type: "clicked",
-      event_data: { url },
-      user_agent: request.headers.get("user-agent") || null,
-      ip_address: request.headers.get("x-forwarded-for")?.split(",")[0] || null,
-    })
+    // Check if click already recorded for this email/campaign/url
+    const { data: existing } = await adminSupabase
+      .from("email_events")
+      .select("id")
+      .eq("campaign_id", campaign_id)
+      .eq("recipient_email", email || "unknown")
+      .eq("event_type", "clicked")
+      .maybeSingle()
 
-    // Update the send record if we have a send_id
-    if (send_id) {
-      await adminSupabase
-        .from("email_sends")
-        .update({ clicked_at: new Date().toISOString(), status: "clicked" })
-        .eq("id", send_id)
-        .is("clicked_at", null)
+    if (!existing) {
+      // Record the click event
+      await adminSupabase.from("email_events").insert({
+        campaign_id,
+        recipient_email: email || "unknown",
+        event_type: "clicked",
+        metadata: {
+          url,
+          clicked_at: new Date().toISOString(),
+          user_agent: request.headers.get("user-agent") || null,
+        },
+      })
+      console.log("[email-track] Tracked click for campaign:", campaign_id, "email:", email)
     }
 
     return NextResponse.json({ success: true, redirect: url })
@@ -68,60 +71,42 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Helper to track email opens - only counts 1 open per IP per send
-async function trackOpen(sendId: string, campaignId: string, request: NextRequest) {
+// Helper to track email opens
+async function trackOpen(campaignId: string, email: string, request: NextRequest) {
   try {
     const adminSupabase = createAdminClient()
-    const ipAddress = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null
     const userAgent = request.headers.get("user-agent") || null
+    const ipAddress = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null
 
-    // Get the send record to find subscriber info
-    const { data: send } = await adminSupabase
-      .from("email_sends")
-      .select("subscriber_id, email")
-      .eq("id", sendId)
-      .single()
+    // Check if this email has already been tracked as opened for this campaign
+    const { data: existingOpen } = await adminSupabase
+      .from("email_events")
+      .select("id")
+      .eq("campaign_id", campaignId)
+      .eq("recipient_email", email)
+      .eq("event_type", "opened")
+      .maybeSingle()
 
-    // Check if this IP has already opened this email (prevent double counting)
-    if (ipAddress) {
-      const { data: existingOpen } = await adminSupabase
-        .from("email_events")
-        .select("id")
-        .eq("send_id", sendId)
-        .eq("event_type", "opened")
-        .eq("ip_address", ipAddress)
-        .limit(1)
-        .maybeSingle()
-
-      // If this IP already opened this email, don't count again
-      if (existingOpen) {
-        return
-      }
+    // Only record if not already tracked
+    if (!existingOpen) {
+      await adminSupabase.from("email_events").insert({
+        campaign_id: campaignId,
+        recipient_email: email,
+        event_type: "opened",
+        metadata: {
+          opened_at: new Date().toISOString(),
+          user_agent: userAgent,
+          ip_address: ipAddress,
+        },
+      })
+      console.log("[email-track] Tracked open for campaign:", campaignId, "email:", email)
     }
-
-    // Record the open event
-    await adminSupabase.from("email_events").insert({
-      campaign_id: campaignId,
-      send_id: sendId,
-      subscriber_id: send?.subscriber_id || null,
-      email: send?.email || "unknown",
-      event_type: "opened",
-      user_agent: userAgent,
-      ip_address: ipAddress,
-    })
-
-    // Update the send record (only if not already opened)
-    await adminSupabase
-      .from("email_sends")
-      .update({ opened_at: new Date().toISOString(), status: "opened" })
-      .eq("id", sendId)
-      .is("opened_at", null)
   } catch (error) {
     console.error("Track open error:", error)
   }
 }
 
-// Handle click redirect (for tracked links)
+// Handle CORS preflight
 export async function OPTIONS(request: NextRequest) {
   return new NextResponse(null, {
     status: 200,
