@@ -556,9 +556,10 @@ export default function EmailsPage() {
     // Check if flow of this type already exists
     const existingFlow = flows.find(f => f.trigger_type === triggerType)
     if (existingFlow) {
+      const flowTypeName = triggerType === "purchase" ? "Purchase" : "New Subscriber"
       toast({
-        title: "Flow already exists",
-        description: `You can only have one ${triggerInfo?.name || triggerType} flow. Edit the existing one instead.`,
+        title: `Already have a ${flowTypeName} flow added`,
+        description: `You can only have one ${flowTypeName} flow. Edit the existing one instead.`,
         variant: "destructive"
       })
       setShowCreateFlowDialog(false)
@@ -841,14 +842,12 @@ export default function EmailsPage() {
     const align = wrapper?.style.textAlign || "center"
     setFlowButtonAlign(align as "left" | "center" | "right")
 
+    // Use viewport coordinates for fixed positioning
     const rect = btn.getBoundingClientRect()
-    const editorRect = flowEditorRef.current?.getBoundingClientRect()
-    if (editorRect) {
-      setFlowButtonMenuPosition({
-        x: rect.left - editorRect.left + rect.width / 2,
-        y: rect.top - editorRect.top - 10
-      })
-    }
+    setFlowButtonMenuPosition({
+      x: rect.left + rect.width / 2,
+      y: rect.top - 10
+    })
     setFlowShowButtonMenu(true)
   }
 
@@ -965,14 +964,12 @@ export default function EmailsPage() {
       e.preventDefault()
       const img = target as HTMLImageElement
       setFlowSelectedImage(img)
+      // Use viewport coordinates for fixed positioning
       const rect = img.getBoundingClientRect()
-      const editorRect = flowEditorRef.current?.getBoundingClientRect()
-      if (editorRect) {
-        setFlowImageMenuPosition({
-          x: rect.left - editorRect.left + rect.width / 2,
-          y: rect.top - editorRect.top - 10
-        })
-      }
+      setFlowImageMenuPosition({
+        x: rect.left + rect.width / 2,
+        y: rect.top - 10
+      })
       setFlowShowImageMenu(true)
       setFlowShowButtonMenu(false)
       setFlowSelectedButton(null)
@@ -1012,9 +1009,16 @@ export default function EmailsPage() {
     const baseUrl = typeof window !== "undefined" ? window.location.origin : ""
     const productUrl = `${baseUrl}/p/${product.slug}`
     const linkHtml = `<a href="${productUrl}" style="color: #2563eb; text-decoration: underline; font-weight: 500;">${product.title}</a>`
-    flowExecCommand("insertHTML", linkHtml + " ")
+
+    // Close dialog first
     setFlowShowProductDialog(false)
     setFlowProductSearch("")
+
+    // Focus editor and insert after a small delay to ensure focus is established
+    setTimeout(() => {
+      flowEditorRef.current?.focus()
+      flowExecCommand("insertHTML", linkHtml + " ")
+    }, 50)
   }
 
   // Open product dialog
@@ -1402,11 +1406,10 @@ export default function EmailsPage() {
                   <div
                     ref={flowEditorRef}
                     contentEditable
-                    dir="ltr"
                     onInput={handleFlowEditorInput}
                     onClick={handleFlowEditorClick}
                     className="min-h-[400px] p-6 focus:outline-none text-base leading-relaxed text-gray-700"
-                    style={{ wordBreak: "break-word", direction: "ltr", textAlign: "left" }}
+                    style={{ wordBreak: "break-word" }}
                     data-placeholder="Start writing your email...
 
 Use the toolbar above to format your text, add images, or insert product links.
@@ -1421,7 +1424,7 @@ Tips:
                   {/* Image Edit Menu */}
                   {flowShowImageMenu && flowSelectedImage && (
                     <div
-                      className="flow-image-menu absolute bg-white rounded-xl shadow-lg border border-gray-200 p-2 flex items-center gap-1 z-10"
+                      className="flow-image-menu fixed bg-white rounded-xl shadow-xl border border-gray-200 p-2 flex items-center gap-1 z-[100]"
                       style={{ left: flowImageMenuPosition.x, top: flowImageMenuPosition.y, transform: 'translate(-50%, -100%)' }}
                     >
                       <Button variant="ghost" size="sm" onClick={() => flowResizeImage('small')} className="h-8 px-2 rounded-lg hover:bg-gray-100 text-xs cursor-pointer">
@@ -1443,10 +1446,10 @@ Tips:
                     </div>
                   )}
 
-                  {/* Inline Button Edit Menu */}
+                  {/* Inline Button Edit Menu - Fixed positioning to avoid clipping */}
                   {flowShowButtonMenu && flowSelectedButton && (
                     <div
-                      className="flow-button-menu absolute bg-white rounded-xl shadow-lg border border-gray-200 p-3 z-10"
+                      className="flow-button-menu fixed bg-white rounded-xl shadow-xl border border-gray-200 p-3 z-[100]"
                       style={{ left: flowButtonMenuPosition.x, top: flowButtonMenuPosition.y, transform: 'translate(-50%, -100%)', minWidth: '280px' }}
                     >
                       <div className="space-y-3">
@@ -1760,37 +1763,18 @@ Tips:
 
         {/* CSS for rich text editor */}
         <style jsx global>{`
-          [contenteditable] {
-            direction: ltr !important;
-            text-align: left !important;
-            unicode-bidi: plaintext;
-          }
           [contenteditable]:empty:before {
             content: attr(data-placeholder);
             color: #9ca3af;
             pointer-events: none;
             display: block;
             white-space: pre-wrap;
-            direction: ltr;
-            text-align: left;
-          }
-          [contenteditable] * {
-            direction: ltr !important;
-            text-align: left;
-            unicode-bidi: plaintext;
-          }
-          [contenteditable] p,
-          [contenteditable] div,
-          [contenteditable] span {
-            direction: ltr !important;
-            text-align: left;
           }
           [contenteditable] h2 {
             font-size: 1.25rem;
             font-weight: 600;
             margin: 0.75rem 0;
             color: #1f2937;
-            direction: ltr !important;
           }
           [contenteditable] a {
             color: #2563eb;
@@ -1799,11 +1783,9 @@ Tips:
           [contenteditable] ul, [contenteditable] ol {
             padding-left: 1.5rem;
             margin: 0.75rem 0;
-            direction: ltr !important;
           }
           [contenteditable] li {
             margin-bottom: 0.25rem;
-            direction: ltr !important;
           }
           [contenteditable] img {
             max-width: 100%;
@@ -1821,7 +1803,6 @@ Tips:
             margin: 0.75rem 0;
             color: #6b7280;
             font-style: italic;
-            direction: ltr !important;
           }
           [contenteditable] .email-cta-button {
             cursor: pointer !important;
