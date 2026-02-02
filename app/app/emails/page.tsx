@@ -227,6 +227,9 @@ export default function EmailsPage() {
   const [flows, setFlows] = useState<EmailFlow[]>([])
   const [editingFlow, setEditingFlow] = useState<EmailFlow | null>(null)
   const [showCreateFlowDialog, setShowCreateFlowDialog] = useState(false)
+  const [flowHasUnsavedChanges, setFlowHasUnsavedChanges] = useState(false)
+  const [showFlowUnsavedDialog, setShowFlowUnsavedDialog] = useState(false)
+  const [initialFlowState, setInitialFlowState] = useState<string>("")
 
   // Store checkout buyers count (for Store KPI)
   const [checkoutBuyersCount, setCheckoutBuyersCount] = useState(0)
@@ -542,11 +545,16 @@ export default function EmailsPage() {
 
     setShowCreateFlowDialog(false)
     setEditingFlow(newFlow)
+    setInitialFlowState(JSON.stringify(newFlow))
+    setFlowHasUnsavedChanges(false)
     setView("flow-editor")
+    window.history.pushState({}, "", `/app/emails/flow/${newFlow.id}`)
   }
 
   const handleEditFlow = (flow: EmailFlow) => {
     setEditingFlow(flow)
+    setInitialFlowState(JSON.stringify(flow))
+    setFlowHasUnsavedChanges(false)
     setView("flow-editor")
     window.history.pushState({}, "", `/app/emails/flow/${flow.id}`)
   }
@@ -569,25 +577,47 @@ export default function EmailsPage() {
     })
   }
 
+  const [isFlowSaving, setIsFlowSaving] = useState(false)
+
   const handleSaveFlow = async (flowData: Partial<EmailFlow>) => {
     if (!editingFlow) return
 
+    setIsFlowSaving(true)
     const supabase = createClient()
 
-    await supabase
-      .from("email_flows")
-      .update({
-        name: flowData.name,
-        description: flowData.description,
-        steps: flowData.steps,
-        trigger_config: flowData.trigger_config,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", editingFlow.id)
+    try {
+      const { error } = await supabase
+        .from("email_flows")
+        .update({
+          name: flowData.name,
+          description: flowData.description,
+          steps: flowData.steps,
+          trigger_config: flowData.trigger_config,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", editingFlow.id)
 
-    setView("list")
-    loadData()
-    toast({ title: "Flow saved", description: "Your flow has been updated." })
+      if (error) throw error
+
+      // Reset unsaved changes state after successful save
+      const updatedFlow = { ...editingFlow, ...flowData }
+      setInitialFlowState(JSON.stringify(updatedFlow))
+      setFlowHasUnsavedChanges(false)
+
+      setView("list")
+      setEditingFlow(null)
+      window.history.pushState({}, "", "/app/emails")
+      loadData()
+      toast({ title: "Flow saved", description: "Your flow has been updated." })
+    } catch (error) {
+      toast({
+        title: "Error saving flow",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive"
+      })
+    } finally {
+      setIsFlowSaving(false)
+    }
   }
 
   const handleViewStats = async (campaign: EmailCampaign) => {
@@ -729,6 +759,102 @@ export default function EmailsPage() {
     input.click()
   }
 
+  // Track flow unsaved changes
+  useEffect(() => {
+    if (editingFlow && initialFlowState) {
+      const currentState = JSON.stringify(editingFlow)
+      setFlowHasUnsavedChanges(currentState !== initialFlowState)
+    }
+  }, [editingFlow, initialFlowState])
+
+  // Flow editor browser back/refresh warning
+  useEffect(() => {
+    if (view !== "flow-editor") return
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (flowHasUnsavedChanges) {
+        e.preventDefault()
+        e.returnValue = "You have unsaved changes. Are you sure you want to leave?"
+        return e.returnValue
+      }
+    }
+
+    const handlePopState = () => {
+      if (flowHasUnsavedChanges) {
+        window.history.pushState(null, "", window.location.href)
+        setShowFlowUnsavedDialog(true)
+      }
+    }
+
+    window.history.pushState(null, "", window.location.href)
+    window.addEventListener("beforeunload", handleBeforeUnload)
+    window.addEventListener("popstate", handlePopState)
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload)
+      window.removeEventListener("popstate", handlePopState)
+    }
+  }, [view, flowHasUnsavedChanges])
+
+  const handleFlowBack = () => {
+    if (flowHasUnsavedChanges) {
+      setShowFlowUnsavedDialog(true)
+    } else {
+      setView("list")
+      setEditingFlow(null)
+      window.history.pushState({}, "", "/app/emails")
+    }
+  }
+
+  const [isFlowSendingTest, setIsFlowSendingTest] = useState(false)
+
+  const handleFlowSendTest = async () => {
+    if (!editingFlow) return
+    const emailStep = (editingFlow.steps || []).find(s => s.type === "email")
+    if (!emailStep?.config.subject || !emailStep?.config.body) {
+      toast({ title: "Missing content", description: "Please add a subject and body before sending a test", variant: "destructive" })
+      return
+    }
+
+    // Get user's email for test
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user?.email) {
+      toast({ title: "Error", description: "Unable to get your email address for test", variant: "destructive" })
+      return
+    }
+
+    setIsFlowSendingTest(true)
+
+    try {
+      const response = await fetch("/api/email/send-test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          subject: emailStep.config.subject,
+          body: emailStep.config.body,
+          preview_text: emailStep.config.preview_text || "",
+          test_email: user.email,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to send test email")
+      }
+
+      toast({ title: "Test email sent!", description: `Check your inbox at ${user.email}` })
+    } catch (error) {
+      toast({
+        title: "Failed to send test",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive"
+      })
+    } finally {
+      setIsFlowSendingTest(false)
+    }
+  }
+
   if (view === "flow-editor" && editingFlow) {
     const triggerInfo = getTriggerInfo(editingFlow.trigger_type)
     const TriggerIcon = triggerInfo.icon
@@ -775,13 +901,13 @@ export default function EmailsPage() {
           <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-3">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <Button variant="ghost" size="icon" onClick={() => { setView("list"); window.history.pushState({}, "", "/app/emails"); }} className="h-10 w-10 rounded-xl hover:bg-gray-100 cursor-pointer">
+                <Button variant="ghost" size="icon" onClick={handleFlowBack} className="h-10 w-10 rounded-xl hover:bg-gray-100 cursor-pointer">
                   <ArrowLeft className="h-5 w-5 text-gray-600" />
                 </Button>
                 <div>
                   <div className="flex items-center gap-2">
-                    <div className={cn("p-1.5 rounded-lg", triggerInfo.color)}>
-                      <TriggerIcon className="h-4 w-4" />
+                    <div className="p-1.5 rounded-lg bg-violet-100">
+                      <TriggerIcon className="h-4 w-4 text-violet-600" />
                     </div>
                     <Input
                       value={editingFlow.name}
@@ -794,9 +920,18 @@ export default function EmailsPage() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Button variant="ghost" className="h-10 px-4 rounded-xl text-gray-600 hover:bg-gray-100 cursor-pointer">
-                  <Mail className="h-4 w-4 mr-2" />
-                  Send Test
+                <Button variant="ghost" onClick={handleFlowSendTest} disabled={isFlowSendingTest} className="h-10 px-4 rounded-xl text-gray-600 hover:bg-gray-100 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+                  {isFlowSendingTest ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="h-4 w-4 mr-2" />
+                      Send Test
+                    </>
+                  )}
                 </Button>
                 <Button
                   variant="outline"
@@ -820,8 +955,15 @@ export default function EmailsPage() {
                     </>
                   )}
                 </Button>
-                <Button onClick={() => handleSaveFlow(editingFlow)} className="h-10 px-5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white shadow-sm cursor-pointer">
-                  Save Flow
+                <Button onClick={() => handleSaveFlow(editingFlow)} disabled={isFlowSaving} className="h-10 px-5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+                  {isFlowSaving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    "Save Flow"
+                  )}
                 </Button>
               </div>
             </div>
@@ -836,8 +978,8 @@ export default function EmailsPage() {
               {/* Timing Card */}
               <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2 rounded-xl bg-amber-100 text-amber-700">
-                    <Timer className="h-5 w-5" />
+                  <div className="p-2 rounded-xl bg-violet-100">
+                    <Timer className="h-5 w-5 text-violet-600" />
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-900 block">Send Timing</label>
@@ -870,7 +1012,7 @@ export default function EmailsPage() {
                   <span className="text-sm text-gray-500">after {triggerInfo.name.toLowerCase()}</span>
                 </div>
                 {(emailStep.config.delay_value || 0) === 0 && (
-                  <p className="text-xs text-amber-600 mt-2 flex items-center gap-1">
+                  <p className="text-xs text-violet-600 mt-2 flex items-center gap-1">
                     <Zap className="h-3 w-3" />
                     Email will be sent immediately
                   </p>
@@ -883,80 +1025,84 @@ export default function EmailsPage() {
                 <Input
                   value={emailStep.config.subject || ""}
                   onChange={(e) => updateEmailStep({ subject: e.target.value })}
-                  placeholder="Thank you for your purchase!"
-                  className="h-12 text-base rounded-xl border-gray-200 focus:border-violet-400 focus:ring-violet-400/20"
+                  placeholder="What's your email about?"
+                  className="h-12 text-base rounded-xl border-gray-200 focus:border-blue-400 focus:ring-blue-400/20"
                 />
               </div>
 
-              {/* Email Body Card with Rich Text Editor */}
+              {/* Email Body Card with Rich Text Editor - EXACT same as EmailEditor */}
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                {/* Toolbar */}
-                <div className="px-4 py-2 border-b border-gray-100 bg-gray-50/50 flex items-center gap-1 flex-wrap">
-                  <button onClick={flowInsertHeading} className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 cursor-pointer" title="Heading">
-                    <Type className="h-4 w-4" />
-                  </button>
-                  <button onClick={flowInsertBold} className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 font-bold cursor-pointer" title="Bold">
-                    <Bold className="h-4 w-4" />
-                  </button>
-                  <button onClick={flowInsertItalic} className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 cursor-pointer" title="Italic">
-                    <Italic className="h-4 w-4" />
-                  </button>
-                  <button onClick={flowInsertStrikethrough} className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 cursor-pointer" title="Strikethrough">
-                    <Strikethrough className="h-4 w-4" />
-                  </button>
-                  <div className="w-px h-5 bg-gray-200 mx-1" />
-                  <button onClick={flowInsertList} className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 cursor-pointer" title="Bullet List">
-                    <List className="h-4 w-4" />
-                  </button>
-                  <button onClick={flowInsertOrderedList} className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 cursor-pointer" title="Numbered List">
-                    <ListOrdered className="h-4 w-4" />
-                  </button>
-                  <button onClick={flowInsertQuote} className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 cursor-pointer" title="Quote">
-                    <Quote className="h-4 w-4" />
-                  </button>
-                  <div className="w-px h-5 bg-gray-200 mx-1" />
-                  <button onClick={flowAlignLeft} className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 cursor-pointer" title="Align Left">
-                    <AlignLeft className="h-4 w-4" />
-                  </button>
-                  <button onClick={flowAlignCenter} className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 cursor-pointer" title="Align Center">
-                    <AlignCenter className="h-4 w-4" />
-                  </button>
-                  <div className="w-px h-5 bg-gray-200 mx-1" />
-                  <button onClick={flowInsertLink} className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 cursor-pointer" title="Insert Link">
-                    <Link2 className="h-4 w-4" />
-                  </button>
-                  <button onClick={flowInsertImage} className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 cursor-pointer" title="Insert Image">
-                    <ImageIcon className="h-4 w-4" />
-                  </button>
-                  <button onClick={flowInsertButton} className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 cursor-pointer" title="Insert Button">
-                    <Square className="h-4 w-4" />
-                  </button>
-                  <div className="flex-1" />
-                  <button onClick={flowUndoAction} className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 cursor-pointer" title="Undo">
-                    <Undo className="h-4 w-4" />
-                  </button>
-                  <button onClick={flowRedoAction} className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 cursor-pointer" title="Redo">
-                    <Redo className="h-4 w-4" />
-                  </button>
+                <div className="px-5 py-3 border-b border-gray-100 bg-gray-50/50">
+                  <label className="text-sm font-medium text-gray-700">Email Content</label>
                 </div>
 
-                {/* Rich Text Editor */}
+                {/* Rich Text Toolbar - EXACT same as EmailEditor */}
+                <div className="flex flex-wrap items-center gap-1 px-4 py-2.5 border-b border-gray-100 bg-white">
+                  <div className="flex items-center gap-0.5 mr-2">
+                    <Button variant="ghost" size="icon" onClick={flowUndoAction} className="h-8 w-8 rounded-lg hover:bg-gray-100 cursor-pointer" title="Undo">
+                      <Undo className="h-4 w-4 text-gray-500" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={flowRedoAction} className="h-8 w-8 rounded-lg hover:bg-gray-100 cursor-pointer" title="Redo">
+                      <Redo className="h-4 w-4 text-gray-500" />
+                    </Button>
+                  </div>
+                  <div className="w-px h-5 bg-gray-200 mx-1" />
+                  <Button variant="ghost" size="icon" onClick={flowInsertHeading} className="h-8 w-8 rounded-lg hover:bg-gray-100 cursor-pointer" title="Heading">
+                    <Type className="h-4 w-4 text-gray-500" />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={flowInsertBold} className="h-8 w-8 rounded-lg hover:bg-gray-100 cursor-pointer" title="Bold">
+                    <Bold className="h-4 w-4 text-gray-500" />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={flowInsertItalic} className="h-8 w-8 rounded-lg hover:bg-gray-100 cursor-pointer" title="Italic">
+                    <Italic className="h-4 w-4 text-gray-500" />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={flowInsertStrikethrough} className="h-8 w-8 rounded-lg hover:bg-gray-100 cursor-pointer" title="Strikethrough">
+                    <Strikethrough className="h-4 w-4 text-gray-500" />
+                  </Button>
+                  <div className="w-px h-5 bg-gray-200 mx-1" />
+                  <Button variant="ghost" size="icon" onClick={flowAlignLeft} className="h-8 w-8 rounded-lg hover:bg-gray-100 cursor-pointer" title="Align Left">
+                    <AlignLeft className="h-4 w-4 text-gray-500" />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={flowAlignCenter} className="h-8 w-8 rounded-lg hover:bg-gray-100 cursor-pointer" title="Align Center">
+                    <AlignCenter className="h-4 w-4 text-gray-500" />
+                  </Button>
+                  <div className="w-px h-5 bg-gray-200 mx-1" />
+                  <Button variant="ghost" size="icon" onClick={flowInsertList} className="h-8 w-8 rounded-lg hover:bg-gray-100 cursor-pointer" title="Bullet List">
+                    <List className="h-4 w-4 text-gray-500" />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={flowInsertOrderedList} className="h-8 w-8 rounded-lg hover:bg-gray-100 cursor-pointer" title="Numbered List">
+                    <ListOrdered className="h-4 w-4 text-gray-500" />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={flowInsertQuote} className="h-8 w-8 rounded-lg hover:bg-gray-100 cursor-pointer" title="Quote">
+                    <Quote className="h-4 w-4 text-gray-500" />
+                  </Button>
+                  <div className="w-px h-5 bg-gray-200 mx-1" />
+                  <Button variant="ghost" size="icon" onClick={flowInsertLink} className="h-8 w-8 rounded-lg hover:bg-gray-100 cursor-pointer" title="Insert Link">
+                    <Link2 className="h-4 w-4 text-gray-500" />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={flowInsertImage} className="h-8 w-8 rounded-lg hover:bg-gray-100 cursor-pointer" title="Insert Image">
+                    <ImageIcon className="h-4 w-4 text-gray-500" />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={flowInsertButton} className="h-8 w-8 rounded-lg hover:bg-gray-100 cursor-pointer" title="Insert Button">
+                    <Square className="h-4 w-4 text-gray-500" />
+                  </Button>
+                </div>
+
+                {/* Editor Area */}
                 <div
                   ref={flowEditorRef}
                   contentEditable
                   onInput={handleFlowEditorInput}
-                  className="min-h-[350px] p-5 text-base leading-relaxed text-gray-700 focus:outline-none prose prose-sm max-w-none"
-                  data-placeholder="Hi there!
+                  className="min-h-[400px] p-6 focus:outline-none text-base leading-relaxed text-gray-700"
+                  style={{ wordBreak: "break-word" }}
+                  data-placeholder="Start writing your email...
 
-Thank you for your purchase! I'm so excited for you to get started.
+Use the toolbar above to format your text, add images, or insert links.
 
-If you have any questions, just reply to this email - I'm here to help!
-
-Best,
-[Your name]"
-                  style={{
-                    minHeight: "350px",
-                  }}
+Tips:
+• Keep your message clear and concise
+• Add a clear call-to-action
+• Personalize with subscriber names"
                   dangerouslySetInnerHTML={{ __html: emailStep.config.body || "" }}
                 />
               </div>
@@ -967,24 +1113,6 @@ Best,
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
                   <label className="text-sm font-medium text-gray-700">Live Preview</label>
-                  <span className={cn(
-                    "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium",
-                    emailStep.config.subject && emailStep.config.body
-                      ? "bg-green-100 text-green-700"
-                      : "bg-amber-100 text-amber-700"
-                  )}>
-                    {emailStep.config.subject && emailStep.config.body ? (
-                      <>
-                        <Check className="h-3 w-3" />
-                        Ready to activate
-                      </>
-                    ) : (
-                      <>
-                        <Clock className="h-3 w-3" />
-                        Draft
-                      </>
-                    )}
-                  </span>
                 </div>
 
                 <div className="p-5 bg-gray-50/50 flex justify-center min-h-[500px]">
@@ -1042,6 +1170,26 @@ Best,
           </div>
         </div>
 
+        {/* Unsaved Changes Dialog for Flows */}
+        <Dialog open={showFlowUnsavedDialog} onOpenChange={setShowFlowUnsavedDialog}>
+          <DialogContent className="sm:max-w-[400px] rounded-2xl p-0 overflow-hidden">
+            <div className="p-6 text-center">
+              <DialogTitle className="text-lg font-semibold text-gray-900 mb-2">Unsaved changes</DialogTitle>
+              <DialogDescription className="text-sm text-gray-500">
+                You have unsaved changes in your flow. If you leave now, your changes will be lost.
+              </DialogDescription>
+            </div>
+            <div className="border-t border-gray-100 p-4 bg-gray-50/50 flex flex-col-reverse sm:flex-row gap-2">
+              <Button variant="outline" onClick={() => setShowFlowUnsavedDialog(false)} className="flex-1 rounded-xl h-11 cursor-pointer">
+                Keep editing
+              </Button>
+              <Button onClick={() => { setShowFlowUnsavedDialog(false); setView("list"); setEditingFlow(null); window.history.pushState({}, "", "/app/emails"); }} className="flex-1 rounded-xl h-11 bg-gray-900 hover:bg-gray-800 text-white cursor-pointer">
+                Discard changes
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         {/* CSS for rich text editor */}
         <style jsx global>{`
           [contenteditable]:empty:before {
@@ -1072,6 +1220,11 @@ Best,
             max-width: 100%;
             height: auto;
             border-radius: 12px;
+            cursor: pointer;
+            transition: box-shadow 0.2s;
+          }
+          [contenteditable] img:hover {
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
           }
           [contenteditable] blockquote {
             border-left: 3px solid #e5e7eb;
@@ -1079,6 +1232,14 @@ Best,
             margin: 0.75rem 0;
             color: #6b7280;
             font-style: italic;
+          }
+          [contenteditable] .email-cta-button {
+            cursor: pointer !important;
+            transition: box-shadow 0.2s, transform 0.2s;
+          }
+          [contenteditable] .email-cta-button:hover {
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+            transform: scale(1.02);
           }
         `}</style>
       </div>
