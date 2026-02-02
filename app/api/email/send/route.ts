@@ -144,8 +144,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No subscribers found for this audience" }, { status: 400 })
     }
 
-    // Update campaign status to sending
-    await supabase
+    // Update campaign status to sending (use admin to bypass RLS)
+    await adminSupabase
       .from("email_campaigns")
       .update({
         status: "sending",
@@ -284,9 +284,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Update campaign status
+    // Update campaign status (use admin to bypass RLS and ensure update works)
     const finalStatus = failedCount === (sends?.length || 0) ? "failed" : "sent"
-    await supabase
+    const { error: updateError } = await adminSupabase
       .from("email_campaigns")
       .update({
         status: finalStatus,
@@ -294,6 +294,12 @@ export async function POST(request: NextRequest) {
         audience_count: sentCount,
       })
       .eq("id", campaign_id)
+
+    if (updateError) {
+      console.error("[email/send] Failed to update campaign status:", updateError)
+    } else {
+      console.log("[email/send] Campaign status updated to:", finalStatus, "audience_count:", sentCount)
+    }
 
     return NextResponse.json({
       success: true,
