@@ -253,6 +253,10 @@ export default function EmailsPage() {
   const [flowShowLinkDialog, setFlowShowLinkDialog] = useState(false)
   const [flowLinkUrl, setFlowLinkUrl] = useState("")
   const [flowLinkText, setFlowLinkText] = useState("")
+  const [flowShowSendTestModal, setFlowShowSendTestModal] = useState(false)
+  const [flowTestEmail, setFlowTestEmail] = useState("")
+  const [showFlowSaveNotification, setShowFlowSaveNotification] = useState(false)
+  const [flowSaveNotificationMessage, setFlowSaveNotificationMessage] = useState("")
 
   // Store checkout buyers count (for Store KPI)
   const [checkoutBuyersCount, setCheckoutBuyersCount] = useState(0)
@@ -329,7 +333,7 @@ export default function EmailsPage() {
         .eq("creator_id", creator.id)
 
       if (products && products.length > 0) {
-        const productIds = products.map(p => p.id)
+        const productIds = products.map((p: { id: string }) => p.id)
         const { data: orders } = await supabase
           .from("orders")
           .select("buyer_email")
@@ -337,11 +341,11 @@ export default function EmailsPage() {
           .eq("status", "completed")
 
         // Count unique buyer emails that are not already in subscribers
-        const subscriberEmails = new Set((data || []).map(s => s.email.toLowerCase()))
+        const subscriberEmails = new Set((data || []).map((s: { email: string }) => s.email.toLowerCase()))
         const uniqueBuyerEmails = new Set(
           (orders || [])
-            .map(o => o.buyer_email?.toLowerCase())
-            .filter(email => email && !subscriberEmails.has(email))
+            .map((o: { buyer_email?: string }) => o.buyer_email?.toLowerCase())
+            .filter((email: string | undefined) => email && !subscriberEmails.has(email))
         )
         setCheckoutBuyersCount(uniqueBuyerEmails.size)
       } else {
@@ -383,13 +387,13 @@ export default function EmailsPage() {
           .from("email_events")
           .select("event_type, campaign_id")
           .gte("created_at", timeRangeDate.toISOString())
-          .in("campaign_id", (data || []).map(c => c.id))
+          .in("campaign_id", (data || []).map((c: { id: string }) => c.id))
 
         if (events) {
-          const sent = events.filter(e => e.event_type === "sent").length
-          const opened = events.filter(e => e.event_type === "opened").length
-          const clicked = events.filter(e => e.event_type === "clicked").length
-          const unsubscribed = events.filter(e => e.event_type === "unsubscribed").length
+          const sent = events.filter((e: { event_type: string }) => e.event_type === "sent").length
+          const opened = events.filter((e: { event_type: string }) => e.event_type === "opened").length
+          const clicked = events.filter((e: { event_type: string }) => e.event_type === "clicked").length
+          const unsubscribed = events.filter((e: { event_type: string }) => e.event_type === "unsubscribed").length
           setOverviewStats({
             total_sent: sent,
             total_opened: opened,
@@ -401,16 +405,33 @@ export default function EmailsPage() {
         }
 
         // Get current month email usage for quota tracking
-        const currentMonth = new Date().toISOString().slice(0, 7) // Format: YYYY-MM
-        const { data: usage } = await supabase
-          .from("email_usage")
-          .select("emails_sent")
+        // Count emails from email_events table (more accurate than email_usage table)
+        const now = new Date()
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString()
+
+        // Count campaign emails sent this month
+        const { count: campaignEmailsCount } = await supabase
+          .from("email_events")
+          .select("*", { count: "exact", head: true })
+          .eq("event_type", "sent")
+          .gte("created_at", startOfMonth)
+          .lte("created_at", endOfMonth)
+          .in("campaign_id", (data || []).map((c: { id: string }) => c.id))
+
+        // Count flow emails sent this month
+        const { count: flowEmailsCount } = await supabase
+          .from("scheduled_flow_emails")
+          .select("*", { count: "exact", head: true })
           .eq("creator_id", creator.id)
-          .eq("month_year", currentMonth)
-          .single()
+          .eq("status", "sent")
+          .gte("sent_at", startOfMonth)
+          .lte("sent_at", endOfMonth)
+
+        const totalEmailsSent = (campaignEmailsCount || 0) + (flowEmailsCount || 0)
 
         setEmailUsage({
-          sent: usage?.emails_sent || 0,
+          sent: totalEmailsSent,
           limit: 3000, // Free plan limit
         })
       }
@@ -532,6 +553,18 @@ export default function EmailsPage() {
     const supabase = createClient()
     const triggerInfo = FLOW_TRIGGERS.find(t => t.id === triggerType)
 
+    // Check if flow of this type already exists
+    const existingFlow = flows.find(f => f.trigger_type === triggerType)
+    if (existingFlow) {
+      toast({
+        title: "Flow already exists",
+        description: `You can only have one ${triggerInfo?.name || triggerType} flow. Edit the existing one instead.`,
+        variant: "destructive"
+      })
+      setShowCreateFlowDialog(false)
+      return
+    }
+
     // Create default email step with preset content
     const defaultStep = {
       id: `step_${Date.now()}`,
@@ -644,12 +677,14 @@ export default function EmailsPage() {
       setInitialFlowState(JSON.stringify(updatedFlow))
       setFlowHasUnsavedChanges(false)
 
-      // Show notification based on flow status
+      // Show smooth notification at top of screen
       if (editingFlow.status === "active") {
-        toast({ title: "Flow is active", description: "Your flow has been saved and is now live." })
+        setFlowSaveNotificationMessage("Flow is active and running")
       } else {
-        toast({ title: "Flow saved", description: "Your flow has been saved as a draft." })
+        setFlowSaveNotificationMessage("Flow saved as draft")
       }
+      setShowFlowSaveNotification(true)
+      setTimeout(() => setShowFlowSaveNotification(false), 5000)
 
       setView("list")
       setEditingFlow(null)
@@ -682,7 +717,7 @@ export default function EmailsPage() {
       unsubscribed: 0,
     }
 
-    events?.forEach((event) => {
+    events?.forEach((event: { event_type: string }) => {
       const type = event.event_type as keyof typeof counts
       if (type in counts) counts[type]++
     })
@@ -1058,7 +1093,7 @@ export default function EmailsPage() {
 
   const [isFlowSendingTest, setIsFlowSendingTest] = useState(false)
 
-  const handleFlowSendTest = async () => {
+  const openFlowSendTestModal = async () => {
     if (!editingFlow) return
     const emailStep = (editingFlow.steps || []).find(s => s.type === "email")
     if (!emailStep?.config.subject || !emailStep?.config.body) {
@@ -1066,11 +1101,20 @@ export default function EmailsPage() {
       return
     }
 
-    // Get user's email for test
+    // Pre-fill with user's email
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user?.email) {
-      toast({ title: "Error", description: "Unable to get your email address for test", variant: "destructive" })
+    if (user?.email) {
+      setFlowTestEmail(user.email)
+    }
+    setFlowShowSendTestModal(true)
+  }
+
+  const handleFlowSendTest = async () => {
+    if (!editingFlow || !flowTestEmail) return
+    const emailStep = (editingFlow.steps || []).find(s => s.type === "email")
+    if (!emailStep?.config.subject || !emailStep?.config.body) {
+      toast({ title: "Missing content", description: "Please add a subject and body before sending a test", variant: "destructive" })
       return
     }
 
@@ -1084,7 +1128,7 @@ export default function EmailsPage() {
           subject: emailStep.config.subject,
           body: emailStep.config.body,
           preview_text: emailStep.config.preview_text || "",
-          test_email: user.email,
+          test_email: flowTestEmail,
         }),
       })
 
@@ -1094,7 +1138,9 @@ export default function EmailsPage() {
         throw new Error(data.error || "Failed to send test email")
       }
 
-      toast({ title: "Test email sent!", description: `Check your inbox at ${user.email}` })
+      toast({ title: "Test email sent!", description: `Check your inbox at ${flowTestEmail}` })
+      setFlowShowSendTestModal(false)
+      setFlowTestEmail("")
     } catch (error) {
       toast({
         title: "Failed to send test",
@@ -1145,8 +1191,21 @@ export default function EmailsPage() {
       }
     }
 
+    // Check if this is a preset flow (Purchase or New Subscriber) that shouldn't have name edited
+    const isPresetFlow = editingFlow.trigger_type === "purchase" || editingFlow.trigger_type === "new_subscriber"
+
     return (
       <div className="min-h-screen bg-[#fafafa]">
+        {/* Smooth Save Notification */}
+        {showFlowSaveNotification && (
+          <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="bg-gray-900 text-white px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-2">
+              <Check className="h-4 w-4 text-green-400" />
+              <span className="text-sm font-medium">{flowSaveNotificationMessage}</span>
+            </div>
+          </div>
+        )}
+
         {/* Header - Matching email editor style */}
         <div className="bg-white/80 backdrop-blur-sm border-b border-gray-100 sticky top-0 z-20">
           <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-3">
@@ -1160,29 +1219,24 @@ export default function EmailsPage() {
                     <div className="p-1.5 rounded-lg bg-violet-100">
                       <TriggerIcon className="h-4 w-4 text-violet-600" />
                     </div>
-                    <Input
-                      value={editingFlow.name}
-                      onChange={(e) => setEditingFlow({ ...editingFlow, name: e.target.value })}
-                      className="text-lg font-semibold border-0 p-0 h-auto focus-visible:ring-0 bg-transparent w-auto min-w-[200px]"
-                      placeholder="Flow name"
-                    />
+                    {isPresetFlow ? (
+                      <span className="text-lg font-semibold text-gray-900">{editingFlow.name}</span>
+                    ) : (
+                      <Input
+                        value={editingFlow.name}
+                        onChange={(e) => setEditingFlow({ ...editingFlow, name: e.target.value })}
+                        className="text-lg font-semibold border-0 p-0 h-auto focus-visible:ring-0 bg-transparent w-auto min-w-[200px]"
+                        placeholder="Flow name"
+                      />
+                    )}
                   </div>
                   <p className="text-xs text-gray-500 mt-0.5">{triggerInfo.description}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Button variant="ghost" onClick={handleFlowSendTest} disabled={isFlowSendingTest} className="h-10 px-4 rounded-xl text-gray-600 hover:bg-gray-100 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
-                  {isFlowSendingTest ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Sending...
-                    </>
-                  ) : (
-                    <>
-                      <Mail className="h-4 w-4 mr-2" />
-                      Send Test
-                    </>
-                  )}
+                <Button variant="ghost" onClick={openFlowSendTestModal} className="h-10 px-4 rounded-xl text-gray-600 hover:bg-gray-100 cursor-pointer">
+                  <Mail className="h-4 w-4 mr-2" />
+                  Send Test
                 </Button>
                 <Button
                   variant="outline"
@@ -1190,7 +1244,7 @@ export default function EmailsPage() {
                   className={cn(
                     "h-10 px-4 rounded-xl cursor-pointer",
                     editingFlow.status === "active"
-                      ? "bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
+                      ? "bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200"
                       : "border-gray-200 text-gray-600 hover:bg-gray-50"
                   )}
                 >
@@ -1662,20 +1716,81 @@ Tips:
           </DialogContent>
         </Dialog>
 
+        {/* Send Test Modal */}
+        <Dialog open={flowShowSendTestModal} onOpenChange={setFlowShowSendTestModal}>
+          <DialogContent className="sm:max-w-[400px] rounded-2xl p-0 overflow-hidden">
+            <DialogHeader className="p-5 pb-3 border-b border-gray-100">
+              <DialogTitle className="text-lg font-semibold text-gray-900">Send Test Email</DialogTitle>
+              <DialogDescription className="text-sm text-gray-500">
+                Enter the email address where you want to receive the test
+              </DialogDescription>
+            </DialogHeader>
+            <div className="p-5">
+              <div>
+                <label className="text-sm font-medium text-gray-700 block mb-1.5">Email Address</label>
+                <Input
+                  type="email"
+                  value={flowTestEmail}
+                  onChange={(e) => setFlowTestEmail(e.target.value)}
+                  placeholder="your@email.com"
+                  className="h-11 rounded-xl"
+                />
+              </div>
+            </div>
+            <div className="border-t border-gray-100 p-4 bg-gray-50/50 flex gap-2">
+              <Button variant="outline" onClick={() => { setFlowShowSendTestModal(false); setFlowTestEmail(""); }} className="flex-1 rounded-xl h-11 cursor-pointer">
+                Cancel
+              </Button>
+              <Button onClick={handleFlowSendTest} disabled={!flowTestEmail || isFlowSendingTest} className="flex-1 rounded-xl h-11 bg-violet-600 hover:bg-violet-700 text-white cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+                {isFlowSendingTest ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Mail className="h-4 w-4 mr-2" />
+                    Send Test
+                  </>
+                )}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         {/* CSS for rich text editor */}
         <style jsx global>{`
+          [contenteditable] {
+            direction: ltr !important;
+            text-align: left !important;
+            unicode-bidi: plaintext;
+          }
           [contenteditable]:empty:before {
             content: attr(data-placeholder);
             color: #9ca3af;
             pointer-events: none;
             display: block;
             white-space: pre-wrap;
+            direction: ltr;
+            text-align: left;
+          }
+          [contenteditable] * {
+            direction: ltr !important;
+            text-align: left;
+            unicode-bidi: plaintext;
+          }
+          [contenteditable] p,
+          [contenteditable] div,
+          [contenteditable] span {
+            direction: ltr !important;
+            text-align: left;
           }
           [contenteditable] h2 {
             font-size: 1.25rem;
             font-weight: 600;
             margin: 0.75rem 0;
             color: #1f2937;
+            direction: ltr !important;
           }
           [contenteditable] a {
             color: #2563eb;
@@ -1684,9 +1799,11 @@ Tips:
           [contenteditable] ul, [contenteditable] ol {
             padding-left: 1.5rem;
             margin: 0.75rem 0;
+            direction: ltr !important;
           }
           [contenteditable] li {
             margin-bottom: 0.25rem;
+            direction: ltr !important;
           }
           [contenteditable] img {
             max-width: 100%;
@@ -1704,6 +1821,7 @@ Tips:
             margin: 0.75rem 0;
             color: #6b7280;
             font-style: italic;
+            direction: ltr !important;
           }
           [contenteditable] .email-cta-button {
             cursor: pointer !important;
