@@ -401,52 +401,64 @@ export default function EmailsPage() {
         else if (statsTimeRange === "90d") timeRangeDate.setDate(timeRangeDate.getDate() - 90)
         else timeRangeDate.setFullYear(2000)
 
+        // Filter campaigns by time range and calculate total sent from audience_count
+        const filteredCampaigns = (data || []).filter((c: EmailCampaign) => {
+          const sentDate = c.sent_at ? new Date(c.sent_at) : new Date(c.created_at)
+          return sentDate >= timeRangeDate
+        })
+
+        // Calculate total sent from campaign audience_count (more reliable than events table)
+        const totalSentFromCampaigns = filteredCampaigns.reduce((sum: number, c: EmailCampaign) => {
+          return sum + (c.audience_count || 0)
+        }, 0)
+
         const { data: events } = await supabase
           .from("email_events")
           .select("event_type, campaign_id")
           .gte("created_at", timeRangeDate.toISOString())
           .in("campaign_id", (data || []).map((c: { id: string }) => c.id))
 
-        if (events) {
-          const sent = events.filter((e: { event_type: string }) => e.event_type === "sent").length
-          const opened = events.filter((e: { event_type: string }) => e.event_type === "opened").length
-          const clicked = events.filter((e: { event_type: string }) => e.event_type === "clicked").length
-          const unsubscribed = events.filter((e: { event_type: string }) => e.event_type === "unsubscribed").length
-          setOverviewStats({
-            total_sent: sent,
-            total_opened: opened,
-            total_clicked: clicked,
-            total_unsubscribed: unsubscribed,
-            open_rate: sent > 0 ? Math.round((opened / sent) * 100) : 0,
-            click_rate: sent > 0 ? Math.round((clicked / sent) * 100) : 0,
-          })
-        }
+        // Use campaign audience_count for total_sent, events for opens/clicks
+        const opened = events?.filter((e: { event_type: string }) => e.event_type === "opened").length || 0
+        const clicked = events?.filter((e: { event_type: string }) => e.event_type === "clicked").length || 0
+        const unsubscribed = events?.filter((e: { event_type: string }) => e.event_type === "unsubscribed").length || 0
+
+        // Use campaign audience_count as total_sent (fallback to events if 0)
+        const totalSent = totalSentFromCampaigns || events?.filter((e: { event_type: string }) => e.event_type === "sent").length || 0
+
+        setOverviewStats({
+          total_sent: totalSent,
+          total_opened: opened,
+          total_clicked: clicked,
+          total_unsubscribed: unsubscribed,
+          open_rate: totalSent > 0 ? Math.round((opened / totalSent) * 100) : 0,
+          click_rate: totalSent > 0 ? Math.round((clicked / totalSent) * 100) : 0,
+        })
 
         // Get current month email usage for quota tracking
-        // Count emails from email_events table (more accurate than email_usage table)
         const now = new Date()
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
-        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString()
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
 
-        // Count campaign emails sent this month
-        const { count: campaignEmailsCount } = await supabase
-          .from("email_events")
-          .select("*", { count: "exact", head: true })
-          .eq("event_type", "sent")
-          .gte("created_at", startOfMonth)
-          .lte("created_at", endOfMonth)
-          .in("campaign_id", (data || []).map((c: { id: string }) => c.id))
+        // Count campaign emails sent this month from audience_count (more reliable)
+        const campaignsThisMonth = (data || []).filter((c: EmailCampaign) => {
+          const sentDate = c.sent_at ? new Date(c.sent_at) : new Date(c.created_at)
+          return sentDate >= startOfMonth && sentDate <= endOfMonth
+        })
+        const campaignEmailsCount = campaignsThisMonth.reduce((sum: number, c: EmailCampaign) => {
+          return sum + (c.audience_count || 0)
+        }, 0)
 
-        // Count flow emails sent this month
+        // Count flow emails sent this month (from scheduled_flow_emails table)
         const { count: flowEmailsCount } = await supabase
           .from("scheduled_flow_emails")
           .select("*", { count: "exact", head: true })
           .eq("creator_id", creator.id)
           .eq("status", "sent")
-          .gte("sent_at", startOfMonth)
-          .lte("sent_at", endOfMonth)
+          .gte("sent_at", startOfMonth.toISOString())
+          .lte("sent_at", endOfMonth.toISOString())
 
-        const totalEmailsSent = (campaignEmailsCount || 0) + (flowEmailsCount || 0)
+        const totalEmailsSent = campaignEmailsCount + (flowEmailsCount || 0)
 
         setEmailUsage({
           sent: totalEmailsSent,
