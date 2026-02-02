@@ -965,40 +965,6 @@ Tips:
                           />
                         </div>
                       </div>
-
-                      {/* Alignment */}
-                      <div>
-                        <label className="text-xs font-medium text-gray-700 block mb-2">Alignment</label>
-                        <div className="flex gap-1.5 bg-gray-50 rounded-xl p-1.5">
-                          <Button
-                            type="button"
-                            variant={buttonAlign === "left" ? "default" : "ghost"}
-                            size="sm"
-                            onClick={() => setButtonAlign("left")}
-                            className={cn("flex-1 h-9 rounded-lg text-xs cursor-pointer", buttonAlign === "left" ? "bg-white shadow-sm" : "hover:bg-white/50")}
-                          >
-                            <AlignLeft className="h-4 w-4 mr-1.5" />Left
-                          </Button>
-                          <Button
-                            type="button"
-                            variant={buttonAlign === "center" ? "default" : "ghost"}
-                            size="sm"
-                            onClick={() => setButtonAlign("center")}
-                            className={cn("flex-1 h-9 rounded-lg text-xs cursor-pointer", buttonAlign === "center" ? "bg-white shadow-sm" : "hover:bg-white/50")}
-                          >
-                            <AlignCenter className="h-4 w-4 mr-1.5" />Center
-                          </Button>
-                          <Button
-                            type="button"
-                            variant={buttonAlign === "right" ? "default" : "ghost"}
-                            size="sm"
-                            onClick={() => setButtonAlign("right")}
-                            className={cn("flex-1 h-9 rounded-lg text-xs cursor-pointer", buttonAlign === "right" ? "bg-white shadow-sm" : "hover:bg-white/50")}
-                          >
-                            Right
-                          </Button>
-                        </div>
-                      </div>
                     </div>
 
                     {/* Footer */}
@@ -1038,7 +1004,7 @@ Tips:
                       ))}
                     </SelectContent>
                   </Select>
-                  <Button variant="outline" size="sm" onClick={() => setShowSegmentDialog(true)} className="h-9 px-3 rounded-lg text-xs cursor-pointer">
+                  <Button variant="outline" size="sm" onClick={() => { loadSubscribers(); setShowSegmentDialog(true); }} className="h-9 px-3 rounded-lg text-xs cursor-pointer">
                     <Plus className="h-3.5 w-3.5 mr-1" />
                     Create segment
                   </Button>
@@ -1418,40 +1384,6 @@ Tips:
                   <p className="mt-2 text-sm text-blue-600 font-medium">{selectedSubscriberIds.length} subscribers selected</p>
                 )}
               </div>
-
-              {/* Email Campaign Filter */}
-              {emailCampaigns.length > 0 && (
-                <div className="bg-violet-50/50 rounded-xl p-4 border border-violet-100">
-                  <Label className="text-sm font-medium text-gray-700 mb-2 block flex items-center gap-2">
-                    <Mail className="h-4 w-4 text-violet-500" />
-                    Filter by Email Campaign
-                  </Label>
-                  <p className="text-xs text-gray-500 mb-3">Select subscribers who received a specific email</p>
-                  <div className="flex flex-wrap gap-2 max-h-[100px] overflow-y-auto">
-                    {emailCampaigns.map((campaign) => (
-                      <button
-                        key={campaign.id}
-                        onClick={() => filterByEmailCampaign(campaign.id)}
-                        className={cn(
-                          "px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer",
-                          selectedEmailFilter === campaign.id
-                            ? "bg-violet-600 text-white"
-                            : "bg-white border border-violet-200 text-violet-700 hover:bg-violet-100"
-                        )}
-                      >
-                        {campaign.subject.length > 30 ? campaign.subject.substring(0, 30) + "..." : campaign.subject}
-                      </button>
-                    ))}
-                  </div>
-                  {selectedEmailFilter && (
-                    <div className="mt-2 flex items-center gap-2 text-xs text-violet-600">
-                      <Check className="h-3 w-3" />
-                      <span>Showing recipients of selected email</span>
-                      <button onClick={clearEmailFilter} className="ml-auto text-violet-500 hover:text-violet-700 underline cursor-pointer">Clear</button>
-                    </div>
-                  )}
-                </div>
-              )}
 
               {/* Subscriber Search */}
               <div className="relative">

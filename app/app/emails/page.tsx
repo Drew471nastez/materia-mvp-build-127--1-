@@ -1567,40 +1567,6 @@ Tips:
                             />
                           </div>
                         </div>
-
-                        {/* Alignment */}
-                        <div>
-                          <label className="text-xs font-medium text-gray-700 block mb-2">Alignment</label>
-                          <div className="flex gap-1.5 bg-gray-50 rounded-xl p-1.5">
-                            <Button
-                              type="button"
-                              variant={flowButtonAlign === "left" ? "default" : "ghost"}
-                              size="sm"
-                              onClick={() => setFlowButtonAlign("left")}
-                              className={cn("flex-1 h-9 rounded-lg text-xs cursor-pointer", flowButtonAlign === "left" ? "bg-white shadow-sm" : "hover:bg-white/50")}
-                            >
-                              <AlignLeft className="h-4 w-4 mr-1.5" />Left
-                            </Button>
-                            <Button
-                              type="button"
-                              variant={flowButtonAlign === "center" ? "default" : "ghost"}
-                              size="sm"
-                              onClick={() => setFlowButtonAlign("center")}
-                              className={cn("flex-1 h-9 rounded-lg text-xs cursor-pointer", flowButtonAlign === "center" ? "bg-white shadow-sm" : "hover:bg-white/50")}
-                            >
-                              <AlignCenter className="h-4 w-4 mr-1.5" />Center
-                            </Button>
-                            <Button
-                              type="button"
-                              variant={flowButtonAlign === "right" ? "default" : "ghost"}
-                              size="sm"
-                              onClick={() => setFlowButtonAlign("right")}
-                              className={cn("flex-1 h-9 rounded-lg text-xs cursor-pointer", flowButtonAlign === "right" ? "bg-white shadow-sm" : "hover:bg-white/50")}
-                            >
-                              Right
-                            </Button>
-                          </div>
-                        </div>
                       </div>
 
                       {/* Footer */}
