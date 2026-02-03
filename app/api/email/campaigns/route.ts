@@ -72,6 +72,16 @@ export async function GET(request: NextRequest) {
 
     console.log("[email/campaigns] Found", campaigns?.length || 0, "campaigns with status:", status)
 
+    // Also get ALL sent/failed campaigns for monthly usage calculation
+    const { data: allSentCampaigns } = await adminSupabase
+      .from("email_campaigns")
+      .select("id, audience_count, sent_at, created_at, status")
+      .eq("creator_id", creator.id)
+      .in("status", ["sent", "failed", "sending"])
+      .order("created_at", { ascending: false })
+
+    console.log("[email/campaigns] All sent/failed campaigns:", allSentCampaigns?.length || 0)
+
     // Filter by time range for stats calculation
     const filteredCampaigns = (campaigns || []).filter((c) => {
       const sentDate = c.sent_at ? new Date(c.sent_at) : new Date(c.created_at)
@@ -138,15 +148,15 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Calculate monthly usage
+    // Calculate monthly usage from ALL sent/failed campaigns (not just "sent" status)
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-    const campaignsThisMonth = (campaigns || []).filter((c) => {
+    const campaignsThisMonth = (allSentCampaigns || []).filter((c) => {
       const sentDate = c.sent_at ? new Date(c.sent_at) : new Date(c.created_at)
       return sentDate >= startOfMonth
     })
     const monthlyEmailsSent = campaignsThisMonth.reduce((sum, c) => sum + (c.audience_count || 0), 0)
 
-    console.log("[email/campaigns] Monthly emails sent:", monthlyEmailsSent)
+    console.log("[email/campaigns] Monthly emails sent:", monthlyEmailsSent, "from", campaignsThisMonth.length, "campaigns this month")
 
     // Return filtered campaigns to match stats (user can see all by selecting "all" time range)
     return NextResponse.json({
@@ -167,8 +177,11 @@ export async function GET(request: NextRequest) {
         creatorId: creator.id,
         totalCampaignCount: campaigns?.length || 0,
         filteredCampaignCount: filteredCampaigns.length,
+        allSentCampaignsCount: allSentCampaigns?.length || 0,
+        campaignsThisMonthCount: campaignsThisMonth.length,
         timeRangeDate: timeRangeDate.toISOString(),
         timeRange,
+        monthStartDate: startOfMonth.toISOString(),
       }
     })
   } catch (error) {

@@ -286,28 +286,31 @@ export async function POST(request: NextRequest) {
     }
 
     // Update campaign status (use admin to bypass RLS and ensure update works)
-    const finalStatus = failedCount === (sends?.length || 0) ? "failed" : "sent"
+    // Use total attempts for audience_count (for accurate monthly limit tracking)
+    // but mark as "sent" only if at least one email succeeded
+    const totalAttempts = sends?.length || 0
+    const finalStatus = sentCount > 0 ? "sent" : "failed"
     const { error: updateError } = await adminSupabase
       .from("email_campaigns")
       .update({
         status: finalStatus,
         sent_at: new Date().toISOString(),
-        audience_count: sentCount,
+        audience_count: sentCount > 0 ? sentCount : totalAttempts, // Keep attempts count even if all failed
       })
       .eq("id", campaign_id)
 
     if (updateError) {
       console.error("[email/send] Failed to update campaign status:", updateError)
     } else {
-      console.log("[email/send] Campaign status updated to:", finalStatus, "audience_count:", sentCount)
+      console.log("[email/send] Campaign status updated to:", finalStatus, "sent:", sentCount, "failed:", failedCount, "total:", totalAttempts)
     }
 
     return NextResponse.json({
       success: true,
-      message: `Email campaign sent successfully`,
+      message: sentCount > 0 ? `Email campaign sent successfully` : `Email campaign failed - check configuration`,
       sent: sentCount,
       failed: failedCount,
-      total: subscribers.length,
+      total: totalAttempts,
     })
   } catch (error) {
     console.error("Send email error:", error)
