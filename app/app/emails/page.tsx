@@ -393,33 +393,45 @@ export default function EmailsPage() {
       const status = statusMap[currentTab] || "draft"
 
       try {
-        // Use the new stats endpoint for Sent tab, campaigns endpoint for others
+        // Use the stats endpoint for Sent tab (includes tracking data), campaigns endpoint for others
+        const timestamp = Date.now()
+        const randomId = Math.random().toString(36).substring(7)
         const endpoint = currentTab === "published"
-          ? `/api/email/stats?status=${status}&timeRange=${statsTimeRange}&t=${Date.now()}`
-          : `/api/email/campaigns?status=${status}&timeRange=${statsTimeRange}&t=${Date.now()}`
+          ? `/api/email/stats?timeRange=${statsTimeRange}&_t=${timestamp}&_r=${randomId}`
+          : `/api/email/campaigns?status=${status}&timeRange=${statsTimeRange}&_t=${timestamp}&_r=${randomId}`
+
+        console.log("[emails page] Fetching:", endpoint)
 
         const response = await fetch(endpoint, {
+          method: 'GET',
           cache: 'no-store',
-          headers: { 'Cache-Control': 'no-cache' },
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+          },
         })
 
         if (response.ok) {
           const result = await response.json()
-          console.log("[emails page] API response:", {
+          console.log("[emails page] Received:", {
             endpoint,
-            campaigns: result.campaigns?.length,
+            campaignCount: result.campaigns?.length || 0,
             stats: result.stats,
-            monthly: result.monthlyUsage
+            monthly: result.monthlyUsage,
+            debug: result.debug
           })
+
+          // Update campaigns list
           setCampaigns(result.campaigns || [])
 
           // Set stats for Sent tab
           if (currentTab === "published") {
             setOverviewStats({
               total_sent: result.stats?.totalSent || 0,
-              total_opened: result.stats?.totalOpens || result.stats?.opened || 0,
-              total_clicked: result.stats?.totalClicks || result.stats?.clicked || 0,
-              total_unsubscribed: result.stats?.totalUnsubscribed || result.stats?.unsubscribed || 0,
+              total_opened: result.stats?.totalOpens || 0,
+              total_clicked: result.stats?.totalClicks || 0,
+              total_unsubscribed: result.stats?.totalUnsubscribed || 0,
               open_rate: result.stats?.openRate || 0,
               click_rate: result.stats?.clickRate || 0,
             })
@@ -430,11 +442,12 @@ export default function EmailsPage() {
             })
           }
         } else {
-          console.error("Failed to fetch campaigns:", await response.text())
+          const errorText = await response.text()
+          console.error("[emails page] Fetch failed:", response.status, errorText)
           setCampaigns([])
         }
       } catch (err) {
-        console.error("Failed to fetch campaigns:", err)
+        console.error("[emails page] Fetch error:", err)
         setCampaigns([])
       }
     }
@@ -494,32 +507,38 @@ export default function EmailsPage() {
         throw new Error("Failed to create resend copy")
       }
 
-      // Now send the new campaign
+      console.log("[emails page] Resending campaign:", newCampaign.id)
+
+      // Send the new campaign
       const response = await fetch("/api/email/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ campaign_id: newCampaign.id }),
       })
 
-      const data = await response.json()
+      const responseData = await response.json()
+      console.log("[emails page] Resend response:", responseData)
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to send resend campaign")
+        throw new Error(responseData.error || "Failed to send resend campaign")
       }
 
-      // Clear campaigns first to force fresh fetch
+      // Clear state to trigger loading
       setCampaigns([])
       setOverviewStats(null)
 
-      // Wait for database to be fully updated, then refresh with explicit tab
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      await loadData("published") // Pass tab explicitly to avoid state race condition
+      // Small delay then fetch fresh data
+      await new Promise(resolve => setTimeout(resolve, 500))
+
+      console.log("[emails page] Refreshing after resend...")
+      await loadData("published")
 
       toast({
         title: "Email resent!",
-        description: `Successfully resent to ${data.sent} subscriber${data.sent !== 1 ? "s" : ""}. A new copy was created in your sent list.`,
+        description: `Successfully resent to ${responseData.sent} subscriber${responseData.sent !== 1 ? "s" : ""}. A new copy was created in your sent list.`,
       })
     } catch (error) {
+      console.error("[emails page] Resend error:", error)
       toast({
         title: "Failed to resend",
         description: error instanceof Error ? error.message : "An error occurred",
@@ -2078,6 +2097,8 @@ Tips:
           throw new Error("Failed to create campaign")
         }
 
+        console.log("[emails page] Sending campaign:", campaignId)
+
         const response = await fetch("/api/email/send", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -2085,28 +2106,32 @@ Tips:
         })
 
         const responseData = await response.json()
+        console.log("[emails page] Send response:", responseData)
 
         if (!response.ok) {
           throw new Error(responseData.error || "Failed to send campaign")
         }
 
-        // Clear campaigns first to force fresh fetch
-        setCampaigns([])
-        setOverviewStats(null)
-
+        // Navigate to Sent tab first
         setView("list")
         setActiveTab("published")
 
-        // Wait for database to be fully updated, then refresh with explicit tab
-        await new Promise(resolve => setTimeout(resolve, 1000))
-        await loadData("published") // Pass tab explicitly to avoid state race condition
+        // Clear state to trigger loading state
+        setCampaigns([])
+        setOverviewStats(null)
+
+        // Small delay to ensure database transaction is complete, then fetch fresh data
+        await new Promise(resolve => setTimeout(resolve, 500))
+
+        console.log("[emails page] Refreshing Sent tab data...")
+        await loadData("published")
 
         toast({
           title: "Email sent!",
-          description: `Successfully sent to ${responseData.sent} subscribers.`,
+          description: `Successfully sent to ${responseData.sent} subscriber${responseData.sent !== 1 ? "s" : ""}.`,
         })
       } catch (error) {
-        console.error("Send error:", error)
+        console.error("[emails page] Send error:", error)
         toast({
           title: "Failed to send",
           description: error instanceof Error ? error.message : "An error occurred",

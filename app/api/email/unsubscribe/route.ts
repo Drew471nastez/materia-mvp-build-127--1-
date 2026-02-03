@@ -1,16 +1,16 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
+export const runtime = "nodejs"
+export const dynamic = "force-dynamic"
+
 // GET - Handle unsubscribe link clicks (renders a confirmation page)
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const token = searchParams.get("token")
 
   if (!token) {
-    return new NextResponse(
-      generateHtmlPage("Invalid Link", "This unsubscribe link is invalid or has expired.", "error"),
-      { status: 400, headers: { "Content-Type": "text/html" } },
-    )
+    return renderPage("Invalid Link", "This unsubscribe link is invalid or has expired.", "error")
   }
 
   const adminSupabase = createAdminClient()
@@ -23,85 +23,69 @@ export async function GET(request: NextRequest) {
     .single()
 
   if (error || !subscriber) {
-    return new NextResponse(
-      generateHtmlPage("Invalid Link", "This unsubscribe link is invalid or has expired.", "error"),
-      { status: 404, headers: { "Content-Type": "text/html" } },
-    )
+    return renderPage("Invalid Link", "This unsubscribe link is invalid or has expired.", "error")
   }
 
+  // Check if already unsubscribed
   if (subscriber.status === "unsubscribed") {
-    return new NextResponse(
-      generateHtmlPage("Already Unsubscribed", "You have already been unsubscribed from this mailing list.", "info"),
-      { status: 200, headers: { "Content-Type": "text/html" } },
-    )
+    return renderPage("Already Unsubscribed", "You have already been unsubscribed from this mailing list.", "info")
   }
 
-  // Update subscriber status
+  // Unsubscribe the user
+  const now = new Date().toISOString()
   const { error: updateError } = await adminSupabase
     .from("subscribers")
     .update({
       status: "unsubscribed",
       is_active: false,
-      unsubscribed_at: new Date().toISOString(),
+      unsubscribed_at: now,
     })
     .eq("id", subscriber.id)
 
   if (updateError) {
-    console.error("Error unsubscribing:", updateError)
-    return new NextResponse(
-      generateHtmlPage("Error", "There was an error processing your request. Please try again later.", "error"),
-      { status: 500, headers: { "Content-Type": "text/html" } },
-    )
+    console.error("[unsubscribe] Update error:", updateError)
+    return renderPage("Error", "There was an error processing your request. Please try again later.", "error")
   }
 
-  // Log the unsubscribe event (if we have a recent campaign)
+  // Record the unsubscribe event
+  // Find the most recent campaign sent to this subscriber to associate the unsubscribe
   const { data: recentCampaign } = await adminSupabase
     .from("email_campaigns")
     .select("id")
     .eq("creator_id", subscriber.creator_id)
+    .eq("status", "sent")
     .order("sent_at", { ascending: false })
     .limit(1)
-    .single()
+    .maybeSingle()
 
-  if (recentCampaign) {
-    const { error: insertError } = await adminSupabase.from("email_events").insert({
-      campaign_id: recentCampaign.id,
-      creator_id: subscriber.creator_id,
-      recipient_email: subscriber.email,
-      event_type: "unsubscribed",
-      metadata: { method: "link_click", unsubscribed_at: new Date().toISOString() },
-    })
+  // Log the unsubscribe event
+  const { error: eventError } = await adminSupabase.from("email_events").insert({
+    campaign_id: recentCampaign?.id || null,
+    creator_id: subscriber.creator_id,
+    email: subscriber.email,
+    event_type: "unsubscribed",
+    metadata: {
+      method: "link_click",
+      unsubscribed_at: now,
+      subscriber_id: subscriber.id,
+    },
+  })
 
-    if (insertError) {
-      console.error("[unsubscribe] Insert error (trying without creator_id):", insertError.message)
-      // Try again without creator_id in case column doesn't exist
-      const { error: retryError } = await adminSupabase.from("email_events").insert({
-        campaign_id: recentCampaign.id,
-        recipient_email: subscriber.email,
-        event_type: "unsubscribed",
-        metadata: { method: "link_click", unsubscribed_at: new Date().toISOString() },
-      })
-      if (retryError) {
-        console.error("[unsubscribe] Retry insert error:", retryError.message)
-      } else {
-        console.log("[unsubscribe] Tracked unsubscribe (without creator_id) for:", subscriber.email)
-      }
-    } else {
-      console.log("[unsubscribe] Tracked unsubscribe event for:", subscriber.email)
-    }
+  if (eventError) {
+    console.error("[unsubscribe] Event insert error:", eventError)
+    // Continue anyway - unsubscribe was successful
   }
 
-  return new NextResponse(
-    generateHtmlPage(
-      "Unsubscribed Successfully",
-      `You (${maskEmail(subscriber.email)}) have been unsubscribed and will no longer receive emails from this sender.`,
-      "success",
-    ),
-    { status: 200, headers: { "Content-Type": "text/html" } },
+  console.log("[unsubscribe] Unsubscribed:", subscriber.email)
+
+  return renderPage(
+    "Unsubscribed Successfully",
+    `You (${maskEmail(subscriber.email)}) have been unsubscribed and will no longer receive emails from this sender.`,
+    "success"
   )
 }
 
-// POST - Handle unsubscribe via API (for resubscribing or programmatic access)
+// POST - Handle programmatic unsubscribe/resubscribe
 export async function POST(request: NextRequest) {
   try {
     const { token, action } = await request.json()
@@ -112,10 +96,10 @@ export async function POST(request: NextRequest) {
 
     const adminSupabase = createAdminClient()
 
-    // Find subscriber by unsubscribe token
+    // Find subscriber by token
     const { data: subscriber, error } = await adminSupabase
       .from("subscribers")
-      .select("id, email, status")
+      .select("id, email, status, creator_id")
       .eq("unsubscribe_token", token)
       .single()
 
@@ -123,8 +107,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid token" }, { status: 404 })
     }
 
+    const now = new Date().toISOString()
+
     if (action === "resubscribe") {
-      // Allow resubscribing
+      // Resubscribe
       const { error: updateError } = await adminSupabase
         .from("subscribers")
         .update({
@@ -141,13 +127,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, message: "Resubscribed successfully" })
     }
 
-    // Default action: unsubscribe
+    // Default: Unsubscribe
     const { error: updateError } = await adminSupabase
       .from("subscribers")
       .update({
         status: "unsubscribed",
         is_active: false,
-        unsubscribed_at: new Date().toISOString(),
+        unsubscribed_at: now,
       })
       .eq("id", subscriber.id)
 
@@ -155,27 +141,41 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Failed to unsubscribe" }, { status: 500 })
     }
 
+    // Record the event
+    await adminSupabase.from("email_events").insert({
+      creator_id: subscriber.creator_id,
+      email: subscriber.email,
+      event_type: "unsubscribed",
+      metadata: {
+        method: "api",
+        unsubscribed_at: now,
+      },
+    })
+
     return NextResponse.json({ success: true, message: "Unsubscribed successfully" })
+
   } catch (error) {
-    console.error("Unsubscribe error:", error)
+    console.error("[unsubscribe] POST error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
 
-// Helper to mask email for privacy
+// Mask email for privacy
 function maskEmail(email: string): string {
   const [local, domain] = email.split("@")
   if (!local || !domain) return email
-  const maskedLocal = local.length > 2 ? local[0] + "***" + local[local.length - 1] : "***"
-  return `${maskedLocal}@${domain}`
+  const masked = local.length > 2
+    ? local[0] + "***" + local[local.length - 1]
+    : "***"
+  return `${masked}@${domain}`
 }
 
-// Helper to generate HTML page
-function generateHtmlPage(title: string, message: string, type: "success" | "error" | "info"): string {
+// Render HTML page
+function renderPage(title: string, message: string, type: "success" | "error" | "info"): NextResponse {
   const colors = {
-    success: { bg: "#f0fdf4", icon: "#22c55e" },
-    error: { bg: "#fef2f2", icon: "#ef4444" },
-    info: { bg: "#eff6ff", icon: "#3b82f6" },
+    success: { bg: "#f0fdf4", icon: "#22c55e", border: "#86efac" },
+    error: { bg: "#fef2f2", icon: "#ef4444", border: "#fca5a5" },
+    info: { bg: "#eff6ff", icon: "#3b82f6", border: "#93c5fd" },
   }
 
   const icons = {
@@ -184,8 +184,7 @@ function generateHtmlPage(title: string, message: string, type: "success" | "err
     info: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />`,
   }
 
-  return `
-<!DOCTYPE html>
+  const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -263,6 +262,10 @@ function generateHtmlPage(title: string, message: string, type: "success" | "err
     </div>
   </div>
 </body>
-</html>
-`
+</html>`
+
+  return new NextResponse(html, {
+    status: type === "error" ? 400 : 200,
+    headers: { "Content-Type": "text/html" },
+  })
 }

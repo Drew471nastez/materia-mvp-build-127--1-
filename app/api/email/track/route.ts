@@ -4,45 +4,47 @@ import { createAdminClient } from "@/lib/supabase/admin"
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
-// Transparent 1x1 GIF for tracking pixel
-const TRACKING_PIXEL = Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64")
+// Transparent 1x1 GIF pixel
+const TRACKING_PIXEL = Buffer.from(
+  "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
+  "base64"
+)
 
-// GET - Handle tracking pixel (email opens)
+// GET - Handle tracking pixel requests (email opens)
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const campaignId = searchParams.get("cid") || searchParams.get("c")
   const email = searchParams.get("e")
 
-  // Always return the tracking pixel first for fast response
+  // Always return the tracking pixel immediately
   const response = new NextResponse(TRACKING_PIXEL, {
     status: 200,
     headers: {
       "Content-Type": "image/gif",
-      "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+      "Content-Length": String(TRACKING_PIXEL.length),
+      "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
       "Pragma": "no-cache",
       "Expires": "0",
     },
   })
 
-  // Track the open event asynchronously (don't block response)
+  // Track the open asynchronously (don't block the pixel response)
   if (campaignId && email) {
     trackOpen(campaignId, decodeURIComponent(email), request).catch(err => {
-      console.error("[track] Open tracking error:", err)
+      console.error("[track/open] Error:", err)
     })
   }
 
   return response
 }
 
-// Helper to track email opens
+// Track email open event
 async function trackOpen(campaignId: string, email: string, request: NextRequest) {
   try {
     const adminSupabase = createAdminClient()
-    const userAgent = request.headers.get("user-agent") || null
-    const ipAddress = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null
     const now = new Date().toISOString()
 
-    // Get campaign info
+    // Get campaign to find creator_id
     const { data: campaign } = await adminSupabase
       .from("email_campaigns")
       .select("creator_id")
@@ -50,68 +52,61 @@ async function trackOpen(campaignId: string, email: string, request: NextRequest
       .single()
 
     if (!campaign) {
-      console.error("[track] Campaign not found:", campaignId)
+      console.log("[track/open] Campaign not found:", campaignId)
       return
     }
 
-    // Check if already opened (prevent duplicate events)
+    // Check if we already recorded an open for this email+campaign (prevent duplicates)
     const { data: existingEvent } = await adminSupabase
       .from("email_events")
       .select("id")
       .eq("campaign_id", campaignId)
+      .eq("email", email)
       .eq("event_type", "opened")
-      .or(`email.eq.${email},recipient_email.eq.${email}`)
+      .limit(1)
       .maybeSingle()
 
-    // Insert event if not already tracked
-    if (!existingEvent) {
-      await adminSupabase.from("email_events").insert({
-        campaign_id: campaignId,
-        creator_id: campaign.creator_id,
-        email: email,
-        recipient_email: email,
-        event_type: "opened",
-        user_agent: userAgent,
-        ip_address: ipAddress,
-        metadata: { opened_at: now },
-        created_at: now,
-      })
-      console.log("[track] Recorded open event for:", email, "campaign:", campaignId)
+    if (existingEvent) {
+      // Already tracked this open
+      console.log("[track/open] Already recorded open for:", email, "campaign:", campaignId)
+      return
     }
 
-    // Update email_recipients table if it exists
-    try {
-      const { error: updateError } = await adminSupabase
-        .from("email_recipients")
-        .update({
-          opened_at: now,
-          open_count: adminSupabase.rpc ? 1 : 1, // Increment would be ideal but just set to 1 for simplicity
-        })
-        .eq("campaign_id", campaignId)
-        .eq("email", email)
-        .is("opened_at", null) // Only update if not already opened
+    // Extract tracking metadata
+    const userAgent = request.headers.get("user-agent") || null
+    const ipAddress = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+                      request.headers.get("x-real-ip") || null
 
-      if (updateError && !updateError.message.includes("does not exist")) {
-        console.log("[track] Updated recipient opened_at")
-      }
-    } catch {
-      // Table might not exist, ignore
+    // Insert the open event
+    const { error } = await adminSupabase.from("email_events").insert({
+      campaign_id: campaignId,
+      creator_id: campaign.creator_id,
+      email: email,
+      event_type: "opened",
+      user_agent: userAgent,
+      ip_address: ipAddress,
+      metadata: {
+        opened_at: now,
+      },
+    })
+
+    if (error) {
+      console.error("[track/open] Insert error:", error)
+      return
     }
 
-    // Also try email_sends table (old schema)
-    try {
-      await adminSupabase
-        .from("email_sends")
-        .update({ opened_at: now })
-        .eq("campaign_id", campaignId)
-        .eq("email", email)
-        .is("opened_at", null)
-    } catch {
-      // Table might not exist, ignore
-    }
+    console.log("[track/open] Recorded open for:", email, "campaign:", campaignId)
+
+    // Also update email_sends table for backwards compatibility
+    await adminSupabase
+      .from("email_sends")
+      .update({ opened_at: now })
+      .eq("campaign_id", campaignId)
+      .eq("email", email)
+      .is("opened_at", null)
 
   } catch (error) {
-    console.error("[track] Error tracking open:", error)
+    console.error("[track/open] Unexpected error:", error)
   }
 }
 
@@ -121,7 +116,7 @@ export async function OPTIONS() {
     status: 200,
     headers: {
       "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Methods": "GET, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type",
     },
   })
