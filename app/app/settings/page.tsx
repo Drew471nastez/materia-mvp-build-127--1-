@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
-import { SettingsForm } from "@/components/app/settings-form"
+import { SettingsFormNew } from "@/components/app/settings-form-new"
 
 export default async function SettingsPage() {
   const supabase = await createClient()
@@ -44,5 +44,5 @@ export default async function SettingsPage() {
     created_at: new Date().toISOString(),
   }
 
-  return <SettingsForm profile={safeProfile} creator={creator} />
+  return <SettingsFormNew profile={safeProfile} creator={creator} />
 }
