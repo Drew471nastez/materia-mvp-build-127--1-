@@ -8,15 +8,26 @@ export async function GET(request: Request) {
   const MAILGUN_DOMAIN = process.env.MAILGUN_DOMAIN || ""
   const MAILGUN_BASE_URL = process.env.MAILGUN_BASE_URL || "https://api.eu.mailgun.net"
   const EMAIL_FROM = process.env.EMAIL_FROM || ""
+  const EMAIL_REPLY_TO = process.env.EMAIL_REPLY_TO || ""
 
   // Check configuration
+  const configCheck = {
+    hasApiKey: !!MAILGUN_API_KEY,
+    hasDomain: !!MAILGUN_DOMAIN,
+    hasEmailFrom: !!EMAIL_FROM,
+    hasEmailReplyTo: !!EMAIL_REPLY_TO,
+    apiKeyLength: MAILGUN_API_KEY.length,
+    apiKeyPrefix: MAILGUN_API_KEY.substring(0, 8) + "...",
+    domain: MAILGUN_DOMAIN,
+    baseUrl: MAILGUN_BASE_URL,
+    emailFrom: EMAIL_FROM,
+    emailReplyTo: EMAIL_REPLY_TO,
+  }
+
   if (!MAILGUN_API_KEY || !MAILGUN_DOMAIN) {
     return NextResponse.json({
       error: "Mailgun not configured",
-      hasApiKey: !!MAILGUN_API_KEY,
-      hasDomain: !!MAILGUN_DOMAIN,
-      apiKeyLength: MAILGUN_API_KEY.length,
-      domain: MAILGUN_DOMAIN,
+      config: configCheck,
     })
   }
 
@@ -25,14 +36,15 @@ export async function GET(request: Request) {
   const emailOnly = emailMatch ? emailMatch[1] : EMAIL_FROM
   const fromAddress = `Storelib <${emailOnly}>`
 
-  // Test recipient - use a test email
-  const testEmail = "test@example.com"
+  // Get test email from query param or use the EMAIL_REPLY_TO
+  const url = new URL(request.url)
+  const testEmail = url.searchParams.get("to") || EMAIL_REPLY_TO || "test@example.com"
 
-  const url = `${MAILGUN_BASE_URL}/v3/${MAILGUN_DOMAIN}/messages`
+  const apiUrl = `${MAILGUN_BASE_URL}/v3/${MAILGUN_DOMAIN}/messages`
   const authString = Buffer.from(`api:${MAILGUN_API_KEY}`).toString("base64")
 
   console.log("[test-email] Testing Mailgun with:", {
-    url,
+    apiUrl,
     from: fromAddress,
     to: testEmail,
     domain: MAILGUN_DOMAIN,
@@ -46,9 +58,10 @@ export async function GET(request: Request) {
     formData.append("from", fromAddress)
     formData.append("to", testEmail)
     formData.append("subject", "Test Email from Storelib")
-    formData.append("text", "This is a test email to verify Mailgun configuration.")
+    formData.append("html", "<h1>Test Email</h1><p>This is a test email to verify Mailgun configuration.</p>")
+    formData.append("text", "Test Email - This is a test email to verify Mailgun configuration.")
 
-    const response = await fetch(url, {
+    const response = await fetch(apiUrl, {
       method: "POST",
       headers: {
         Authorization: `Basic ${authString}`,
@@ -69,15 +82,13 @@ export async function GET(request: Request) {
       success: response.ok,
       status: response.status,
       statusText: response.statusText,
-      response: responseData,
-      config: {
-        url,
+      mailgunResponse: responseData,
+      config: configCheck,
+      requestDetails: {
+        apiUrl,
         from: fromAddress,
         to: testEmail,
-        domain: MAILGUN_DOMAIN,
-        baseUrl: MAILGUN_BASE_URL,
-        emailFrom: EMAIL_FROM,
-        apiKeyPrefix: MAILGUN_API_KEY.substring(0, 10) + "...",
+        extractedEmail: emailOnly,
       },
     })
   } catch (error: any) {
@@ -85,11 +96,10 @@ export async function GET(request: Request) {
       success: false,
       error: error.message || "Unknown error",
       stack: error.stack,
-      config: {
-        url,
+      config: configCheck,
+      requestDetails: {
+        apiUrl,
         from: fromAddress,
-        domain: MAILGUN_DOMAIN,
-        baseUrl: MAILGUN_BASE_URL,
       },
     })
   }
