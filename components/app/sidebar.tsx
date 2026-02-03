@@ -266,23 +266,29 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         )}
       >
         <div
-          className="relative h-10 w-10 shrink-0 rounded-full bg-neutral-200 overflow-hidden"
-          style={{ transform: 'translateZ(0)', willChange: 'transform' }}
+          className="relative h-10 w-10 shrink-0 rounded-full overflow-hidden"
+          style={{
+            transform: 'translateZ(0)',
+            willChange: 'contents',
+            contain: 'layout paint',
+            isolation: 'isolate',
+          }}
         >
-          <Avatar className="h-full w-full">
-            {avatarUrl ? (
-              <AvatarImage
-                src={avatarUrl}
-                alt={userDisplayName}
-                className="object-cover w-full h-full"
-                loading="eager"
-                style={{ backfaceVisibility: 'hidden' }}
-              />
-            ) : null}
-            <AvatarFallback className="bg-neutral-200 text-neutral-600 text-sm font-medium">
-              {userInitials}
-            </AvatarFallback>
-          </Avatar>
+          {/* Always render fallback behind */}
+          <div className="absolute inset-0 bg-neutral-200 flex items-center justify-center text-neutral-600 text-sm font-medium">
+            {userInitials}
+          </div>
+          {/* Image on top when available */}
+          {avatarUrl && (
+            <img
+              src={avatarUrl}
+              alt={userDisplayName}
+              className="absolute inset-0 w-full h-full object-cover"
+              loading="eager"
+              decoding="async"
+              style={{ backfaceVisibility: 'hidden' }}
+            />
+          )}
         </div>
         <span className="flex-1 text-[14px] font-medium text-neutral-900 truncate">{userDisplayName}</span>
         <ChevronDown
@@ -603,19 +609,31 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                 mobileProfileDropdownOpen ? "bg-white/15" : "hover:bg-white/10"
               )}
             >
-              <Avatar className="h-6 w-6 shrink-0 ring-1 ring-white/20 bg-neutral-700">
-                {avatarUrl ? (
-                  <AvatarImage
+              <div
+                className="relative h-6 w-6 shrink-0 rounded-full ring-1 ring-white/20 overflow-hidden"
+                style={{
+                  transform: 'translateZ(0)',
+                  willChange: 'contents',
+                  contain: 'layout paint',
+                  isolation: 'isolate',
+                }}
+              >
+                {/* Always render fallback behind */}
+                <div className="absolute inset-0 bg-neutral-700 flex items-center justify-center text-white text-[10px] font-medium">
+                  {userInitials}
+                </div>
+                {/* Image on top when available */}
+                {avatarUrl && (
+                  <img
                     src={avatarUrl}
                     alt={userDisplayName}
-                    className="object-cover"
+                    className="absolute inset-0 w-full h-full object-cover"
                     loading="eager"
+                    decoding="async"
+                    style={{ backfaceVisibility: 'hidden' }}
                   />
-                ) : null}
-                <AvatarFallback className="bg-neutral-700 text-white text-[10px] font-medium">
-                  {userInitials}
-                </AvatarFallback>
-              </Avatar>
+                )}
+              </div>
               <span className="text-[13px] font-medium text-white/90 max-w-[120px] truncate">
                 {userDisplayName}
               </span>

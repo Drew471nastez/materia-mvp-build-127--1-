@@ -670,8 +670,8 @@ function EditorLayout() {
         <div
           className="hidden md:block border-l bg-gradient-to-br from-gray-100 via-gray-50 to-gray-100 overflow-auto"
           style={{
-            width: '407px',
-            minWidth: '407px',
+            width: '410px',
+            minWidth: '410px',
             flexShrink: 0,
           }}
         >
@@ -679,7 +679,7 @@ function EditorLayout() {
             className="flex items-center justify-center"
             style={{
               minHeight: '100%',
-              padding: '20px 28px',
+              padding: '20px 53px',
             }}
           >
             <PhonePreview />

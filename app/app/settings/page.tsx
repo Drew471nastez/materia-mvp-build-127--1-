@@ -17,6 +17,16 @@ export default async function SettingsPage() {
 
   if (!creator) redirect("/onboarding")
 
+  // Fetch OnePage data for avatar fallback
+  const { data: onepage } = await supabase
+    .from("onepages")
+    .select("avatar_url")
+    .eq("creator_id", creator.id)
+    .maybeSingle()
+
+  // Get Google avatar from user metadata (if authenticated with Google)
+  const googleAvatarUrl = user.user_metadata?.avatar_url || user.user_metadata?.picture || null
+
   let finalProfile = profile
   if (!finalProfile) {
     const { data: newProfile } = await supabase
@@ -44,5 +54,12 @@ export default async function SettingsPage() {
     created_at: new Date().toISOString(),
   }
 
-  return <SettingsFormNew profile={safeProfile} creator={creator} />
+  return (
+    <SettingsFormNew
+      profile={safeProfile}
+      creator={creator}
+      onepageAvatarUrl={onepage?.avatar_url || null}
+      googleAvatarUrl={googleAvatarUrl}
+    />
+  )
 }

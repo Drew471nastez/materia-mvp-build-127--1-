@@ -125,6 +125,8 @@ interface SettingsFormProps {
     support_email?: string | null
     slug?: string
   }
+  onepageAvatarUrl?: string | null
+  googleAvatarUrl?: string | null
 }
 
 // Mobile Bottom Sheet Component
@@ -149,7 +151,10 @@ function MobileBottomSheet({
   useEffect(() => {
     if (isOpen && !isVisible) {
       setIsVisible(true)
+      // Prevent layout shift by compensating for scrollbar
+      const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth
       document.body.style.overflow = "hidden"
+      document.body.style.paddingRight = `${scrollbarWidth}px`
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           setIsAnimating(true)
@@ -157,8 +162,9 @@ function MobileBottomSheet({
       })
     } else if (!isOpen && isVisible) {
       setIsAnimating(false)
-      document.body.style.overflow = ""
       const timer = setTimeout(() => {
+        document.body.style.overflow = ""
+        document.body.style.paddingRight = ""
         setIsVisible(false)
         setDragY(0)
       }, 400)
@@ -166,6 +172,7 @@ function MobileBottomSheet({
     }
     return () => {
       document.body.style.overflow = ""
+      document.body.style.paddingRight = ""
     }
   }, [isOpen, isVisible])
 
@@ -654,7 +661,7 @@ function ImageUploadModal({
   )
 }
 
-export function SettingsFormNew({ profile, creator }: SettingsFormProps) {
+export function SettingsFormNew({ profile, creator, onepageAvatarUrl, googleAvatarUrl }: SettingsFormProps) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<TabId>("general")
   const [isLoading, setIsLoading] = useState(false)
@@ -662,11 +669,20 @@ export function SettingsFormNew({ profile, creator }: SettingsFormProps) {
   const [error, setError] = useState<string | null>(null)
   const [usernameError, setUsernameError] = useState<string | null>(null)
 
+  // Avatar fallback order: Profile (manually set) → Store Builder → OnePage → Google → Initials
+  const getDefaultAvatarUrl = () => {
+    if (profile.avatar_url) return profile.avatar_url
+    if (creator.avatar_url) return creator.avatar_url
+    if (onepageAvatarUrl) return onepageAvatarUrl
+    if (googleAvatarUrl) return googleAvatarUrl
+    return ""
+  }
+
   // Profile fields
   const [firstName, setFirstName] = useState(profile.first_name || profile.display_name?.split(" ")[0] || "")
   const [lastName, setLastName] = useState(profile.last_name || profile.display_name?.split(" ").slice(1).join(" ") || "")
   const [username, setUsername] = useState(profile.username || creator.slug || "")
-  const [avatarUrl, setAvatarUrl] = useState(profile.avatar_url || "")
+  const [avatarUrl, setAvatarUrl] = useState(getDefaultAvatarUrl())
   const avatarInputRef = useRef<HTMLInputElement>(null)
 
   // Avatar upload/crop states
@@ -984,7 +1000,7 @@ export function SettingsFormNew({ profile, creator }: SettingsFormProps) {
   }
 
   return (
-    <div className="h-full overflow-y-auto page-scroll bg-[#fafafa]">
+    <div className="h-full overflow-y-scroll page-scroll bg-[#fafafa]" style={{ scrollbarGutter: 'stable' }}>
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Header with Store URL */}
         <div className="mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
