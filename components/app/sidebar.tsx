@@ -265,7 +265,10 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           profileDropdownOpen ? "bg-neutral-100/80" : "hover:bg-neutral-100/70 active:bg-neutral-200/60",
         )}
       >
-        <div className="relative h-10 w-10 shrink-0 rounded-full bg-neutral-200 overflow-hidden">
+        <div
+          className="relative h-10 w-10 shrink-0 rounded-full bg-neutral-200 overflow-hidden"
+          style={{ transform: 'translateZ(0)', willChange: 'transform' }}
+        >
           <Avatar className="h-full w-full">
             {avatarUrl ? (
               <AvatarImage
@@ -273,6 +276,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                 alt={userDisplayName}
                 className="object-cover w-full h-full"
                 loading="eager"
+                style={{ backfaceVisibility: 'hidden' }}
               />
             ) : null}
             <AvatarFallback className="bg-neutral-200 text-neutral-600 text-sm font-medium">
@@ -292,12 +296,12 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
       <div
         className={cn(
           "absolute left-0 right-0 top-full mt-1.5 z-50 origin-top",
-          "transition-[opacity,transform] duration-250 ease-out",
+          "transition-all ease-out",
           profileDropdownOpen
             ? "opacity-100 scale-100 translate-y-0 pointer-events-auto"
             : "opacity-0 scale-[0.97] -translate-y-1 pointer-events-none"
         )}
-        style={{ transitionDuration: '250ms' }}
+        style={{ transitionDuration: '200ms', transitionTimingFunction: 'cubic-bezier(0.32, 0.72, 0, 1)' }}
       >
         <div className="rounded-xl border border-neutral-200/70 bg-white p-1 shadow-lg shadow-black/5">
           {profileDropdownItems.map((item) => {
@@ -381,7 +385,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         </Link>
       </div>
 
-      <div className="border-t border-neutral-200/50 px-4 py-3.5">
+      <div className="border-t border-neutral-200/50 px-4 py-[15px]">
         <div className="flex items-center justify-between">
           <Link
             href="/"
@@ -482,7 +486,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         </Link>
       </div>
 
-      <div className="border-t border-neutral-200/50 px-4 py-3.5">
+      <div className="border-t border-neutral-200/50 px-4 py-[15px]">
         <div className="flex items-center justify-between">
           <Link
             href="/"

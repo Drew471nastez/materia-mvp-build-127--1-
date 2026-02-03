@@ -508,7 +508,7 @@ function EditorLayout() {
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8"
+              className="h-8 w-8 cursor-pointer hover:bg-gray-100 transition-colors"
               onClick={undo}
               disabled={!canUndo}
               title="Undo"
@@ -518,7 +518,7 @@ function EditorLayout() {
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8"
+              className="h-8 w-8 cursor-pointer hover:bg-gray-100 transition-colors"
               onClick={redo}
               disabled={!canRedo}
               title="Redo"
@@ -527,8 +527,8 @@ function EditorLayout() {
             </Button>
           </div>
 
-          {/* Tab Navigation - Desktop */}
-          <div className="hidden md:flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+          {/* Tab Navigation - Desktop - Pill shaped tabs */}
+          <div className="hidden md:flex items-center gap-1 bg-gray-100 rounded-full p-1">
             {tabs.map((tab) => {
               const Icon = tab.icon
               return (
@@ -537,10 +537,10 @@ function EditorLayout() {
                   data-tab={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
-                    "flex items-center gap-2 px-4 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap",
+                    "flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium transition-all whitespace-nowrap cursor-pointer",
                     activeTab === tab.id
                       ? "bg-white text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-white/50"
                   )}
                 >
                   <Icon className="h-4 w-4" />
@@ -555,7 +555,7 @@ function EditorLayout() {
             onClick={() => setActiveTab("settings")}
             title="Settings"
             className={cn(
-              "hidden md:flex w-10 h-10 rounded-xl items-center justify-center border transition-all duration-200",
+              "hidden md:flex w-10 h-10 rounded-xl items-center justify-center border transition-all duration-200 cursor-pointer",
               activeTab === "settings"
                 ? "bg-gray-900 border-gray-900 text-white"
                 : "bg-white border-gray-200 text-gray-600 hover:bg-gray-900 hover:border-gray-900 hover:text-white shadow-sm hover:shadow-md"
@@ -595,7 +595,7 @@ function EditorLayout() {
               saveState === "saved" && !isDirty
                 ? "bg-purple-400 hover:bg-purple-400 text-white opacity-60 cursor-default pointer-events-none"
                 : isDirty
-                  ? "bg-violet-500 hover:bg-violet-600 text-white"
+                  ? "bg-violet-500 hover:bg-violet-600 text-white cursor-pointer"
                   : "bg-gray-200 text-gray-500 cursor-not-allowed"
             )}
           >
@@ -606,7 +606,7 @@ function EditorLayout() {
           <div className="hidden md:block">
             <button
               onClick={() => setShowLinkModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg shadow-sm border text-sm font-medium hover:shadow-md transition-all"
+              className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg shadow-sm border text-sm font-medium hover:shadow-md hover:bg-gray-50 transition-all cursor-pointer"
             >
               <span className="text-muted-foreground truncate max-w-[160px]">
                 {pageUrl.replace('https://', '').replace('http://', '')}
@@ -670,8 +670,8 @@ function EditorLayout() {
         <div
           className="hidden md:block border-l bg-gradient-to-br from-gray-100 via-gray-50 to-gray-100 overflow-auto"
           style={{
-            width: '404px',
-            minWidth: '404px',
+            width: '407px',
+            minWidth: '407px',
             flexShrink: 0,
           }}
         >

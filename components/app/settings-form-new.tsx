@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
   X, Check, Loader2, AlertCircle, Mail, Lock,
-  CreditCard, Store, Shield, Settings,
+  CreditCard, Store, Shield, Settings, Wallet,
   Camera, ExternalLink, ChevronRight, Globe,
   User, Palette, Link2, FileText, Search, ChevronLeft, Upload, Copy, Pencil
 } from "lucide-react"
@@ -98,6 +98,7 @@ const TABS = [
   { id: "general", label: "General", icon: Settings },
   { id: "security", label: "Security", icon: Shield },
   { id: "billing", label: "Billing", icon: CreditCard },
+  { id: "payments", label: "Payments", icon: Wallet },
   { id: "stores", label: "Stores", icon: Store },
 ] as const
 
@@ -1025,10 +1026,10 @@ export function SettingsFormNew({ profile, creator }: SettingsFormProps) {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full text-[13px] sm:text-[14px] font-medium transition-all whitespace-nowrap ${
+                  className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full text-[13px] sm:text-[14px] font-medium transition-all whitespace-nowrap cursor-pointer ${
                     activeTab === tab.id
-                      ? "bg-[#f3f4f6] text-[#8b5cf6] border border-[#e5e7eb]"
-                      : "text-[#6b7280] hover:text-[#374151] hover:bg-[#f9fafb]"
+                      ? "bg-[#f3f4f6] text-[#1a1a2e] border border-[#e5e7eb]"
+                      : "text-[#6b7280] hover:text-[#374151] hover:bg-[#f3f4f6]"
                   }`}
                 >
                   <Icon className="h-4 w-4" />
@@ -1392,6 +1393,139 @@ export function SettingsFormNew({ profile, creator }: SettingsFormProps) {
                 <div className="bg-[#f9fafb] rounded-xl p-4 text-center">
                   <FileText className="h-8 w-8 text-[#9ca3af] mx-auto mb-2" />
                   <p className="text-[13px] text-[#6b7280]">No billing history available.</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Payments Tab */}
+          {activeTab === "payments" && (
+            <div className="space-y-4 sm:space-y-6">
+              {/* Payment Methods Card */}
+              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
+                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-2 flex items-center gap-2">
+                  <Wallet className="h-4 w-4 text-[#8b5cf6]" />
+                  Payment Methods
+                </h3>
+                <p className="text-[13px] text-[#6b7280] mb-6">Connect your payment accounts to receive payouts from sales.</p>
+
+                {/* Stripe Connection */}
+                <div className="p-4 border border-[#e5e7eb] rounded-xl mb-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-[#635bff] rounded-lg flex items-center justify-center">
+                        <svg className="h-5 w-5 text-white" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.92 3.445 1.574 3.445 2.583 0 .98-.84 1.545-2.354 1.545-1.875 0-4.965-.921-6.99-2.109l-.9 5.555C5.175 22.99 8.385 24 11.714 24c2.641 0 4.843-.624 6.328-1.813 1.664-1.305 2.525-3.236 2.525-5.732 0-4.128-2.524-5.851-6.591-7.305z"/>
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="font-medium text-[#1a1a2e] text-[14px]">Stripe</p>
+                        <p className="text-[12px] text-[#6b7280]">Accept credit cards & more</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="px-4 h-9 text-[13px] font-medium bg-[#635bff] hover:bg-[#5851db] text-white rounded-lg transition-colors"
+                    >
+                      Connect
+                    </button>
+                  </div>
+                </div>
+
+                {/* PayPal Connection */}
+                <div className="p-4 border border-[#e5e7eb] rounded-xl">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-[#003087] rounded-lg flex items-center justify-center">
+                        <svg className="h-5 w-5 text-white" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944.901C5.026.382 5.474 0 5.998 0h7.46c2.57 0 4.578.543 5.69 1.81 1.01 1.15 1.304 2.42 1.012 4.287-.023.143-.047.288-.077.437-.983 5.05-4.349 6.797-8.647 6.797H9.108a.658.658 0 0 0-.65.55l-.866 5.497a.652.652 0 0 1-.643.55H7.076v.409h-.001z"/>
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="font-medium text-[#1a1a2e] text-[14px]">PayPal</p>
+                        <p className="text-[12px] text-[#6b7280]">PayPal payments & payouts</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="px-4 h-9 text-[13px] font-medium bg-[#003087] hover:bg-[#002670] text-white rounded-lg transition-colors"
+                    >
+                      Connect
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Marketing Consent Card */}
+              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
+                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-2">Marketing Preferences</h3>
+                <p className="text-[13px] text-[#6b7280] mb-4">Manage how we communicate with you.</p>
+
+                <div className="space-y-3">
+                  <label className="flex items-start gap-3 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      className="mt-1 h-4 w-4 rounded border-[#d1d5db] text-[#8b5cf6] focus:ring-[#8b5cf6] cursor-pointer"
+                      defaultChecked
+                    />
+                    <div>
+                      <p className="text-[14px] font-medium text-[#1a1a2e]">Product updates</p>
+                      <p className="text-[12px] text-[#6b7280]">Receive emails about new features and improvements</p>
+                    </div>
+                  </label>
+                  <label className="flex items-start gap-3 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      className="mt-1 h-4 w-4 rounded border-[#d1d5db] text-[#8b5cf6] focus:ring-[#8b5cf6] cursor-pointer"
+                      defaultChecked
+                    />
+                    <div>
+                      <p className="text-[14px] font-medium text-[#1a1a2e]">Marketing emails</p>
+                      <p className="text-[12px] text-[#6b7280]">Tips, promotions, and offers from Storelib</p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {/* Legal & Terms Card */}
+              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
+                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-2">Legal & Terms</h3>
+                <p className="text-[13px] text-[#6b7280] mb-4">Review our policies and agreements.</p>
+
+                <div className="space-y-2">
+                  <a
+                    href="/terms"
+                    target="_blank"
+                    className="flex items-center justify-between p-3 rounded-xl hover:bg-[#f9fafb] transition-colors group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <FileText className="h-4 w-4 text-[#6b7280]" />
+                      <span className="text-[14px] text-[#374151]">Terms of Service</span>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-[#9ca3af] group-hover:text-[#6b7280] transition-colors" />
+                  </a>
+                  <a
+                    href="/privacy"
+                    target="_blank"
+                    className="flex items-center justify-between p-3 rounded-xl hover:bg-[#f9fafb] transition-colors group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Shield className="h-4 w-4 text-[#6b7280]" />
+                      <span className="text-[14px] text-[#374151]">Privacy Policy</span>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-[#9ca3af] group-hover:text-[#6b7280] transition-colors" />
+                  </a>
+                  <a
+                    href="/seller-agreement"
+                    target="_blank"
+                    className="flex items-center justify-between p-3 rounded-xl hover:bg-[#f9fafb] transition-colors group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <FileText className="h-4 w-4 text-[#6b7280]" />
+                      <span className="text-[14px] text-[#374151]">Seller Agreement</span>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-[#9ca3af] group-hover:text-[#6b7280] transition-colors" />
+                  </a>
                 </div>
               </div>
             </div>
