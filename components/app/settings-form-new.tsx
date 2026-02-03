@@ -667,6 +667,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   const [activeTab, setActiveTab] = useState<TabId>("general")
   const [isLoading, setIsLoading] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [showSaveToast, setShowSaveToast] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [usernameError, setUsernameError] = useState<string | null>(null)
 
@@ -899,6 +900,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
       if (creatorError) throw creatorError
 
       setSuccess(true)
+      setShowSaveToast(true)
       // Update initial values to reflect saved state
       initialValues.current = {
         firstName,
@@ -912,7 +914,11 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
         country,
       }
       router.refresh()
-      setTimeout(() => setSuccess(false), 3000)
+      // Hide toast and success state after 5 seconds
+      setTimeout(() => {
+        setSuccess(false)
+        setShowSaveToast(false)
+      }, 5000)
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred")
     } finally {
@@ -1057,8 +1063,23 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   }
 
   return (
-    <div className="h-full overflow-y-scroll page-scroll bg-[#fafafa]" style={{ scrollbarGutter: 'stable' }}>
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+    <>
+      {/* Save Toast Notification */}
+      <div
+        className={`fixed top-4 left-1/2 -translate-x-1/2 z-[100] transition-all duration-300 ease-out ${
+          showSaveToast
+            ? "opacity-100 translate-y-0"
+            : "opacity-0 -translate-y-2 pointer-events-none"
+        }`}
+      >
+        <div className="bg-[#1a1a2e] text-white px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-2">
+          <Check className="h-4 w-4 text-emerald-400" />
+          <span className="text-[13px] font-medium">Settings changes saved</span>
+        </div>
+      </div>
+
+      <div className="h-full overflow-y-scroll page-scroll bg-[#fafafa]" style={{ scrollbarGutter: 'stable' }}>
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-20">
         {/* Header with Store URL */}
         <div className="mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div>
@@ -1121,9 +1142,8 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               {/* Profile Image Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
                 <div className="flex items-center gap-4">
-                  <button
-                    type="button"
-                    onClick={() => setShowAvatarUploadModal(true)}
+                  <a
+                    href="/app/store-builder"
                     className="relative group cursor-pointer"
                   >
                     {avatarUrl ? (
@@ -1143,29 +1163,17 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                     <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
                       <Pencil className="h-5 w-5 text-white" />
                     </div>
-                  </button>
+                  </a>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-[#1a1a2e] text-[15px]">Profile Photo</p>
                     <p className="text-[13px] text-[#6b7280] mb-2">JPG, PNG or GIF. Max 2MB.</p>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setShowAvatarUploadModal(true)}
-                        className="px-3 py-1.5 text-[13px] font-medium bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#374151] rounded-lg transition-colors flex items-center gap-1.5"
-                      >
-                        <Camera className="h-3.5 w-3.5" />
-                        Upload
-                      </button>
-                      {avatarUrl && (
-                        <button
-                          type="button"
-                          onClick={handleRemoveAvatar}
-                          className="px-3 py-1.5 text-[13px] font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
-                        >
-                          Remove
-                        </button>
-                      )}
-                    </div>
+                    <a
+                      href="/app/store-builder"
+                      className="inline-flex px-3 py-1.5 text-[13px] font-medium bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#374151] rounded-lg transition-colors items-center gap-1.5"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                      Change
+                    </a>
                   </div>
                 </div>
               </div>
@@ -1895,5 +1903,6 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
         )}
       </MobileBottomSheet>
     </div>
+    </>
   )
 }

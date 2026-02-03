@@ -184,7 +184,7 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
           <Button
             size="sm"
             className={cn(
-              "bg-purple-600 text-white hover:bg-purple-700",
+              "bg-purple-600 text-white hover:bg-purple-700 cursor-pointer",
               isMobile ? "h-9 w-9 p-0" : "h-9"
             )}
             onClick={handleSave}
@@ -224,7 +224,7 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
           <Button
             size="sm"
             className={cn(
-              "bg-purple-600 text-white hover:bg-purple-700",
+              "bg-purple-600 text-white hover:bg-purple-700 cursor-pointer",
               isMobile ? "h-9 px-3" : "h-9"
             )}
             onClick={handlePublish}
@@ -278,7 +278,7 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
   }
 
   return (
-    <div className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-background px-3 md:px-4 gap-2">
+    <div className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-background px-3 md:px-4 gap-2 relative z-50">
       {/* Left side */}
       <div className="flex items-center gap-1.5 md:gap-2 min-w-0">
         {isMobile && onToggleSidebar && (
@@ -290,14 +290,15 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
         {/* Hamburger Menu / Back */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="icon" className="h-9 w-9 bg-transparent shrink-0">
+            <Button variant="outline" size="icon" className="h-9 w-9 bg-transparent shrink-0 cursor-pointer">
               <Menu className="h-5 w-5" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-56">
+          <DropdownMenuContent align="start" className="w-56 z-[100]">
             <DropdownMenuItem
               onClick={() => handleNavigationAttempt("/app")}
               disabled={isNavigating}
+              className="cursor-pointer"
             >
               {isNavigating ? (
                 <>
@@ -309,7 +310,7 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
               )}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleViewLiveStore}>
+            <DropdownMenuItem onClick={handleViewLiveStore} className="cursor-pointer">
               <ExternalLink className="mr-2 h-4 w-4" />
               View Live Store
             </DropdownMenuItem>
@@ -337,7 +338,7 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
         <Button
           variant="outline"
           size="sm"
-          className="h-9 gap-1.5 bg-transparent shrink-0"
+          className="h-9 gap-1.5 bg-transparent shrink-0 cursor-pointer"
           onClick={openAddSectionModal}
         >
           <Plus className="h-4 w-4" />
@@ -379,7 +380,7 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
         <Button
           variant="outline"
           size="sm"
-          className="h-9 gap-1.5 bg-transparent hidden sm:flex"
+          className="h-9 gap-1.5 bg-transparent hidden sm:flex cursor-pointer"
           onClick={handleViewLiveStore}
           title={currentPageType === "product" ? "View live product page" : "View live store"}
         >
@@ -390,17 +391,17 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
         {/* Device Switcher - hide on mobile */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="h-9 gap-1.5 bg-transparent hidden sm:flex">
+            <Button variant="outline" size="sm" className="h-9 gap-1.5 bg-transparent hidden sm:flex cursor-pointer">
               {previewDevice === "desktop" ? <Monitor className="h-4 w-4" /> : <Smartphone className="h-4 w-4" />}
               <ChevronDown className="h-3 w-3" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => setPreviewDevice("desktop")}>
+          <DropdownMenuContent align="end" className="z-[100]">
+            <DropdownMenuItem onClick={() => setPreviewDevice("desktop")} className="cursor-pointer">
               <Monitor className="mr-2 h-4 w-4" />
               Desktop
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setPreviewDevice("mobile")}>
+            <DropdownMenuItem onClick={() => setPreviewDevice("mobile")} className="cursor-pointer">
               <Smartphone className="mr-2 h-4 w-4" />
               Mobile
             </DropdownMenuItem>
@@ -408,7 +409,7 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
         </DropdownMenu>
 
         {/* Preview Button - icon only on mobile */}
-        <Button size="sm" className="h-9 bg-gray-900 text-white hover:bg-gray-800" onClick={onPreview}>
+        <Button size="sm" className="h-9 bg-gray-900 text-white hover:bg-gray-800 cursor-pointer" onClick={onPreview}>
           <span className="hidden sm:inline">Preview</span>
           <Monitor className="h-4 w-4 sm:hidden" />
         </Button>
@@ -425,9 +426,9 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
         isSaving={isSavingFromDialog}
       />
 
-      {/* Navigation Loading Overlay */}
+      {/* Navigation Loading Overlay - z-index higher than sticky add-to-cart */}
       {isNavigating && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-white/80 backdrop-blur-sm animate-in fade-in duration-150">
+        <div className="fixed inset-0 z-[10001] flex items-center justify-center bg-white/80 backdrop-blur-sm animate-in fade-in duration-150">
           <div className="flex flex-col items-center gap-3">
             <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
             <p className="text-sm text-gray-600 font-medium">Returning to dashboard...</p>
