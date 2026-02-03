@@ -12,13 +12,15 @@ const PLATFORM_FAVICON_URL = "https://skgtqglupjcnfhfscink.supabase.co/storage/v
 
 /**
  * DynamicFavicon - Dynamically sets the page favicon
- * - On seller pages: Uses the seller's profile avatar with border-radius 7px
- * - On platform pages: Uses platform favicon with border-radius 7px
- * - Seller favicons are NOT overridden by platform favicon
+ * Priority: Custom favicon → Header avatar → Platform favicon
+ * - If faviconUrl is set, use that (custom favicon)
+ * - Otherwise use avatarUrl (header section avatar)
+ * - Fallback to platform favicon if neither is available
  */
 export function DynamicFavicon({ avatarUrl, faviconUrl }: DynamicFaviconProps) {
   useEffect(() => {
-    const iconUrl = avatarUrl || faviconUrl
+    // Priority: custom favicon → header avatar → platform favicon
+    const iconUrl = faviconUrl || avatarUrl
 
     // Function to create rounded favicon from image URL
     const createRoundedFavicon = (imageUrl: string): Promise<string> => {

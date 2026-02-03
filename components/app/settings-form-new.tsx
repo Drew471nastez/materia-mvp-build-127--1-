@@ -1376,35 +1376,6 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 </div>
               </div>
 
-              {/* Save Button */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2">
-                <Button
-                  type="submit"
-                  disabled={isLoading}
-                  className="h-11 px-6 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white rounded-xl text-[14px] font-medium shadow-sm cursor-pointer"
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    "Save changes"
-                  )}
-                </Button>
-                {success && (
-                  <span className="text-emerald-600 text-[13px] flex items-center justify-center gap-1.5">
-                    <Check className="h-4 w-4" />
-                    Changes saved successfully
-                  </span>
-                )}
-                {error && (
-                  <span className="text-red-600 text-[13px] flex items-center justify-center gap-1.5">
-                    <AlertCircle className="h-4 w-4" />
-                    {error}
-                  </span>
-                )}
-              </div>
             </div>
           )}
 
@@ -1721,29 +1692,6 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 </a>
               </div>
 
-              {/* Save Button for Stores Tab */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2">
-                <Button
-                  type="submit"
-                  disabled={isLoading || !!usernameError}
-                  className="h-11 px-6 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white rounded-xl text-[14px] font-medium shadow-sm"
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    "Save changes"
-                  )}
-                </Button>
-                {success && (
-                  <span className="text-emerald-600 text-[13px] flex items-center justify-center gap-1.5">
-                    <Check className="h-4 w-4" />
-                    Changes saved successfully
-                  </span>
-                )}
-              </div>
             </div>
           )}
         </form>
@@ -1798,16 +1746,23 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 }
               }}
               disabled={isLoading || !hasUnsavedChanges}
-              className={`px-4 h-8 text-[12px] font-medium rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer ${
+              className={`px-4 h-8 text-[12px] font-medium rounded-lg transition-colors flex items-center gap-1.5 ${
                 hasUnsavedChanges
-                  ? "bg-[#8b5cf6] hover:bg-[#7c3aed] text-white"
-                  : "bg-[#f3f4f6] text-[#9ca3af] cursor-not-allowed"
+                  ? "bg-[#8b5cf6] hover:bg-[#7c3aed] text-white cursor-pointer"
+                  : success
+                    ? "bg-emerald-50 text-emerald-600 cursor-default"
+                    : "bg-[#f3f4f6] text-[#9ca3af] cursor-default"
               }`}
             >
               {isLoading ? (
                 <>
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   Saving...
+                </>
+              ) : success && !hasUnsavedChanges ? (
+                <>
+                  <Check className="h-3.5 w-3.5" />
+                  Saved
                 </>
               ) : (
                 "Save"

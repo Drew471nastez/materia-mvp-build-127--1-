@@ -183,6 +183,25 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   }
 
   // ---------------------------------------------------------------------------
+  // Fetch shop page config for avatar fallback
+  // Avatar hierarchy: Shop Header Avatar → Profile Avatar → Google Avatar → Initials
+  // ---------------------------------------------------------------------------
+  const { data: shopConfig } = await supabase
+    .from("store_builder_configs")
+    .select("published_config")
+    .eq("creator_id", product.creator_id)
+    .eq("page_type", "shop")
+    .maybeSingle()
+
+  const shopHeaderSettings = shopConfig?.published_config?.headerSettings as ShopHeaderSettings | undefined
+
+  // Create proper avatar fallback: Header avatar → Profile avatar
+  const headerAvatarUrl = shopHeaderSettings?.avatarUrl
+  const creatorAvatarUrl = headerAvatarUrl && headerAvatarUrl !== ""
+    ? headerAvatarUrl
+    : creatorProfile?.avatar_url || null
+
+  // ---------------------------------------------------------------------------
   // Product page config (specific > creator default)
   // Global settings (creator bar, sticky, buy button, spacing) always come from default template
   // ---------------------------------------------------------------------------
@@ -836,7 +855,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                   className="inline-flex items-center gap-3 rounded-lg transition-colors hover:bg-muted/50 min-h-[44px]"
                 >
                   <Avatar className="h-10 w-10 shrink-0">
-                    <AvatarImage src={creatorProfile?.avatar_url || undefined} />
+                    <AvatarImage src={creatorAvatarUrl || undefined} />
                     <AvatarFallback>{creatorInitials || "?"}</AvatarFallback>
                   </Avatar>
                   <p
@@ -1023,7 +1042,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                 <div className="flex items-center gap-3 min-w-0 flex-1">
                   <a href={getStoreUrl(creatorUsername)} className="flex items-center gap-3">
                     <Avatar className="h-8 w-8 shrink-0">
-                      <AvatarImage src={creatorProfile?.avatar_url || undefined} />
+                      <AvatarImage src={creatorAvatarUrl || undefined} />
                       <AvatarFallback>{creatorInitials || "?"}</AvatarFallback>
                     </Avatar>
                     <p
@@ -1325,7 +1344,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
       >
         <TrackView type="product" creatorId={product.creator_id} productId={product.id} />
         <DynamicFavicon
-          avatarUrl={creatorProfile?.avatar_url}
+          avatarUrl={creatorAvatarUrl}
           faviconUrl={productPageConfig?.headerSettings?.faviconUrl}
         />
 
@@ -1335,7 +1354,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           creatorName={creatorProfile?.display_name || creator?.name || "Creator"}
           creatorId={product.creator_id}
           creatorUsername={creatorUsername}
-          avatarUrl={creatorProfile?.avatar_url}
+          avatarUrl={creatorAvatarUrl}
         />
 
         {/* Sticky Add to Cart - appears on scroll - ALWAYS SHOW */}
@@ -1439,14 +1458,14 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
       }}
     >
       <TrackView type="product" creatorId={product.creator_id} productId={product.id} />
-      <DynamicFavicon avatarUrl={creatorProfile?.avatar_url} />
+      <DynamicFavicon avatarUrl={creatorAvatarUrl} />
 
       {/* Creator Bar - at top */}
       <LiveProductCreatorBar
         settings={defaultProductCreatorBarSettings}
         creatorName={creatorProfile?.display_name || creator?.name || "Creator"}
         creatorId={product.creator_id}
-        avatarUrl={creatorProfile?.avatar_url}
+        avatarUrl={creatorAvatarUrl}
       />
 
       {/* Sticky Add to Cart - appears on scroll - ALWAYS SHOW */}
