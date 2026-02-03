@@ -98,7 +98,10 @@ function safeName(name?: string) {
 
 function buildFromHeaderLocal(displayName?: string) {
   const name = safeName(displayName) || PLATFORM_BRAND_NAME
-  return `${name} <${FROM_EMAIL}>`
+  // Extract just the email address from FROM_EMAIL if it contains angle brackets
+  const emailMatch = FROM_EMAIL.match(/<(.+)>/)
+  const email = emailMatch ? emailMatch[1] : FROM_EMAIL
+  return `${name} <${email}>`
 }
 
 // -------------------------
