@@ -103,11 +103,14 @@ GRANT SELECT ON email_recipients TO authenticated;
 -- STEP 4: CREATE/UPDATE email_events TABLE (tracks opens, clicks, unsubs)
 -- ============================================================================
 
--- First, add missing columns to email_events if table exists
+-- First, add ALL missing columns to email_events if table exists
 DO $$
 BEGIN
-  -- Add recipient_id column if it doesn't exist
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'email_events') THEN
+    -- Add email column first (required for indexes)
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'email_events' AND column_name = 'email') THEN
+      ALTER TABLE email_events ADD COLUMN email TEXT;
+    END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'email_events' AND column_name = 'recipient_id') THEN
       ALTER TABLE email_events ADD COLUMN recipient_id UUID;
     END IF;
@@ -135,7 +138,7 @@ CREATE TABLE IF NOT EXISTS email_events (
   campaign_id UUID REFERENCES email_campaigns(id) ON DELETE CASCADE,
   recipient_id UUID,
   creator_id UUID,
-  email TEXT NOT NULL,
+  email TEXT,
   event_type TEXT NOT NULL,
   url TEXT,
   user_agent TEXT,
@@ -144,15 +147,18 @@ CREATE TABLE IF NOT EXISTS email_events (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Indexes for email_events (only create if column exists)
-CREATE INDEX IF NOT EXISTS idx_email_events_campaign ON email_events(campaign_id);
-CREATE INDEX IF NOT EXISTS idx_email_events_type ON email_events(event_type);
-CREATE INDEX IF NOT EXISTS idx_email_events_created ON email_events(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_email_events_email ON email_events(email);
-
--- Create recipient_id index only if column exists
+-- Indexes for email_events (create conditionally)
 DO $$
 BEGIN
+  -- Always safe indexes (columns always exist)
+  CREATE INDEX IF NOT EXISTS idx_email_events_campaign ON email_events(campaign_id);
+  CREATE INDEX IF NOT EXISTS idx_email_events_type ON email_events(event_type);
+  CREATE INDEX IF NOT EXISTS idx_email_events_created ON email_events(created_at DESC);
+
+  -- Conditional indexes (check column exists first)
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'email_events' AND column_name = 'email') THEN
+    CREATE INDEX IF NOT EXISTS idx_email_events_email ON email_events(email);
+  END IF;
   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'email_events' AND column_name = 'recipient_id') THEN
     CREATE INDEX IF NOT EXISTS idx_email_events_recipient ON email_events(recipient_id);
   END IF;
