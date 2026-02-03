@@ -290,7 +290,10 @@ export default function EmailsPage() {
     }
   }, [view, editingFlow])
 
-  const loadData = async () => {
+  const loadData = async (overrideTab?: string) => {
+    // Use override tab if provided, otherwise use state
+    const currentTab = overrideTab || activeTab
+
     setLoading(true)
     const supabase = createClient()
 
@@ -335,7 +338,7 @@ export default function EmailsPage() {
 
     setSegments(segmentsData || [])
 
-    if (activeTab === "subscribers") {
+    if (currentTab === "subscribers") {
       const { data } = await supabase
         .from("subscribers")
         .select("*")
@@ -369,7 +372,7 @@ export default function EmailsPage() {
       } else {
         setCheckoutBuyersCount(0)
       }
-    } else if (activeTab === "flows") {
+    } else if (currentTab === "flows") {
       const { data } = await supabase
         .from("email_flows")
         .select("*")
@@ -384,7 +387,7 @@ export default function EmailsPage() {
         scheduled: "scheduled",
         drafts: "draft",
       }
-      const status = statusMap[activeTab] || "draft"
+      const status = statusMap[currentTab] || "draft"
 
       try {
         // Add cache-busting timestamp to ensure fresh data
@@ -393,10 +396,11 @@ export default function EmailsPage() {
         })
         if (response.ok) {
           const result = await response.json()
+          console.log("[emails page] API response:", { campaigns: result.campaigns?.length, stats: result.stats })
           setCampaigns(result.campaigns || [])
 
           // Set stats for Sent tab
-          if (activeTab === "published") {
+          if (currentTab === "published") {
             setOverviewStats({
               total_sent: result.stats?.totalSent || 0,
               total_opened: result.stats?.opened || 0,
@@ -493,9 +497,9 @@ export default function EmailsPage() {
       setCampaigns([])
       setOverviewStats(null)
 
-      // Wait for database to be fully updated, then refresh
+      // Wait for database to be fully updated, then refresh with explicit tab
       await new Promise(resolve => setTimeout(resolve, 1000))
-      await loadData()
+      await loadData("published") // Pass tab explicitly to avoid state race condition
 
       toast({
         title: "Email resent!",
@@ -2067,9 +2071,9 @@ Tips:
         setView("list")
         setActiveTab("published")
 
-        // Wait for database to be fully updated, then refresh
+        // Wait for database to be fully updated, then refresh with explicit tab
         await new Promise(resolve => setTimeout(resolve, 1000))
-        await loadData()
+        await loadData("published") // Pass tab explicitly to avoid state race condition
 
         toast({
           title: "Email sent!",
