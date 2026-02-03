@@ -387,7 +387,10 @@ export default function EmailsPage() {
       const status = statusMap[activeTab] || "draft"
 
       try {
-        const response = await fetch(`/api/email/campaigns?status=${status}&timeRange=${statsTimeRange}`)
+        // Add cache-busting timestamp to ensure fresh data
+        const response = await fetch(`/api/email/campaigns?status=${status}&timeRange=${statsTimeRange}&t=${Date.now()}`, {
+          cache: 'no-store',
+        })
         if (response.ok) {
           const result = await response.json()
           setCampaigns(result.campaigns || [])
@@ -486,7 +489,9 @@ export default function EmailsPage() {
         throw new Error(data.error || "Failed to send resend campaign")
       }
 
-      loadData()
+      // Wait a moment for database to be updated, then refresh
+      await new Promise(resolve => setTimeout(resolve, 500))
+      await loadData()
       toast({
         title: "Email resent!",
         description: `Successfully resent to ${data.sent} subscriber${data.sent !== 1 ? "s" : ""}. A new copy was created in your sent list.`,
@@ -2052,7 +2057,9 @@ Tips:
 
         setView("list")
         setActiveTab("published")
-        loadData()
+        // Wait a moment for database to be updated, then refresh
+        await new Promise(resolve => setTimeout(resolve, 500))
+        await loadData()
         toast({
           title: "Email sent!",
           description: `Successfully sent to ${responseData.sent} subscribers.`,

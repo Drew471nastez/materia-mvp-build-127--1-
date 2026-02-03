@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 export const runtime = "nodejs"
+export const dynamic = "force-dynamic"
+export const revalidate = 0
 
 // GET - Fetch campaigns for the current user
 export async function GET(request: NextRequest) {
@@ -182,6 +184,11 @@ export async function GET(request: NextRequest) {
         timeRangeDate: timeRangeDate.toISOString(),
         timeRange,
         monthStartDate: startOfMonth.toISOString(),
+      }
+    }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+        'Pragma': 'no-cache',
       }
     })
   } catch (error) {
