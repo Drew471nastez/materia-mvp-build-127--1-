@@ -102,27 +102,64 @@ GRANT SELECT ON email_recipients TO authenticated;
 -- ============================================================================
 -- STEP 4: CREATE/UPDATE email_events TABLE (tracks opens, clicks, unsubs)
 -- ============================================================================
+
+-- First, add missing columns to email_events if table exists
+DO $$
+BEGIN
+  -- Add recipient_id column if it doesn't exist
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'email_events') THEN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'email_events' AND column_name = 'recipient_id') THEN
+      ALTER TABLE email_events ADD COLUMN recipient_id UUID;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'email_events' AND column_name = 'creator_id') THEN
+      ALTER TABLE email_events ADD COLUMN creator_id UUID;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'email_events' AND column_name = 'url') THEN
+      ALTER TABLE email_events ADD COLUMN url TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'email_events' AND column_name = 'user_agent') THEN
+      ALTER TABLE email_events ADD COLUMN user_agent TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'email_events' AND column_name = 'ip_address') THEN
+      ALTER TABLE email_events ADD COLUMN ip_address TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'email_events' AND column_name = 'metadata') THEN
+      ALTER TABLE email_events ADD COLUMN metadata JSONB DEFAULT '{}';
+    END IF;
+  END IF;
+END $$;
+
+-- Create table if it doesn't exist (for fresh installs)
 CREATE TABLE IF NOT EXISTS email_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   campaign_id UUID REFERENCES email_campaigns(id) ON DELETE CASCADE,
-  recipient_id UUID REFERENCES email_recipients(id) ON DELETE CASCADE,
-  creator_id UUID REFERENCES creators(id) ON DELETE CASCADE,
+  recipient_id UUID,
+  creator_id UUID,
   email TEXT NOT NULL,
-  event_type TEXT NOT NULL CHECK (event_type IN ('sent', 'delivered', 'opened', 'clicked', 'bounced', 'unsubscribed', 'complained')),
-  url TEXT, -- for click events
+  event_type TEXT NOT NULL,
+  url TEXT,
   user_agent TEXT,
   ip_address TEXT,
   metadata JSONB DEFAULT '{}',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Indexes for email_events
+-- Indexes for email_events (only create if column exists)
 CREATE INDEX IF NOT EXISTS idx_email_events_campaign ON email_events(campaign_id);
-CREATE INDEX IF NOT EXISTS idx_email_events_recipient ON email_events(recipient_id);
-CREATE INDEX IF NOT EXISTS idx_email_events_creator ON email_events(creator_id);
 CREATE INDEX IF NOT EXISTS idx_email_events_type ON email_events(event_type);
 CREATE INDEX IF NOT EXISTS idx_email_events_created ON email_events(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_email_events_email ON email_events(email);
+
+-- Create recipient_id index only if column exists
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'email_events' AND column_name = 'recipient_id') THEN
+    CREATE INDEX IF NOT EXISTS idx_email_events_recipient ON email_events(recipient_id);
+  END IF;
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'email_events' AND column_name = 'creator_id') THEN
+    CREATE INDEX IF NOT EXISTS idx_email_events_creator ON email_events(creator_id);
+  END IF;
+END $$;
 
 -- RLS - disable for tracking (endpoints work without auth)
 ALTER TABLE email_events ENABLE ROW LEVEL SECURITY;
@@ -185,12 +222,15 @@ BEGIN
     COUNT(DISTINCT r.id) FILTER (WHERE r.status = 'delivered')::BIGINT as total_delivered,
     COALESCE(SUM(r.open_count), 0)::BIGINT as total_opened,
     COALESCE(SUM(r.click_count), 0)::BIGINT as total_clicked,
-    COUNT(DISTINCT e.id) FILTER (WHERE e.event_type = 'unsubscribed')::BIGINT as total_unsubscribed,
+    (SELECT COUNT(DISTINCT ee.id) FROM email_events ee
+     WHERE ee.creator_id = p_creator_id
+     AND ee.event_type = 'unsubscribed'
+     AND (p_start_date IS NULL OR ee.created_at >= p_start_date)
+     AND (p_end_date IS NULL OR ee.created_at <= p_end_date))::BIGINT as total_unsubscribed,
     COUNT(DISTINCT r.id) FILTER (WHERE r.status = 'bounced')::BIGINT as total_bounced,
     COUNT(DISTINCT r.id) FILTER (WHERE r.opened_at IS NOT NULL)::BIGINT as unique_opens,
     COUNT(DISTINCT r.id) FILTER (WHERE r.clicked_at IS NOT NULL)::BIGINT as unique_clicks
   FROM email_recipients r
-  LEFT JOIN email_events e ON e.recipient_id = r.id AND e.event_type = 'unsubscribed'
   WHERE r.creator_id = p_creator_id
     AND (p_start_date IS NULL OR r.sent_at >= p_start_date)
     AND (p_end_date IS NULL OR r.sent_at <= p_end_date);
