@@ -489,9 +489,14 @@ export default function EmailsPage() {
         throw new Error(data.error || "Failed to send resend campaign")
       }
 
-      // Wait a moment for database to be updated, then refresh
-      await new Promise(resolve => setTimeout(resolve, 500))
+      // Clear campaigns first to force fresh fetch
+      setCampaigns([])
+      setOverviewStats(null)
+
+      // Wait for database to be fully updated, then refresh
+      await new Promise(resolve => setTimeout(resolve, 1000))
       await loadData()
+
       toast({
         title: "Email resent!",
         description: `Successfully resent to ${data.sent} subscriber${data.sent !== 1 ? "s" : ""}. A new copy was created in your sent list.`,
@@ -2055,11 +2060,17 @@ Tips:
           throw new Error(responseData.error || "Failed to send campaign")
         }
 
+        // Clear campaigns first to force fresh fetch
+        setCampaigns([])
+        setOverviewStats(null)
+
         setView("list")
         setActiveTab("published")
-        // Wait a moment for database to be updated, then refresh
-        await new Promise(resolve => setTimeout(resolve, 500))
+
+        // Wait for database to be fully updated, then refresh
+        await new Promise(resolve => setTimeout(resolve, 1000))
         await loadData()
+
         toast({
           title: "Email sent!",
           description: `Successfully sent to ${responseData.sent} subscribers.`,

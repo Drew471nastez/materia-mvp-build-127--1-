@@ -160,9 +160,10 @@ export async function GET(request: NextRequest) {
 
     console.log("[email/campaigns] Monthly emails sent:", monthlyEmailsSent, "from", campaignsThisMonth.length, "campaigns this month")
 
-    // Return filtered campaigns to match stats (user can see all by selecting "all" time range)
+    // Return ALL campaigns in the list (timeRange only affects stats)
+    // This ensures newly sent campaigns always appear immediately
     return NextResponse.json({
-      campaigns: timeRange === "all" ? (campaigns || []) : filteredCampaigns,
+      campaigns: campaigns || [],
       stats: {
         totalSent,
         opened,
