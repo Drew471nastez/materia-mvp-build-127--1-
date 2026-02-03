@@ -5,6 +5,7 @@ import crypto from "crypto"
 import { sendOrderEmails } from "@/lib/email"
 import { cookies } from "next/headers"
 import { nanoid } from "nanoid"
+import { v4 as uuidv4 } from "uuid"
 
 export const runtime = "nodejs"
 
@@ -158,6 +159,56 @@ export async function POST(req: Request) {
       community_access: product.type === "community",
     })
     if (entErr) console.error("[complete-free] entitlementError:", entErr)
+
+    // Upsert customer
+    await admin.rpc("upsert_customer", {
+      p_creator_id: product.creator_id,
+      p_email: email.toLowerCase().trim(),
+      p_first_name: firstName || "",
+      p_last_name: lastName || "",
+      p_order_amount_cents: 0,
+    })
+
+    // Add buyer to seller's subscribers list for future email marketing
+    const normalizedEmail = email.toLowerCase().trim()
+    const { data: existingSubscriber } = await admin
+      .from("subscribers")
+      .select("id, status")
+      .eq("creator_id", product.creator_id)
+      .eq("email", normalizedEmail)
+      .maybeSingle()
+
+    if (!existingSubscriber) {
+      const unsubscribeToken = uuidv4()
+      const buyerName = `${firstName || ""} ${lastName || ""}`.trim() || null
+      await admin.from("subscribers").insert({
+        email: normalizedEmail,
+        name: buyerName,
+        source: "checkout",
+        source_id: order.id,
+        creator_id: product.creator_id,
+        status: "subscribed",
+        is_active: true,
+        subscribed_at: new Date().toISOString(),
+        consent_text: "Subscribed via product checkout",
+        consent_timestamp: new Date().toISOString(),
+        unsubscribe_token: unsubscribeToken,
+      })
+      console.log("[complete-free] ✅ Added buyer to subscribers:", normalizedEmail)
+    } else if (existingSubscriber.status === "unsubscribed") {
+      await admin
+        .from("subscribers")
+        .update({
+          status: "subscribed",
+          is_active: true,
+          subscribed_at: new Date().toISOString(),
+          unsubscribed_at: null,
+        })
+        .eq("id", existingSubscriber.id)
+      console.log("[complete-free] ✅ Re-subscribed buyer:", normalizedEmail)
+    } else {
+      console.log("[complete-free] ✅ Buyer already subscribed:", normalizedEmail)
+    }
 
     const { error: salesError } = await admin.rpc("increment_product_sales", { p_product_id: product.id })
     if (salesError) console.error("[complete-free] Error incrementing sales:", salesError)

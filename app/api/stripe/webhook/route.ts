@@ -5,6 +5,7 @@ import { stripe } from "@/lib/stripe"
 import { createClient } from "@supabase/supabase-js"
 import { generateReceiptToken } from "@/lib/security"
 import { sendOrderEmails, triggerEmailFlows } from "@/lib/email"
+import { v4 as uuidv4 } from "uuid"
 
 export const runtime = "nodejs"
 
@@ -273,6 +274,47 @@ export async function POST(request: Request) {
         },
       )
       console.log("[v0] ✅ Customer record upserted")
+
+      // Add buyer to seller's subscribers list for future email marketing
+      const normalizedEmail = buyerEmail.toLowerCase().trim()
+      const { data: existingSubscriber } = await supabaseAdmin
+        .from("subscribers")
+        .select("id, status")
+        .eq("creator_id", creatorId)
+        .eq("email", normalizedEmail)
+        .maybeSingle()
+
+      if (!existingSubscriber) {
+        const unsubscribeToken = uuidv4()
+        const buyerName = `${buyerFirstName || ""} ${buyerLastName || ""}`.trim() || null
+        await supabaseAdmin.from("subscribers").insert({
+          email: normalizedEmail,
+          name: buyerName,
+          source: "checkout",
+          source_id: order.id,
+          creator_id: creatorId,
+          status: "subscribed",
+          is_active: true,
+          subscribed_at: new Date().toISOString(),
+          consent_text: "Subscribed via product checkout",
+          consent_timestamp: new Date().toISOString(),
+          unsubscribe_token: unsubscribeToken,
+        })
+        console.log("[v0] ✅ Added buyer to subscribers:", normalizedEmail)
+      } else if (existingSubscriber.status === "unsubscribed") {
+        await supabaseAdmin
+          .from("subscribers")
+          .update({
+            status: "subscribed",
+            is_active: true,
+            subscribed_at: new Date().toISOString(),
+            unsubscribed_at: null,
+          })
+          .eq("id", existingSubscriber.id)
+        console.log("[v0] ✅ Re-subscribed buyer:", normalizedEmail)
+      } else {
+        console.log("[v0] ✅ Buyer already subscribed:", normalizedEmail)
+      }
     }
 
     // Entitlement - with per-variant access control

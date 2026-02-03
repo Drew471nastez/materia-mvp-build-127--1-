@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { sendOrderEmails } from "@/lib/email"
 import { cookies } from "next/headers"
 import { collectOrderDeviceInfo } from "@/lib/device-info"
+import { v4 as uuidv4 } from "uuid"
 
 export const runtime = "nodejs"
 
@@ -222,6 +223,47 @@ export async function GET(request: Request) {
         },
       )
       console.log("[checkout/complete] ✅ Customer record upserted")
+
+      // Add buyer to seller's subscribers list for future email marketing
+      const normalizedEmail = buyerEmail.toLowerCase().trim()
+      const { data: existingSubscriber } = await admin
+        .from("subscribers")
+        .select("id, status")
+        .eq("creator_id", creatorId)
+        .eq("email", normalizedEmail)
+        .maybeSingle()
+
+      if (!existingSubscriber) {
+        const unsubscribeToken = uuidv4()
+        const buyerName = `${metadata.buyer_first_name || ""} ${metadata.buyer_last_name || ""}`.trim() || null
+        await admin.from("subscribers").insert({
+          email: normalizedEmail,
+          name: buyerName,
+          source: "checkout",
+          source_id: order.id,
+          creator_id: creatorId,
+          status: "subscribed",
+          is_active: true,
+          subscribed_at: new Date().toISOString(),
+          consent_text: "Subscribed via product checkout",
+          consent_timestamp: new Date().toISOString(),
+          unsubscribe_token: unsubscribeToken,
+        })
+        console.log("[checkout/complete] ✅ Added buyer to subscribers:", normalizedEmail)
+      } else if (existingSubscriber.status === "unsubscribed") {
+        await admin
+          .from("subscribers")
+          .update({
+            status: "subscribed",
+            is_active: true,
+            subscribed_at: new Date().toISOString(),
+            unsubscribed_at: null,
+          })
+          .eq("id", existingSubscriber.id)
+        console.log("[checkout/complete] ✅ Re-subscribed buyer:", normalizedEmail)
+      } else {
+        console.log("[checkout/complete] ✅ Buyer already subscribed:", normalizedEmail)
+      }
     }
 
     // Create entitlement for logged-in users (with variant_id for per-variant access)

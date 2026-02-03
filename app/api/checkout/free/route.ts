@@ -6,6 +6,7 @@ import { generateReceiptToken } from "@/lib/security"
 import { nanoid } from "nanoid"
 import { cookies } from "next/headers"
 import { collectOrderDeviceInfo } from "@/lib/device-info"
+import { v4 as uuidv4 } from "uuid"
 
 export const runtime = "nodejs"
 
@@ -152,6 +153,47 @@ export async function POST(request: Request) {
       p_order_amount_cents: 0,
     })
     if (upsertError) console.error("[free] Error upserting customer:", upsertError)
+
+    // Add buyer to seller's subscribers list for future email marketing
+    const normalizedEmail = email.toLowerCase().trim()
+    const { data: existingSubscriber } = await admin
+      .from("subscribers")
+      .select("id, status")
+      .eq("creator_id", creator.id)
+      .eq("email", normalizedEmail)
+      .maybeSingle()
+
+    if (!existingSubscriber) {
+      const unsubscribeToken = uuidv4()
+      const buyerName = `${firstName || ""} ${lastName || ""}`.trim() || null
+      await admin.from("subscribers").insert({
+        email: normalizedEmail,
+        name: buyerName,
+        source: "checkout",
+        source_id: order.id,
+        creator_id: creator.id,
+        status: "subscribed",
+        is_active: true,
+        subscribed_at: new Date().toISOString(),
+        consent_text: "Subscribed via product checkout",
+        consent_timestamp: new Date().toISOString(),
+        unsubscribe_token: unsubscribeToken,
+      })
+      console.log("[free] ✅ Added buyer to subscribers:", normalizedEmail)
+    } else if (existingSubscriber.status === "unsubscribed") {
+      await admin
+        .from("subscribers")
+        .update({
+          status: "subscribed",
+          is_active: true,
+          subscribed_at: new Date().toISOString(),
+          unsubscribed_at: null,
+        })
+        .eq("id", existingSubscriber.id)
+      console.log("[free] ✅ Re-subscribed buyer:", normalizedEmail)
+    } else {
+      console.log("[free] ✅ Buyer already subscribed:", normalizedEmail)
+    }
 
     // Increment sales count
     const { error: salesError } = await admin.rpc("increment_product_sales", { p_product_id: productId })

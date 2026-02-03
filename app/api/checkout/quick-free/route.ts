@@ -5,6 +5,7 @@ import { nanoid } from "nanoid"
 import { cookies } from "next/headers"
 import { generateReceiptToken } from "@/lib/security"
 import { sendOrderEmails } from "@/lib/email"
+import { v4 as uuidv4 } from "uuid"
 
 export const runtime = "nodejs"
 
@@ -179,6 +180,47 @@ export async function POST(request: Request) {
       p_last_name: last_name.trim(),
       p_order_amount_cents: 0,
     })
+
+    // Add buyer to seller's subscribers list for future email marketing
+    const normalizedEmail = email.toLowerCase().trim()
+    const { data: existingSubscriber } = await admin
+      .from("subscribers")
+      .select("id, status")
+      .eq("creator_id", product.creator.id)
+      .eq("email", normalizedEmail)
+      .maybeSingle()
+
+    if (!existingSubscriber) {
+      const unsubscribeToken = uuidv4()
+      const buyerName = `${first_name.trim()} ${last_name.trim()}`.trim() || null
+      await admin.from("subscribers").insert({
+        email: normalizedEmail,
+        name: buyerName,
+        source: "checkout",
+        source_id: order.id,
+        creator_id: product.creator.id,
+        status: "subscribed",
+        is_active: true,
+        subscribed_at: new Date().toISOString(),
+        consent_text: "Subscribed via product checkout",
+        consent_timestamp: new Date().toISOString(),
+        unsubscribe_token: unsubscribeToken,
+      })
+      console.log("[quick-free] ✅ Added buyer to subscribers:", normalizedEmail)
+    } else if (existingSubscriber.status === "unsubscribed") {
+      await admin
+        .from("subscribers")
+        .update({
+          status: "subscribed",
+          is_active: true,
+          subscribed_at: new Date().toISOString(),
+          unsubscribed_at: null,
+        })
+        .eq("id", existingSubscriber.id)
+      console.log("[quick-free] ✅ Re-subscribed buyer:", normalizedEmail)
+    } else {
+      console.log("[quick-free] ✅ Buyer already subscribed:", normalizedEmail)
+    }
 
     // Create entitlement for logged-in users
     if (user) {
