@@ -17,11 +17,11 @@ export default async function SettingsPage() {
 
   if (!creator) redirect("/onboarding")
 
-  // Fetch OnePage data for avatar fallback
+  // Fetch OnePage data for avatar fallback (use owner_id to match layout.tsx)
   const { data: onepage } = await supabase
     .from("onepages")
     .select("avatar_url")
-    .eq("creator_id", creator.id)
+    .eq("owner_id", user.id)
     .maybeSingle()
 
   // Fetch Store Builder avatar

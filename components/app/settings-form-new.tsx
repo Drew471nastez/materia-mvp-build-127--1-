@@ -1749,15 +1749,26 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
         </form>
       </div>
 
-      {/* Sticky Save Bar */}
-      {hasUnsavedChanges && (
-        <div className="fixed bottom-0 left-0 right-0 md:left-[220px] z-50 bg-white border-t border-[#e5e7eb] shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-2 text-[#6b7280]">
-              <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-              <span className="text-[13px] font-medium">You have unsaved changes</span>
-            </div>
-            <div className="flex items-center gap-3">
+      {/* Sticky Save Bar - Always visible */}
+      <div className="fixed bottom-0 left-0 right-0 md:left-[220px] z-50 bg-white/95 backdrop-blur-sm border-t border-[#e5e7eb]/60">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            {hasUnsavedChanges ? (
+              <>
+                <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                <span className="text-[12px] text-[#6b7280]">Unsaved changes</span>
+              </>
+            ) : success ? (
+              <>
+                <Check className="h-3.5 w-3.5 text-emerald-500" />
+                <span className="text-[12px] text-emerald-600">Saved</span>
+              </>
+            ) : (
+              <span className="text-[12px] text-[#9ca3af]">No changes</span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {hasUnsavedChanges && (
               <button
                 type="button"
                 onClick={() => {
@@ -1772,35 +1783,39 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   setPostalCode(initialValues.current.postalCode)
                   setCountry(initialValues.current.country)
                 }}
-                className="px-4 h-10 text-[13px] font-medium text-[#6b7280] hover:text-[#374151] hover:bg-[#f3f4f6] rounded-xl transition-colors cursor-pointer"
+                className="px-3 h-8 text-[12px] font-medium text-[#6b7280] hover:text-[#374151] hover:bg-[#f3f4f6] rounded-lg transition-colors cursor-pointer"
               >
                 Discard
               </button>
-              <button
-                type="button"
-                onClick={(e) => {
-                  // Trigger form submission
-                  const form = document.querySelector('form')
-                  if (form) {
-                    form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }))
-                  }
-                }}
-                disabled={isLoading}
-                className="px-5 h-10 text-[13px] font-medium bg-[#8b5cf6] hover:bg-[#7c3aed] disabled:bg-[#c4b5fd] text-white rounded-xl transition-colors flex items-center gap-2 cursor-pointer"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  "Save changes"
-                )}
-              </button>
-            </div>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                // Trigger form submission
+                const form = document.querySelector('form')
+                if (form) {
+                  form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }))
+                }
+              }}
+              disabled={isLoading || !hasUnsavedChanges}
+              className={`px-4 h-8 text-[12px] font-medium rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer ${
+                hasUnsavedChanges
+                  ? "bg-[#8b5cf6] hover:bg-[#7c3aed] text-white"
+                  : "bg-[#f3f4f6] text-[#9ca3af] cursor-not-allowed"
+              }`}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save"
+              )}
+            </button>
           </div>
         </div>
-      )}
+      </div>
 
       {/* Avatar Upload Modal */}
       <ImageUploadModal

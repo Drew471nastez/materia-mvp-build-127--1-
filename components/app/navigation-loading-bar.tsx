@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useTransition, useRef } from "react"
+import { useEffect, useState, useRef } from "react"
 import { usePathname, useSearchParams } from "next/navigation"
 
 export function NavigationLoadingBar() {
@@ -8,7 +8,7 @@ export function NavigationLoadingBar() {
   const searchParams = useSearchParams()
   const [isLoading, setIsLoading] = useState(false)
   const [progress, setProgress] = useState(0)
-  const [isPending, startTransition] = useTransition()
+  const [isComplete, setIsComplete] = useState(false)
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
   const progressRef = useRef<NodeJS.Timeout | null>(null)
   const prevPathRef = useRef(pathname)
@@ -23,18 +23,29 @@ export function NavigationLoadingBar() {
         // Only show loading bar for internal navigation
         if (url.pathname !== pathname || url.search !== searchParams.toString()) {
           setIsLoading(true)
+          setIsComplete(false)
           setProgress(0)
 
-          // Animate progress
+          // Smooth, slow progress animation
           let currentProgress = 0
-          progressRef.current = setInterval(() => {
-            currentProgress += Math.random() * 15
-            if (currentProgress >= 90) {
-              currentProgress = 90
-              if (progressRef.current) clearInterval(progressRef.current)
+          const animate = () => {
+            // Slower, more gradual progress - smaller increments
+            const increment = Math.random() * 3 + 1 // 1-4% increments
+            currentProgress += increment
+
+            // Slow down as we approach 80%
+            if (currentProgress >= 80) {
+              currentProgress = 80 + (Math.random() * 2) // Stay around 80-82%
             }
-            setProgress(currentProgress)
-          }, 100)
+
+            if (currentProgress < 85) {
+              setProgress(currentProgress)
+              progressRef.current = setTimeout(animate, 200 + Math.random() * 100) // 200-300ms intervals
+            }
+          }
+
+          // Start with slight delay for smoother appearance
+          progressRef.current = setTimeout(animate, 50)
         }
       }
     }
@@ -47,21 +58,23 @@ export function NavigationLoadingBar() {
   useEffect(() => {
     if (prevPathRef.current !== pathname) {
       // Navigation completed
-      if (progressRef.current) clearInterval(progressRef.current)
+      if (progressRef.current) clearTimeout(progressRef.current)
       setProgress(100)
+      setIsComplete(true)
 
-      // Reset after animation
+      // Fade out after completion
       timeoutRef.current = setTimeout(() => {
         setIsLoading(false)
         setProgress(0)
-      }, 300)
+        setIsComplete(false)
+      }, 500)
 
       prevPathRef.current = pathname
     }
 
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current)
-      if (progressRef.current) clearInterval(progressRef.current)
+      if (progressRef.current) clearTimeout(progressRef.current)
     }
   }, [pathname])
 
@@ -69,31 +82,38 @@ export function NavigationLoadingBar() {
 
   return (
     <div className="fixed top-0 left-0 right-0 z-[9999] pointer-events-none">
-      {/* Background track */}
+      {/* Progress bar container */}
       <div className="h-[2px] w-full bg-transparent">
-        {/* Progress bar with glow effect */}
+        {/* Progress bar with subtle glow */}
         <div
-          className="h-full transition-all duration-200 ease-out relative"
+          className="h-full relative"
           style={{
             width: `${progress}%`,
-            background: 'linear-gradient(90deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.9) 50%, #fff 100%)',
+            transition: isComplete
+              ? 'width 300ms cubic-bezier(0.4, 0, 0.2, 1), opacity 400ms ease-out'
+              : 'width 400ms cubic-bezier(0.4, 0, 1, 1)',
+            opacity: isComplete ? 0 : 1,
+            background: 'linear-gradient(90deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.6) 70%, rgba(255,255,255,0.9) 100%)',
           }}
         >
-          {/* Glowing tip */}
+          {/* Subtle glowing tip */}
           <div
-            className="absolute right-0 top-1/2 -translate-y-1/2 w-20 h-[6px]"
+            className="absolute right-0 top-1/2 -translate-y-1/2 w-16 h-[4px]"
             style={{
-              background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.5) 50%, #fff 100%)',
-              filter: 'blur(3px)',
-              boxShadow: '0 0 10px rgba(255,255,255,0.8), 0 0 20px rgba(255,255,255,0.6), 0 0 30px rgba(255,255,255,0.4)',
+              background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.3) 60%, rgba(255,255,255,0.7) 100%)',
+              filter: 'blur(2px)',
+              opacity: isComplete ? 0 : 0.8,
+              transition: 'opacity 300ms ease-out',
             }}
           />
-          {/* Sharp bright tip */}
+          {/* Sharp bright leading edge */}
           <div
-            className="absolute right-0 top-1/2 -translate-y-1/2 w-8 h-[2px]"
+            className="absolute right-0 top-1/2 -translate-y-1/2 w-6 h-[2px]"
             style={{
-              background: '#fff',
-              boxShadow: '0 0 8px #fff, 0 0 15px rgba(255,255,255,0.8)',
+              background: 'rgba(255,255,255,0.95)',
+              boxShadow: '0 0 4px rgba(255,255,255,0.5), 0 0 8px rgba(255,255,255,0.3)',
+              opacity: isComplete ? 0 : 1,
+              transition: 'opacity 300ms ease-out',
             }}
           />
         </div>

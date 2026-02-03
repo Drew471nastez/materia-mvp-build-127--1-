@@ -671,10 +671,10 @@ export function DashboardClient({
     }
   }
 
-  // Poll for live visitors every 30 seconds
+  // Poll for live visitors every 3 seconds for real-time updates
   useEffect(() => {
     fetchLiveVisitors()
-    const interval = setInterval(fetchLiveVisitors, 30000)
+    const interval = setInterval(fetchLiveVisitors, 3000)
     return () => clearInterval(interval)
   }, [creatorId])
 
@@ -1185,47 +1185,83 @@ export function DashboardClient({
             <p className="text-[14px] text-[#6b7280] mt-1">Here's what's happening with your store</p>
           </div>
 
-          {/* Desktop Dropdown */}
-          <div className="relative timeframe-dropdown hidden md:block">
-            <button
-              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#e5e7eb] rounded-xl text-[13px] font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors shadow-sm"
-            >
-              {selectedOption?.label || "Last 7 days"}
-              <ChevronDown
-                className={`h-4 w-4 text-[#9ca3af] transition-transform duration-200 ${isDropdownOpen ? "rotate-180" : ""}`}
+          {/* Desktop: Timeframe Dropdown + Live Indicator */}
+          <div className="hidden md:flex items-center gap-3">
+            <div className="relative timeframe-dropdown">
+              <button
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#e5e7eb] rounded-xl text-[13px] font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors shadow-sm"
+              >
+                {selectedOption?.label || "Last 7 days"}
+                <ChevronDown
+                  className={`h-4 w-4 text-[#9ca3af] transition-transform duration-200 ${isDropdownOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+              {isDropdownOpen && (
+                <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-[#e5e7eb] rounded-xl shadow-lg z-50 py-1 animate-in fade-in-0 zoom-in-95 duration-100">
+                  {timeframeOptions.map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => {
+                        setTimeframe(option.value)
+                        setIsDropdownOpen(false)
+                      }}
+                      className={`w-full text-left px-4 py-2 text-[13px] font-medium transition-colors ${
+                        timeframe === option.value
+                          ? "bg-[#f5f3ff] text-[#8b5cf6]"
+                          : "text-[#374151] hover:bg-[#f9fafb]"
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            {/* Live Indicator Pill - Desktop */}
+            <div className="flex items-center gap-1.5 px-3 py-2 bg-[#f3f4f6] rounded-lg">
+              <div
+                className={`w-2 h-2 rounded-full ${
+                  liveVisitors > 0
+                    ? "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.6)]"
+                    : "bg-gray-400"
+                }`}
+                style={{
+                  animation: liveVisitors > 0 ? "pulse-glow 2s ease-in-out infinite" : "none",
+                }}
               />
-            </button>
-            {isDropdownOpen && (
-              <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-[#e5e7eb] rounded-xl shadow-lg z-50 py-1 animate-in fade-in-0 zoom-in-95 duration-100">
-                {timeframeOptions.map((option) => (
-                  <button
-                    key={option.value}
-                    onClick={() => {
-                      setTimeframe(option.value)
-                      setIsDropdownOpen(false)
-                    }}
-                    className={`w-full text-left px-4 py-2 text-[13px] font-medium transition-colors ${
-                      timeframe === option.value
-                        ? "bg-[#f5f3ff] text-[#8b5cf6]"
-                        : "text-[#374151] hover:bg-[#f9fafb]"
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            )}
+              <span className={`text-[13px] font-medium ${liveVisitors > 0 ? "text-emerald-600" : "text-gray-500"}`}>
+                {liveVisitors} live
+              </span>
+            </div>
           </div>
 
-          {/* Mobile Timeframe Button */}
-          <button
-            onClick={() => setIsMobileSheetOpen(true)}
-            className="md:hidden w-fit inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#e5e7eb] rounded-xl text-[13px] font-medium text-[#374151] shadow-sm"
-          >
-            {selectedOption?.label || "Last 7 days"}
-            <ChevronDown className="h-4 w-4 text-[#9ca3af]" />
-          </button>
+          {/* Mobile: Live Indicator + Timeframe Button */}
+          <div className="md:hidden flex items-center gap-2">
+            {/* Live Indicator Pill - Mobile */}
+            <div className="flex items-center gap-1.5 px-2.5 py-2 bg-[#f3f4f6] rounded-lg">
+              <div
+                className={`w-2 h-2 rounded-full ${
+                  liveVisitors > 0
+                    ? "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.6)]"
+                    : "bg-gray-400"
+                }`}
+                style={{
+                  animation: liveVisitors > 0 ? "pulse-glow 2s ease-in-out infinite" : "none",
+                }}
+              />
+              <span className={`text-[12px] font-medium ${liveVisitors > 0 ? "text-emerald-600" : "text-gray-500"}`}>
+                {liveVisitors} live
+              </span>
+            </div>
+            <button
+              onClick={() => setIsMobileSheetOpen(true)}
+              className="w-fit inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#e5e7eb] rounded-xl text-[13px] font-medium text-[#374151] shadow-sm"
+            >
+              {selectedOption?.label || "Last 7 days"}
+              <ChevronDown className="h-4 w-4 text-[#9ca3af]" />
+            </button>
+          </div>
         </div>
 
         {/* Mobile Bottom Sheet */}
@@ -1295,25 +1331,7 @@ export function DashboardClient({
             ) : (
               <>
                 <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[13px] font-medium text-[#6b7280]">Views</span>
-                    {/* Live visitors indicator */}
-                    <div className="flex items-center gap-1.5">
-                      <div
-                        className={`w-2 h-2 rounded-full ${
-                          liveVisitors > 0
-                            ? "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.6)]"
-                            : "bg-gray-300"
-                        }`}
-                        style={{
-                          animation: liveVisitors > 0 ? "pulse-glow 2s ease-in-out infinite" : "none",
-                        }}
-                      />
-                      <span className={`text-[11px] font-medium ${liveVisitors > 0 ? "text-emerald-600" : "text-gray-400"}`}>
-                        {liveVisitors} live
-                      </span>
-                    </div>
-                  </div>
+                  <span className="text-[13px] font-medium text-[#6b7280]">Views</span>
                   <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
                     <Eye className="h-4 w-4 text-[#9ca3af]" />
                   </div>
