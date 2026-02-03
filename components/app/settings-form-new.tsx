@@ -11,7 +11,7 @@ import {
   X, Check, Loader2, AlertCircle, Mail, Lock,
   CreditCard, Store, Shield, Settings,
   Camera, ExternalLink, ChevronRight, Globe,
-  User, Palette, Link2, FileText, Search, ChevronLeft, Upload
+  User, Palette, Link2, FileText, Search, ChevronLeft, Upload, Copy, Pencil
 } from "lucide-react"
 import type { Profile, Creator } from "@/lib/types"
 import { isValidUsername } from "@/lib/reserved-words"
@@ -557,12 +557,14 @@ function ImageCropModal({
                       ))}
                     </div>
 
-                    {/* Resize handle */}
+                    {/* Resize handle - larger touch target for mobile */}
                     <div
-                      className="absolute -bottom-1.5 -right-1.5 w-4 h-4 bg-[#8b5cf6] border-2 border-white rounded-full cursor-se-resize shadow-md"
+                      className="absolute -bottom-3 -right-3 w-8 h-8 flex items-center justify-center cursor-se-resize touch-none"
                       onMouseDown={handleResizeMouseDown}
                       onTouchStart={handleResizeMouseDown}
-                    />
+                    >
+                      <div className="w-5 h-5 bg-[#8b5cf6] border-2 border-white rounded-full shadow-lg" />
+                    </div>
                   </div>
                 </div>
 
@@ -972,18 +974,51 @@ export function SettingsFormNew({ profile, creator }: SettingsFormProps) {
     setEmailChangeSuccess(false)
   }
 
+  // Store URL for copy
+  const [copied, setCopied] = useState(false)
+  const handleCopyStoreUrl = () => {
+    navigator.clipboard.writeText(storeUrl)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
   return (
     <div className="h-full overflow-y-auto page-scroll bg-[#fafafa]">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-[22px] sm:text-[28px] font-bold text-[#1a1a2e]">Settings</h1>
-          <p className="text-[14px] text-[#6b7280] mt-1">Manage your account and preferences</p>
+        {/* Header with Store URL */}
+        <div className="mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+          <div>
+            <h1 className="text-[22px] sm:text-[28px] font-bold text-[#1a1a2e]">Settings</h1>
+            <p className="text-[14px] text-[#6b7280] mt-1">Manage your account and preferences</p>
+          </div>
+          {/* Store URL with copy */}
+          <div className="flex items-center gap-2">
+            <a
+              href={storeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[13px] text-[#8b5cf6] hover:text-[#7c3aed] transition-colors"
+            >
+              {storeUrlDisplay}
+            </a>
+            <button
+              type="button"
+              onClick={handleCopyStoreUrl}
+              className="p-1.5 rounded-lg hover:bg-[#f3f4f6] transition-colors"
+              title="Copy store URL"
+            >
+              {copied ? (
+                <Check className="h-4 w-4 text-emerald-500" />
+              ) : (
+                <Copy className="h-4 w-4 text-[#9ca3af] hover:text-[#6b7280]" />
+              )}
+            </button>
+          </div>
         </div>
 
         {/* Pill-shaped Tab Navigation - Hidden scrollbar */}
         <div className="mb-6 sm:mb-8 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-          <div className="flex gap-1 bg-[#f3f4f6] p-1 rounded-full w-fit min-w-max">
+          <div className="flex gap-1 p-1 w-fit min-w-max">
             {TABS.map((tab) => {
               const Icon = tab.icon
               return (
@@ -991,7 +1026,9 @@ export function SettingsFormNew({ profile, creator }: SettingsFormProps) {
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full text-[13px] sm:text-[14px] font-medium transition-all whitespace-nowrap ${
-                    activeTab === tab.id ? "bg-white text-[#8b5cf6] shadow-sm" : "text-[#6b7280] hover:text-[#374151]"
+                    activeTab === tab.id
+                      ? "bg-[#f3f4f6] text-[#8b5cf6] border border-[#e5e7eb]"
+                      : "text-[#6b7280] hover:text-[#374151] hover:bg-[#f9fafb]"
                   }`}
                 >
                   <Icon className="h-4 w-4" />
@@ -1010,21 +1047,29 @@ export function SettingsFormNew({ profile, creator }: SettingsFormProps) {
               {/* Profile Image Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
                 <div className="flex items-center gap-4">
-                  <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowAvatarUploadModal(true)}
+                    className="relative group cursor-pointer"
+                  >
                     {avatarUrl ? (
                       <Image
                         src={avatarUrl}
                         alt="Profile"
                         width={72}
                         height={72}
-                        className="w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-full object-cover bg-[#f3f4f6]"
+                        className="w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-full object-cover bg-[#f3f4f6] transition-opacity group-hover:opacity-80"
                       />
                     ) : (
-                      <div className="w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-full bg-gradient-to-br from-[#8b5cf6] to-[#a78bfa] flex items-center justify-center text-white text-xl sm:text-2xl font-bold">
+                      <div className="w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-full bg-gradient-to-br from-[#8b5cf6] to-[#a78bfa] flex items-center justify-center text-white text-xl sm:text-2xl font-bold transition-opacity group-hover:opacity-80">
                         {firstName?.[0]?.toUpperCase() || "U"}
                       </div>
                     )}
-                  </div>
+                    {/* Hover pencil overlay */}
+                    <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
+                      <Pencil className="h-5 w-5 text-white" />
+                    </div>
+                  </button>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-[#1a1a2e] text-[15px]">Profile Photo</p>
                     <p className="text-[13px] text-[#6b7280] mb-2">JPG, PNG or GIF. Max 2MB.</p>

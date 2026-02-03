@@ -261,8 +261,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
       <button
         onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
         className={cn(
-          "flex w-full items-center gap-3 rounded-[10px] px-2 py-2 text-left transition-colors duration-200 ease-out",
-          profileDropdownOpen ? "bg-neutral-100/80" : "hover:bg-neutral-100/50",
+          "flex w-full items-center gap-3 rounded-[10px] px-2 py-2 text-left transition-all duration-200 ease-out cursor-pointer group",
+          profileDropdownOpen ? "bg-neutral-100/80" : "hover:bg-neutral-100/70 active:bg-neutral-200/60",
         )}
       >
         <div className="relative h-10 w-10 shrink-0 rounded-full bg-neutral-200 overflow-hidden">
@@ -386,13 +386,14 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           <Link
             href="/"
             onClick={onItemClick}
-            className="flex items-center hover:opacity-80 transition-opacity"
+            className="flex items-center gap-2 hover:opacity-80 transition-opacity"
           >
             <img
               src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
               alt="Storelib"
               className="h-7 w-7"
             />
+            <span className="text-[15px] font-semibold text-neutral-900">Storelib</span>
           </Link>
           <div className="flex items-center gap-1.5">
             <button
@@ -486,13 +487,14 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           <Link
             href="/"
             onClick={onItemClick}
-            className="flex items-center hover:opacity-80 transition-opacity"
+            className="flex items-center gap-2 hover:opacity-80 transition-opacity"
           >
             <img
               src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
               alt="Storelib"
               className="h-7 w-7"
             />
+            <span className="text-[15px] font-semibold text-neutral-900">Storelib</span>
           </Link>
           <div className="flex items-center gap-1.5">
             <Link

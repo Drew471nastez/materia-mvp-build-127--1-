@@ -1167,12 +1167,12 @@ export function PhonePreview({ className }: PhonePreviewProps) {
       <div
         className={cn("relative flex-shrink-0", className)}
         style={{
-          width: "308px",
-          minWidth: "308px",
-          maxWidth: "308px",
-          height: "638px",
-          minHeight: "638px",
-          maxHeight: "638px",
+          width: "298px",
+          minWidth: "298px",
+          maxWidth: "298px",
+          height: "618px",
+          minHeight: "618px",
+          maxHeight: "618px",
           overflow: "hidden",
           borderRadius: "48px",
         }}
@@ -1194,12 +1194,12 @@ export function PhonePreview({ className }: PhonePreviewProps) {
           position: "absolute",
           top: 0,
           left: 0,
-          width: "308px",
-          height: "638px",
+          width: "298px",
+          height: "618px",
           backgroundColor: "#1a1a1a",
-          borderRadius: "48px",
+          borderRadius: "46px",
           boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
-          padding: "11px",
+          padding: "10px",
           overflow: "hidden",
         }}
       >
