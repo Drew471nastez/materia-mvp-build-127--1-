@@ -167,9 +167,10 @@ export async function POST(request: NextRequest) {
       .select("id, email, subscriber_id")
 
     if (sendsError) {
-      console.error("Error creating send records:", sendsError)
-      await supabase.from("email_campaigns").update({ status: "failed" }).eq("id", campaign_id)
-      return NextResponse.json({ error: "Failed to create send records" }, { status: 500 })
+      console.error("[email/send] Error creating send records:", sendsError)
+      // Use admin client to bypass RLS
+      await adminSupabase.from("email_campaigns").update({ status: "failed" }).eq("id", campaign_id)
+      return NextResponse.json({ error: "Failed to create send records", details: sendsError.message }, { status: 500 })
     }
 
     // Build the base URL for tracking

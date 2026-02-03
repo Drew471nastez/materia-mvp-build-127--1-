@@ -148,8 +148,9 @@ export async function GET(request: NextRequest) {
 
     console.log("[email/campaigns] Monthly emails sent:", monthlyEmailsSent)
 
+    // Return filtered campaigns to match stats (user can see all by selecting "all" time range)
     return NextResponse.json({
-      campaigns: campaigns || [],
+      campaigns: timeRange === "all" ? (campaigns || []) : filteredCampaigns,
       stats: {
         totalSent,
         opened,
@@ -164,9 +165,10 @@ export async function GET(request: NextRequest) {
       },
       debug: {
         creatorId: creator.id,
-        campaignCount: campaigns?.length || 0,
+        totalCampaignCount: campaigns?.length || 0,
         filteredCampaignCount: filteredCampaigns.length,
         timeRangeDate: timeRangeDate.toISOString(),
+        timeRange,
       }
     })
   } catch (error) {
