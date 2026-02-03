@@ -3,22 +3,35 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 export const runtime = "nodejs"
+export const dynamic = "force-dynamic"
+export const revalidate = 0
 
-// GET - Fetch email stats for the current user
+interface CampaignWithStats {
+  id: string
+  subject: string
+  preview_text: string | null
+  status: string
+  audience_type: string
+  sent_at: string | null
+  created_at: string
+  recipient_count: number
+  unique_opens: number
+  unique_clicks: number
+}
+
+// GET - Fetch campaigns and comprehensive stats for Sent tab
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
     const adminSupabase = createAdminClient()
 
-    // Get the current user
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    // Get creator
     const { data: creator } = await supabase
       .from("creators")
       .select("id")
@@ -29,144 +42,216 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Creator not found" }, { status: 404 })
     }
 
-    // Get query params
+    // Parse query params
     const searchParams = request.nextUrl.searchParams
     const timeRange = searchParams.get("timeRange") || "30d"
-    const campaignId = searchParams.get("campaignId")
+    const status = searchParams.get("status") || "sent"
 
-    // Calculate time range date
+    console.log("[stats] Creator:", creator.id, "timeRange:", timeRange, "status:", status)
+
+    // Calculate date range
     const now = new Date()
-    let timeRangeDate = new Date()
+    let startDate: Date | null = null
 
     switch (timeRange) {
       case "7d":
-        timeRangeDate.setDate(now.getDate() - 7)
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
         break
       case "30d":
-        timeRangeDate.setDate(now.getDate() - 30)
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
         break
       case "90d":
-        timeRangeDate.setDate(now.getDate() - 90)
+        startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
         break
       case "all":
-        timeRangeDate = new Date(0) // Beginning of time
+        startDate = null
         break
-      default:
-        timeRangeDate.setDate(now.getDate() - 30)
     }
 
-    // If fetching stats for a specific campaign
-    if (campaignId) {
+    // FETCH ALL CAMPAIGNS (no time filter on the list - we want to show all sent campaigns)
+    const { data: allCampaigns, error: campaignsError } = await adminSupabase
+      .from("email_campaigns")
+      .select("*")
+      .eq("creator_id", creator.id)
+      .eq("status", status)
+      .order("sent_at", { ascending: false, nullsFirst: false })
+
+    if (campaignsError) {
+      console.error("[stats] Campaigns error:", campaignsError)
+      return NextResponse.json({ error: "Failed to fetch campaigns" }, { status: 500 })
+    }
+
+    console.log("[stats] Found", allCampaigns?.length || 0, "campaigns")
+
+    // Filter campaigns by time range for STATS only
+    const campaignsInRange = (allCampaigns || []).filter(c => {
+      if (!startDate) return true
+      const sentDate = c.sent_at ? new Date(c.sent_at) : new Date(c.created_at)
+      return sentDate >= startDate
+    })
+
+    const campaignIds = campaignsInRange.map(c => c.id)
+
+    // Get recipient stats - try new table first, fallback to old
+    let recipientStats: Record<string, { total: number; uniqueOpens: number; uniqueClicks: number }> = {}
+
+    // Try email_recipients first (new schema)
+    if (campaignIds.length > 0) {
+      const { data: recipients } = await adminSupabase
+        .from("email_recipients")
+        .select("campaign_id, status, opened_at, clicked_at")
+        .in("campaign_id", campaignIds)
+
+      if (recipients && recipients.length > 0) {
+        console.log("[stats] Using email_recipients table, found:", recipients.length, "rows")
+        recipients.forEach(r => {
+          if (!recipientStats[r.campaign_id]) {
+            recipientStats[r.campaign_id] = { total: 0, uniqueOpens: 0, uniqueClicks: 0 }
+          }
+          if (r.status === "sent" || r.status === "delivered") {
+            recipientStats[r.campaign_id].total++
+          }
+          if (r.opened_at) recipientStats[r.campaign_id].uniqueOpens++
+          if (r.clicked_at) recipientStats[r.campaign_id].uniqueClicks++
+        })
+      } else {
+        // Fallback: try email_sends (old schema)
+        const { data: sends } = await adminSupabase
+          .from("email_sends")
+          .select("campaign_id, status")
+          .in("campaign_id", campaignIds)
+
+        if (sends && sends.length > 0) {
+          console.log("[stats] Using email_sends table, found:", sends.length, "rows")
+          sends.forEach(s => {
+            if (!recipientStats[s.campaign_id]) {
+              recipientStats[s.campaign_id] = { total: 0, uniqueOpens: 0, uniqueClicks: 0 }
+            }
+            if (s.status === "sent") {
+              recipientStats[s.campaign_id].total++
+            }
+          })
+        }
+      }
+    }
+
+    // Get event counts for opens and clicks from email_events
+    let opensByRecipient: Record<string, Set<string>> = {}
+    let clicksByRecipient: Record<string, Set<string>> = {}
+
+    if (campaignIds.length > 0) {
       const { data: events } = await adminSupabase
         .from("email_events")
-        .select("event_type")
-        .eq("campaign_id", campaignId)
-
-      const counts = {
-        sent: 0,
-        delivered: 0,
-        opened: 0,
-        clicked: 0,
-        bounced: 0,
-        unsubscribed: 0,
-      }
-
-      if (events) {
-        for (const event of events) {
-          const type = event.event_type as keyof typeof counts
-          if (type in counts) {
-            counts[type]++
-          }
-        }
-      }
-
-      return NextResponse.json({ stats: counts })
-    }
-
-    // Get campaigns for this creator first
-    const { data: campaigns } = await supabase
-      .from("email_campaigns")
-      .select("id, audience_count, status, sent_at")
-      .eq("creator_id", creator.id)
-      .eq("status", "sent")
-      .gte("sent_at", timeRangeDate.toISOString())
-
-    const campaignIds = campaigns?.map((c) => c.id) || []
-
-    // Fetch all events for this creator's campaigns using admin client (bypasses RLS)
-    // Query by both creator_id AND campaign_id to catch all events
-    let allEvents: { event_type: string; campaign_id: string; created_at: string }[] = []
-
-    // First try by creator_id
-    const { data: eventsByCreator, error: eventsError1 } = await adminSupabase
-      .from("email_events")
-      .select("event_type, campaign_id, created_at")
-      .eq("creator_id", creator.id)
-      .gte("created_at", timeRangeDate.toISOString())
-
-    if (eventsError1) {
-      console.error("[email/stats] Events by creator query error:", eventsError1)
-    }
-
-    if (eventsByCreator) {
-      allEvents = [...eventsByCreator]
-    }
-
-    // Also query by campaign_ids to catch events without creator_id
-    if (campaignIds.length > 0) {
-      const { data: eventsByCampaign, error: eventsError2 } = await adminSupabase
-        .from("email_events")
-        .select("event_type, campaign_id, created_at")
+        .select("campaign_id, event_type, email, recipient_email")
         .in("campaign_id", campaignIds)
-        .gte("created_at", timeRangeDate.toISOString())
+        .in("event_type", ["opened", "clicked"])
 
-      if (eventsError2) {
-        console.error("[email/stats] Events by campaign query error:", eventsError2)
-      }
-
-      // Merge events, avoiding duplicates based on event properties
-      if (eventsByCampaign) {
-        const existingKeys = new Set(
-          allEvents.map((e) => `${e.campaign_id}-${e.event_type}-${e.created_at}`)
-        )
-        for (const event of eventsByCampaign) {
-          const key = `${event.campaign_id}-${event.event_type}-${event.created_at}`
-          if (!existingKeys.has(key)) {
-            allEvents.push(event)
-            existingKeys.add(key)
+      if (events && events.length > 0) {
+        console.log("[stats] Found", events.length, "events")
+        events.forEach(e => {
+          const email = e.email || e.recipient_email || "unknown"
+          if (e.event_type === "opened") {
+            if (!opensByRecipient[e.campaign_id]) opensByRecipient[e.campaign_id] = new Set()
+            opensByRecipient[e.campaign_id].add(email)
           }
-        }
+          if (e.event_type === "clicked") {
+            if (!clicksByRecipient[e.campaign_id]) clicksByRecipient[e.campaign_id] = new Set()
+            clicksByRecipient[e.campaign_id].add(email)
+          }
+        })
       }
     }
 
-    // Count events by type
-    const opened = allEvents.filter((e) => e.event_type === "opened").length
-    const clicked = allEvents.filter((e) => e.event_type === "clicked").length
-    const unsubscribed = allEvents.filter((e) => e.event_type === "unsubscribed").length
+    // Build campaigns with stats for the LIST (all campaigns, not filtered)
+    const campaignsWithStats: CampaignWithStats[] = (allCampaigns || []).map(c => {
+      const stats = recipientStats[c.id] || { total: 0, uniqueOpens: 0, uniqueClicks: 0 }
+      const eventOpens = opensByRecipient[c.id]?.size || 0
+      const eventClicks = clicksByRecipient[c.id]?.size || 0
 
-    console.log("[email/stats] Found events:", { opened, clicked, unsubscribed, total: allEvents.length })
+      return {
+        id: c.id,
+        subject: c.subject,
+        preview_text: c.preview_text,
+        status: c.status,
+        audience_type: c.audience_type,
+        sent_at: c.sent_at,
+        created_at: c.created_at,
+        recipient_count: stats.total || c.audience_count || 0,
+        unique_opens: stats.uniqueOpens || eventOpens,
+        unique_clicks: stats.uniqueClicks || eventClicks,
+      }
+    })
 
-    const totalSent = campaigns?.reduce((sum, c) => sum + (c.audience_count || 0), 0) || 0
+    // Calculate aggregate STATS (from time-filtered campaigns)
+    let totalSent = 0
+    let totalOpens = 0
+    let totalClicks = 0
 
-    // Get subscriber count
-    const { count: subscriberCount } = await supabase
-      .from("subscribers")
-      .select("*", { count: "exact", head: true })
+    campaignsInRange.forEach(c => {
+      const stats = recipientStats[c.id] || { total: 0, uniqueOpens: 0, uniqueClicks: 0 }
+      const eventOpens = opensByRecipient[c.id]?.size || 0
+      const eventClicks = clicksByRecipient[c.id]?.size || 0
+
+      totalSent += stats.total || c.audience_count || 0
+      totalOpens += stats.uniqueOpens || eventOpens
+      totalClicks += stats.uniqueClicks || eventClicks
+    })
+
+    // Get unsubscribe count
+    let totalUnsubscribed = 0
+    const { data: unsubEvents } = await adminSupabase
+      .from("email_events")
+      .select("id")
       .eq("creator_id", creator.id)
-      .eq("status", "subscribed")
+      .eq("event_type", "unsubscribed")
 
-    return NextResponse.json({
+    if (unsubEvents) {
+      if (startDate) {
+        // Filter by date
+        totalUnsubscribed = unsubEvents.length
+      } else {
+        totalUnsubscribed = unsubEvents.length
+      }
+    }
+
+    // Get monthly email count
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    const { data: monthlyCampaigns } = await adminSupabase
+      .from("email_campaigns")
+      .select("audience_count")
+      .eq("creator_id", creator.id)
+      .in("status", ["sent", "sending"])
+      .gte("sent_at", startOfMonth.toISOString())
+
+    const monthlyEmailsSent = (monthlyCampaigns || []).reduce((sum, c) => sum + (c.audience_count || 0), 0)
+
+    console.log("[stats] Results - totalSent:", totalSent, "opens:", totalOpens, "clicks:", totalClicks, "monthly:", monthlyEmailsSent)
+
+    // Build response
+    const response = NextResponse.json({
+      campaigns: campaignsWithStats,
       stats: {
         totalSent,
-        opened,
-        clicked,
-        unsubscribed,
-        subscriberCount: subscriberCount || 0,
+        totalOpens,
+        totalClicks,
+        totalUnsubscribed,
+        openRate: totalSent > 0 ? Math.round((totalOpens / totalSent) * 100) : 0,
+        clickRate: totalSent > 0 ? Math.round((totalClicks / totalSent) * 100) : 0,
       },
-      events: allEvents,
+      monthlyUsage: {
+        sent: monthlyEmailsSent,
+        limit: 3000,
+      },
     })
+
+    // Prevent caching
+    response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+    response.headers.set("Pragma", "no-cache")
+    response.headers.set("Expires", "0")
+
+    return response
   } catch (error) {
-    console.error("[email/stats] Error:", error)
+    console.error("[stats] Error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

@@ -79,6 +79,9 @@ interface EmailCampaign {
   status: "draft" | "scheduled" | "sending" | "sent" | "failed"
   audience_type: string
   audience_count: number
+  recipient_count?: number  // From stats API
+  unique_opens?: number     // From stats API
+  unique_clicks?: number    // From stats API
   segment_id?: string
   scheduled_at?: string
   sent_at?: string
@@ -381,7 +384,7 @@ export default function EmailsPage() {
 
       setFlows(data || [])
     } else {
-      // Use API to fetch campaigns (bypasses RLS issues)
+      // Use stats API to fetch campaigns and stats (bypasses RLS issues)
       const statusMap: Record<string, string> = {
         published: "sent",
         scheduled: "scheduled",
@@ -390,22 +393,33 @@ export default function EmailsPage() {
       const status = statusMap[currentTab] || "draft"
 
       try {
-        // Add cache-busting timestamp to ensure fresh data
-        const response = await fetch(`/api/email/campaigns?status=${status}&timeRange=${statsTimeRange}&t=${Date.now()}`, {
+        // Use the new stats endpoint for Sent tab, campaigns endpoint for others
+        const endpoint = currentTab === "published"
+          ? `/api/email/stats?status=${status}&timeRange=${statsTimeRange}&t=${Date.now()}`
+          : `/api/email/campaigns?status=${status}&timeRange=${statsTimeRange}&t=${Date.now()}`
+
+        const response = await fetch(endpoint, {
           cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache' },
         })
+
         if (response.ok) {
           const result = await response.json()
-          console.log("[emails page] API response:", { campaigns: result.campaigns?.length, stats: result.stats })
+          console.log("[emails page] API response:", {
+            endpoint,
+            campaigns: result.campaigns?.length,
+            stats: result.stats,
+            monthly: result.monthlyUsage
+          })
           setCampaigns(result.campaigns || [])
 
           // Set stats for Sent tab
           if (currentTab === "published") {
             setOverviewStats({
               total_sent: result.stats?.totalSent || 0,
-              total_opened: result.stats?.opened || 0,
-              total_clicked: result.stats?.clicked || 0,
-              total_unsubscribed: result.stats?.unsubscribed || 0,
+              total_opened: result.stats?.totalOpens || result.stats?.opened || 0,
+              total_clicked: result.stats?.totalClicks || result.stats?.clicked || 0,
+              total_unsubscribed: result.stats?.totalUnsubscribed || result.stats?.unsubscribed || 0,
               open_rate: result.stats?.openRate || 0,
               click_rate: result.stats?.clickRate || 0,
             })
@@ -700,36 +714,48 @@ export default function EmailsPage() {
   const handleViewStats = async (campaign: EmailCampaign) => {
     setSelectedCampaignForStats(campaign)
 
-    // Fetch campaign-specific stats from API (uses admin client server-side to bypass RLS)
-    const counts = {
-      sent: 0,
-      delivered: 0,
-      opened: 0,
-      clicked: 0,
+    // Use stats from campaign object if available (from stats API)
+    const totalSent = campaign.recipient_count || campaign.audience_count || 1
+    const opened = campaign.unique_opens || 0
+    const clicked = campaign.unique_clicks || 0
+
+    // Fetch additional stats if needed
+    let counts = {
+      sent: totalSent,
+      delivered: totalSent,
+      opened: opened,
+      clicked: clicked,
       bounced: 0,
       unsubscribed: 0,
     }
 
     try {
-      const statsRes = await fetch(`/api/email/stats?campaignId=${campaign.id}`)
+      // Try to get more detailed stats from events
+      const statsRes = await fetch(`/api/email/stats?campaignId=${campaign.id}&t=${Date.now()}`, {
+        cache: 'no-store',
+      })
       if (statsRes.ok) {
         const statsData = await statsRes.json()
-        Object.assign(counts, statsData.stats || {})
+        if (statsData.stats) {
+          counts.opened = statsData.stats.opened || counts.opened
+          counts.clicked = statsData.stats.clicked || counts.clicked
+          counts.bounced = statsData.stats.bounced || 0
+          counts.unsubscribed = statsData.stats.unsubscribed || 0
+        }
       }
     } catch (err) {
       console.error("Failed to fetch campaign stats:", err)
     }
 
-    const totalSent = campaign.audience_count || counts.sent || 1
     setSelectedCampaignStats({
       total_sent: totalSent,
-      delivered: counts.delivered || totalSent,
+      delivered: counts.delivered,
       opened: counts.opened,
       clicked: counts.clicked,
       bounced: counts.bounced,
       unsubscribed: counts.unsubscribed,
-      open_rate: Math.round((counts.opened / totalSent) * 100),
-      click_rate: Math.round((counts.clicked / totalSent) * 100),
+      open_rate: totalSent > 0 ? Math.round((counts.opened / totalSent) * 100) : 0,
+      click_rate: totalSent > 0 ? Math.round((counts.clicked / totalSent) * 100) : 0,
     })
 
     setView("analytics")
@@ -2732,10 +2758,10 @@ Tips:
                               {formatDateTime(campaign.scheduled_at)}
                             </span>
                           )}
-                          {campaign.audience_count > 0 && (
+                          {(campaign.recipient_count || campaign.audience_count) > 0 && (
                             <span className="flex items-center gap-1">
                               <Users className="h-3.5 w-3.5" />
-                              {campaign.audience_count} recipients
+                              {campaign.recipient_count || campaign.audience_count} recipients
                             </span>
                           )}
                         </div>

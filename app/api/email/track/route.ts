@@ -1,6 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
+export const runtime = "nodejs"
+export const dynamic = "force-dynamic"
+
 // Transparent 1x1 GIF for tracking pixel
 const TRACKING_PIXEL = Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64")
 
@@ -16,67 +19,19 @@ export async function GET(request: NextRequest) {
     headers: {
       "Content-Type": "image/gif",
       "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-      Pragma: "no-cache",
-      Expires: "0",
+      "Pragma": "no-cache",
+      "Expires": "0",
     },
   })
 
-  // Track the open event asynchronously
+  // Track the open event asynchronously (don't block response)
   if (campaignId && email) {
-    trackOpen(campaignId, email, request).catch(console.error)
+    trackOpen(campaignId, decodeURIComponent(email), request).catch(err => {
+      console.error("[track] Open tracking error:", err)
+    })
   }
 
   return response
-}
-
-// POST - Handle click tracking
-export async function POST(request: NextRequest) {
-  try {
-    const { campaign_id, url, email } = await request.json()
-
-    if (!campaign_id || !url) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
-    }
-
-    const adminSupabase = createAdminClient()
-
-    // Get creator_id from campaign
-    const { data: campaign } = await adminSupabase
-      .from("email_campaigns")
-      .select("creator_id")
-      .eq("id", campaign_id)
-      .single()
-
-    // Check if click already recorded for this email/campaign/url
-    const { data: existing } = await adminSupabase
-      .from("email_events")
-      .select("id")
-      .eq("campaign_id", campaign_id)
-      .eq("recipient_email", email || "unknown")
-      .eq("event_type", "clicked")
-      .maybeSingle()
-
-    if (!existing) {
-      // Record the click event
-      await adminSupabase.from("email_events").insert({
-        campaign_id,
-        creator_id: campaign?.creator_id || null,
-        recipient_email: email || "unknown",
-        event_type: "clicked",
-        metadata: {
-          url,
-          clicked_at: new Date().toISOString(),
-          user_agent: request.headers.get("user-agent") || null,
-        },
-      })
-      console.log("[email-track] Tracked click for campaign:", campaign_id, "email:", email)
-    }
-
-    return NextResponse.json({ success: true, redirect: url })
-  } catch (error) {
-    console.error("Track click error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
-  }
 }
 
 // Helper to track email opens
@@ -85,67 +40,83 @@ async function trackOpen(campaignId: string, email: string, request: NextRequest
     const adminSupabase = createAdminClient()
     const userAgent = request.headers.get("user-agent") || null
     const ipAddress = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null
+    const now = new Date().toISOString()
 
-    // Get creator_id from campaign
+    // Get campaign info
     const { data: campaign } = await adminSupabase
       .from("email_campaigns")
       .select("creator_id")
       .eq("id", campaignId)
       .single()
 
-    // Check if this email has already been tracked as opened for this campaign
-    const { data: existingOpen } = await adminSupabase
+    if (!campaign) {
+      console.error("[track] Campaign not found:", campaignId)
+      return
+    }
+
+    // Check if already opened (prevent duplicate events)
+    const { data: existingEvent } = await adminSupabase
       .from("email_events")
       .select("id")
       .eq("campaign_id", campaignId)
-      .eq("recipient_email", email)
       .eq("event_type", "opened")
+      .or(`email.eq.${email},recipient_email.eq.${email}`)
       .maybeSingle()
 
-    // Only record if not already tracked
-    if (!existingOpen) {
-      // Try insert with creator_id first
-      const { error: insertError } = await adminSupabase.from("email_events").insert({
+    // Insert event if not already tracked
+    if (!existingEvent) {
+      await adminSupabase.from("email_events").insert({
         campaign_id: campaignId,
-        creator_id: campaign?.creator_id || null,
+        creator_id: campaign.creator_id,
+        email: email,
         recipient_email: email,
         event_type: "opened",
-        metadata: {
-          opened_at: new Date().toISOString(),
-          user_agent: userAgent,
-          ip_address: ipAddress,
-        },
+        user_agent: userAgent,
+        ip_address: ipAddress,
+        metadata: { opened_at: now },
+        created_at: now,
       })
-
-      if (insertError) {
-        console.error("[email-track] Insert error (trying without creator_id):", insertError.message)
-        // Try again without creator_id in case column doesn't exist
-        const { error: retryError } = await adminSupabase.from("email_events").insert({
-          campaign_id: campaignId,
-          recipient_email: email,
-          event_type: "opened",
-          metadata: {
-            opened_at: new Date().toISOString(),
-            user_agent: userAgent,
-            ip_address: ipAddress,
-          },
-        })
-        if (retryError) {
-          console.error("[email-track] Retry insert error:", retryError.message)
-        } else {
-          console.log("[email-track] Tracked open (without creator_id) for campaign:", campaignId, "email:", email)
-        }
-      } else {
-        console.log("[email-track] Tracked open for campaign:", campaignId, "email:", email)
-      }
+      console.log("[track] Recorded open event for:", email, "campaign:", campaignId)
     }
+
+    // Update email_recipients table if it exists
+    try {
+      const { error: updateError } = await adminSupabase
+        .from("email_recipients")
+        .update({
+          opened_at: now,
+          open_count: adminSupabase.rpc ? 1 : 1, // Increment would be ideal but just set to 1 for simplicity
+        })
+        .eq("campaign_id", campaignId)
+        .eq("email", email)
+        .is("opened_at", null) // Only update if not already opened
+
+      if (updateError && !updateError.message.includes("does not exist")) {
+        console.log("[track] Updated recipient opened_at")
+      }
+    } catch {
+      // Table might not exist, ignore
+    }
+
+    // Also try email_sends table (old schema)
+    try {
+      await adminSupabase
+        .from("email_sends")
+        .update({ opened_at: now })
+        .eq("campaign_id", campaignId)
+        .eq("email", email)
+        .is("opened_at", null)
+    } catch {
+      // Table might not exist, ignore
+    }
+
   } catch (error) {
-    console.error("Track open error:", error)
+    console.error("[track] Error tracking open:", error)
   }
 }
 
 // Handle CORS preflight
-export async function OPTIONS(request: NextRequest) {
+export async function OPTIONS() {
   return new NextResponse(null, {
     status: 200,
     headers: {
