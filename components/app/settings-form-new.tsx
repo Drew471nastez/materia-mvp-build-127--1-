@@ -125,6 +125,7 @@ interface SettingsFormProps {
     support_email?: string | null
     slug?: string
   }
+  storeBuilderAvatarUrl?: string | null
   onepageAvatarUrl?: string | null
   googleAvatarUrl?: string | null
 }
@@ -661,7 +662,7 @@ function ImageUploadModal({
   )
 }
 
-export function SettingsFormNew({ profile, creator, onepageAvatarUrl, googleAvatarUrl }: SettingsFormProps) {
+export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepageAvatarUrl, googleAvatarUrl }: SettingsFormProps) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<TabId>("general")
   const [isLoading, setIsLoading] = useState(false)
@@ -672,7 +673,7 @@ export function SettingsFormNew({ profile, creator, onepageAvatarUrl, googleAvat
   // Avatar fallback order: Profile (manually set) → Store Builder → OnePage → Google → Initials
   const getDefaultAvatarUrl = () => {
     if (profile.avatar_url) return profile.avatar_url
-    if (creator.avatar_url) return creator.avatar_url
+    if (storeBuilderAvatarUrl) return storeBuilderAvatarUrl
     if (onepageAvatarUrl) return onepageAvatarUrl
     if (googleAvatarUrl) return googleAvatarUrl
     return ""
@@ -1154,23 +1155,23 @@ export function SettingsFormNew({ profile, creator, onepageAvatarUrl, googleAvat
                   Email Address
                 </h3>
                 <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="email" className="text-[13px] font-medium text-[#374151]">
-                      Email
-                    </Label>
-                    {emailVerified && (
-                      <span className="text-[12px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center gap-1">
-                        <Check className="h-3 w-3" />
-                        Verified
-                      </span>
-                    )}
-                  </div>
+                  <Label htmlFor="email" className="text-[13px] font-medium text-[#374151]">
+                    Email
+                  </Label>
                   <div className="flex gap-2">
-                    <Input id="email" value={currentEmail} disabled className="h-11 bg-[#f9fafb] border-[#e5e7eb] rounded-xl text-[14px] flex-1" />
+                    <div className="relative flex-1">
+                      <Input id="email" value={currentEmail} disabled className="h-11 bg-[#f9fafb] border-[#e5e7eb] rounded-xl text-[14px] pr-24" />
+                      {emailVerified && (
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <Check className="h-3 w-3" />
+                          Verified
+                        </span>
+                      )}
+                    </div>
                     <button
                       type="button"
                       onClick={() => setShowEmailChangeModal(true)}
-                      className="px-4 h-11 text-[13px] font-medium bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#374151] rounded-xl transition-colors whitespace-nowrap"
+                      className="px-4 h-11 text-[13px] font-medium bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#374151] rounded-xl transition-colors whitespace-nowrap cursor-pointer"
                     >
                       Change
                     </button>
@@ -1261,12 +1262,70 @@ export function SettingsFormNew({ profile, creator, onepageAvatarUrl, googleAvat
                 </div>
               </div>
 
+              {/* Resources Card */}
+              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
+                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">Resources</h3>
+                <div className="border border-[#e5e7eb] rounded-xl overflow-hidden">
+                  <a
+                    href="/changelog"
+                    target="_blank"
+                    className="flex items-center justify-between p-4 hover:bg-[#f9fafb] transition-colors cursor-pointer border-b border-[#e5e7eb]"
+                  >
+                    <div className="flex items-center gap-3">
+                      <svg className="h-5 w-5 text-[#6b7280]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="3" width="7" height="7" rx="1" />
+                        <rect x="14" y="3" width="7" height="7" rx="1" />
+                        <rect x="3" y="14" width="7" height="7" rx="1" />
+                        <rect x="14" y="14" width="7" height="7" rx="1" />
+                      </svg>
+                      <span className="text-[14px] text-[#374151]">Change log</span>
+                    </div>
+                    <button type="button" className="px-3 py-1.5 text-[13px] font-medium border border-[#e5e7eb] rounded-lg hover:bg-[#f3f4f6] transition-colors cursor-pointer">
+                      View change log
+                    </button>
+                  </a>
+                  <a
+                    href="/help"
+                    target="_blank"
+                    className="flex items-center justify-between p-4 hover:bg-[#f9fafb] transition-colors cursor-pointer border-b border-[#e5e7eb]"
+                  >
+                    <div className="flex items-center gap-3">
+                      <svg className="h-5 w-5 text-[#6b7280]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10" />
+                        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                        <line x1="12" y1="17" x2="12.01" y2="17" />
+                      </svg>
+                      <span className="text-[14px] text-[#374151]">Storelib Help Center</span>
+                    </div>
+                    <button type="button" className="px-3 py-1.5 text-[13px] font-medium border border-[#e5e7eb] rounded-lg hover:bg-[#f3f4f6] transition-colors cursor-pointer">
+                      Get help
+                    </button>
+                  </a>
+                  <a
+                    href="/partners"
+                    target="_blank"
+                    className="flex items-center justify-between p-4 hover:bg-[#f9fafb] transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3">
+                      <svg className="h-5 w-5 text-[#6b7280]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="16 18 22 12 16 6" />
+                        <polyline points="8 6 2 12 8 18" />
+                      </svg>
+                      <span className="text-[14px] text-[#374151]">Hire a Storelib Partner</span>
+                    </div>
+                    <button type="button" className="px-3 py-1.5 text-[13px] font-medium border border-[#e5e7eb] rounded-lg hover:bg-[#f3f4f6] transition-colors cursor-pointer">
+                      Hire a Partner
+                    </button>
+                  </a>
+                </div>
+              </div>
+
               {/* Save Button */}
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2">
                 <Button
                   type="submit"
                   disabled={isLoading}
-                  className="h-11 px-6 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white rounded-xl text-[14px] font-medium shadow-sm"
+                  className="h-11 px-6 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white rounded-xl text-[14px] font-medium shadow-sm cursor-pointer"
                 >
                   {isLoading ? (
                     <>
@@ -1417,132 +1476,114 @@ export function SettingsFormNew({ profile, creator, onepageAvatarUrl, googleAvat
           {/* Payments Tab */}
           {activeTab === "payments" && (
             <div className="space-y-4 sm:space-y-6">
-              {/* Payment Methods Card */}
-              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-2 flex items-center gap-2">
-                  <Wallet className="h-4 w-4 text-[#8b5cf6]" />
-                  Payment Methods
-                </h3>
-                <p className="text-[13px] text-[#6b7280] mb-6">Connect your payment accounts to receive payouts from sales.</p>
-
-                {/* Stripe Connection */}
-                <div className="p-4 border border-[#e5e7eb] rounded-xl mb-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-[#635bff] rounded-lg flex items-center justify-center">
-                        <svg className="h-5 w-5 text-white" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.92 3.445 1.574 3.445 2.583 0 .98-.84 1.545-2.354 1.545-1.875 0-4.965-.921-6.99-2.109l-.9 5.555C5.175 22.99 8.385 24 11.714 24c2.641 0 4.843-.624 6.328-1.813 1.664-1.305 2.525-3.236 2.525-5.732 0-4.128-2.524-5.851-6.591-7.305z"/>
-                        </svg>
-                      </div>
-                      <div>
-                        <p className="font-medium text-[#1a1a2e] text-[14px]">Stripe</p>
-                        <p className="text-[12px] text-[#6b7280]">Accept credit cards & more</p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      className="px-4 h-9 text-[13px] font-medium bg-[#635bff] hover:bg-[#5851db] text-white rounded-lg transition-colors"
-                    >
-                      Connect
-                    </button>
+              {/* Test Mode Banner */}
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center shrink-0">
+                    <AlertCircle className="h-4 w-4 text-amber-600" />
                   </div>
-                </div>
-
-                {/* PayPal Connection */}
-                <div className="p-4 border border-[#e5e7eb] rounded-xl">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-[#003087] rounded-lg flex items-center justify-center">
-                        <svg className="h-5 w-5 text-white" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944.901C5.026.382 5.474 0 5.998 0h7.46c2.57 0 4.578.543 5.69 1.81 1.01 1.15 1.304 2.42 1.012 4.287-.023.143-.047.288-.077.437-.983 5.05-4.349 6.797-8.647 6.797H9.108a.658.658 0 0 0-.65.55l-.866 5.497a.652.652 0 0 1-.643.55H7.076v.409h-.001z"/>
-                        </svg>
-                      </div>
-                      <div>
-                        <p className="font-medium text-[#1a1a2e] text-[14px]">PayPal</p>
-                        <p className="text-[12px] text-[#6b7280]">PayPal payments & payouts</p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      className="px-4 h-9 text-[13px] font-medium bg-[#003087] hover:bg-[#002670] text-white rounded-lg transition-colors"
-                    >
-                      Connect
-                    </button>
+                  <div>
+                    <p className="font-semibold text-amber-800 text-[14px]">Test Mode</p>
+                    <p className="text-[13px] text-amber-700 mt-0.5">You&apos;re using Stripe test keys</p>
+                    <p className="text-[12px] text-amber-600 mt-1">Connect payouts to sell paid products. You won&apos;t be able to accept payments until your Stripe account is connected and verified.</p>
                   </div>
                 </div>
               </div>
 
-              {/* Marketing Consent Card */}
+              {/* Stripe Connect Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-2">Marketing Preferences</h3>
-                <p className="text-[13px] text-[#6b7280] mb-4">Manage how we communicate with you.</p>
-
-                <div className="space-y-3">
-                  <label className="flex items-start gap-3 cursor-pointer group">
-                    <input
-                      type="checkbox"
-                      className="mt-1 h-4 w-4 rounded border-[#d1d5db] text-[#8b5cf6] focus:ring-[#8b5cf6] cursor-pointer"
-                      defaultChecked
-                    />
-                    <div>
-                      <p className="text-[14px] font-medium text-[#1a1a2e]">Product updates</p>
-                      <p className="text-[12px] text-[#6b7280]">Receive emails about new features and improvements</p>
-                    </div>
-                  </label>
-                  <label className="flex items-start gap-3 cursor-pointer group">
-                    <input
-                      type="checkbox"
-                      className="mt-1 h-4 w-4 rounded border-[#d1d5db] text-[#8b5cf6] focus:ring-[#8b5cf6] cursor-pointer"
-                      defaultChecked
-                    />
-                    <div>
-                      <p className="text-[14px] font-medium text-[#1a1a2e]">Marketing emails</p>
-                      <p className="text-[12px] text-[#6b7280]">Tips, promotions, and offers from Storelib</p>
-                    </div>
-                  </label>
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 bg-[#635bff] rounded-lg flex items-center justify-center">
+                    <svg className="h-5 w-5 text-white" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.92 3.445 1.574 3.445 2.583 0 .98-.84 1.545-2.354 1.545-1.875 0-4.965-.921-6.99-2.109l-.9 5.555C5.175 22.99 8.385 24 11.714 24c2.641 0 4.843-.624 6.328-1.813 1.664-1.305 2.525-3.236 2.525-5.732 0-4.128-2.524-5.851-6.591-7.305z"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-[15px] font-semibold text-[#1a1a2e]">Stripe Connect</h3>
+                    <p className="text-[13px] text-[#6b7280]">Receive payments directly to your bank account</p>
+                  </div>
+                </div>
+                <div className="mt-4 p-4 bg-[#f9fafb] rounded-xl">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-[13px] font-medium text-[#6b7280]">Status</span>
+                    <span className="text-[13px] font-medium text-red-600 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                      Not Connected
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="w-full h-10 text-[14px] font-medium bg-[#635bff] hover:bg-[#5851db] text-white rounded-lg transition-colors cursor-pointer"
+                  >
+                    Connect Stripe
+                  </button>
                 </div>
               </div>
 
-              {/* Legal & Terms Card */}
+              {/* PayPal Optional Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-2">Legal & Terms</h3>
-                <p className="text-[13px] text-[#6b7280] mb-4">Review our policies and agreements.</p>
-
-                <div className="space-y-2">
-                  <a
-                    href="/terms"
-                    target="_blank"
-                    className="flex items-center justify-between p-3 rounded-xl hover:bg-[#f9fafb] transition-colors group"
-                  >
-                    <div className="flex items-center gap-3">
-                      <FileText className="h-4 w-4 text-[#6b7280]" />
-                      <span className="text-[14px] text-[#374151]">Terms of Service</span>
-                    </div>
-                    <ChevronRight className="h-4 w-4 text-[#9ca3af] group-hover:text-[#6b7280] transition-colors" />
-                  </a>
-                  <a
-                    href="/privacy"
-                    target="_blank"
-                    className="flex items-center justify-between p-3 rounded-xl hover:bg-[#f9fafb] transition-colors group"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Shield className="h-4 w-4 text-[#6b7280]" />
-                      <span className="text-[14px] text-[#374151]">Privacy Policy</span>
-                    </div>
-                    <ChevronRight className="h-4 w-4 text-[#9ca3af] group-hover:text-[#6b7280] transition-colors" />
-                  </a>
-                  <a
-                    href="/seller-agreement"
-                    target="_blank"
-                    className="flex items-center justify-between p-3 rounded-xl hover:bg-[#f9fafb] transition-colors group"
-                  >
-                    <div className="flex items-center gap-3">
-                      <FileText className="h-4 w-4 text-[#6b7280]" />
-                      <span className="text-[14px] text-[#374151]">Seller Agreement</span>
-                    </div>
-                    <ChevronRight className="h-4 w-4 text-[#9ca3af] group-hover:text-[#6b7280] transition-colors" />
-                  </a>
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 bg-[#003087] rounded-lg flex items-center justify-center">
+                    <svg className="h-5 w-5 text-white" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944.901C5.026.382 5.474 0 5.998 0h7.46c2.57 0 4.578.543 5.69 1.81 1.01 1.15 1.304 2.42 1.012 4.287-.023.143-.047.288-.077.437-.983 5.05-4.349 6.797-8.647 6.797H9.108a.658.658 0 0 0-.65.55l-.866 5.497a.652.652 0 0 1-.643.55H7.076v.409h-.001z"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-[15px] font-semibold text-[#1a1a2e]">PayPal (Optional)</h3>
+                    <p className="text-[13px] text-[#6b7280]">Alternative payment method for your customers</p>
+                  </div>
                 </div>
+                <p className="text-[12px] text-[#9ca3af] mt-2 mb-4">PayPal is optional. Most creators use Stripe for payouts.</p>
+                <div className="space-y-1.5">
+                  <Input
+                    type="email"
+                    placeholder="your@email.com"
+                    className="h-11 rounded-xl text-[14px] border-[#e5e7eb] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
+                  />
+                  <p className="text-[12px] text-[#9ca3af]">Your PayPal account email (optional - save settings to update)</p>
+                </div>
+              </div>
+
+              {/* Payment Settings Card */}
+              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
+                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-2">Payment Settings</h3>
+                <p className="text-[13px] text-[#6b7280] mb-4">Configure your default payment preferences</p>
+
+                <div className="space-y-4">
+                  {/* Currency Selector */}
+                  <div className="space-y-1.5">
+                    <Label className="text-[13px] font-medium text-[#374151]">Default Currency</Label>
+                    <select className="w-full h-11 rounded-xl text-[14px] border border-[#e5e7eb] px-3 bg-white focus:ring-[#8b5cf6] focus:border-[#8b5cf6] cursor-pointer">
+                      <option value="USD">USD - US Dollar</option>
+                      <option value="EUR">EUR - Euro</option>
+                      <option value="GBP">GBP - British Pound</option>
+                      <option value="CAD">CAD - Canadian Dollar</option>
+                      <option value="AUD">AUD - Australian Dollar</option>
+                    </select>
+                  </div>
+
+                  {/* Statement Descriptor */}
+                  <div className="space-y-1.5">
+                    <Label className="text-[13px] font-medium text-[#374151]">Statement Descriptor</Label>
+                    <Input
+                      type="text"
+                      placeholder="YOUR STORE"
+                      maxLength={22}
+                      className="h-11 rounded-xl text-[14px] border-[#e5e7eb] focus:ring-[#8b5cf6] focus:border-[#8b5cf6] uppercase"
+                    />
+                    <p className="text-[12px] text-[#9ca3af]">Appears on customer credit card statements (max 22 characters)</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Save Button */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2">
+                <Button
+                  type="button"
+                  className="h-11 px-6 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white rounded-xl text-[14px] font-medium shadow-sm cursor-pointer"
+                >
+                  Save Settings
+                </Button>
               </div>
             </div>
           )}

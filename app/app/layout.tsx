@@ -55,7 +55,8 @@ export default async function AppLayout({
 
   const googleAvatar = user.user_metadata?.avatar_url || user.user_metadata?.picture || null
 
-  const rawAvatarUrl = profile?.avatar_url || onepage?.avatar_url || storeBuilderAvatar || googleAvatar || null
+  // Avatar fallback order: Profile (manually set) → Store Builder → OnePage → Google → Initials
+  const rawAvatarUrl = profile?.avatar_url || storeBuilderAvatar || onepage?.avatar_url || googleAvatar || null
   const avatarUrl = rawAvatarUrl && !rawAvatarUrl.includes("placeholder.svg") ? rawAvatarUrl : null
 
   const displayName = profile?.display_name || user.user_metadata?.full_name || user.user_metadata?.name || creator.slug

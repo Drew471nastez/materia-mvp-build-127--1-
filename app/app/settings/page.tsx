@@ -24,6 +24,18 @@ export default async function SettingsPage() {
     .eq("creator_id", creator.id)
     .maybeSingle()
 
+  // Fetch Store Builder avatar
+  const { data: storeConfig } = await supabase
+    .from("store_builder_configs")
+    .select("published_config")
+    .eq("creator_id", user.id)
+    .eq("page_type", "shop")
+    .maybeSingle()
+
+  const storeBuilderAvatarUrl = (storeConfig?.published_config as Record<string, unknown>)?.headerSettings
+    ? ((storeConfig?.published_config as Record<string, unknown>)?.headerSettings as Record<string, unknown>)?.avatarUrl as string | null
+    : null
+
   // Get Google avatar from user metadata (if authenticated with Google)
   const googleAvatarUrl = user.user_metadata?.avatar_url || user.user_metadata?.picture || null
 
@@ -58,6 +70,7 @@ export default async function SettingsPage() {
     <SettingsFormNew
       profile={safeProfile}
       creator={creator}
+      storeBuilderAvatarUrl={storeBuilderAvatarUrl}
       onepageAvatarUrl={onepage?.avatar_url || null}
       googleAvatarUrl={googleAvatarUrl}
     />
