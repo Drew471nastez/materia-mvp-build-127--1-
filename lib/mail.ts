@@ -69,7 +69,10 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
     }
   }
 
-  const fromAddress = options.from || `${PLATFORM_BRAND} <${EMAIL_FROM}>`
+  // Extract just the email address from EMAIL_FROM if it contains angle brackets
+  const emailMatch = EMAIL_FROM.match(/<(.+)>/)
+  const emailOnly = emailMatch ? emailMatch[1] : EMAIL_FROM
+  const fromAddress = options.from || `${PLATFORM_BRAND} <${emailOnly}>`
 
   console.log("[mail] Sending email via Mailgun:", {
     from: fromAddress,
