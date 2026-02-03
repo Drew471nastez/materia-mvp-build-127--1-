@@ -1,295 +1,178 @@
 -- =====================================================
--- COMPLETE REBUILD: EMAIL SENT SYSTEM
--- Run this in Supabase SQL Editor to fix all issues
+-- COMPLETE EMAIL SYSTEM REBUILD
+-- Run this in Supabase SQL Editor
 -- Date: 2026-02-03
 -- =====================================================
 
 -- =====================================================
--- STEP 1: DROP AND RECREATE email_events TABLE
--- This is the single source of truth for all tracking
+-- STEP 1: email_campaigns TABLE - Add missing columns
 -- =====================================================
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'email_campaigns' AND column_name = 'audience_count') THEN
+    ALTER TABLE email_campaigns ADD COLUMN audience_count INTEGER DEFAULT 0;
+  END IF;
 
--- Backup existing events if any (optional - comment out if not needed)
--- CREATE TABLE IF NOT EXISTS email_events_backup AS SELECT * FROM email_events;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'email_campaigns' AND column_name = 'preview_text') THEN
+    ALTER TABLE email_campaigns ADD COLUMN preview_text TEXT;
+  END IF;
 
--- Drop existing email_events table and recreate cleanly
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'email_campaigns' AND column_name = 'from_name') THEN
+    ALTER TABLE email_campaigns ADD COLUMN from_name TEXT;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'email_campaigns' AND column_name = 'reply_to') THEN
+    ALTER TABLE email_campaigns ADD COLUMN reply_to TEXT;
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_email_campaigns_creator ON email_campaigns(creator_id);
+CREATE INDEX IF NOT EXISTS idx_email_campaigns_status ON email_campaigns(status);
+CREATE INDEX IF NOT EXISTS idx_email_campaigns_sent_at ON email_campaigns(sent_at DESC);
+CREATE INDEX IF NOT EXISTS idx_email_campaigns_creator_status ON email_campaigns(creator_id, status);
+
+-- =====================================================
+-- STEP 2: campaign_recipients TABLE (source of truth for sends)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS campaign_recipients (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  campaign_id UUID NOT NULL REFERENCES email_campaigns(id) ON DELETE CASCADE,
+  creator_id UUID NOT NULL REFERENCES creators(id) ON DELETE CASCADE,
+  subscriber_id UUID REFERENCES subscribers(id) ON DELETE SET NULL,
+  email TEXT NOT NULL,
+  name TEXT,
+  tracking_token UUID NOT NULL DEFAULT gen_random_uuid(),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'sent', 'delivered', 'bounced', 'failed')),
+  sent_at TIMESTAMPTZ,
+  delivered_at TIMESTAMPTZ,
+  bounced_at TIMESTAMPTZ,
+  opened_at TIMESTAMPTZ,
+  clicked_at TIMESTAMPTZ,
+  open_count INTEGER DEFAULT 0,
+  click_count INTEGER DEFAULT 0,
+  provider_message_id TEXT,
+  error_message TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_campaign_recipients_campaign ON campaign_recipients(campaign_id);
+CREATE INDEX IF NOT EXISTS idx_campaign_recipients_creator ON campaign_recipients(creator_id);
+CREATE INDEX IF NOT EXISTS idx_campaign_recipients_email ON campaign_recipients(email);
+CREATE INDEX IF NOT EXISTS idx_campaign_recipients_token ON campaign_recipients(tracking_token);
+CREATE INDEX IF NOT EXISTS idx_campaign_recipients_status ON campaign_recipients(status);
+CREATE INDEX IF NOT EXISTS idx_campaign_recipients_sent_at ON campaign_recipients(sent_at DESC);
+
+-- Unique constraint to prevent duplicate sends
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_campaign_recipients_unique') THEN
+    CREATE UNIQUE INDEX idx_campaign_recipients_unique ON campaign_recipients(campaign_id, email);
+  END IF;
+END $$;
+
+-- =====================================================
+-- STEP 3: email_events TABLE (tracking events)
+-- =====================================================
 DROP TABLE IF EXISTS email_events CASCADE;
 
 CREATE TABLE email_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   campaign_id UUID REFERENCES email_campaigns(id) ON DELETE CASCADE,
-  flow_id UUID REFERENCES email_flows(id) ON DELETE SET NULL,
+  recipient_id UUID REFERENCES campaign_recipients(id) ON DELETE CASCADE,
   creator_id UUID NOT NULL REFERENCES creators(id) ON DELETE CASCADE,
-  email TEXT NOT NULL, -- Single column for recipient email (no duplicate columns)
+  email TEXT NOT NULL,
   event_type TEXT NOT NULL CHECK (event_type IN ('sent', 'delivered', 'opened', 'clicked', 'bounced', 'unsubscribed', 'complained')),
-  url TEXT, -- For click events - the URL that was clicked
+  url TEXT,
   user_agent TEXT,
   ip_address TEXT,
   metadata JSONB DEFAULT '{}',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Optimized indexes for common queries
 CREATE INDEX idx_email_events_campaign ON email_events(campaign_id);
+CREATE INDEX idx_email_events_recipient ON email_events(recipient_id);
 CREATE INDEX idx_email_events_creator ON email_events(creator_id);
 CREATE INDEX idx_email_events_type ON email_events(event_type);
 CREATE INDEX idx_email_events_email ON email_events(email);
 CREATE INDEX idx_email_events_created ON email_events(created_at DESC);
 CREATE INDEX idx_email_events_campaign_type ON email_events(campaign_id, event_type);
-CREATE INDEX idx_email_events_creator_type_created ON email_events(creator_id, event_type, created_at DESC);
 
--- DISABLE RLS - tracking must work without auth (open/click pixels have no session)
+-- Unique constraint for opens (one open event per recipient per campaign)
+CREATE UNIQUE INDEX idx_email_events_unique_open ON email_events(campaign_id, email, event_type) WHERE event_type = 'opened';
+
+-- DISABLE RLS for tracking (pixels have no auth)
 ALTER TABLE email_events DISABLE ROW LEVEL SECURITY;
-
--- Grant service role full access
-GRANT ALL ON email_events TO service_role;
-GRANT ALL ON email_events TO anon; -- Needed for tracking pixels
+ALTER TABLE campaign_recipients DISABLE ROW LEVEL SECURITY;
 
 -- =====================================================
--- STEP 2: ENSURE email_campaigns TABLE IS CORRECT
+-- STEP 4: subscribers TABLE updates
 -- =====================================================
-
--- Add missing columns if they don't exist
 DO $$
 BEGIN
-  -- Ensure audience_count exists
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'email_campaigns' AND column_name = 'audience_count'
-  ) THEN
-    ALTER TABLE email_campaigns ADD COLUMN audience_count INTEGER DEFAULT 0;
-  END IF;
-
-  -- Ensure preview_text exists
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'email_campaigns' AND column_name = 'preview_text'
-  ) THEN
-    ALTER TABLE email_campaigns ADD COLUMN preview_text TEXT;
-  END IF;
-
-  -- Ensure from_name exists
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'email_campaigns' AND column_name = 'from_name'
-  ) THEN
-    ALTER TABLE email_campaigns ADD COLUMN from_name TEXT;
-  END IF;
-
-  -- Ensure reply_to exists
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'email_campaigns' AND column_name = 'reply_to'
-  ) THEN
-    ALTER TABLE email_campaigns ADD COLUMN reply_to TEXT;
-  END IF;
-END $$;
-
--- Ensure proper indexes exist
-CREATE INDEX IF NOT EXISTS idx_email_campaigns_creator ON email_campaigns(creator_id);
-CREATE INDEX IF NOT EXISTS idx_email_campaigns_status ON email_campaigns(status);
-CREATE INDEX IF NOT EXISTS idx_email_campaigns_sent_at ON email_campaigns(sent_at DESC);
-CREATE INDEX IF NOT EXISTS idx_email_campaigns_creator_status_sent ON email_campaigns(creator_id, status, sent_at DESC);
-
--- =====================================================
--- STEP 3: ENSURE email_sends TABLE IS CORRECT
--- This tracks individual send attempts per recipient
--- =====================================================
-
--- Add missing columns if they don't exist
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'email_sends' AND column_name = 'opened_at'
-  ) THEN
-    ALTER TABLE email_sends ADD COLUMN opened_at TIMESTAMPTZ;
-  END IF;
-
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'email_sends' AND column_name = 'clicked_at'
-  ) THEN
-    ALTER TABLE email_sends ADD COLUMN clicked_at TIMESTAMPTZ;
-  END IF;
-
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'email_sends' AND column_name = 'email'
-  ) THEN
-    ALTER TABLE email_sends ADD COLUMN email TEXT;
-  END IF;
-END $$;
-
--- Ensure proper indexes
-CREATE INDEX IF NOT EXISTS idx_email_sends_campaign ON email_sends(campaign_id);
-CREATE INDEX IF NOT EXISTS idx_email_sends_email ON email_sends(email);
-CREATE INDEX IF NOT EXISTS idx_email_sends_status ON email_sends(status);
-CREATE INDEX IF NOT EXISTS idx_email_sends_sent_at ON email_sends(sent_at DESC);
-
--- =====================================================
--- STEP 4: ENSURE subscribers TABLE HAS REQUIRED COLUMNS
--- =====================================================
-
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'subscribers' AND column_name = 'unsubscribe_token'
-  ) THEN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'subscribers' AND column_name = 'unsubscribe_token') THEN
     ALTER TABLE subscribers ADD COLUMN unsubscribe_token UUID DEFAULT gen_random_uuid();
-    CREATE INDEX IF NOT EXISTS idx_subscribers_unsubscribe_token ON subscribers(unsubscribe_token);
   END IF;
 
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'subscribers' AND column_name = 'unsubscribed_at'
-  ) THEN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'subscribers' AND column_name = 'unsubscribed_at') THEN
     ALTER TABLE subscribers ADD COLUMN unsubscribed_at TIMESTAMPTZ;
   END IF;
 
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'subscribers' AND column_name = 'is_active'
-  ) THEN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'subscribers' AND column_name = 'is_active') THEN
     ALTER TABLE subscribers ADD COLUMN is_active BOOLEAN DEFAULT true;
   END IF;
 END $$;
 
--- Generate tokens for any subscribers missing them
 UPDATE subscribers SET unsubscribe_token = gen_random_uuid() WHERE unsubscribe_token IS NULL;
 
--- =====================================================
--- STEP 5: DROP email_recipients TABLE (redundant)
--- We use email_sends + email_events, no need for email_recipients
--- =====================================================
-
-DROP TABLE IF EXISTS email_recipients CASCADE;
+CREATE INDEX IF NOT EXISTS idx_subscribers_unsubscribe_token ON subscribers(unsubscribe_token);
+CREATE INDEX IF NOT EXISTS idx_subscribers_creator_status ON subscribers(creator_id, status);
 
 -- =====================================================
--- STEP 6: CREATE HELPER FUNCTIONS FOR STATS
+-- STEP 5: Grant permissions
 -- =====================================================
+GRANT ALL ON email_events TO service_role;
+GRANT ALL ON email_events TO anon;
+GRANT ALL ON campaign_recipients TO service_role;
+GRANT ALL ON campaign_recipients TO anon;
 
--- Function to get campaign stats efficiently
-CREATE OR REPLACE FUNCTION get_campaign_stats(p_campaign_id UUID)
-RETURNS TABLE (
-  total_sent BIGINT,
-  unique_opens BIGINT,
-  unique_clicks BIGINT,
-  bounced BIGINT,
-  unsubscribed BIGINT
-) AS $$
+-- =====================================================
+-- STEP 6: Migrate data from email_sends if exists
+-- =====================================================
+DO $$
 BEGIN
-  RETURN QUERY
-  SELECT
-    (SELECT COUNT(*) FROM email_sends WHERE campaign_id = p_campaign_id AND status = 'sent')::BIGINT as total_sent,
-    (SELECT COUNT(DISTINCT email) FROM email_events WHERE campaign_id = p_campaign_id AND event_type = 'opened')::BIGINT as unique_opens,
-    (SELECT COUNT(DISTINCT email) FROM email_events WHERE campaign_id = p_campaign_id AND event_type = 'clicked')::BIGINT as unique_clicks,
-    (SELECT COUNT(*) FROM email_events WHERE campaign_id = p_campaign_id AND event_type = 'bounced')::BIGINT as bounced,
-    (SELECT COUNT(*) FROM email_events WHERE campaign_id = p_campaign_id AND event_type = 'unsubscribed')::BIGINT as unsubscribed;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Function to get creator stats for a time range
-CREATE OR REPLACE FUNCTION get_creator_email_stats(
-  p_creator_id UUID,
-  p_start_date TIMESTAMPTZ DEFAULT NULL,
-  p_end_date TIMESTAMPTZ DEFAULT NOW()
-)
-RETURNS TABLE (
-  total_sent BIGINT,
-  total_opens BIGINT,
-  total_clicks BIGINT,
-  total_unsubscribed BIGINT,
-  campaigns_in_range BIGINT
-) AS $$
-BEGIN
-  RETURN QUERY
-  WITH campaigns_in_range AS (
-    SELECT id, audience_count
-    FROM email_campaigns
-    WHERE creator_id = p_creator_id
-      AND status = 'sent'
-      AND (p_start_date IS NULL OR sent_at >= p_start_date)
-      AND sent_at <= p_end_date
-  ),
-  events_in_range AS (
-    SELECT event_type, email, campaign_id
-    FROM email_events
-    WHERE creator_id = p_creator_id
-      AND campaign_id IN (SELECT id FROM campaigns_in_range)
-  )
-  SELECT
-    COALESCE(SUM(c.audience_count), 0)::BIGINT as total_sent,
-    (SELECT COUNT(DISTINCT email) FROM events_in_range WHERE event_type = 'opened')::BIGINT as total_opens,
-    (SELECT COUNT(DISTINCT email) FROM events_in_range WHERE event_type = 'clicked')::BIGINT as total_clicks,
-    (SELECT COUNT(*) FROM events_in_range WHERE event_type = 'unsubscribed')::BIGINT as total_unsubscribed,
-    COUNT(c.id)::BIGINT as campaigns_in_range
-  FROM campaigns_in_range c;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Function to get monthly email usage
-CREATE OR REPLACE FUNCTION get_monthly_email_usage(p_creator_id UUID)
-RETURNS TABLE (
-  sent_this_month BIGINT,
-  monthly_limit INTEGER
-) AS $$
-DECLARE
-  start_of_month TIMESTAMPTZ;
-BEGIN
-  start_of_month := date_trunc('month', NOW());
-
-  RETURN QUERY
-  SELECT
-    COALESCE(SUM(audience_count), 0)::BIGINT as sent_this_month,
-    3000 as monthly_limit -- TODO: Get from user's plan
-  FROM email_campaigns
-  WHERE creator_id = p_creator_id
-    AND status = 'sent'
-    AND sent_at >= start_of_month;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Grant execute permissions
-GRANT EXECUTE ON FUNCTION get_campaign_stats(UUID) TO authenticated;
-GRANT EXECUTE ON FUNCTION get_campaign_stats(UUID) TO service_role;
-GRANT EXECUTE ON FUNCTION get_creator_email_stats(UUID, TIMESTAMPTZ, TIMESTAMPTZ) TO authenticated;
-GRANT EXECUTE ON FUNCTION get_creator_email_stats(UUID, TIMESTAMPTZ, TIMESTAMPTZ) TO service_role;
-GRANT EXECUTE ON FUNCTION get_monthly_email_usage(UUID) TO authenticated;
-GRANT EXECUTE ON FUNCTION get_monthly_email_usage(UUID) TO service_role;
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'email_sends') THEN
+    INSERT INTO campaign_recipients (campaign_id, creator_id, subscriber_id, email, status, sent_at, opened_at, clicked_at, created_at)
+    SELECT
+      es.campaign_id,
+      ec.creator_id,
+      es.subscriber_id,
+      COALESCE(es.email, s.email),
+      CASE
+        WHEN es.status = 'sent' THEN 'sent'
+        WHEN es.status = 'failed' THEN 'failed'
+        WHEN es.status = 'bounced' THEN 'bounced'
+        ELSE 'sent'
+      END,
+      es.sent_at,
+      es.opened_at,
+      es.clicked_at,
+      es.created_at
+    FROM email_sends es
+    JOIN email_campaigns ec ON es.campaign_id = ec.id
+    LEFT JOIN subscribers s ON es.subscriber_id = s.id
+    WHERE es.campaign_id IS NOT NULL
+      AND COALESCE(es.email, s.email) IS NOT NULL
+    ON CONFLICT (campaign_id, email) DO NOTHING;
+  END IF;
+END $$;
 
 -- =====================================================
--- STEP 7: VERIFY SETUP
+-- VERIFICATION
 -- =====================================================
-
--- Show table structure
-SELECT
-  'email_events' as table_name,
-  column_name,
-  data_type
-FROM information_schema.columns
-WHERE table_name = 'email_events'
-ORDER BY ordinal_position;
-
--- Show indexes
-SELECT
-  indexname,
-  tablename
-FROM pg_indexes
-WHERE tablename IN ('email_events', 'email_campaigns', 'email_sends')
-ORDER BY tablename, indexname;
-
--- Show row counts
-SELECT 'email_campaigns' as table_name, COUNT(*) as row_count FROM email_campaigns
-UNION ALL
-SELECT 'email_sends', COUNT(*) FROM email_sends
+SELECT 'campaign_recipients' as table_name, COUNT(*) as rows FROM campaign_recipients
 UNION ALL
 SELECT 'email_events', COUNT(*) FROM email_events
 UNION ALL
+SELECT 'email_campaigns', COUNT(*) FROM email_campaigns
+UNION ALL
 SELECT 'subscribers', COUNT(*) FROM subscribers;
-
--- =====================================================
--- MIGRATION COMPLETE!
--- Run the API endpoints next to verify everything works
--- =====================================================
