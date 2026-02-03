@@ -272,15 +272,22 @@ BEGIN
   -- Check if email_sends exists and has data
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'email_sends') THEN
     -- Migrate data from email_sends to email_recipients (if not already migrated)
-    INSERT INTO email_recipients (id, campaign_id, creator_id, subscriber_id, email, status, sent_at, provider_message_id, error_message, created_at)
+    -- Map old status values to new valid ones: opened/clicked -> delivered, unknown -> sent
+    INSERT INTO email_recipients (id, campaign_id, creator_id, subscriber_id, email, status, sent_at, opened_at, clicked_at, provider_message_id, error_message, created_at)
     SELECT
       es.id,
       es.campaign_id,
       ec.creator_id,
       es.subscriber_id,
       es.email,
-      es.status,
+      CASE
+        WHEN es.status IN ('pending', 'sent', 'delivered', 'bounced', 'failed') THEN es.status
+        WHEN es.status IN ('opened', 'clicked') THEN 'delivered'
+        ELSE 'sent'
+      END as status,
       es.sent_at,
+      CASE WHEN es.status = 'opened' OR es.status = 'clicked' THEN es.sent_at ELSE NULL END as opened_at,
+      CASE WHEN es.status = 'clicked' THEN es.sent_at ELSE NULL END as clicked_at,
       es.resend_id,
       es.error_message,
       es.created_at
