@@ -101,6 +101,7 @@ interface Subscriber {
   status: string
   is_active: boolean
   tags?: string[]
+  unsubscribed_at?: string | null
 }
 
 interface EmailSegment {
@@ -2502,7 +2503,7 @@ Tips:
                     s.email,
                     s.name || "",
                     s.source === "onepage" ? "OnePage" : "Store Builder",
-                    s.status,
+                    s.status === "subscribed" && s.unsubscribed_at ? "resubscribed" : s.status,
                     s.subscribed_at ? new Date(s.subscribed_at).toLocaleDateString() : ""
                   ])
                   const csvContent = [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n")
@@ -2576,21 +2577,30 @@ Tips:
                             </span>
                           </td>
                           <td className="px-4 py-3 hidden md:table-cell">
-                            <span
-                              className={cn(
-                                "inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium",
-                                subscriber.status === "subscribed"
-                                  ? "bg-green-50 text-green-700"
-                                  : "bg-gray-100 text-gray-500",
-                              )}
-                            >
-                              {subscriber.status === "subscribed" ? (
-                                <Check className="h-3 w-3" />
-                              ) : (
-                                <X className="h-3 w-3" />
-                              )}
-                              {subscriber.status}
-                            </span>
+                            {(() => {
+                              const isResubscribed = subscriber.status === "subscribed" && subscriber.unsubscribed_at
+                              return (
+                                <span
+                                  className={cn(
+                                    "inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium",
+                                    isResubscribed
+                                      ? "bg-amber-50 text-amber-700"
+                                      : subscriber.status === "subscribed"
+                                        ? "bg-green-50 text-green-700"
+                                        : "bg-gray-100 text-gray-500",
+                                  )}
+                                >
+                                  {isResubscribed ? (
+                                    <RefreshCw className="h-3 w-3" />
+                                  ) : subscriber.status === "subscribed" ? (
+                                    <Check className="h-3 w-3" />
+                                  ) : (
+                                    <X className="h-3 w-3" />
+                                  )}
+                                  {isResubscribed ? "resubscribed" : subscriber.status}
+                                </span>
+                              )
+                            })()}
                           </td>
                           <td className="px-4 py-3 hidden lg:table-cell">
                             <span className="text-xs text-gray-500">{formatDate(subscriber.subscribed_at)}</span>

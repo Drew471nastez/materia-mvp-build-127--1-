@@ -110,13 +110,13 @@ export async function POST(request: NextRequest) {
     const now = new Date().toISOString()
 
     if (action === "resubscribe") {
-      // Resubscribe
+      // Resubscribe - keep unsubscribed_at to track that they were once unsubscribed (for "resubscribed" badge)
       const { error: updateError } = await adminSupabase
         .from("subscribers")
         .update({
           status: "subscribed",
           is_active: true,
-          unsubscribed_at: null,
+          // Note: We intentionally DON'T clear unsubscribed_at so we can show "resubscribed" badge
         })
         .eq("id", subscriber.id)
 

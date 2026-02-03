@@ -671,11 +671,16 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   const [usernameError, setUsernameError] = useState<string | null>(null)
 
   // Avatar fallback order: Profile (manually set) → Store Builder → OnePage → Google → Initials
+  // Filter out placeholder URLs to match layout.tsx logic for sidebar consistency
+  const isValidAvatarUrl = (url: string | null | undefined): boolean => {
+    return !!url && !url.includes("placeholder.svg")
+  }
+
   const getDefaultAvatarUrl = () => {
-    if (profile.avatar_url) return profile.avatar_url
-    if (storeBuilderAvatarUrl) return storeBuilderAvatarUrl
-    if (onepageAvatarUrl) return onepageAvatarUrl
-    if (googleAvatarUrl) return googleAvatarUrl
+    if (isValidAvatarUrl(profile.avatar_url)) return profile.avatar_url!
+    if (isValidAvatarUrl(storeBuilderAvatarUrl)) return storeBuilderAvatarUrl!
+    if (isValidAvatarUrl(onepageAvatarUrl)) return onepageAvatarUrl!
+    if (isValidAvatarUrl(googleAvatarUrl)) return googleAvatarUrl!
     return ""
   }
 
@@ -685,6 +690,19 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   const [username, setUsername] = useState(profile.username || creator.slug || "")
   const [avatarUrl, setAvatarUrl] = useState(getDefaultAvatarUrl())
   const avatarInputRef = useRef<HTMLInputElement>(null)
+
+  // Track initial values for unsaved changes detection
+  const initialValues = useRef({
+    firstName: profile.first_name || profile.display_name?.split(" ")[0] || "",
+    lastName: profile.last_name || profile.display_name?.split(" ").slice(1).join(" ") || "",
+    username: profile.username || creator.slug || "",
+    avatarUrl: getDefaultAvatarUrl(),
+    addressLine1: profile.address_line1 || "",
+    city: profile.city || "",
+    state: profile.state || "",
+    postalCode: profile.postal_code || "",
+    country: profile.country || "",
+  })
 
   // Avatar upload/crop states
   const [showAvatarUploadModal, setShowAvatarUploadModal] = useState(false)
@@ -707,6 +725,32 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
   // Country selector
   const [showCountryModal, setShowCountryModal] = useState(false)
+
+  // Detect unsaved changes
+  const hasUnsavedChanges =
+    firstName !== initialValues.current.firstName ||
+    lastName !== initialValues.current.lastName ||
+    username !== initialValues.current.username ||
+    avatarUrl !== initialValues.current.avatarUrl ||
+    addressLine1 !== initialValues.current.addressLine1 ||
+    city !== initialValues.current.city ||
+    state !== initialValues.current.state ||
+    postalCode !== initialValues.current.postalCode ||
+    country !== initialValues.current.country
+
+  // Warn user before leaving with unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault()
+        e.returnValue = ""
+        return ""
+      }
+    }
+
+    window.addEventListener("beforeunload", handleBeforeUnload)
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload)
+  }, [hasUnsavedChanges])
 
   // Security
   const [passwordResetLoading, setPasswordResetLoading] = useState(false)
@@ -855,6 +899,18 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
       if (creatorError) throw creatorError
 
       setSuccess(true)
+      // Update initial values to reflect saved state
+      initialValues.current = {
+        firstName,
+        lastName,
+        username: cleanUsername,
+        avatarUrl,
+        addressLine1,
+        city,
+        state,
+        postalCode,
+        country,
+      }
       router.refresh()
       setTimeout(() => setSuccess(false), 3000)
     } catch (error: unknown) {
@@ -1692,6 +1748,59 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
           )}
         </form>
       </div>
+
+      {/* Sticky Save Bar */}
+      {hasUnsavedChanges && (
+        <div className="fixed bottom-0 left-0 right-0 md:left-[220px] z-50 bg-white border-t border-[#e5e7eb] shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2 text-[#6b7280]">
+              <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+              <span className="text-[13px] font-medium">You have unsaved changes</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  // Reset to initial values
+                  setFirstName(initialValues.current.firstName)
+                  setLastName(initialValues.current.lastName)
+                  setUsername(initialValues.current.username)
+                  setAvatarUrl(initialValues.current.avatarUrl)
+                  setAddressLine1(initialValues.current.addressLine1)
+                  setCity(initialValues.current.city)
+                  setState(initialValues.current.state)
+                  setPostalCode(initialValues.current.postalCode)
+                  setCountry(initialValues.current.country)
+                }}
+                className="px-4 h-10 text-[13px] font-medium text-[#6b7280] hover:text-[#374151] hover:bg-[#f3f4f6] rounded-xl transition-colors cursor-pointer"
+              >
+                Discard
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  // Trigger form submission
+                  const form = document.querySelector('form')
+                  if (form) {
+                    form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }))
+                  }
+                }}
+                disabled={isLoading}
+                className="px-5 h-10 text-[13px] font-medium bg-[#8b5cf6] hover:bg-[#7c3aed] disabled:bg-[#c4b5fd] text-white rounded-xl transition-colors flex items-center gap-2 cursor-pointer"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save changes"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Avatar Upload Modal */}
       <ImageUploadModal

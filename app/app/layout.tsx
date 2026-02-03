@@ -2,6 +2,7 @@ import type React from "react"
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { AppSidebar } from "@/components/app/sidebar"
+import { AppLayoutWrapper } from "@/components/app/app-layout-wrapper"
 
 export default async function AppLayout({
   children,
@@ -109,20 +110,22 @@ export default async function AppLayout({
   const totalSteps = setupSteps.length
 
   return (
-    <div className="min-h-svh overflow-x-hidden bg-[#111111] md:bg-white">
-      <AppSidebar
-        creatorSlug={creator.slug}
-        storePublished={creator.store_published}
-        avatarUrl={avatarUrl}
-        displayName={displayName}
-        stripeConnected={!!creator.stripe_account_id}
-        stripeStatus={creator.stripe_onboarding_status || "not_connected"}
-        onePagePublished={onepage?.published || false}
-        setupProgress={{ completed: completedSteps, total: totalSteps }}
-      />
-      <main className="h-svh pt-[68px] md:pl-[220px] md:pt-0 bg-white rounded-t-[20px] md:rounded-none overflow-hidden">
-        <div className="h-[calc(100svh-68px)] md:h-svh overflow-y-auto">{children}</div>
-      </main>
-    </div>
+    <AppLayoutWrapper>
+      <div className="min-h-svh overflow-x-hidden bg-[#111111] md:bg-white">
+        <AppSidebar
+          creatorSlug={creator.slug}
+          storePublished={creator.store_published}
+          avatarUrl={avatarUrl}
+          displayName={displayName}
+          stripeConnected={!!creator.stripe_account_id}
+          stripeStatus={creator.stripe_onboarding_status || "not_connected"}
+          onePagePublished={onepage?.published || false}
+          setupProgress={{ completed: completedSteps, total: totalSteps }}
+        />
+        <main className="h-svh pt-[68px] md:pl-[220px] md:pt-0 bg-white rounded-t-[20px] md:rounded-none overflow-hidden">
+          <div className="h-[calc(100svh-68px)] md:h-svh overflow-y-auto">{children}</div>
+        </main>
+      </div>
+    </AppLayoutWrapper>
   )
 }

@@ -491,6 +491,7 @@ export function DashboardClient({
     prevPeriodRevenue: 0,
     prevConversionRate: 0,
   })
+  const [liveVisitors, setLiveVisitors] = useState(0)
 
   const formatCurrency = (cents: number, compact = false) => {
     const value = cents / 100
@@ -642,6 +643,40 @@ export function DashboardClient({
       setIsLoading(false)
     }
   }
+
+  // Fetch live visitors (active in last 5 minutes)
+  const fetchLiveVisitors = async () => {
+    const supabase = createClient()
+    try {
+      const fiveMinutesAgo = new Date()
+      fiveMinutesAgo.setMinutes(fiveMinutesAgo.getMinutes() - 5)
+
+      const { data: recentViews } = await supabase
+        .from("analytics_events")
+        .select("visitor_id, session_id")
+        .eq("creator_id", creatorId)
+        .eq("event_type", "view")
+        .gte("created_at", fiveMinutesAgo.toISOString())
+
+      // Count unique visitors
+      const uniqueVisitors = new Set(
+        (recentViews || [])
+          .map((e: any) => e.visitor_id || e.session_id)
+          .filter(Boolean)
+      )
+
+      setLiveVisitors(uniqueVisitors.size)
+    } catch (error) {
+      console.error("Error fetching live visitors:", error)
+    }
+  }
+
+  // Poll for live visitors every 30 seconds
+  useEffect(() => {
+    fetchLiveVisitors()
+    const interval = setInterval(fetchLiveVisitors, 30000)
+    return () => clearInterval(interval)
+  }, [creatorId])
 
   // Fetch detailed chart data for KPI modal
   const fetchChartData = async (kpiType: KPIType) => {
@@ -1260,7 +1295,25 @@ export function DashboardClient({
             ) : (
               <>
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-[13px] font-medium text-[#6b7280]">Views</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[13px] font-medium text-[#6b7280]">Views</span>
+                    {/* Live visitors indicator */}
+                    <div className="flex items-center gap-1.5">
+                      <div
+                        className={`w-2 h-2 rounded-full ${
+                          liveVisitors > 0
+                            ? "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.6)]"
+                            : "bg-gray-300"
+                        }`}
+                        style={{
+                          animation: liveVisitors > 0 ? "pulse-glow 2s ease-in-out infinite" : "none",
+                        }}
+                      />
+                      <span className={`text-[11px] font-medium ${liveVisitors > 0 ? "text-emerald-600" : "text-gray-400"}`}>
+                        {liveVisitors} live
+                      </span>
+                    </div>
+                  </div>
                   <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
                     <Eye className="h-4 w-4 text-[#9ca3af]" />
                   </div>
@@ -1673,6 +1726,16 @@ export function DashboardClient({
         @keyframes laser-sweep {
           0% { transform: translateX(-100%); }
           100% { transform: translateX(200%); }
+        }
+        @keyframes pulse-glow {
+          0%, 100% {
+            opacity: 1;
+            box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
+          }
+          50% {
+            opacity: 0.7;
+            box-shadow: 0 0 12px rgba(16, 185, 129, 0.8);
+          }
         }
         @keyframes skeleton-shimmer {
           0% {
