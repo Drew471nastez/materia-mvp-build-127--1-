@@ -92,18 +92,18 @@ export async function GET(request: NextRequest) {
 
     const campaignIds = campaignsInRange.map(c => c.id)
 
-    // Get recipient stats - try new table first, fallback to old
+    // Get recipient stats - check BOTH tables and merge results
     let recipientStats: Record<string, { total: number; uniqueOpens: number; uniqueClicks: number }> = {}
 
-    // Try email_recipients first (new schema)
     if (campaignIds.length > 0) {
+      // Check email_recipients (new schema)
       const { data: recipients } = await adminSupabase
         .from("email_recipients")
         .select("campaign_id, status, opened_at, clicked_at")
         .in("campaign_id", campaignIds)
 
       if (recipients && recipients.length > 0) {
-        console.log("[stats] Using email_recipients table, found:", recipients.length, "rows")
+        console.log("[stats] Found", recipients.length, "rows in email_recipients")
         recipients.forEach(r => {
           if (!recipientStats[r.campaign_id]) {
             recipientStats[r.campaign_id] = { total: 0, uniqueOpens: 0, uniqueClicks: 0 }
@@ -114,24 +114,33 @@ export async function GET(request: NextRequest) {
           if (r.opened_at) recipientStats[r.campaign_id].uniqueOpens++
           if (r.clicked_at) recipientStats[r.campaign_id].uniqueClicks++
         })
-      } else {
-        // Fallback: try email_sends (old schema)
-        const { data: sends } = await adminSupabase
-          .from("email_sends")
-          .select("campaign_id, status")
-          .in("campaign_id", campaignIds)
+      }
 
-        if (sends && sends.length > 0) {
-          console.log("[stats] Using email_sends table, found:", sends.length, "rows")
-          sends.forEach(s => {
-            if (!recipientStats[s.campaign_id]) {
-              recipientStats[s.campaign_id] = { total: 0, uniqueOpens: 0, uniqueClicks: 0 }
-            }
-            if (s.status === "sent") {
+      // ALSO check email_sends (old schema) and merge for campaigns with no recipients data
+      const { data: sends } = await adminSupabase
+        .from("email_sends")
+        .select("campaign_id, status")
+        .in("campaign_id", campaignIds)
+
+      if (sends && sends.length > 0) {
+        console.log("[stats] Found", sends.length, "rows in email_sends")
+        sends.forEach(s => {
+          // Only use email_sends data if email_recipients doesn't have data for this campaign
+          if (!recipientStats[s.campaign_id]) {
+            recipientStats[s.campaign_id] = { total: 0, uniqueOpens: 0, uniqueClicks: 0 }
+          }
+          // For campaigns without email_recipients data, count from email_sends
+          // (We check by seeing if the total is still 0 after processing recipients)
+        })
+
+        // For campaigns with no recipient stats yet, count from sends
+        sends.forEach(s => {
+          if (recipientStats[s.campaign_id] && recipientStats[s.campaign_id].total === 0) {
+            if (s.status === "sent" || s.status === "delivered" || s.status === "opened" || s.status === "clicked") {
               recipientStats[s.campaign_id].total++
             }
-          })
-        }
+          }
+        })
       }
     }
 

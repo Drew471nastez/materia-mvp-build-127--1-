@@ -153,7 +153,7 @@ export async function POST(request: NextRequest) {
       })
       .eq("id", campaign_id)
 
-    // Create send records for each subscriber
+    // Create send records for each subscriber (in email_sends for backwards compatibility)
     const sendRecords = subscribers.map((subscriber) => ({
       campaign_id,
       subscriber_id: subscriber.id,
@@ -171,6 +171,27 @@ export async function POST(request: NextRequest) {
       // Use admin client to bypass RLS
       await adminSupabase.from("email_campaigns").update({ status: "failed" }).eq("id", campaign_id)
       return NextResponse.json({ error: "Failed to create send records", details: sendsError.message }, { status: 500 })
+    }
+
+    // ALSO create records in email_recipients (new schema for stats)
+    const recipientRecords = subscribers.map((subscriber) => ({
+      campaign_id,
+      creator_id: creator.id,
+      subscriber_id: subscriber.id,
+      email: subscriber.email,
+      status: "pending",
+    }))
+
+    const { data: recipients, error: recipientsError } = await adminSupabase
+      .from("email_recipients")
+      .insert(recipientRecords)
+      .select("id, email, subscriber_id")
+
+    if (recipientsError) {
+      console.error("[email/send] Error creating recipient records:", recipientsError)
+      // Continue anyway - email_sends is the primary table
+    } else {
+      console.log("[email/send] Created", recipients?.length || 0, "recipient records")
     }
 
     // Build the base URL for tracking
@@ -248,39 +269,67 @@ export async function POST(request: NextRequest) {
           throw new Error(result.error || "SMTP send error")
         }
 
-        // Update send record with success
+        const sentTime = new Date().toISOString()
+
+        // Update send record with success (email_sends)
         await adminSupabase
           .from("email_sends")
           .update({
             status: "sent",
-            sent_at: new Date().toISOString(),
+            sent_at: sentTime,
             resend_id: result.messageId || null,
           })
           .eq("id", send.id)
+
+        // ALSO update email_recipients table
+        await adminSupabase
+          .from("email_recipients")
+          .update({
+            status: "sent",
+            sent_at: sentTime,
+            provider_message_id: result.messageId || null,
+          })
+          .eq("campaign_id", campaign_id)
+          .eq("email", subscriber.email)
 
         // Log sent event with the correct schema
         await adminSupabase.from("email_events").insert({
           campaign_id,
           creator_id: creator.id,
+          email: subscriber.email,
           recipient_email: subscriber.email,
           event_type: "sent",
           metadata: {
             send_id: send.id,
             subscriber_id: subscriber.id,
-            sent_at: new Date().toISOString(),
+            sent_at: sentTime,
           },
         }).catch(() => {}) // Ignore if table doesn't exist yet
 
         sentCount++
       } catch (error) {
         console.error(`Failed to send to ${subscriber.email}:`, error)
+        const errorMsg = error instanceof Error ? error.message : "Unknown error"
+
+        // Update email_sends
         await adminSupabase
           .from("email_sends")
           .update({
             status: "failed",
-            error_message: error instanceof Error ? error.message : "Unknown error",
+            error_message: errorMsg,
           })
           .eq("id", send.id)
+
+        // ALSO update email_recipients
+        await adminSupabase
+          .from("email_recipients")
+          .update({
+            status: "failed",
+            error_message: errorMsg,
+          })
+          .eq("campaign_id", campaign_id)
+          .eq("email", subscriber.email)
+
         failedCount++
       }
     }
