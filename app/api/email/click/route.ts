@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic"
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const encodedUrl = searchParams.get("url")
-  const sendId = searchParams.get("sid")
+  const token = searchParams.get("t") // tracking_token
   const campaignId = searchParams.get("cid")
   const email = searchParams.get("e")
 
@@ -22,7 +22,6 @@ export async function GET(request: NextRequest) {
   try {
     targetUrl = Buffer.from(encodedUrl, "base64").toString("utf-8")
   } catch {
-    // If decoding fails, try using the URL directly
     targetUrl = encodedUrl
   }
 
@@ -30,17 +29,16 @@ export async function GET(request: NextRequest) {
   try {
     new URL(targetUrl)
   } catch {
-    // Invalid URL - redirect to homepage
     return NextResponse.redirect(new URL("/", request.url))
   }
 
-  // Track the click asynchronously (don't delay the redirect)
-  if (campaignId && email) {
+  // Track the click asynchronously
+  if (token || (campaignId && email)) {
     trackClick(
+      token,
       campaignId,
-      decodeURIComponent(email),
+      email ? decodeURIComponent(email) : null,
       targetUrl,
-      sendId,
       request
     ).catch(err => {
       console.error("[track/click] Error:", err)
@@ -51,103 +49,88 @@ export async function GET(request: NextRequest) {
   return NextResponse.redirect(targetUrl)
 }
 
-// Track click event
 async function trackClick(
-  campaignId: string,
-  email: string,
+  token: string | null,
+  campaignId: string | null,
+  email: string | null,
   url: string,
-  sendId: string | null,
   request: NextRequest
 ) {
   try {
     const adminSupabase = createAdminClient()
     const now = new Date().toISOString()
-
-    // Get campaign to find creator_id
-    const { data: campaign } = await adminSupabase
-      .from("email_campaigns")
-      .select("creator_id")
-      .eq("id", campaignId)
-      .single()
-
-    if (!campaign) {
-      console.log("[track/click] Campaign not found:", campaignId)
-      return
-    }
-
-    // Check if we already recorded a click for this email+campaign (count unique clicks)
-    const { data: existingClick } = await adminSupabase
-      .from("email_events")
-      .select("id")
-      .eq("campaign_id", campaignId)
-      .eq("email", email)
-      .eq("event_type", "clicked")
-      .limit(1)
-      .maybeSingle()
-
-    if (existingClick) {
-      // Already tracked a click for this email - we still log for URL analytics but it won't affect unique count
-      console.log("[track/click] Already have click for:", email, "campaign:", campaignId)
-      return
-    }
-
-    // Extract tracking metadata
     const userAgent = request.headers.get("user-agent") || null
-    const ipAddress = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-                      request.headers.get("x-real-ip") || null
+    const ipAddress = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null
 
-    // Insert the click event
-    const { error } = await adminSupabase.from("email_events").insert({
-      campaign_id: campaignId,
-      creator_id: campaign.creator_id,
-      email: email,
+    let recipient = null
+
+    // Find recipient by token (preferred) or by campaign+email
+    if (token) {
+      const { data } = await adminSupabase
+        .from("campaign_recipients")
+        .select("id, campaign_id, creator_id, email, clicked_at, click_count")
+        .eq("tracking_token", token)
+        .single()
+      recipient = data
+    } else if (campaignId && email) {
+      const { data } = await adminSupabase
+        .from("campaign_recipients")
+        .select("id, campaign_id, creator_id, email, clicked_at, click_count")
+        .eq("campaign_id", campaignId)
+        .eq("email", email)
+        .single()
+      recipient = data
+    }
+
+    if (!recipient) {
+      console.log("[track/click] Recipient not found")
+      return
+    }
+
+    // Always increment click count
+    const newClickCount = (recipient.click_count || 0) + 1
+
+    // Update recipient record
+    if (!recipient.clicked_at) {
+      // First click
+      await adminSupabase
+        .from("campaign_recipients")
+        .update({ clicked_at: now, click_count: newClickCount })
+        .eq("id", recipient.id)
+    } else {
+      // Additional click
+      await adminSupabase
+        .from("campaign_recipients")
+        .update({ click_count: newClickCount })
+        .eq("id", recipient.id)
+    }
+
+    // Always log click events (unlike opens, we track all clicks)
+    await adminSupabase.from("email_events").insert({
+      campaign_id: recipient.campaign_id,
+      recipient_id: recipient.id,
+      creator_id: recipient.creator_id,
+      email: recipient.email,
       event_type: "clicked",
       url: url,
       user_agent: userAgent,
       ip_address: ipAddress,
-      metadata: {
-        clicked_at: now,
-        send_id: sendId,
-        url: url,
-      },
+      metadata: { clicked_at: now, url: url },
     })
 
-    if (error) {
-      console.error("[track/click] Insert error:", error)
-      return
-    }
-
-    console.log("[track/click] Recorded click for:", email, "campaign:", campaignId, "url:", url.substring(0, 50))
-
-    // Also update email_sends table for backwards compatibility
-    if (sendId) {
-      await adminSupabase
-        .from("email_sends")
-        .update({ clicked_at: now })
-        .eq("id", sendId)
-        .is("clicked_at", null)
-    } else {
-      await adminSupabase
-        .from("email_sends")
-        .update({ clicked_at: now })
-        .eq("campaign_id", campaignId)
-        .eq("email", email)
-        .is("clicked_at", null)
-    }
+    console.log("[track/click] Recorded click for:", recipient.email, "url:", url.substring(0, 50))
 
   } catch (error) {
-    console.error("[track/click] Unexpected error:", error)
+    console.error("[track/click] Error:", error)
   }
 }
 
-// Handle CORS preflight
 export async function OPTIONS() {
   return new NextResponse(null, {
     status: 200,
     headers: {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
     },
   })
 }

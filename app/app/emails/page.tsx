@@ -220,6 +220,19 @@ export default function EmailsPage() {
   // Analytics state
   const [selectedCampaignStats, setSelectedCampaignStats] = useState<CampaignStats | null>(null)
   const [selectedCampaignForStats, setSelectedCampaignForStats] = useState<EmailCampaign | null>(null)
+  const [selectedCampaignRecipients, setSelectedCampaignRecipients] = useState<{
+    id: string
+    email: string
+    name: string | null
+    status: string
+    sent_at: string | null
+    opened_at: string | null
+    clicked_at: string | null
+    open_count: number
+    click_count: number
+    unsubscribed: boolean
+  }[]>([])
+  const [recipientSearch, setRecipientSearch] = useState("")
   const [overviewStats, setOverviewStats] = useState<{
     total_sent: number
     total_opened: number
@@ -732,13 +745,15 @@ export default function EmailsPage() {
 
   const handleViewStats = async (campaign: EmailCampaign) => {
     setSelectedCampaignForStats(campaign)
+    setSelectedCampaignRecipients([])
+    setRecipientSearch("")
 
     // Use stats from campaign object if available (from stats API)
     const totalSent = campaign.recipient_count || campaign.audience_count || 1
     const opened = campaign.unique_opens || 0
     const clicked = campaign.unique_clicks || 0
 
-    // Fetch additional stats if needed
+    // Fetch detailed stats and recipients from API
     let counts = {
       sent: totalSent,
       delivered: totalSent,
@@ -749,17 +764,31 @@ export default function EmailsPage() {
     }
 
     try {
-      // Try to get more detailed stats from events
-      const statsRes = await fetch(`/api/email/stats?campaignId=${campaign.id}&t=${Date.now()}`, {
+      const statsRes = await fetch(`/api/email/stats?campaignId=${campaign.id}&_t=${Date.now()}`, {
         cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache' },
       })
       if (statsRes.ok) {
         const statsData = await statsRes.json()
+        console.log("[handleViewStats] Received:", statsData)
+
         if (statsData.stats) {
+          counts.sent = statsData.stats.sent || counts.sent
+          counts.delivered = statsData.stats.delivered || counts.delivered
           counts.opened = statsData.stats.opened || counts.opened
           counts.clicked = statsData.stats.clicked || counts.clicked
           counts.bounced = statsData.stats.bounced || 0
           counts.unsubscribed = statsData.stats.unsubscribed || 0
+        }
+
+        // Get recipients list
+        if (statsData.recipients && Array.isArray(statsData.recipients)) {
+          setSelectedCampaignRecipients(statsData.recipients)
+        }
+
+        // Update campaign with body if returned
+        if (statsData.campaign?.body && !campaign.body) {
+          setSelectedCampaignForStats({ ...campaign, body: statsData.campaign.body })
         }
       }
     } catch (err) {
@@ -767,14 +796,14 @@ export default function EmailsPage() {
     }
 
     setSelectedCampaignStats({
-      total_sent: totalSent,
+      total_sent: counts.sent,
       delivered: counts.delivered,
       opened: counts.opened,
       clicked: counts.clicked,
       bounced: counts.bounced,
       unsubscribed: counts.unsubscribed,
-      open_rate: totalSent > 0 ? Math.round((counts.opened / totalSent) * 100) : 0,
-      click_rate: totalSent > 0 ? Math.round((counts.clicked / totalSent) * 100) : 0,
+      open_rate: counts.sent > 0 ? Math.round((counts.opened / counts.sent) * 100) : 0,
+      click_rate: counts.sent > 0 ? Math.round((counts.clicked / counts.sent) * 100) : 0,
     })
 
     setView("analytics")
@@ -2008,15 +2037,132 @@ Tips:
             </div>
           </div>
 
-          {/* Campaign Preview */}
-          <div className="bg-white rounded-xl border overflow-hidden">
+          {/* Email Preview */}
+          <div className="bg-white rounded-xl border overflow-hidden mb-6">
             <div className="px-4 py-3 border-b bg-gray-50">
               <h3 className="font-medium text-gray-900">Email Preview</h3>
             </div>
-            <div className="p-6">
-              <div className="prose prose-sm max-w-none">
-                <div dangerouslySetInnerHTML={{ __html: selectedCampaignForStats.body }} />
+            <div className="p-6 bg-gray-100">
+              <div className="max-w-[600px] mx-auto bg-white rounded-lg shadow-sm overflow-hidden">
+                {/* Email header */}
+                <div className="px-6 py-4 border-b bg-gray-50">
+                  <p className="text-sm text-gray-500">Subject</p>
+                  <p className="font-semibold text-gray-900">{selectedCampaignForStats.subject}</p>
+                  {selectedCampaignForStats.preview_text && (
+                    <p className="text-sm text-gray-500 mt-1">{selectedCampaignForStats.preview_text}</p>
+                  )}
+                </div>
+                {/* Email body */}
+                <div className="p-6">
+                  <div
+                    className="prose prose-sm max-w-none"
+                    style={{
+                      color: '#374151',
+                      lineHeight: '1.7',
+                      fontSize: '16px'
+                    }}
+                    dangerouslySetInnerHTML={{ __html: selectedCampaignForStats.body || '<p class="text-gray-400 italic">No content</p>' }}
+                  />
+                </div>
               </div>
+            </div>
+          </div>
+
+          {/* Recipients List */}
+          <div className="bg-white rounded-xl border overflow-hidden">
+            <div className="px-4 py-3 border-b bg-gray-50 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-gray-500" />
+                <h3 className="font-medium text-gray-900">Recipients ({selectedCampaignRecipients.length})</h3>
+              </div>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search recipients..."
+                  value={recipientSearch}
+                  onChange={(e) => setRecipientSearch(e.target.value)}
+                  className="pl-9 pr-3 py-1.5 text-sm border rounded-lg w-[200px] focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              {selectedCampaignRecipients.length === 0 ? (
+                <div className="p-8 text-center text-gray-500">
+                  <Users className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                  <p>No recipients found</p>
+                  <p className="text-sm">Recipients will appear here after the email is sent</p>
+                </div>
+              ) : (
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Opened</th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Clicked</th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Unsubscribed</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {selectedCampaignRecipients
+                      .filter(r =>
+                        r.email.toLowerCase().includes(recipientSearch.toLowerCase()) ||
+                        (r.name && r.name.toLowerCase().includes(recipientSearch.toLowerCase()))
+                      )
+                      .slice(0, 100)
+                      .map((recipient) => (
+                        <tr key={recipient.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 text-sm text-gray-900">{recipient.email}</td>
+                          <td className="px-4 py-3 text-sm text-gray-500">{recipient.name || '-'}</td>
+                          <td className="px-4 py-3 text-center">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                              recipient.status === 'sent' ? 'bg-green-100 text-green-800' :
+                              recipient.status === 'bounced' ? 'bg-red-100 text-red-800' :
+                              recipient.status === 'failed' ? 'bg-red-100 text-red-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {recipient.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            {recipient.opened_at ? (
+                              <div className="flex flex-col items-center">
+                                <Eye className="h-4 w-4 text-green-500" />
+                                <span className="text-xs text-gray-500">{recipient.open_count || 1}x</span>
+                              </div>
+                            ) : (
+                              <span className="text-gray-300">-</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            {recipient.clicked_at ? (
+                              <div className="flex flex-col items-center">
+                                <MousePointerClick className="h-4 w-4 text-blue-500" />
+                                <span className="text-xs text-gray-500">{recipient.click_count || 1}x</span>
+                              </div>
+                            ) : (
+                              <span className="text-gray-300">-</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            {recipient.unsubscribed ? (
+                              <X className="h-4 w-4 text-red-500 mx-auto" />
+                            ) : (
+                              <span className="text-gray-300">-</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              )}
+              {selectedCampaignRecipients.length > 100 && (
+                <div className="px-4 py-3 border-t bg-gray-50 text-sm text-gray-500 text-center">
+                  Showing first 100 of {selectedCampaignRecipients.length} recipients
+                </div>
+              )}
             </div>
           </div>
         </div>

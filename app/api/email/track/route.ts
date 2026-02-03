@@ -13,7 +13,8 @@ const TRACKING_PIXEL = Buffer.from(
 // GET - Handle tracking pixel requests (email opens)
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
-  const campaignId = searchParams.get("cid") || searchParams.get("c")
+  const token = searchParams.get("t") // tracking_token from campaign_recipients
+  const campaignId = searchParams.get("cid")
   const email = searchParams.get("e")
 
   // Always return the tracking pixel immediately
@@ -28,9 +29,9 @@ export async function GET(request: NextRequest) {
     },
   })
 
-  // Track the open asynchronously (don't block the pixel response)
-  if (campaignId && email) {
-    trackOpen(campaignId, decodeURIComponent(email), request).catch(err => {
+  // Track the open asynchronously
+  if (token || (campaignId && email)) {
+    trackOpen(token, campaignId, email ? decodeURIComponent(email) : null, request).catch(err => {
       console.error("[track/open] Error:", err)
     })
   }
@@ -38,86 +39,85 @@ export async function GET(request: NextRequest) {
   return response
 }
 
-// Track email open event
-async function trackOpen(campaignId: string, email: string, request: NextRequest) {
+async function trackOpen(
+  token: string | null,
+  campaignId: string | null,
+  email: string | null,
+  request: NextRequest
+) {
   try {
     const adminSupabase = createAdminClient()
     const now = new Date().toISOString()
-
-    // Get campaign to find creator_id
-    const { data: campaign } = await adminSupabase
-      .from("email_campaigns")
-      .select("creator_id")
-      .eq("id", campaignId)
-      .single()
-
-    if (!campaign) {
-      console.log("[track/open] Campaign not found:", campaignId)
-      return
-    }
-
-    // Check if we already recorded an open for this email+campaign (prevent duplicates)
-    const { data: existingEvent } = await adminSupabase
-      .from("email_events")
-      .select("id")
-      .eq("campaign_id", campaignId)
-      .eq("email", email)
-      .eq("event_type", "opened")
-      .limit(1)
-      .maybeSingle()
-
-    if (existingEvent) {
-      // Already tracked this open
-      console.log("[track/open] Already recorded open for:", email, "campaign:", campaignId)
-      return
-    }
-
-    // Extract tracking metadata
     const userAgent = request.headers.get("user-agent") || null
-    const ipAddress = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-                      request.headers.get("x-real-ip") || null
+    const ipAddress = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null
 
-    // Insert the open event
-    const { error } = await adminSupabase.from("email_events").insert({
-      campaign_id: campaignId,
-      creator_id: campaign.creator_id,
-      email: email,
+    let recipient = null
+
+    // Find recipient by token (preferred) or by campaign+email
+    if (token) {
+      const { data } = await adminSupabase
+        .from("campaign_recipients")
+        .select("id, campaign_id, creator_id, email, opened_at")
+        .eq("tracking_token", token)
+        .single()
+      recipient = data
+    } else if (campaignId && email) {
+      const { data } = await adminSupabase
+        .from("campaign_recipients")
+        .select("id, campaign_id, creator_id, email, opened_at")
+        .eq("campaign_id", campaignId)
+        .eq("email", email)
+        .single()
+      recipient = data
+    }
+
+    if (!recipient) {
+      console.log("[track/open] Recipient not found")
+      return
+    }
+
+    // Check if already opened (dedupe)
+    if (recipient.opened_at) {
+      // Increment open count but don't create another event
+      await adminSupabase
+        .from("campaign_recipients")
+        .update({ open_count: (recipient as { open_count?: number }).open_count || 1 + 1 })
+        .eq("id", recipient.id)
+      console.log("[track/open] Already opened, incrementing count for:", recipient.email)
+      return
+    }
+
+    // Update recipient record
+    await adminSupabase
+      .from("campaign_recipients")
+      .update({ opened_at: now, open_count: 1 })
+      .eq("id", recipient.id)
+
+    // Insert open event
+    await adminSupabase.from("email_events").insert({
+      campaign_id: recipient.campaign_id,
+      recipient_id: recipient.id,
+      creator_id: recipient.creator_id,
+      email: recipient.email,
       event_type: "opened",
       user_agent: userAgent,
       ip_address: ipAddress,
-      metadata: {
-        opened_at: now,
-      },
+      metadata: { opened_at: now },
     })
 
-    if (error) {
-      console.error("[track/open] Insert error:", error)
-      return
-    }
-
-    console.log("[track/open] Recorded open for:", email, "campaign:", campaignId)
-
-    // Also update email_sends table for backwards compatibility
-    await adminSupabase
-      .from("email_sends")
-      .update({ opened_at: now })
-      .eq("campaign_id", campaignId)
-      .eq("email", email)
-      .is("opened_at", null)
+    console.log("[track/open] Recorded open for:", recipient.email, "campaign:", recipient.campaign_id)
 
   } catch (error) {
-    console.error("[track/open] Unexpected error:", error)
+    console.error("[track/open] Error:", error)
   }
 }
 
-// Handle CORS preflight
 export async function OPTIONS() {
   return new NextResponse(null, {
     status: 200,
     headers: {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
     },
   })
 }
