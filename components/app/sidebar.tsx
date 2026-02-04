@@ -32,6 +32,7 @@ import { useState, useEffect, useRef } from "react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { NotificationsModal, NotificationBadge } from "./notifications-modal"
+import { useLanguage } from "@/lib/i18n"
 
 // Custom Store Builder icon - simple shop/storefront icon
 const StoreBuilderIcon = ({ className }: { className?: string }) => (
@@ -101,6 +102,7 @@ function getDismissedNotifications(): string[] {
 export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, displayName, stripeConnected = false, stripeStatus = "not_connected", onePagePublished = false, setupProgress }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
+  const { t } = useLanguage()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
   const [mobileProfileDropdownOpen, setMobileProfileDropdownOpen] = useState(false)
@@ -154,19 +156,19 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
   }
 
   const mainNavItems = [
-    { href: "/app", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/app/sales", label: "Sales", icon: ShoppingCart },
-    { href: "/app/products", label: "Products", icon: Package },
-    { href: "/app/analytics", label: "Analytics", icon: BarChart3 },
-    { href: "/app/onepage", label: "OnePage", icon: Link2, forceNavigation: true },
-    { href: "/store-builder", label: "Store Builder", icon: StoreBuilderIcon, forceNavigation: true },
-    { href: "/app/emails", label: "Emails", icon: Mail },
-    { href: "/app/payouts", label: "Payouts", icon: Wallet },
+    { href: "/app", label: t("nav.dashboard"), icon: LayoutDashboard },
+    { href: "/app/sales", label: t("nav.sales"), icon: ShoppingCart },
+    { href: "/app/products", label: t("nav.products"), icon: Package },
+    { href: "/app/analytics", label: t("nav.analytics"), icon: BarChart3 },
+    { href: "/app/onepage", label: t("nav.onepage"), icon: Link2, forceNavigation: true },
+    { href: "/store-builder", label: t("nav.storeBuilder"), icon: StoreBuilderIcon, forceNavigation: true },
+    { href: "/app/emails", label: t("nav.emails"), icon: Mail },
+    { href: "/app/payouts", label: t("nav.payouts"), icon: Wallet },
   ]
 
   const profileDropdownItems = [
-    { href: "/app/settings", label: "Settings", icon: Settings },
-    { href: "/app/settings/payments", label: "Billing", icon: CreditCard },
+    { href: "/app/settings", label: t("nav.settings"), icon: Settings },
+    { href: "/app/settings/payments", label: t("settings.billing"), icon: CreditCard },
     { href: "/help", label: "Help", icon: HelpCircle },
     { href: "/explore", label: "Explore", icon: Compass },
     { href: "/library", label: "Library", icon: Library },
@@ -336,7 +338,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-neutral-600 transition-colors hover:bg-red-50 hover:text-red-600"
           >
             <LogOut className="h-4 w-4 shrink-0" strokeWidth={1.5} />
-            <span>Logout</span>
+            <span>{t("settings.signOut")}</span>
           </button>
         </div>
       </div>
@@ -382,8 +384,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           className="group flex items-center justify-between rounded-xl bg-gradient-to-r from-violet-50/80 to-purple-50/80 border border-violet-100/60 px-3.5 py-3 transition-all duration-150 hover:from-violet-100/80 hover:to-purple-100/80"
         >
           <div>
-            <p className="text-[13px] font-semibold text-neutral-900">Upgrade to Pro</p>
-            <p className="text-[11px] text-neutral-600">Unlock more benefits</p>
+            <p className="text-[13px] font-semibold text-neutral-900">{t("nav.upgradeToPro")}</p>
+            <p className="text-[11px] text-neutral-600">{t("nav.unlockBenefits")}</p>
           </div>
           <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 group-hover:bg-gray-200 transition-colors">
             <Zap className="h-3.5 w-3.5 text-violet-500 fill-violet-500" strokeWidth={2} />
@@ -483,8 +485,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           className="group flex items-center justify-between rounded-xl bg-gradient-to-r from-violet-50/80 to-purple-50/80 border border-violet-100/60 px-3.5 py-3 transition-all duration-150 hover:from-violet-100/80 hover:to-purple-100/80"
         >
           <div>
-            <p className="text-[13px] font-semibold text-neutral-900">Upgrade to Pro</p>
-            <p className="text-[11px] text-neutral-600">Unlock more benefits</p>
+            <p className="text-[13px] font-semibold text-neutral-900">{t("nav.upgradeToPro")}</p>
+            <p className="text-[11px] text-neutral-600">{t("nav.unlockBenefits")}</p>
           </div>
           <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 group-hover:bg-gray-200 transition-colors">
             <Zap className="h-3.5 w-3.5 text-violet-500 fill-violet-500" strokeWidth={2} />

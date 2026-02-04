@@ -1,127 +1,100 @@
 "use client"
 
-import { ChevronLeft, Sparkles, Bug, Zap, Wrench, Plus } from "lucide-react"
+import { ChevronLeft } from "lucide-react"
 import Link from "next/link"
+import { useState } from "react"
 
 interface ChangelogEntry {
-  version: string
   date: string
   type: "feature" | "improvement" | "fix" | "update"
+  category: string
   title: string
   description: string
 }
 
 const changelogData: ChangelogEntry[] = [
   {
-    version: "1.2.0",
-    date: "February 4, 2026",
+    date: "February 4",
     type: "feature",
-    title: "Privacy Controls",
-    description: "New Privacy controls tab in settings allowing you to manage AI features, personalization, and session recording preferences.",
+    category: "Settings",
+    title: "Privacy Controls & Account Security",
+    description: "New Privacy tab in settings allowing you to manage AI features, personalization, delete your account, and sign out from all devices at once.",
   },
   {
-    version: "1.1.5",
-    date: "February 3, 2026",
+    date: "February 3",
     type: "improvement",
-    title: "Enhanced Settings Page",
-    description: "Improved settings page with better sticky save bar, toast notifications, and smoother tab navigation.",
+    category: "Settings",
+    title: "Enhanced Settings Page Experience",
+    description: "Improved settings page with smoother sticky save bar animations, toast notifications, and faster tab navigation with skeleton loading.",
   },
   {
-    version: "1.1.4",
-    date: "February 2, 2026",
+    date: "February 2",
     type: "feature",
-    title: "Sign Out from All Devices",
-    description: "Added ability to sign out from all devices at once for improved account security.",
+    category: "Analytics",
+    title: "KPI Blur Animations",
+    description: "Added smooth blur transition animations to all KPI cards across Dashboard, Analytics, and Sales pages for a more polished loading experience.",
   },
   {
-    version: "1.1.3",
-    date: "February 1, 2026",
+    date: "February 1",
     type: "improvement",
+    category: "Store Builder",
     title: "Store Builder UI Improvements",
-    description: "Enhanced button clickability and z-index handling in the Store Builder editor.",
+    description: "Enhanced button clickability and z-index handling in the Store Builder editor for better editing experience.",
   },
   {
-    version: "1.1.2",
-    date: "January 30, 2026",
+    date: "January 30",
     type: "fix",
+    category: "Profile",
     title: "Avatar Fallback Logic",
     description: "Fixed avatar display to properly fall back through settings, store builder, OnePage, and Google authentication.",
   },
   {
-    version: "1.1.1",
-    date: "January 28, 2026",
+    date: "January 28",
     type: "feature",
+    category: "Dashboard",
     title: "Live Visitors Indicator",
-    description: "Added real-time live visitors indicator on the dashboard with 3-second polling updates.",
+    description: "Added real-time live visitors indicator on the dashboard with automatic polling updates showing current active users.",
   },
   {
-    version: "1.1.0",
-    date: "January 25, 2026",
+    date: "January 25",
     type: "feature",
+    category: "Navigation",
     title: "Navigation Loading Bar",
-    description: "Added smooth glowing loading bar that appears during page navigation across the app.",
+    description: "Added smooth glowing loading bar that appears during page navigation across the entire application.",
   },
   {
-    version: "1.0.9",
-    date: "January 22, 2026",
+    date: "January 22",
     type: "improvement",
+    category: "Emails",
     title: "Email Subscriber Badges",
-    description: "Added 'resubscribed' badge for subscribers who unsubscribed and subscribed again.",
+    description: "Added 'resubscribed' badge for subscribers who unsubscribed and then subscribed again to your list.",
   },
   {
-    version: "1.0.8",
-    date: "January 20, 2026",
+    date: "January 20",
     type: "fix",
+    category: "Settings",
     title: "Sidebar Avatar Sync",
-    description: "Fixed sidebar avatar to properly sync with settings profile photo.",
+    description: "Fixed sidebar avatar to properly sync with settings profile photo across the entire application.",
   },
   {
-    version: "1.0.7",
-    date: "January 18, 2026",
+    date: "January 18",
     type: "feature",
+    category: "Products",
     title: "Dynamic Favicon",
-    description: "Product pages now display the seller's profile avatar as the browser favicon.",
+    description: "Product pages now display the seller's profile avatar as the browser favicon for brand consistency.",
   },
 ]
 
-const getTypeIcon = (type: string) => {
-  switch (type) {
-    case "feature":
-      return <Plus className="h-4 w-4" />
-    case "improvement":
-      return <Sparkles className="h-4 w-4" />
-    case "fix":
-      return <Bug className="h-4 w-4" />
-    case "update":
-      return <Zap className="h-4 w-4" />
-    default:
-      return <Wrench className="h-4 w-4" />
-  }
-}
-
-const getTypeColor = (type: string) => {
-  switch (type) {
-    case "feature":
-      return "bg-emerald-50 text-emerald-700 border-emerald-200"
-    case "improvement":
-      return "bg-purple-50 text-purple-700 border-purple-200"
-    case "fix":
-      return "bg-amber-50 text-amber-700 border-amber-200"
-    case "update":
-      return "bg-blue-50 text-blue-700 border-blue-200"
-    default:
-      return "bg-gray-50 text-gray-700 border-gray-200"
-  }
-}
+const categories = ["All", "Settings", "Analytics", "Dashboard", "Store Builder", "Profile", "Navigation", "Emails", "Products"]
 
 const getTypeLabel = (type: string) => {
   switch (type) {
     case "feature":
-      return "New Feature"
+      return "New"
     case "improvement":
       return "Improvement"
     case "fix":
-      return "Bug Fix"
+      return "Fix"
     case "update":
       return "Update"
     default:
@@ -130,52 +103,139 @@ const getTypeLabel = (type: string) => {
 }
 
 export default function ChangelogPage() {
+  const [selectedCategory, setSelectedCategory] = useState("All")
+
+  const filteredData = selectedCategory === "All"
+    ? changelogData
+    : changelogData.filter(entry => entry.category === selectedCategory)
+
   return (
-    <div className="min-h-screen bg-[#fafafa]">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+    <div className="min-h-screen bg-white">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-10">
           <Link
             href="/app/settings"
-            className="inline-flex items-center gap-1.5 text-[13px] text-[#6b7280] hover:text-[#374151] transition-colors mb-4"
+            className="inline-flex items-center gap-1.5 text-[13px] text-[#6b7280] hover:text-[#1a1a2e] transition-colors mb-4"
           >
             <ChevronLeft className="h-4 w-4" />
             Back to Settings
           </Link>
-          <h1 className="text-[28px] sm:text-[32px] font-bold text-[#1a1a2e]">Changelog</h1>
-          <p className="text-[14px] text-[#6b7280] mt-2">
-            Stay up to date with the latest features, improvements, and fixes in Storelib.
+          <h1 className="text-[32px] sm:text-[40px] font-bold text-[#1a1a2e] tracking-tight">Changelog</h1>
+          <p className="text-[15px] text-[#6b7280] mt-2">
+            New updates and improvements to Storelib.
           </p>
         </div>
 
-        {/* Changelog entries */}
-        <div className="space-y-6">
-          {changelogData.map((entry, index) => (
-            <div
-              key={index}
-              className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-[#e5e7eb]"
-            >
-              <div className="flex flex-wrap items-center gap-3 mb-3">
-                <span className="text-[12px] font-medium text-[#9ca3af] bg-[#f3f4f6] px-2.5 py-1 rounded-lg">
-                  v{entry.version}
-                </span>
-                <span className={`inline-flex items-center gap-1.5 text-[12px] font-medium px-2.5 py-1 rounded-lg border ${getTypeColor(entry.type)}`}>
-                  {getTypeIcon(entry.type)}
-                  {getTypeLabel(entry.type)}
-                </span>
-                <span className="text-[12px] text-[#9ca3af]">{entry.date}</span>
-              </div>
-              <h3 className="text-[16px] font-semibold text-[#1a1a2e] mb-2">{entry.title}</h3>
-              <p className="text-[14px] text-[#6b7280] leading-relaxed">{entry.description}</p>
+        <div className="flex gap-12">
+          {/* Main content - Timeline */}
+          <div className="flex-1">
+            <div className="relative">
+              {filteredData.map((entry, index) => (
+                <div key={index} className="flex gap-6 mb-10 last:mb-0">
+                  {/* Date column */}
+                  <div className="w-28 flex-shrink-0 text-right pt-0.5">
+                    <span className="text-[13px] font-medium text-[#6b7280] uppercase tracking-wide">
+                      {entry.date}
+                    </span>
+                  </div>
+
+                  {/* Timeline */}
+                  <div className="relative flex flex-col items-center">
+                    {/* Circle */}
+                    <div className="w-4 h-4 rounded-full border-2 border-[#d1d5db] bg-white z-10" />
+                    {/* Vertical line */}
+                    {index < filteredData.length - 1 && (
+                      <div className="w-px bg-[#e5e7eb] absolute top-4 bottom-0 left-1/2 -translate-x-1/2 h-[calc(100%+40px)]" />
+                    )}
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 pb-2">
+                    <h3 className="text-[17px] font-semibold text-[#1a1a2e] mb-2 hover:underline cursor-pointer">
+                      {entry.title}
+                    </h3>
+                    <p className="text-[14px] text-[#6b7280] leading-relaxed mb-3">
+                      {entry.description}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center text-[12px] font-medium px-2.5 py-1 rounded-full bg-[#dcfce7] text-[#166534]">
+                        {getTypeLabel(entry.type)}
+                      </span>
+                      <span className="text-[12px] text-[#9ca3af]">
+                        {entry.category}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
+
+          {/* Filter sidebar */}
+          <div className="hidden lg:block w-48 flex-shrink-0">
+            <div className="sticky top-8">
+              <h3 className="text-[14px] font-semibold text-[#1a1a2e] mb-3">Filter</h3>
+              <div className="space-y-1">
+                {categories.map((category) => (
+                  <label
+                    key={category}
+                    className="flex items-center gap-2.5 cursor-pointer py-1.5 group"
+                  >
+                    <div
+                      className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${
+                        selectedCategory === category
+                          ? "bg-[#22c55e] border-[#22c55e]"
+                          : "border-[#d1d5db] group-hover:border-[#9ca3af]"
+                      }`}
+                      onClick={() => setSelectedCategory(category)}
+                    >
+                      {selectedCategory === category && (
+                        <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </div>
+                    <span
+                      className={`text-[13px] transition-colors ${
+                        selectedCategory === category ? "text-[#1a1a2e] font-medium" : "text-[#6b7280]"
+                      }`}
+                      onClick={() => setSelectedCategory(category)}
+                    >
+                      {category}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Mobile filter */}
+        <div className="lg:hidden mt-8 pt-6 border-t border-[#e5e7eb]">
+          <h3 className="text-[14px] font-semibold text-[#1a1a2e] mb-3">Filter by category</h3>
+          <div className="flex flex-wrap gap-2">
+            {categories.map((category) => (
+              <button
+                key={category}
+                onClick={() => setSelectedCategory(category)}
+                className={`px-3 py-1.5 text-[13px] rounded-full border transition-colors ${
+                  selectedCategory === category
+                    ? "bg-[#1a1a2e] text-white border-[#1a1a2e]"
+                    : "text-[#6b7280] border-[#e5e7eb] hover:border-[#d1d5db]"
+                }`}
+              >
+                {category}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Footer */}
-        <div className="mt-8 text-center">
+        <div className="mt-12 pt-8 border-t border-[#e5e7eb]">
           <p className="text-[13px] text-[#9ca3af]">
             Have feedback or feature requests?{" "}
-            <a href="mailto:support@storelib.com" className="text-[#8b5cf6] hover:text-[#7c3aed]">
+            <a href="mailto:support@storelib.com" className="text-[#1a1a2e] hover:underline">
               Let us know
             </a>
           </p>

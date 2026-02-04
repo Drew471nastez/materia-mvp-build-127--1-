@@ -733,7 +733,7 @@ function ImageUploadModal({
 
 export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepageAvatarUrl, googleAvatarUrl }: SettingsFormProps) {
   const router = useRouter()
-  const { language: currentLanguage, setLanguage } = useLanguage()
+  const { language: currentLanguage, setLanguage, t } = useLanguage()
   const [selectedLanguage, setSelectedLanguage] = useState(currentLanguage)
   const [showLanguageModal, setShowLanguageModal] = useState(false)
   const initialLanguage = useRef(currentLanguage)
@@ -978,7 +978,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     // Show skeleton for 1.5 seconds
     setTimeout(() => {
       setIsTabLoading(false)
-    }, 1500)
+    }, 500)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1331,8 +1331,8 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
         {/* Header with Store URL */}
         <div className="mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div>
-            <h1 className="text-[22px] sm:text-[28px] font-bold text-[#1a1a2e]">Settings</h1>
-            <p className="text-[14px] text-[#6b7280] mt-1">Manage your account and preferences</p>
+            <h1 className="text-[22px] sm:text-[28px] font-bold text-[#1a1a2e]">{t("settings.title")}</h1>
+            <p className="text-[14px] text-[#6b7280] mt-1">{t("settings.subtitle")}</p>
           </div>
           {/* Store URL with copy */}
           <div className="flex items-center gap-2">
@@ -1364,6 +1364,12 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
           <div className="flex gap-1 p-1 w-fit min-w-max h-[44px] sm:h-[48px] items-center">
             {TABS.map((tab) => {
               const Icon = tab.icon
+              const tabLabel = tab.id === "general" ? t("settings.general") :
+                              tab.id === "security" ? t("settings.security") :
+                              tab.id === "privacy" ? t("settings.privacy") :
+                              tab.id === "billing" ? t("settings.billing") :
+                              tab.id === "payments" ? t("settings.payments") :
+                              tab.id === "stores" ? t("settings.stores") : tab.label
               return (
                 <button
                   key={tab.id}
@@ -1375,7 +1381,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   }`}
                 >
                   <Icon className="h-4 w-4" />
-                  <span>{tab.label}</span>
+                  <span>{tabLabel}</span>
                 </button>
               )
             })}
@@ -1520,7 +1526,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">
                   Emails
                 </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-4">
                   <div className="space-y-1.5">
                     <Label htmlFor="email" className="text-[13px] font-medium text-[#374151]">
                       Email
@@ -2258,7 +2264,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">
             <div className="w-2 h-2 rounded-full bg-amber-500" />
-            <span className="text-[14px] text-[#6b7280]">Unsaved changes</span>
+            <span className="text-[14px] text-[#6b7280]">{t("settings.unsavedChanges")}</span>
           </div>
           <div className="flex items-center gap-2.5">
             <button
@@ -2280,7 +2286,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               }}
               className="px-4 h-10 text-[14px] font-medium text-[#6b7280] hover:text-[#374151] hover:bg-[#f3f4f6] rounded-lg transition-colors cursor-pointer"
             >
-              Discard
+              {t("common.cancel")}
             </button>
             <button
               type="button"
@@ -2297,10 +2303,10 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               {isLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Saving...
+                  {t("common.loading")}
                 </>
               ) : (
-                "Save"
+                t("settings.save")
               )}
             </button>
           </div>

@@ -51,6 +51,7 @@ export const translations = {
 
     // Settings
     "settings.title": "Settings",
+    "settings.subtitle": "Manage your account and preferences",
     "settings.general": "General",
     "settings.security": "Security",
     "settings.privacy": "Privacy",
@@ -222,6 +223,7 @@ export const translations = {
 
     // Settings
     "settings.title": "Configuración",
+    "settings.subtitle": "Administra tu cuenta y preferencias",
     "settings.general": "General",
     "settings.security": "Seguridad",
     "settings.privacy": "Privacidad",
@@ -393,6 +395,7 @@ export const translations = {
 
     // Settings
     "settings.title": "Paramètres",
+    "settings.subtitle": "Gérez votre compte et vos préférences",
     "settings.general": "Général",
     "settings.security": "Sécurité",
     "settings.privacy": "Confidentialité",
@@ -564,6 +567,7 @@ export const translations = {
 
     // Settings
     "settings.title": "Einstellungen",
+    "settings.subtitle": "Verwalte dein Konto und Einstellungen",
     "settings.general": "Allgemein",
     "settings.security": "Sicherheit",
     "settings.privacy": "Datenschutz",
