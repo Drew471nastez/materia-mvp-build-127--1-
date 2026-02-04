@@ -119,9 +119,11 @@ export function RecommendedSection({ products, filterType = "curated" }: Recomme
         className="relative overflow-hidden"
       >
         <div
+          key={`${filterType}-${currentPage}`}
           className={`
             grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3
-            transition-all duration-200 ease-out
+            transition-all duration-300 ease-out
+            animate-in fade-in-0 duration-300
             ${isAnimating && slideDirection === "left" ? "translate-x-[-8px] opacity-90" : ""}
             ${isAnimating && slideDirection === "right" ? "translate-x-[8px] opacity-90" : ""}
             ${!isAnimating ? "translate-x-0 opacity-100" : ""}
@@ -130,9 +132,10 @@ export function RecommendedSection({ products, filterType = "curated" }: Recomme
           {currentProducts.map((product, index) => (
             <div
               key={product.id}
-              className="transition-all duration-200 ease-out"
+              className="transition-all duration-300 ease-out animate-in fade-in-0 slide-in-from-bottom-2"
               style={{
-                transitionDelay: `${index * 30}ms`
+                transitionDelay: `${index * 50}ms`,
+                animationDelay: `${index * 50}ms`
               }}
             >
               <ProductCard

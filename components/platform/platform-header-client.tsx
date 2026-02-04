@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,7 +24,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
-import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, Menu, ChevronDown, Type, X, Loader2, Bell } from "lucide-react"
+import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, Menu, X, Loader2, Bell } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 
 const LOGO_URL =
@@ -353,23 +354,23 @@ export function PlatformHeaderClient() {
   return (
     <header className="sticky top-0 z-50 w-full bg-white border-b border-gray-200 rounded-t-[14px] md:rounded-none">
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
-        <div className="flex h-[68px] md:h-16 items-center justify-between gap-4">
+        <div className="flex h-[68px] md:h-[68px] items-center justify-between gap-4">
           {/* Left side - Logo and Categories Button */}
           <div className="flex items-center gap-3 shrink-0">
-            {/* Logo - 40% bigger */}
-            <Link href="/" className="shrink-0">
+            {/* Logo - 55% bigger */}
+            <Link href="/" className="shrink-0 hidden md:block">
               <Image
                 src={LOGO_URL || "/placeholder.svg"}
                 alt="Storelib"
-                width={183}
-                height={62}
-                className="h-[57px] w-auto"
+                width={210}
+                height={71}
+                className="h-[66px] w-auto"
                 priority
               />
             </Link>
 
             {/* Categories Dropdown Button */}
-            <div className="relative hidden sm:block" data-categories-dropdown>
+            <div className="relative hidden md:block" data-categories-dropdown>
               <button
                 onClick={() => setCategoriesDropdownOpen(!categoriesDropdownOpen)}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 cursor-pointer ${
@@ -380,7 +381,6 @@ export function PlatformHeaderClient() {
               >
                 <Menu className="w-4 h-4" />
                 <span>Categories</span>
-                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${categoriesDropdownOpen ? "rotate-180" : ""}`} />
               </button>
 
               {/* Categories Megamenu Dropdown */}
@@ -546,9 +546,9 @@ export function PlatformHeaderClient() {
             )}
           </div>
 
-          {/* Mobile Header - hamburger menu, search, avatar */}
-          <div className="md:hidden flex items-center gap-2 flex-1">
-            {/* Mobile Menu Button */}
+          {/* Mobile Header - hamburger left, logo center, icons right */}
+          <div className="md:hidden flex items-center justify-between flex-1">
+            {/* Left - Mobile Menu Button */}
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
               <SheetTrigger asChild>
                 <button
@@ -556,7 +556,7 @@ export function PlatformHeaderClient() {
                   className="flex h-10 w-10 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 transition cursor-pointer"
                   aria-label="Open menu"
                 >
-                  <Menu className="h-5 w-5" />
+                  <Menu className="h-6 w-6" />
                 </button>
               </SheetTrigger>
 
@@ -621,49 +621,126 @@ export function PlatformHeaderClient() {
               </SheetContent>
             </Sheet>
 
-            {/* Mobile Search Button */}
-            <Sheet>
-              <SheetTrigger asChild>
-                <button
-                  type="button"
-                  className="flex h-10 w-10 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 transition cursor-pointer"
-                  aria-label="Search"
-                >
-                  <Search className="h-5 w-5" />
-                </button>
-              </SheetTrigger>
+            {/* Center - Mobile Logo */}
+            <Link href="/" className="shrink-0">
+              <Image
+                src={LOGO_URL || "/placeholder.svg"}
+                alt="Storelib"
+                width={120}
+                height={40}
+                className="h-8 w-auto"
+                priority
+              />
+            </Link>
 
-              <SheetContent side="top" className="pt-[env(safe-area-inset-top)] bg-white border-b border-gray-200">
-                <SheetHeader>
-                  <SheetTitle className="text-gray-900">Search</SheetTitle>
-                </SheetHeader>
+            {/* Right - Mobile Icons */}
+            <div className="flex items-center gap-1">
+              {/* Mobile Search Button */}
+              <Sheet>
+                <SheetTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex h-9 w-9 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 transition cursor-pointer"
+                    aria-label="Search"
+                  >
+                    <Search className="h-5 w-5" />
+                  </button>
+                </SheetTrigger>
 
-                <form onSubmit={onSubmitSearch} className="mt-4">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                    <Input
-                      autoFocus
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                      placeholder={t("search_placeholder")}
-                      className="h-11 pl-10 bg-gray-100 border-gray-200 text-gray-900 placeholder:text-gray-500 rounded-full"
-                    />
+                <SheetContent side="top" className="pt-[env(safe-area-inset-top)] bg-white border-b border-gray-200">
+                  <SheetHeader>
+                    <SheetTitle className="text-gray-900">Search</SheetTitle>
+                  </SheetHeader>
+
+                  <form onSubmit={onSubmitSearch} className="mt-4">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                      <Input
+                        autoFocus
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        placeholder={t("search_placeholder")}
+                        className="h-11 pl-10 bg-gray-100 border-gray-200 text-gray-900 placeholder:text-gray-500 rounded-full"
+                      />
+                    </div>
+                  </form>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {SEARCH_CATEGORIES.map((cat) => (
+                      <Link
+                        key={cat.label}
+                        href={cat.href}
+                        className="rounded-full border border-gray-200 bg-gray-100 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-200 transition cursor-pointer"
+                      >
+                        {cat.label}
+                      </Link>
+                    ))}
                   </div>
-                </form>
+                </SheetContent>
+              </Sheet>
 
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {SEARCH_CATEGORIES.map((cat) => (
-                    <Link
-                      key={cat.label}
-                      href={cat.href}
-                      className="rounded-full border border-gray-200 bg-gray-100 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-200 transition cursor-pointer"
+              {/* Mobile Notification/Bell */}
+              <button
+                type="button"
+                className="flex h-9 w-9 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 transition cursor-pointer"
+                aria-label="Notifications"
+              >
+                <Bell className="h-5 w-5" />
+              </button>
+
+              {/* Mobile Avatar */}
+              {user && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="rounded-full cursor-pointer ml-1"
+                      aria-label="Open profile menu"
                     >
-                      {cat.label}
-                    </Link>
-                  ))}
-                </div>
-              </SheetContent>
-            </Sheet>
+                      <Avatar className="h-8 w-8 border border-gray-200">
+                        <AvatarImage src={avatarUrl || "/placeholder.svg"} alt={displayName} />
+                        <AvatarFallback className="text-[10px] bg-gray-100 text-gray-700">{initials}</AvatarFallback>
+                      </Avatar>
+                    </button>
+                  </DropdownMenuTrigger>
+
+                  <DropdownMenuContent
+                    align="end"
+                    className="min-w-[200px] bg-white text-gray-900 border border-gray-200"
+                  >
+                    <DropdownMenuLabel className="py-2">
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium leading-none">{displayName}</span>
+                        {user.email && <span className="text-xs text-gray-500 mt-1">{user.email}</span>}
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator className="bg-gray-200" />
+                    <DropdownMenuItem
+                      onClick={() => router.push(dashboardHref)}
+                      className="cursor-pointer hover:bg-gray-100 focus:bg-gray-100 gap-2"
+                    >
+                      <LayoutDashboard className="h-4 w-4" />
+                      Dashboard
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => router.push("/settings")}
+                      className="cursor-pointer hover:bg-gray-100 focus:bg-gray-100 gap-2"
+                    >
+                      <Settings className="h-4 w-4" />
+                      Settings
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator className="bg-gray-200" />
+                    <DropdownMenuItem
+                      onClick={handleLogout}
+                      className="cursor-pointer text-red-600 hover:bg-gray-100 focus:bg-gray-100 gap-2"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      Log out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
           </div>
 
           {/* Right Side Actions */}
@@ -672,32 +749,45 @@ export function PlatformHeaderClient() {
               <HeaderActionsSkeleton />
             ) : (
               <>
-                {/* Wishlist - icon only */}
-                <Link
-                  href={wishlistHref}
-                  className="relative flex h-10 w-10 items-center justify-center rounded-full text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition"
-                  aria-label={t("wishlist")}
-                >
-                  <Heart className="h-5 w-5" />
-                  {wishlistCount > 0 && (
-                    <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white ring-2 ring-white">
-                      {wishlistCount > 99 ? "99+" : wishlistCount}
-                    </span>
-                  )}
-                </Link>
+                {/* Wishlist - icon only with tooltip */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Link
+                      href={wishlistHref}
+                      className="relative flex h-10 w-10 items-center justify-center rounded-full text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition cursor-pointer"
+                      aria-label={t("wishlist")}
+                    >
+                      <Heart className="h-5 w-5" />
+                      {wishlistCount > 0 && (
+                        <span className="absolute -top-0.5 -right-0.5 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white ring-2 ring-white">
+                          {wishlistCount > 99 ? "99+" : wishlistCount}
+                        </span>
+                      )}
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent className="bg-neutral-900 text-white text-xs px-2 py-1" sideOffset={8}>
+                    Wishlist
+                  </TooltipContent>
+                </Tooltip>
 
-                {/* Library */}
-                <Link
-                  href="/library"
-                  className="hidden sm:flex h-10 items-center gap-2 rounded-full px-3 text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition"
-                  aria-label={t("library")}
-                >
-                  <Library className="h-4 w-4" />
-                  <span className="hidden lg:inline">{t("library")}</span>
-                </Link>
+                {/* Library - icon only with tooltip */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Link
+                      href="/library"
+                      className="hidden sm:flex h-10 w-10 items-center justify-center rounded-full text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition cursor-pointer"
+                      aria-label={t("library")}
+                    >
+                      <Library className="h-5 w-5" />
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent className="bg-neutral-900 text-white text-xs px-2 py-1" sideOffset={8}>
+                    My Library
+                  </TooltipContent>
+                </Tooltip>
 
-                {/* Start Selling or Dashboard */}
-                <Button asChild className="h-10 rounded-full px-5 bg-blue-600 text-white hover:bg-blue-700">
+                {/* Start Selling or Dashboard - Purple */}
+                <Button asChild className="h-10 rounded-full px-5 bg-violet-600 text-white hover:bg-violet-700">
                   <Link href={user && isCreator ? "/app" : startSellingHref}>
                     {user && isCreator ? t("dashboard") : t("start_selling")}
                   </Link>
@@ -706,18 +796,25 @@ export function PlatformHeaderClient() {
                 {/* User Menu - only show when logged in */}
                 {user && (
                   <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        type="button"
-                        className="rounded-full cursor-pointer outline-none ring-offset-white transition-all duration-150 ease-out hover:ring-2 hover:ring-blue-200 hover:ring-offset-2 hover:scale-105 active:scale-95 focus-visible:ring-2 focus-visible:ring-blue-300 focus-visible:ring-offset-2"
-                        aria-label="Open profile menu"
-                      >
-                        <Avatar className="h-10 w-10 border border-gray-200 transition-opacity duration-150">
-                          <AvatarImage src={avatarUrl || "/placeholder.svg"} alt={displayName} />
-                          <AvatarFallback className="text-xs bg-gray-100 text-gray-700">{initials}</AvatarFallback>
-                        </Avatar>
-                      </button>
-                    </DropdownMenuTrigger>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            className="rounded-full cursor-pointer outline-none ring-offset-white transition-all duration-150 ease-out hover:ring-2 hover:ring-violet-200 hover:ring-offset-2 hover:scale-105 active:scale-95 focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-2"
+                            aria-label="Open profile menu"
+                          >
+                            <Avatar className="h-10 w-10 border border-gray-200 transition-opacity duration-150">
+                              <AvatarImage src={avatarUrl || "/placeholder.svg"} alt={displayName} />
+                              <AvatarFallback className="text-xs bg-gray-100 text-gray-700">{initials}</AvatarFallback>
+                            </Avatar>
+                          </button>
+                        </DropdownMenuTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent className="bg-neutral-900 text-white text-xs px-2 py-1" sideOffset={8}>
+                        Your Account
+                      </TooltipContent>
+                    </Tooltip>
 
                     <DropdownMenuContent
                       align="end"
