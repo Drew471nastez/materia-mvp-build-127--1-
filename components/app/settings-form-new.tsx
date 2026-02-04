@@ -667,8 +667,10 @@ function ImageUploadModal({
 
 export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepageAvatarUrl, googleAvatarUrl }: SettingsFormProps) {
   const router = useRouter()
-  const { language, setLanguage } = useLanguage()
+  const { language: currentLanguage, setLanguage } = useLanguage()
+  const [selectedLanguage, setSelectedLanguage] = useState(currentLanguage)
   const [showLanguageModal, setShowLanguageModal] = useState(false)
+  const initialLanguage = useRef(currentLanguage)
   const [activeTab, setActiveTab] = useState<TabId>("general")
   const [isLoading, setIsLoading] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -742,7 +744,8 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     city !== initialValues.current.city ||
     state !== initialValues.current.state ||
     postalCode !== initialValues.current.postalCode ||
-    country !== initialValues.current.country
+    country !== initialValues.current.country ||
+    selectedLanguage !== initialLanguage.current
 
   // Warn user before leaving with unsaved changes
   useEffect(() => {
@@ -925,6 +928,10 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
       setSuccess(true)
       setShowSaveToast(true)
+
+      // Check if language was changed
+      const languageChanged = selectedLanguage !== initialLanguage.current
+
       // Update initial values to reflect saved state
       initialValues.current = {
         firstName,
@@ -937,6 +944,18 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
         postalCode,
         country,
       }
+
+      // If language changed, apply it and reload the page
+      if (languageChanged) {
+        setLanguage(selectedLanguage)
+        initialLanguage.current = selectedLanguage
+        // Short delay to allow localStorage to save, then reload
+        setTimeout(() => {
+          window.location.reload()
+        }, 500)
+        return
+      }
+
       router.refresh()
       // Hide toast and success state after 8 seconds
       setTimeout(() => {
@@ -1191,7 +1210,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
       </div>
 
       <div className="h-full overflow-y-scroll page-scroll bg-[#fafafa]" style={{ scrollbarGutter: 'stable' }}>
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-40">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-52">
         {/* Header with Store URL */}
         <div className="mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div>
@@ -1363,10 +1382,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   onClick={() => setShowLanguageModal(true)}
                   className="w-full h-11 px-3 text-left border border-[#e5e7eb] rounded-xl text-[14px] bg-white hover:bg-[#f9fafb] transition-colors flex items-center justify-between cursor-pointer"
                 >
-                  <span className="flex items-center gap-2">
-                    <span>{LANGUAGES.find(l => l.code === language)?.flag}</span>
-                    <span className="text-[#1a1a2e]">{LANGUAGES.find(l => l.code === language)?.name || "English (US)"}</span>
-                  </span>
+                  <span className="text-[#1a1a2e]">{LANGUAGES.find(l => l.code === selectedLanguage)?.name || "English (US)"}</span>
                   <ChevronRight className="h-4 w-4 text-[#9ca3af]" />
                 </button>
               </div>
@@ -2062,6 +2078,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   setState(initialValues.current.state)
                   setPostalCode(initialValues.current.postalCode)
                   setCountry(initialValues.current.country)
+                  setSelectedLanguage(initialLanguage.current)
                 }}
                 className="px-4 h-10 text-[14px] font-medium text-[#6b7280] hover:text-[#374151] hover:bg-[#f3f4f6] rounded-lg transition-colors cursor-pointer"
               >
@@ -2234,20 +2251,17 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
             <button
               key={lang.code}
               onClick={() => {
-                setLanguage(lang.code)
+                setSelectedLanguage(lang.code)
                 setShowLanguageModal(false)
               }}
               className={`w-full text-left px-3 py-3 rounded-xl text-[14px] font-medium transition-colors flex items-center justify-between cursor-pointer ${
-                language === lang.code
+                selectedLanguage === lang.code
                   ? "bg-[#f5f3ff] text-[#8b5cf6]"
                   : "text-[#374151] hover:bg-[#f3f4f6] active:bg-[#e5e7eb]"
               }`}
             >
-              <span className="flex items-center gap-3">
-                <span className="text-lg">{lang.flag}</span>
-                <span>{lang.name}</span>
-              </span>
-              {language === lang.code && (
+              <span>{lang.name}</span>
+              {selectedLanguage === lang.code && (
                 <Check className="h-4 w-4 text-[#8b5cf6]" />
               )}
             </button>

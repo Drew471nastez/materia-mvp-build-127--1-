@@ -1,19 +1,19 @@
 // Supported languages
 export const LANGUAGES = [
-  { code: "en", name: "English (US)", flag: "🇺🇸" },
-  { code: "en-GB", name: "English (UK)", flag: "🇬🇧" },
-  { code: "es", name: "Español", flag: "🇪🇸" },
-  { code: "fr", name: "Français", flag: "🇫🇷" },
-  { code: "de", name: "Deutsch", flag: "🇩🇪" },
-  { code: "it", name: "Italiano", flag: "🇮🇹" },
-  { code: "pt", name: "Português", flag: "🇵🇹" },
-  { code: "pt-BR", name: "Português (Brasil)", flag: "🇧🇷" },
-  { code: "nl", name: "Nederlands", flag: "🇳🇱" },
-  { code: "pl", name: "Polski", flag: "🇵🇱" },
-  { code: "ja", name: "日本語", flag: "🇯🇵" },
-  { code: "ko", name: "한국어", flag: "🇰🇷" },
-  { code: "zh", name: "中文 (简体)", flag: "🇨🇳" },
-  { code: "zh-TW", name: "中文 (繁體)", flag: "🇹🇼" },
+  { code: "en", name: "English (US)" },
+  { code: "en-GB", name: "English (UK)" },
+  { code: "es", name: "Español" },
+  { code: "fr", name: "Français" },
+  { code: "de", name: "Deutsch" },
+  { code: "it", name: "Italiano" },
+  { code: "pt", name: "Português" },
+  { code: "pt-BR", name: "Português (Brasil)" },
+  { code: "nl", name: "Nederlands" },
+  { code: "pl", name: "Polski" },
+  { code: "ja", name: "日本語" },
+  { code: "ko", name: "한국어" },
+  { code: "zh", name: "中文 (简体)" },
+  { code: "zh-TW", name: "中文 (繁體)" },
 ] as const
 
 export type LanguageCode = typeof LANGUAGES[number]["code"]
