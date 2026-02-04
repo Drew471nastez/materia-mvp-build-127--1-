@@ -2,6 +2,17 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/server"
 import { UserNav } from "@/components/marketing/user-nav"
+import { Type } from "lucide-react"
+
+// Secondary nav categories (shown under header)
+const SECONDARY_NAV_CATEGORIES = [
+  { label: "Fonts", href: "/explore?q=fonts" },
+  { label: "Images", href: "/explore?q=images" },
+  { label: "Paper Crafts", href: "/explore?q=paper+crafts" },
+  { label: "Needlework", href: "/explore?q=needlework" },
+  { label: "Laser Cutting", href: "/explore?q=laser+cutting" },
+  { label: "3D Printing", href: "/explore?q=3d+printing" },
+]
 
 export async function MarketingHeader() {
   const supabase = await createClient()
@@ -31,37 +42,59 @@ export async function MarketingHeader() {
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 pt-[env(safe-area-inset-top)]">
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
-        <Link href="/?src=platform" className="flex items-center gap-2 shrink-0">
-          <span className="text-[2.5rem] font-semibold tracking-tight leading-none">Storelib</span>
-        </Link>
-        <nav className="hidden items-center gap-6 sm:flex">
-          <Link
-            href="/explore?src=platform"
-            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            Explore
+    <div className="sticky top-0 z-50 w-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 pt-[env(safe-area-inset-top)]">
+      {/* Main Header Row */}
+      <header className="border-b border-border/40">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
+          <Link href="/?src=platform" className="flex items-center gap-2 shrink-0">
+            <span className="text-[2rem] font-bold tracking-tight leading-none">Storelib</span>
           </Link>
-        </nav>
-        <div className="flex items-center gap-2 shrink-0">
-          {user && profile ? (
-            <UserNav user={user} profile={profile} isCreator={isCreator} creatorSlug={creatorSlug} />
-          ) : (
-            <>
-              <Button variant="ghost" size="sm" asChild>
-                <Link href="/login">Sign in</Link>
-              </Button>
-              <Button size="sm" asChild>
-                <Link href="/signup" className="whitespace-nowrap">
-                  <span className="hidden xs:inline">Start selling</span>
-                  <span className="xs:hidden">Sign up</span>
-                </Link>
-              </Button>
-            </>
-          )}
+          <nav className="hidden items-center gap-6 sm:flex">
+            <Link
+              href="/explore?src=platform"
+              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Explore
+            </Link>
+          </nav>
+          <div className="flex items-center gap-2 shrink-0">
+            {user && profile ? (
+              <UserNav user={user} profile={profile} isCreator={isCreator} creatorSlug={creatorSlug} />
+            ) : (
+              <>
+                <Button variant="ghost" size="sm" asChild>
+                  <Link href="/login">Sign in</Link>
+                </Button>
+                <Button size="sm" asChild>
+                  <Link href="/signup" className="whitespace-nowrap">
+                    <span className="hidden xs:inline">Start selling</span>
+                    <span className="xs:hidden">Sign up</span>
+                  </Link>
+                </Button>
+              </>
+            )}
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
+
+      {/* Secondary Navigation Row - Category Links */}
+      <nav className="border-b border-border/40 bg-white">
+        <div className="mx-auto max-w-6xl px-4">
+          <div className="flex items-center gap-6 py-2.5 overflow-x-auto scrollbar-hide">
+            {SECONDARY_NAV_CATEGORIES.map((category, index) => (
+              <Link
+                key={category.label}
+                href={category.href}
+                className="flex items-center gap-1.5 text-sm text-neutral-600 hover:text-neutral-900 whitespace-nowrap transition-colors cursor-pointer"
+              >
+                {/* Show icon only on first category */}
+                {index === 0 && <Type className="w-4 h-4" />}
+                <span>{category.label}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </nav>
+    </div>
   )
 }

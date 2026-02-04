@@ -53,15 +53,15 @@ export function UserNavClient({ user, profile, isCreator, creatorSlug }: UserNav
       <Tooltip>
         <TooltipTrigger asChild>
           <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              className="relative h-9 w-9 rounded-full hover:opacity-80 transition-opacity duration-150"
+            <button
+              className="relative h-10 w-10 rounded-full cursor-pointer transition-all duration-150 hover:ring-2 hover:ring-neutral-200 hover:ring-offset-2 focus:outline-none focus:ring-2 focus:ring-neutral-300 focus:ring-offset-2"
+              type="button"
             >
-              <Avatar className="h-9 w-9">
+              <Avatar className="h-10 w-10">
                 <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.display_name || ""} />
-                <AvatarFallback>{initials || "?"}</AvatarFallback>
+                <AvatarFallback className="bg-neutral-200 text-neutral-700 font-medium">{initials || "?"}</AvatarFallback>
               </Avatar>
-            </Button>
+            </button>
           </DropdownMenuTrigger>
         </TooltipTrigger>
         <TooltipContent className="bg-neutral-900 text-white text-xs px-2 py-1" sideOffset={8}>
