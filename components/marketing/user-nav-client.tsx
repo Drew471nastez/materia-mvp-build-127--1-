@@ -10,6 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Settings, Store, LogOut, Package, Library, LayoutDashboard } from "lucide-react"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
@@ -49,14 +50,24 @@ export function UserNavClient({ user, profile, isCreator, creatorSlug }: UserNav
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-9 w-9 rounded-full">
-          <Avatar className="h-9 w-9">
-            <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.display_name || ""} />
-            <AvatarFallback>{initials || "?"}</AvatarFallback>
-          </Avatar>
-        </Button>
-      </DropdownMenuTrigger>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              className="relative h-9 w-9 rounded-full hover:opacity-80 transition-opacity duration-150"
+            >
+              <Avatar className="h-9 w-9">
+                <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.display_name || ""} />
+                <AvatarFallback>{initials || "?"}</AvatarFallback>
+              </Avatar>
+            </Button>
+          </DropdownMenuTrigger>
+        </TooltipTrigger>
+        <TooltipContent className="bg-neutral-900 text-white text-xs px-2 py-1" sideOffset={8}>
+          Your Account
+        </TooltipContent>
+      </Tooltip>
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">

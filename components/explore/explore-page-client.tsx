@@ -6,15 +6,23 @@ import { FeaturedBannerCarousel } from "./featured-banner-carousel"
 import { RecommendedSection } from "./recommended-section"
 import { ProductCard } from "./product-card"
 import { ProductCardSkeleton } from "./product-card-skeleton"
+import { Layers, Sparkles, Code, Megaphone, Briefcase, GraduationCap } from "lucide-react"
 
-// Fixed 6 categories only
+// Fixed 6 categories only with icons
 const CATEGORIES = [
-  { id: "all", label: "All" },
-  { id: "design", label: "Design" },
-  { id: "development", label: "Development" },
-  { id: "marketing", label: "Marketing" },
-  { id: "business", label: "Business" },
-  { id: "education", label: "Education" },
+  { id: "all", label: "All", icon: Layers },
+  { id: "design", label: "Design", icon: Sparkles },
+  { id: "development", label: "Development", icon: Code },
+  { id: "marketing", label: "Marketing", icon: Megaphone },
+  { id: "business", label: "Business", icon: Briefcase },
+  { id: "education", label: "Education", icon: GraduationCap },
+] as const
+
+// Filter types for Recommended section
+const RECOMMENDATION_FILTERS = [
+  { id: "curated", label: "Curated" },
+  { id: "trending", label: "Trending" },
+  { id: "hot-new", label: "Hot & New" },
 ] as const
 
 interface ExplorePageClientProps {
@@ -32,6 +40,7 @@ export function ExplorePageClient({
   const [isPending, startTransition] = useTransition()
   const [selectedCategory, setSelectedCategory] = useState(initialCategory.toLowerCase() || "all")
   const [isLoadingCategory, setIsLoadingCategory] = useState(false)
+  const [recommendationFilter, setRecommendationFilter] = useState<"curated" | "trending" | "hot-new">("curated")
   const categoryChangeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Products for different sections
@@ -40,10 +49,41 @@ export function ExplorePageClient({
     return initialProducts.filter(p => p.thumbnail_url).slice(0, 5)
   }, [initialProducts])
 
+  // Get recommended products based on filter
   const recommendedProducts = useMemo(() => {
-    // Get up to 15 products for the recommended section (paginated by 3)
-    return initialProducts.slice(0, 15)
-  }, [initialProducts])
+    let products = [...initialProducts]
+
+    switch (recommendationFilter) {
+      case "trending":
+        // Sort by sales count (most popular)
+        products = products.sort((a, b) => (b.sales_count || 0) - (a.sales_count || 0))
+        break
+      case "hot-new":
+        // Sort by creation date (newest first) and has some sales
+        products = products
+          .filter(p => new Date(p.created_at) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)) // Last 30 days
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        // If not enough recent products, add older ones
+        if (products.length < 15) {
+          const olderProducts = initialProducts
+            .filter(p => !products.find(rp => rp.id === p.id))
+            .slice(0, 15 - products.length)
+          products = [...products, ...olderProducts]
+        }
+        break
+      case "curated":
+      default:
+        // Default curated: mix of high-rated and diverse categories
+        products = products.sort((a, b) => {
+          const scoreA = (a.reviews_average || 0) * (a.reviews_count || 0) + (a.sales_count || 0)
+          const scoreB = (b.reviews_average || 0) * (b.reviews_count || 0) + (b.sales_count || 0)
+          return scoreB - scoreA
+        })
+        break
+    }
+
+    return products.slice(0, 15)
+  }, [initialProducts, recommendationFilter])
 
   // Filter products by selected category
   const filteredProducts = useMemo(() => {
@@ -104,16 +144,43 @@ export function ExplorePageClient({
         <FeaturedBannerCarousel products={featuredProducts} />
       )}
 
-      {/* Recommended Section - only show if no search and we have products */}
+      {/* Recommended Section with filter pills - only show if no search and we have products */}
       {!searchQuery && recommendedProducts.length > 0 && (
-        <RecommendedSection products={recommendedProducts} />
+        <div className="mt-10">
+          {/* Filter pills above Recommended */}
+          <div className="flex items-center gap-2 mb-6">
+            {RECOMMENDATION_FILTERS.map((filter) => {
+              const isSelected = recommendationFilter === filter.id
+              return (
+                <button
+                  key={filter.id}
+                  onClick={() => setRecommendationFilter(filter.id as typeof recommendationFilter)}
+                  className={`
+                    px-4 py-2 rounded-full text-sm font-medium
+                    transition-colors duration-150 ease-out
+                    ${isSelected
+                      ? "bg-neutral-900 text-white"
+                      : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                    }
+                  `}
+                >
+                  {filter.label}
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Recommended section */}
+          <RecommendedSection products={recommendedProducts} filterType={recommendationFilter} />
+        </div>
       )}
 
-      {/* Category Pills - Positioned UNDER Recommended section */}
-      <nav aria-label="Product categories" className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
-        {CATEGORIES.map((category) => {
+      {/* Category Pills - Left aligned, with icons, positioned under Recommended section */}
+      <nav aria-label="Product categories" className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide mt-8">
+        {CATEGORIES.map((category, index) => {
           const isSelected = selectedCategory === category.id
           const isLoading = isLoadingCategory && selectedCategory === category.id
+          const Icon = category.icon
 
           return (
             <button
@@ -130,6 +197,8 @@ export function ExplorePageClient({
               `}
               aria-pressed={isSelected}
             >
+              {/* Show icon on first category (All) */}
+              {index === 0 && <Icon className="w-4 h-4" />}
               {/* Subtle loading indicator - small pulsing dot */}
               {isLoading && (
                 <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />

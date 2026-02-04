@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { ChevronLeft, ChevronRight } from "lucide-react"
-import { getProductUrl } from "@/lib/url-helpers"
+import { getProductUrl, getStoreUrl } from "@/lib/url-helpers"
 
 interface FeaturedProduct {
   id: string
@@ -125,12 +125,13 @@ export function FeaturedBannerCarousel({ products }: FeaturedBannerCarouselProps
   const creatorName = currentProduct?.creator?.profile?.display_name || "Creator"
   const creatorAvatar = currentProduct?.creator?.profile?.avatar_url
   const productUrl = getProductUrl(creatorUsername, currentProduct?.slug || "")
+  const creatorStoreUrl = getStoreUrl(creatorUsername)
   const productPrice = currentProduct?.price_cents
 
   return (
     <div
       className="relative w-full rounded-2xl overflow-hidden bg-neutral-200"
-      style={{ aspectRatio: "3.5 / 1", minHeight: "180px", maxHeight: "280px" }}
+      style={{ aspectRatio: "3 / 1", minHeight: "200px", maxHeight: "320px" }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
@@ -175,12 +176,15 @@ export function FeaturedBannerCarousel({ products }: FeaturedBannerCarouselProps
       <div className="absolute inset-0 z-20 flex flex-col justify-end p-5 sm:p-6 md:p-8">
         <div className="max-w-lg">
           {/* Product title */}
-          <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-2 line-clamp-2 drop-shadow-lg">
+          <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-3 line-clamp-2 drop-shadow-lg">
             {currentProduct?.title || "Featured Product"}
           </h2>
 
-          {/* Creator info with avatar */}
-          <div className="flex items-center gap-2 mb-3">
+          {/* Creator info with avatar - clickable */}
+          <a
+            href={creatorStoreUrl}
+            className="inline-flex items-center gap-2.5 mb-4 group"
+          >
             {creatorAvatar ? (
               <Image
                 src={creatorAvatar}
@@ -194,11 +198,13 @@ export function FeaturedBannerCarousel({ products }: FeaturedBannerCarouselProps
                 {creatorName.charAt(0).toUpperCase()}
               </div>
             )}
-            <span className="text-sm text-white/80">{creatorName}</span>
-          </div>
+            <span className="text-sm text-white/80 group-hover:text-white transition-colors">
+              {creatorName}
+            </span>
+          </a>
 
           {/* Price and CTA */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             <Link
               href={productUrl}
               className="inline-flex items-center gap-2 px-4 py-2 bg-white text-neutral-900 font-semibold text-sm rounded-lg hover:bg-white/90 transition-colors shadow-lg"
@@ -237,8 +243,8 @@ export function FeaturedBannerCarousel({ products }: FeaturedBannerCarouselProps
         </button>
       </div>
 
-      {/* Progress indicators - slim lines at bottom center */}
-      <div className="absolute bottom-5 left-5 sm:bottom-6 sm:left-6 z-30 flex items-center gap-1.5">
+      {/* Progress indicators - positioned at bottom center */}
+      <div className="absolute bottom-5 left-1/2 -translate-x-1/2 sm:bottom-6 z-30 flex items-center gap-2">
         {featuredProducts.map((_, index) => (
           <button
             key={index}

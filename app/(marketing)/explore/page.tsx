@@ -1,6 +1,7 @@
 import { Metadata } from "next"
 import { createClient } from "@/lib/supabase/server"
 import { ExplorePageClient } from "@/components/explore/explore-page-client"
+import { FeaturedCategoriesSection } from "@/components/explore/featured-categories-section"
 
 // SEO-optimized metadata
 export const metadata: Metadata = {
@@ -120,8 +121,8 @@ export default async function ExplorePage({
 
   return (
     <main className="min-h-screen bg-white">
-      {/* Semantic page structure for SEO - max-w-7xl for 20% wider layout */}
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      {/* Semantic page structure for SEO - max-w-6xl for desktop, full width on mobile */}
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Hidden H1 for SEO - visible to screen readers and crawlers */}
         <h1 className="sr-only">
           Discover - Sell Digital Products On Storelib
@@ -134,38 +135,8 @@ export default async function ExplorePage({
           searchQuery={searchQuery}
         />
 
-        {/* SEO-friendly content section */}
-        <section className="mt-16 pt-8 border-t border-neutral-200">
-          <h2 className="text-lg font-semibold text-neutral-900 mb-4">
-            Explore by Category
-          </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm text-neutral-600">
-            <div>
-              <h3 className="font-medium text-neutral-800">Design</h3>
-              <p>Templates, UI kits, icons, and graphics</p>
-            </div>
-            <div>
-              <h3 className="font-medium text-neutral-800">Development</h3>
-              <p>Code snippets, themes, and tutorials</p>
-            </div>
-            <div>
-              <h3 className="font-medium text-neutral-800">Marketing</h3>
-              <p>Guides, templates, and strategies</p>
-            </div>
-            <div>
-              <h3 className="font-medium text-neutral-800">Business</h3>
-              <p>Tools, courses, and resources</p>
-            </div>
-            <div>
-              <h3 className="font-medium text-neutral-800">Education</h3>
-              <p>Courses, ebooks, and learning materials</p>
-            </div>
-            <div>
-              <h3 className="font-medium text-neutral-800">More Categories</h3>
-              <p>Photography, Writing, Music, and more</p>
-            </div>
-          </div>
-        </section>
+        {/* Featured Categories Section - Etsy-like design */}
+        <FeaturedCategoriesSection products={productsWithCreators} />
       </div>
     </main>
   )
