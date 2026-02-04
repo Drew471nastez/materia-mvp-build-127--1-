@@ -156,11 +156,11 @@ export function ExplorePageClient({
                   key={filter.id}
                   onClick={() => setRecommendationFilter(filter.id as typeof recommendationFilter)}
                   className={`
-                    px-4 py-2 rounded-full text-sm font-medium
-                    transition-colors duration-150 ease-out
+                    px-4 py-2 rounded-full text-sm font-medium cursor-pointer
+                    transition-all duration-150 ease-out
                     ${isSelected
                       ? "bg-neutral-900 text-white"
-                      : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                      : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200 hover:text-neutral-900"
                     }
                   `}
                 >
@@ -175,8 +175,8 @@ export function ExplorePageClient({
         </div>
       )}
 
-      {/* Category Pills - Left aligned, with icons, positioned under Recommended section */}
-      <nav aria-label="Product categories" className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide mt-8">
+      {/* Category Pills - Left aligned, with icons, positioned under Recommended section with extra gap */}
+      <nav aria-label="Product categories" className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide mt-10">
         {CATEGORIES.map((category, index) => {
           const isSelected = selectedCategory === category.id
           const isLoading = isLoadingCategory && selectedCategory === category.id

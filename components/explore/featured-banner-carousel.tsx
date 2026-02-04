@@ -131,7 +131,7 @@ export function FeaturedBannerCarousel({ products }: FeaturedBannerCarouselProps
   return (
     <div
       className="relative w-full rounded-2xl overflow-hidden bg-neutral-200"
-      style={{ aspectRatio: "3 / 1", minHeight: "200px", maxHeight: "320px" }}
+      style={{ aspectRatio: "3.15 / 1", minHeight: "190px", maxHeight: "300px" }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >

@@ -121,8 +121,8 @@ export default async function ExplorePage({
 
   return (
     <main className="min-h-screen bg-white">
-      {/* Semantic page structure for SEO - max-w-6xl for desktop, full width on mobile */}
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      {/* Semantic page structure for SEO - max-w-7xl for 10% wider desktop layout */}
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Hidden H1 for SEO - visible to screen readers and crawlers */}
         <h1 className="sr-only">
           Discover - Sell Digital Products On Storelib

@@ -6,17 +6,55 @@ import { useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import type { User } from "@supabase/supabase-js"
 import { UserNavClient } from "./user-nav-client"
-import { Heart, Menu, X, Grid3X3, Sparkles, Code, Megaphone, Briefcase, GraduationCap, Layers } from "lucide-react"
+import {
+  Heart,
+  Menu,
+  Layers,
+  Sparkles,
+  Code,
+  Megaphone,
+  Briefcase,
+  GraduationCap,
+  Music,
+  Film,
+  BookOpen,
+  Palette,
+  Camera,
+  PenTool,
+  FileText,
+  Zap,
+  Users,
+  Star
+} from "lucide-react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
-// Categories for dropdown
-const CATEGORIES = [
-  { id: "all", label: "All", icon: Layers },
-  { id: "design", label: "Design", icon: Sparkles },
-  { id: "development", label: "Development", icon: Code },
-  { id: "marketing", label: "Marketing", icon: Megaphone },
-  { id: "business", label: "Business", icon: Briefcase },
-  { id: "education", label: "Education", icon: GraduationCap },
+// Main categories with icons
+const MAIN_CATEGORIES = [
+  { id: "all", label: "All Products", icon: Layers, href: "/explore" },
+  { id: "design", label: "Design", icon: Sparkles, href: "/explore?category=design" },
+  { id: "development", label: "Development", icon: Code, href: "/explore?category=development" },
+  { id: "marketing", label: "Marketing", icon: Megaphone, href: "/explore?category=marketing" },
+  { id: "business", label: "Business & Money", icon: Briefcase, href: "/explore?category=business" },
+  { id: "education", label: "Education", icon: GraduationCap, href: "/explore?category=education" },
+]
+
+// Popular subcategories
+const POPULAR_SUBCATEGORIES = [
+  { label: "Templates", icon: FileText, href: "/explore?q=templates" },
+  { label: "Courses", icon: BookOpen, href: "/explore?q=courses" },
+  { label: "Graphics", icon: Palette, href: "/explore?q=graphics" },
+  { label: "Photography", icon: Camera, href: "/explore?q=photography" },
+  { label: "UI Kits", icon: PenTool, href: "/explore?q=ui+kits" },
+  { label: "Music", icon: Music, href: "/explore?q=music" },
+  { label: "Video", icon: Film, href: "/explore?q=video" },
+  { label: "eBooks", icon: BookOpen, href: "/explore?q=ebooks" },
+]
+
+// Featured/extras
+const EXTRAS = [
+  { label: "Trending", icon: Zap, href: "/explore" },
+  { label: "Top Creators", icon: Users, href: "/explore" },
+  { label: "New Releases", icon: Star, href: "/explore" },
 ]
 
 export function MarketingHeaderClient() {
@@ -85,55 +123,106 @@ export function MarketingHeaderClient() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 pt-[env(safe-area-inset-top)]">
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
+      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
         {/* Left side - Logo and Categories */}
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-4 shrink-0">
           <Link href="/?src=platform" className="flex items-center gap-2 shrink-0">
-            <span className="text-3xl font-semibold tracking-tight">Storelib</span>
+            <span className="text-[2.5rem] font-semibold tracking-tight leading-none">Storelib</span>
           </Link>
 
-          {/* Categories Dropdown */}
+          {/* Categories Dropdown - Megamenu Style */}
           <div className="relative" data-categories-dropdown>
             <button
               onClick={() => setCategoriesOpen(!categoriesOpen)}
-              className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium text-neutral-600 hover:bg-neutral-100 transition-colors"
+              className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium text-neutral-600 hover:bg-neutral-100 transition-colors cursor-pointer"
             >
-              <Grid3X3 className="w-4 h-4" />
+              <Menu className="w-4 h-4" />
               <span>Categories</span>
             </button>
 
-            {/* Dropdown Menu */}
+            {/* Megamenu Dropdown */}
             {categoriesOpen && (
-              <div className="absolute top-full left-0 mt-2 w-80 bg-white rounded-xl shadow-xl border border-neutral-200 overflow-hidden animate-in fade-in-0 zoom-in-95 duration-150">
-                <div className="p-4">
-                  <div className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-3">
-                    Browse
+              <div className="absolute top-full left-0 mt-2 w-[600px] bg-white rounded-xl shadow-2xl border border-neutral-200 overflow-hidden animate-in fade-in-0 zoom-in-95 duration-150">
+                <div className="grid grid-cols-3 divide-x divide-neutral-100">
+                  {/* Browse Column */}
+                  <div className="p-5">
+                    <div className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-4">
+                      Browse
+                    </div>
+                    <div className="space-y-1">
+                      {MAIN_CATEGORIES.map((category) => {
+                        const Icon = category.icon
+                        return (
+                          <Link
+                            key={category.id}
+                            href={category.href}
+                            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-neutral-700 hover:bg-neutral-50 transition-colors"
+                            onClick={() => setCategoriesOpen(false)}
+                          >
+                            <Icon className="w-5 h-5 text-neutral-500" />
+                            <span className="font-medium">{category.label}</span>
+                          </Link>
+                        )
+                      })}
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    {CATEGORIES.map((category) => {
-                      const Icon = category.icon
-                      return (
-                        <Link
-                          key={category.id}
-                          href={`/explore?category=${category.id}`}
-                          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-neutral-700 hover:bg-neutral-50 transition-colors"
-                          onClick={() => setCategoriesOpen(false)}
-                        >
-                          <Icon className="w-5 h-5 text-neutral-500" />
-                          <span className="font-medium">{category.label}</span>
-                        </Link>
-                      )
-                    })}
+
+                  {/* Popular Column */}
+                  <div className="p-5">
+                    <div className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-4">
+                      Popular
+                    </div>
+                    <div className="space-y-1">
+                      {POPULAR_SUBCATEGORIES.map((item) => {
+                        const Icon = item.icon
+                        return (
+                          <Link
+                            key={item.label}
+                            href={item.href}
+                            className="flex items-center gap-3 px-3 py-2 rounded-lg text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900 transition-colors"
+                            onClick={() => setCategoriesOpen(false)}
+                          >
+                            <Icon className="w-4 h-4 text-neutral-400" />
+                            <span className="text-sm">{item.label}</span>
+                          </Link>
+                        )
+                      })}
+                    </div>
                   </div>
-                </div>
-                <div className="border-t border-neutral-100 p-3 bg-neutral-50">
-                  <Link
-                    href="/explore"
-                    className="flex items-center justify-center gap-2 w-full px-4 py-2 rounded-lg text-sm font-medium text-violet-600 hover:bg-violet-50 transition-colors"
-                    onClick={() => setCategoriesOpen(false)}
-                  >
-                    View all categories
-                  </Link>
+
+                  {/* Extras Column */}
+                  <div className="p-5 bg-neutral-50/50">
+                    <div className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-4">
+                      Discover
+                    </div>
+                    <div className="space-y-1">
+                      {EXTRAS.map((item) => {
+                        const Icon = item.icon
+                        return (
+                          <Link
+                            key={item.label}
+                            href={item.href}
+                            className="flex items-center gap-3 px-3 py-2 rounded-lg text-neutral-600 hover:bg-white hover:text-neutral-900 transition-colors"
+                            onClick={() => setCategoriesOpen(false)}
+                          >
+                            <Icon className="w-4 h-4 text-violet-500" />
+                            <span className="text-sm font-medium">{item.label}</span>
+                          </Link>
+                        )
+                      })}
+                    </div>
+
+                    {/* View All Link */}
+                    <div className="mt-6 pt-4 border-t border-neutral-200">
+                      <Link
+                        href="/explore"
+                        className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-lg text-sm font-medium text-violet-600 hover:bg-violet-50 transition-colors"
+                        onClick={() => setCategoriesOpen(false)}
+                      >
+                        View all categories
+                      </Link>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
