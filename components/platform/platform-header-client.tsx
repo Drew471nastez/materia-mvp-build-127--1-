@@ -24,7 +24,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
-import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, Menu, X, Loader2, Bell, ChevronRight } from "lucide-react"
+import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, Menu, X, Loader2, ChevronRight, Sparkles, Code, Megaphone, Briefcase, GraduationCap, Music, Camera, PenTool, Video } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 
 const LOGO_URL =
@@ -49,17 +49,17 @@ const MOBILE_CATEGORIES = [
   { id: "education", label: "Education" },
 ]
 
-// Search modal categories - expanded list
+// Search modal categories - expanded list with icons
 const SEARCH_CATEGORIES = [
-  { label: "Design", href: "/explore?category=design" },
-  { label: "Development", href: "/explore?category=development" },
-  { label: "Marketing", href: "/explore?category=marketing" },
-  { label: "Business", href: "/explore?category=business" },
-  { label: "Education", href: "/explore?category=education" },
-  { label: "Music & Audio", href: "/explore?category=music" },
-  { label: "Photography", href: "/explore?category=photography" },
-  { label: "Writing", href: "/explore?category=writing" },
-  { label: "Video & Film", href: "/explore?category=video" },
+  { label: "Design", href: "/explore?category=design", icon: Sparkles },
+  { label: "Development", href: "/explore?category=development", icon: Code },
+  { label: "Marketing", href: "/explore?category=marketing", icon: Megaphone },
+  { label: "Business", href: "/explore?category=business", icon: Briefcase },
+  { label: "Education", href: "/explore?category=education", icon: GraduationCap },
+  { label: "Music & Audio", href: "/explore?category=music", icon: Music },
+  { label: "Photography", href: "/explore?category=photography", icon: Camera },
+  { label: "Writing", href: "/explore?category=writing", icon: PenTool },
+  { label: "Video & Film", href: "/explore?category=video", icon: Video },
 ]
 
 // Product type for search results
@@ -367,14 +367,14 @@ export function PlatformHeaderClient() {
         <div className="flex h-[68px] md:h-[74px] items-center justify-between gap-4 md:py-[3px]">
           {/* Left side - Logo and Categories Button */}
           <div className="flex items-center gap-3 shrink-0">
-            {/* Logo with Storelib text */}
-            <Link href="/" className="shrink-0 hidden md:flex items-center gap-2.5">
+            {/* Logo with Storelib text - logo 15-20% smaller */}
+            <Link href="/" className="shrink-0 hidden md:flex items-center gap-2">
               <Image
                 src={LOGO_URL || "/placeholder.svg"}
                 alt="Storelib"
-                width={210}
-                height={71}
-                className="h-[76px] w-auto"
+                width={180}
+                height={60}
+                className="h-[58px] w-auto"
                 priority
               />
               <span className="text-xl font-bold text-gray-900 tracking-tight">Storelib</span>
@@ -400,16 +400,20 @@ export function PlatformHeaderClient() {
                   <div className="p-3">
                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-2">Browse Categories</h3>
                     <div className="space-y-0.5">
-                      {SEARCH_CATEGORIES.map((cat) => (
-                        <Link
-                          key={cat.label}
-                          href={cat.href}
-                          onClick={() => setCategoriesDropdownOpen(false)}
-                          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors cursor-pointer"
-                        >
-                          {cat.label}
-                        </Link>
-                      ))}
+                      {SEARCH_CATEGORIES.map((cat) => {
+                        const Icon = cat.icon
+                        return (
+                          <Link
+                            key={cat.label}
+                            href={cat.href}
+                            onClick={() => setCategoriesDropdownOpen(false)}
+                            className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors cursor-pointer"
+                          >
+                            <Icon className="h-4 w-4 text-gray-400" />
+                            {cat.label}
+                          </Link>
+                        )
+                      })}
                     </div>
                   </div>
                 </div>
@@ -582,19 +586,23 @@ export function PlatformHeaderClient() {
                   {/* Categories List */}
                   <div className="overflow-y-auto max-h-[70vh] px-2">
                     <div className="space-y-0.5">
-                      {SEARCH_CATEGORIES.map((cat) => (
-                        <Link
-                          key={cat.label}
-                          href={cat.href}
-                          onClick={() => setMobileMenuOpen(false)}
-                          className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
-                        >
-                          <div className="flex items-center gap-3">
-                            <span>{cat.label}</span>
-                          </div>
-                          <ChevronRight className="h-5 w-5 text-gray-400" />
-                        </Link>
-                      ))}
+                      {SEARCH_CATEGORIES.map((cat) => {
+                        const Icon = cat.icon
+                        return (
+                          <Link
+                            key={cat.label}
+                            href={cat.href}
+                            onClick={() => setMobileMenuOpen(false)}
+                            className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
+                          >
+                            <div className="flex items-center gap-3">
+                              <Icon className="h-5 w-5 text-gray-400" />
+                              <span>{cat.label}</span>
+                            </div>
+                            <ChevronRight className="h-5 w-5 text-gray-400" />
+                          </Link>
+                        )
+                      })}
                     </div>
 
                     {/* Quick Links section */}
@@ -642,17 +650,8 @@ export function PlatformHeaderClient() {
               </Link>
             </div>
 
-            {/* Right - Mobile Icons: Library, Wishlist, Avatar */}
-            <div className="flex items-center gap-0.5">
-              {/* Library */}
-              <Link
-                href="/library"
-                className="flex h-9 w-9 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 transition cursor-pointer"
-                aria-label="Library"
-              >
-                <Library className="h-5 w-5" />
-              </Link>
-
+            {/* Right - Mobile Icons: Wishlist, Avatar only */}
+            <div className="flex items-center gap-1">
               {/* Wishlist */}
               <Link
                 href={wishlistHref}
@@ -685,36 +684,44 @@ export function PlatformHeaderClient() {
 
                   <DropdownMenuContent
                     align="end"
-                    className="min-w-[200px] bg-white text-gray-900 border border-gray-200"
+                    sideOffset={8}
+                    className="w-[calc(100vw-32px)] max-w-[280px] mr-2 bg-white text-gray-900 border border-gray-200 rounded-xl shadow-lg"
                   >
-                    <DropdownMenuLabel className="py-2">
+                    <DropdownMenuLabel className="py-3 px-4">
                       <div className="flex flex-col">
-                        <span className="text-sm font-medium leading-none">{displayName}</span>
-                        {user.email && <span className="text-xs text-gray-500 mt-1">{user.email}</span>}
+                        <span className="text-base font-medium leading-none">{displayName}</span>
+                        {user.email && <span className="text-sm text-gray-500 mt-1.5 truncate">{user.email}</span>}
                       </div>
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator className="bg-gray-200" />
                     <DropdownMenuItem
                       onClick={() => router.push(dashboardHref)}
-                      className="cursor-pointer hover:bg-gray-100 focus:bg-gray-100 gap-2"
+                      className="cursor-pointer hover:bg-gray-100 focus:bg-gray-100 gap-3 py-3 px-4"
                     >
-                      <LayoutDashboard className="h-4 w-4" />
-                      Dashboard
+                      <LayoutDashboard className="h-5 w-5" />
+                      <span className="text-base">Dashboard</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => router.push("/library")}
+                      className="cursor-pointer hover:bg-gray-100 focus:bg-gray-100 gap-3 py-3 px-4"
+                    >
+                      <Library className="h-5 w-5" />
+                      <span className="text-base">My Library</span>
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onClick={() => router.push("/settings")}
-                      className="cursor-pointer hover:bg-gray-100 focus:bg-gray-100 gap-2"
+                      className="cursor-pointer hover:bg-gray-100 focus:bg-gray-100 gap-3 py-3 px-4"
                     >
-                      <Settings className="h-4 w-4" />
-                      Settings
+                      <Settings className="h-5 w-5" />
+                      <span className="text-base">Settings</span>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator className="bg-gray-200" />
                     <DropdownMenuItem
                       onClick={handleLogout}
-                      className="cursor-pointer text-red-600 hover:bg-gray-100 focus:bg-gray-100 gap-2"
+                      className="cursor-pointer text-red-600 hover:bg-gray-100 focus:bg-gray-100 gap-3 py-3 px-4"
                     >
-                      <LogOut className="h-4 w-4" />
-                      Log out
+                      <LogOut className="h-5 w-5" />
+                      <span className="text-base">Log out</span>
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -726,8 +733,8 @@ export function PlatformHeaderClient() {
             </div>
           </div>
 
-          {/* Right Side Actions */}
-          <div className="flex items-center gap-2 shrink-0">
+          {/* Right Side Actions - Desktop only */}
+          <div className="hidden md:flex items-center gap-2 shrink-0">
             {loading ? (
               <HeaderActionsSkeleton />
             ) : (

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useRef, TouchEvent } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { ChevronLeft, ChevronRight } from "lucide-react"
@@ -36,6 +36,10 @@ export function FeaturedBannerCarousel({ products }: FeaturedBannerCarouselProps
   const progressRef = useRef<number>(0)
   const animationRef = useRef<number | null>(null)
   const lastTimeRef = useRef<number>(0)
+
+  // Touch/swipe state
+  const touchStartX = useRef<number>(0)
+  const touchEndX = useRef<number>(0)
 
   // Limit to 5 products
   const featuredProducts = products.slice(0, 5)
@@ -116,6 +120,34 @@ export function FeaturedBannerCarousel({ products }: FeaturedBannerCarouselProps
     lastTimeRef.current = 0
   }, [])
 
+  // Touch handlers for swipe
+  const handleTouchStart = useCallback((e: TouchEvent<HTMLDivElement>) => {
+    touchStartX.current = e.targetTouches[0].clientX
+    setIsPaused(true)
+  }, [])
+
+  const handleTouchMove = useCallback((e: TouchEvent<HTMLDivElement>) => {
+    touchEndX.current = e.targetTouches[0].clientX
+  }, [])
+
+  const handleTouchEnd = useCallback(() => {
+    const diff = touchStartX.current - touchEndX.current
+    const minSwipeDistance = 50
+
+    if (Math.abs(diff) > minSwipeDistance) {
+      if (diff > 0) {
+        // Swipe left - go next
+        goToNext()
+      } else {
+        // Swipe right - go previous
+        goToPrevious()
+      }
+    }
+
+    setIsPaused(false)
+    lastTimeRef.current = 0
+  }, [goToNext, goToPrevious])
+
   if (featuredProducts.length === 0) {
     return null
   }
@@ -129,12 +161,17 @@ export function FeaturedBannerCarousel({ products }: FeaturedBannerCarouselProps
   const productPrice = currentProduct?.price_cents
 
   return (
-    <div
-      className="relative w-full rounded-2xl overflow-hidden bg-neutral-200"
-      style={{ aspectRatio: "3.15 / 1", minHeight: "190px", maxHeight: "300px" }}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
+    <div className="w-full">
+      {/* Banner Container */}
+      <div
+        className="relative w-full rounded-2xl overflow-hidden bg-neutral-200 touch-pan-y"
+        style={{ aspectRatio: "3.15 / 1", minHeight: "190px", maxHeight: "300px" }}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
       {/* Slides */}
       <div className="absolute inset-0">
         {featuredProducts.map((product, index) => {
@@ -218,44 +255,45 @@ export function FeaturedBannerCarousel({ products }: FeaturedBannerCarouselProps
         </div>
       </div>
 
-      {/* Navigation arrows - positioned at bottom right, always clickable */}
-      <div
-        className={`absolute bottom-5 right-5 sm:bottom-6 sm:right-6 z-30 flex items-center gap-2 transition-opacity duration-200 ${
-          isHovered ? "opacity-100" : "opacity-0"
-        }`}
-      >
-        <button
-          onClick={goToPrevious}
-          className="w-10 h-10 rounded-full bg-neutral-900/80 hover:bg-neutral-900 flex items-center justify-center transition-colors cursor-pointer"
-          aria-label="Previous slide"
-          type="button"
+      {/* Navigation arrows - positioned at bottom right, hidden on mobile */}
+        <div
+          className={`absolute bottom-5 right-5 sm:bottom-6 sm:right-6 z-30 hidden md:flex items-center gap-2 transition-opacity duration-200 ${
+            isHovered ? "opacity-100" : "opacity-0"
+          }`}
         >
-          <ChevronLeft className="w-5 h-5 text-white" />
-        </button>
+          <button
+            onClick={goToPrevious}
+            className="w-10 h-10 rounded-full bg-neutral-900/80 hover:bg-neutral-900 flex items-center justify-center transition-colors cursor-pointer"
+            aria-label="Previous slide"
+            type="button"
+          >
+            <ChevronLeft className="w-5 h-5 text-white" />
+          </button>
 
-        <button
-          onClick={goToNext}
-          className="w-10 h-10 rounded-full bg-neutral-900/80 hover:bg-neutral-900 flex items-center justify-center transition-colors cursor-pointer"
-          aria-label="Next slide"
-          type="button"
-        >
-          <ChevronRight className="w-5 h-5 text-white" />
-        </button>
-      </div>
+          <button
+            onClick={goToNext}
+            className="w-10 h-10 rounded-full bg-neutral-900/80 hover:bg-neutral-900 flex items-center justify-center transition-colors cursor-pointer"
+            aria-label="Next slide"
+            type="button"
+          >
+            <ChevronRight className="w-5 h-5 text-white" />
+          </button>
+        </div>
+      </div> {/* End of Banner Container */}
 
-      {/* Progress indicators - positioned at bottom center */}
-      <div className="absolute bottom-5 left-1/2 -translate-x-1/2 sm:bottom-6 z-30 flex items-center gap-2">
+      {/* Progress indicators - positioned OUTSIDE banner, below it */}
+      <div className="flex items-center justify-center gap-2 mt-3">
         {featuredProducts.map((_, index) => (
           <button
             key={index}
             onClick={() => goToSlide(index)}
-            className="relative h-0.5 w-6 sm:w-8 rounded-full overflow-hidden bg-white/30 hover:bg-white/40 transition-colors cursor-pointer"
+            className="relative h-1 w-8 sm:w-10 rounded-full overflow-hidden bg-gray-200 hover:bg-gray-300 transition-colors cursor-pointer"
             aria-label={`Go to slide ${index + 1}`}
             type="button"
           >
             {/* Progress fill */}
             <div
-              className="absolute inset-y-0 left-0 bg-white rounded-full"
+              className="absolute inset-y-0 left-0 bg-neutral-800 rounded-full"
               style={{
                 width: index === currentIndex ? `${progress}%` : index < currentIndex ? "100%" : "0%",
                 transition: index === currentIndex ? "none" : "width 0.3s ease-out"
