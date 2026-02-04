@@ -126,44 +126,70 @@ export function FeaturedCategoriesSection({ products = [] }: FeaturedCategoriesS
 
         {/* Right side - Big category cards (swipeable on mobile) */}
         <div className="lg:col-span-9">
-          {/* Mobile: Swipeable horizontal scroll with navigation arrows */}
+          {/* Mobile: First 3 categories in swipeable row with 4:3 ratio */}
           <div className="md:hidden relative">
-            {/* Swipe navigation hint */}
-            <div className="flex items-center justify-end gap-2 mb-2">
+            {/* Navigation arrows - right aligned */}
+            <div className="flex items-center justify-end gap-2 mb-3">
               <button
                 type="button"
-                className="w-8 h-8 rounded-full bg-neutral-100 hover:bg-neutral-200 flex items-center justify-center transition-colors cursor-pointer"
+                className="w-8 h-8 rounded-full bg-neutral-100 hover:bg-neutral-200 flex items-center justify-center transition-colors cursor-pointer active:scale-95"
                 aria-label="Previous"
                 onClick={() => {
                   const container = document.getElementById('mobile-categories-scroll')
-                  if (container) container.scrollBy({ left: -200, behavior: 'smooth' })
+                  if (container) container.scrollBy({ left: -container.clientWidth * 0.7, behavior: 'smooth' })
                 }}
               >
                 <ArrowRight className="w-4 h-4 text-neutral-700 rotate-180" />
               </button>
               <button
                 type="button"
-                className="w-8 h-8 rounded-full bg-neutral-100 hover:bg-neutral-200 flex items-center justify-center transition-colors cursor-pointer"
+                className="w-8 h-8 rounded-full bg-neutral-100 hover:bg-neutral-200 flex items-center justify-center transition-colors cursor-pointer active:scale-95"
                 aria-label="Next"
                 onClick={() => {
                   const container = document.getElementById('mobile-categories-scroll')
-                  if (container) container.scrollBy({ left: 200, behavior: 'smooth' })
+                  if (container) container.scrollBy({ left: container.clientWidth * 0.7, behavior: 'smooth' })
                 }}
               >
                 <ArrowRight className="w-4 h-4 text-neutral-700" />
               </button>
             </div>
-            {/* Scrollable container */}
+            {/* Swipeable container with touch support */}
             <div
               id="mobile-categories-scroll"
-              className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4 snap-x snap-mandatory"
+              className="flex gap-3 overflow-x-auto pb-3 scrollbar-hide -mx-4 px-4 snap-x snap-mandatory touch-pan-x"
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             >
               {bigCategories.map((category) => (
-                <div key={category.id} className="flex-shrink-0 w-[45%] snap-start">
-                  <CategoryCard
-                    category={category}
-                    size="large"
-                  />
+                <div key={category.id} className="flex-shrink-0 w-[70%] snap-center">
+                  <Link
+                    href={`/explore?category=${category.slug}`}
+                    className="group relative overflow-hidden rounded-2xl aspect-[4/3] bg-neutral-100 block transition-all duration-300 ease-out hover:shadow-lg"
+                  >
+                    {category.coverImage ? (
+                      <Image
+                        src={category.coverImage}
+                        alt={category.name}
+                        fill
+                        sizes="70vw"
+                        className="object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className={`absolute inset-0 bg-gradient-to-br ${category.gradient}`} />
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+                    {/* Centered Icon */}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center w-14 h-14">
+                        <category.Icon className="text-white/90 w-7 h-7" />
+                      </div>
+                    </div>
+                    {/* Category name */}
+                    <div className="absolute bottom-0 left-0 right-0 p-3">
+                      <span className="inline-block px-3 py-1 rounded-full bg-white/90 backdrop-blur-sm font-medium text-neutral-900 text-sm">
+                        {category.name}
+                      </span>
+                    </div>
+                  </Link>
                 </div>
               ))}
             </div>
@@ -182,7 +208,7 @@ export function FeaturedCategoriesSection({ products = [] }: FeaturedCategoriesS
         </div>
       </div>
 
-      {/* Bottom row - Small category cards */}
+      {/* Bottom row - Small category cards (2 per row on mobile) */}
       <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
         {smallCategories.map((category) => (
           <CategoryCard

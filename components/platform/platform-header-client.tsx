@@ -367,14 +367,14 @@ export function PlatformHeaderClient() {
         <div className="flex h-[68px] md:h-[74px] items-center justify-between gap-4 md:py-[3px]">
           {/* Left side - Logo and Categories Button */}
           <div className="flex items-center gap-3 shrink-0">
-            {/* Logo with Storelib text - logo reduced to 50px */}
+            {/* Logo with Storelib text - logo height 42px */}
             <Link href="/" className="shrink-0 hidden md:flex items-center gap-2">
               <Image
                 src={LOGO_URL || "/placeholder.svg"}
                 alt="Storelib"
-                width={150}
-                height={50}
-                className="h-[50px] w-auto"
+                width={126}
+                height={42}
+                className="h-[42px] w-auto"
                 priority
               />
               <span className="text-xl font-bold text-gray-900 tracking-tight">Storelib</span>
@@ -562,9 +562,9 @@ export function PlatformHeaderClient() {
           </div>
 
           {/* Mobile Header - hamburger opens categories from bottom, logo, then icons */}
-          <div className="md:hidden flex items-center justify-between flex-1 -ml-1">
+          <div className="md:hidden flex items-center justify-between flex-1 -ml-2">
             {/* Left - Categories Button and Logo (positioned more to the left) */}
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-0.5">
               <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
                 <SheetTrigger asChild>
                   <button
@@ -636,22 +636,22 @@ export function PlatformHeaderClient() {
                 </SheetContent>
               </Sheet>
 
-              {/* Logo next to hamburger */}
+              {/* Logo next to hamburger - 5px bigger */}
               <Link href="/" className="shrink-0 flex items-center gap-1">
                 <Image
                   src={LOGO_URL || "/placeholder.svg"}
                   alt="Storelib"
-                  width={90}
-                  height={28}
-                  className="h-6 w-auto"
+                  width={100}
+                  height={31}
+                  className="h-[31px] w-auto"
                   priority
                 />
-                <span className="text-sm font-bold text-gray-900 tracking-tight">Storelib</span>
+                <span className="text-base font-bold text-gray-900 tracking-tight">Storelib</span>
               </Link>
             </div>
 
-            {/* Right - Mobile Icons: Library, Wishlist, Avatar */}
-            <div className="flex items-center gap-0.5">
+            {/* Right - Mobile Icons: Library, Wishlist, Avatar - equal gaps */}
+            <div className="flex items-center gap-1.5">
               {/* Library */}
               <Link
                 href="/library"
@@ -681,7 +681,7 @@ export function PlatformHeaderClient() {
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
-                      className="rounded-full cursor-pointer ml-0.5"
+                      className="rounded-full cursor-pointer"
                       aria-label="Open profile menu"
                     >
                       <Avatar className="h-8 w-8 border border-gray-200">
