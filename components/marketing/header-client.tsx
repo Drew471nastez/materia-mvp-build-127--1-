@@ -59,7 +59,7 @@ export function MarketingHeaderClient() {
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 pt-[env(safe-area-inset-top)]">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
         <Link href="/?src=platform" className="flex items-center gap-2 shrink-0">
-          <span className="text-lg font-semibold tracking-tight">Storelib</span>
+          <span className="text-2xl font-semibold tracking-tight">Storelib</span>
         </Link>
         <nav className="hidden items-center gap-6 sm:flex">
           <Link

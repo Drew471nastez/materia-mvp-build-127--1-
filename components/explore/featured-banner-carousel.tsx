@@ -10,12 +10,14 @@ interface FeaturedProduct {
   id: string
   title: string
   slug: string
+  price_cents?: number
   thumbnail_url?: string | null
   creator?: {
     slug?: string
     profile?: {
       display_name?: string | null
       username?: string | null
+      avatar_url?: string | null
     } | null
   } | null
 }
@@ -38,6 +40,15 @@ export function FeaturedBannerCarousel({ products }: FeaturedBannerCarouselProps
   // Limit to 5 products
   const featuredProducts = products.slice(0, 5)
   const totalSlides = featuredProducts.length
+
+  // Format price helper
+  const formatPrice = (cents?: number) => {
+    if (!cents || cents === 0) return "Free"
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+    }).format(cents / 100)
+  }
 
   // Reset progress when slide changes
   useEffect(() => {
@@ -112,12 +123,14 @@ export function FeaturedBannerCarousel({ products }: FeaturedBannerCarouselProps
   const currentProduct = featuredProducts[currentIndex]
   const creatorUsername = currentProduct?.creator?.profile?.username || currentProduct?.creator?.slug || ""
   const creatorName = currentProduct?.creator?.profile?.display_name || "Creator"
+  const creatorAvatar = currentProduct?.creator?.profile?.avatar_url
   const productUrl = getProductUrl(creatorUsername, currentProduct?.slug || "")
+  const productPrice = currentProduct?.price_cents
 
   return (
     <div
-      className="relative w-full rounded-2xl overflow-hidden bg-neutral-100"
-      style={{ aspectRatio: "2.5 / 1", minHeight: "280px", maxHeight: "400px" }}
+      className="relative w-full rounded-2xl overflow-hidden bg-neutral-200"
+      style={{ aspectRatio: "3.5 / 1", minHeight: "180px", maxHeight: "280px" }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
@@ -125,8 +138,6 @@ export function FeaturedBannerCarousel({ products }: FeaturedBannerCarouselProps
       <div className="absolute inset-0">
         {featuredProducts.map((product, index) => {
           const isActive = index === currentIndex
-          const username = product.creator?.profile?.username || product.creator?.slug || ""
-          const url = getProductUrl(username, product.slug || "")
 
           return (
             <div
@@ -161,62 +172,84 @@ export function FeaturedBannerCarousel({ products }: FeaturedBannerCarouselProps
       </div>
 
       {/* Content overlay - always visible for current slide */}
-      <div className="absolute inset-0 z-20 flex flex-col justify-end p-6 sm:p-8 md:p-10">
+      <div className="absolute inset-0 z-20 flex flex-col justify-end p-5 sm:p-6 md:p-8">
         <div className="max-w-lg">
           {/* Product title */}
-          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-2 line-clamp-2 drop-shadow-lg">
+          <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-2 line-clamp-2 drop-shadow-lg">
             {currentProduct?.title || "Featured Product"}
           </h2>
 
-          {/* Creator name */}
-          <p className="text-sm sm:text-base text-white/80 mb-4 flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-white/60" />
-            {creatorName}
-          </p>
+          {/* Creator info with avatar */}
+          <div className="flex items-center gap-2 mb-3">
+            {creatorAvatar ? (
+              <Image
+                src={creatorAvatar}
+                alt={creatorName}
+                width={24}
+                height={24}
+                className="rounded-full object-cover shrink-0"
+              />
+            ) : (
+              <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-[10px] font-medium text-white shrink-0">
+                {creatorName.charAt(0).toUpperCase()}
+              </div>
+            )}
+            <span className="text-sm text-white/80">{creatorName}</span>
+          </div>
 
-          {/* CTA Button */}
-          <Link
-            href={productUrl}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-white text-neutral-900 font-semibold text-sm rounded-lg hover:bg-white/90 transition-colors shadow-lg"
-          >
-            View product
-          </Link>
+          {/* Price and CTA */}
+          <div className="flex items-center gap-3">
+            <Link
+              href={productUrl}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-white text-neutral-900 font-semibold text-sm rounded-lg hover:bg-white/90 transition-colors shadow-lg"
+            >
+              View product
+            </Link>
+            <span className="text-lg font-bold text-white drop-shadow-md">
+              {formatPrice(productPrice)}
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* Navigation arrows - show on hover */}
-      <button
-        onClick={goToPrevious}
-        className={`absolute left-4 top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-white/90 hover:bg-white flex items-center justify-center shadow-lg transition-all duration-200 ${
-          isHovered ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-2"
+      {/* Navigation arrows - positioned at bottom right, always clickable */}
+      <div
+        className={`absolute bottom-5 right-5 sm:bottom-6 sm:right-6 z-30 flex items-center gap-2 transition-opacity duration-200 ${
+          isHovered ? "opacity-100" : "opacity-0"
         }`}
-        aria-label="Previous slide"
       >
-        <ChevronLeft className="w-5 h-5 text-neutral-700" />
-      </button>
+        <button
+          onClick={goToPrevious}
+          className="w-10 h-10 rounded-full bg-neutral-900/80 hover:bg-neutral-900 flex items-center justify-center transition-colors cursor-pointer"
+          aria-label="Previous slide"
+          type="button"
+        >
+          <ChevronLeft className="w-5 h-5 text-white" />
+        </button>
 
-      <button
-        onClick={goToNext}
-        className={`absolute right-4 top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-white/90 hover:bg-white flex items-center justify-center shadow-lg transition-all duration-200 ${
-          isHovered ? "opacity-100 translate-x-0" : "opacity-0 translate-x-2"
-        }`}
-        aria-label="Next slide"
-      >
-        <ChevronRight className="w-5 h-5 text-neutral-700" />
-      </button>
+        <button
+          onClick={goToNext}
+          className="w-10 h-10 rounded-full bg-neutral-900/80 hover:bg-neutral-900 flex items-center justify-center transition-colors cursor-pointer"
+          aria-label="Next slide"
+          type="button"
+        >
+          <ChevronRight className="w-5 h-5 text-white" />
+        </button>
+      </div>
 
-      {/* Progress indicators - slim lines at bottom */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2">
+      {/* Progress indicators - slim lines at bottom center */}
+      <div className="absolute bottom-5 left-5 sm:bottom-6 sm:left-6 z-30 flex items-center gap-1.5">
         {featuredProducts.map((_, index) => (
           <button
             key={index}
             onClick={() => goToSlide(index)}
-            className="relative h-1 w-8 sm:w-12 rounded-full overflow-hidden bg-white/30 hover:bg-white/40 transition-colors"
+            className="relative h-0.5 w-6 sm:w-8 rounded-full overflow-hidden bg-white/30 hover:bg-white/40 transition-colors cursor-pointer"
             aria-label={`Go to slide ${index + 1}`}
+            type="button"
           >
             {/* Progress fill */}
             <div
-              className="absolute inset-y-0 left-0 bg-white rounded-full transition-all"
+              className="absolute inset-y-0 left-0 bg-white rounded-full"
               style={{
                 width: index === currentIndex ? `${progress}%` : index < currentIndex ? "100%" : "0%",
                 transition: index === currentIndex ? "none" : "width 0.3s ease-out"

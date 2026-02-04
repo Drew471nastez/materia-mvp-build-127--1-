@@ -37,13 +37,45 @@ const montserrat = Montserrat({
 })
 
 export const metadata: Metadata = {
-  title: "Storelib - Sell your knowledge. All in one place.",
-  description: "The all-in-one platform for creators to sell digital products, courses, and paid communities.",
+  title: {
+    default: "Storelib - Sell products & Grow your audience",
+    template: "%s | Storelib",
+  },
+  description: "The all-in-one platform for creators to sell digital products, courses, and grow their audience. Start selling today with Storelib.",
   generator: "Storelib",
+  keywords: ["sell digital products", "creator platform", "online courses", "digital downloads", "grow audience", "creator economy"],
+  authors: [{ name: "Storelib" }],
+  creator: "Storelib",
+  publisher: "Storelib",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: "https://storelib.com",
+    siteName: "Storelib",
+    title: "Storelib - Sell products & Grow your audience",
+    description: "The all-in-one platform for creators to sell digital products, courses, and grow their audience.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Storelib - Sell products & Grow your audience",
+    description: "The all-in-one platform for creators to sell digital products, courses, and grow their audience.",
+  },
   icons: {
     icon: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg",
     apple: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg",
   },
+  metadataBase: new URL("https://storelib.com"),
 }
 
 export const viewport: Viewport = {

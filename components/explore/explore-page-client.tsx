@@ -1,8 +1,7 @@
 "use client"
 
 import { useState, useCallback, useTransition, useMemo, useEffect, useRef } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
-import { Loader2 } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { FeaturedBannerCarousel } from "./featured-banner-carousel"
 import { RecommendedSection } from "./recommended-section"
 import { ProductCard } from "./product-card"
@@ -76,7 +75,7 @@ export function ExplorePageClient({
         router.push(newUrl, { scroll: false })
       })
       setIsLoadingCategory(false)
-    }, 150)
+    }, 100)
   }, [router, searchQuery])
 
   // Cleanup timeout on unmount
@@ -99,14 +98,19 @@ export function ExplorePageClient({
   const showSkeletons = isPending || isLoadingCategory
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Featured Banner Carousel - only show if we have featured products and no search */}
       {!searchQuery && featuredProducts.length > 0 && (
         <FeaturedBannerCarousel products={featuredProducts} />
       )}
 
-      {/* Category Pills - Single row, 6 categories only */}
-      <nav aria-label="Product categories" className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
+      {/* Recommended Section - only show if no search and we have products */}
+      {!searchQuery && recommendedProducts.length > 0 && (
+        <RecommendedSection products={recommendedProducts} />
+      )}
+
+      {/* Category Pills - Positioned UNDER Recommended section */}
+      <nav aria-label="Product categories" className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
         {CATEGORIES.map((category) => {
           const isSelected = selectedCategory === category.id
           const isLoading = isLoadingCategory && selectedCategory === category.id
@@ -117,18 +121,18 @@ export function ExplorePageClient({
               onClick={() => handleCategoryChange(category.id)}
               disabled={isLoading}
               className={`
-                relative inline-flex items-center gap-2 px-5 py-2 rounded-full text-sm font-medium
-                whitespace-nowrap transition-all duration-200 ease-out
+                relative inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium
+                whitespace-nowrap transition-colors duration-150 ease-out
                 ${isSelected
-                  ? "bg-neutral-900 text-white shadow-sm"
-                  : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200 active:bg-neutral-300"
+                  ? "bg-neutral-900 text-white"
+                  : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
                 }
-                ${isLoading ? "cursor-wait" : "cursor-pointer"}
               `}
               aria-pressed={isSelected}
             >
+              {/* Subtle loading indicator - small pulsing dot */}
               {isLoading && (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
               )}
               {category.label}
             </button>
@@ -136,15 +140,10 @@ export function ExplorePageClient({
         })}
       </nav>
 
-      {/* Recommended Section - only show if no search and we have products */}
-      {!searchQuery && recommendedProducts.length > 0 && (
-        <RecommendedSection products={recommendedProducts} />
-      )}
-
-      {/* All Products Section (when filtering or searching) */}
-      {(searchQuery || selectedCategory !== "all") && (
-        <section className="mt-8">
-          <h2 className="text-xl sm:text-2xl font-semibold text-neutral-900 mb-6">
+      {/* Products Section - Shows when category is selected or searching */}
+      {(selectedCategory !== "all" || searchQuery) && (
+        <section>
+          <h2 className="text-xl sm:text-2xl font-semibold text-neutral-900 mb-5">
             {searchQuery
               ? `Results for "${searchQuery}"`
               : `${CATEGORIES.find(c => c.id === selectedCategory)?.label || "All"} Products`
@@ -152,13 +151,13 @@ export function ExplorePageClient({
           </h2>
 
           {showSkeletons ? (
-            <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               {Array.from({ length: 6 }).map((_, i) => (
                 <ProductCardSkeleton key={i} />
               ))}
             </div>
           ) : filteredProducts.length > 0 ? (
-            <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               {filteredProducts.map((product, index) => (
                 <ProductCard
                   key={product.id}

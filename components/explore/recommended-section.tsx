@@ -12,7 +12,6 @@ const ITEMS_PER_PAGE = 3
 
 export function RecommendedSection({ products }: RecommendedSectionProps) {
   const [currentPage, setCurrentPage] = useState(0)
-  const [isTransitioning, setIsTransitioning] = useState(false)
 
   const totalPages = Math.ceil(products.length / ITEMS_PER_PAGE)
 
@@ -22,18 +21,12 @@ export function RecommendedSection({ products }: RecommendedSectionProps) {
   }, [products, currentPage])
 
   const goToPrevious = useCallback(() => {
-    if (isTransitioning) return
-    setIsTransitioning(true)
     setCurrentPage((prev) => Math.max(0, prev - 1))
-    setTimeout(() => setIsTransitioning(false), 300)
-  }, [isTransitioning])
+  }, [])
 
   const goToNext = useCallback(() => {
-    if (isTransitioning) return
-    setIsTransitioning(true)
     setCurrentPage((prev) => Math.min(totalPages - 1, prev + 1))
-    setTimeout(() => setIsTransitioning(false), 300)
-  }, [isTransitioning, totalPages])
+  }, [totalPages])
 
   const canGoPrevious = currentPage > 0
   const canGoNext = currentPage < totalPages - 1
@@ -89,12 +82,8 @@ export function RecommendedSection({ products }: RecommendedSectionProps) {
         )}
       </div>
 
-      {/* Products grid with transition */}
-      <div
-        className={`grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 transition-opacity duration-300 ${
-          isTransitioning ? "opacity-50" : "opacity-100"
-        }`}
-      >
+      {/* Products grid with subtle transition */}
+      <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         {currentProducts.map((product, index) => (
           <ProductCard
             key={product.id}

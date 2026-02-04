@@ -4,19 +4,19 @@ import { ExplorePageClient } from "@/components/explore/explore-page-client"
 
 // SEO-optimized metadata
 export const metadata: Metadata = {
-  title: "Explore Digital Products | Storelib - Discover Courses, Templates & More",
-  description: "Discover thousands of digital products from top creators. Browse courses, templates, ebooks, design assets, and more. Find the perfect resources to level up your skills.",
-  keywords: ["digital products", "online courses", "templates", "ebooks", "design assets", "creator economy"],
+  title: "Discover",
+  description: "Discover - Sell Digital Products On Storelib. Browse thousands of digital products from top creators. Find courses, templates, ebooks, and design assets.",
+  keywords: ["digital products", "online courses", "templates", "ebooks", "design assets", "creator economy", "sell digital products"],
   openGraph: {
-    title: "Explore Digital Products | Storelib",
-    description: "Discover thousands of digital products from top creators. Browse courses, templates, ebooks, and more.",
+    title: "Discover | Storelib",
+    description: "Discover - Sell Digital Products On Storelib. Browse thousands of digital products from top creators.",
     type: "website",
     url: "/explore",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Explore Digital Products | Storelib",
-    description: "Discover thousands of digital products from top creators.",
+    title: "Discover | Storelib",
+    description: "Discover - Sell Digital Products On Storelib. Browse thousands of digital products from top creators.",
   },
   alternates: {
     canonical: "/explore",
@@ -120,19 +120,12 @@ export default async function ExplorePage({
 
   return (
     <main className="min-h-screen bg-white">
-      {/* Semantic page structure for SEO */}
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:py-12">
+      {/* Semantic page structure for SEO - max-w-7xl for 20% wider layout */}
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Hidden H1 for SEO - visible to screen readers and crawlers */}
         <h1 className="sr-only">
-          Explore Digital Products - Discover Courses, Templates, and More from Top Creators
+          Discover - Sell Digital Products On Storelib
         </h1>
-
-        {/* Visible header with descriptive text for SEO */}
-        <header className="mb-8">
-          <p className="text-lg text-neutral-600 max-w-2xl">
-            Discover digital products from talented creators. From courses to templates, find resources to help you grow.
-          </p>
-        </header>
 
         {/* Main content */}
         <ExplorePageClient
