@@ -2,6 +2,7 @@ import { Metadata } from "next"
 import { createClient } from "@/lib/supabase/server"
 import { ExplorePageClient } from "@/components/explore/explore-page-client"
 import { FeaturedCategoriesSection } from "@/components/explore/featured-categories-section"
+import { MostPopularSection } from "@/components/explore/most-popular-section"
 
 // SEO-optimized metadata
 export const metadata: Metadata = {
@@ -137,6 +138,9 @@ export default async function ExplorePage({
 
         {/* Featured Categories Section - Etsy-like design */}
         <FeaturedCategoriesSection products={productsWithCreators} />
+
+        {/* Most Popular Section - 3x3 on desktop, 2 per row on mobile */}
+        <MostPopularSection products={productsWithCreators} />
       </div>
     </main>
   )

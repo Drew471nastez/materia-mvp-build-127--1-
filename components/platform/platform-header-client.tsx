@@ -24,19 +24,20 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
-import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, Menu, X, Loader2, ChevronRight, Sparkles, Code, Megaphone, Briefcase, GraduationCap, Music, Camera, PenTool, Video, LayoutGrid } from "lucide-react"
+import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, Menu, X, Loader2, ChevronRight, Sparkles, Code, Megaphone, Briefcase, GraduationCap, Music, Camera, PenTool, Video, LayoutGrid, Gift, MoreHorizontal } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 
 const LOGO_URL =
   "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
 
+// Desktop category bar with icons
 const DEFAULT_CATEGORIES = [
-  "Fonts",
-  "Images",
-  "Paper Crafts",
-  "Needlework",
-  "Laser Cutting",
-  "3D Printing",
+  { id: "all", label: "All", icon: LayoutGrid },
+  { id: "audio-music", label: "Audio & Music", icon: Music },
+  { id: "business", label: "Business & Money", icon: Briefcase },
+  { id: "other", label: "Other", icon: MoreHorizontal },
+  { id: "freebies", label: "Freebies", icon: Gift },
+  { id: "development", label: "Software Development", icon: Code },
 ]
 
 // Mobile category pills - 6 categories as pill buttons with icons
@@ -675,13 +676,13 @@ export function PlatformHeaderClient() {
                 )}
               </Link>
 
-              {/* Mobile Avatar - 30% more gap from wishlist */}
+              {/* Mobile Avatar - 40% more gap from wishlist */}
               {user ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
-                      className="rounded-full cursor-pointer ml-0.5"
+                      className="rounded-full cursor-pointer ml-1"
                       aria-label="Open profile menu"
                     >
                       <Avatar className="h-8 w-8 border border-gray-200">
@@ -735,7 +736,7 @@ export function PlatformHeaderClient() {
                   </DropdownMenuContent>
                 </DropdownMenu>
               ) : (
-                <Avatar className="h-8 w-8 border border-gray-200 ml-1">
+                <Avatar className="h-8 w-8 border border-gray-200 ml-1.5">
                   <AvatarFallback className="text-[10px] bg-gray-100 text-gray-700">?</AvatarFallback>
                 </Avatar>
               )}
@@ -861,31 +862,142 @@ export function PlatformHeaderClient() {
           </div>
         </div>
 
-        {/* Mobile Search Bar - below header on mobile */}
-        <div className="md:hidden py-2 border-t border-gray-100">
-          <form onSubmit={onSubmitSearch}>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              <Input
-                value={query}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                placeholder={t("search_placeholder")}
-                className="h-10 w-full pl-10 bg-gray-100 border-gray-200 text-gray-900 placeholder:text-gray-500 rounded-full text-sm"
+        {/* Mobile Search Bar - below header on mobile with modal */}
+        <div className="md:hidden py-2 border-t border-gray-100 relative">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 pointer-events-none z-10" />
+            <Input
+              value={query}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              onFocus={() => setSearchModalOpen(true)}
+              placeholder={t("search_placeholder")}
+              className="h-10 w-full pl-10 pr-10 bg-gray-100 border-gray-200 text-gray-900 placeholder:text-gray-500 rounded-full text-sm"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => {
+                  setQuery("")
+                  setSearchResults([])
+                }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer z-10"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Mobile Search Modal */}
+          {searchModalOpen && (
+            <>
+              {/* Backdrop */}
+              <div
+                className="fixed inset-0 z-40 bg-black/20"
+                onClick={() => setSearchModalOpen(false)}
               />
-              {query && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setQuery("")
-                    setSearchResults([])
-                  }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-          </form>
+              {/* Modal */}
+              <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden animate-in fade-in-0 slide-in-from-top-2 duration-200 z-50 max-h-[60vh] overflow-y-auto mx-4">
+                {/* Categories Section */}
+                {!query && (
+                  <div className="p-4 border-b border-gray-100">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-3">Categories</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {SEARCH_CATEGORIES.map((cat) => (
+                        <Link
+                          key={cat.label}
+                          href={cat.href}
+                          onClick={() => setSearchModalOpen(false)}
+                          className="px-3 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 transition-colors cursor-pointer"
+                        >
+                          {cat.label}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Loading State */}
+                {searchLoading && (
+                  <div className="p-6 flex items-center justify-center">
+                    <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
+                    <span className="ml-2 text-sm text-gray-500">Searching...</span>
+                  </div>
+                )}
+
+                {/* Search Results */}
+                {!searchLoading && searchResults.length > 0 && (
+                  <div className="p-2">
+                    <h3 className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">Products</h3>
+                    {searchResults.map((product) => (
+                      <Link
+                        key={product.id}
+                        href={`/p/${product.slug}`}
+                        onClick={() => setSearchModalOpen(false)}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+                      >
+                        {product.thumbnail_url ? (
+                          <Image
+                            src={product.thumbnail_url}
+                            alt={product.title}
+                            width={48}
+                            height={48}
+                            className="w-12 h-12 rounded-lg object-cover border border-gray-200"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
+                            <Search className="w-5 h-5 text-gray-400" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {product.title}
+                          </p>
+                          {product.creator?.display_name && (
+                            <p className="text-xs text-gray-500 truncate">
+                              Product by {product.creator.display_name}
+                            </p>
+                          )}
+                        </div>
+                        <div className="text-sm font-medium text-gray-900">
+                          {product.price_cents === 0 ? "Free" : `$${(product.price_cents / 100).toFixed(0)}+`}
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+
+                {/* No Results */}
+                {!searchLoading && query.trim().length >= 1 && searchResults.length === 0 && (
+                  <div className="p-6 text-center">
+                    <p className="text-sm text-gray-500">No products found for "{query}"</p>
+                  </div>
+                )}
+
+                {/* Search Tip */}
+                {!query && (
+                  <div className="p-4 bg-gray-50 text-center">
+                    <p className="text-xs text-gray-500">Start typing to search products</p>
+                  </div>
+                )}
+
+                {/* View All Results Button */}
+                {query.trim() && (
+                  <div className="p-3 border-t border-gray-100 bg-gray-50">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        router.push(`/explore?q=${encodeURIComponent(query)}`)
+                        setSearchModalOpen(false)
+                      }}
+                      className="w-full py-2.5 rounded-lg text-sm font-medium text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
+                    >
+                      View all results for "{query}"
+                    </button>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
 
         {/* Mobile Category Pills - horizontal scrolling with icons */}
@@ -910,21 +1022,30 @@ export function PlatformHeaderClient() {
           </div>
         )}
 
-        {/* Categories - only on /explore page, left-aligned with content - Desktop only */}
+        {/* Categories - only on /explore page, pill buttons with icons - Desktop only */}
         {showCategories && (
           <nav className="border-t border-gray-200 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 hidden md:block">
-            <div className="overflow-x-auto scrollbar-hide">
-              <div className="flex h-11 items-center justify-start gap-6 whitespace-nowrap text-sm">
-                {DEFAULT_CATEGORIES.map((cat) => (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => onCategoryClick(cat)}
-                    className="text-gray-500 hover:text-gray-900 transition-colors cursor-pointer"
-                  >
-                    {cat}
-                  </button>
-                ))}
+            <div className="overflow-x-auto scrollbar-hide py-3">
+              <div className="flex items-center justify-start gap-2 whitespace-nowrap">
+                {DEFAULT_CATEGORIES.map((cat, index) => {
+                  const Icon = cat.icon
+                  const isAll = cat.id === "all"
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => onCategoryClick(cat.id)}
+                      className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-colors cursor-pointer ${
+                        isAll
+                          ? "bg-neutral-900 text-white hover:bg-neutral-800"
+                          : "bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 border border-gray-200"
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                      {cat.label}
+                    </button>
+                  )
+                })}
               </div>
             </div>
           </nav>
