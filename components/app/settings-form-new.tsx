@@ -11,7 +11,8 @@ import {
   X, Check, Loader2, AlertCircle, Mail, Lock,
   CreditCard, Store, Shield, Settings, Wallet,
   Camera, ExternalLink, ChevronRight, Globe,
-  User, Palette, Link2, FileText, Search, ChevronLeft, Upload, Copy, Pencil
+  User, Palette, Link2, FileText, Search, ChevronLeft, Upload, Copy, Pencil,
+  ToggleLeft, LogOut, Trash2
 } from "lucide-react"
 import type { Profile, Creator } from "@/lib/types"
 import { isValidUsername } from "@/lib/reserved-words"
@@ -97,6 +98,7 @@ const COUNTRIES = [
 const TABS = [
   { id: "general", label: "General", icon: Settings },
   { id: "security", label: "Security", icon: Shield },
+  { id: "privacy", label: "Privacy", icon: ToggleLeft },
   { id: "billing", label: "Billing", icon: CreditCard },
   { id: "payments", label: "Payments", icon: Wallet },
   { id: "stores", label: "Stores", icon: Store },
@@ -768,6 +770,25 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   const [emailChangeSuccess, setEmailChangeSuccess] = useState(false)
   const codeInputRefs = useRef<(HTMLInputElement | null)[]>([])
 
+  // Sign out all devices
+  const [signingOutAll, setSigningOutAll] = useState(false)
+
+  // Delete account modal
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleteStep, setDeleteStep] = useState<"confirm" | "verify">("confirm")
+  const [deleteVerificationCode, setDeleteVerificationCode] = useState(["", "", "", "", "", ""])
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const deleteCodeInputRefs = useRef<(HTMLInputElement | null)[]>([])
+
+  // Privacy settings
+  const [aiFeatures, setAiFeatures] = useState(true)
+  const [personalization, setPersonalization] = useState(true)
+  const [sessionRecording, setSessionRecording] = useState(false)
+  const [analyticsSharing, setAnalyticsSharing] = useState(true)
+  const [marketingEmails, setMarketingEmails] = useState(true)
+  const [productUpdates, setProductUpdates] = useState(true)
+
   const storeUrl = getStoreUrl(username)
   const storeUrlDisplay = getStoreUrlDisplay(username)
 
@@ -914,11 +935,11 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
         country,
       }
       router.refresh()
-      // Hide toast and success state after 5 seconds
+      // Hide toast and success state after 8 seconds
       setTimeout(() => {
         setSuccess(false)
         setShowSaveToast(false)
-      }, 5000)
+      }, 8000)
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred")
     } finally {
@@ -930,6 +951,94 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     const supabase = createClient()
     await supabase.auth.signOut()
     router.push("/")
+  }
+
+  const handleSignOutAllDevices = async () => {
+    setSigningOutAll(true)
+    try {
+      const supabase = createClient()
+      await supabase.auth.signOut({ scope: 'global' })
+      router.push("/")
+    } catch {
+      setSigningOutAll(false)
+    }
+  }
+
+  const handleSendDeleteCode = async () => {
+    setDeleteLoading(true)
+    setDeleteError(null)
+
+    try {
+      const response = await fetch("/api/auth/delete-account", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "send-code" }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        setDeleteStep("verify")
+        setDeleteVerificationCode(["", "", "", "", "", ""])
+      } else {
+        setDeleteError(data.error || "Failed to send verification code")
+      }
+    } catch {
+      setDeleteError("An error occurred. Please try again.")
+    } finally {
+      setDeleteLoading(false)
+    }
+  }
+
+  const handleDeleteCodeInput = (index: number, value: string) => {
+    if (!/^\d*$/.test(value)) return
+
+    const newCode = [...deleteVerificationCode]
+    newCode[index] = value.slice(-1)
+    setDeleteVerificationCode(newCode)
+
+    if (value && index < 5) {
+      deleteCodeInputRefs.current[index + 1]?.focus()
+    }
+  }
+
+  const handleDeleteCodeKeyDown = (index: number, e: React.KeyboardEvent) => {
+    if (e.key === "Backspace" && !deleteVerificationCode[index] && index > 0) {
+      deleteCodeInputRefs.current[index - 1]?.focus()
+    }
+  }
+
+  const handleConfirmDelete = async () => {
+    const code = deleteVerificationCode.join("")
+    if (code.length !== 6) {
+      setDeleteError("Please enter the complete verification code")
+      return
+    }
+
+    setDeleteLoading(true)
+    setDeleteError(null)
+
+    try {
+      const response = await fetch("/api/auth/delete-account", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "verify", code }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        const supabase = createClient()
+        await supabase.auth.signOut()
+        router.push("/")
+      } else {
+        setDeleteError(data.error || "Invalid verification code")
+      }
+    } catch {
+      setDeleteError("An error occurred. Please try again.")
+    } finally {
+      setDeleteLoading(false)
+    }
   }
 
   const handlePasswordReset = async () => {
@@ -1079,7 +1188,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
       </div>
 
       <div className="h-full overflow-y-scroll page-scroll bg-[#fafafa]" style={{ scrollbarGutter: 'stable' }}>
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-28">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-36">
         {/* Header with Store URL */}
         <div className="mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div>
@@ -1152,17 +1261,13 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                         alt="Profile"
                         width={72}
                         height={72}
-                        className="w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-full object-cover bg-[#f3f4f6] transition-opacity group-hover:opacity-80"
+                        className="w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-full object-cover bg-[#f3f4f6]"
                       />
                     ) : (
-                      <div className="w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-full bg-gradient-to-br from-[#8b5cf6] to-[#a78bfa] flex items-center justify-center text-white text-xl sm:text-2xl font-bold transition-opacity group-hover:opacity-80">
+                      <div className="w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-full bg-gradient-to-br from-[#8b5cf6] to-[#a78bfa] flex items-center justify-center text-white text-xl sm:text-2xl font-bold">
                         {firstName?.[0]?.toUpperCase() || "U"}
                       </div>
                     )}
-                    {/* Hover pencil overlay */}
-                    <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
-                      <Pencil className="h-5 w-5 text-white" />
-                    </div>
                   </a>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-[#1a1a2e] text-[15px]">Profile Photo</p>
@@ -1317,7 +1422,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                     <button
                       type="button"
                       onClick={() => setShowCountryModal(true)}
-                      className="w-full h-11 px-3 text-left border border-[#e5e7eb] rounded-xl text-[14px] bg-white hover:bg-[#f9fafb] transition-colors flex items-center justify-between"
+                      className="w-full h-11 px-3 text-left border border-[#e5e7eb] rounded-xl text-[14px] bg-white hover:bg-[#f9fafb] transition-colors flex items-center justify-between cursor-pointer"
                     >
                       <span className={country ? "text-[#1a1a2e]" : "text-[#9ca3af]"}>{country || "Select country"}</span>
                       <ChevronRight className="h-4 w-4 text-[#9ca3af]" />
@@ -1331,8 +1436,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">Resources</h3>
                 <div className="border border-[#e5e7eb] rounded-xl overflow-hidden">
                   <a
-                    href="/changelog"
-                    target="_blank"
+                    href="/app/changelog"
                     className="flex items-center justify-between p-4 hover:bg-[#f9fafb] transition-colors cursor-pointer border-b border-[#e5e7eb]"
                   >
                     <div className="flex items-center gap-3">
@@ -1440,24 +1544,221 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
               {/* Session Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-2">Active Sessions</h3>
-                <p className="text-[13px] text-[#6b7280] mb-4">Sign out of your account on this device.</p>
-                <button
-                  type="button"
-                  onClick={handleSignOut}
-                  className="px-4 h-10 text-[13px] font-medium bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#374151] rounded-xl transition-colors"
-                >
-                  Sign Out
-                </button>
+                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-2 flex items-center gap-2">
+                  <LogOut className="h-4 w-4 text-[#8b5cf6]" />
+                  Active Sessions
+                </h3>
+                <p className="text-[13px] text-[#6b7280] mb-4">Manage your active sessions across all devices.</p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSignOut}
+                    className="px-4 h-10 text-[13px] font-medium bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#374151] rounded-xl transition-colors cursor-pointer"
+                  >
+                    Sign Out
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSignOutAllDevices}
+                    disabled={signingOutAll}
+                    className="px-4 h-10 text-[13px] font-medium bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#374151] rounded-xl transition-colors cursor-pointer flex items-center gap-2"
+                  >
+                    {signingOutAll ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Signing out...
+                      </>
+                    ) : (
+                      "Sign out from all devices"
+                    )}
+                  </button>
+                </div>
               </div>
 
-              {/* Danger Zone */}
-              <div className="bg-red-50 rounded-2xl p-4 sm:p-6 border border-red-200">
-                <h3 className="text-[15px] font-semibold text-red-900 mb-2">Danger Zone</h3>
-                <p className="text-[13px] text-red-700 mb-4">Permanently delete your account and all associated data. This action cannot be undone.</p>
-                <button type="button" disabled className="px-4 h-10 text-[13px] font-medium bg-red-100 text-red-400 rounded-xl cursor-not-allowed">
-                  Delete Account
-                </button>
+              {/* Delete Account Card */}
+              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1 flex items-center gap-2">
+                      <Trash2 className="h-4 w-4 text-red-500" />
+                      Delete your account
+                    </h3>
+                    <p className="text-[13px] text-[#6b7280]">
+                      Permanently delete your account and all associated data. This action cannot be undone.
+                    </p>
+                    <p className="text-[12px] text-[#9ca3af] mt-2">
+                      Account created on {new Date(profile.created_at || Date.now()).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteModal(true)}
+                    className="px-4 h-10 text-[13px] font-medium bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition-colors cursor-pointer shrink-0"
+                  >
+                    Delete Account
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Privacy Tab */}
+          {activeTab === "privacy" && (
+            <div className="space-y-4 sm:space-y-6">
+              {/* AI & Personalization Card */}
+              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
+                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1 flex items-center gap-2">
+                  <ToggleLeft className="h-4 w-4 text-[#8b5cf6]" />
+                  AI & Personalization
+                </h3>
+                <p className="text-[13px] text-[#6b7280] mb-4">Control how we use AI and personalize your experience.</p>
+
+                <div className="space-y-4">
+                  {/* AI Features Toggle */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[14px] font-medium text-[#1a1a2e]">AI-powered features</p>
+                      <p className="text-[12px] text-[#6b7280]">Enable smart suggestions and AI assistance</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setAiFeatures(!aiFeatures)}
+                      className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${
+                        aiFeatures ? "bg-[#8b5cf6]" : "bg-[#e5e7eb]"
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                          aiFeatures ? "translate-x-5" : "translate-x-0"
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Personalization Toggle */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[14px] font-medium text-[#1a1a2e]">Personalized recommendations</p>
+                      <p className="text-[12px] text-[#6b7280]">Get tailored content based on your activity</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setPersonalization(!personalization)}
+                      className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${
+                        personalization ? "bg-[#8b5cf6]" : "bg-[#e5e7eb]"
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                          personalization ? "translate-x-5" : "translate-x-0"
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Data & Analytics Card */}
+              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
+                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1">Data & Analytics</h3>
+                <p className="text-[13px] text-[#6b7280] mb-4">Manage how your data is collected and used.</p>
+
+                <div className="space-y-4">
+                  {/* Session Recording Toggle */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[14px] font-medium text-[#1a1a2e]">Session recording</p>
+                      <p className="text-[12px] text-[#6b7280]">Help us improve by recording anonymous sessions</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSessionRecording(!sessionRecording)}
+                      className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${
+                        sessionRecording ? "bg-[#8b5cf6]" : "bg-[#e5e7eb]"
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                          sessionRecording ? "translate-x-5" : "translate-x-0"
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Analytics Sharing Toggle */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[14px] font-medium text-[#1a1a2e]">Analytics sharing</p>
+                      <p className="text-[12px] text-[#6b7280]">Share anonymous usage data to improve our service</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setAnalyticsSharing(!analyticsSharing)}
+                      className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${
+                        analyticsSharing ? "bg-[#8b5cf6]" : "bg-[#e5e7eb]"
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                          analyticsSharing ? "translate-x-5" : "translate-x-0"
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Email Preferences Card */}
+              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
+                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1 flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-[#8b5cf6]" />
+                  Email Preferences
+                </h3>
+                <p className="text-[13px] text-[#6b7280] mb-4">Choose what emails you want to receive.</p>
+
+                <div className="space-y-4">
+                  {/* Marketing Emails Toggle */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[14px] font-medium text-[#1a1a2e]">Marketing emails</p>
+                      <p className="text-[12px] text-[#6b7280]">Tips, promotions, and special offers</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setMarketingEmails(!marketingEmails)}
+                      className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${
+                        marketingEmails ? "bg-[#8b5cf6]" : "bg-[#e5e7eb]"
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                          marketingEmails ? "translate-x-5" : "translate-x-0"
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Product Updates Toggle */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[14px] font-medium text-[#1a1a2e]">Product updates</p>
+                      <p className="text-[12px] text-[#6b7280]">New features and important changes</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setProductUpdates(!productUpdates)}
+                      className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${
+                        productUpdates ? "bg-[#8b5cf6]" : "bg-[#e5e7eb]"
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                          productUpdates ? "translate-x-5" : "translate-x-0"
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -1716,8 +2017,8 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               </>
             ) : success ? (
               <>
-                <Check className="h-4 w-4 text-emerald-500" />
-                <span className="text-[14px] text-emerald-600">Saved</span>
+                <Check className="h-4 w-4 text-[#8b5cf6]" />
+                <span className="text-[14px] text-[#8b5cf6]">Saved</span>
               </>
             ) : (
               <span className="text-[14px] text-[#9ca3af]">No changes</span>
@@ -1758,7 +2059,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 hasUnsavedChanges
                   ? "bg-[#8b5cf6] hover:bg-[#7c3aed] text-white cursor-pointer"
                   : success
-                    ? "bg-emerald-50 text-emerald-600 cursor-default"
+                    ? "bg-[#f5f3ff] text-[#8b5cf6] cursor-default"
                     : "bg-[#f3f4f6] text-[#9ca3af] cursor-default"
               }`}
             >
@@ -1898,6 +2199,116 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               className="w-full text-[13px] text-[#6b7280] hover:text-[#374151] py-2"
             >
               Use a different email
+            </button>
+          </div>
+        )}
+      </MobileBottomSheet>
+
+      {/* Delete Account Modal */}
+      <MobileBottomSheet
+        isOpen={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false)
+          setDeleteStep("confirm")
+          setDeleteVerificationCode(["", "", "", "", "", ""])
+          setDeleteError(null)
+        }}
+        title={deleteStep === "confirm" ? "Delete Account" : "Verify Deletion"}
+      >
+        {deleteStep === "confirm" ? (
+          <div className="space-y-4">
+            <div className="bg-red-50 rounded-xl p-4">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center shrink-0">
+                  <Trash2 className="h-5 w-5 text-red-600" />
+                </div>
+                <div>
+                  <p className="font-medium text-red-900 text-[14px]">This action cannot be undone</p>
+                  <p className="text-[13px] text-red-700 mt-1">
+                    Deleting your account will permanently remove all your data, including products, customers, and sales history.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <p className="text-[13px] text-[#6b7280]">
+              We&apos;ll send a verification code to <span className="font-medium text-[#1a1a2e]">{currentEmail}</span> to confirm this action.
+            </p>
+            {deleteError && <p className="text-[13px] text-red-600 bg-red-50 p-3 rounded-xl">{deleteError}</p>}
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDeleteModal(false)
+                  setDeleteError(null)
+                }}
+                className="flex-1 h-11 text-[14px] font-medium bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#374151] rounded-xl transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSendDeleteCode}
+                disabled={deleteLoading}
+                className="flex-1 h-11 text-[14px] font-medium bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {deleteLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  "Send Code"
+                )}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <p className="text-[13px] text-[#6b7280]">
+              Enter the 6-digit code we sent to <span className="font-medium text-[#1a1a2e]">{currentEmail}</span>
+            </p>
+            <div className="flex justify-center gap-2">
+              {deleteVerificationCode.map((digit, index) => (
+                <input
+                  key={index}
+                  ref={(el) => {
+                    deleteCodeInputRefs.current[index] = el
+                  }}
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={1}
+                  value={digit}
+                  onChange={(e) => handleDeleteCodeInput(index, e.target.value)}
+                  onKeyDown={(e) => handleDeleteCodeKeyDown(index, e)}
+                  className="w-10 h-12 sm:w-12 sm:h-14 text-center text-xl sm:text-2xl font-bold border border-[#e5e7eb] rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                />
+              ))}
+            </div>
+            {deleteError && <p className="text-[13px] text-red-600 bg-red-50 p-3 rounded-xl text-center">{deleteError}</p>}
+            <button
+              type="button"
+              onClick={handleConfirmDelete}
+              disabled={deleteLoading || deleteVerificationCode.join("").length !== 6}
+              className="w-full h-11 text-[14px] font-medium bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer"
+            >
+              {deleteLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Permanently Delete Account"
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setDeleteStep("confirm")
+                setDeleteError(null)
+              }}
+              className="w-full text-[13px] text-[#6b7280] hover:text-[#374151] py-2 cursor-pointer"
+            >
+              Go back
             </button>
           </div>
         )}
