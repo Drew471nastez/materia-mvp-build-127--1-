@@ -1481,7 +1481,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               {/* Profile Information Card - Username + Store URL */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
                 <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">
-                  Profile Information
+                  {t("settings.profileInfo")}
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
@@ -1498,7 +1498,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="storeUrlProfile" className="text-[13px] font-medium text-[#374151]">
-                      Store URL
+                      {t("settings.storeUrl")}
                     </Label>
                     <Input
                       id="storeUrlProfile"
@@ -2206,13 +2206,13 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                     className="inline-flex items-center gap-1.5 px-4 h-9 text-[13px] font-medium bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#374151] rounded-lg transition-colors whitespace-nowrap"
                   >
                     <ExternalLink className="h-3.5 w-3.5" />
-                    Visit Store
+                    {t("settings.visitStore")}
                   </a>
                 </div>
 
                 <div className="space-y-1.5">
                   <Label htmlFor="username" className="text-[13px] font-medium text-[#374151]">
-                    Store URL
+                    {t("settings.storeUrl")}
                   </Label>
                   <Input
                     id="username"
@@ -2236,14 +2236,14 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
               {/* Store Settings Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-2">Store Customization</h3>
-                <p className="text-[13px] text-[#6b7280] mb-4">Customize your store appearance and settings.</p>
+                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-2">{t("settings.storeCustomization")}</h3>
+                <p className="text-[13px] text-[#6b7280] mb-4">{t("settings.storeCustomizationDesc")}</p>
                 <a
                   href="/store-builder"
                   className="inline-flex items-center gap-2 px-4 h-10 text-[13px] font-medium bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#374151] rounded-xl transition-colors"
                 >
                   <Palette className="h-4 w-4" />
-                  Open Store Builder
+                  {t("settings.openStoreBuilder")}
                   <ChevronRight className="h-4 w-4" />
                 </a>
               </div>

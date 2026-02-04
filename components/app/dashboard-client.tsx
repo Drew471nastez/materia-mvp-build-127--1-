@@ -60,29 +60,29 @@ const stepIcons: Record<string, any> = {
   sale: Trophy,
 }
 
-// Substeps for each main step
-const stepSubsteps: Record<string, { label: string; check: (data: any) => boolean; href: string }[]> = {
+// Substeps for each main step - using translation keys
+const stepSubsteps: Record<string, { labelKey: string; check: (data: any) => boolean; href: string }[]> = {
   welcome: [
-    { label: "Account created", check: () => true, href: "/app/settings" },
+    { labelKey: "setup.accountCreated", check: () => true, href: "/app/settings" },
   ],
   branding: [
-    { label: "Add profile photo", check: (d) => !!d.hasAvatar, href: "/app/settings" },
-    { label: "Set display name", check: (d) => !!d.hasName, href: "/app/settings" },
-    { label: "Write your bio", check: (d) => !!d.hasBio, href: "/app/settings" },
+    { labelKey: "setup.addPhoto", check: (d) => !!d.hasAvatar, href: "/app/settings" },
+    { labelKey: "setup.setName", check: (d) => !!d.hasName, href: "/app/settings" },
+    { labelKey: "setup.writeBio", check: (d) => !!d.hasBio, href: "/app/settings" },
   ],
   product: [
-    { label: "Create a product", check: (d) => d.hasProducts, href: "/app/products/new" },
+    { labelKey: "setup.createAProduct", check: (d) => d.hasProducts, href: "/app/products/new" },
   ],
   payouts: [
-    { label: "Connect Stripe", check: (d) => d.hasPayouts, href: "/app/payouts" },
+    { labelKey: "setup.connectStripe", check: (d) => d.hasPayouts, href: "/app/payouts" },
   ],
   onepage: [
-    { label: "Create OnePage", check: (d) => d.hasOnePage, href: "/app/onepage" },
-    { label: "Add content blocks", check: (d) => d.hasOnePageBlock, href: "/app/onepage" },
+    { labelKey: "setup.createOnePage", check: (d) => d.hasOnePage, href: "/app/onepage" },
+    { labelKey: "setup.addBlocks", check: (d) => d.hasOnePageBlock, href: "/app/onepage" },
   ],
   sale: [
-    { label: "Share your link", check: () => false, href: "/app/onepage" },
-    { label: "Get first sale", check: (d) => d.hasFirstSale, href: "/app/sales" },
+    { labelKey: "setup.shareLink", check: () => false, href: "/app/onepage" },
+    { labelKey: "setup.getFirstSale", check: (d) => d.hasFirstSale, href: "/app/sales" },
   ],
 }
 
@@ -312,12 +312,14 @@ function TimeframeBottomSheet({
   options,
   selectedValue,
   onSelect,
+  t,
 }: {
   isOpen: boolean
   onClose: () => void
   options: TimeframeOption[]
   selectedValue: string
   onSelect: (value: string) => void
+  t: (key: any) => string
 }) {
   const [isVisible, setIsVisible] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
@@ -428,7 +430,7 @@ function TimeframeBottomSheet({
           </button>
         </div>
         <div className="px-4 pb-4">
-          <h3 className="text-[16px] font-semibold text-[#1a1a2e] mb-4">Select time period</h3>
+          <h3 className="text-[16px] font-semibold text-[#1a1a2e] mb-4">{t("time.selectPeriod")}</h3>
           <div className="space-y-1 max-h-[50vh] overflow-y-auto overscroll-contain">
             {options.map((option) => (
               <button
@@ -451,7 +453,7 @@ function TimeframeBottomSheet({
             onClick={handleClose}
             className="w-full mt-4 py-3 text-[15px] font-medium text-[#6b7280] bg-[#f3f4f6] rounded-xl active:bg-[#e5e7eb] transition-colors"
           >
-            Cancel
+            {t("common.cancel")}
           </button>
         </div>
         {/* Safe area padding for iOS */}
@@ -1118,8 +1120,8 @@ export function DashboardClient({
             {announcementType === "upgrade" && (
               <>
                 <span className="text-[12px] md:text-[14px] text-white/90">
-                  <span className="font-semibold text-white">Try Pro free</span>
-                  <span className="hidden md:inline"> — our most popular plan for content creators and businesses.</span>
+                  <span className="font-semibold text-white">{t("dashboard.tryProFree")}</span>
+                  <span className="hidden md:inline"> — {t("dashboard.proSubtitle")}</span>
                 </span>
                 <Link
                   href="/upgrade"
@@ -1128,16 +1130,16 @@ export function DashboardClient({
                   <span className="absolute inset-0 rounded-full border border-white/30 group-hover:border-white/50 transition-colors" />
                   <span className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent)', animation: 'laser-sweep 2s infinite linear' }} />
                   <Sparkles className="h-3 w-3 md:h-3.5 md:w-3.5 relative z-10" />
-                  <span className="relative z-10">Upgrade</span>
+                  <span className="relative z-10">{t("dashboard.upgrade")}</span>
                 </Link>
               </>
             )}
             {announcementType === "steps" && (
               <>
                 <span className="text-[12px] md:text-[14px] text-white/90">
-                  <span className="font-semibold text-white">Complete setup</span>
+                  <span className="font-semibold text-white">{t("dashboard.completeSetup")}</span>
                   <span className="md:hidden"> — {completedSteps}/{totalSteps}</span>
-                  <span className="hidden md:inline"> — {totalSteps - completedSteps} steps remaining to get started.</span>
+                  <span className="hidden md:inline"> — {totalSteps - completedSteps} {t("dashboard.stepsRemaining")}</span>
                 </span>
                 <button
                   onClick={() => {
@@ -1146,7 +1148,7 @@ export function DashboardClient({
                   }}
                   className="inline-flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3 py-0.5 md:py-1 bg-gradient-to-r from-white/90 to-gray-100/90 text-gray-800 text-[11px] md:text-[13px] font-medium rounded-full transition-all hover:from-white hover:to-gray-50 shrink-0"
                 >
-                  Continue
+                  {t("common.continue")}
                   <ChevronRight className="h-3 w-3 md:h-3.5 md:w-3.5" />
                 </button>
               </>
@@ -1154,15 +1156,15 @@ export function DashboardClient({
             {announcementType === "payouts" && (
               <>
                 <span className="text-[12px] md:text-[14px] text-white/90">
-                  <span className="font-semibold text-white">Get paid</span>
-                  <span className="hidden md:inline"> — Connect your payouts to receive payments.</span>
+                  <span className="font-semibold text-white">{t("dashboard.getPaid")}</span>
+                  <span className="hidden md:inline"> — {t("dashboard.connectPayoutsDesc")}</span>
                 </span>
                 <Link
                   href="/app/payouts"
                   className="inline-flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3 py-0.5 md:py-1 bg-gradient-to-r from-white/90 to-gray-100/90 text-gray-800 text-[11px] md:text-[13px] font-medium rounded-full transition-all hover:from-white hover:to-gray-50 shrink-0"
                 >
                   <Wallet className="h-3 w-3 md:h-3.5 md:w-3.5" />
-                  Connect
+                  {t("common.connect")}
                 </Link>
               </>
             )}
@@ -1273,6 +1275,7 @@ export function DashboardClient({
           options={timeframeOptions}
           selectedValue={timeframe}
           onSelect={setTimeframe}
+          t={t}
         />
 
         {/* Stats Cards */}
@@ -1309,7 +1312,7 @@ export function DashboardClient({
                 ) : chartData.length === 0 || !chartData.some(d => d.value > 0) ? (
                   <div className="h-[80px] flex items-center justify-center gap-2">
                     <BarChart3 className="h-4 w-4 text-[#d1d5db]" />
-                    <span className="text-[12px] text-[#9ca3af]">No data</span>
+                    <span className="text-[12px] text-[#9ca3af]">{t("time.noData")}</span>
                   </div>
                 ) : (
                   <div className="h-[80px] flex items-end gap-[2px]">
@@ -1379,7 +1382,7 @@ export function DashboardClient({
                 ) : chartData.length === 0 || !chartData.some(d => d.value > 0) ? (
                   <div className="h-[80px] flex items-center justify-center gap-2">
                     <BarChart3 className="h-4 w-4 text-[#d1d5db]" />
-                    <span className="text-[12px] text-[#9ca3af]">No data</span>
+                    <span className="text-[12px] text-[#9ca3af]">{t("time.noData")}</span>
                   </div>
                 ) : (
                   <div className="h-[80px] flex items-end gap-[2px]">
@@ -1449,7 +1452,7 @@ export function DashboardClient({
                 ) : chartData.length === 0 || !chartData.some(d => d.value > 0) ? (
                   <div className="h-[80px] flex items-center justify-center gap-2">
                     <BarChart3 className="h-4 w-4 text-[#d1d5db]" />
-                    <span className="text-[12px] text-[#9ca3af]">No data</span>
+                    <span className="text-[12px] text-[#9ca3af]">{t("time.noData")}</span>
                   </div>
                 ) : (
                   <div className="h-[80px] flex items-end gap-[2px]">
@@ -1520,13 +1523,13 @@ export function DashboardClient({
                 <span className="text-white/60 hidden sm:inline">|</span>
                 <span className="text-[13px] sm:text-[15px] text-white/90 hidden sm:inline">Winter '26</span>
               </div>
-              <p className="text-[16px] sm:text-[20px] font-medium text-white mb-3 sm:mb-4">The commerce renaissance is here.</p>
+              <p className="text-[16px] sm:text-[20px] font-medium text-white mb-3 sm:mb-4">{t("dashboard.commerceRenaissance")}</p>
               <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                 <Link
                   href="/editions"
                   className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 bg-white rounded-lg text-[12px] sm:text-[13px] font-semibold text-[#1a1a2e] hover:bg-white/90 transition-colors"
                 >
-                  Explore updates
+                  {t("dashboard.exploreUpdates")}
                 </Link>
                 <Link
                   href="/editions"
@@ -1640,7 +1643,7 @@ export function DashboardClient({
                                 <span className={`text-[12px] ${
                                   isSubstepComplete ? "text-[#8b5cf6]" : "text-[#6b7280]"
                                 }`}>
-                                  {substep.label}
+                                  {t(substep.labelKey as any)}
                                 </span>
                               </Link>
                             )
@@ -1733,7 +1736,7 @@ export function DashboardClient({
                   <Sparkles className="h-5 w-5 text-[#8b5cf6]" />
                 </div>
                 <p className="text-[14px] text-[#6b7280] mt-1">
-                  Your store is ready to go. Keep creating products and sharing your links to grow your audience.
+                  {t("dashboard.allSetUpDesc")}
                 </p>
               </div>
             </div>

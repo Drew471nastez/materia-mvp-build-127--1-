@@ -5,6 +5,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Bell, CreditCard, ChevronRight, X, Link2, Star, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
+import { useLanguage } from "@/lib/i18n"
 
 interface Notification {
   id: string
@@ -76,6 +77,7 @@ export function NotificationsModal({
   const [isLoading, setIsLoading] = useState(false)
   const [dbNotifications, setDbNotifications] = useState<DbNotification[]>([])
   const panelRef = useRef<HTMLDivElement>(null)
+  const { t } = useLanguage()
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768)
@@ -141,8 +143,8 @@ export function NotificationsModal({
       generatedNotifications.push({
         id: "onepage-setup",
         type: "opportunity",
-        title: "Have you tried out OnePage?",
-        description: "Create your personalized link-in-bio page to showcase your products and connect with your audience.",
+        title: t("notifications.onepageTitle"),
+        description: t("notifications.onepageDesc"),
         href: "/app/onepage",
         read: false,
         createdAt: new Date(),
@@ -155,8 +157,8 @@ export function NotificationsModal({
       generatedNotifications.push({
         id: "payment-setup",
         type: "action",
-        title: "Set up payments to start selling",
-        description: "Connect your Stripe account to receive payments for your products.",
+        title: t("notifications.paymentTitle"),
+        description: t("notifications.paymentDesc"),
         href: "/app/settings/payments",
         read: false,
         createdAt: new Date(),
@@ -181,7 +183,7 @@ export function NotificationsModal({
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
 
     setNotifications(allNotifications)
-  }, [stripeConnected, stripeStatus, onePagePublished, dismissedIds, dbNotifications])
+  }, [stripeConnected, stripeStatus, onePagePublished, dismissedIds, dbNotifications, t])
 
   const filteredNotifications = notifications.filter((n) => {
     if (activeTab === "all") return true
@@ -192,10 +194,10 @@ export function NotificationsModal({
   })
 
   const tabs = [
-    { id: "all" as const, label: "All" },
-    { id: "updates" as const, label: "Updates" },
-    { id: "messages" as const, label: "Messages" },
-    { id: "opportunities" as const, label: "Opportunities" },
+    { id: "all" as const, labelKey: "notifications.all" },
+    { id: "updates" as const, labelKey: "notifications.updates" },
+    { id: "messages" as const, labelKey: "notifications.messages" },
+    { id: "opportunities" as const, labelKey: "notifications.opportunities" },
   ]
 
   const handleNotificationClick = async (notification: Notification) => {
@@ -241,7 +243,7 @@ export function NotificationsModal({
                 : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
             )}
           >
-            {tab.label}
+            {t(tab.labelKey as any)}
           </button>
         ))}
       </div>
@@ -251,16 +253,16 @@ export function NotificationsModal({
         {isLoading ? (
           <div className="flex flex-col items-center justify-center h-full py-12 px-4">
             <Loader2 className="w-8 h-8 text-neutral-400 animate-spin mb-4" />
-            <p className="text-sm text-neutral-500">Loading notifications...</p>
+            <p className="text-sm text-neutral-500">{t("notifications.loading")}</p>
           </div>
         ) : filteredNotifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full py-12 px-4">
             <div className="w-16 h-16 rounded-full bg-neutral-100 flex items-center justify-center mb-4">
               <Bell className="w-8 h-8 text-neutral-400" />
             </div>
-            <h3 className="text-lg font-semibold text-neutral-900 mb-1">No notifications yet</h3>
+            <h3 className="text-lg font-semibold text-neutral-900 mb-1">{t("notifications.empty")}</h3>
             <p className="text-sm text-neutral-500 text-center max-w-[240px]">
-              Messages, new features, and insights will appear here.
+              {t("notifications.emptyDesc")}
             </p>
           </div>
         ) : (
@@ -284,7 +286,7 @@ export function NotificationsModal({
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent side="bottom" className="h-[85vh] p-0 rounded-t-2xl" hideCloseButton>
           <SheetHeader className="px-4 py-3 border-b flex flex-row items-center justify-between">
-            <SheetTitle className="text-base font-semibold">Notifications</SheetTitle>
+            <SheetTitle className="text-base font-semibold">{t("notifications.title")}</SheetTitle>
             <button
               onClick={() => onOpenChange(false)}
               className="w-8 h-8 rounded-full hover:bg-neutral-100 flex items-center justify-center"
@@ -307,7 +309,7 @@ export function NotificationsModal({
       className="fixed left-[232px] bottom-[64px] z-50 w-[380px] max-h-[500px] rounded-2xl border border-neutral-200/60 bg-white/95 backdrop-blur-xl shadow-xl shadow-black/10 overflow-hidden animate-in fade-in-0 slide-in-from-bottom-3 duration-200"
     >
       <div className="px-5 py-4 border-b border-neutral-200/60 flex items-center justify-between bg-gradient-to-r from-neutral-50/80 to-white">
-        <h3 className="text-[15px] font-semibold text-neutral-900">Notifications</h3>
+        <h3 className="text-[15px] font-semibold text-neutral-900">{t("notifications.title")}</h3>
         <button
           onClick={() => onOpenChange(false)}
           className="w-8 h-8 rounded-full hover:bg-neutral-100 flex items-center justify-center transition-colors"
