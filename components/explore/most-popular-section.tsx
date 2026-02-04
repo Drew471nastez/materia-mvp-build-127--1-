@@ -1,61 +1,54 @@
 "use client"
 
-import { useMemo, useState, useEffect, useCallback, useRef, type TouchEvent } from "react"
+import { useMemo, useState, useEffect, useCallback, useRef } from "react"
 import { ProductCard } from "./product-card"
-import { ArrowRight } from "lucide-react"
 
 interface MostPopularSectionProps {
   products: any[]
 }
 
 export function MostPopularSection({ products }: MostPopularSectionProps) {
-  // Get most popular products based on sales count - get enough for carousel pages
+  // Get most popular products based on sales count
   const popularProducts = useMemo(() => {
     return [...products]
       .filter(p => p.thumbnail_url) // Only products with thumbnails
       .sort((a, b) => (b.sales_count || 0) - (a.sales_count || 0))
-      .slice(0, 18) // Enough for 3 pages of 6 products each
+      .slice(0, 6) // 6 products for 3x2 grid on desktop
   }, [products])
 
-  const [currentPage, setCurrentPage] = useState(0)
-  const [isPaused, setIsPaused] = useState(false)
+  // Mobile carousel state
+  const [currentMobileIndex, setCurrentMobileIndex] = useState(0)
   const [progress, setProgress] = useState(0)
+  const [isPaused, setIsPaused] = useState(false)
+  const mobileScrollRef = useRef<HTMLDivElement>(null)
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const autoplayIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Touch swipe support
-  const touchStartX = useRef(0)
-  const touchEndX = useRef(0)
-  const containerRef = useRef<HTMLDivElement>(null)
+  const totalMobileProducts = popularProducts.length
 
-  // Desktop: 6 products per page (3x2), Mobile: 1 product per swipe
-  const productsPerPageDesktop = 6
-  const totalPagesDesktop = Math.ceil(popularProducts.length / productsPerPageDesktop)
-
-  // Get products for current desktop page
-  const currentDesktopProducts = useMemo(() => {
-    const start = currentPage * productsPerPageDesktop
-    return popularProducts.slice(start, start + productsPerPageDesktop)
-  }, [popularProducts, currentPage, productsPerPageDesktop])
-
-  const goToNext = useCallback(() => {
-    setCurrentPage(prev => (prev + 1) % totalPagesDesktop)
-    setProgress(0)
-  }, [totalPagesDesktop])
-
-  const goToPrevious = useCallback(() => {
-    setCurrentPage(prev => (prev - 1 + totalPagesDesktop) % totalPagesDesktop)
-    setProgress(0)
-  }, [totalPagesDesktop])
-
-  const goToPage = useCallback((page: number) => {
-    setCurrentPage(page)
+  // Scroll to specific product on mobile
+  const scrollToProduct = useCallback((index: number) => {
+    if (mobileScrollRef.current) {
+      const container = mobileScrollRef.current
+      const itemWidth = container.clientWidth * 0.85 + 16 // 85% width + gap
+      container.scrollTo({
+        left: index * itemWidth,
+        behavior: 'smooth'
+      })
+    }
+    setCurrentMobileIndex(index)
     setProgress(0)
   }, [])
 
-  // Autoplay with progress bar (5 seconds per slide)
+  // Go to next product (mobile)
+  const goToNextMobile = useCallback(() => {
+    const nextIndex = (currentMobileIndex + 1) % totalMobileProducts
+    scrollToProduct(nextIndex)
+  }, [currentMobileIndex, totalMobileProducts, scrollToProduct])
+
+  // Mobile autoplay with progress
   useEffect(() => {
-    if (totalPagesDesktop <= 1) return
+    if (totalMobileProducts <= 1) return
 
     const startProgress = () => {
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current)
@@ -64,7 +57,7 @@ export function MostPopularSection({ products }: MostPopularSectionProps) {
         if (!isPaused) {
           setProgress(prev => {
             if (prev >= 100) return 100
-            return prev + 2 // 50 steps over 5 seconds (100ms interval)
+            return prev + 2.5 // 40 steps over 4 seconds
           })
         }
       }, 100)
@@ -75,9 +68,9 @@ export function MostPopularSection({ products }: MostPopularSectionProps) {
 
       autoplayIntervalRef.current = setInterval(() => {
         if (!isPaused) {
-          goToNext()
+          goToNextMobile()
         }
-      }, 5000)
+      }, 4000)
     }
 
     startProgress()
@@ -87,140 +80,100 @@ export function MostPopularSection({ products }: MostPopularSectionProps) {
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current)
       if (autoplayIntervalRef.current) clearInterval(autoplayIntervalRef.current)
     }
-  }, [isPaused, totalPagesDesktop, goToNext])
+  }, [isPaused, totalMobileProducts, goToNextMobile])
 
-  // Reset progress when page changes
+  // Reset progress when index changes
   useEffect(() => {
     setProgress(0)
-  }, [currentPage])
+  }, [currentMobileIndex])
 
-  // Touch handlers for mobile swipe
-  const handleTouchStart = useCallback((e: TouchEvent<HTMLDivElement>) => {
-    touchStartX.current = e.targetTouches[0].clientX
-    setIsPaused(true)
-  }, [])
-
-  const handleTouchMove = useCallback((e: TouchEvent<HTMLDivElement>) => {
-    touchEndX.current = e.targetTouches[0].clientX
-  }, [])
-
-  const handleTouchEnd = useCallback(() => {
-    const diff = touchStartX.current - touchEndX.current
-    const minSwipeDistance = 50
-
-    if (Math.abs(diff) > minSwipeDistance) {
-      if (diff > 0) {
-        goToNext()
-      } else {
-        goToPrevious()
+  // Handle scroll events to update current index
+  const handleScroll = useCallback(() => {
+    if (mobileScrollRef.current) {
+      const container = mobileScrollRef.current
+      const itemWidth = container.clientWidth * 0.85 + 16
+      const newIndex = Math.round(container.scrollLeft / itemWidth)
+      if (newIndex !== currentMobileIndex && newIndex >= 0 && newIndex < totalMobileProducts) {
+        setCurrentMobileIndex(newIndex)
+        setProgress(0)
       }
     }
-    setIsPaused(false)
-  }, [goToNext, goToPrevious])
+  }, [currentMobileIndex, totalMobileProducts])
 
   if (popularProducts.length === 0) {
     return null
   }
 
   return (
-    <section
-      className="mt-8 md:mt-12 pt-6 md:pt-8 border-t border-neutral-100"
-      onMouseEnter={() => setIsPaused(true)}
-      onMouseLeave={() => setIsPaused(false)}
-    >
-      {/* Section header with navigation arrows */}
+    <section className="mt-8 md:mt-12 pt-6 md:pt-8 border-t border-neutral-100">
+      {/* Section header */}
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl sm:text-2xl font-bold text-neutral-900">
           Most popular
         </h2>
+      </div>
 
-        {/* Navigation arrows - right aligned */}
-        {totalPagesDesktop > 1 && (
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={goToPrevious}
-              className="w-8 h-8 rounded-full bg-neutral-100 hover:bg-neutral-200 flex items-center justify-center transition-colors cursor-pointer active:scale-95"
-              aria-label="Previous"
-            >
-              <ArrowRight className="w-4 h-4 text-neutral-700 rotate-180" />
-            </button>
-            <button
-              type="button"
-              onClick={goToNext}
-              className="w-8 h-8 rounded-full bg-neutral-100 hover:bg-neutral-200 flex items-center justify-center transition-colors cursor-pointer active:scale-95"
-              aria-label="Next"
-            >
-              <ArrowRight className="w-4 h-4 text-neutral-700" />
-            </button>
+      {/* Desktop: Static 3x2 grid - no carousel, no dots */}
+      <div className="hidden md:grid grid-cols-3 gap-5">
+        {popularProducts.slice(0, 6).map((product, index) => (
+          <ProductCard
+            key={product.id}
+            product={product}
+            srcParam="?src=platform"
+            priority={index < 6}
+          />
+        ))}
+      </div>
+
+      {/* Mobile: Horizontal scroll carousel with auto-swipe */}
+      <div
+        className="md:hidden"
+        onTouchStart={() => setIsPaused(true)}
+        onTouchEnd={() => setIsPaused(false)}
+      >
+        <div
+          ref={mobileScrollRef}
+          onScroll={handleScroll}
+          className="overflow-x-auto scrollbar-hide -mx-4 px-4 snap-x snap-mandatory touch-pan-x"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        >
+          <div className="flex gap-4">
+            {popularProducts.map((product, index) => (
+              <div key={product.id} className="flex-shrink-0 w-[85%] snap-center">
+                <ProductCard
+                  product={product}
+                  srcParam="?src=platform"
+                  priority={index < 3}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Mobile navigation dots with progress fill */}
+        {totalMobileProducts > 1 && (
+          <div className="flex items-center justify-center gap-2 mt-4">
+            {popularProducts.map((_, index) => {
+              const isActive = index === currentMobileIndex
+              const progressWidth = isActive ? progress : (index < currentMobileIndex ? 100 : 0)
+
+              return (
+                <button
+                  key={index}
+                  onClick={() => scrollToProduct(index)}
+                  className="relative h-1 w-8 rounded-full overflow-hidden bg-gray-300 cursor-pointer transition-all hover:bg-gray-400"
+                  aria-label={`Go to product ${index + 1}`}
+                >
+                  <div
+                    className="absolute inset-y-0 left-0 bg-neutral-800 rounded-full transition-all duration-100"
+                    style={{ width: `${progressWidth}%` }}
+                  />
+                </button>
+              )
+            })}
           </div>
         )}
       </div>
-
-      {/* Desktop: 3x2 grid carousel */}
-      <div
-        ref={containerRef}
-        className="hidden md:block"
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-      >
-        <div className="grid grid-cols-3 gap-5">
-          {currentDesktopProducts.map((product, index) => (
-            <ProductCard
-              key={`${product.id}-${currentPage}`}
-              product={product}
-              srcParam="?src=platform"
-              priority={index < 6}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* Mobile: Horizontal scroll carousel with 1 product visible */}
-      <div
-        className="md:hidden overflow-x-auto scrollbar-hide -mx-4 px-4 snap-x snap-mandatory touch-pan-x"
-        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-      >
-        <div className="flex gap-4">
-          {popularProducts.map((product, index) => (
-            <div key={product.id} className="flex-shrink-0 w-[85%] snap-center">
-              <ProductCard
-                product={product}
-                srcParam="?src=platform"
-                priority={index < 3}
-              />
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Navigation dots with progress fill - below products */}
-      {totalPagesDesktop > 1 && (
-        <div className="flex items-center justify-center gap-2 mt-6">
-          {Array.from({ length: totalPagesDesktop }).map((_, index) => {
-            const isActive = index === currentPage
-            const progressWidth = isActive ? progress : (index < currentPage ? 100 : 0)
-
-            return (
-              <button
-                key={index}
-                onClick={() => goToPage(index)}
-                className="relative h-1 w-8 rounded-full overflow-hidden bg-gray-300 cursor-pointer transition-all hover:bg-gray-400"
-                aria-label={`Go to page ${index + 1}`}
-              >
-                <div
-                  className="absolute inset-y-0 left-0 bg-neutral-800 rounded-full transition-all duration-100"
-                  style={{ width: `${progressWidth}%` }}
-                />
-              </button>
-            )
-          })}
-        </div>
-      )}
     </section>
   )
 }
