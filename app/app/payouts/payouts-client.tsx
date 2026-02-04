@@ -59,6 +59,7 @@ import {
 } from "lucide-react"
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
 import { createClient } from "@/lib/supabase/client"
+import { useLanguage } from "@/lib/i18n"
 
 interface Creator {
   id: string
@@ -106,6 +107,7 @@ const PAYOUT_SCHEDULES = [
 
 export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
   const router = useRouter()
+  const { t } = useLanguage()
   const [isLoading, setIsLoading] = useState(false)
   const [isConnecting, setIsConnecting] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -452,13 +454,13 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
                 <div>
                   <h3 className="text-[15px] font-semibold text-[#1a1a2e] flex items-center gap-2">
                     <Landmark className="h-5 w-5" />
-                    Payout Account
+                    {t("payouts.payoutAccount")}
                   </h3>
                   <p className="text-[13px] text-[#6b7280] mt-0.5">Where your earnings are deposited</p>
                 </div>
                 <Badge className="bg-emerald-50 text-emerald-700 border-0">
                   <CheckCircle2 className="mr-1 h-3 w-3" />
-                  Connected
+                  {t("common.connected")}
                 </Badge>
               </div>
             </div>
@@ -476,7 +478,7 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
                   </p>
                 </div>
                 <Button variant="outline" size="sm" onClick={handleConnectStripe} className="rounded-lg">
-                  Update
+                  {t("common.update")}
                 </Button>
               </div>
 
@@ -573,7 +575,7 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
           <div className="p-5 border-b border-[#e5e7eb]/60">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e]">Earnings Over Time</h3>
+                <h3 className="text-[15px] font-semibold text-[#1a1a2e]">{t("payouts.earningsOverTime")}</h3>
                 <p className="text-[13px] text-[#6b7280] mt-0.5">Your revenue trend for the selected period</p>
               </div>
               <Select value={timeframe} onValueChange={setTimeframe}>
@@ -796,7 +798,7 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
       <Dialog open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen}>
         <DialogContent className="w-[calc(100%-32px)] max-w-md">
           <DialogHeader>
-            <DialogTitle>Payout Settings</DialogTitle>
+            <DialogTitle>{t("payouts.payoutSettings")}</DialogTitle>
             <DialogDescription>
               Configure how and when you receive your earnings
             </DialogDescription>

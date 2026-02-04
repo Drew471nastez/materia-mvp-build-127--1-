@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { getProductUrl } from "@/lib/url-helpers"
 import { createClient } from "@/lib/supabase/client"
+import { useLanguage } from "@/lib/i18n"
 
 interface Product {
   id: string
@@ -169,6 +170,7 @@ const generateProductsCSV = (products: Product[], formatPrice: (cents: number) =
 type TabType = "active" | "archived" | "all"
 
 export function ProductsClient({ products: initialProducts, creatorUsername }: ProductsClientProps) {
+  const { t } = useLanguage()
   const [products, setProducts] = useState<Product[]>(initialProducts)
   const [activeTab, setActiveTab] = useState<TabType>("active")
   const [isSearchOpen, setIsSearchOpen] = useState(false)
@@ -209,9 +211,9 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
   }
 
   const tabOptions = [
-    { value: "active" as TabType, label: "Active" },
-    { value: "all" as TabType, label: "All" },
-    { value: "archived" as TabType, label: "Archived" },
+    { value: "active" as TabType, label: t("products.active") },
+    { value: "all" as TabType, label: t("products.all") },
+    { value: "archived" as TabType, label: t("products.archived") },
   ]
 
   useEffect(() => {
@@ -389,8 +391,8 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
         {/* Header */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-[24px] sm:text-[28px] font-bold text-[#1a1a2e]">Products</h1>
-            <p className="text-[14px] text-[#6b7280] mt-1">Manage your digital products</p>
+            <h1 className="text-[24px] sm:text-[28px] font-bold text-[#1a1a2e]">{t("products.title")}</h1>
+            <p className="text-[14px] text-[#6b7280] mt-1">{t("products.subtitle")}</p>
           </div>
           <Button
             asChild
@@ -398,7 +400,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
           >
             <Link href="/app/products/new">
               <Plus className="mr-2 h-4 w-4 transition-transform duration-300 ease-out group-hover:rotate-90" />
-              New product
+              {t("products.newProduct")}
             </Link>
           </Button>
         </div>
@@ -631,11 +633,11 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                           <DropdownMenuSeparator />
                           <DropdownMenuItem onClick={() => handleArchive(product)} className="cursor-pointer">
                             <Archive className="h-4 w-4 mr-2" />
-                            {product.archived ? "Restore" : "Archive"}
+                            {product.archived ? t("products.restore") : t("products.archive")}
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleDuplicate(product)} className="cursor-pointer">
                             <Copy className="h-4 w-4 mr-2" />
-                            Duplicate
+                            {t("products.duplicate")}
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
@@ -709,7 +711,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                               className="inline-flex items-center gap-1.5 h-8 px-3 bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#1f2937] text-[12px] font-medium rounded-lg transition-colors"
                             >
                               <Pencil className="h-3.5 w-3.5" />
-                              Edit
+                              {t("products.edit")}
                             </Link>
                             {/* View Button - Light gray with black text */}
                             <a
@@ -719,7 +721,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                               className="inline-flex items-center gap-1.5 h-8 px-3 bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#1f2937] text-[12px] font-medium rounded-lg transition-colors"
                             >
                               <Eye className="h-3.5 w-3.5" />
-                              View
+                              {t("common.view")}
                             </a>
                             {/* Conditional: Share Button for active products, Restore for archived */}
                             {product.archived || product.status === "archived" ? (
@@ -729,7 +731,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                                 className="inline-flex items-center gap-1.5 h-8 px-3 bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#1f2937] text-[12px] font-medium rounded-lg transition-colors"
                               >
                                 <RotateCcw className="h-3.5 w-3.5" />
-                                Restore
+                                {t("products.restore")}
                               </button>
                             ) : (
                               <button
@@ -738,7 +740,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                                 className="inline-flex items-center gap-1.5 h-8 px-3 bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#1f2937] text-[12px] font-medium rounded-lg transition-colors"
                               >
                                 <Share2 className="h-3.5 w-3.5" />
-                                Share
+                                {t("products.share")}
                               </button>
                             )}
                             {/* More Actions Dropdown */}
@@ -754,18 +756,18 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                                   <>
                                     <DropdownMenuItem onClick={() => handleShare(product)} className="cursor-pointer">
                                       <Share2 className="h-4 w-4 mr-2" />
-                                      Share
+                                      {t("products.share")}
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
                                   </>
                                 )}
                                 <DropdownMenuItem onClick={() => handleArchive(product)} className="cursor-pointer">
                                   <Archive className="h-4 w-4 mr-2" />
-                                  {product.archived ? "Restore" : "Archive"}
+                                  {product.archived ? t("products.restore") : t("products.archive")}
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleDuplicate(product)} className="cursor-pointer">
                                   <Copy className="h-4 w-4 mr-2" />
-                                  Duplicate
+                                  {t("products.duplicate")}
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem
@@ -834,7 +836,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
               </div>
 
               {/* Content */}
-              <h3 className="text-[18px] font-semibold text-[#1a1a2e] text-center mb-2">Delete Product</h3>
+              <h3 className="text-[18px] font-semibold text-[#1a1a2e] text-center mb-2">{t("products.delete")} Product</h3>
               <p className="text-[14px] text-[#6b7280] text-center mb-6">
                 Are you sure you want to delete <span className="font-medium text-[#1a1a2e]">"{productToDelete.title}"</span>? This action cannot be undone.
               </p>

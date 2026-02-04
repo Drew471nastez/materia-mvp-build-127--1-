@@ -37,6 +37,7 @@ import {
   MapPin,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
+import { useLanguage } from "@/lib/i18n"
 
 interface Product {
   id: string
@@ -979,6 +980,7 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
   const [progressWidth, setProgressWidth] = useState(0)
   const [chartData, setChartData] = useState<ChartDataPoint[]>([])
   const [isChartLoading, setIsChartLoading] = useState(false)
+  const { t } = useLanguage()
 
   const [summary, setSummary] = useState(initialSummary)
   const [orders, setOrders] = useState<Order[]>(initialOrders)
@@ -2221,7 +2223,7 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
               <div onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] font-medium text-violet-600">Total Sales</span>
+                    <span className="text-[11px] font-medium text-violet-600">{t("sales.totalSales")}</span>
                     <span className="text-[10px] text-[#9ca3af] hidden sm:inline">• {selectedOption?.label}</span>
                   </div>
                   <button onClick={(e) => { e.stopPropagation(); setOpenKPIModal(null) }} className="w-6 h-6 aspect-square rounded-md bg-violet-100 text-violet-600 flex items-center justify-center hover:bg-violet-200 transition-colors flex-shrink-0">
@@ -2263,7 +2265,7 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
             ) : (
               <>
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-[13px] font-medium text-[#6b7280]">Total Sales</span>
+                  <span className="text-[13px] font-medium text-[#6b7280]">{t("sales.totalSales")}</span>
                   <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
                     <DollarSign className="h-4 w-4 text-[#9ca3af]" />
                   </div>
@@ -2353,7 +2355,7 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
               <div onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] font-medium text-violet-600">Avg Order Value</span>
+                    <span className="text-[11px] font-medium text-violet-600">{t("sales.avgOrderValue")}</span>
                     <span className="text-[10px] text-[#9ca3af] hidden sm:inline">• {selectedOption?.label}</span>
                   </div>
                   <button onClick={(e) => { e.stopPropagation(); setOpenKPIModal(null) }} className="w-6 h-6 aspect-square rounded-md bg-violet-100 text-violet-600 flex items-center justify-center hover:bg-violet-200 transition-colors flex-shrink-0">
@@ -2436,7 +2438,7 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
           {/* Refunds */}
           <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-[13px] font-medium text-[#6b7280]">Refunds</span>
+              <span className="text-[13px] font-medium text-[#6b7280]">{t("sales.refunds")}</span>
               <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
                 <RotateCcw className="h-4 w-4 text-[#9ca3af]" />
               </div>

@@ -24,6 +24,7 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
+import { useLanguage } from "@/lib/i18n"
 
 // Custom Spotify Icon (brand SVG)
 const SpotifyIcon = ({ className }: { className?: string }) => (
@@ -381,6 +382,7 @@ function getDateKey(date: Date | string): string {
 export function AnalyticsClient({ creatorId, userId, products, initialOrders }: AnalyticsClientProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { t } = useLanguage()
 
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -1609,7 +1611,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
       <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto space-y-6">
         {/* Analytics title with Store/OnePage switcher on mobile */}
         <div className="flex items-center justify-between sm:justify-start gap-3">
-          <h1 className="text-[24px] sm:text-[28px] font-bold text-[#1a1a2e]">Analytics</h1>
+          <h1 className="text-[24px] sm:text-[28px] font-bold text-[#1a1a2e]">{t("analytics.title")}</h1>
           {/* Analytics Mode Switcher - visible next to title on mobile */}
           <div className="flex sm:hidden items-center bg-[#f3f4f6] rounded-full p-0.5">
             <button
@@ -1619,7 +1621,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
               }`}
             >
               <ShoppingBag className="h-3.5 w-3.5" />
-              Store
+              {t("analytics.store")}
             </button>
             <button
               onClick={() => setAnalyticsMode("onepage")}
@@ -1628,7 +1630,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
               }`}
             >
               <Link2 className="h-3.5 w-3.5" />
-              OnePage
+              {t("nav.onepage")}
             </button>
           </div>
         </div>
@@ -1671,7 +1673,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                 }`}
               >
                 <ShoppingBag className="h-3.5 w-3.5" />
-                Store
+                {t("analytics.store")}
               </button>
               <button
                 onClick={() => setAnalyticsMode("onepage")}
@@ -1680,7 +1682,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                 }`}
               >
                 <Link2 className="h-3.5 w-3.5" />
-                OnePage
+                {t("nav.onepage")}
               </button>
             </div>
           </div>
@@ -1756,7 +1758,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
               ) : (
                 <>
                   <div className="flex items-center justify-between mb-3">
-                    <span className="text-[13px] font-medium text-[#6b7280]">Total Views</span>
+                    <span className="text-[13px] font-medium text-[#6b7280]">{t("analytics.totalViews")}</span>
                     <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
                       <Eye className="h-4 w-4 text-[#9ca3af]" />
                     </div>
@@ -1767,7 +1769,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                     </span>
                     {!isLoading && <PercentChangeIndicator current={summary.totalViews} previous={summary.prevPeriodViews} />}
                   </div>
-                  <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(summary.allTimeViews)} all time</p>
+                  <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(summary.allTimeViews)} {t("dashboard.allTime")}</p>
                 </>
               )}
             </div>
@@ -1784,7 +1786,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
               ) : (
                 <>
                   <div className="flex items-center justify-between mb-3">
-                    <span className="text-[13px] font-medium text-[#6b7280]">Total Orders</span>
+                    <span className="text-[13px] font-medium text-[#6b7280]">{t("analytics.totalOrders")}</span>
                     <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
                       <ShoppingCart className="h-4 w-4 text-[#9ca3af]" />
                     </div>
@@ -1795,7 +1797,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                     </span>
                     {!isLoading && <PercentChangeIndicator current={summary.totalOrders} previous={summary.prevPeriodOrders} />}
                   </div>
-                  <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(summary.allTimeOrders)} all time</p>
+                  <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(summary.allTimeOrders)} {t("dashboard.allTime")}</p>
                 </>
               )}
             </div>
@@ -1812,7 +1814,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
               ) : (
                 <>
                   <div className="flex items-center justify-between mb-3">
-                    <span className="text-[13px] font-medium text-[#6b7280]">Total Revenue</span>
+                    <span className="text-[13px] font-medium text-[#6b7280]">{t("analytics.totalRevenue")}</span>
                     <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
                       <DollarSign className="h-4 w-4 text-[#9ca3af]" />
                     </div>
@@ -1823,7 +1825,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                     </span>
                     {!isLoading && <PercentChangeIndicator current={summary.totalRevenue} previous={summary.prevPeriodRevenue} />}
                   </div>
-                  <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatPrice(summary.allTimeRevenue)} all time</p>
+                  <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatPrice(summary.allTimeRevenue)} {t("dashboard.allTime")}</p>
                 </>
               )}
             </div>
@@ -1831,7 +1833,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
             {/* Conversion */}
             <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
               <div className="flex items-center justify-between mb-3">
-                <span className="text-[13px] font-medium text-[#6b7280]">Conversion Rate</span>
+                <span className="text-[13px] font-medium text-[#6b7280]">{t("analytics.conversionRate")}</span>
                 <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
                   <Target className="h-4 w-4 text-[#9ca3af]" />
                 </div>
@@ -1839,7 +1841,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
               <div className={`text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>
                 {`${summary.conversionRate.toFixed(1)}%`}
               </div>
-              <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>Views to orders</p>
+              <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{t("dashboard.viewsToOrders")}</p>
             </div>
           </div>
         ) : (
@@ -1857,7 +1859,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
               ) : (
                 <>
                   <div className="flex items-center justify-between mb-3">
-                    <span className="text-[13px] font-medium text-[#6b7280]">Views</span>
+                    <span className="text-[13px] font-medium text-[#6b7280]">{t("dashboard.views")}</span>
                     <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
                       <Eye className="h-4 w-4 text-[#9ca3af]" />
                     </div>
@@ -1868,7 +1870,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                     </span>
                     {!isLoading && <PercentChangeIndicator current={onePageMetrics.views} previous={onePageMetrics.prevViews} />}
                   </div>
-                  <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.allTimeViews)} all time</p>
+                  <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.allTimeViews)} {t("dashboard.allTime")}</p>
                 </>
               )}
             </div>
@@ -1885,7 +1887,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
               ) : (
                 <>
                   <div className="flex items-center justify-between mb-3">
-                    <span className="text-[13px] font-medium text-[#6b7280]">Clicks</span>
+                    <span className="text-[13px] font-medium text-[#6b7280]">{t("analytics.clicks")}</span>
                     <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
                       <MousePointerClick className="h-4 w-4 text-[#9ca3af]" />
                     </div>
@@ -1896,7 +1898,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                     </span>
                     {!isLoading && <PercentChangeIndicator current={onePageMetrics.clicks} previous={onePageMetrics.prevClicks} />}
                   </div>
-                  <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.allTimeClicks)} all time</p>
+                  <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.allTimeClicks)} {t("dashboard.allTime")}</p>
                 </>
               )}
             </div>
@@ -1904,7 +1906,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
             {/* Subscribers */}
             <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
               <div className="flex items-center justify-between mb-3">
-                <span className="text-[13px] font-medium text-[#6b7280]">Subscribers</span>
+                <span className="text-[13px] font-medium text-[#6b7280]">{t("analytics.subscribers")}</span>
                 <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
                   <UserPlus className="h-4 w-4 text-[#9ca3af]" />
                 </div>
@@ -1915,7 +1917,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                 </span>
                 {!isLoading && <PercentChangeIndicator current={onePageMetrics.subscribers} previous={onePageMetrics.prevSubscribers} />}
               </div>
-              <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.allTimeSubscribers)} all time</p>
+              <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.allTimeSubscribers)} {t("dashboard.allTime")}</p>
             </div>
 
             {/* CTR */}
@@ -1929,7 +1931,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
               <div className={`text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>
                 {`${onePageMetrics.ctr.toFixed(1)}%`}
               </div>
-              <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>Clicks / Views</p>
+              <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{t("analytics.clicksToViews")}</p>
             </div>
           </div>
         )}
@@ -2282,28 +2284,28 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                 <div className="flex items-center justify-center gap-6 pt-2">
                   <div className="flex items-center gap-1.5">
                     <div className="w-2.5 h-2.5 rounded-full bg-[#6366f1]" />
-                    <span className="text-[12px] text-[#6b7280]">Views</span>
+                    <span className="text-[12px] text-[#6b7280]">{t("dashboard.views")}</span>
                   </div>
                   {analyticsMode === "store" ? (
                     <>
                       <div className="flex items-center gap-1.5">
                         <div className="w-2.5 h-2.5 rounded-full bg-[#8b5cf6]" />
-                        <span className="text-[12px] text-[#6b7280]">Orders</span>
+                        <span className="text-[12px] text-[#6b7280]">{t("dashboard.orders")}</span>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <div className="w-2.5 h-2.5 rounded-full bg-[#c4b5fd]" />
-                        <span className="text-[12px] text-[#6b7280]">Revenue</span>
+                        <span className="text-[12px] text-[#6b7280]">{t("dashboard.revenue")}</span>
                       </div>
                     </>
                   ) : (
                     <>
                       <div className="flex items-center gap-1.5">
                         <div className="w-2.5 h-2.5 rounded-full bg-[#a78bfa]" />
-                        <span className="text-[12px] text-[#6b7280]">Clicks</span>
+                        <span className="text-[12px] text-[#6b7280]">{t("analytics.clicks")}</span>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <div className="w-2.5 h-2.5 rounded-full bg-[#8b5cf6]" />
-                        <span className="text-[12px] text-[#6b7280]">Subscribers</span>
+                        <span className="text-[12px] text-[#6b7280]">{t("analytics.subscribers")}</span>
                       </div>
                     </>
                   )}
