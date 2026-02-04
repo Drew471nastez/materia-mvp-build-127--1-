@@ -12,11 +12,12 @@ import {
   CreditCard, Store, Shield, Settings, Wallet,
   Camera, ExternalLink, ChevronRight, Globe,
   User, Palette, Link2, FileText, Search, ChevronLeft, Upload, Copy, Pencil,
-  ToggleLeft, LogOut, Trash2
+  ToggleLeft, LogOut, Trash2, Languages
 } from "lucide-react"
 import type { Profile, Creator } from "@/lib/types"
 import { isValidUsername } from "@/lib/reserved-words"
 import { getStoreUrl, getStoreUrlDisplay } from "@/lib/url-helpers"
+import { useLanguage, LANGUAGES } from "@/lib/i18n"
 import Image from "next/image"
 
 // Countries list
@@ -337,10 +338,10 @@ function CountrySelectorModal({
                 <button
                   key={country.code}
                   onClick={() => handleSelect(country.name)}
-                  className={`w-full text-left px-3 py-3 rounded-xl text-[14px] font-medium transition-colors flex items-center justify-between ${
+                  className={`w-full text-left px-3 py-3 rounded-xl text-[14px] font-medium transition-colors flex items-center justify-between cursor-pointer ${
                     selectedCountry === country.name
                       ? "bg-[#f5f3ff] text-[#8b5cf6]"
-                      : "text-[#374151] hover:bg-[#f9fafb] active:bg-[#f3f4f6]"
+                      : "text-[#374151] hover:bg-[#f3f4f6] active:bg-[#e5e7eb]"
                   }`}
                 >
                   <span>{country.name}</span>
@@ -666,6 +667,8 @@ function ImageUploadModal({
 
 export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepageAvatarUrl, googleAvatarUrl }: SettingsFormProps) {
   const router = useRouter()
+  const { language, setLanguage } = useLanguage()
+  const [showLanguageModal, setShowLanguageModal] = useState(false)
   const [activeTab, setActiveTab] = useState<TabId>("general")
   const [isLoading, setIsLoading] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -1188,7 +1191,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
       </div>
 
       <div className="h-full overflow-y-scroll page-scroll bg-[#fafafa]" style={{ scrollbarGutter: 'stable' }}>
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-36">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-40">
         {/* Header with Store URL */}
         <div className="mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div>
@@ -1252,7 +1255,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
                 <div className="flex items-center gap-4">
                   <a
-                    href="/app/store-builder"
+                    href="/store-builder"
                     className="relative group cursor-pointer"
                   >
                     {avatarUrl ? (
@@ -1273,7 +1276,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                     <p className="font-semibold text-[#1a1a2e] text-[15px]">Profile Photo</p>
                     <p className="text-[13px] text-[#6b7280] mb-2">JPG, PNG or GIF. Max 2MB.</p>
                     <a
-                      href="/app/store-builder"
+                      href="/store-builder"
                       className="inline-flex px-3 py-1.5 text-[13px] font-medium bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#374151] rounded-lg transition-colors items-center gap-1.5"
                     >
                       <Pencil className="h-3.5 w-3.5" />
@@ -1346,6 +1349,26 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                     </button>
                   </div>
                 </div>
+              </div>
+
+              {/* Language Card */}
+              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
+                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1 flex items-center gap-2">
+                  <Languages className="h-4 w-4 text-[#8b5cf6]" />
+                  Language
+                </h3>
+                <p className="text-[13px] text-[#6b7280] mb-4">Choose your preferred language for the dashboard</p>
+                <button
+                  type="button"
+                  onClick={() => setShowLanguageModal(true)}
+                  className="w-full h-11 px-3 text-left border border-[#e5e7eb] rounded-xl text-[14px] bg-white hover:bg-[#f9fafb] transition-colors flex items-center justify-between cursor-pointer"
+                >
+                  <span className="flex items-center gap-2">
+                    <span>{LANGUAGES.find(l => l.code === language)?.flag}</span>
+                    <span className="text-[#1a1a2e]">{LANGUAGES.find(l => l.code === language)?.name || "English (US)"}</span>
+                  </span>
+                  <ChevronRight className="h-4 w-4 text-[#9ca3af]" />
+                </button>
               </div>
 
               {/* Address Card */}
@@ -1593,7 +1616,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   <button
                     type="button"
                     onClick={() => setShowDeleteModal(true)}
-                    className="px-4 h-10 text-[13px] font-medium bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition-colors cursor-pointer shrink-0"
+                    className="px-4 h-10 text-[13px] font-medium bg-[#1a1a2e] hover:bg-[#2d2d44] text-white rounded-xl transition-colors cursor-pointer shrink-0"
                   >
                     Delete Account
                   </button>
@@ -1978,7 +2001,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-2">Store Customization</h3>
                 <p className="text-[13px] text-[#6b7280] mb-4">Customize your store appearance and settings.</p>
                 <a
-                  href="/app/store-builder"
+                  href="/store-builder"
                   className="inline-flex items-center gap-2 px-4 h-10 text-[13px] font-medium bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#374151] rounded-xl transition-colors"
                 >
                   <Palette className="h-4 w-4" />
@@ -2204,6 +2227,34 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
         )}
       </MobileBottomSheet>
 
+      {/* Language Selector Modal */}
+      <MobileBottomSheet isOpen={showLanguageModal} onClose={() => setShowLanguageModal(false)} title="Select Language">
+        <div className="space-y-1 max-h-[60vh] overflow-y-auto">
+          {LANGUAGES.map((lang) => (
+            <button
+              key={lang.code}
+              onClick={() => {
+                setLanguage(lang.code)
+                setShowLanguageModal(false)
+              }}
+              className={`w-full text-left px-3 py-3 rounded-xl text-[14px] font-medium transition-colors flex items-center justify-between cursor-pointer ${
+                language === lang.code
+                  ? "bg-[#f5f3ff] text-[#8b5cf6]"
+                  : "text-[#374151] hover:bg-[#f3f4f6] active:bg-[#e5e7eb]"
+              }`}
+            >
+              <span className="flex items-center gap-3">
+                <span className="text-lg">{lang.flag}</span>
+                <span>{lang.name}</span>
+              </span>
+              {language === lang.code && (
+                <Check className="h-4 w-4 text-[#8b5cf6]" />
+              )}
+            </button>
+          ))}
+        </div>
+      </MobileBottomSheet>
+
       {/* Delete Account Modal */}
       <MobileBottomSheet
         isOpen={showDeleteModal}
@@ -2217,14 +2268,14 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
       >
         {deleteStep === "confirm" ? (
           <div className="space-y-4">
-            <div className="bg-red-50 rounded-xl p-4">
+            <div className="bg-[#1a1a2e] rounded-xl p-4">
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center shrink-0">
-                  <Trash2 className="h-5 w-5 text-red-600" />
+                <div className="w-10 h-10 bg-[#2d2d44] rounded-full flex items-center justify-center shrink-0">
+                  <Trash2 className="h-5 w-5 text-white" />
                 </div>
                 <div>
-                  <p className="font-medium text-red-900 text-[14px]">This action cannot be undone</p>
-                  <p className="text-[13px] text-red-700 mt-1">
+                  <p className="font-medium text-white text-[14px]">This action cannot be undone</p>
+                  <p className="text-[13px] text-[#9ca3af] mt-1">
                     Deleting your account will permanently remove all your data, including products, customers, and sales history.
                   </p>
                 </div>
@@ -2233,7 +2284,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
             <p className="text-[13px] text-[#6b7280]">
               We&apos;ll send a verification code to <span className="font-medium text-[#1a1a2e]">{currentEmail}</span> to confirm this action.
             </p>
-            {deleteError && <p className="text-[13px] text-red-600 bg-red-50 p-3 rounded-xl">{deleteError}</p>}
+            {deleteError && <p className="text-[13px] text-white bg-[#1a1a2e] p-3 rounded-xl">{deleteError}</p>}
             <div className="flex gap-3">
               <button
                 type="button"
@@ -2249,7 +2300,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 type="button"
                 onClick={handleSendDeleteCode}
                 disabled={deleteLoading}
-                className="flex-1 h-11 text-[14px] font-medium bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                className="flex-1 h-11 text-[14px] font-medium bg-[#1a1a2e] hover:bg-[#2d2d44] disabled:bg-[#6b7280] text-white rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer"
               >
                 {deleteLoading ? (
                   <>
@@ -2280,16 +2331,16 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   value={digit}
                   onChange={(e) => handleDeleteCodeInput(index, e.target.value)}
                   onKeyDown={(e) => handleDeleteCodeKeyDown(index, e)}
-                  className="w-10 h-12 sm:w-12 sm:h-14 text-center text-xl sm:text-2xl font-bold border border-[#e5e7eb] rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  className="w-10 h-12 sm:w-12 sm:h-14 text-center text-xl sm:text-2xl font-bold border border-[#e5e7eb] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1a1a2e] focus:border-[#1a1a2e]"
                 />
               ))}
             </div>
-            {deleteError && <p className="text-[13px] text-red-600 bg-red-50 p-3 rounded-xl text-center">{deleteError}</p>}
+            {deleteError && <p className="text-[13px] text-white bg-[#1a1a2e] p-3 rounded-xl text-center">{deleteError}</p>}
             <button
               type="button"
               onClick={handleConfirmDelete}
               disabled={deleteLoading || deleteVerificationCode.join("").length !== 6}
-              className="w-full h-11 text-[14px] font-medium bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full h-11 text-[14px] font-medium bg-[#1a1a2e] hover:bg-[#2d2d44] disabled:bg-[#6b7280] text-white rounded-xl transition-colors flex items-center justify-center gap-2 cursor-pointer"
             >
               {deleteLoading ? (
                 <>

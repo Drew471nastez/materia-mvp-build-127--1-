@@ -1274,7 +1274,7 @@ export function DashboardClient({
         />
 
         {/* Stats Cards */}
-        <div className={`grid gap-4 grid-cols-2 lg:grid-cols-4 mb-8 ${isLoading ? "opacity-60" : ""}`}>
+        <div className={`grid gap-4 grid-cols-2 lg:grid-cols-4 mb-8 transition-opacity duration-500 ease-out ${isLoading ? "opacity-50" : "opacity-100"}`}>
           {/* Total Views */}
           <div
             className={`bg-white rounded-2xl border shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5 cursor-pointer transition-all duration-200 ${
@@ -1337,10 +1337,10 @@ export function DashboardClient({
                   </div>
                 </div>
                 <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
-                  <span className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">{formatCompactNumber(analyticsData.periodViews)}</span>
+                  <span className={`text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.periodViews)}</span>
                   <PercentChangeIndicator current={analyticsData.periodViews} previous={analyticsData.prevPeriodViews} />
                 </div>
-                <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">{formatCompactNumber(analyticsData.totalViews)} all time</p>
+                <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.totalViews)} all time</p>
               </>
             )}
           </div>
@@ -1407,10 +1407,10 @@ export function DashboardClient({
                   </div>
                 </div>
                 <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
-                  <span className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">{formatCompactNumber(analyticsData.periodOrders)}</span>
+                  <span className={`text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.periodOrders)}</span>
                   <PercentChangeIndicator current={analyticsData.periodOrders} previous={analyticsData.prevPeriodOrders} />
                 </div>
-                <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">{formatCompactNumber(analyticsData.totalOrders)} all time</p>
+                <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.totalOrders)} all time</p>
               </>
             )}
           </div>
@@ -1477,10 +1477,10 @@ export function DashboardClient({
                   </div>
                 </div>
                 <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
-                  <span className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">{formatCurrency(analyticsData.periodRevenue)}</span>
+                  <span className={`text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{formatCurrency(analyticsData.periodRevenue)}</span>
                   <PercentChangeIndicator current={analyticsData.periodRevenue} previous={analyticsData.prevPeriodRevenue} />
                 </div>
-                <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">{formatCurrency(analyticsData.totalRevenue)} all time</p>
+                <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCurrency(analyticsData.totalRevenue)} all time</p>
               </>
             )}
           </div>
@@ -1494,10 +1494,10 @@ export function DashboardClient({
               </div>
             </div>
             <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
-              <span className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">{analyticsData.conversionRate.toFixed(2)}%</span>
+              <span className={`text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{analyticsData.conversionRate.toFixed(2)}%</span>
               <PercentChangeIndicator current={analyticsData.conversionRate} previous={analyticsData.prevConversionRate} />
             </div>
-            <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">Views to orders</p>
+            <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>Views to orders</p>
           </div>
         </div>
 
