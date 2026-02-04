@@ -1,8 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { ExploreContent } from "@/components/explore/explore-content"
-import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Search } from "lucide-react"
 import Link from "next/link"
 
 export const metadata = {
@@ -196,26 +194,13 @@ export default async function ExplorePage({
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-12 min-h-screen page-scroll">
-      <div className="mb-8">
-        <h1 className="text-3xl font-semibold tracking-tight">Explore</h1>
-        <p className="mt-2 text-muted-foreground">Discover creators and their products</p>
-      </div>
-
-      <form className="mb-6">
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input name="q" placeholder="Search creators or products..." className="pl-10" defaultValue={searchQuery} />
-          <input type="hidden" name="tab" value={activeTab} />
-          <input type="hidden" name="category" value={category} />
-          <input type="hidden" name="sort" value={sortBy} />
-          <input type="hidden" name="src" value={src} />
-        </div>
-      </form>
-
-      <div className="mb-6 flex flex-wrap gap-2">
+      <div className="mb-6 flex flex-wrap gap-3">
         {CATEGORIES.map((cat) => (
           <Link key={cat} href={`/explore?tab=${activeTab}&category=${cat}&q=${searchQuery}&sort=${sortBy}&src=${src}`}>
-            <Badge variant={category === cat ? "default" : "outline"} className="cursor-pointer">
+            <Badge
+              variant={category === cat ? "default" : "outline"}
+              className="cursor-pointer rounded-full px-6 py-2 text-sm font-medium shadow-sm"
+            >
               {cat}
             </Badge>
           </Link>
