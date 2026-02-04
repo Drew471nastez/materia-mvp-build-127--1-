@@ -96,6 +96,72 @@ const COUNTRIES = [
   { code: "NP", name: "Nepal" },
 ].sort((a, b) => a.name.localeCompare(b.name))
 
+// Timezone list - comprehensive list of major timezones
+const TIMEZONES = [
+  { code: "UTC", name: "UTC (Coordinated Universal Time)", offset: "+00:00" },
+  { code: "America/New_York", name: "Eastern Time (US & Canada)", offset: "-05:00" },
+  { code: "America/Chicago", name: "Central Time (US & Canada)", offset: "-06:00" },
+  { code: "America/Denver", name: "Mountain Time (US & Canada)", offset: "-07:00" },
+  { code: "America/Los_Angeles", name: "Pacific Time (US & Canada)", offset: "-08:00" },
+  { code: "America/Anchorage", name: "Alaska", offset: "-09:00" },
+  { code: "Pacific/Honolulu", name: "Hawaii", offset: "-10:00" },
+  { code: "America/Phoenix", name: "Arizona", offset: "-07:00" },
+  { code: "America/Toronto", name: "Toronto", offset: "-05:00" },
+  { code: "America/Vancouver", name: "Vancouver", offset: "-08:00" },
+  { code: "America/Mexico_City", name: "Mexico City", offset: "-06:00" },
+  { code: "America/Bogota", name: "Bogotá", offset: "-05:00" },
+  { code: "America/Lima", name: "Lima", offset: "-05:00" },
+  { code: "America/Santiago", name: "Santiago", offset: "-04:00" },
+  { code: "America/Sao_Paulo", name: "São Paulo", offset: "-03:00" },
+  { code: "America/Buenos_Aires", name: "Buenos Aires", offset: "-03:00" },
+  { code: "Europe/London", name: "London", offset: "+00:00" },
+  { code: "Europe/Dublin", name: "Dublin", offset: "+00:00" },
+  { code: "Europe/Lisbon", name: "Lisbon", offset: "+00:00" },
+  { code: "Europe/Paris", name: "Paris", offset: "+01:00" },
+  { code: "Europe/Berlin", name: "Berlin", offset: "+01:00" },
+  { code: "Europe/Amsterdam", name: "Amsterdam", offset: "+01:00" },
+  { code: "Europe/Brussels", name: "Brussels", offset: "+01:00" },
+  { code: "Europe/Madrid", name: "Madrid", offset: "+01:00" },
+  { code: "Europe/Rome", name: "Rome", offset: "+01:00" },
+  { code: "Europe/Zurich", name: "Zurich", offset: "+01:00" },
+  { code: "Europe/Vienna", name: "Vienna", offset: "+01:00" },
+  { code: "Europe/Stockholm", name: "Stockholm", offset: "+01:00" },
+  { code: "Europe/Oslo", name: "Oslo", offset: "+01:00" },
+  { code: "Europe/Copenhagen", name: "Copenhagen", offset: "+01:00" },
+  { code: "Europe/Warsaw", name: "Warsaw", offset: "+01:00" },
+  { code: "Europe/Prague", name: "Prague", offset: "+01:00" },
+  { code: "Europe/Budapest", name: "Budapest", offset: "+01:00" },
+  { code: "Europe/Helsinki", name: "Helsinki", offset: "+02:00" },
+  { code: "Europe/Athens", name: "Athens", offset: "+02:00" },
+  { code: "Europe/Bucharest", name: "Bucharest", offset: "+02:00" },
+  { code: "Europe/Kiev", name: "Kyiv", offset: "+02:00" },
+  { code: "Europe/Moscow", name: "Moscow", offset: "+03:00" },
+  { code: "Europe/Istanbul", name: "Istanbul", offset: "+03:00" },
+  { code: "Asia/Dubai", name: "Dubai", offset: "+04:00" },
+  { code: "Asia/Karachi", name: "Karachi", offset: "+05:00" },
+  { code: "Asia/Kolkata", name: "Mumbai, Kolkata, New Delhi", offset: "+05:30" },
+  { code: "Asia/Dhaka", name: "Dhaka", offset: "+06:00" },
+  { code: "Asia/Bangkok", name: "Bangkok", offset: "+07:00" },
+  { code: "Asia/Jakarta", name: "Jakarta", offset: "+07:00" },
+  { code: "Asia/Singapore", name: "Singapore", offset: "+08:00" },
+  { code: "Asia/Hong_Kong", name: "Hong Kong", offset: "+08:00" },
+  { code: "Asia/Shanghai", name: "Beijing, Shanghai", offset: "+08:00" },
+  { code: "Asia/Taipei", name: "Taipei", offset: "+08:00" },
+  { code: "Asia/Seoul", name: "Seoul", offset: "+09:00" },
+  { code: "Asia/Tokyo", name: "Tokyo", offset: "+09:00" },
+  { code: "Australia/Perth", name: "Perth", offset: "+08:00" },
+  { code: "Australia/Adelaide", name: "Adelaide", offset: "+09:30" },
+  { code: "Australia/Brisbane", name: "Brisbane", offset: "+10:00" },
+  { code: "Australia/Sydney", name: "Sydney", offset: "+10:00" },
+  { code: "Australia/Melbourne", name: "Melbourne", offset: "+10:00" },
+  { code: "Pacific/Auckland", name: "Auckland", offset: "+12:00" },
+  { code: "Pacific/Fiji", name: "Fiji", offset: "+12:00" },
+  { code: "Africa/Cairo", name: "Cairo", offset: "+02:00" },
+  { code: "Africa/Johannesburg", name: "Johannesburg", offset: "+02:00" },
+  { code: "Africa/Lagos", name: "Lagos", offset: "+01:00" },
+  { code: "Africa/Nairobi", name: "Nairobi", offset: "+03:00" },
+]
+
 const TABS = [
   { id: "general", label: "General", icon: Settings },
   { id: "security", label: "Security", icon: Shield },
@@ -671,6 +737,33 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   const [selectedLanguage, setSelectedLanguage] = useState(currentLanguage)
   const [showLanguageModal, setShowLanguageModal] = useState(false)
   const initialLanguage = useRef(currentLanguage)
+
+  // Timezone state - auto-detect from browser, then allow manual change
+  const detectTimezone = () => {
+    try {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"
+    } catch {
+      return "UTC"
+    }
+  }
+  const [selectedTimezone, setSelectedTimezone] = useState(() => {
+    // First check if stored in localStorage
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('storelib_timezone')
+      if (stored) return stored
+    }
+    // Then check profile data
+    if (profile && (profile as any).timezone) return (profile as any).timezone
+    // Auto-detect from browser
+    return detectTimezone()
+  })
+  const [showTimezoneModal, setShowTimezoneModal] = useState(false)
+  const initialTimezone = useRef(selectedTimezone)
+
+  // Support Email state - for customer receipts
+  const [supportEmail, setSupportEmail] = useState(creator?.support_email || "")
+  const initialSupportEmail = useRef(supportEmail)
+
   const [activeTab, setActiveTab] = useState<TabId>("general")
   const [isLoading, setIsLoading] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -745,7 +838,9 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     state !== initialValues.current.state ||
     postalCode !== initialValues.current.postalCode ||
     country !== initialValues.current.country ||
-    selectedLanguage !== initialLanguage.current
+    selectedLanguage !== initialLanguage.current ||
+    selectedTimezone !== initialTimezone.current ||
+    supportEmail !== initialSupportEmail.current
 
   // Warn user before leaving with unsaved changes
   useEffect(() => {
@@ -922,9 +1017,17 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
       if (profileError) throw profileError
 
-      const { error: creatorError } = await supabase.from("creators").update({ slug: cleanUsername }).eq("id", creator.id)
+      const { error: creatorError } = await supabase.from("creators").update({
+        slug: cleanUsername,
+        support_email: supportEmail || null
+      }).eq("id", creator.id)
 
       if (creatorError) throw creatorError
+
+      // Save timezone to localStorage
+      if (selectedTimezone !== initialTimezone.current) {
+        localStorage.setItem('storelib_timezone', selectedTimezone)
+      }
 
       setSuccess(true)
       setShowSaveToast(true)
@@ -944,6 +1047,8 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
         postalCode,
         country,
       }
+      initialTimezone.current = selectedTimezone
+      initialSupportEmail.current = supportEmail
 
       // If language changed, apply it and reload the page
       if (languageChanged) {
@@ -1305,67 +1410,47 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 </div>
               </div>
 
-              {/* Personal Information Card */}
+              {/* Profile Information Card - Username/Storename + Email */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
                 <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4 flex items-center gap-2">
                   <User className="h-4 w-4 text-[#8b5cf6]" />
-                  Personal Information
+                  Profile Information
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label htmlFor="firstName" className="text-[13px] font-medium text-[#374151]">
-                      First Name
+                      Username - Storename
                     </Label>
                     <Input
                       id="firstName"
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
-                      placeholder="Enter first name"
+                      placeholder="Enter your display name"
                       className="h-11 border-[#e5e7eb] rounded-xl text-[14px] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="lastName" className="text-[13px] font-medium text-[#374151]">
-                      Last Name
+                    <Label htmlFor="email" className="text-[13px] font-medium text-[#374151]">
+                      Email
                     </Label>
-                    <Input
-                      id="lastName"
-                      value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
-                      placeholder="Enter last name"
-                      className="h-11 border-[#e5e7eb] rounded-xl text-[14px] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Email Card */}
-              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4 flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-[#8b5cf6]" />
-                  Email Address
-                </h3>
-                <div className="space-y-1.5">
-                  <Label htmlFor="email" className="text-[13px] font-medium text-[#374151]">
-                    Email
-                  </Label>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <Input id="email" value={currentEmail} disabled className="h-11 bg-[#f9fafb] border-[#e5e7eb] rounded-xl text-[14px] pr-24" />
-                      {emailVerified && (
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center gap-1">
-                          <Check className="h-3 w-3" />
-                          Verified
-                        </span>
-                      )}
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Input id="email" value={currentEmail} disabled className="h-11 bg-[#f9fafb] border-[#e5e7eb] rounded-xl text-[14px] pr-24" />
+                        {emailVerified && (
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <Check className="h-3 w-3" />
+                            Verified
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowEmailChangeModal(true)}
+                        className="px-4 h-11 text-[13px] font-medium bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#374151] rounded-xl transition-colors whitespace-nowrap cursor-pointer"
+                      >
+                        Change
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setShowEmailChangeModal(true)}
-                      className="px-4 h-11 text-[13px] font-medium bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#374151] rounded-xl transition-colors whitespace-nowrap cursor-pointer"
-                    >
-                      Change
-                    </button>
                   </div>
                 </div>
               </div>
@@ -1385,6 +1470,44 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   <span className="text-[#1a1a2e]">{LANGUAGES.find(l => l.code === selectedLanguage)?.name || "English (US)"}</span>
                   <ChevronRight className="h-4 w-4 text-[#9ca3af]" />
                 </button>
+              </div>
+
+              {/* Timezone Card */}
+              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
+                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1 flex items-center gap-2">
+                  <Globe className="h-4 w-4 text-[#8b5cf6]" />
+                  Timezone
+                </h3>
+                <p className="text-[13px] text-[#6b7280] mb-4">Used for analytics, product launches, scheduled emails, and sales timestamps</p>
+                <button
+                  type="button"
+                  onClick={() => setShowTimezoneModal(true)}
+                  className="w-full h-11 px-3 text-left border border-[#e5e7eb] rounded-xl text-[14px] bg-white hover:bg-[#f9fafb] transition-colors flex items-center justify-between cursor-pointer"
+                >
+                  <span className="text-[#1a1a2e]">
+                    {TIMEZONES.find(tz => tz.code === selectedTimezone)?.name || selectedTimezone}
+                    <span className="text-[#9ca3af] ml-2">
+                      ({TIMEZONES.find(tz => tz.code === selectedTimezone)?.offset || ""})
+                    </span>
+                  </span>
+                  <ChevronRight className="h-4 w-4 text-[#9ca3af]" />
+                </button>
+              </div>
+
+              {/* Support Email Card */}
+              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
+                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1 flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-[#8b5cf6]" />
+                  Support Email
+                </h3>
+                <p className="text-[13px] text-[#6b7280] mb-4">Shown to customers on email receipts for support purposes. If not set, your account email will be used.</p>
+                <Input
+                  type="email"
+                  value={supportEmail}
+                  onChange={(e) => setSupportEmail(e.target.value)}
+                  placeholder={currentEmail || "support@yourdomain.com"}
+                  className="h-11 border-[#e5e7eb] rounded-xl text-[14px] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
+                />
               </div>
 
               {/* Address Card */}
@@ -2045,26 +2168,15 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
         </form>
       </div>
 
-      {/* Sticky Save Bar - Always visible - 15% larger */}
-      <div className="fixed bottom-0 left-0 right-0 md:left-[220px] z-50 bg-white/95 backdrop-blur-sm border-t border-[#e5e7eb]/60">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2.5">
-            {hasUnsavedChanges ? (
-              <>
-                <div className="w-2 h-2 rounded-full bg-amber-500" />
-                <span className="text-[14px] text-[#6b7280]">Unsaved changes</span>
-              </>
-            ) : success ? (
-              <>
-                <Check className="h-4 w-4 text-[#8b5cf6]" />
-                <span className="text-[14px] text-[#8b5cf6]">Saved</span>
-              </>
-            ) : (
-              <span className="text-[14px] text-[#9ca3af]">No changes</span>
-            )}
-          </div>
-          <div className="flex items-center gap-2.5">
-            {hasUnsavedChanges && (
+      {/* Sticky Save Bar - Only visible when there are unsaved changes, hidden when modals are open */}
+      {hasUnsavedChanges && !showEmailChangeModal && !showLanguageModal && !showTimezoneModal && !showCountryModal && !showDeleteModal && !showAvatarUploadModal && !showAvatarCropModal && (
+        <div className="fixed bottom-0 left-0 right-0 md:left-[220px] z-40 bg-white/95 backdrop-blur-sm border-t border-[#e5e7eb]/60 pb-[env(safe-area-inset-bottom)]">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2.5">
+              <div className="w-2 h-2 rounded-full bg-amber-500" />
+              <span className="text-[14px] text-[#6b7280]">Unsaved changes</span>
+            </div>
+            <div className="flex items-center gap-2.5">
               <button
                 type="button"
                 onClick={() => {
@@ -2079,47 +2191,38 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   setPostalCode(initialValues.current.postalCode)
                   setCountry(initialValues.current.country)
                   setSelectedLanguage(initialLanguage.current)
+                  setSelectedTimezone(initialTimezone.current)
+                  setSupportEmail(initialSupportEmail.current)
                 }}
                 className="px-4 h-10 text-[14px] font-medium text-[#6b7280] hover:text-[#374151] hover:bg-[#f3f4f6] rounded-lg transition-colors cursor-pointer"
               >
                 Discard
               </button>
-            )}
-            <button
-              type="button"
-              onClick={() => {
-                // Trigger form submission
-                const form = document.querySelector('form')
-                if (form) {
-                  form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }))
-                }
-              }}
-              disabled={isLoading || !hasUnsavedChanges}
-              className={`px-5 h-10 text-[14px] font-medium rounded-lg transition-colors flex items-center gap-2 ${
-                hasUnsavedChanges
-                  ? "bg-[#8b5cf6] hover:bg-[#7c3aed] text-white cursor-pointer"
-                  : success
-                    ? "bg-[#f5f3ff] text-[#8b5cf6] cursor-default"
-                    : "bg-[#f3f4f6] text-[#9ca3af] cursor-default"
-              }`}
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Saving...
-                </>
-              ) : success && !hasUnsavedChanges ? (
-                <>
-                  <Check className="h-4 w-4" />
-                  Saved
-                </>
-              ) : (
-                "Save"
-              )}
-            </button>
+              <button
+                type="button"
+                onClick={() => {
+                  // Trigger form submission
+                  const form = document.querySelector('form')
+                  if (form) {
+                    form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }))
+                  }
+                }}
+                disabled={isLoading}
+                className="px-5 h-10 text-[14px] font-medium rounded-lg transition-colors flex items-center gap-2 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white cursor-pointer"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save"
+                )}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Avatar Upload Modal */}
       <ImageUploadModal
@@ -2262,6 +2365,34 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
             >
               <span>{lang.name}</span>
               {selectedLanguage === lang.code && (
+                <Check className="h-4 w-4 text-[#8b5cf6]" />
+              )}
+            </button>
+          ))}
+        </div>
+      </MobileBottomSheet>
+
+      {/* Timezone Selector Modal */}
+      <MobileBottomSheet isOpen={showTimezoneModal} onClose={() => setShowTimezoneModal(false)} title="Select Timezone">
+        <div className="space-y-1 max-h-[60vh] overflow-y-auto">
+          {TIMEZONES.map((tz) => (
+            <button
+              key={tz.code}
+              onClick={() => {
+                setSelectedTimezone(tz.code)
+                setShowTimezoneModal(false)
+              }}
+              className={`w-full text-left px-3 py-3 rounded-xl text-[14px] font-medium transition-colors flex items-center justify-between cursor-pointer ${
+                selectedTimezone === tz.code
+                  ? "bg-[#f5f3ff] text-[#8b5cf6]"
+                  : "text-[#374151] hover:bg-[#f3f4f6] active:bg-[#e5e7eb]"
+              }`}
+            >
+              <div className="flex flex-col">
+                <span>{tz.name}</span>
+                <span className="text-[12px] text-[#9ca3af]">{tz.offset}</span>
+              </div>
+              {selectedTimezone === tz.code && (
                 <Check className="h-4 w-4 text-[#8b5cf6]" />
               )}
             </button>

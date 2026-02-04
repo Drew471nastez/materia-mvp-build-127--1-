@@ -2148,24 +2148,24 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
           </div>
           </div>
 
-          {/* Tab Pills - Responsive */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 -mb-1 scrollbar-hide">
+          {/* Tab Pills - Responsive - Matching Settings page style */}
+          <div className="flex items-center gap-1 overflow-x-auto pb-1 -mb-1 scrollbar-hide">
             <button
               onClick={() => setActiveTab("orders")}
-              className={`px-3 sm:px-4 py-1.5 rounded-full text-[12px] sm:text-[13px] font-medium transition-colors cursor-pointer whitespace-nowrap flex-shrink-0 ${
+              className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-full text-[13px] sm:text-[14px] font-medium transition-colors cursor-pointer whitespace-nowrap flex-shrink-0 border ${
                 activeTab === "orders"
-                  ? "bg-[#e5e7eb] text-[#374151]"
-                  : "text-[#6b7280] hover:bg-[#f3f4f6]"
+                  ? "bg-[#f3f4f6] text-[#1a1a2e] border-[#e5e7eb]"
+                  : "text-[#6b7280] hover:text-[#374151] hover:bg-[#f3f4f6] border-transparent"
               }`}
             >
               All Orders
             </button>
             <button
               onClick={() => setActiveTab("reports")}
-              className={`px-3 sm:px-4 py-1.5 rounded-full text-[12px] sm:text-[13px] font-medium transition-colors cursor-pointer whitespace-nowrap flex-shrink-0 ${
+              className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-full text-[13px] sm:text-[14px] font-medium transition-colors cursor-pointer whitespace-nowrap flex-shrink-0 border ${
                 activeTab === "reports"
-                  ? "bg-[#e5e7eb] text-[#374151]"
-                  : "text-[#6b7280] hover:bg-[#f3f4f6]"
+                  ? "bg-[#f3f4f6] text-[#1a1a2e] border-[#e5e7eb]"
+                  : "text-[#6b7280] hover:text-[#374151] hover:bg-[#f3f4f6] border-transparent"
               }`}
             >
               Sales Reports
@@ -2268,10 +2268,10 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
                     <DollarSign className="h-4 w-4 text-[#9ca3af]" />
                   </div>
                 </div>
-                <div className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
+                <div className={`text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>
                   {formatPrice(summary.totalSales)}
                 </div>
-                <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">Gross revenue</p>
+                <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>Gross revenue</p>
               </>
             )}
           </div>
@@ -2334,10 +2334,10 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
                     <ShoppingCart className="h-4 w-4 text-[#9ca3af]" />
                   </div>
                 </div>
-                <div className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
+                <div className={`text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>
                   {formatCompactNumber(summary.totalOrders)}
                 </div>
-                <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">Completed orders</p>
+                <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>Completed orders</p>
               </>
             )}
           </div>
@@ -2413,11 +2413,11 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
                     <TrendingUp className="h-4 w-4 text-[#9ca3af]" />
                   </div>
                 </div>
-                <div className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
+                <div className={`text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>
                   {formatPrice(summary.avgOrderValue)}
                 </div>
                 <div className="flex items-center gap-1.5 mt-1">
-                  <p className="text-[11px] sm:text-[12px] text-[#9ca3af]">Per transaction</p>
+                  <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>Per transaction</p>
                   {/* Info icon on mobile - positioned next to "Per transaction" */}
                   <div className="group/info relative flex-shrink-0 sm:hidden">
                     <div className="w-4 h-4 min-w-[16px] min-h-[16px] rounded-full bg-[#f3f4f6] flex items-center justify-center cursor-help">
@@ -2441,10 +2441,10 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
                 <RotateCcw className="h-4 w-4 text-[#9ca3af]" />
               </div>
             </div>
-            <div className="text-[24px] sm:text-[28px] font-semibold text-rose-500 tracking-tight">
+            <div className={`text-[24px] sm:text-[28px] font-semibold text-rose-500 tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>
               {formatCompactNumber(summary.refundCount)}
             </div>
-            <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">{formatPrice(summary.refundAmount)} refunded</p>
+            <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatPrice(summary.refundAmount)} refunded</p>
           </div>
         </div>
 
