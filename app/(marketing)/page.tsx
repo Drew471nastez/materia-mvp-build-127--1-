@@ -1,46 +1,14 @@
 "use client"
 
-import { useState } from "react"
 import Link from "next/link"
 import { motion } from "framer-motion"
-import { ArrowRight, Play, Check, Menu, X } from "lucide-react"
+import { ArrowRight, Play, Check } from "lucide-react"
 
 export default function StorelibLanding() {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-
   return (
     <div className="bg-[#faf8f5] overflow-x-hidden">
-      {/* NAV */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-[#faf8f5]/80 backdrop-blur-md border-b border-black/5">
-        <div className="max-w-[1200px] mx-auto px-6 py-3 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-[#1a1a1a]">
-              <path d="M12 2L2 7l10 5 10-5-10-5z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M2 17l10 5 10-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M2 12l10 5 10-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            <span className="text-[15px] font-semibold text-[#1a1a1a]">Storelib</span>
-          </Link>
-          
-          <div className="hidden md:flex items-center gap-6">
-            {["Solutions", "Pricing", "Community", "Discover"].map((item) => (
-              <Link key={item} href="#" className="text-[13px] text-[#666] hover:text-[#1a1a1a] transition-colors">{item}</Link>
-            ))}
-          </div>
-          
-          <div className="hidden md:flex items-center gap-3">
-            <Link href="/login" className="text-[13px] text-[#666] hover:text-[#1a1a1a] transition-colors">Log in</Link>
-            <Link href="/signup" className="px-4 py-2 text-[13px] font-medium bg-[#1a1a1a] text-white rounded-lg hover:bg-[#333] transition-colors">Open Storelib</Link>
-          </div>
-          
-          <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="md:hidden p-2">
-            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </button>
-        </div>
-      </nav>
-
       {/* HERO - Lovable style */}
-      <section className="relative min-h-screen pt-20 overflow-hidden">
+      <section className="relative min-h-screen pt-4 overflow-hidden">
         {/* Floating elements with dashed borders */}
         <div className="absolute inset-0 pointer-events-none">
           {/* Top left - Pink/blue gradient */}

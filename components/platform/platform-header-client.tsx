@@ -23,12 +23,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
-import { Globe, Heart, Library, Search, LayoutDashboard, Settings, LogOut } from "lucide-react"
-import { LanguageCurrencyModal } from "@/components/platform/language-currency-modal"
+import { Heart, Library, Search, LayoutDashboard, Settings, LogOut } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 
 const LOGO_URL =
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/sign/platform%20images/storelib.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV80NmYzM2I3Ny05ZWQ4LTRmZDItOWI5MC03MWU5MTZjNjFmZDMiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJwbGF0Zm9ybSBpbWFnZXMvc3RvcmVsaWIucG5nIiwiaWF0IjoxNzY3MjU4MDA0LCJleHAiOjU2Nzc3MjIwMDR9.BuD3SQ_kGcR1csk3dq9pr19aZlm7GoM7i_vuDvqTty8"
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/storelib.svg"
 
 const DEFAULT_CATEGORIES = [
   "Fonts",
@@ -37,11 +36,6 @@ const DEFAULT_CATEGORIES = [
   "Needlework",
   "Laser Cutting",
   "3D Printing",
-  "Bundles",
-  "POD",
-  "Learn",
-  "AI Studio",
-  "Subscription",
 ]
 
 type Profile = {
@@ -55,7 +49,7 @@ export function PlatformHeaderClient() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const { t, languageShort } = useLocale()
+  const { t } = useLocale()
 
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -226,7 +220,7 @@ export function PlatformHeaderClient() {
     router.push(`/explore?category=${encodeURIComponent(cat)}`)
   }
 
-  const showCategories = pathname === "/explore" || pathname === "/"
+  const showCategories = pathname === "/explore" || pathname.startsWith("/explore")
 
   return (
     <header className="sticky top-0 z-50 w-full bg-white border-b border-gray-200 rounded-t-[14px] md:rounded-none">
@@ -311,30 +305,15 @@ export function PlatformHeaderClient() {
               <HeaderActionsSkeleton />
             ) : (
               <>
-                {/* Language */}
-                <LanguageCurrencyModal
-                  trigger={
-                    <button
-                      type="button"
-                      className="flex h-10 items-center gap-2 rounded-full border px-3 text-sm border-gray-200 bg-gray-100 text-gray-600 hover:bg-gray-200 transition"
-                      aria-label="Language and currency"
-                    >
-                      <Globe className="h-4 w-4 text-gray-500" />
-                      <span className="font-medium hidden sm:inline">{languageShort}</span>
-                    </button>
-                  }
-                />
-
-                {/* Wishlist */}
+                {/* Wishlist - icon only */}
                 <Link
                   href={wishlistHref}
-                  className="relative flex h-10 items-center justify-center gap-2 rounded-full px-3 text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition"
+                  className="relative flex h-10 w-10 items-center justify-center rounded-full text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition"
                   aria-label={t("wishlist")}
                 >
                   <Heart className="h-5 w-5" />
-                  <span className="hidden lg:inline text-sm font-medium">{t("wishlist")}</span>
                   {wishlistCount > 0 && (
-                    <span className="absolute -top-1 left-6 lg:left-auto lg:-right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white ring-2 ring-white">
+                    <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white ring-2 ring-white">
                       {wishlistCount > 99 ? "99+" : wishlistCount}
                     </span>
                   )}
@@ -350,12 +329,14 @@ export function PlatformHeaderClient() {
                   <span className="hidden lg:inline">{t("library")}</span>
                 </Link>
 
-                {/* Start Selling */}
+                {/* Start Selling or Dashboard */}
                 <Button asChild className="h-10 rounded-full px-5 bg-blue-600 text-white hover:bg-blue-700">
-                  <Link href={startSellingHref}>{t("start_selling")}</Link>
+                  <Link href={user && isCreator ? "/app" : startSellingHref}>
+                    {user && isCreator ? t("dashboard") : t("start_selling")}
+                  </Link>
                 </Button>
 
-                {/* User Menu */}
+                {/* User Menu - only show when logged in */}
                 {user && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -408,11 +389,11 @@ export function PlatformHeaderClient() {
           </div>
         </div>
 
-        {/* Categories */}
+        {/* Categories - only on /explore page, centered */}
         {showCategories && (
           <nav className="border-t border-gray-200 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8">
             <div className="overflow-x-auto">
-              <div className="flex h-11 items-center gap-6 whitespace-nowrap text-sm">
+              <div className="flex h-11 items-center justify-center gap-8 whitespace-nowrap text-sm">
                 {DEFAULT_CATEGORIES.map((cat) => (
                   <button
                     key={cat}
