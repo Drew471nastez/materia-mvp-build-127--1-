@@ -367,14 +367,14 @@ export function PlatformHeaderClient() {
         <div className="flex h-[68px] md:h-[74px] items-center justify-between gap-4 md:py-[3px]">
           {/* Left side - Logo and Categories Button */}
           <div className="flex items-center gap-3 shrink-0">
-            {/* Logo with Storelib text - logo 15-20% smaller */}
+            {/* Logo with Storelib text - logo reduced to 50px */}
             <Link href="/" className="shrink-0 hidden md:flex items-center gap-2">
               <Image
                 src={LOGO_URL || "/placeholder.svg"}
                 alt="Storelib"
-                width={180}
-                height={60}
-                className="h-[58px] w-auto"
+                width={150}
+                height={50}
+                className="h-[50px] w-auto"
                 priority
               />
               <span className="text-xl font-bold text-gray-900 tracking-tight">Storelib</span>
@@ -562,17 +562,17 @@ export function PlatformHeaderClient() {
           </div>
 
           {/* Mobile Header - hamburger opens categories from bottom, logo, then icons */}
-          <div className="md:hidden flex items-center justify-between flex-1">
-            {/* Left - Categories Button (hamburger opens from bottom) */}
-            <div className="flex items-center gap-2">
+          <div className="md:hidden flex items-center justify-between flex-1 -ml-1">
+            {/* Left - Categories Button and Logo (positioned more to the left) */}
+            <div className="flex items-center gap-1">
               <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
                 <SheetTrigger asChild>
                   <button
                     type="button"
-                    className="flex h-10 w-10 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 transition cursor-pointer"
+                    className="flex h-9 w-9 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 transition cursor-pointer"
                     aria-label="Open categories"
                   >
-                    <Menu className="h-6 w-6" />
+                    <Menu className="h-5 w-5" />
                   </button>
                 </SheetTrigger>
 
@@ -637,21 +637,30 @@ export function PlatformHeaderClient() {
               </Sheet>
 
               {/* Logo next to hamburger */}
-              <Link href="/" className="shrink-0 flex items-center gap-1.5">
+              <Link href="/" className="shrink-0 flex items-center gap-1">
                 <Image
                   src={LOGO_URL || "/placeholder.svg"}
                   alt="Storelib"
-                  width={100}
-                  height={32}
-                  className="h-7 w-auto"
+                  width={90}
+                  height={28}
+                  className="h-6 w-auto"
                   priority
                 />
-                <span className="text-base font-bold text-gray-900 tracking-tight">Storelib</span>
+                <span className="text-sm font-bold text-gray-900 tracking-tight">Storelib</span>
               </Link>
             </div>
 
-            {/* Right - Mobile Icons: Wishlist, Avatar only */}
-            <div className="flex items-center gap-1">
+            {/* Right - Mobile Icons: Library, Wishlist, Avatar */}
+            <div className="flex items-center gap-0.5">
+              {/* Library */}
+              <Link
+                href="/library"
+                className="flex h-9 w-9 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 transition cursor-pointer"
+                aria-label="Library"
+              >
+                <Library className="h-5 w-5" />
+              </Link>
+
               {/* Wishlist */}
               <Link
                 href={wishlistHref}

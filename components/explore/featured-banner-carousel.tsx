@@ -279,19 +279,39 @@ export function FeaturedBannerCarousel({ products }: FeaturedBannerCarouselProps
             <ChevronRight className="w-5 h-5 text-white" />
           </button>
         </div>
+
+        {/* Desktop Progress indicators - INSIDE banner, white, bottom center */}
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 hidden md:flex items-center gap-2">
+          {featuredProducts.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => goToSlide(index)}
+              className="relative h-1 w-8 rounded-full overflow-hidden bg-white/30 hover:bg-white/40 transition-colors cursor-pointer"
+              aria-label={`Go to slide ${index + 1}`}
+              type="button"
+            >
+              <div
+                className="absolute inset-y-0 left-0 bg-white rounded-full"
+                style={{
+                  width: index === currentIndex ? `${progress}%` : index < currentIndex ? "100%" : "0%",
+                  transition: index === currentIndex ? "none" : "width 0.3s ease-out"
+                }}
+              />
+            </button>
+          ))}
+        </div>
       </div> {/* End of Banner Container */}
 
-      {/* Progress indicators - positioned OUTSIDE banner, below it */}
-      <div className="flex items-center justify-center gap-2 mt-3">
+      {/* Mobile Progress indicators - OUTSIDE banner, below it */}
+      <div className="flex md:hidden items-center justify-center gap-2 mt-3">
         {featuredProducts.map((_, index) => (
           <button
             key={index}
             onClick={() => goToSlide(index)}
-            className="relative h-1 w-8 sm:w-10 rounded-full overflow-hidden bg-gray-200 hover:bg-gray-300 transition-colors cursor-pointer"
+            className="relative h-1 w-8 rounded-full overflow-hidden bg-gray-300 hover:bg-gray-400 transition-colors cursor-pointer"
             aria-label={`Go to slide ${index + 1}`}
             type="button"
           >
-            {/* Progress fill */}
             <div
               className="absolute inset-y-0 left-0 bg-neutral-800 rounded-full"
               style={{
