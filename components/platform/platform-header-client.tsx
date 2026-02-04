@@ -562,9 +562,9 @@ export function PlatformHeaderClient() {
           </div>
 
           {/* Mobile Header - hamburger opens categories from bottom, logo, then icons */}
-          <div className="md:hidden flex items-center justify-between flex-1 -ml-2">
+          <div className="md:hidden flex items-center justify-between flex-1 -ml-4">
             {/* Left - Categories Button and Logo (positioned more to the left) */}
-            <div className="flex items-center gap-0.5">
+            <div className="flex items-center gap-0">
               <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
                 <SheetTrigger asChild>
                   <button
@@ -636,22 +636,22 @@ export function PlatformHeaderClient() {
                 </SheetContent>
               </Sheet>
 
-              {/* Logo next to hamburger - 5px bigger */}
-              <Link href="/" className="shrink-0 flex items-center gap-1">
+              {/* Logo next to hamburger - 5px bigger (36px) */}
+              <Link href="/" className="shrink-0 flex items-center gap-1.5">
                 <Image
                   src={LOGO_URL || "/placeholder.svg"}
                   alt="Storelib"
-                  width={100}
-                  height={31}
-                  className="h-[31px] w-auto"
+                  width={108}
+                  height={36}
+                  className="h-[36px] w-auto"
                   priority
                 />
-                <span className="text-base font-bold text-gray-900 tracking-tight">Storelib</span>
+                <span className="text-lg font-bold text-gray-900 tracking-tight">Storelib</span>
               </Link>
             </div>
 
-            {/* Right - Mobile Icons: Library, Wishlist, Avatar - equal gaps */}
-            <div className="flex items-center gap-1.5">
+            {/* Right - Mobile Icons: Library, Wishlist, Avatar - reduced gaps (20% less) */}
+            <div className="flex items-center gap-1">
               {/* Library */}
               <Link
                 href="/library"
