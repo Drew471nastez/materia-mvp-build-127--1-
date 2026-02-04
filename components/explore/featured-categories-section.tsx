@@ -128,8 +128,8 @@ export function FeaturedCategoriesSection({ products = [] }: FeaturedCategoriesS
         <div className="lg:col-span-9">
           {/* Mobile: First 3 categories in swipeable row with 4:3 ratio */}
           <div className="md:hidden relative">
-            {/* Navigation arrows - right aligned */}
-            <div className="flex items-center justify-end gap-2 mb-3">
+            {/* Navigation arrows - right aligned (15% less gap) */}
+            <div className="flex items-center justify-end gap-2 mb-2">
               <button
                 type="button"
                 className="w-8 h-8 rounded-full bg-neutral-100 hover:bg-neutral-200 flex items-center justify-center transition-colors cursor-pointer active:scale-95"

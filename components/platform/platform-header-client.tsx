@@ -24,7 +24,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
-import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, Menu, X, Loader2, ChevronRight, Sparkles, Code, Megaphone, Briefcase, GraduationCap, Music, Camera, PenTool, Video } from "lucide-react"
+import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, Menu, X, Loader2, ChevronRight, Sparkles, Code, Megaphone, Briefcase, GraduationCap, Music, Camera, PenTool, Video, LayoutGrid } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 
 const LOGO_URL =
@@ -39,14 +39,14 @@ const DEFAULT_CATEGORIES = [
   "3D Printing",
 ]
 
-// Mobile category pills - 6 categories as pill buttons
+// Mobile category pills - 6 categories as pill buttons with icons
 const MOBILE_CATEGORIES = [
-  { id: "all", label: "All" },
-  { id: "design", label: "Design" },
-  { id: "development", label: "Development" },
-  { id: "marketing", label: "Marketing" },
-  { id: "business", label: "Business" },
-  { id: "education", label: "Education" },
+  { id: "all", label: "All", icon: LayoutGrid },
+  { id: "design", label: "Design", icon: Sparkles },
+  { id: "development", label: "Development", icon: Code },
+  { id: "marketing", label: "Marketing", icon: Megaphone },
+  { id: "business", label: "Business", icon: Briefcase },
+  { id: "education", label: "Education", icon: GraduationCap },
 ]
 
 // Search modal categories - expanded list with icons
@@ -675,13 +675,13 @@ export function PlatformHeaderClient() {
                 )}
               </Link>
 
-              {/* Mobile Avatar */}
+              {/* Mobile Avatar - 30% more gap from wishlist */}
               {user ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
-                      className="rounded-full cursor-pointer"
+                      className="rounded-full cursor-pointer ml-0.5"
                       aria-label="Open profile menu"
                     >
                       <Avatar className="h-8 w-8 border border-gray-200">
@@ -735,7 +735,7 @@ export function PlatformHeaderClient() {
                   </DropdownMenuContent>
                 </DropdownMenu>
               ) : (
-                <Avatar className="h-8 w-8 border border-gray-200 ml-0.5">
+                <Avatar className="h-8 w-8 border border-gray-200 ml-1">
                   <AvatarFallback className="text-[10px] bg-gray-100 text-gray-700">?</AvatarFallback>
                 </Avatar>
               )}
@@ -888,20 +888,24 @@ export function PlatformHeaderClient() {
           </form>
         </div>
 
-        {/* Mobile Category Pills - horizontal scrolling */}
+        {/* Mobile Category Pills - horizontal scrolling with icons */}
         {showCategories && (
           <div className="md:hidden -mx-4 px-4 pb-2 overflow-x-auto scrollbar-hide">
             <div className="flex items-center gap-2 whitespace-nowrap">
-              {MOBILE_CATEGORIES.map((cat) => (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => onCategoryClick(cat.id)}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 transition-colors cursor-pointer border border-gray-200"
-                >
-                  {cat.label}
-                </button>
-              ))}
+              {MOBILE_CATEGORIES.map((cat) => {
+                const Icon = cat.icon
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => onCategoryClick(cat.id)}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 transition-colors cursor-pointer border border-gray-200"
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    {cat.label}
+                  </button>
+                )
+              })}
             </div>
           </div>
         )}
