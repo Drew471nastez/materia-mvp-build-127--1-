@@ -1,36 +1,40 @@
+import { Metadata } from "next"
 import { createClient } from "@/lib/supabase/server"
-import { ExploreContent } from "@/components/explore/explore-content"
-import { Badge } from "@/components/ui/badge"
-import Link from "next/link"
+import { ExplorePageClient } from "@/components/explore/explore-page-client"
 
-export const metadata = {
-  title: "Explore Creators & Products | Storelib",
-  description: "Discover digital products, courses, and communities from top creators.",
+// SEO-optimized metadata
+export const metadata: Metadata = {
+  title: "Explore Digital Products | Storelib - Discover Courses, Templates & More",
+  description: "Discover thousands of digital products from top creators. Browse courses, templates, ebooks, design assets, and more. Find the perfect resources to level up your skills.",
+  keywords: ["digital products", "online courses", "templates", "ebooks", "design assets", "creator economy"],
+  openGraph: {
+    title: "Explore Digital Products | Storelib",
+    description: "Discover thousands of digital products from top creators. Browse courses, templates, ebooks, and more.",
+    type: "website",
+    url: "/explore",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Explore Digital Products | Storelib",
+    description: "Discover thousands of digital products from top creators.",
+  },
+  alternates: {
+    canonical: "/explore",
+  },
 }
 
 export const dynamic = "force-dynamic"
 
-const CATEGORIES = [
-  "All",
-  "Design",
-  "Development",
-  "Marketing",
-  "Business",
-  "Photography",
-  "Writing",
-  "Music",
-  "Fitness",
-  "Finance",
-  "Education",
-]
+// Categories that match the client-side categories
+const VALID_CATEGORIES = ["all", "design", "development", "marketing", "business", "education"]
 
 export default async function ExplorePage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; q?: string; category?: string; sort?: string; src?: string }>
+  searchParams: Promise<{ q?: string; category?: string }>
 }) {
   // Safely get search params
-  let params: { tab?: string; q?: string; category?: string; sort?: string; src?: string } = {}
+  let params: { q?: string; category?: string } = {}
   try {
     params = await searchParams
   } catch {
@@ -38,82 +42,27 @@ export default async function ExplorePage({
   }
 
   const searchQuery = (params?.q || "").toLowerCase()
-  const category = params?.category || "All"
-  const sortBy = params?.sort || "newest"
-  const activeTab = params?.tab || "products"
-  const src = params?.src || "platform"
+  const rawCategory = (params?.category || "all").toLowerCase()
+  const category = VALID_CATEGORIES.includes(rawCategory) ? rawCategory : "all"
 
-  // Initialize data arrays
-  let creatorsWithProfiles: any[] = []
+  // Initialize data
   let productsWithCreators: any[] = []
-  let dbError: string | null = null
 
   try {
     const supabase = await createClient()
 
-    // Fetch creators with store_published = true
-    const { data: creators, error: creatorsError } = await supabase
-      .from("creators")
-      .select("id, user_id, slug, headline, bio, niche_tags, avatar_url, created_at")
-      .eq("store_published", true)
-      .order("created_at", { ascending: false })
-      .limit(24)
-
-    if (creatorsError) {
-      console.error("[ExplorePage] Creators error:", creatorsError.message)
-      dbError = creatorsError.message
-    }
-
-    if (creators && creators.length > 0) {
-      // Get profiles for creators
-      const creatorUserIds = creators.map((c) => c.user_id).filter(Boolean)
-      let creatorProfiles: any[] = []
-
-      if (creatorUserIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from("profiles")
-          .select("id, display_name, avatar_url, username")
-          .in("id", creatorUserIds)
-        creatorProfiles = profiles || []
-      }
-
-      // Get product counts
-      const creatorIds = creators.map((c) => c.id)
-      let productCounts: Record<string, number> = {}
-
-      if (creatorIds.length > 0) {
-        const { data: counts } = await supabase
-          .from("products")
-          .select("creator_id")
-          .in("creator_id", creatorIds)
-          .eq("status", "published")
-
-        if (counts) {
-          counts.forEach((p) => {
-            productCounts[p.creator_id] = (productCounts[p.creator_id] || 0) + 1
-          })
-        }
-      }
-
-      // Build creators with profiles
-      creatorsWithProfiles = creators.map((creator) => ({
-        ...creator,
-        profile: creatorProfiles.find((p) => p.id === creator.user_id) || null,
-        products_count: productCounts[creator.id] || 0,
-      }))
-    }
-
-    // Fetch published products
-    const { data: products, error: productsError } = await supabase
+    // Fetch published products with optional category filtering
+    let query = supabase
       .from("products")
       .select("id, title, slug, description, price_cents, compare_at_cents, thumbnail_url, type, category, creator_id, created_at, sales_count, reviews_count, reviews_average")
       .eq("status", "published")
       .order("created_at", { ascending: false })
-      .limit(24)
+      .limit(50)
+
+    const { data: products, error: productsError } = await query
 
     if (productsError) {
       console.error("[ExplorePage] Products error:", productsError.message)
-      dbError = productsError.message
     }
 
     if (products && products.length > 0) {
@@ -157,89 +106,74 @@ export default async function ExplorePage({
     }
   } catch (error: any) {
     console.error("[ExplorePage] Exception:", error?.message || error)
-    dbError = error?.message || "Unknown error"
   }
 
-  // Filter by search and category
-  const filteredCreators = creatorsWithProfiles.filter((c) => {
-    if (!c) return false
-    if (searchQuery) {
-      const name = (c.profile?.display_name || "").toLowerCase()
-      const headline = (c.headline || "").toLowerCase()
-      const bio = (c.bio || "").toLowerCase()
-      if (!name.includes(searchQuery) && !headline.includes(searchQuery) && !bio.includes(searchQuery)) {
-        return false
-      }
-    }
-    if (category !== "All" && !c.niche_tags?.includes(category)) {
-      return false
-    }
-    return true
-  })
-
-  const filteredProducts = productsWithCreators.filter((p) => {
-    if (!p) return false
-    if (searchQuery) {
-      const title = (p.title || "").toLowerCase()
-      const desc = (p.description || "").toLowerCase()
-      if (!title.includes(searchQuery) && !desc.includes(searchQuery)) {
-        return false
-      }
-    }
-    if (category !== "All" && !p.creator?.niche_tags?.includes(category)) {
-      return false
-    }
-    return true
-  })
+  // Server-side filtering by search query
+  const filteredProducts = searchQuery
+    ? productsWithCreators.filter((p) => {
+        if (!p) return false
+        const title = (p.title || "").toLowerCase()
+        const desc = (p.description || "").toLowerCase()
+        return title.includes(searchQuery) || desc.includes(searchQuery)
+      })
+    : productsWithCreators
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-12 min-h-screen page-scroll">
-      <div className="mb-6 flex flex-wrap gap-3">
-        {CATEGORIES.map((cat) => (
-          <Link key={cat} href={`/explore?tab=${activeTab}&category=${cat}&q=${searchQuery}&sort=${sortBy}&src=${src}`}>
-            <Badge
-              variant={category === cat ? "default" : "outline"}
-              className="cursor-pointer rounded-full px-6 py-2 text-sm font-medium shadow-sm"
-            >
-              {cat}
-            </Badge>
-          </Link>
-        ))}
-      </div>
+    <main className="min-h-screen bg-white">
+      {/* Semantic page structure for SEO */}
+      <div className="mx-auto max-w-6xl px-4 py-8 sm:py-12">
+        {/* Hidden H1 for SEO - visible to screen readers and crawlers */}
+        <h1 className="sr-only">
+          Explore Digital Products - Discover Courses, Templates, and More from Top Creators
+        </h1>
 
-      <div className="mb-6 flex gap-4 text-sm">
-        <span className="text-muted-foreground">Sort:</span>
-        <Link
-          href={`/explore?tab=${activeTab}&category=${category}&q=${searchQuery}&sort=newest&src=${src}`}
-          className={sortBy === "newest" ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}
-        >
-          Newest
-        </Link>
-        <Link
-          href={`/explore?tab=${activeTab}&category=${category}&q=${searchQuery}&sort=trending&src=${src}`}
-          className={sortBy === "trending" ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}
-        >
-          Trending
-        </Link>
-        <Link
-          href={`/explore?tab=${activeTab}&category=${category}&q=${searchQuery}&sort=featured&src=${src}`}
-          className={sortBy === "featured" ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}
-        >
-          Featured
-        </Link>
-      </div>
+        {/* Visible header with descriptive text for SEO */}
+        <header className="mb-8">
+          <p className="text-lg text-neutral-600 max-w-2xl">
+            Discover digital products from talented creators. From courses to templates, find resources to help you grow.
+          </p>
+        </header>
 
-      {/* Tab content with smooth skeleton loading */}
-      <ExploreContent
-        products={filteredProducts}
-        creators={filteredCreators}
-        activeTab={activeTab}
-        category={category}
-        searchQuery={searchQuery}
-        sortBy={sortBy}
-        src={src}
-        dbError={dbError}
-      />
-    </div>
+        {/* Main content */}
+        <ExplorePageClient
+          initialProducts={filteredProducts}
+          initialCategory={category}
+          searchQuery={searchQuery}
+        />
+
+        {/* SEO-friendly content section */}
+        <section className="mt-16 pt-8 border-t border-neutral-200">
+          <h2 className="text-lg font-semibold text-neutral-900 mb-4">
+            Explore by Category
+          </h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm text-neutral-600">
+            <div>
+              <h3 className="font-medium text-neutral-800">Design</h3>
+              <p>Templates, UI kits, icons, and graphics</p>
+            </div>
+            <div>
+              <h3 className="font-medium text-neutral-800">Development</h3>
+              <p>Code snippets, themes, and tutorials</p>
+            </div>
+            <div>
+              <h3 className="font-medium text-neutral-800">Marketing</h3>
+              <p>Guides, templates, and strategies</p>
+            </div>
+            <div>
+              <h3 className="font-medium text-neutral-800">Business</h3>
+              <p>Tools, courses, and resources</p>
+            </div>
+            <div>
+              <h3 className="font-medium text-neutral-800">Education</h3>
+              <p>Courses, ebooks, and learning materials</p>
+            </div>
+            <div>
+              <h3 className="font-medium text-neutral-800">More Categories</h3>
+              <p>Photography, Writing, Music, and more</p>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
   )
 }
