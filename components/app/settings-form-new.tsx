@@ -765,6 +765,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   const initialSupportEmail = useRef(supportEmail)
 
   const [activeTab, setActiveTab] = useState<TabId>("general")
+  const [isTabLoading, setIsTabLoading] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [showSaveToast, setShowSaveToast] = useState(false)
@@ -967,6 +968,17 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     setAvatarUrl("")
     await supabase.from("profiles").update({ avatar_url: null }).eq("id", profile.id)
     router.refresh()
+  }
+
+  // Tab change with skeleton loading animation
+  const handleTabChange = (newTab: TabId) => {
+    if (newTab === activeTab) return
+    setIsTabLoading(true)
+    setActiveTab(newTab)
+    // Show skeleton for 1.5 seconds
+    setTimeout(() => {
+      setIsTabLoading(false)
+    }, 1500)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1355,7 +1367,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => handleTabChange(tab.id)}
                   className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full text-[13px] sm:text-[14px] font-medium transition-colors whitespace-nowrap cursor-pointer border ${
                     activeTab === tab.id
                       ? "bg-[#f3f4f6] text-[#1a1a2e] border-[#e5e7eb]"
@@ -1372,8 +1384,58 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
         {/* Tab Content */}
         <form onSubmit={handleSubmit}>
+          {/* Skeleton Loading */}
+          {isTabLoading && (
+            <div className="space-y-4 sm:space-y-6 animate-pulse">
+              {/* Skeleton Card 1 */}
+              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-full bg-gray-200" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 bg-gray-200 rounded w-32" />
+                    <div className="h-3 bg-gray-200 rounded w-48" />
+                  </div>
+                </div>
+              </div>
+              {/* Skeleton Card 2 */}
+              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
+                <div className="h-5 bg-gray-200 rounded w-40 mb-4" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <div className="h-3 bg-gray-200 rounded w-20" />
+                    <div className="h-11 bg-gray-200 rounded-xl" />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="h-3 bg-gray-200 rounded w-24" />
+                    <div className="h-11 bg-gray-200 rounded-xl" />
+                  </div>
+                </div>
+              </div>
+              {/* Skeleton Card 3 */}
+              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
+                <div className="h-5 bg-gray-200 rounded w-32 mb-4" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <div className="h-3 bg-gray-200 rounded w-16" />
+                    <div className="h-11 bg-gray-200 rounded-xl" />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="h-3 bg-gray-200 rounded w-28" />
+                    <div className="h-11 bg-gray-200 rounded-xl" />
+                  </div>
+                </div>
+              </div>
+              {/* Skeleton Card 4 */}
+              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
+                <div className="h-5 bg-gray-200 rounded w-24 mb-2" />
+                <div className="h-3 bg-gray-200 rounded w-64 mb-4" />
+                <div className="h-11 bg-gray-200 rounded-xl" />
+              </div>
+            </div>
+          )}
+
           {/* General Tab */}
-          {activeTab === "general" && (
+          {!isTabLoading && activeTab === "general" && (
             <div className="space-y-4 sm:space-y-6">
               {/* Profile Image Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
@@ -1410,16 +1472,15 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 </div>
               </div>
 
-              {/* Profile Information Card - Username/Storename + Email */}
+              {/* Profile Information Card - Username + Store URL */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4 flex items-center gap-2">
-                  <User className="h-4 w-4 text-[#8b5cf6]" />
+                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">
                   Profile Information
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label htmlFor="firstName" className="text-[13px] font-medium text-[#374151]">
-                      Username - Storename
+                      Username
                     </Label>
                     <Input
                       id="firstName"
@@ -1429,6 +1490,37 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                       className="h-11 border-[#e5e7eb] rounded-xl text-[14px] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
                     />
                   </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="storeUrlProfile" className="text-[13px] font-medium text-[#374151]">
+                      Store URL
+                    </Label>
+                    <Input
+                      id="storeUrlProfile"
+                      value={username}
+                      onChange={(e) => validateUsername(e.target.value)}
+                      placeholder="your-store-name"
+                      className={`h-11 rounded-xl text-[14px] ${
+                        usernameError ? "border-red-300 focus:ring-red-500 focus:border-red-500" : "border-[#e5e7eb] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
+                      }`}
+                    />
+                    {usernameError ? (
+                      <p className="text-[12px] text-red-600 flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        {usernameError}
+                      </p>
+                    ) : (
+                      <p className="text-[12px] text-[#9ca3af]">{storeUrlDisplay}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Emails Card - Email + Support Email */}
+              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
+                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">
+                  Emails
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label htmlFor="email" className="text-[13px] font-medium text-[#374151]">
                       Email
@@ -1452,13 +1544,26 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                       </button>
                     </div>
                   </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="supportEmailProfile" className="text-[13px] font-medium text-[#374151]">
+                      Support Email
+                    </Label>
+                    <Input
+                      id="supportEmailProfile"
+                      type="email"
+                      value={supportEmail}
+                      onChange={(e) => setSupportEmail(e.target.value)}
+                      placeholder={currentEmail || "support@yourdomain.com"}
+                      className="h-11 border-[#e5e7eb] rounded-xl text-[14px] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
+                    />
+                    <p className="text-[12px] text-[#9ca3af]">Shown to customers on receipts</p>
+                  </div>
                 </div>
               </div>
 
               {/* Language Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1 flex items-center gap-2">
-                  <Languages className="h-4 w-4 text-[#8b5cf6]" />
+                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1">
                   Language
                 </h3>
                 <p className="text-[13px] text-[#6b7280] mb-4">Choose your preferred language for the dashboard</p>
@@ -1474,8 +1579,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
               {/* Timezone Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1 flex items-center gap-2">
-                  <Globe className="h-4 w-4 text-[#8b5cf6]" />
+                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1">
                   Timezone
                 </h3>
                 <p className="text-[13px] text-[#6b7280] mb-4">Used for analytics, product launches, scheduled emails, and sales timestamps</p>
@@ -1494,26 +1598,9 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 </button>
               </div>
 
-              {/* Support Email Card */}
-              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1 flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-[#8b5cf6]" />
-                  Support Email
-                </h3>
-                <p className="text-[13px] text-[#6b7280] mb-4">Shown to customers on email receipts for support purposes. If not set, your account email will be used.</p>
-                <Input
-                  type="email"
-                  value={supportEmail}
-                  onChange={(e) => setSupportEmail(e.target.value)}
-                  placeholder={currentEmail || "support@yourdomain.com"}
-                  className="h-11 border-[#e5e7eb] rounded-xl text-[14px] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
-                />
-              </div>
-
               {/* Address Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4 flex items-center gap-2">
-                  <Globe className="h-4 w-4 text-[#8b5cf6]" />
+                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">
                   Address
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1654,12 +1741,11 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
           )}
 
           {/* Security Tab */}
-          {activeTab === "security" && (
+          {!isTabLoading && activeTab === "security" && (
             <div className="space-y-4 sm:space-y-6">
               {/* Password Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-2 flex items-center gap-2">
-                  <Lock className="h-4 w-4 text-[#8b5cf6]" />
+                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-2">
                   Password
                 </h3>
                 <p className="text-[13px] text-[#6b7280] mb-4">Send a password reset link to your email address.</p>
@@ -1694,8 +1780,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
               {/* Two-Factor Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-2 flex items-center gap-2">
-                  <Shield className="h-4 w-4 text-[#8b5cf6]" />
+                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-2">
                   Two-Factor Authentication
                 </h3>
                 <p className="text-[13px] text-[#6b7280] mb-4">Add an extra layer of security to your account.</p>
@@ -1706,8 +1791,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
               {/* Session Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-2 flex items-center gap-2">
-                  <LogOut className="h-4 w-4 text-[#8b5cf6]" />
+                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-2">
                   Active Sessions
                 </h3>
                 <p className="text-[13px] text-[#6b7280] mb-4">Manage your active sessions across all devices.</p>
@@ -1741,8 +1825,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1 flex items-center gap-2">
-                      <Trash2 className="h-4 w-4 text-red-500" />
+                    <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1">
                       Delete your account
                     </h3>
                     <p className="text-[13px] text-[#6b7280]">
@@ -1765,12 +1848,11 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
           )}
 
           {/* Privacy Tab */}
-          {activeTab === "privacy" && (
+          {!isTabLoading && activeTab === "privacy" && (
             <div className="space-y-4 sm:space-y-6">
               {/* AI & Personalization Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1 flex items-center gap-2">
-                  <ToggleLeft className="h-4 w-4 text-[#8b5cf6]" />
+                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1">
                   AI & Personalization
                 </h3>
                 <p className="text-[13px] text-[#6b7280] mb-4">Control how we use AI and personalize your experience.</p>
@@ -1872,8 +1954,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
               {/* Email Preferences Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1 flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-[#8b5cf6]" />
+                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1">
                   Email Preferences
                 </h3>
                 <p className="text-[13px] text-[#6b7280] mb-4">Choose what emails you want to receive.</p>
@@ -1926,12 +2007,11 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
           )}
 
           {/* Billing Tab */}
-          {activeTab === "billing" && (
+          {!isTabLoading && activeTab === "billing" && (
             <div className="space-y-4 sm:space-y-6">
               {/* Current Plan Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4 flex items-center gap-2">
-                  <CreditCard className="h-4 w-4 text-[#8b5cf6]" />
+                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">
                   Current Plan
                 </h3>
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -1972,7 +2052,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
           )}
 
           {/* Payments Tab */}
-          {activeTab === "payments" && (
+          {!isTabLoading && activeTab === "payments" && (
             <div className="space-y-4 sm:space-y-6">
               {/* Test Mode Banner */}
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
@@ -2087,12 +2167,11 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
           )}
 
           {/* Manage Stores Tab */}
-          {activeTab === "stores" && (
+          {!isTabLoading && activeTab === "stores" && (
             <div className="space-y-4 sm:space-y-6">
               {/* Store Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4 flex items-center gap-2">
-                  <Store className="h-4 w-4 text-[#8b5cf6]" />
+                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">
                   Your Store
                 </h3>
                 <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-4 pb-4 border-b border-[#e5e7eb]">
@@ -2168,61 +2247,65 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
         </form>
       </div>
 
-      {/* Sticky Save Bar - Only visible when there are unsaved changes, hidden when modals are open */}
-      {hasUnsavedChanges && !showEmailChangeModal && !showLanguageModal && !showTimezoneModal && !showCountryModal && !showDeleteModal && !showAvatarUploadModal && !showAvatarCropModal && (
-        <div className="fixed bottom-0 left-0 right-0 md:left-[220px] z-40 bg-white/95 backdrop-blur-sm border-t border-[#e5e7eb]/60 pb-[env(safe-area-inset-bottom)]">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-2.5">
-              <div className="w-2 h-2 rounded-full bg-amber-500" />
-              <span className="text-[14px] text-[#6b7280]">Unsaved changes</span>
-            </div>
-            <div className="flex items-center gap-2.5">
-              <button
-                type="button"
-                onClick={() => {
-                  // Reset to initial values
-                  setFirstName(initialValues.current.firstName)
-                  setLastName(initialValues.current.lastName)
-                  setUsername(initialValues.current.username)
-                  setAvatarUrl(initialValues.current.avatarUrl)
-                  setAddressLine1(initialValues.current.addressLine1)
-                  setCity(initialValues.current.city)
-                  setState(initialValues.current.state)
-                  setPostalCode(initialValues.current.postalCode)
-                  setCountry(initialValues.current.country)
-                  setSelectedLanguage(initialLanguage.current)
-                  setSelectedTimezone(initialTimezone.current)
-                  setSupportEmail(initialSupportEmail.current)
-                }}
-                className="px-4 h-10 text-[14px] font-medium text-[#6b7280] hover:text-[#374151] hover:bg-[#f3f4f6] rounded-lg transition-colors cursor-pointer"
-              >
-                Discard
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  // Trigger form submission
-                  const form = document.querySelector('form')
-                  if (form) {
-                    form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }))
-                  }
-                }}
-                disabled={isLoading}
-                className="px-5 h-10 text-[14px] font-medium rounded-lg transition-colors flex items-center gap-2 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white cursor-pointer"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  "Save"
-                )}
-              </button>
-            </div>
+      {/* Sticky Save Bar - Smooth fade animation */}
+      <div
+        className={`fixed bottom-0 left-0 right-0 md:left-[220px] z-40 bg-white/95 backdrop-blur-sm border-t border-[#e5e7eb]/60 pb-[env(safe-area-inset-bottom)] transition-all duration-300 ease-out ${
+          hasUnsavedChanges && !showEmailChangeModal && !showLanguageModal && !showTimezoneModal && !showCountryModal && !showDeleteModal && !showAvatarUploadModal && !showAvatarCropModal
+            ? "translate-y-0 opacity-100"
+            : "translate-y-full opacity-0 pointer-events-none"
+        }`}
+      >
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-2 h-2 rounded-full bg-amber-500" />
+            <span className="text-[14px] text-[#6b7280]">Unsaved changes</span>
+          </div>
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => {
+                // Reset to initial values
+                setFirstName(initialValues.current.firstName)
+                setLastName(initialValues.current.lastName)
+                setUsername(initialValues.current.username)
+                setAvatarUrl(initialValues.current.avatarUrl)
+                setAddressLine1(initialValues.current.addressLine1)
+                setCity(initialValues.current.city)
+                setState(initialValues.current.state)
+                setPostalCode(initialValues.current.postalCode)
+                setCountry(initialValues.current.country)
+                setSelectedLanguage(initialLanguage.current)
+                setSelectedTimezone(initialTimezone.current)
+                setSupportEmail(initialSupportEmail.current)
+              }}
+              className="px-4 h-10 text-[14px] font-medium text-[#6b7280] hover:text-[#374151] hover:bg-[#f3f4f6] rounded-lg transition-colors cursor-pointer"
+            >
+              Discard
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                // Trigger form submission
+                const form = document.querySelector('form')
+                if (form) {
+                  form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }))
+                }
+              }}
+              disabled={isLoading}
+              className="px-5 h-10 text-[14px] font-medium rounded-lg transition-colors flex items-center gap-2 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white cursor-pointer"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save"
+              )}
+            </button>
           </div>
         </div>
-      )}
+      </div>
 
       {/* Avatar Upload Modal */}
       <ImageUploadModal

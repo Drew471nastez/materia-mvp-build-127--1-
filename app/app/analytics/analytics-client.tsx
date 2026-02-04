@@ -1762,12 +1762,12 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                     </div>
                   </div>
                   <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
-                    <span className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-                      {isLoading ? <Skeleton className="h-7 w-16" /> : formatCompactNumber(summary.totalViews)}
+                    <span className={`text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>
+                      {formatCompactNumber(summary.totalViews)}
                     </span>
                     {!isLoading && <PercentChangeIndicator current={summary.totalViews} previous={summary.prevPeriodViews} />}
                   </div>
-                  <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">{formatCompactNumber(summary.allTimeViews)} all time</p>
+                  <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(summary.allTimeViews)} all time</p>
                 </>
               )}
             </div>
@@ -1790,12 +1790,12 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                     </div>
                   </div>
                   <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
-                    <span className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-                      {isLoading ? <Skeleton className="h-7 w-14" /> : formatCompactNumber(summary.totalOrders)}
+                    <span className={`text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>
+                      {formatCompactNumber(summary.totalOrders)}
                     </span>
                     {!isLoading && <PercentChangeIndicator current={summary.totalOrders} previous={summary.prevPeriodOrders} />}
                   </div>
-                  <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">{formatCompactNumber(summary.allTimeOrders)} all time</p>
+                  <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(summary.allTimeOrders)} all time</p>
                 </>
               )}
             </div>
@@ -1818,12 +1818,12 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                     </div>
                   </div>
                   <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
-                    <span className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-                      {isLoading ? <Skeleton className="h-7 w-20" /> : formatPrice(summary.totalRevenue)}
+                    <span className={`text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>
+                      {formatPrice(summary.totalRevenue)}
                     </span>
                     {!isLoading && <PercentChangeIndicator current={summary.totalRevenue} previous={summary.prevPeriodRevenue} />}
                   </div>
-                  <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">{formatPrice(summary.allTimeRevenue)} all time</p>
+                  <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatPrice(summary.allTimeRevenue)} all time</p>
                 </>
               )}
             </div>
@@ -1836,10 +1836,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   <Target className="h-4 w-4 text-[#9ca3af]" />
                 </div>
               </div>
-              <div className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-                {isLoading ? <Skeleton className="h-7 w-14" /> : `${summary.conversionRate.toFixed(1)}%`}
+              <div className={`text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>
+                {`${summary.conversionRate.toFixed(1)}%`}
               </div>
-              <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">Views to orders</p>
+              <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>Views to orders</p>
             </div>
           </div>
         ) : (
@@ -1863,12 +1863,12 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                     </div>
                   </div>
                   <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
-                    <span className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-                      {isLoading ? <Skeleton className="h-7 w-16" /> : formatCompactNumber(onePageMetrics.views)}
+                    <span className={`text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>
+                      {formatCompactNumber(onePageMetrics.views)}
                     </span>
                     {!isLoading && <PercentChangeIndicator current={onePageMetrics.views} previous={onePageMetrics.prevViews} />}
                   </div>
-                  <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">{formatCompactNumber(onePageMetrics.allTimeViews)} all time</p>
+                  <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.allTimeViews)} all time</p>
                 </>
               )}
             </div>
@@ -1891,12 +1891,12 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                     </div>
                   </div>
                   <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
-                    <span className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-                      {isLoading ? <Skeleton className="h-7 w-14" /> : formatCompactNumber(onePageMetrics.clicks)}
+                    <span className={`text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>
+                      {formatCompactNumber(onePageMetrics.clicks)}
                     </span>
                     {!isLoading && <PercentChangeIndicator current={onePageMetrics.clicks} previous={onePageMetrics.prevClicks} />}
                   </div>
-                  <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">{formatCompactNumber(onePageMetrics.allTimeClicks)} all time</p>
+                  <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.allTimeClicks)} all time</p>
                 </>
               )}
             </div>
@@ -1910,12 +1910,12 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                 </div>
               </div>
               <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
-                <span className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-                  {isLoading ? <Skeleton className="h-7 w-12" /> : formatCompactNumber(onePageMetrics.subscribers)}
+                <span className={`text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>
+                  {formatCompactNumber(onePageMetrics.subscribers)}
                 </span>
                 {!isLoading && <PercentChangeIndicator current={onePageMetrics.subscribers} previous={onePageMetrics.prevSubscribers} />}
               </div>
-              <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">{formatCompactNumber(onePageMetrics.allTimeSubscribers)} all time</p>
+              <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.allTimeSubscribers)} all time</p>
             </div>
 
             {/* CTR */}
@@ -1926,10 +1926,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   <Percent className="h-4 w-4 text-[#9ca3af]" />
                 </div>
               </div>
-              <div className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-                {isLoading ? <Skeleton className="h-7 w-14" /> : `${onePageMetrics.ctr.toFixed(1)}%`}
+              <div className={`text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>
+                {`${onePageMetrics.ctr.toFixed(1)}%`}
               </div>
-              <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">Clicks / Views</p>
+              <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>Clicks / Views</p>
             </div>
           </div>
         )}
