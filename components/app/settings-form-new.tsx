@@ -12,7 +12,7 @@ import {
   CreditCard, Store, Shield, Settings, Wallet,
   Camera, ExternalLink, ChevronRight, Globe,
   User, Palette, Link2, FileText, Search, ChevronLeft, Upload, Copy, Pencil,
-  ToggleLeft, LogOut, Trash2, Languages
+  ToggleLeft, LogOut, Trash2, Languages, Info
 } from "lucide-react"
 import type { Profile, Creator } from "@/lib/types"
 import { isValidUsername } from "@/lib/reserved-words"
@@ -1562,7 +1562,18 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                       placeholder={currentEmail || "support@yourdomain.com"}
                       className="h-11 border-[#e5e7eb] rounded-xl text-[14px] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
                     />
-                    <p className="text-[12px] text-[#9ca3af]">Shown to customers on receipts</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-[12px] text-[#9ca3af]">Shown to customers on receipts</p>
+                      <div className="relative group">
+                        <Info className="h-3.5 w-3.5 text-[#9ca3af] cursor-help" />
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#1a1a2e] text-white text-[12px] rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 shadow-lg">
+                          <div className="max-w-[220px] text-center leading-relaxed">
+                            This email will appear on customer receipts and order confirmations. It&apos;s also the contact for customer support inquiries.
+                          </div>
+                          <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[#1a1a2e]"></div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2060,114 +2071,117 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
           {/* Payments Tab */}
           {!isTabLoading && activeTab === "payments" && (
             <div className="space-y-4 sm:space-y-6">
-              {/* Test Mode Banner */}
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center shrink-0">
-                    <AlertCircle className="h-4 w-4 text-amber-600" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-amber-800 text-[14px]">Test Mode</p>
-                    <p className="text-[13px] text-amber-700 mt-0.5">You&apos;re using Stripe test keys</p>
-                    <p className="text-[12px] text-amber-600 mt-1">Connect payouts to sell paid products. You won&apos;t be able to accept payments until your Stripe account is connected and verified.</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Stripe Connect Card */}
+              {/* PayPal Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 bg-[#635bff] rounded-lg flex items-center justify-center">
-                    <svg className="h-5 w-5 text-white" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M13.976 9.15c-2.172-.806-3.356-1.426-3.356-2.409 0-.831.683-1.305 1.901-1.305 2.227 0 4.515.858 6.09 1.631l.89-5.494C18.252.975 15.697 0 12.165 0 9.667 0 7.589.654 6.104 1.872 4.56 3.147 3.757 4.992 3.757 7.218c0 4.039 2.467 5.76 6.476 7.219 2.585.92 3.445 1.574 3.445 2.583 0 .98-.84 1.545-2.354 1.545-1.875 0-4.965-.921-6.99-2.109l-.9 5.555C5.175 22.99 8.385 24 11.714 24c2.641 0 4.843-.624 6.328-1.813 1.664-1.305 2.525-3.236 2.525-5.732 0-4.128-2.524-5.851-6.591-7.305z"/>
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 className="text-[15px] font-semibold text-[#1a1a2e]">Stripe Connect</h3>
-                    <p className="text-[13px] text-[#6b7280]">Receive payments directly to your bank account</p>
-                  </div>
-                </div>
-                <div className="mt-4 p-4 bg-[#f9fafb] rounded-xl">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-[13px] font-medium text-[#6b7280]">Status</span>
-                    <span className="text-[13px] font-medium text-red-600 flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-red-500"></span>
-                      Not Connected
-                    </span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    {/* PayPal Logo */}
+                    <div className="w-14 h-14 flex items-center justify-center shrink-0">
+                      <svg className="w-12 h-12" viewBox="0 0 124 33" fill="none">
+                        <path d="M46.211 6.749h-6.839a.95.95 0 0 0-.939.802l-2.766 17.537a.57.57 0 0 0 .564.658h3.265a.95.95 0 0 0 .939-.803l.746-4.73a.95.95 0 0 1 .938-.803h2.165c4.505 0 7.105-2.18 7.784-6.5.306-1.89.013-3.375-.872-4.415-.972-1.142-2.696-1.746-4.985-1.746zM47.02 13.154c-.374 2.454-2.249 2.454-4.062 2.454h-1.032l.724-4.583a.57.57 0 0 1 .563-.481h.473c1.235 0 2.4 0 3.002.704.359.42.469 1.044.332 1.906z" fill="#253B80"/>
+                        <path d="M66.654 13.075h-3.275a.57.57 0 0 0-.563.481l-.145.916-.229-.332c-.709-1.029-2.29-1.373-3.868-1.373-3.619 0-6.71 2.741-7.312 6.586-.313 1.918.132 3.752 1.22 5.031.998 1.176 2.426 1.666 4.125 1.666 2.916 0 4.533-1.875 4.533-1.875l-.146.91a.57.57 0 0 0 .562.66h2.95a.95.95 0 0 0 .939-.803l1.77-11.209a.568.568 0 0 0-.561-.658zm-4.565 6.374c-.316 1.871-1.801 3.127-3.695 3.127-.951 0-1.711-.305-2.199-.883-.484-.574-.668-1.391-.514-2.301.295-1.855 1.805-3.152 3.67-3.152.93 0 1.686.309 2.184.892.499.589.697 1.411.554 2.317z" fill="#253B80"/>
+                        <path d="M84.096 13.075h-3.291a.954.954 0 0 0-.787.417l-4.539 6.686-1.924-6.425a.953.953 0 0 0-.912-.678h-3.234a.57.57 0 0 0-.541.754l3.625 10.638-3.408 4.811a.57.57 0 0 0 .465.9h3.287a.949.949 0 0 0 .781-.408l10.946-15.8a.57.57 0 0 0-.468-.895z" fill="#253B80"/>
+                        <path d="M94.992 6.749h-6.84a.95.95 0 0 0-.938.802l-2.766 17.537a.569.569 0 0 0 .562.658h3.51a.665.665 0 0 0 .656-.562l.785-4.971a.95.95 0 0 1 .938-.803h2.164c4.506 0 7.105-2.18 7.785-6.5.307-1.89.012-3.375-.873-4.415-.971-1.142-2.694-1.746-4.983-1.746zm.789 6.405c-.373 2.454-2.248 2.454-4.062 2.454h-1.031l.725-4.583a.568.568 0 0 1 .562-.481h.473c1.234 0 2.4 0 3.002.704.359.42.468 1.044.331 1.906z" fill="#179BD7"/>
+                        <path d="M115.434 13.075h-3.273a.567.567 0 0 0-.562.481l-.145.916-.23-.332c-.709-1.029-2.289-1.373-3.867-1.373-3.619 0-6.709 2.741-7.311 6.586-.312 1.918.131 3.752 1.219 5.031 1 1.176 2.426 1.666 4.125 1.666 2.916 0 4.533-1.875 4.533-1.875l-.146.91a.57.57 0 0 0 .564.66h2.949a.95.95 0 0 0 .938-.803l1.771-11.209a.571.571 0 0 0-.565-.658zm-4.565 6.374c-.314 1.871-1.801 3.127-3.695 3.127-.949 0-1.711-.305-2.199-.883-.484-.574-.666-1.391-.514-2.301.297-1.855 1.805-3.152 3.67-3.152.93 0 1.686.309 2.184.892.501.589.699 1.411.554 2.317z" fill="#179BD7"/>
+                        <path d="M119.295 7.23l-2.807 17.858a.569.569 0 0 0 .562.658h2.822c.469 0 .867-.34.939-.803l2.768-17.536a.57.57 0 0 0-.562-.659h-3.16a.571.571 0 0 0-.562.482z" fill="#179BD7"/>
+                        <path d="M7.266 29.154l.523-3.322-1.165-.027H1.061L4.927 1.292a.316.316 0 0 1 .314-.268h9.38c3.114 0 5.263.648 6.385 1.927.526.6.861 1.227 1.023 1.917.17.724.173 1.589.007 2.644l-.012.077v.676l.526.298a3.69 3.69 0 0 1 1.065.812c.45.513.741 1.165.864 1.938.127.795.085 1.741-.123 2.812-.24 1.232-.628 2.305-1.152 3.183a6.547 6.547 0 0 1-1.825 2c-.696.494-1.523.869-2.458 1.109-.906.236-1.939.355-3.072.355h-.73c-.522 0-1.029.188-1.427.525a2.21 2.21 0 0 0-.744 1.328l-.055.299-.924 5.855-.042.215c-.011.068-.03.102-.058.125a.155.155 0 0 1-.096.035H7.266z" fill="#253B80"/>
+                        <path d="M23.048 7.667c-.028.179-.06.362-.096.55-1.237 6.351-5.469 8.545-10.874 8.545H9.326c-.661 0-1.218.48-1.321 1.132L6.596 26.83l-.399 2.533a.704.704 0 0 0 .695.814h4.881c.578 0 1.069-.42 1.16-.99l.048-.248.919-5.832.059-.32c.09-.572.582-.992 1.16-.992h.73c4.729 0 8.431-1.92 9.513-7.476.452-2.321.218-4.259-.978-5.622a4.667 4.667 0 0 0-1.336-1.03z" fill="#179BD7"/>
+                        <path d="M21.754 7.151a9.757 9.757 0 0 0-1.203-.267 15.284 15.284 0 0 0-2.426-.177H11.12a1.172 1.172 0 0 0-1.159.992L8.553 17.504l-.05.31a1.336 1.336 0 0 1 1.321-1.132h2.752c5.405 0 9.637-2.195 10.874-8.545.037-.188.068-.371.096-.55a6.594 6.594 0 0 0-1.017-.354 9.04 9.04 0 0 0-.775-.082z" fill="#222D65"/>
+                        <path d="M9.961 8.699a1.17 1.17 0 0 1 1.159-.991h7.005c.83 0 1.605.054 2.426.177a9.757 9.757 0 0 1 1.203.267c.329.093.628.202.896.327.314-2.001-.003-3.362-1.086-4.596C20.273 2.48 17.857 1.8 14.621 1.8H5.241a1.34 1.34 0 0 0-1.324 1.132L.063 25.573a.806.806 0 0 0 .795.932h5.791l1.454-9.225 1.858-8.581z" fill="#253B80"/>
+                      </svg>
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-[16px] font-semibold text-[#1a1a2e]">PayPal</h3>
+                        <span className="px-2.5 py-0.5 text-[12px] font-medium bg-emerald-500 text-white rounded-full flex items-center gap-1">
+                          <Check className="h-3 w-3" />
+                          Connected
+                        </span>
+                      </div>
+                      <p className="text-[14px] text-[#6b7280] mt-0.5">Connect to accept payments from PayPal and Credit/Debit cards</p>
+                    </div>
                   </div>
                   <button
                     type="button"
-                    className="w-full h-10 text-[14px] font-medium bg-[#635bff] hover:bg-[#5851db] text-white rounded-lg transition-colors cursor-pointer"
+                    className="px-5 h-10 text-[14px] font-medium border border-[#e5e7eb] hover:bg-[#f9fafb] text-[#374151] rounded-lg transition-colors cursor-pointer shrink-0"
                   >
-                    Connect Stripe
+                    Manage
                   </button>
                 </div>
               </div>
 
-              {/* PayPal Optional Card */}
+              {/* Stripe Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-10 h-10 bg-[#003087] rounded-lg flex items-center justify-center">
-                    <svg className="h-5 w-5 text-white" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944.901C5.026.382 5.474 0 5.998 0h7.46c2.57 0 4.578.543 5.69 1.81 1.01 1.15 1.304 2.42 1.012 4.287-.023.143-.047.288-.077.437-.983 5.05-4.349 6.797-8.647 6.797H9.108a.658.658 0 0 0-.65.55l-.866 5.497a.652.652 0 0 1-.643.55H7.076v.409h-.001z"/>
-                    </svg>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    {/* Stripe Logo */}
+                    <div className="w-14 h-14 bg-[#635bff] rounded-xl flex items-center justify-center shrink-0">
+                      <span className="text-[24px] font-bold text-white">S</span>
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-[16px] font-semibold text-[#1a1a2e]">Stripe</h3>
+                        <span className="px-2.5 py-0.5 text-[12px] font-medium bg-emerald-500 text-white rounded-full flex items-center gap-1">
+                          <Check className="h-3 w-3" />
+                          Connected
+                        </span>
+                      </div>
+                      <p className="text-[14px] text-[#6b7280] mt-0.5">Connect to accept payments from Credit/Debit cards</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-[15px] font-semibold text-[#1a1a2e]">PayPal (Optional)</h3>
-                    <p className="text-[13px] text-[#6b7280]">Alternative payment method for your customers</p>
-                  </div>
+                  <button
+                    type="button"
+                    className="px-5 h-10 text-[14px] font-medium border border-[#e5e7eb] hover:bg-[#f9fafb] text-[#374151] rounded-lg transition-colors cursor-pointer shrink-0"
+                  >
+                    Manage
+                  </button>
                 </div>
-                <p className="text-[12px] text-[#9ca3af] mt-2 mb-4">PayPal is optional. Most creators use Stripe for payouts.</p>
-                <div className="space-y-1.5">
+              </div>
+
+              {/* See all payment options link */}
+              <a
+                href="#"
+                className="inline-flex items-center gap-1 text-[14px] font-medium text-[#0891b2] hover:text-[#0e7490] transition-colors cursor-pointer"
+              >
+                See all payment options
+                <ChevronRight className="h-4 w-4" />
+              </a>
+
+              {/* Your default currency */}
+              <div className="pt-2">
+                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-3">Your default currency</h3>
+                <div className="max-w-[200px]">
+                  <select className="w-full h-11 rounded-xl text-[14px] border border-[#e5e7eb] px-3 bg-white hover:bg-[#f9fafb] focus:ring-[#8b5cf6] focus:border-[#8b5cf6] cursor-pointer transition-colors">
+                    <option value="EUR">EUR</option>
+                    <option value="USD">USD</option>
+                    <option value="GBP">GBP</option>
+                    <option value="CAD">CAD</option>
+                    <option value="AUD">AUD</option>
+                    <option value="JPY">JPY</option>
+                    <option value="CHF">CHF</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Statement description */}
+              <div className="pt-4">
+                <p className="text-[14px] text-[#374151] mb-3">
+                  <span className="font-semibold">Statement description</span>
+                  <span className="text-[#6b7280]"> - will appear on your customers bank statement, they should recognise it&apos;s you</span>
+                  <br />
+                  <span className="text-[13px] text-[#9ca3af]">(maximum 11 characters)</span>
+                </p>
+                <div className="flex items-center max-w-md">
+                  <div className="px-4 h-11 bg-[#f3f4f6] border border-r-0 border-[#e5e7eb] rounded-l-xl flex items-center">
+                    <span className="text-[14px] text-[#6b7280] font-medium">STORELIB*</span>
+                  </div>
                   <Input
-                    type="email"
-                    placeholder="your@email.com"
-                    className="h-11 rounded-xl text-[14px] border-[#e5e7eb] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
+                    type="text"
+                    placeholder="YOURSTORE"
+                    maxLength={11}
+                    className="h-11 rounded-l-none rounded-r-xl text-[14px] border-[#e5e7eb] focus:ring-[#8b5cf6] focus:border-[#8b5cf6] uppercase flex-1"
                   />
-                  <p className="text-[12px] text-[#9ca3af]">Your PayPal account email (optional - save settings to update)</p>
                 </div>
-              </div>
-
-              {/* Payment Settings Card */}
-              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-2">Payment Settings</h3>
-                <p className="text-[13px] text-[#6b7280] mb-4">Configure your default payment preferences</p>
-
-                <div className="space-y-4">
-                  {/* Currency Selector */}
-                  <div className="space-y-1.5">
-                    <Label className="text-[13px] font-medium text-[#374151]">Default Currency</Label>
-                    <select className="w-full h-11 rounded-xl text-[14px] border border-[#e5e7eb] px-3 bg-white focus:ring-[#8b5cf6] focus:border-[#8b5cf6] cursor-pointer">
-                      <option value="USD">USD - US Dollar</option>
-                      <option value="EUR">EUR - Euro</option>
-                      <option value="GBP">GBP - British Pound</option>
-                      <option value="CAD">CAD - Canadian Dollar</option>
-                      <option value="AUD">AUD - Australian Dollar</option>
-                    </select>
-                  </div>
-
-                  {/* Statement Descriptor */}
-                  <div className="space-y-1.5">
-                    <Label className="text-[13px] font-medium text-[#374151]">Statement Descriptor</Label>
-                    <Input
-                      type="text"
-                      placeholder="YOUR STORE"
-                      maxLength={22}
-                      className="h-11 rounded-xl text-[14px] border-[#e5e7eb] focus:ring-[#8b5cf6] focus:border-[#8b5cf6] uppercase"
-                    />
-                    <p className="text-[12px] text-[#9ca3af]">Appears on customer credit card statements (max 22 characters)</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Save Button */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2">
-                <Button
-                  type="button"
-                  className="h-11 px-6 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white rounded-xl text-[14px] font-medium shadow-sm cursor-pointer"
-                >
-                  Save Settings
-                </Button>
               </div>
             </div>
           )}

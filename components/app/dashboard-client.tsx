@@ -31,6 +31,7 @@ import {
   BarChart3,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
+import { useLanguage } from "@/lib/i18n"
 
 interface SetupStep {
   id: string
@@ -492,6 +493,7 @@ export function DashboardClient({
     prevConversionRate: 0,
   })
   const [liveVisitors, setLiveVisitors] = useState(0)
+  const { t } = useLanguage()
 
   const formatCurrency = (cents: number, compact = false) => {
     const value = cents / 100
@@ -1180,9 +1182,9 @@ export function DashboardClient({
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>
             <h1 className="text-[22px] sm:text-[26px] font-semibold text-[#1a1a2e] tracking-tight">
-              Welcome back, {displayName}
+              {t("dashboard.welcome")}, {displayName}
             </h1>
-            <p className="text-[14px] text-[#6b7280] mt-1">Here's what's happening with your store</p>
+            <p className="text-[14px] text-[#6b7280] mt-1">{t("dashboard.subtitle")}</p>
           </div>
 
           {/* Desktop: Timeframe Dropdown + Live Indicator */}
@@ -1231,7 +1233,7 @@ export function DashboardClient({
                 }}
               />
               <span className={`text-[13px] font-medium ${liveVisitors > 0 ? "text-emerald-600" : "text-gray-500"}`}>
-                {liveVisitors} live
+                {liveVisitors} {t("dashboard.liveVisitors")}
               </span>
             </div>
           </div>
@@ -1251,7 +1253,7 @@ export function DashboardClient({
                 }}
               />
               <span className={`text-[12px] font-medium ${liveVisitors > 0 ? "text-emerald-600" : "text-gray-500"}`}>
-                {liveVisitors} live
+                {liveVisitors} {t("dashboard.liveVisitors")}
               </span>
             </div>
             <button
@@ -1286,7 +1288,7 @@ export function DashboardClient({
               <div onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] font-medium text-violet-600">Views</span>
+                    <span className="text-[11px] font-medium text-violet-600">{t("dashboard.views")}</span>
                     <span className="text-[10px] text-[#9ca3af] hidden sm:inline">• {selectedOption?.label}</span>
                   </div>
                   <button onClick={(e) => { e.stopPropagation(); setOpenKPIModal(null) }} className="w-6 h-6 aspect-square rounded-md bg-violet-100 text-violet-600 flex items-center justify-center hover:bg-violet-200 transition-colors flex-shrink-0">
@@ -1331,7 +1333,7 @@ export function DashboardClient({
             ) : (
               <>
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-[13px] font-medium text-[#6b7280]">Views</span>
+                  <span className="text-[13px] font-medium text-[#6b7280]">{t("dashboard.views")}</span>
                   <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
                     <Eye className="h-4 w-4 text-[#9ca3af]" />
                   </div>
@@ -1340,7 +1342,7 @@ export function DashboardClient({
                   <span className={`text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.periodViews)}</span>
                   <PercentChangeIndicator current={analyticsData.periodViews} previous={analyticsData.prevPeriodViews} />
                 </div>
-                <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.totalViews)} all time</p>
+                <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.totalViews)} {t("dashboard.allTime")}</p>
               </>
             )}
           </div>
@@ -1356,7 +1358,7 @@ export function DashboardClient({
               <div onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] font-medium text-violet-600">Orders</span>
+                    <span className="text-[11px] font-medium text-violet-600">{t("dashboard.orders")}</span>
                     <span className="text-[10px] text-[#9ca3af] hidden sm:inline">• {selectedOption?.label}</span>
                   </div>
                   <button onClick={(e) => { e.stopPropagation(); setOpenKPIModal(null) }} className="w-6 h-6 aspect-square rounded-md bg-violet-100 text-violet-600 flex items-center justify-center hover:bg-violet-200 transition-colors flex-shrink-0">
@@ -1401,7 +1403,7 @@ export function DashboardClient({
             ) : (
               <>
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-[13px] font-medium text-[#6b7280]">Orders</span>
+                  <span className="text-[13px] font-medium text-[#6b7280]">{t("dashboard.orders")}</span>
                   <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
                     <ShoppingCart className="h-4 w-4 text-[#9ca3af]" />
                   </div>
@@ -1410,7 +1412,7 @@ export function DashboardClient({
                   <span className={`text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.periodOrders)}</span>
                   <PercentChangeIndicator current={analyticsData.periodOrders} previous={analyticsData.prevPeriodOrders} />
                 </div>
-                <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.totalOrders)} all time</p>
+                <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.totalOrders)} {t("dashboard.allTime")}</p>
               </>
             )}
           </div>
@@ -1426,7 +1428,7 @@ export function DashboardClient({
               <div onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] font-medium text-violet-600">Revenue</span>
+                    <span className="text-[11px] font-medium text-violet-600">{t("dashboard.revenue")}</span>
                     <span className="text-[10px] text-[#9ca3af] hidden sm:inline">• {selectedOption?.label}</span>
                   </div>
                   <button onClick={(e) => { e.stopPropagation(); setOpenKPIModal(null) }} className="w-6 h-6 aspect-square rounded-md bg-violet-100 text-violet-600 flex items-center justify-center hover:bg-violet-200 transition-colors flex-shrink-0">
@@ -1471,7 +1473,7 @@ export function DashboardClient({
             ) : (
               <>
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-[13px] font-medium text-[#6b7280]">Revenue</span>
+                  <span className="text-[13px] font-medium text-[#6b7280]">{t("dashboard.revenue")}</span>
                   <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
                     <DollarSign className="h-4 w-4 text-[#9ca3af]" />
                   </div>
@@ -1480,7 +1482,7 @@ export function DashboardClient({
                   <span className={`text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{formatCurrency(analyticsData.periodRevenue)}</span>
                   <PercentChangeIndicator current={analyticsData.periodRevenue} previous={analyticsData.prevPeriodRevenue} />
                 </div>
-                <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCurrency(analyticsData.totalRevenue)} all time</p>
+                <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCurrency(analyticsData.totalRevenue)} {t("dashboard.allTime")}</p>
               </>
             )}
           </div>
@@ -1488,7 +1490,7 @@ export function DashboardClient({
           {/* Conversion Rate */}
           <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-[13px] font-medium text-[#6b7280]">Conversion Rate</span>
+              <span className="text-[13px] font-medium text-[#6b7280]">{t("dashboard.conversionRate")}</span>
               <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
                 <TrendingUp className="h-4 w-4 text-[#9ca3af]" />
               </div>
@@ -1497,7 +1499,7 @@ export function DashboardClient({
               <span className={`text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{analyticsData.conversionRate.toFixed(2)}%</span>
               <PercentChangeIndicator current={analyticsData.conversionRate} previous={analyticsData.prevConversionRate} />
             </div>
-            <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>Views to orders</p>
+            <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{t("dashboard.viewsToOrders")}</p>
           </div>
         </div>
 
@@ -1545,7 +1547,7 @@ export function DashboardClient({
           {!allCompleted && (
             <div id="store-setup-section" className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] h-fit">
               <div className="flex items-center justify-between mb-5">
-                <h2 className="text-[15px] font-semibold text-[#1a1a2e]">Store setup</h2>
+                <h2 className="text-[15px] font-semibold text-[#1a1a2e]">{t("dashboard.storeSetup")}</h2>
                 <span className="text-[13px] font-medium text-[#6b7280] bg-[#f3f4f6] px-2.5 py-1 rounded-full">
                   {completedSteps}/{totalSteps}
                 </span>
@@ -1665,11 +1667,11 @@ export function DashboardClient({
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <p className="text-[15px] font-semibold text-[#1a1a2e] group-hover:text-[#8b5cf6] transition-colors">
-                    Add a product
+                    {t("dashboard.createProduct")}
                   </p>
                   <ArrowRight className="h-4 w-4 text-[#d1d5db] group-hover:text-[#8b5cf6] group-hover:translate-x-0.5 transition-all" />
                 </div>
-                <p className="text-[13px] text-[#6b7280] mt-0.5">Go from idea to product offer in minutes</p>
+                <p className="text-[13px] text-[#6b7280] mt-0.5">{t("dashboard.createProductDesc")}</p>
               </div>
               <div className="hidden sm:block w-20 h-20 rounded-xl bg-[#f3f4f6] overflow-hidden">
                 <div className="w-full h-full flex items-center justify-center">
@@ -1689,11 +1691,11 @@ export function DashboardClient({
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <p className="text-[15px] font-semibold text-[#1a1a2e] group-hover:text-[#8b5cf6] transition-colors">
-                    Edit your OnePage
+                    {t("dashboard.editOnePage")}
                   </p>
                   <ArrowRight className="h-4 w-4 text-[#d1d5db] group-hover:text-[#8b5cf6] group-hover:translate-x-0.5 transition-all" />
                 </div>
-                <p className="text-[13px] text-[#6b7280] mt-0.5">Customize your link-in-bio page</p>
+                <p className="text-[13px] text-[#6b7280] mt-0.5">{t("dashboard.editOnePageDesc")}</p>
               </div>
             </Link>
 
@@ -1708,11 +1710,11 @@ export function DashboardClient({
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <p className="text-[15px] font-semibold text-[#1a1a2e] group-hover:text-[#8b5cf6] transition-colors">
-                    View analytics
+                    {t("dashboard.viewAnalytics")}
                   </p>
                   <ArrowRight className="h-4 w-4 text-[#d1d5db] group-hover:text-[#8b5cf6] group-hover:translate-x-0.5 transition-all" />
                 </div>
-                <p className="text-[13px] text-[#6b7280] mt-0.5">See how your store is performing</p>
+                <p className="text-[13px] text-[#6b7280] mt-0.5">{t("dashboard.viewAnalyticsDesc")}</p>
               </div>
             </Link>
           </div>
@@ -1727,7 +1729,7 @@ export function DashboardClient({
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h3 className="text-[17px] font-semibold text-[#1a1a2e]">You're all set up!</h3>
+                  <h3 className="text-[17px] font-semibold text-[#1a1a2e]">{t("dashboard.allSetUp")}</h3>
                   <Sparkles className="h-5 w-5 text-[#8b5cf6]" />
                 </div>
                 <p className="text-[14px] text-[#6b7280] mt-1">
