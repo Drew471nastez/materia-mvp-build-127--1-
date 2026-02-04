@@ -2,6 +2,11 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { DashboardClient } from "@/components/app/dashboard-client"
+import type { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: "Storelib",
+}
 
 export const dynamic = "force-dynamic"
 

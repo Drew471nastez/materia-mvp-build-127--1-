@@ -7,7 +7,7 @@ import { PayoutsClient } from "./payouts-client"
 export const dynamic = "force-dynamic"
 
 export const metadata = {
-  title: "Payouts | Storelib",
+  title: "Payouts",
 }
 
 export default async function PayoutsPage() {

@@ -1,6 +1,11 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { StoreBuilderEditor } from "@/components/store-builder/store-builder-editor"
+import type { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: "Store Builder - Customize Storelib",
+}
 
 export const dynamic = "force-dynamic"
 

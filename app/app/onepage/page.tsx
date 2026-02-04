@@ -7,7 +7,7 @@ import { defaultTheme, defaultSettings, defaultSocialLinks } from "@/lib/onepage
 export const dynamic = "force-dynamic"
 
 export const metadata = {
-  title: "OnePage Editor | Storelib",
+  title: "OnePage",
 }
 
 export default async function OnePageEditorPage() {

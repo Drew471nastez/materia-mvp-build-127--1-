@@ -1,6 +1,11 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { SettingsFormNew } from "@/components/app/settings-form-new"
+import type { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: "Settings",
+}
 
 export default async function SettingsPage() {
   const supabase = await createClient()

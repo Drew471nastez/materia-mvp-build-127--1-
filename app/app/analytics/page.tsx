@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic"
 export const revalidate = 0
 
 export const metadata = {
-  title: "Analytics | Storelib",
+  title: "Analytics",
 }
 
 export default async function AnalyticsPage() {

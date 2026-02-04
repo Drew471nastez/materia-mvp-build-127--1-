@@ -1,5 +1,10 @@
 import { createClient } from "@/lib/supabase/server"
 import { ProductsClient } from "./products-client"
+import type { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: "Products",
+}
 
 export default async function ProductsPage() {
   const supabase = await createClient()
