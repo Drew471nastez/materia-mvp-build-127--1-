@@ -23,7 +23,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
-import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, Menu, ChevronDown, Type, X, Loader2 } from "lucide-react"
+import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, Menu, ChevronDown, Type, X, Loader2, Bell } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 
 const LOGO_URL =
@@ -38,13 +38,17 @@ const DEFAULT_CATEGORIES = [
   "3D Printing",
 ]
 
-// Search modal categories
+// Search modal categories - expanded list
 const SEARCH_CATEGORIES = [
   { label: "Design", href: "/explore?category=design" },
   { label: "Development", href: "/explore?category=development" },
   { label: "Marketing", href: "/explore?category=marketing" },
   { label: "Business", href: "/explore?category=business" },
   { label: "Education", href: "/explore?category=education" },
+  { label: "Music & Audio", href: "/explore?category=music" },
+  { label: "Photography", href: "/explore?category=photography" },
+  { label: "Writing", href: "/explore?category=writing" },
+  { label: "Video & Film", href: "/explore?category=video" },
 ]
 
 // Product type for search results
@@ -76,7 +80,9 @@ export function PlatformHeaderClient() {
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [isCreator, setIsCreator] = useState(false)
-  const [loading, setLoading] = useState(true)
+  // Start with false to avoid skeleton flash - only show skeleton on true initial load
+  const [loading, setLoading] = useState(false)
+  const [initialLoadDone, setInitialLoadDone] = useState(false)
   const [wishlistCount, setWishlistCount] = useState(0)
 
   const mountedRef = useRef(true)
@@ -86,6 +92,7 @@ export function PlatformHeaderClient() {
   const [searchResults, setSearchResults] = useState<SearchProduct[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
   const [categoriesDropdownOpen, setCategoriesDropdownOpen] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -93,10 +100,11 @@ export function PlatformHeaderClient() {
     setQuery(searchParams.get("q") ?? "")
   }, [searchParams])
 
-  // Close search modal on route change
+  // Close modals on route change
   useEffect(() => {
     setSearchModalOpen(false)
     setCategoriesDropdownOpen(false)
+    setMobileMenuOpen(false)
   }, [pathname])
 
   // Close categories dropdown when clicking outside
@@ -119,7 +127,7 @@ export function PlatformHeaderClient() {
       clearTimeout(searchTimeoutRef.current)
     }
 
-    if (value.trim().length < 2) {
+    if (value.trim().length < 1) {
       setSearchResults([])
       setSearchLoading(false)
       return
@@ -220,12 +228,16 @@ export function PlatformHeaderClient() {
     const failSafe = window.setTimeout(() => {
       if (!mountedRef.current) return
       setLoading(false)
+      setInitialLoadDone(true)
     }, 2500)
 
-    const loadUser = async () => {
+    const loadUser = async (isInitial = false) => {
       try {
         if (!mountedRef.current) return
-        setLoading(true)
+        // Only show loading skeleton on initial load, not on auth state changes
+        if (isInitial && !initialLoadDone) {
+          setLoading(true)
+        }
 
         const {
           data: { user },
@@ -265,13 +277,14 @@ export function PlatformHeaderClient() {
       } finally {
         if (!mountedRef.current) return
         setLoading(false)
+        setInitialLoadDone(true)
       }
     }
 
-    loadUser()
+    loadUser(true)
 
     const { data } = supabase.auth.onAuthStateChange(() => {
-      loadUser()
+      loadUser(false)
       fetchWishlistCount()
     })
 
@@ -280,7 +293,7 @@ export function PlatformHeaderClient() {
       window.clearTimeout(failSafe)
       data?.subscription?.unsubscribe()
     }
-  }, [fetchWishlistCount])
+  }, [fetchWishlistCount, initialLoadDone])
 
   const startSellingHref = useMemo(() => {
     if (!user) return "/signup"
@@ -343,14 +356,14 @@ export function PlatformHeaderClient() {
         <div className="flex h-[68px] md:h-16 items-center justify-between gap-4">
           {/* Left side - Logo and Categories Button */}
           <div className="flex items-center gap-3 shrink-0">
-            {/* Logo - 30% bigger */}
+            {/* Logo - 40% bigger */}
             <Link href="/" className="shrink-0">
               <Image
                 src={LOGO_URL || "/placeholder.svg"}
                 alt="Storelib"
-                width={166}
-                height={56}
-                className="h-[52px] w-auto"
+                width={183}
+                height={62}
+                className="h-[57px] w-auto"
                 priority
               />
             </Link>
@@ -372,36 +385,19 @@ export function PlatformHeaderClient() {
 
               {/* Categories Megamenu Dropdown */}
               {categoriesDropdownOpen && (
-                <div className="absolute top-full left-0 mt-2 w-[320px] bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden animate-in fade-in-0 slide-in-from-top-2 duration-200 z-50">
-                  <div className="p-4">
-                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Browse Categories</h3>
-                    <div className="space-y-1">
+                <div className="absolute top-full left-0 mt-2 w-[280px] bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden animate-in fade-in-0 slide-in-from-top-2 duration-200 z-50">
+                  <div className="p-3">
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-2">Browse Categories</h3>
+                    <div className="space-y-0.5">
                       {SEARCH_CATEGORIES.map((cat) => (
                         <Link
                           key={cat.label}
                           href={cat.href}
-                          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors cursor-pointer"
+                          onClick={() => setCategoriesDropdownOpen(false)}
+                          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors cursor-pointer"
                         >
                           {cat.label}
                         </Link>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="border-t border-gray-100 p-4 bg-gray-50">
-                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Quick Links</h3>
-                    <div className="grid grid-cols-2 gap-2">
-                      {DEFAULT_CATEGORIES.slice(0, 4).map((cat) => (
-                        <button
-                          key={cat}
-                          type="button"
-                          onClick={() => {
-                            onCategoryClick(cat)
-                            setCategoriesDropdownOpen(false)
-                          }}
-                          className="px-3 py-2 rounded-lg text-xs font-medium text-gray-600 bg-white border border-gray-200 hover:bg-gray-100 hover:text-gray-900 transition-colors cursor-pointer"
-                        >
-                          {cat}
-                        </button>
                       ))}
                     </div>
                   </div>
@@ -517,7 +513,7 @@ export function PlatformHeaderClient() {
                   )}
 
                   {/* No Results */}
-                  {!searchLoading && query.trim().length >= 2 && searchResults.length === 0 && (
+                  {!searchLoading && query.trim().length >= 1 && searchResults.length === 0 && (
                     <div className="p-6 text-center">
                       <p className="text-sm text-gray-500">No products found for "{query}"</p>
                     </div>
@@ -550,17 +546,90 @@ export function PlatformHeaderClient() {
             )}
           </div>
 
-          {/* Mobile Search */}
-          <div className="md:hidden flex-1 mx-2">
+          {/* Mobile Header - hamburger menu, search, avatar */}
+          <div className="md:hidden flex items-center gap-2 flex-1">
+            {/* Mobile Menu Button */}
+            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+              <SheetTrigger asChild>
+                <button
+                  type="button"
+                  className="flex h-10 w-10 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 transition cursor-pointer"
+                  aria-label="Open menu"
+                >
+                  <Menu className="h-5 w-5" />
+                </button>
+              </SheetTrigger>
+
+              <SheetContent side="left" className="w-[280px] pt-[env(safe-area-inset-top)] bg-white border-r border-gray-200">
+                <SheetHeader>
+                  <SheetTitle className="text-gray-900 text-left">Menu</SheetTitle>
+                </SheetHeader>
+
+                {/* Mobile Search */}
+                <form onSubmit={onSubmitSearch} className="mt-4">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                    <Input
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder={t("search_placeholder")}
+                      className="h-11 pl-10 bg-gray-100 border-gray-200 text-gray-900 placeholder:text-gray-500 rounded-full"
+                    />
+                  </div>
+                </form>
+
+                {/* Mobile Categories */}
+                <div className="mt-6">
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Categories</h3>
+                  <div className="space-y-1">
+                    {SEARCH_CATEGORIES.map((cat) => (
+                      <Link
+                        key={cat.label}
+                        href={cat.href}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="flex items-center px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
+                      >
+                        {cat.label}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Mobile Quick Links */}
+                <div className="mt-6 pt-6 border-t border-gray-200">
+                  <div className="space-y-1">
+                    <Link
+                      href="/library"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
+                    >
+                      <Library className="h-4 w-4" />
+                      Library
+                    </Link>
+                    {user && (
+                      <Link
+                        href={dashboardHref}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
+                      >
+                        <LayoutDashboard className="h-4 w-4" />
+                        Dashboard
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              </SheetContent>
+            </Sheet>
+
+            {/* Mobile Search Button */}
             <Sheet>
               <SheetTrigger asChild>
                 <button
                   type="button"
-                  className="flex h-10 w-full items-center gap-2 rounded-full border px-3 text-sm border-gray-200 bg-gray-100 text-gray-500"
-                  aria-label="Open search"
+                  className="flex h-10 w-10 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 transition cursor-pointer"
+                  aria-label="Search"
                 >
-                  <Search className="h-4 w-4" />
-                  <span className="truncate">{t("search_placeholder")}</span>
+                  <Search className="h-5 w-5" />
                 </button>
               </SheetTrigger>
 
@@ -577,21 +646,20 @@ export function PlatformHeaderClient() {
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
                       placeholder={t("search_placeholder")}
-                      className="h-11 pl-10 bg-gray-100 border-gray-200 text-gray-900 placeholder:text-gray-500"
+                      className="h-11 pl-10 bg-gray-100 border-gray-200 text-gray-900 placeholder:text-gray-500 rounded-full"
                     />
                   </div>
                 </form>
 
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {DEFAULT_CATEGORIES.slice(0, 8).map((cat) => (
-                    <button
-                      key={cat}
-                      type="button"
-                      onClick={() => onCategoryClick(cat)}
-                      className="rounded-full border border-gray-200 bg-gray-100 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-200 transition"
+                  {SEARCH_CATEGORIES.map((cat) => (
+                    <Link
+                      key={cat.label}
+                      href={cat.href}
+                      className="rounded-full border border-gray-200 bg-gray-100 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-200 transition cursor-pointer"
                     >
-                      {cat}
-                    </button>
+                      {cat.label}
+                    </Link>
                   ))}
                 </div>
               </SheetContent>
@@ -664,19 +732,28 @@ export function PlatformHeaderClient() {
 
                       <DropdownMenuSeparator className="bg-gray-200" />
 
-                      <DropdownMenuItem onClick={() => router.push(dashboardHref)} className="focus:bg-gray-100">
+                      <DropdownMenuItem
+                        onClick={() => router.push(dashboardHref)}
+                        className="cursor-pointer hover:bg-gray-100 focus:bg-gray-100 gap-2"
+                      >
                         <LayoutDashboard className="h-4 w-4" />
                         Dashboard
                       </DropdownMenuItem>
 
-                      <DropdownMenuItem onClick={() => router.push("/settings")} className="focus:bg-gray-100">
+                      <DropdownMenuItem
+                        onClick={() => router.push("/settings")}
+                        className="cursor-pointer hover:bg-gray-100 focus:bg-gray-100 gap-2"
+                      >
                         <Settings className="h-4 w-4" />
                         Settings
                       </DropdownMenuItem>
 
                       <DropdownMenuSeparator className="bg-gray-200" />
 
-                      <DropdownMenuItem onClick={handleLogout} className="text-red-600 focus:bg-gray-100">
+                      <DropdownMenuItem
+                        onClick={handleLogout}
+                        className="cursor-pointer text-red-600 hover:bg-gray-100 focus:bg-gray-100 gap-2"
+                      >
                         <LogOut className="h-4 w-4" />
                         Log out
                       </DropdownMenuItem>
@@ -690,18 +767,16 @@ export function PlatformHeaderClient() {
 
         {/* Categories - only on /explore page, left-aligned with content */}
         {showCategories && (
-          <nav className="border-t border-gray-200 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8">
+          <nav className="border-t border-gray-200 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 hidden md:block">
             <div className="overflow-x-auto scrollbar-hide">
               <div className="flex h-11 items-center justify-start gap-6 whitespace-nowrap text-sm">
-                {DEFAULT_CATEGORIES.map((cat, index) => (
+                {DEFAULT_CATEGORIES.map((cat) => (
                   <button
                     key={cat}
                     type="button"
                     onClick={() => onCategoryClick(cat)}
-                    className="flex items-center gap-1.5 text-gray-500 hover:text-gray-900 transition-colors cursor-pointer"
+                    className="text-gray-500 hover:text-gray-900 transition-colors cursor-pointer"
                   >
-                    {/* Show icon only on first category */}
-                    {index === 0 && <Type className="w-4 h-4" />}
                     {cat}
                   </button>
                 ))}

@@ -67,7 +67,7 @@ export function RecommendedSection({ products, filterType = "curated" }: Recomme
   }
 
   return (
-    <section>
+    <section className="pb-3 lg:pb-5">
       {/* Header row */}
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl sm:text-2xl font-semibold text-neutral-900">

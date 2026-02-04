@@ -180,14 +180,12 @@ export function ExplorePageClient({
       <nav aria-label="Product categories" className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide mt-10">
         {CATEGORIES.map((category, index) => {
           const isSelected = selectedCategory === category.id
-          const isLoading = isLoadingCategory && selectedCategory === category.id
           const Icon = category.icon
 
           return (
             <button
               key={category.id}
               onClick={() => handleCategoryChange(category.id)}
-              disabled={isLoading}
               className={`
                 relative inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium
                 whitespace-nowrap cursor-pointer select-none
@@ -202,10 +200,6 @@ export function ExplorePageClient({
             >
               {/* Show icon on first category (All) */}
               {index === 0 && <Icon className="w-4 h-4" />}
-              {/* Subtle loading indicator - small pulsing dot */}
-              {isLoading && (
-                <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
-              )}
               {category.label}
             </button>
           )
