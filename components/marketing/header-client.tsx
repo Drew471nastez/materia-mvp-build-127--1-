@@ -29,7 +29,8 @@ import {
   Image as ImageIcon,
   Scissors,
   Cpu,
-  Printer
+  Printer,
+  ChevronDown
 } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
@@ -143,19 +144,24 @@ export function MarketingHeaderClient() {
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 gap-4">
           {/* Left side - Logo and Categories Button */}
           <div className="flex items-center gap-4 shrink-0">
-            {/* Logo - 30% bigger */}
+            {/* Logo - 30% bigger (~2.6rem from 2rem) */}
             <Link href="/?src=platform" className="flex items-center gap-2 shrink-0">
-              <span className="text-[2rem] font-bold tracking-tight leading-none">Storelib</span>
+              <span className="text-[2.6rem] font-bold tracking-tight leading-none">Storelib</span>
             </Link>
 
             {/* Categories Dropdown Button */}
             <div className="relative" data-categories-dropdown>
               <button
                 onClick={() => setCategoriesOpen(!categoriesOpen)}
-                className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-neutral-700 hover:bg-neutral-100 transition-colors cursor-pointer"
+                className={`hidden sm:flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 cursor-pointer ${
+                  categoriesOpen
+                    ? "bg-neutral-100 text-neutral-900"
+                    : "text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900"
+                }`}
               >
                 <Menu className="w-4 h-4" />
                 <span>Categories</span>
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${categoriesOpen ? "rotate-180" : ""}`} />
               </button>
 
               {/* Megamenu Dropdown */}
@@ -303,10 +309,10 @@ export function MarketingHeaderClient() {
         </div>
       </header>
 
-      {/* Secondary Navigation Row - Category Links */}
+      {/* Secondary Navigation Row - Category Links (left-aligned with logo/content) */}
       <nav className="border-b border-border/40 bg-white">
         <div className="mx-auto max-w-6xl px-4">
-          <div className="flex items-center gap-6 py-2.5 overflow-x-auto scrollbar-hide">
+          <div className="flex items-center justify-start gap-6 py-2.5 overflow-x-auto scrollbar-hide">
             {SECONDARY_NAV_CATEGORIES.map((category, index) => {
               const Icon = category.icon
               return (
@@ -315,8 +321,8 @@ export function MarketingHeaderClient() {
                   href={category.href}
                   className="flex items-center gap-1.5 text-sm text-neutral-600 hover:text-neutral-900 whitespace-nowrap transition-colors cursor-pointer"
                 >
-                  {/* Show icon only on first category */}
-                  {index === 0 && <Icon className="w-4 h-4" />}
+                  {/* Show icon only on first category (Fonts) */}
+                  {index === 0 && <Icon className="w-4 h-4 text-neutral-500" />}
                   <span>{category.label}</span>
                 </Link>
               )
