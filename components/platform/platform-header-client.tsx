@@ -676,13 +676,13 @@ export function PlatformHeaderClient() {
                 )}
               </Link>
 
-              {/* Mobile Avatar - 40% more gap from wishlist */}
+              {/* Mobile Avatar - increased gap from wishlist */}
               {user ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
-                      className="rounded-full cursor-pointer ml-1"
+                      className="rounded-full cursor-pointer ml-1.5"
                       aria-label="Open profile menu"
                     >
                       <Avatar className="h-8 w-8 border border-gray-200">
@@ -736,7 +736,7 @@ export function PlatformHeaderClient() {
                   </DropdownMenuContent>
                 </DropdownMenu>
               ) : (
-                <Avatar className="h-8 w-8 border border-gray-200 ml-1.5">
+                <Avatar className="h-8 w-8 border border-gray-200 ml-2">
                   <AvatarFallback className="text-[10px] bg-gray-100 text-gray-700">?</AvatarFallback>
                 </Avatar>
               )}
@@ -1022,12 +1022,12 @@ export function PlatformHeaderClient() {
           </div>
         )}
 
-        {/* Categories - only on /explore page, pill buttons with icons - Desktop only */}
+        {/* Categories - only on /explore page, text links with icon on All - Desktop only */}
         {showCategories && (
           <nav className="border-t border-gray-200 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 hidden md:block">
-            <div className="overflow-x-auto scrollbar-hide py-3">
-              <div className="flex items-center justify-start gap-2 whitespace-nowrap">
-                {DEFAULT_CATEGORIES.map((cat, index) => {
+            <div className="overflow-x-auto scrollbar-hide">
+              <div className="flex h-11 items-center justify-start gap-6 whitespace-nowrap text-sm">
+                {DEFAULT_CATEGORIES.map((cat) => {
                   const Icon = cat.icon
                   const isAll = cat.id === "all"
                   return (
@@ -1035,13 +1035,9 @@ export function PlatformHeaderClient() {
                       key={cat.id}
                       type="button"
                       onClick={() => onCategoryClick(cat.id)}
-                      className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-colors cursor-pointer ${
-                        isAll
-                          ? "bg-neutral-900 text-white hover:bg-neutral-800"
-                          : "bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 border border-gray-200"
-                      }`}
+                      className="inline-flex items-center gap-1.5 text-gray-500 hover:text-gray-900 transition-colors cursor-pointer font-medium"
                     >
-                      <Icon className="w-4 h-4" />
+                      {isAll && <Icon className="w-4 h-4" />}
                       {cat.label}
                     </button>
                   )
