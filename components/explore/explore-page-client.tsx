@@ -156,10 +156,11 @@ export function ExplorePageClient({
                   key={filter.id}
                   onClick={() => setRecommendationFilter(filter.id as typeof recommendationFilter)}
                   className={`
-                    px-4 py-2 rounded-full text-sm font-medium cursor-pointer
-                    transition-all duration-150 ease-out
+                    px-4 py-2 rounded-full text-sm font-medium cursor-pointer select-none
+                    transition-all duration-200 ease-out
+                    active:scale-95 hover:shadow-sm
                     ${isSelected
-                      ? "bg-neutral-900 text-white"
+                      ? "bg-neutral-900 text-white shadow-md"
                       : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200 hover:text-neutral-900"
                     }
                   `}
@@ -189,10 +190,12 @@ export function ExplorePageClient({
               disabled={isLoading}
               className={`
                 relative inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium
-                whitespace-nowrap transition-colors duration-150 ease-out
+                whitespace-nowrap cursor-pointer select-none
+                transition-all duration-200 ease-out
+                active:scale-95 hover:shadow-sm
                 ${isSelected
-                  ? "bg-neutral-900 text-white"
-                  : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                  ? "bg-neutral-900 text-white shadow-md"
+                  : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200 hover:text-neutral-900"
                 }
               `}
               aria-pressed={isSelected}
@@ -220,13 +223,16 @@ export function ExplorePageClient({
           </h2>
 
           {showSkeletons ? (
-            <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 animate-in fade-in-0 duration-200">
               {Array.from({ length: 6 }).map((_, i) => (
                 <ProductCardSkeleton key={i} />
               ))}
             </div>
           ) : filteredProducts.length > 0 ? (
-            <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+            <div
+              key={`products-${selectedCategory}`}
+              className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 animate-in fade-in-0 slide-in-from-bottom-2 duration-300"
+            >
               {filteredProducts.map((product, index) => (
                 <ProductCard
                   key={product.id}

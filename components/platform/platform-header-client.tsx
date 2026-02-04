@@ -23,7 +23,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
-import { Heart, Library, Search, LayoutDashboard, Settings, LogOut } from "lucide-react"
+import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, Menu, ChevronDown, Type, X, Loader2 } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 
 const LOGO_URL =
@@ -37,6 +37,28 @@ const DEFAULT_CATEGORIES = [
   "Laser Cutting",
   "3D Printing",
 ]
+
+// Search modal categories
+const SEARCH_CATEGORIES = [
+  { label: "Design", href: "/explore?category=design" },
+  { label: "Development", href: "/explore?category=development" },
+  { label: "Marketing", href: "/explore?category=marketing" },
+  { label: "Business", href: "/explore?category=business" },
+  { label: "Education", href: "/explore?category=education" },
+]
+
+// Product type for search results
+type SearchProduct = {
+  id: string
+  title: string
+  slug: string
+  thumbnail_url?: string
+  price_cents: number
+  creator?: {
+    display_name?: string
+    slug?: string
+  }
+}
 
 type Profile = {
   display_name?: string | null
@@ -60,9 +82,102 @@ export function PlatformHeaderClient() {
   const mountedRef = useRef(true)
 
   const [query, setQuery] = useState(() => searchParams.get("q") ?? "")
+  const [searchModalOpen, setSearchModalOpen] = useState(false)
+  const [searchResults, setSearchResults] = useState<SearchProduct[]>([])
+  const [searchLoading, setSearchLoading] = useState(false)
+  const [categoriesDropdownOpen, setCategoriesDropdownOpen] = useState(false)
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
   useEffect(() => {
     setQuery(searchParams.get("q") ?? "")
   }, [searchParams])
+
+  // Close search modal on route change
+  useEffect(() => {
+    setSearchModalOpen(false)
+    setCategoriesDropdownOpen(false)
+  }, [pathname])
+
+  // Close categories dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      if (!target.closest('[data-categories-dropdown]')) {
+        setCategoriesDropdownOpen(false)
+      }
+    }
+    document.addEventListener('click', handleClickOutside)
+    return () => document.removeEventListener('click', handleClickOutside)
+  }, [])
+
+  // Live search with debounce
+  const handleSearchChange = useCallback((value: string) => {
+    setQuery(value)
+
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current)
+    }
+
+    if (value.trim().length < 2) {
+      setSearchResults([])
+      setSearchLoading(false)
+      return
+    }
+
+    setSearchLoading(true)
+
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const supabase = createClient()
+        const { data, error } = await supabase
+          .from("products")
+          .select(`
+            id,
+            title,
+            slug,
+            thumbnail_url,
+            price_cents,
+            creator_id,
+            creators!inner (
+              display_name,
+              slug
+            )
+          `)
+          .ilike("title", `%${value}%`)
+          .eq("status", "published")
+          .limit(8)
+
+        if (!error && data) {
+          const results = data.map((p: any) => ({
+            id: p.id,
+            title: p.title,
+            slug: p.slug,
+            thumbnail_url: p.thumbnail_url,
+            price_cents: p.price_cents,
+            creator: p.creators ? {
+              display_name: p.creators.display_name,
+              slug: p.creators.slug,
+            } : undefined,
+          }))
+          setSearchResults(results)
+        }
+      } catch (err) {
+        console.error("Search error:", err)
+      } finally {
+        setSearchLoading(false)
+      }
+    }, 300)
+  }, [])
+
+  // Cleanup search timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current)
+      }
+    }
+  }, [])
 
   const fetchWishlistCount = useCallback(async () => {
     try {
@@ -226,30 +341,214 @@ export function PlatformHeaderClient() {
     <header className="sticky top-0 z-50 w-full bg-white border-b border-gray-200 rounded-t-[14px] md:rounded-none">
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
         <div className="flex h-[68px] md:h-16 items-center justify-between gap-4">
-          {/* Logo */}
-          <Link href="/" className="shrink-0">
-            <Image
-              src={LOGO_URL || "/placeholder.svg"}
-              alt="Storelib"
-              width={128}
-              height={43}
-              className="h-10 w-auto"
-              priority
-            />
-          </Link>
-
-          {/* Desktop Search - Centered */}
-          <form onSubmit={onSubmitSearch} className="hidden md:flex flex-1 max-w-xl mx-4">
-            <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-              <Input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={t("search_placeholder")}
-                className="h-10 w-full rounded-full pl-10 pr-4 bg-gray-100 border-gray-200 text-gray-900 placeholder:text-gray-500 focus-visible:ring-1 focus-visible:ring-gray-300 focus-visible:ring-offset-0"
+          {/* Left side - Logo and Categories Button */}
+          <div className="flex items-center gap-3 shrink-0">
+            {/* Logo - 30% bigger */}
+            <Link href="/" className="shrink-0">
+              <Image
+                src={LOGO_URL || "/placeholder.svg"}
+                alt="Storelib"
+                width={166}
+                height={56}
+                className="h-[52px] w-auto"
+                priority
               />
+            </Link>
+
+            {/* Categories Dropdown Button */}
+            <div className="relative hidden sm:block" data-categories-dropdown>
+              <button
+                onClick={() => setCategoriesDropdownOpen(!categoriesDropdownOpen)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 cursor-pointer ${
+                  categoriesDropdownOpen
+                    ? "bg-gray-100 text-gray-900"
+                    : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                }`}
+              >
+                <Menu className="w-4 h-4" />
+                <span>Categories</span>
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${categoriesDropdownOpen ? "rotate-180" : ""}`} />
+              </button>
+
+              {/* Categories Megamenu Dropdown */}
+              {categoriesDropdownOpen && (
+                <div className="absolute top-full left-0 mt-2 w-[320px] bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden animate-in fade-in-0 slide-in-from-top-2 duration-200 z-50">
+                  <div className="p-4">
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Browse Categories</h3>
+                    <div className="space-y-1">
+                      {SEARCH_CATEGORIES.map((cat) => (
+                        <Link
+                          key={cat.label}
+                          href={cat.href}
+                          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors cursor-pointer"
+                        >
+                          {cat.label}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="border-t border-gray-100 p-4 bg-gray-50">
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Quick Links</h3>
+                    <div className="grid grid-cols-2 gap-2">
+                      {DEFAULT_CATEGORIES.slice(0, 4).map((cat) => (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => {
+                            onCategoryClick(cat)
+                            setCategoriesDropdownOpen(false)
+                          }}
+                          className="px-3 py-2 rounded-lg text-xs font-medium text-gray-600 bg-white border border-gray-200 hover:bg-gray-100 hover:text-gray-900 transition-colors cursor-pointer"
+                        >
+                          {cat}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-          </form>
+          </div>
+
+          {/* Desktop Search - Centered with Modal */}
+          <div className="hidden md:flex flex-1 max-w-xl mx-4 relative">
+            <div className="relative w-full">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 pointer-events-none z-10" />
+              <Input
+                ref={searchInputRef}
+                value={query}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                onFocus={() => setSearchModalOpen(true)}
+                placeholder={t("search_placeholder")}
+                className="h-10 w-full rounded-full pl-10 pr-4 bg-gray-100 border-gray-200 text-gray-900 placeholder:text-gray-500 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0 focus-visible:border-blue-500"
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQuery("")
+                    setSearchResults([])
+                    searchInputRef.current?.focus()
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Search Modal Dropdown */}
+            {searchModalOpen && (
+              <>
+                {/* Backdrop */}
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setSearchModalOpen(false)}
+                />
+                {/* Modal */}
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden animate-in fade-in-0 slide-in-from-top-2 duration-200 z-50 max-h-[70vh] overflow-y-auto">
+                  {/* Categories Section */}
+                  {!query && (
+                    <div className="p-4 border-b border-gray-100">
+                      <h3 className="text-sm font-semibold text-gray-900 mb-3">Categories</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {SEARCH_CATEGORIES.map((cat) => (
+                          <Link
+                            key={cat.label}
+                            href={cat.href}
+                            onClick={() => setSearchModalOpen(false)}
+                            className="px-3 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 transition-colors cursor-pointer"
+                          >
+                            {cat.label}
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Loading State */}
+                  {searchLoading && (
+                    <div className="p-6 flex items-center justify-center">
+                      <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
+                      <span className="ml-2 text-sm text-gray-500">Searching...</span>
+                    </div>
+                  )}
+
+                  {/* Search Results */}
+                  {!searchLoading && searchResults.length > 0 && (
+                    <div className="p-2">
+                      <h3 className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">Products</h3>
+                      {searchResults.map((product) => (
+                        <Link
+                          key={product.id}
+                          href={`/p/${product.slug}`}
+                          onClick={() => setSearchModalOpen(false)}
+                          className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer group"
+                        >
+                          {product.thumbnail_url ? (
+                            <Image
+                              src={product.thumbnail_url}
+                              alt={product.title}
+                              width={48}
+                              height={48}
+                              className="w-12 h-12 rounded-lg object-cover border border-gray-200"
+                            />
+                          ) : (
+                            <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
+                              <Search className="w-5 h-5 text-gray-400" />
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate group-hover:text-blue-600 transition-colors">
+                              {product.title}
+                            </p>
+                            {product.creator?.display_name && (
+                              <p className="text-xs text-gray-500 truncate">
+                                Product by {product.creator.display_name}
+                              </p>
+                            )}
+                          </div>
+                          <div className="text-sm font-medium text-gray-900">
+                            {product.price_cents === 0 ? "Free" : `$${(product.price_cents / 100).toFixed(0)}+`}
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* No Results */}
+                  {!searchLoading && query.trim().length >= 2 && searchResults.length === 0 && (
+                    <div className="p-6 text-center">
+                      <p className="text-sm text-gray-500">No products found for "{query}"</p>
+                    </div>
+                  )}
+
+                  {/* Search Tip */}
+                  {!query && (
+                    <div className="p-4 bg-gray-50 text-center">
+                      <p className="text-xs text-gray-500">Start typing to search products</p>
+                    </div>
+                  )}
+
+                  {/* View All Results Button */}
+                  {query.trim() && (
+                    <div className="p-3 border-t border-gray-100 bg-gray-50">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          router.push(`/explore?q=${encodeURIComponent(query)}`)
+                          setSearchModalOpen(false)
+                        }}
+                        className="w-full py-2.5 rounded-lg text-sm font-medium text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
+                      >
+                        View all results for "{query}"
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
 
           {/* Mobile Search */}
           <div className="md:hidden flex-1 mx-2">
@@ -342,10 +641,10 @@ export function PlatformHeaderClient() {
                     <DropdownMenuTrigger asChild>
                       <button
                         type="button"
-                        className="rounded-full outline-none ring-offset-white transition focus-visible:ring-2 focus-visible:ring-gray-300 focus-visible:ring-offset-2"
+                        className="rounded-full cursor-pointer outline-none ring-offset-white transition-all duration-150 ease-out hover:ring-2 hover:ring-blue-200 hover:ring-offset-2 hover:scale-105 active:scale-95 focus-visible:ring-2 focus-visible:ring-blue-300 focus-visible:ring-offset-2"
                         aria-label="Open profile menu"
                       >
-                        <Avatar className="h-10 w-10 border border-gray-200">
+                        <Avatar className="h-10 w-10 border border-gray-200 transition-opacity duration-150">
                           <AvatarImage src={avatarUrl || "/placeholder.svg"} alt={displayName} />
                           <AvatarFallback className="text-xs bg-gray-100 text-gray-700">{initials}</AvatarFallback>
                         </Avatar>
@@ -389,18 +688,20 @@ export function PlatformHeaderClient() {
           </div>
         </div>
 
-        {/* Categories - only on /explore page, centered */}
+        {/* Categories - only on /explore page, left-aligned with content */}
         {showCategories && (
           <nav className="border-t border-gray-200 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8">
-            <div className="overflow-x-auto">
-              <div className="flex h-11 items-center justify-center gap-8 whitespace-nowrap text-sm">
-                {DEFAULT_CATEGORIES.map((cat) => (
+            <div className="overflow-x-auto scrollbar-hide">
+              <div className="flex h-11 items-center justify-start gap-6 whitespace-nowrap text-sm">
+                {DEFAULT_CATEGORIES.map((cat, index) => (
                   <button
                     key={cat}
                     type="button"
                     onClick={() => onCategoryClick(cat)}
-                    className="text-gray-500 hover:text-gray-900 transition"
+                    className="flex items-center gap-1.5 text-gray-500 hover:text-gray-900 transition-colors cursor-pointer"
                   >
+                    {/* Show icon only on first category */}
+                    {index === 0 && <Type className="w-4 h-4" />}
                     {cat}
                   </button>
                 ))}
