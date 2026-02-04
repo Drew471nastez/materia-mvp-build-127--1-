@@ -157,10 +157,10 @@ export function ExplorePageClient({
                   onClick={() => setRecommendationFilter(filter.id as typeof recommendationFilter)}
                   className={`
                     px-4 py-2 rounded-full text-sm font-medium cursor-pointer select-none
-                    transition-all duration-200 ease-out
-                    active:scale-95 hover:shadow-sm
+                    transition-all duration-150 ease-out
+                    active:scale-[0.98]
                     ${isSelected
-                      ? "bg-neutral-900 text-white shadow-md"
+                      ? "bg-neutral-900 text-white shadow-sm"
                       : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200 hover:text-neutral-900"
                     }
                   `}
@@ -189,10 +189,10 @@ export function ExplorePageClient({
               className={`
                 relative inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium
                 whitespace-nowrap cursor-pointer select-none
-                transition-all duration-200 ease-out
-                active:scale-95 hover:shadow-sm
+                transition-all duration-150 ease-out
+                active:scale-[0.98]
                 ${isSelected
-                  ? "bg-neutral-900 text-white shadow-md"
+                  ? "bg-neutral-900 text-white shadow-sm"
                   : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200 hover:text-neutral-900"
                 }
               `}

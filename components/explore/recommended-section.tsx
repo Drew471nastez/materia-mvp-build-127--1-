@@ -34,14 +34,14 @@ export function RecommendedSection({ products, filterType = "curated" }: Recomme
     setIsAnimating(true)
     setSlideDirection("right")
 
-    // Small delay for smooth animation
+    // Subtle smooth transition
     setTimeout(() => {
       setCurrentPage((prev) => Math.max(0, prev - 1))
       setTimeout(() => {
         setIsAnimating(false)
         setSlideDirection(null)
-      }, 200)
-    }, 50)
+      }, 150)
+    }, 30)
   }, [isAnimating, currentPage])
 
   const goToNext = useCallback(() => {
@@ -49,14 +49,14 @@ export function RecommendedSection({ products, filterType = "curated" }: Recomme
     setIsAnimating(true)
     setSlideDirection("left")
 
-    // Small delay for smooth animation
+    // Subtle smooth transition
     setTimeout(() => {
       setCurrentPage((prev) => Math.min(totalPages - 1, prev + 1))
       setTimeout(() => {
         setIsAnimating(false)
         setSlideDirection(null)
-      }, 200)
-    }, 50)
+      }, 150)
+    }, 30)
   }, [isAnimating, currentPage, totalPages])
 
   const canGoPrevious = currentPage > 0
@@ -122,20 +122,19 @@ export function RecommendedSection({ products, filterType = "curated" }: Recomme
           key={`${filterType}-${currentPage}`}
           className={`
             grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3
-            transition-all duration-300 ease-out
-            animate-in fade-in-0 duration-300
-            ${isAnimating && slideDirection === "left" ? "translate-x-[-8px] opacity-90" : ""}
-            ${isAnimating && slideDirection === "right" ? "translate-x-[8px] opacity-90" : ""}
-            ${!isAnimating ? "translate-x-0 opacity-100" : ""}
+            transition-all duration-200 ease-out
+            ${isAnimating && slideDirection === "left" ? "opacity-95" : ""}
+            ${isAnimating && slideDirection === "right" ? "opacity-95" : ""}
+            ${!isAnimating ? "opacity-100" : ""}
           `}
         >
           {currentProducts.map((product, index) => (
             <div
               key={product.id}
-              className="transition-all duration-300 ease-out animate-in fade-in-0 slide-in-from-bottom-2"
+              className="transition-opacity duration-200 ease-out"
               style={{
-                transitionDelay: `${index * 50}ms`,
-                animationDelay: `${index * 50}ms`
+                transitionDelay: `${index * 25}ms`,
+                opacity: isAnimating ? 0.9 : 1
               }}
             >
               <ProductCard

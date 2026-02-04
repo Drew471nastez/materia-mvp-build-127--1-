@@ -24,11 +24,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
-import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, Menu, X, Loader2, Bell } from "lucide-react"
+import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, Menu, X, Loader2, Bell, ChevronRight } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 
 const LOGO_URL =
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/storelib.svg"
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
 
 const DEFAULT_CATEGORIES = [
   "Fonts",
@@ -37,6 +37,16 @@ const DEFAULT_CATEGORIES = [
   "Needlework",
   "Laser Cutting",
   "3D Printing",
+]
+
+// Mobile category pills - 6 categories as pill buttons
+const MOBILE_CATEGORIES = [
+  { id: "all", label: "All" },
+  { id: "design", label: "Design" },
+  { id: "development", label: "Development" },
+  { id: "marketing", label: "Marketing" },
+  { id: "business", label: "Business" },
+  { id: "education", label: "Education" },
 ]
 
 // Search modal categories - expanded list
@@ -354,19 +364,20 @@ export function PlatformHeaderClient() {
   return (
     <header className="sticky top-0 z-50 w-full bg-white border-b border-gray-200 rounded-t-[14px] md:rounded-none">
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
-        <div className="flex h-[68px] md:h-[68px] items-center justify-between gap-4">
+        <div className="flex h-[68px] md:h-[74px] items-center justify-between gap-4 md:py-[3px]">
           {/* Left side - Logo and Categories Button */}
           <div className="flex items-center gap-3 shrink-0">
-            {/* Logo - 55% bigger */}
-            <Link href="/" className="shrink-0 hidden md:block">
+            {/* Logo with Storelib text */}
+            <Link href="/" className="shrink-0 hidden md:flex items-center gap-2.5">
               <Image
                 src={LOGO_URL || "/placeholder.svg"}
                 alt="Storelib"
                 width={210}
                 height={71}
-                className="h-[66px] w-auto"
+                className="h-[76px] w-auto"
                 priority
               />
+              <span className="text-xl font-bold text-gray-900 tracking-tight">Storelib</span>
             </Link>
 
             {/* Categories Dropdown Button */}
@@ -495,7 +506,7 @@ export function PlatformHeaderClient() {
                             </div>
                           )}
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900 truncate group-hover:text-blue-600 transition-colors">
+                            <p className="text-sm font-medium text-gray-900 truncate">
                               {product.title}
                             </p>
                             {product.creator?.display_name && (
@@ -546,155 +557,123 @@ export function PlatformHeaderClient() {
             )}
           </div>
 
-          {/* Mobile Header - hamburger left, logo center, icons right */}
+          {/* Mobile Header - hamburger opens categories from bottom, logo, then icons */}
           <div className="md:hidden flex items-center justify-between flex-1">
-            {/* Left - Mobile Menu Button */}
-            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-              <SheetTrigger asChild>
-                <button
-                  type="button"
-                  className="flex h-10 w-10 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 transition cursor-pointer"
-                  aria-label="Open menu"
-                >
-                  <Menu className="h-6 w-6" />
-                </button>
-              </SheetTrigger>
-
-              <SheetContent side="left" className="w-[280px] pt-[env(safe-area-inset-top)] bg-white border-r border-gray-200">
-                <SheetHeader>
-                  <SheetTitle className="text-gray-900 text-left">Menu</SheetTitle>
-                </SheetHeader>
-
-                {/* Mobile Search */}
-                <form onSubmit={onSubmitSearch} className="mt-4">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                    <Input
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                      placeholder={t("search_placeholder")}
-                      className="h-11 pl-10 bg-gray-100 border-gray-200 text-gray-900 placeholder:text-gray-500 rounded-full"
-                    />
-                  </div>
-                </form>
-
-                {/* Mobile Categories */}
-                <div className="mt-6">
-                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Categories</h3>
-                  <div className="space-y-1">
-                    {SEARCH_CATEGORIES.map((cat) => (
-                      <Link
-                        key={cat.label}
-                        href={cat.href}
-                        onClick={() => setMobileMenuOpen(false)}
-                        className="flex items-center px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
-                      >
-                        {cat.label}
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Mobile Quick Links */}
-                <div className="mt-6 pt-6 border-t border-gray-200">
-                  <div className="space-y-1">
-                    <Link
-                      href="/library"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
-                    >
-                      <Library className="h-4 w-4" />
-                      Library
-                    </Link>
-                    {user && (
-                      <Link
-                        href={dashboardHref}
-                        onClick={() => setMobileMenuOpen(false)}
-                        className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
-                      >
-                        <LayoutDashboard className="h-4 w-4" />
-                        Dashboard
-                      </Link>
-                    )}
-                  </div>
-                </div>
-              </SheetContent>
-            </Sheet>
-
-            {/* Center - Mobile Logo */}
-            <Link href="/" className="shrink-0">
-              <Image
-                src={LOGO_URL || "/placeholder.svg"}
-                alt="Storelib"
-                width={120}
-                height={40}
-                className="h-8 w-auto"
-                priority
-              />
-            </Link>
-
-            {/* Right - Mobile Icons */}
-            <div className="flex items-center gap-1">
-              {/* Mobile Search Button */}
-              <Sheet>
+            {/* Left - Categories Button (hamburger opens from bottom) */}
+            <div className="flex items-center gap-2">
+              <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
                 <SheetTrigger asChild>
                   <button
                     type="button"
-                    className="flex h-9 w-9 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 transition cursor-pointer"
-                    aria-label="Search"
+                    className="flex h-10 w-10 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 transition cursor-pointer"
+                    aria-label="Open categories"
                   >
-                    <Search className="h-5 w-5" />
+                    <Menu className="h-6 w-6" />
                   </button>
                 </SheetTrigger>
 
-                <SheetContent side="top" className="pt-[env(safe-area-inset-top)] bg-white border-b border-gray-200">
-                  <SheetHeader>
-                    <SheetTitle className="text-gray-900">Search</SheetTitle>
-                  </SheetHeader>
+                {/* Categories Sheet from bottom */}
+                <SheetContent
+                  side="bottom"
+                  className="rounded-t-[20px] pb-[env(safe-area-inset-bottom)] bg-white border-t border-gray-200 max-h-[85vh]"
+                >
+                  <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mt-2 mb-4" />
 
-                  <form onSubmit={onSubmitSearch} className="mt-4">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                      <Input
-                        autoFocus
-                        value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                        placeholder={t("search_placeholder")}
-                        className="h-11 pl-10 bg-gray-100 border-gray-200 text-gray-900 placeholder:text-gray-500 rounded-full"
-                      />
+                  {/* Categories List */}
+                  <div className="overflow-y-auto max-h-[70vh] px-2">
+                    <div className="space-y-0.5">
+                      {SEARCH_CATEGORIES.map((cat) => (
+                        <Link
+                          key={cat.label}
+                          href={cat.href}
+                          onClick={() => setMobileMenuOpen(false)}
+                          className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
+                        >
+                          <div className="flex items-center gap-3">
+                            <span>{cat.label}</span>
+                          </div>
+                          <ChevronRight className="h-5 w-5 text-gray-400" />
+                        </Link>
+                      ))}
                     </div>
-                  </form>
 
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {SEARCH_CATEGORIES.map((cat) => (
+                    {/* Quick Links section */}
+                    <div className="mt-4 pt-4 border-t border-gray-200">
                       <Link
-                        key={cat.label}
-                        href={cat.href}
-                        className="rounded-full border border-gray-200 bg-gray-100 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-200 transition cursor-pointer"
+                        href="/library"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
                       >
-                        {cat.label}
+                        <div className="flex items-center gap-3">
+                          <Library className="h-5 w-5" />
+                          <span>My Library</span>
+                        </div>
+                        <ChevronRight className="h-5 w-5 text-gray-400" />
                       </Link>
-                    ))}
+                      {user && (
+                        <Link
+                          href={dashboardHref}
+                          onClick={() => setMobileMenuOpen(false)}
+                          className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
+                        >
+                          <div className="flex items-center gap-3">
+                            <LayoutDashboard className="h-5 w-5" />
+                            <span>Dashboard</span>
+                          </div>
+                          <ChevronRight className="h-5 w-5 text-gray-400" />
+                        </Link>
+                      )}
+                    </div>
                   </div>
                 </SheetContent>
               </Sheet>
 
-              {/* Mobile Notification/Bell */}
-              <button
-                type="button"
+              {/* Logo next to hamburger */}
+              <Link href="/" className="shrink-0 flex items-center gap-1.5">
+                <Image
+                  src={LOGO_URL || "/placeholder.svg"}
+                  alt="Storelib"
+                  width={100}
+                  height={32}
+                  className="h-7 w-auto"
+                  priority
+                />
+                <span className="text-base font-bold text-gray-900 tracking-tight">Storelib</span>
+              </Link>
+            </div>
+
+            {/* Right - Mobile Icons: Library, Wishlist, Avatar */}
+            <div className="flex items-center gap-0.5">
+              {/* Library */}
+              <Link
+                href="/library"
                 className="flex h-9 w-9 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 transition cursor-pointer"
-                aria-label="Notifications"
+                aria-label="Library"
               >
-                <Bell className="h-5 w-5" />
-              </button>
+                <Library className="h-5 w-5" />
+              </Link>
+
+              {/* Wishlist */}
+              <Link
+                href={wishlistHref}
+                className="relative flex h-9 w-9 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 transition cursor-pointer"
+                aria-label="Wishlist"
+              >
+                <Heart className="h-5 w-5" />
+                {wishlistCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[8px] font-bold text-white ring-1 ring-white">
+                    {wishlistCount > 99 ? "99+" : wishlistCount}
+                  </span>
+                )}
+              </Link>
 
               {/* Mobile Avatar */}
-              {user && (
+              {user ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
-                      className="rounded-full cursor-pointer ml-1"
+                      className="rounded-full cursor-pointer ml-0.5"
                       aria-label="Open profile menu"
                     >
                       <Avatar className="h-8 w-8 border border-gray-200">
@@ -739,6 +718,10 @@ export function PlatformHeaderClient() {
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
+              ) : (
+                <Avatar className="h-8 w-8 border border-gray-200 ml-0.5">
+                  <AvatarFallback className="text-[10px] bg-gray-100 text-gray-700">?</AvatarFallback>
+                </Avatar>
               )}
             </div>
           </div>
@@ -862,7 +845,52 @@ export function PlatformHeaderClient() {
           </div>
         </div>
 
-        {/* Categories - only on /explore page, left-aligned with content */}
+        {/* Mobile Search Bar - below header on mobile */}
+        <div className="md:hidden py-2 border-t border-gray-100">
+          <form onSubmit={onSubmitSearch}>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <Input
+                value={query}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                placeholder={t("search_placeholder")}
+                className="h-10 w-full pl-10 bg-gray-100 border-gray-200 text-gray-900 placeholder:text-gray-500 rounded-full text-sm"
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQuery("")
+                    setSearchResults([])
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </form>
+        </div>
+
+        {/* Mobile Category Pills - horizontal scrolling */}
+        {showCategories && (
+          <div className="md:hidden -mx-4 px-4 pb-2 overflow-x-auto scrollbar-hide">
+            <div className="flex items-center gap-2 whitespace-nowrap">
+              {MOBILE_CATEGORIES.map((cat) => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => onCategoryClick(cat.id)}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 transition-colors cursor-pointer border border-gray-200"
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Categories - only on /explore page, left-aligned with content - Desktop only */}
         {showCategories && (
           <nav className="border-t border-gray-200 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 hidden md:block">
             <div className="overflow-x-auto scrollbar-hide">
