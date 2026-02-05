@@ -65,11 +65,20 @@ export const metadata: Metadata = {
     siteName: "Storelib",
     title: "Storelib - Sell products & Grow your audience",
     description: "The all-in-one platform for creators to sell digital products, courses, and grow their audience.",
+    images: [
+      {
+        url: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design.jpg",
+        width: 1200,
+        height: 630,
+        alt: "Storelib - Sell products & Grow your audience",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "Storelib - Sell products & Grow your audience",
     description: "The all-in-one platform for creators to sell digital products, courses, and grow their audience.",
+    images: ["https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design.jpg"],
   },
   icons: {
     icon: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg",
