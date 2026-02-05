@@ -454,22 +454,41 @@ function MobileBottomSheet({
   )
 }
 
+// Shared ref for tap detection across category buttons inside scrollable modals
+// Tracks touch start position; onTouchEnd only fires callback if touch moved < 10px (tap, not scroll)
+const tapStartPos = { x: 0, y: 0 }
+function handleTapStart(e: React.TouchEvent) {
+  tapStartPos.x = e.touches[0].clientX
+  tapStartPos.y = e.touches[0].clientY
+}
+function makeTapEnd(callback: () => void) {
+  return (e: React.TouchEvent) => {
+    const touch = e.changedTouches[0]
+    const dx = Math.abs(touch.clientX - tapStartPos.x)
+    const dy = Math.abs(touch.clientY - tapStartPos.y)
+    if (dx < 10 && dy < 10) {
+      e.preventDefault()
+      callback()
+    }
+  }
+}
+
 // Animated Hamburger Icon Component - subtle animation only
 function AnimatedHamburger({ isOpen }: { isOpen: boolean }) {
   return (
-    <div className="w-[22px] h-[22px] flex flex-col justify-center items-center gap-[5px]">
+    <div className="w-[23px] h-[23px] flex flex-col justify-center items-center gap-[5px]">
       <span
-        className={`block h-0.5 w-[22px] bg-current rounded-full transition-all duration-200 ease-out ${
+        className={`block h-0.5 w-[23px] bg-current rounded-full transition-all duration-200 ease-out ${
           isOpen ? "opacity-60" : "opacity-100"
         }`}
       />
       <span
         className={`block h-0.5 bg-current rounded-full transition-all duration-200 ease-out ${
-          isOpen ? "opacity-60 w-[15px]" : "opacity-100 w-[22px]"
+          isOpen ? "opacity-60 w-4" : "opacity-100 w-[23px]"
         }`}
       />
       <span
-        className={`block h-0.5 w-[22px] bg-current rounded-full transition-all duration-200 ease-out ${
+        className={`block h-0.5 w-[23px] bg-current rounded-full transition-all duration-200 ease-out ${
           isOpen ? "opacity-60" : "opacity-100"
         }`}
       />
@@ -1778,6 +1797,8 @@ export function PlatformHeaderClient() {
                       key={cat.label}
                       type="button"
                       onClick={handleCategoryClick}
+                      onTouchStart={handleTapStart}
+                      onTouchEnd={makeTapEnd(handleCategoryClick)}
                       className="flex items-center justify-between w-full px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer active:bg-gray-200 touch-manipulation select-none"
                     >
                       <div className="flex items-center gap-3 pointer-events-none">

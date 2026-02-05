@@ -9,6 +9,24 @@ import { ProductCardSkeleton } from "./product-card-skeleton"
 import { Layers, Sparkles, Zap, Share2, Bot, SlidersHorizontal, X, Check, Search, ChevronLeft, ChevronRight, Briefcase, Megaphone, ChevronDown, ArrowRight, Music, Camera, Video, ShoppingBag, GraduationCap, Palette, Code, Lightbulb, FileText } from "lucide-react"
 import { Input } from "@/components/ui/input"
 
+// Tap detection helpers for mobile - distinguishes taps from scrolls
+const _tapStart = { x: 0, y: 0 }
+function onTapStart(e: React.TouchEvent) {
+  _tapStart.x = e.touches[0].clientX
+  _tapStart.y = e.touches[0].clientY
+}
+function onTapEnd(callback: () => void) {
+  return (e: React.TouchEvent) => {
+    const touch = e.changedTouches[0]
+    const dx = Math.abs(touch.clientX - _tapStart.x)
+    const dy = Math.abs(touch.clientY - _tapStart.y)
+    if (dx < 10 && dy < 10) {
+      e.preventDefault()
+      callback()
+    }
+  }
+}
+
 // Categories with icons and subcategories - Extended list
 const CATEGORIES = [
   {
@@ -643,6 +661,8 @@ function CategorySelectorModal({
               <div key={cat.id}>
                 <button
                   onClick={() => handleCategoryClick(cat)}
+                  onTouchStart={onTapStart}
+                  onTouchEnd={onTapEnd(() => handleCategoryClick(cat))}
                   className={`flex items-center gap-3 w-full px-4 py-4 rounded-xl text-left transition-all duration-150 cursor-pointer touch-manipulation ${
                     isSelected
                       ? "bg-neutral-900 text-white"
@@ -661,6 +681,8 @@ function CategorySelectorModal({
                   <div className="ml-6 mt-1 mb-2 space-y-1 animate-in fade-in slide-in-from-top-2 duration-200">
                     <button
                       onClick={() => handleSelectCategory(cat.id)}
+                      onTouchStart={onTapStart}
+                      onTouchEnd={onTapEnd(() => handleSelectCategory(cat.id))}
                       className={`flex items-center gap-2 w-full px-4 py-3 rounded-lg text-sm text-left transition-all duration-150 cursor-pointer touch-manipulation ${
                         selectedCategory === cat.id && !selectedSubcategory
                           ? "bg-violet-100 text-violet-700 font-medium"
@@ -674,6 +696,8 @@ function CategorySelectorModal({
                       <button
                         key={sub.id}
                         onClick={() => handleSelectSubcategory(cat.id, sub.id, sub.label)}
+                        onTouchStart={onTapStart}
+                        onTouchEnd={onTapEnd(() => handleSelectSubcategory(cat.id, sub.id, sub.label))}
                         className={`flex items-center gap-2 w-full px-4 py-3 rounded-lg text-sm text-left transition-all duration-150 cursor-pointer touch-manipulation animate-in fade-in slide-in-from-right-2 ${
                           selectedSubcategory === sub.id
                             ? "bg-violet-100 text-violet-700 font-medium"

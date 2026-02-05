@@ -708,23 +708,14 @@ export function CategoryPageClient({
         return { product: p, score }
       })
 
-      // Only show products with at least some relevance (score > 0)
-      // If no products match at all, show all as fallback
-      const matchedProducts = scoredProducts.filter(item => item.score > 0)
-
-      if (matchedProducts.length > 0) {
-        products = matchedProducts
-          .sort((a, b) => {
-            if (b.score !== a.score) return b.score - a.score
-            return new Date(b.product.created_at).getTime() - new Date(a.product.created_at).getTime()
-          })
-          .map(item => item.product)
-      } else {
-        // Fallback: show all products sorted by newest if none match
-        products = scoredProducts
-          .sort((a, b) => new Date(b.product.created_at).getTime() - new Date(a.product.created_at).getTime())
-          .map(item => item.product)
-      }
+      // Always show ALL products, sorted by relevance (highest score first)
+      // This ensures category pages never show "0 products"
+      products = scoredProducts
+        .sort((a, b) => {
+          if (b.score !== a.score) return b.score - a.score
+          return new Date(b.product.created_at).getTime() - new Date(a.product.created_at).getTime()
+        })
+        .map(item => item.product)
     }
 
     // Filter by subcategories
