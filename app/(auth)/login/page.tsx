@@ -236,9 +236,9 @@ function LoginFormContent() {
             <img
               src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
               alt="Storelib"
-              className="h-8 w-8"
+              className="h-10 w-10 md:h-8 md:w-8"
             />
-            <span className="text-xl font-bold tracking-tight text-neutral-900">Storelib</span>
+            <span className="text-2xl md:text-xl font-bold tracking-tight text-neutral-900">Storelib</span>
           </Link>
 
           <h1 className="mb-2 text-[32px] font-bold tracking-tight text-neutral-900">Welcome back</h1>
