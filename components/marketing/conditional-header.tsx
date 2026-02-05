@@ -34,6 +34,7 @@ export function ConditionalHeader() {
       pathname === "/" ||
       pathname.startsWith("/feed") ||
       pathname.startsWith("/explore") ||
+      pathname.startsWith("/features") ||
       pathname.startsWith("/creators") ||
       pathname.startsWith("/wishlist") ||
       pathname.startsWith("/dashboard") ||

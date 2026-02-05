@@ -1244,6 +1244,28 @@ export function ExplorePageClient({
               categoryName={sectionTitle}
             />
 
+            {/* Category Icon Buttons Row */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
+              {CATEGORIES.slice(0, 9).map((category) => {
+                const Icon = category.icon
+                const isSelected = mainCategory === category.id
+                return (
+                  <button
+                    key={category.id}
+                    onClick={() => handleCategoryChange(category.id)}
+                    className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium cursor-pointer select-none whitespace-nowrap transition-all duration-150 ease-out active:scale-[0.98] ${
+                      isSelected
+                        ? "bg-neutral-900 text-white shadow-sm"
+                        : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200 hover:text-neutral-900"
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span className="hidden sm:inline">{category.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+
             {/* Filter Pills Row */}
             <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
               {RECOMMENDATION_FILTERS.map((filter) => {
@@ -1254,7 +1276,7 @@ export function ExplorePageClient({
                     onClick={() => setRecommendationFilter(filter.id as typeof recommendationFilter)}
                     className={`px-4 py-2 rounded-full text-sm font-medium cursor-pointer select-none whitespace-nowrap transition-all duration-150 ease-out active:scale-[0.98] ${
                       isSelected
-                        ? "bg-neutral-900 text-white shadow-sm"
+                        ? "bg-violet-600 text-white shadow-sm"
                         : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200 hover:text-neutral-900"
                     }`}
                   >
@@ -1375,6 +1397,22 @@ export function ExplorePageClient({
               <p className="text-sm text-neutral-500 mt-4 text-center">
                 Showing {(currentPage - 1) * PRODUCTS_PER_PAGE + 1}-{Math.min(currentPage * PRODUCTS_PER_PAGE, recommendedProducts.length)} of {recommendedProducts.length} products
               </p>
+
+              {/* Show All Button */}
+              {(mainCategory !== "all" || selectedSubcategoryId) && (
+                <div className="flex justify-center mt-8">
+                  <Link
+                    href={selectedSubcategoryId
+                      ? `/explore/${mainCategory}?sub=${selectedSubcategoryId}`
+                      : `/explore/${mainCategory}`
+                    }
+                    className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-semibold bg-neutral-900 text-white hover:bg-neutral-800 transition-colors cursor-pointer"
+                  >
+                    <span>Show All {selectedSubcategoryLabel || sectionTitle} Products</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+                </div>
+              )}
             </>
           ) : (
             <div className="rounded-2xl border border-dashed border-neutral-300 p-12 text-center">
