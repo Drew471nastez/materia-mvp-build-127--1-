@@ -1372,10 +1372,10 @@ export function PlatformHeaderClient() {
             <button
               type="button"
               onClick={() => setSearchModalOpen(true)}
-              className="w-full h-10 flex items-center gap-2 px-4 bg-gray-100 border border-gray-200 text-gray-500 rounded-full text-sm cursor-pointer"
+              className="w-full h-10 flex items-center gap-2 px-4 bg-gray-100 border border-gray-200 text-gray-500 rounded-full text-sm cursor-pointer overflow-hidden"
             >
-              <Search className="h-4 w-4 text-gray-400" />
-              <span>{t("search_placeholder")}</span>
+              <Search className="h-4 w-4 text-gray-400 shrink-0" />
+              <span className="truncate">{t("search_placeholder")}</span>
             </button>
           </div>
         )}
@@ -1607,33 +1607,33 @@ export function PlatformHeaderClient() {
           {/* Logged-in User Profile Section - Only on Homepage */}
           {user && pathname === "/" && (
             <div className="mb-4 pb-4 border-b border-gray-200">
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-                <div className="flex items-center gap-3">
-                  <Avatar className="h-11 w-11 border border-gray-200">
-                    <AvatarImage src={avatarUrl || "/placeholder.svg"} alt={displayName} />
-                    <AvatarFallback className="text-sm bg-gray-100 text-gray-700">{initials}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{displayName}</p>
-                    {user.email && <p className="text-xs text-gray-500 truncate">{user.email}</p>}
-                  </div>
+              {/* Profile Info */}
+              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl mb-3">
+                <Avatar className="h-11 w-11 border border-gray-200">
+                  <AvatarImage src={avatarUrl || "/placeholder.svg"} alt={displayName} />
+                  <AvatarFallback className="text-sm bg-gray-100 text-gray-700">{initials}</AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">{displayName}</p>
+                  {user.email && <p className="text-xs text-gray-500 truncate">{user.email}</p>}
                 </div>
-                <Link href={dashboardHref} onClick={() => setMobileMenuOpen(false)}>
-                  <Button className="h-9 px-4 rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700">
-                    Dashboard
-                  </Button>
-                </Link>
               </div>
+              {/* Dashboard button - below profile */}
+              <Link href={dashboardHref} onClick={() => setMobileMenuOpen(false)} className="block mb-2">
+                <Button className="w-full h-11 rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700">
+                  Dashboard
+                </Button>
+              </Link>
               {/* Start Selling button for logged-in users who are not creators */}
               {!isCreator && (
-                <Link href="/onboarding" onClick={() => setMobileMenuOpen(false)} className="block mt-3 mb-2">
+                <Link href="/onboarding" onClick={() => setMobileMenuOpen(false)} className="block mb-2">
                   <Button className="w-full h-11 rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700">
                     Start Selling
                   </Button>
                 </Link>
               )}
               {/* Discover button - black with icon */}
-              <Link href="/explore" onClick={() => setMobileMenuOpen(false)} className="block mt-3">
+              <Link href="/explore" onClick={() => setMobileMenuOpen(false)} className="block">
                 <Button className="w-full h-11 rounded-lg text-sm font-medium bg-gray-900 text-white hover:bg-gray-800 gap-2">
                   <Compass className="h-4 w-4" />
                   Discover
