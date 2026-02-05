@@ -1589,42 +1589,23 @@ export function PlatformHeaderClient() {
         }}
       >
         <div className="px-4 pb-6">
-          {/* Guest User Banner with Sign In / Start Selling */}
+          {/* Guest User - Simple Sign in and Discover buttons only */}
           {!user && (
-            <>
-              <div className="p-3 mb-3 bg-gray-50 rounded-xl border border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-200">
-                      <UserIcon className="h-5 w-5 text-gray-500" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">Guest</p>
-                      <p className="text-xs text-gray-500">Not logged in</p>
-                    </div>
-                  </div>
-                  <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
-                    <Button className="h-9 px-4 rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700">
-                      Sign in
-                      <ArrowRight className="ml-1 h-3.5 w-3.5" />
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-              {/* Start Selling button - below Guest banner */}
-              <Link href="/signup" onClick={() => setMobileMenuOpen(false)} className="block mb-2">
+            <div className="mb-4">
+              {/* Sign in button */}
+              <Link href="/login" onClick={() => setMobileMenuOpen(false)} className="block mb-2">
                 <Button className="w-full h-11 rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700">
-                  Start Selling
+                  Sign in
                 </Button>
               </Link>
               {/* Discover button - black with icon */}
-              <Link href="/explore" onClick={() => setMobileMenuOpen(false)} className="block mb-4">
+              <Link href="/explore" onClick={() => setMobileMenuOpen(false)} className="block">
                 <Button className="w-full h-11 rounded-lg text-sm font-medium bg-gray-900 text-white hover:bg-gray-800 gap-2">
                   <Compass className="h-4 w-4" />
                   Discover
                 </Button>
               </Link>
-            </>
+            </div>
           )}
 
           {/* Logged-in User Profile Section - On Homepage and Marketing Pages */}
