@@ -675,11 +675,11 @@ export function CategoryPageClient({
       }
       // If no "other" products, products stays as all products
     }
-    // Regular category filtering - try keyword matching first, fall back to all products
+    // Regular category filtering - sort by relevance, always show all products
     else {
       const keywords = categoryKeywords[category] || [category]
 
-      // Score-based filtering for better relevance
+      // Score-based sorting for better relevance (but show ALL products)
       const scoredProducts = products.map(p => {
         const productCategory = (p.category || p.categoryName || "").toLowerCase()
         const productTitle = (p.title || "").toLowerCase()
@@ -702,25 +702,14 @@ export function CategoryPageClient({
         return { product: p, score }
       })
 
-      // Get products with at least 1 keyword match, sorted by score
-      const keywordFilteredProducts = scoredProducts
-        .filter(item => item.score > 0)
-        .sort((a, b) => b.score - a.score)
+      // Sort by score (highest first), then by created_at for products with same score
+      // This ensures ALL products are shown, with most relevant first
+      products = scoredProducts
+        .sort((a, b) => {
+          if (b.score !== a.score) return b.score - a.score
+          return new Date(b.product.created_at).getTime() - new Date(a.product.created_at).getTime()
+        })
         .map(item => item.product)
-
-      // Always show products on category pages - use filtered if available, otherwise show all
-      // If less than 6 products matched, supplement with more products to ensure good UX
-      if (keywordFilteredProducts.length >= 6) {
-        products = keywordFilteredProducts
-      } else if (keywordFilteredProducts.length > 0) {
-        // Get additional products that weren't matched, sorted by newest
-        const additionalProducts = products
-          .filter(p => !keywordFilteredProducts.find(kp => kp.id === p.id))
-          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-        products = [...keywordFilteredProducts, ...additionalProducts]
-      }
-      // If no products matched keywords at all, show all products for the category
-      // This ensures users always see products on category pages
     }
 
     // Filter by subcategories
