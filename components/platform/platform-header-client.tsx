@@ -734,6 +734,34 @@ export function PlatformHeaderClient() {
                   )}
                 </div>
               </div>
+
+              {/* Mobile Homepage Header - Logo left, hamburger right */}
+              <div className="md:hidden flex items-center justify-between w-full">
+                {/* Left - Logo */}
+                <div className="flex items-center gap-0">
+                  <Link href="/" className="shrink-0 flex items-center gap-1.5">
+                    <Image
+                      src={LOGO_URL || "/placeholder.svg"}
+                      alt="Storelib"
+                      width={126}
+                      height={42}
+                      className="h-[42px] w-auto"
+                      priority
+                    />
+                    <span className="text-[20px] font-bold text-gray-900 tracking-tight">Storelib</span>
+                  </Link>
+                </div>
+
+                {/* Right - Only hamburger (glassmorphism) */}
+                <button
+                  type="button"
+                  onClick={() => setMobileMenuOpen(true)}
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100/60 backdrop-blur-sm border border-gray-200/50 text-gray-700 hover:bg-gray-100 transition cursor-pointer"
+                  aria-label="Open menu"
+                >
+                  <Menu className="h-5 w-5" />
+                </button>
+              </div>
             </>
           ) : (
             <>
@@ -998,114 +1026,82 @@ export function PlatformHeaderClient() {
             )}
           </div>
 
-          {/* Mobile Header - different layout for homepage vs other pages */}
+          {/* Mobile Header for Non-Homepage pages */}
           <div className="md:hidden flex items-center justify-between flex-1 -ml-5">
-            {/* Homepage layout (logged in or not): Logo left, hamburger right, NO search bar */}
-            {pathname === "/" ? (
-              <>
-                {/* Left - Logo (bigger on homepage) */}
-                <div className="flex items-center gap-0 ml-2">
-                  <Link href="/" className="shrink-0 flex items-center gap-1.5">
-                    <Image
-                      src={LOGO_URL || "/placeholder.svg"}
-                      alt="Storelib"
-                      width={126}
-                      height={42}
-                      className="h-[42px] w-auto"
-                      priority
-                    />
-                    <span className="text-[20px] font-bold text-gray-900 tracking-tight">Storelib</span>
-                  </Link>
-                </div>
+            {/* Hamburger + Logo left, icons right */}
+            <div className="flex items-center gap-0 -ml-1">
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen(true)}
+                className="flex h-9 w-9 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 transition cursor-pointer"
+                aria-label="Open categories"
+              >
+                <Menu className="h-5 w-5" />
+              </button>
 
-                {/* Right - Only hamburger (glassmorphism) */}
+              {/* Logo next to hamburger */}
+              <Link href="/" className="shrink-0 flex items-center gap-1.5">
+                <Image
+                  src={LOGO_URL || "/placeholder.svg"}
+                  alt="Storelib"
+                  width={114}
+                  height={38}
+                  className="h-[38px] w-auto"
+                  priority
+                />
+                <span className="text-[19px] font-bold text-gray-900 tracking-tight">Storelib</span>
+              </Link>
+            </div>
+
+            {/* Right - Mobile Icons */}
+            <div className="flex items-center gap-1">
+              {/* Library - only show when logged in */}
+              {user && (
+                <Link
+                  href="/library"
+                  className="flex h-9 w-9 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 transition cursor-pointer"
+                  aria-label="Library"
+                >
+                  <Library className="h-5 w-5" />
+                </Link>
+              )}
+
+              {/* Wishlist */}
+              <Link
+                href={wishlistHref}
+                className="relative flex h-9 w-9 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 transition cursor-pointer"
+                aria-label="Wishlist"
+              >
+                <Heart className="h-5 w-5" />
+                {wishlistCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[8px] font-bold text-white ring-1 ring-white">
+                    {wishlistCount > 99 ? "99+" : wishlistCount}
+                  </span>
+                )}
+              </Link>
+
+              {/* Mobile Avatar or Sign In button */}
+              {user ? (
                 <button
                   type="button"
-                  onClick={() => setMobileMenuOpen(true)}
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100/60 backdrop-blur-sm border border-gray-200/50 text-gray-700 hover:bg-gray-100 transition cursor-pointer"
-                  aria-label="Open menu"
+                  onClick={() => setMobileProfileOpen(true)}
+                  className="rounded-full cursor-pointer ml-2"
+                  aria-label="Open profile menu"
                 >
-                  <Menu className="h-5 w-5" />
+                  <Avatar className="h-8 w-8 border border-gray-200">
+                    <AvatarImage src={avatarUrl || "/placeholder.svg"} alt={displayName} />
+                    <AvatarFallback className="text-[10px] bg-gray-100 text-gray-700">{initials}</AvatarFallback>
+                  </Avatar>
                 </button>
-              </>
-            ) : (
-              <>
-                {/* Non-homepage layout: Hamburger + Logo left, icons right */}
-                <div className="flex items-center gap-0 -ml-1">
-                  <button
-                    type="button"
-                    onClick={() => setMobileMenuOpen(true)}
-                    className="flex h-9 w-9 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 transition cursor-pointer"
-                    aria-label="Open categories"
-                  >
-                    <Menu className="h-5 w-5" />
-                  </button>
-
-                  {/* Logo next to hamburger */}
-                  <Link href="/" className="shrink-0 flex items-center gap-1.5">
-                    <Image
-                      src={LOGO_URL || "/placeholder.svg"}
-                      alt="Storelib"
-                      width={114}
-                      height={38}
-                      className="h-[38px] w-auto"
-                      priority
-                    />
-                    <span className="text-[19px] font-bold text-gray-900 tracking-tight">Storelib</span>
-                  </Link>
-                </div>
-
-                {/* Right - Mobile Icons */}
-                <div className="flex items-center gap-1">
-                  {/* Library - only show when logged in */}
-                  {user && (
-                    <Link
-                      href="/library"
-                      className="flex h-9 w-9 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 transition cursor-pointer"
-                      aria-label="Library"
-                    >
-                      <Library className="h-5 w-5" />
-                    </Link>
-                  )}
-
-                  {/* Wishlist */}
-                  <Link
-                    href={wishlistHref}
-                    className="relative flex h-9 w-9 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 transition cursor-pointer"
-                    aria-label="Wishlist"
-                  >
-                    <Heart className="h-5 w-5" />
-                    {wishlistCount > 0 && (
-                      <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[8px] font-bold text-white ring-1 ring-white">
-                        {wishlistCount > 99 ? "99+" : wishlistCount}
-                      </span>
-                    )}
-                  </Link>
-
-                  {/* Mobile Avatar or Sign In button */}
-                  {user ? (
-                    <button
-                      type="button"
-                      onClick={() => setMobileProfileOpen(true)}
-                      className="rounded-full cursor-pointer ml-2"
-                      aria-label="Open profile menu"
-                    >
-                      <Avatar className="h-8 w-8 border border-gray-200">
-                        <AvatarImage src={avatarUrl || "/placeholder.svg"} alt={displayName} />
-                        <AvatarFallback className="text-[10px] bg-gray-100 text-gray-700">{initials}</AvatarFallback>
-                      </Avatar>
-                    </button>
-                  ) : (
-                    <Link href="/login">
-                      <Button className="ml-2 h-9 px-5 rounded-lg text-sm font-semibold bg-violet-500 text-white hover:bg-violet-600 gap-2">
-                        <UserIcon className="h-4 w-4" />
-                        Sign in
-                      </Button>
-                    </Link>
-                  )}
-                </div>
-              </>
-            )}
+              ) : (
+                <Link href="/login">
+                  <Button className="ml-2 h-9 px-5 rounded-lg text-sm font-semibold bg-violet-500 text-white hover:bg-violet-600 gap-2">
+                    <UserIcon className="h-4 w-4" />
+                    Sign in
+                  </Button>
+                </Link>
+              )}
+            </div>
           </div>
 
           {/* Right Side Actions - Desktop only (10% larger) */}
