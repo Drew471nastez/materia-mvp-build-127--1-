@@ -1181,21 +1181,6 @@ export function ExplorePageClient({
                 <h2 className="text-xl sm:text-2xl font-semibold text-neutral-900">
                   {sectionTitle}
                 </h2>
-                {/* Mobile: Show Clear badge when category or subcategory selected */}
-                {(mainCategory !== "all" || selectedSubcategoryId) && (
-                  <button
-                    onClick={() => {
-                      setMainCategory("all")
-                      setSelectedSubcategoryId(null)
-                      setSelectedSubcategoryLabel(null)
-                      router.push("/explore", { scroll: false })
-                    }}
-                    className="md:hidden inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-violet-100 text-violet-700 hover:bg-violet-200 transition-colors cursor-pointer"
-                  >
-                    <X className="w-3 h-3" />
-                    Clear
-                  </button>
-                )}
                 {/* Desktop: Only show Clear when subcategory selected (clears to parent category) */}
                 {selectedSubcategoryId && (
                   <button
@@ -1375,9 +1360,23 @@ export function ExplorePageClient({
               })}
             </div>
 
-            {/* Mobile: Clear Category/Subcategory Badge - shown below pills on mobile when category selected */}
+            {/* Mobile: Clear Badge and Category Badge - shown below pills on mobile when category selected */}
             {(mainCategory !== "all" || selectedSubcategoryId) && (
               <div className="md:hidden flex items-center gap-2 mt-2">
+                {/* Purple Clear badge */}
+                <button
+                  onClick={() => {
+                    setMainCategory("all")
+                    setSelectedSubcategoryId(null)
+                    setSelectedSubcategoryLabel(null)
+                    router.push("/explore", { scroll: false })
+                  }}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium bg-violet-100 text-violet-700 hover:bg-violet-200 transition-colors cursor-pointer"
+                >
+                  <X className="w-3 h-3" />
+                  Clear
+                </button>
+                {/* Black category/subcategory name badge */}
                 <button
                   onClick={() => {
                     setMainCategory("all")
@@ -1388,7 +1387,7 @@ export function ExplorePageClient({
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-neutral-900 text-white hover:bg-neutral-800 transition-colors cursor-pointer"
                 >
                   <X className="w-3 h-3" />
-                  {selectedSubcategoryLabel || CATEGORIES.find(c => c.id === mainCategory)?.label || "Clear"}
+                  {selectedSubcategoryLabel || CATEGORIES.find(c => c.id === mainCategory)?.label || "Category"}
                 </button>
               </div>
             )}
