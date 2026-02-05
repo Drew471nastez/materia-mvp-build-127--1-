@@ -1717,13 +1717,13 @@ export function PlatformHeaderClient() {
 
           {/* Subcategory View with animation */}
           {expandedCategory ? (
-            <div className="animate-in slide-in-from-right-4 fade-in duration-200">
+            <div className="animate-in slide-in-from-right-4 fade-in duration-300 ease-out">
               <button
                 type="button"
                 onClick={() => setExpandedCategory(null)}
-                className="flex items-center gap-2 px-2 py-2 mb-3 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors cursor-pointer"
+                className="flex items-center gap-2 px-2 py-2.5 mb-3 text-sm font-medium text-gray-600 hover:text-gray-900 transition-all duration-200 cursor-pointer rounded-lg hover:bg-gray-100 active:scale-[0.98]"
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="h-4 w-4 transition-transform duration-200 group-hover:-translate-x-0.5" />
                 <span>Back to Categories</span>
               </button>
               {(() => {
@@ -1775,7 +1775,7 @@ export function PlatformHeaderClient() {
             </div>
           ) : (
             /* Main Categories List */
-            <>
+            <div className="animate-in slide-in-from-left-4 fade-in duration-300 ease-out">
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Browse Categories</h3>
               <div className="space-y-0.5">
                 {CATEGORIES_WITH_SUBS.map((cat) => {
@@ -1845,7 +1845,7 @@ export function PlatformHeaderClient() {
                   </Link>
                 )}
               </div>
-            </>
+            </div>
           )}
         </div>
       </MobileBottomSheet>
