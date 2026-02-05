@@ -67,7 +67,7 @@ export const metadata: Metadata = {
     description: "The all-in-one ecommerce platform to sell digital products, build your online store & grow your audience.",
     images: [
       {
-        url: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design.jpg",
+        url: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/89.jpg",
         width: 1200,
         height: 630,
         alt: "Storelib - Sell Products & Grow Your Audience",
@@ -78,7 +78,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Storelib - Sell Products & Grow Your Audience",
     description: "The all-in-one ecommerce platform to sell digital products, build your online store & grow your audience.",
-    images: ["https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design.jpg"],
+    images: ["https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/89.jpg"],
   },
   icons: {
     icon: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg",

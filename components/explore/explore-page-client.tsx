@@ -5,21 +5,94 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { FeaturedBannerCarousel } from "./featured-banner-carousel"
 import { ProductCard } from "./product-card"
 import { ProductCardSkeleton } from "./product-card-skeleton"
-import { Layers, Sparkles, Zap, Share2, Bot, SlidersHorizontal, X, Check, ChevronRight } from "lucide-react"
+import { Layers, Sparkles, Zap, Share2, Bot, SlidersHorizontal, X, Check, Search, ChevronLeft, ChevronRight, Briefcase, Megaphone, Music, Camera, Video, ShoppingBag, Lightbulb } from "lucide-react"
+import { Input } from "@/components/ui/input"
 
-// Categories with icons - includes all header categories
+// Categories with icons and subcategories
 const CATEGORIES = [
-  { id: "all", label: "All", icon: Layers },
-  { id: "design", label: "Design", icon: Sparkles },
-  { id: "development", label: "Development", icon: Zap },
-  { id: "marketing", label: "Marketing", icon: Share2 },
-  { id: "business", label: "Business", icon: Layers },
-  { id: "ai", label: "AI", icon: Bot },
-  { id: "social-media", label: "Social Media", icon: Share2 },
-  { id: "productivity", label: "Productivity", icon: Zap },
+  {
+    id: "all",
+    label: "All",
+    icon: Layers,
+    subcategories: []
+  },
+  {
+    id: "design",
+    label: "Design",
+    icon: Sparkles,
+    subcategories: [
+      { id: "ui-ux", label: "UI/UX Templates" },
+      { id: "graphics", label: "Graphics & Illustrations" },
+      { id: "fonts", label: "Fonts & Typography" },
+      { id: "icons", label: "Icons & Elements" },
+      { id: "mockups", label: "Mockups" },
+    ]
+  },
+  {
+    id: "development",
+    label: "Development",
+    icon: Zap,
+    subcategories: [
+      { id: "web", label: "Web Templates" },
+      { id: "mobile", label: "Mobile Apps" },
+      { id: "scripts", label: "Scripts & Plugins" },
+      { id: "apis", label: "APIs & Tools" },
+    ]
+  },
+  {
+    id: "marketing",
+    label: "Marketing",
+    icon: Megaphone,
+    subcategories: [
+      { id: "email", label: "Email Templates" },
+      { id: "ads", label: "Ad Creatives" },
+      { id: "landing", label: "Landing Pages" },
+      { id: "seo", label: "SEO Tools" },
+    ]
+  },
+  {
+    id: "business",
+    label: "Business",
+    icon: Briefcase,
+    subcategories: [
+      { id: "spreadsheets", label: "Spreadsheets" },
+      { id: "presentations", label: "Presentations" },
+      { id: "documents", label: "Documents & Contracts" },
+    ]
+  },
+  {
+    id: "ai",
+    label: "AI",
+    icon: Bot,
+    subcategories: [
+      { id: "prompts", label: "AI Prompts" },
+      { id: "chatgpt", label: "ChatGPT Templates" },
+      { id: "automation", label: "Automation Tools" },
+    ]
+  },
+  {
+    id: "social-media",
+    label: "Social Media",
+    icon: Share2,
+    subcategories: [
+      { id: "instagram", label: "Instagram Templates" },
+      { id: "tiktok", label: "TikTok Content" },
+      { id: "youtube", label: "YouTube Assets" },
+    ]
+  },
+  {
+    id: "productivity",
+    label: "Productivity",
+    icon: Zap,
+    subcategories: [
+      { id: "notion", label: "Notion Templates" },
+      { id: "planners", label: "Calendars & Planners" },
+      { id: "checklists", label: "Checklists" },
+    ]
+  },
 ] as const
 
-// Filter types for category section
+// Filter types for Recommended section
 const RECOMMENDATION_FILTERS = [
   { id: "curated", label: "Curated" },
   { id: "trending", label: "Trending" },
@@ -43,6 +116,8 @@ const SORT_OPTIONS = [
   { id: "price-high", label: "Price: High to Low" },
 ] as const
 
+const PRODUCTS_PER_PAGE = 15 // 3 per row x 5 rows
+
 // Mobile Filter Bottom Sheet Component
 function MobileFilterSheet({
   isOpen,
@@ -51,6 +126,9 @@ function MobileFilterSheet({
   setPriceFilter,
   sortBy,
   setSortBy,
+  selectedSubcategories,
+  setSelectedSubcategories,
+  availableSubcategories,
   resetFilters,
   activeFilterCount,
 }: {
@@ -60,6 +138,9 @@ function MobileFilterSheet({
   setPriceFilter: (value: string) => void
   sortBy: string
   setSortBy: (value: string) => void
+  selectedSubcategories: string[]
+  setSelectedSubcategories: (value: string[]) => void
+  availableSubcategories: { id: string; label: string }[]
   resetFilters: () => void
   activeFilterCount: number
 }) {
@@ -105,10 +186,8 @@ function MobileFilterSheet({
     const touch = e.touches[0]
     const sheetElement = sheetRef.current
     if (!sheetElement) return
-
     const sheetRect = sheetElement.getBoundingClientRect()
     const touchYInSheet = touch.clientY - sheetRect.top
-
     if (touchYInSheet <= 60) {
       startY.current = touch.clientY
       setIsDragging(true)
@@ -119,18 +198,21 @@ function MobileFilterSheet({
     if (!isDragging) return
     const currentY = e.touches[0].clientY
     const diff = currentY - startY.current
-    if (diff > 0) {
-      setDragY(diff * 0.8)
-    }
+    if (diff > 0) setDragY(diff * 0.8)
   }
 
   const handleTouchEnd = () => {
     if (!isDragging) return
     setIsDragging(false)
-    if (dragY > 80) {
-      handleClose()
+    if (dragY > 80) handleClose()
+    else setDragY(0)
+  }
+
+  const toggleSubcategory = (subId: string) => {
+    if (selectedSubcategories.includes(subId)) {
+      setSelectedSubcategories(selectedSubcategories.filter(s => s !== subId))
     } else {
-      setDragY(0)
+      setSelectedSubcategories([...selectedSubcategories, subId])
     }
   }
 
@@ -138,15 +220,11 @@ function MobileFilterSheet({
 
   return (
     <div className="fixed inset-0 z-[100] md:hidden">
-      {/* Backdrop */}
       <div
-        className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity ease-out ${
-          isAnimating ? "opacity-100" : "opacity-0"
-        }`}
+        className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity ease-out ${isAnimating ? "opacity-100" : "opacity-0"}`}
         style={{ transitionDuration: '400ms' }}
         onClick={handleClose}
       />
-      {/* Bottom Sheet */}
       <div
         ref={sheetRef}
         onTouchStart={handleTouchStart}
@@ -159,30 +237,45 @@ function MobileFilterSheet({
           maxHeight: '85vh',
         }}
       >
-        {/* Handle bar */}
         <div className="pt-3 pb-2">
-          <button
-            onClick={handleClose}
-            className="w-full flex justify-center py-2 cursor-pointer touch-none"
-          >
+          <button onClick={handleClose} className="w-full flex justify-center py-2 cursor-pointer touch-none">
             <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
           </button>
         </div>
 
-        {/* Header */}
         <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-100">
           <h3 className="text-lg font-semibold text-neutral-900">Filters</h3>
           {activeFilterCount > 0 && (
-            <button
-              onClick={resetFilters}
-              className="text-sm text-violet-600 font-medium cursor-pointer"
-            >
+            <button onClick={resetFilters} className="text-sm text-violet-600 font-medium cursor-pointer">
               Reset all
             </button>
           )}
         </div>
 
         <div className="overflow-y-auto overscroll-contain p-4 space-y-6" style={{ maxHeight: 'calc(85vh - 140px)' }}>
+          {/* Subcategories */}
+          {availableSubcategories.length > 0 && (
+            <div>
+              <h4 className="text-sm font-semibold text-neutral-900 mb-3">Subcategories</h4>
+              <div className="flex flex-wrap gap-2">
+                {availableSubcategories.map((sub) => (
+                  <button
+                    key={sub.id}
+                    onClick={() => toggleSubcategory(sub.id)}
+                    className={`inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-150 cursor-pointer ${
+                      selectedSubcategories.includes(sub.id)
+                        ? "bg-violet-600 text-white"
+                        : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                    }`}
+                  >
+                    {selectedSubcategories.includes(sub.id) && <Check className="w-3.5 h-3.5" />}
+                    {sub.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Price Filter */}
           <div>
             <h4 className="text-sm font-semibold text-neutral-900 mb-3">Price Range</h4>
@@ -191,14 +284,11 @@ function MobileFilterSheet({
                 <button
                   key={filter.id}
                   onClick={() => setPriceFilter(filter.id)}
-                  className={`
-                    inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-medium
-                    transition-all duration-150 cursor-pointer
-                    ${priceFilter === filter.id
+                  className={`inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-150 cursor-pointer ${
+                    priceFilter === filter.id
                       ? "bg-neutral-900 text-white"
                       : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
-                    }
-                  `}
+                  }`}
                 >
                   {priceFilter === filter.id && <Check className="w-3.5 h-3.5" />}
                   {filter.label}
@@ -215,14 +305,9 @@ function MobileFilterSheet({
                 <button
                   key={option.id}
                   onClick={() => setSortBy(option.id)}
-                  className={`
-                    flex items-center justify-between w-full px-4 py-3.5 rounded-xl text-sm font-medium
-                    transition-all duration-150 cursor-pointer
-                    ${sortBy === option.id
-                      ? "bg-neutral-100 text-neutral-900"
-                      : "text-neutral-600 hover:bg-neutral-50"
-                    }
-                  `}
+                  className={`flex items-center justify-between w-full px-4 py-3.5 rounded-xl text-sm font-medium transition-all duration-150 cursor-pointer ${
+                    sortBy === option.id ? "bg-neutral-100 text-neutral-900" : "text-neutral-600 hover:bg-neutral-50"
+                  }`}
                 >
                   <span>{option.label}</span>
                   {sortBy === option.id && <Check className="w-5 h-5 text-violet-600" />}
@@ -232,7 +317,6 @@ function MobileFilterSheet({
           </div>
         </div>
 
-        {/* Footer */}
         <div className="flex items-center gap-3 px-4 py-4 border-t border-neutral-100 bg-white">
           <button
             onClick={resetFilters}
@@ -252,6 +336,72 @@ function MobileFilterSheet({
   )
 }
 
+// Search Input Component with smooth animation
+function SearchInput({
+  isOpen,
+  onClose,
+  searchQuery,
+  setSearchQuery,
+  categoryName,
+}: {
+  isOpen: boolean
+  onClose: () => void
+  searchQuery: string
+  setSearchQuery: (value: string) => void
+  categoryName: string
+}) {
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (isOpen && inputRef.current) {
+      setTimeout(() => inputRef.current?.focus(), 100)
+    }
+  }, [isOpen])
+
+  if (!isOpen) return null
+
+  return (
+    <div className="animate-in fade-in slide-in-from-top-2 duration-200">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400 pointer-events-none" />
+        <Input
+          ref={inputRef}
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder={`Search in ${categoryName}...`}
+          className="h-11 w-full pl-10 pr-10 bg-neutral-100 border-neutral-200 text-neutral-900 placeholder:text-neutral-500 rounded-full text-sm"
+        />
+        <button
+          onClick={() => {
+            setSearchQuery("")
+            onClose()
+          }}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 cursor-pointer"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// Category Card Component for "All" view
+function CategoryCard({ category, onClick }: { category: typeof CATEGORIES[number]; onClick: () => void }) {
+  const Icon = category.icon
+  return (
+    <button
+      onClick={onClick}
+      className="flex flex-col items-center justify-center p-6 bg-white rounded-2xl border border-neutral-200 hover:border-neutral-300 hover:shadow-md transition-all duration-200 cursor-pointer group"
+    >
+      <div className="w-14 h-14 rounded-2xl bg-neutral-100 flex items-center justify-center mb-3 group-hover:bg-violet-100 transition-colors">
+        <Icon className="w-7 h-7 text-neutral-600 group-hover:text-violet-600 transition-colors" />
+      </div>
+      <span className="text-sm font-medium text-neutral-900">{category.label}</span>
+      <span className="text-xs text-neutral-500 mt-1">{category.subcategories.length} subcategories</span>
+    </button>
+  )
+}
+
 interface ExplorePageClientProps {
   initialProducts: any[]
   initialCategory: string
@@ -261,12 +411,18 @@ interface ExplorePageClientProps {
 export function ExplorePageClient({
   initialProducts,
   initialCategory,
-  searchQuery,
+  searchQuery: urlSearchQuery,
 }: ExplorePageClientProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [isPending, startTransition] = useTransition()
-  const [selectedCategory, setSelectedCategory] = useState(initialCategory.toLowerCase() || "all")
+
+  // Main category from URL (for Recommended section)
+  const [mainCategory, setMainCategory] = useState(initialCategory.toLowerCase() || "all")
+
+  // Separate category for the pills section
+  const [pillsCategory, setPillsCategory] = useState("all")
+
   const [isLoadingCategory, setIsLoadingCategory] = useState(false)
   const [recommendationFilter, setRecommendationFilter] = useState<"curated" | "trending" | "hot-new">("curated")
   const categoryChangeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -276,49 +432,76 @@ export function ExplorePageClient({
   // Filter states
   const [priceFilter, setPriceFilter] = useState<string>("all")
   const [sortBy, setSortBy] = useState<string>("newest")
+  const [selectedSubcategories, setSelectedSubcategories] = useState<string[]>([])
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
 
-  // Smooth scroll to category section when category changes from URL (external navigation)
+  // Search states
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [localSearchQuery, setLocalSearchQuery] = useState("")
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1)
+
+  // Smooth scroll to category section when category changes from URL
   useEffect(() => {
     const categoryParam = searchParams.get("category")
-
-    // Only scroll if coming from header navigation (category param present and not "all")
     if (categoryParam && categoryParam !== "all" && !hasScrolledRef.current) {
       hasScrolledRef.current = true
-      // Small delay to ensure DOM is ready
       setTimeout(() => {
-        categorySectionRef.current?.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        })
+        categorySectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
       }, 150)
     }
   }, [searchParams])
 
-  // Reset scroll flag when category changes internally
   useEffect(() => {
-    if (selectedCategory === "all") {
-      hasScrolledRef.current = false
-    }
-  }, [selectedCategory])
+    if (mainCategory === "all") hasScrolledRef.current = false
+  }, [mainCategory])
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [mainCategory, recommendationFilter, priceFilter, sortBy, selectedSubcategories, localSearchQuery])
+
+  // Get available subcategories for current main category
+  const availableSubcategories = useMemo(() => {
+    const cat = CATEGORIES.find(c => c.id === mainCategory)
+    return cat?.subcategories || []
+  }, [mainCategory])
 
   // Products for featured section
   const featuredProducts = useMemo(() => {
     return initialProducts.filter(p => p.thumbnail_url).slice(0, 5)
   }, [initialProducts])
 
-  // Get category products based on filter and selected category
-  const categoryProducts = useMemo(() => {
+  // Get Recommended section products (based on main category from URL/header)
+  const recommendedProducts = useMemo(() => {
     let products = [...initialProducts]
 
-    // Filter by category first (if not "all")
-    if (selectedCategory !== "all") {
+    // Filter by main category
+    if (mainCategory !== "all") {
       products = products.filter(p => {
         const productCategory = (p.category || p.categoryName || "").toLowerCase()
         const creatorTags = p.creator?.niche_tags?.map((t: string) => t.toLowerCase()) || []
-        return productCategory === selectedCategory || creatorTags.includes(selectedCategory)
+        return productCategory === mainCategory || creatorTags.includes(mainCategory)
       })
+    }
+
+    // Filter by subcategories
+    if (selectedSubcategories.length > 0) {
+      products = products.filter(p => {
+        const productSub = (p.subcategory || "").toLowerCase()
+        return selectedSubcategories.some(sub => productSub.includes(sub))
+      })
+    }
+
+    // Filter by local search
+    if (localSearchQuery.trim()) {
+      const query = localSearchQuery.toLowerCase()
+      products = products.filter(p =>
+        p.title?.toLowerCase().includes(query) ||
+        p.description?.toLowerCase().includes(query)
+      )
     }
 
     // Apply recommendation filter
@@ -379,117 +562,142 @@ export function ExplorePageClient({
         break
     }
 
-    return products.slice(0, 30)
-  }, [initialProducts, selectedCategory, recommendationFilter, priceFilter, sortBy])
+    return products
+  }, [initialProducts, mainCategory, recommendationFilter, priceFilter, sortBy, selectedSubcategories, localSearchQuery])
+
+  // Paginated products
+  const paginatedProducts = useMemo(() => {
+    const startIndex = (currentPage - 1) * PRODUCTS_PER_PAGE
+    return recommendedProducts.slice(startIndex, startIndex + PRODUCTS_PER_PAGE)
+  }, [recommendedProducts, currentPage])
+
+  const totalPages = Math.ceil(recommendedProducts.length / PRODUCTS_PER_PAGE)
+
+  // Get products for the pills section (separate from Recommended)
+  const pillsSectionProducts = useMemo(() => {
+    if (pillsCategory === "all") return [] // Show category cards instead
+
+    let products = [...initialProducts]
+    products = products.filter(p => {
+      const productCategory = (p.category || p.categoryName || "").toLowerCase()
+      const creatorTags = p.creator?.niche_tags?.map((t: string) => t.toLowerCase()) || []
+      return productCategory === pillsCategory || creatorTags.includes(pillsCategory)
+    })
+
+    // Sort by curated score
+    products = products.sort((a, b) => {
+      const scoreA = (a.reviews_average || 0) * (a.reviews_count || 0) + (a.sales_count || 0)
+      const scoreB = (b.reviews_average || 0) * (b.reviews_count || 0) + (b.sales_count || 0)
+      return scoreB - scoreA
+    })
+
+    return products.slice(0, 15) // 3 x 5 rows
+  }, [initialProducts, pillsCategory])
 
   // Get active filter count
   const activeFilterCount = useMemo(() => {
     let count = 0
     if (priceFilter !== "all") count++
     if (sortBy !== "newest") count++
+    if (selectedSubcategories.length > 0) count += selectedSubcategories.length
     return count
-  }, [priceFilter, sortBy])
+  }, [priceFilter, sortBy, selectedSubcategories])
 
   // Reset filters
   const resetFilters = useCallback(() => {
     setPriceFilter("all")
     setSortBy("newest")
+    setSelectedSubcategories([])
   }, [])
 
-  // Get section title based on selected category
+  // Get section title
   const sectionTitle = useMemo(() => {
-    if (searchQuery) return `Results for "${searchQuery}"`
-    if (selectedCategory === "all") return "Recommended"
-    return CATEGORIES.find(c => c.id === selectedCategory)?.label || "Products"
-  }, [selectedCategory, searchQuery])
+    if (urlSearchQuery) return `Results for "${urlSearchQuery}"`
+    if (mainCategory === "all") return "Recommended"
+    return CATEGORIES.find(c => c.id === mainCategory)?.label || "Products"
+  }, [mainCategory, urlSearchQuery])
 
-  // Handle category change with instant feedback and auto-scroll
-  const handleCategoryChange = useCallback((categoryId: string) => {
-    // Instant UI feedback
-    setSelectedCategory(categoryId)
+  // Handle category change from URL/header
+  const handleMainCategoryChange = useCallback((categoryId: string) => {
+    setMainCategory(categoryId)
+    setSelectedSubcategories([])
     setIsLoadingCategory(true)
 
-    // Clear any pending timeout
-    if (categoryChangeTimeoutRef.current) {
-      clearTimeout(categoryChangeTimeoutRef.current)
-    }
+    if (categoryChangeTimeoutRef.current) clearTimeout(categoryChangeTimeoutRef.current)
 
-    // Small delay to show loading state, then update URL and scroll
     categoryChangeTimeoutRef.current = setTimeout(() => {
       startTransition(() => {
-        const newUrl = `/explore?category=${categoryId}${searchQuery ? `&q=${searchQuery}` : ""}`
+        const newUrl = `/explore?category=${categoryId}${urlSearchQuery ? `&q=${urlSearchQuery}` : ""}`
         router.push(newUrl, { scroll: false })
       })
       setIsLoadingCategory(false)
 
-      // Auto-scroll to category section if not "all"
       if (categoryId !== "all") {
         setTimeout(() => {
-          categorySectionRef.current?.scrollIntoView({
-            behavior: "smooth",
-            block: "start",
-          })
+          categorySectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
         }, 50)
       }
     }, 100)
-  }, [router, searchQuery])
+  }, [router, urlSearchQuery])
 
-  // Cleanup timeout on unmount
+  // Handle pills category change (separate section)
+  const handlePillsCategoryChange = useCallback((categoryId: string) => {
+    setPillsCategory(categoryId)
+  }, [])
+
   useEffect(() => {
     return () => {
-      if (categoryChangeTimeoutRef.current) {
-        clearTimeout(categoryChangeTimeoutRef.current)
-      }
+      if (categoryChangeTimeoutRef.current) clearTimeout(categoryChangeTimeoutRef.current)
     }
   }, [])
 
-  // Sync category from URL on mount/navigation
   useEffect(() => {
     const normalizedCategory = initialCategory.toLowerCase() || "all"
-    if (normalizedCategory !== selectedCategory) {
-      setSelectedCategory(normalizedCategory)
-    }
+    if (normalizedCategory !== mainCategory) setMainCategory(normalizedCategory)
   }, [initialCategory])
 
   const showSkeletons = isPending || isLoadingCategory
 
   return (
-    <div className="space-y-6">
-      {/* Featured Banner Carousel - always first, only show if no search */}
-      {!searchQuery && featuredProducts.length > 0 && (
+    <div className="space-y-8">
+      {/* Featured Banner Carousel */}
+      {!urlSearchQuery && featuredProducts.length > 0 && (
         <FeaturedBannerCarousel products={featuredProducts} />
       )}
 
-      {/* Dynamic Category Section - shows after banner */}
-      {!searchQuery && (
+      {/* Dynamic Category Section (Recommended) */}
+      {!urlSearchQuery && (
         <section ref={categorySectionRef} className="mt-10 scroll-mt-28">
-          {/* Section Header with Title, Filter Pills, and Filters Button */}
+          {/* Section Header */}
           <div className="flex flex-col gap-4 mb-6">
-            {/* Title Row */}
+            {/* Title Row with Search and Filters */}
             <div className="flex items-center justify-between gap-4">
               <h2 className="text-xl sm:text-2xl font-semibold text-neutral-900">
                 {sectionTitle}
               </h2>
 
-              {/* Filters Button - Desktop dropdown, Mobile opens sheet */}
-              <div className="relative">
-                {/* Desktop Filter Button */}
+              <div className="flex items-center gap-2">
+                {/* Search Button */}
+                <button
+                  onClick={() => setSearchOpen(!searchOpen)}
+                  className={`inline-flex items-center justify-center w-10 h-10 rounded-full transition-all duration-150 cursor-pointer ${
+                    searchOpen ? "bg-neutral-900 text-white" : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
+                  }`}
+                >
+                  <Search className="w-4 h-4" />
+                </button>
+
+                {/* Filters Button */}
                 <button
                   onClick={() => {
-                    if (window.innerWidth >= 768) {
-                      setFiltersOpen(!filtersOpen)
-                    } else {
-                      setMobileFiltersOpen(true)
-                    }
+                    if (window.innerWidth >= 768) setFiltersOpen(!filtersOpen)
+                    else setMobileFiltersOpen(true)
                   }}
-                  className={`
-                    inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium
-                    transition-all duration-150 cursor-pointer select-none
-                    ${filtersOpen || activeFilterCount > 0
+                  className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-150 cursor-pointer select-none ${
+                    filtersOpen || activeFilterCount > 0
                       ? "bg-neutral-900 text-white"
                       : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
-                    }
-                  `}
+                  }`}
                 >
                   <SlidersHorizontal className="w-4 h-4" />
                   <span className="hidden sm:inline">Filters</span>
@@ -503,23 +711,45 @@ export function ExplorePageClient({
                 {/* Desktop Filters Dropdown */}
                 {filtersOpen && (
                   <>
-                    <div
-                      className="fixed inset-0 z-40 hidden md:block"
-                      onClick={() => setFiltersOpen(false)}
-                    />
-                    <div className="hidden md:block absolute right-0 top-full mt-2 w-[320px] bg-white rounded-2xl shadow-xl border border-neutral-200 z-50 animate-in fade-in-0 slide-in-from-top-2 duration-200 overflow-hidden">
-                      {/* Header */}
+                    <div className="fixed inset-0 z-40 hidden md:block" onClick={() => setFiltersOpen(false)} />
+                    <div className="hidden md:block absolute right-4 top-full mt-2 w-[340px] bg-white rounded-2xl shadow-xl border border-neutral-200 z-50 animate-in fade-in-0 slide-in-from-top-2 duration-200 overflow-hidden">
                       <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-100">
                         <h3 className="text-sm font-semibold text-neutral-900">Filters</h3>
-                        <button
-                          onClick={() => setFiltersOpen(false)}
-                          className="p-1 rounded-full hover:bg-neutral-100 transition-colors cursor-pointer"
-                        >
+                        <button onClick={() => setFiltersOpen(false)} className="p-1 rounded-full hover:bg-neutral-100 transition-colors cursor-pointer">
                           <X className="w-4 h-4 text-neutral-500" />
                         </button>
                       </div>
 
-                      <div className="p-4 space-y-5">
+                      <div className="p-4 space-y-5 max-h-[60vh] overflow-y-auto">
+                        {/* Subcategories */}
+                        {availableSubcategories.length > 0 && (
+                          <div>
+                            <h4 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">Subcategories</h4>
+                            <div className="flex flex-wrap gap-2">
+                              {availableSubcategories.map((sub) => (
+                                <button
+                                  key={sub.id}
+                                  onClick={() => {
+                                    if (selectedSubcategories.includes(sub.id)) {
+                                      setSelectedSubcategories(selectedSubcategories.filter(s => s !== sub.id))
+                                    } else {
+                                      setSelectedSubcategories([...selectedSubcategories, sub.id])
+                                    }
+                                  }}
+                                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-150 cursor-pointer ${
+                                    selectedSubcategories.includes(sub.id)
+                                      ? "bg-violet-600 text-white"
+                                      : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                                  }`}
+                                >
+                                  {selectedSubcategories.includes(sub.id) && <Check className="w-3 h-3" />}
+                                  {sub.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
                         {/* Price Filter */}
                         <div>
                           <h4 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">Price</h4>
@@ -528,14 +758,11 @@ export function ExplorePageClient({
                               <button
                                 key={filter.id}
                                 onClick={() => setPriceFilter(filter.id)}
-                                className={`
-                                  inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium
-                                  transition-all duration-150 cursor-pointer
-                                  ${priceFilter === filter.id
+                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-150 cursor-pointer ${
+                                  priceFilter === filter.id
                                     ? "bg-neutral-900 text-white"
                                     : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
-                                  }
-                                `}
+                                }`}
                               >
                                 {priceFilter === filter.id && <Check className="w-3 h-3" />}
                                 {filter.label}
@@ -552,14 +779,9 @@ export function ExplorePageClient({
                               <button
                                 key={option.id}
                                 onClick={() => setSortBy(option.id)}
-                                className={`
-                                  flex items-center justify-between w-full px-3 py-2.5 rounded-xl text-sm font-medium
-                                  transition-all duration-150 cursor-pointer
-                                  ${sortBy === option.id
-                                    ? "bg-neutral-100 text-neutral-900"
-                                    : "text-neutral-600 hover:bg-neutral-50"
-                                  }
-                                `}
+                                className={`flex items-center justify-between w-full px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 cursor-pointer ${
+                                  sortBy === option.id ? "bg-neutral-100 text-neutral-900" : "text-neutral-600 hover:bg-neutral-50"
+                                }`}
                               >
                                 <span>{option.label}</span>
                                 {sortBy === option.id && <Check className="w-4 h-4 text-violet-600" />}
@@ -569,18 +791,11 @@ export function ExplorePageClient({
                         </div>
                       </div>
 
-                      {/* Footer */}
                       <div className="flex items-center gap-3 px-4 py-3 border-t border-neutral-100 bg-neutral-50">
-                        <button
-                          onClick={resetFilters}
-                          className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-neutral-600 hover:bg-neutral-200 transition-colors cursor-pointer"
-                        >
+                        <button onClick={resetFilters} className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-neutral-600 hover:bg-neutral-200 transition-colors cursor-pointer">
                           Reset
                         </button>
-                        <button
-                          onClick={() => setFiltersOpen(false)}
-                          className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold bg-neutral-900 text-white hover:bg-neutral-800 transition-colors cursor-pointer"
-                        >
+                        <button onClick={() => setFiltersOpen(false)} className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold bg-neutral-900 text-white hover:bg-neutral-800 transition-colors cursor-pointer">
                           Apply
                         </button>
                       </div>
@@ -590,7 +805,16 @@ export function ExplorePageClient({
               </div>
             </div>
 
-            {/* Filter Pills Row - Curated, Trending, Hot & New */}
+            {/* Search Input */}
+            <SearchInput
+              isOpen={searchOpen}
+              onClose={() => setSearchOpen(false)}
+              searchQuery={localSearchQuery}
+              setSearchQuery={setLocalSearchQuery}
+              categoryName={sectionTitle}
+            />
+
+            {/* Filter Pills Row */}
             <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
               {RECOMMENDATION_FILTERS.map((filter) => {
                 const isSelected = recommendationFilter === filter.id
@@ -598,15 +822,11 @@ export function ExplorePageClient({
                   <button
                     key={filter.id}
                     onClick={() => setRecommendationFilter(filter.id as typeof recommendationFilter)}
-                    className={`
-                      px-4 py-2 rounded-full text-sm font-medium cursor-pointer select-none whitespace-nowrap
-                      transition-all duration-150 ease-out
-                      active:scale-[0.98]
-                      ${isSelected
+                    className={`px-4 py-2 rounded-full text-sm font-medium cursor-pointer select-none whitespace-nowrap transition-all duration-150 ease-out active:scale-[0.98] ${
+                      isSelected
                         ? "bg-neutral-900 text-white shadow-sm"
                         : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200 hover:text-neutral-900"
-                      }
-                    `}
+                    }`}
                   >
                     {filter.label}
                   </button>
@@ -618,13 +838,21 @@ export function ExplorePageClient({
             {activeFilterCount > 0 && (
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs text-neutral-500">Active:</span>
+                {selectedSubcategories.map(subId => {
+                  const sub = availableSubcategories.find(s => s.id === subId)
+                  return sub ? (
+                    <span key={subId} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-violet-100 text-violet-700">
+                      {sub.label}
+                      <button onClick={() => setSelectedSubcategories(selectedSubcategories.filter(s => s !== subId))} className="hover:bg-violet-200 rounded-full p-0.5 cursor-pointer">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ) : null
+                })}
                 {priceFilter !== "all" && (
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-violet-100 text-violet-700">
                     {PRICE_FILTERS.find(f => f.id === priceFilter)?.label}
-                    <button
-                      onClick={() => setPriceFilter("all")}
-                      className="hover:bg-violet-200 rounded-full p-0.5 cursor-pointer"
-                    >
+                    <button onClick={() => setPriceFilter("all")} className="hover:bg-violet-200 rounded-full p-0.5 cursor-pointer">
                       <X className="w-3 h-3" />
                     </button>
                   </span>
@@ -632,123 +860,183 @@ export function ExplorePageClient({
                 {sortBy !== "newest" && (
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-violet-100 text-violet-700">
                     {SORT_OPTIONS.find(o => o.id === sortBy)?.label}
-                    <button
-                      onClick={() => setSortBy("newest")}
-                      className="hover:bg-violet-200 rounded-full p-0.5 cursor-pointer"
-                    >
+                    <button onClick={() => setSortBy("newest")} className="hover:bg-violet-200 rounded-full p-0.5 cursor-pointer">
                       <X className="w-3 h-3" />
                     </button>
                   </span>
                 )}
-                <button
-                  onClick={resetFilters}
-                  className="text-xs text-neutral-500 hover:text-neutral-700 underline cursor-pointer"
-                >
+                <button onClick={resetFilters} className="text-xs text-neutral-500 hover:text-neutral-700 underline cursor-pointer">
                   Clear all
                 </button>
               </div>
             )}
           </div>
 
-          {/* Products Grid */}
+          {/* Products Grid - 3 per row */}
           {showSkeletons ? (
-            <div className="grid gap-5 grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 animate-in fade-in-0 duration-200">
-              {Array.from({ length: 10 }).map((_, i) => (
+            <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 animate-in fade-in-0 duration-200">
+              {Array.from({ length: 9 }).map((_, i) => (
                 <ProductCardSkeleton key={i} />
               ))}
             </div>
-          ) : categoryProducts.length > 0 ? (
-            <div
-              key={`products-${selectedCategory}-${recommendationFilter}-${priceFilter}-${sortBy}`}
-              className="grid gap-5 grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 animate-in fade-in-0 slide-in-from-bottom-2 duration-300"
-            >
-              {categoryProducts.map((product, index) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  srcParam="?src=platform"
-                  priority={index < 5}
-                />
-              ))}
-            </div>
+          ) : paginatedProducts.length > 0 ? (
+            <>
+              <div
+                key={`products-${mainCategory}-${recommendationFilter}-${priceFilter}-${sortBy}-${currentPage}`}
+                className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 animate-in fade-in-0 slide-in-from-bottom-2 duration-300"
+              >
+                {paginatedProducts.map((product, index) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    srcParam="?src=platform"
+                    priority={index < 3}
+                  />
+                ))}
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-2 mt-8">
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="flex items-center justify-center w-10 h-10 rounded-full bg-neutral-100 text-neutral-700 hover:bg-neutral-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`flex items-center justify-center w-10 h-10 rounded-full text-sm font-medium transition-colors cursor-pointer ${
+                        currentPage === page
+                          ? "bg-neutral-900 text-white"
+                          : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="flex items-center justify-center w-10 h-10 rounded-full bg-neutral-100 text-neutral-700 hover:bg-neutral-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </div>
+              )}
+
+              {/* Product count */}
+              <p className="text-sm text-neutral-500 mt-4 text-center">
+                Showing {(currentPage - 1) * PRODUCTS_PER_PAGE + 1}-{Math.min(currentPage * PRODUCTS_PER_PAGE, recommendedProducts.length)} of {recommendedProducts.length} products
+              </p>
+            </>
           ) : (
             <div className="rounded-2xl border border-dashed border-neutral-300 p-12 text-center">
               <p className="text-neutral-500">
-                {priceFilter !== "all"
-                  ? "No products match your filters. Try adjusting your price range."
-                  : "No products found in this category."
+                {localSearchQuery
+                  ? `No products found for "${localSearchQuery}"`
+                  : priceFilter !== "all"
+                    ? "No products match your filters. Try adjusting your price range."
+                    : "No products found in this category."
                 }
               </p>
               {activeFilterCount > 0 && (
-                <button
-                  onClick={resetFilters}
-                  className="mt-3 text-sm text-violet-600 hover:text-violet-700 font-medium cursor-pointer"
-                >
+                <button onClick={resetFilters} className="mt-3 text-sm text-violet-600 hover:text-violet-700 font-medium cursor-pointer">
                   Clear filters
                 </button>
               )}
             </div>
           )}
-
-          {/* Product count */}
-          {categoryProducts.length > 0 && (
-            <p className="text-sm text-neutral-500 mt-4 text-center">
-              Showing {categoryProducts.length} {categoryProducts.length === 1 ? "product" : "products"}
-            </p>
-          )}
         </section>
       )}
 
-      {/* Category Pills - positioned below the category section */}
-      <nav aria-label="Product categories" className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide mt-8">
-        {CATEGORIES.map((category, index) => {
-          const isSelected = selectedCategory === category.id
-          const Icon = category.icon
+      {/* Separate Category Pills Section */}
+      <section className="mt-12 pt-8 border-t border-neutral-200">
+        <h3 className="text-lg font-semibold text-neutral-900 mb-4">Browse by Category</h3>
 
-          return (
-            <button
-              key={category.id}
-              onClick={() => handleCategoryChange(category.id)}
-              className={`
-                relative inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium
-                whitespace-nowrap cursor-pointer select-none
-                transition-all duration-150 ease-out
-                active:scale-[0.98]
-                ${isSelected
-                  ? "bg-neutral-900 text-white shadow-sm"
-                  : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200 hover:text-neutral-900"
-                }
-              `}
-              aria-pressed={isSelected}
-            >
-              {index === 0 && <Icon className="w-4 h-4" />}
-              {category.label}
-            </button>
-          )
-        })}
-      </nav>
+        {/* Category Pills */}
+        <nav aria-label="Browse categories" className="flex items-center gap-2 overflow-x-auto pb-4 scrollbar-hide">
+          {CATEGORIES.map((category) => {
+            const isSelected = pillsCategory === category.id
+            const Icon = category.icon
+            return (
+              <button
+                key={category.id}
+                onClick={() => handlePillsCategoryChange(category.id)}
+                className={`relative inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap cursor-pointer select-none transition-all duration-150 ease-out active:scale-[0.98] ${
+                  isSelected
+                    ? "bg-neutral-900 text-white shadow-sm"
+                    : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200 hover:text-neutral-900"
+                }`}
+                aria-pressed={isSelected}
+              >
+                <Icon className="w-4 h-4" />
+                {category.label}
+              </button>
+            )
+          })}
+        </nav>
 
-      {/* Search Results Section - only shows when searching */}
-      {searchQuery && (
+        {/* Content based on pills category */}
+        {pillsCategory === "all" ? (
+          /* Category Cards Grid */
+          <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 mt-4">
+            {CATEGORIES.filter(c => c.id !== "all").map((category) => (
+              <CategoryCard
+                key={category.id}
+                category={category}
+                onClick={() => handlePillsCategoryChange(category.id)}
+              />
+            ))}
+          </div>
+        ) : (
+          /* Products for selected category - 3 per row */
+          <div className="mt-4">
+            {pillsSectionProducts.length > 0 ? (
+              <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 animate-in fade-in-0 duration-200">
+                {pillsSectionProducts.map((product, index) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    srcParam="?src=platform"
+                    priority={index < 3}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-neutral-300 p-8 text-center">
+                <p className="text-neutral-500">No products found in this category.</p>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+
+      {/* Search Results Section */}
+      {urlSearchQuery && (
         <section className="mt-6">
           <h2 className="text-xl sm:text-2xl font-semibold text-neutral-900 mb-5">
-            Results for "{searchQuery}"
+            Results for "{urlSearchQuery}"
           </h2>
-
-          {categoryProducts.length > 0 ? (
-            <div className="grid gap-5 grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 animate-in fade-in-0 duration-200">
-              {categoryProducts.map((product, index) => (
+          {recommendedProducts.length > 0 ? (
+            <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 animate-in fade-in-0 duration-200">
+              {recommendedProducts.slice(0, 15).map((product, index) => (
                 <ProductCard
                   key={product.id}
                   product={product}
                   srcParam="?src=platform"
-                  priority={index < 5}
+                  priority={index < 3}
                 />
               ))}
             </div>
           ) : (
             <div className="rounded-2xl border border-dashed border-neutral-300 p-12 text-center">
-              <p className="text-neutral-500">No products found for "{searchQuery}"</p>
+              <p className="text-neutral-500">No products found for "{urlSearchQuery}"</p>
             </div>
           )}
         </section>
@@ -762,6 +1050,9 @@ export function ExplorePageClient({
         setPriceFilter={setPriceFilter}
         sortBy={sortBy}
         setSortBy={setSortBy}
+        selectedSubcategories={selectedSubcategories}
+        setSelectedSubcategories={setSelectedSubcategories}
+        availableSubcategories={availableSubcategories}
         resetFilters={resetFilters}
         activeFilterCount={activeFilterCount}
       />
