@@ -639,16 +639,25 @@ export function CategoryPageClient({
     let products = [...initialProducts]
 
     // Special handling for "freebies" category - show free products
+    // If no free products exist, show all products (fallback for good UX)
     if (category === "freebies") {
-      products = products.filter(p => p.price_cents === 0)
+      const freeProducts = products.filter(p => p.price_cents === 0)
+      if (freeProducts.length > 0) {
+        products = freeProducts
+      }
+      // If no free products, show all products sorted by price (lowest first)
+      else {
+        products = products.sort((a, b) => (a.price_cents || 0) - (b.price_cents || 0))
+      }
     }
-    // Special handling for "other" category - show products that don't match main categories
+    // Special handling for "other" category - show products that don't strongly match main categories
+    // If no products match the "other" criteria, show all products sorted by newest
     else if (category === "other") {
       const mainCategoryKeywords = Object.entries(categoryKeywords)
         .filter(([key]) => key !== "other" && key !== "freebies")
         .flatMap(([_, keywords]) => keywords)
 
-      products = products.filter(p => {
+      const otherProducts = products.filter(p => {
         const productCategory = (p.category || p.categoryName || "").toLowerCase()
         const productTitle = (p.title || "").toLowerCase()
         const productDesc = (p.description || "").toLowerCase()
@@ -657,8 +666,14 @@ export function CategoryPageClient({
 
         // Include if it doesn't strongly match any main category
         const matchCount = mainCategoryKeywords.filter(keyword => allSearchableText.includes(keyword)).length
-        return matchCount < 3 // Products with less than 3 keyword matches are "other"
+        return matchCount < 5 // Products with less than 5 keyword matches are "other" (more inclusive)
       })
+
+      // If we have "other" products, use them; otherwise show all products
+      if (otherProducts.length > 0) {
+        products = otherProducts
+      }
+      // If no "other" products, products stays as all products
     }
     // Regular category filtering - try keyword matching first, fall back to all products
     else {

@@ -911,8 +911,8 @@ export function PlatformHeaderClient() {
               {/* Non-Homepage Desktop Header - Original Layout */}
               {/* Left side - Logo and Categories Button */}
               <div className="flex items-center gap-3 shrink-0">
-                {/* Logo with Storelib text - logo height 46px (10% larger) */}
-                <Link href="/" className="shrink-0 hidden md:flex items-center gap-2">
+                {/* Logo with Storelib text - logo height 46px (10% larger) - redirect to /explore if on explore pages */}
+                <Link href={pathname.startsWith("/explore") ? "/explore" : "/"} className="shrink-0 hidden md:flex items-center gap-2">
                   <Image
                     src={LOGO_URL || "/placeholder.svg"}
                     alt="Storelib"
@@ -1182,8 +1182,8 @@ export function PlatformHeaderClient() {
                 <AnimatedHamburger isOpen={mobileMenuOpen} />
               </button>
 
-              {/* Logo next to hamburger */}
-              <Link href="/" className="shrink-0 flex items-center gap-1.5">
+              {/* Logo next to hamburger - redirect to /explore if on explore pages */}
+              <Link href={pathname.startsWith("/explore") ? "/explore" : "/"} className="shrink-0 flex items-center gap-1.5">
                 <Image
                   src={LOGO_URL || "/placeholder.svg"}
                   alt="Storelib"
@@ -1604,7 +1604,7 @@ export function PlatformHeaderClient() {
                     </div>
                   </div>
                   <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
-                    <Button className="h-9 px-4 rounded-lg text-sm font-medium bg-gray-900 text-white hover:bg-gray-800">
+                    <Button className="h-9 px-4 rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700">
                       Sign in
                       <ArrowRight className="ml-1 h-3.5 w-3.5" />
                     </Button>
@@ -1715,8 +1715,8 @@ export function PlatformHeaderClient() {
             </div>
           )}
 
-          {/* Subcategory View with animation */}
-          {expandedCategory ? (
+          {/* Subcategory View with animation - Only show Browse Categories on non-homepage pages */}
+          {pathname !== "/" && pathname !== "/features" && pathname !== "/pricing" && pathname !== "/about" && pathname !== "/blog" && expandedCategory ? (
             <div className="animate-in slide-in-from-right-4 fade-in duration-300 ease-out">
               <button
                 type="button"
@@ -1773,8 +1773,8 @@ export function PlatformHeaderClient() {
                 )
               })()}
             </div>
-          ) : (
-            /* Main Categories List */
+          ) : pathname !== "/" && pathname !== "/features" && pathname !== "/pricing" && pathname !== "/about" && pathname !== "/blog" ? (
+            /* Main Categories List - Only show on non-homepage pages */
             <div className="animate-in slide-in-from-left-4 fade-in duration-300 ease-out">
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Browse Categories</h3>
               <div className="space-y-0.5">
@@ -1846,7 +1846,7 @@ export function PlatformHeaderClient() {
                 )}
               </div>
             </div>
-          )}
+          ) : null}
         </div>
       </MobileBottomSheet>
 
