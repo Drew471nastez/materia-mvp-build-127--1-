@@ -925,27 +925,72 @@ export function ExplorePageClient({
       )
     }
 
-    // Apply recommendation filter
+    // Apply recommendation filter with smart sorting algorithms
     switch (recommendationFilter) {
       case "trending":
-        products = products.sort((a, b) => (b.sales_count || 0) - (a.sales_count || 0))
+        // Trending: Score based on recent engagement, sales velocity, and popularity
+        // Higher weight to recent activity (last 14 days)
+        const fourteenDaysAgo = Date.now() - 14 * 24 * 60 * 60 * 1000
+        products = products.sort((a, b) => {
+          const aCreatedRecently = new Date(a.created_at).getTime() > fourteenDaysAgo ? 1.5 : 1
+          const bCreatedRecently = new Date(b.created_at).getTime() > fourteenDaysAgo ? 1.5 : 1
+          // Sales weight + review engagement + view boost for recent products
+          const scoreA = ((a.sales_count || 0) * 3 + (a.reviews_count || 0) * 2 + (a.view_count || 0) * 0.1) * aCreatedRecently
+          const scoreB = ((b.sales_count || 0) * 3 + (b.reviews_count || 0) * 2 + (b.view_count || 0) * 0.1) * bCreatedRecently
+          return scoreB - scoreA
+        })
         break
       case "hot-new":
+        // Hot & New: Products from last 30 days, ranked by early traction and quality
+        const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000
+        const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
         products = products
-          .filter(p => new Date(p.created_at) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))
-          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          .filter(p => new Date(p.created_at).getTime() > thirtyDaysAgo)
+          .sort((a, b) => {
+            const aIsNew = new Date(a.created_at).getTime() > sevenDaysAgo
+            const bIsNew = new Date(b.created_at).getTime() > sevenDaysAgo
+            // Boost very new products (< 7 days) with any engagement
+            const aNewBoost = aIsNew ? 2 : 1
+            const bNewBoost = bIsNew ? 2 : 1
+            // Calculate early traction score (sales, reviews, views for new products matter more)
+            const scoreA = ((a.sales_count || 0) * 5 + (a.reviews_count || 0) * 3 + (a.reviews_average || 0) * 2) * aNewBoost
+            const scoreB = ((b.sales_count || 0) * 5 + (b.reviews_count || 0) * 3 + (b.reviews_average || 0) * 2) * bNewBoost
+            // If scores are close, prefer newer
+            if (Math.abs(scoreA - scoreB) < 5) {
+              return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+            }
+            return scoreB - scoreA
+          })
+        // Backfill if not enough hot & new products
         if (products.length < 15) {
           const olderProducts = initialProducts
             .filter(p => !products.find(rp => rp.id === p.id))
+            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
             .slice(0, 15 - products.length)
           products = [...products, ...olderProducts]
         }
         break
       case "curated":
       default:
+        // Curated: Best overall quality - weighted scoring algorithm
+        // Factors: review quality, sales performance, completeness, creator reputation
         products = products.sort((a, b) => {
-          const scoreA = (a.reviews_average || 0) * (a.reviews_count || 0) + (a.sales_count || 0)
-          const scoreB = (b.reviews_average || 0) * (b.reviews_count || 0) + (b.sales_count || 0)
+          // Review quality score (rating * number of reviews, diminishing returns after 10 reviews)
+          const aReviewScore = (a.reviews_average || 0) * Math.min(a.reviews_count || 0, 20) * 0.5
+          const bReviewScore = (b.reviews_average || 0) * Math.min(b.reviews_count || 0, 20) * 0.5
+          // Sales performance (capped to prevent monopoly)
+          const aSalesScore = Math.min(a.sales_count || 0, 100) * 2
+          const bSalesScore = Math.min(b.sales_count || 0, 100) * 2
+          // Completeness bonus (has thumbnail, description length)
+          const aCompleteBonus = (a.thumbnail_url ? 5 : 0) + ((a.description?.length || 0) > 100 ? 5 : 0)
+          const bCompleteBonus = (b.thumbnail_url ? 5 : 0) + ((b.description?.length || 0) > 100 ? 5 : 0)
+          // Fresh content bonus (products updated/created in last 60 days)
+          const sixtyDaysAgo = Date.now() - 60 * 24 * 60 * 60 * 1000
+          const aFreshBonus = new Date(a.created_at).getTime() > sixtyDaysAgo ? 10 : 0
+          const bFreshBonus = new Date(b.created_at).getTime() > sixtyDaysAgo ? 10 : 0
+
+          const scoreA = aReviewScore + aSalesScore + aCompleteBonus + aFreshBonus
+          const scoreB = bReviewScore + bSalesScore + bCompleteBonus + bFreshBonus
           return scoreB - scoreA
         })
         break
@@ -1323,6 +1368,24 @@ export function ExplorePageClient({
                 )
               })}
             </div>
+
+            {/* Mobile: Clear Category/Subcategory Badge - shown below pills on mobile when category selected */}
+            {(mainCategory !== "all" || selectedSubcategoryId) && (
+              <div className="md:hidden flex items-center gap-2 mt-2">
+                <button
+                  onClick={() => {
+                    setMainCategory("all")
+                    setSelectedSubcategoryId(null)
+                    setSelectedSubcategoryLabel(null)
+                    router.push("/explore", { scroll: false })
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-neutral-900 text-white hover:bg-neutral-800 transition-colors cursor-pointer"
+                >
+                  <X className="w-3 h-3" />
+                  {selectedSubcategoryLabel || CATEGORIES.find(c => c.id === mainCategory)?.label || "Clear"}
+                </button>
+              </div>
+            )}
 
             {/* Active Filters Pills */}
             {activeFilterCount > 0 && (

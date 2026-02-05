@@ -663,7 +663,9 @@ export function CategoryPageClient({
     // Regular category filtering - try keyword matching first, fall back to all products
     else {
       const keywords = categoryKeywords[category] || [category]
-      const keywordFilteredProducts = products.filter(p => {
+
+      // Score-based filtering for better relevance
+      const scoredProducts = products.map(p => {
         const productCategory = (p.category || p.categoryName || "").toLowerCase()
         const productTitle = (p.title || "").toLowerCase()
         const productDesc = (p.description || "").toLowerCase()
@@ -671,13 +673,39 @@ export function CategoryPageClient({
         const creatorTags = p.creator?.niche_tags?.map((t: string) => t.toLowerCase()) || []
         const allSearchableText = `${productCategory} ${productTitle} ${productDesc} ${productTags.join(" ")} ${creatorTags.join(" ")}`
 
-        // Check if any keyword matches
-        return keywords.some(keyword => allSearchableText.includes(keyword))
+        // Calculate match score - how many keywords match
+        let score = 0
+        keywords.forEach(keyword => {
+          if (allSearchableText.includes(keyword)) {
+            score += 1
+            // Bonus for title match
+            if (productTitle.includes(keyword)) score += 2
+            // Bonus for category match
+            if (productCategory.includes(keyword)) score += 2
+          }
+        })
+        return { product: p, score }
       })
 
-      // If keyword filtering returns products, use them; otherwise show all products for the category
+      // Get products with at least 1 keyword match, sorted by score
+      const keywordFilteredProducts = scoredProducts
+        .filter(item => item.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .map(item => item.product)
+
+      // Always show products on category pages - use filtered if available, otherwise show all
+      // If less than 6 products matched, supplement with more products to ensure good UX
+      if (keywordFilteredProducts.length >= 6) {
+        products = keywordFilteredProducts
+      } else if (keywordFilteredProducts.length > 0) {
+        // Get additional products that weren't matched, sorted by newest
+        const additionalProducts = products
+          .filter(p => !keywordFilteredProducts.find(kp => kp.id === p.id))
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        products = [...keywordFilteredProducts, ...additionalProducts]
+      }
+      // If no products matched keywords at all, show all products for the category
       // This ensures users always see products on category pages
-      products = keywordFilteredProducts.length > 0 ? keywordFilteredProducts : products
     }
 
     // Filter by subcategories

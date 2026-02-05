@@ -794,8 +794,8 @@ export function PlatformHeaderClient() {
     <header className="sticky top-0 z-50 w-full bg-white border-b border-gray-200 rounded-t-[14px] md:rounded-none">
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
         <div className="flex h-[68px] md:h-[81px] items-center justify-between gap-4 md:py-[3px]">
-          {/* Desktop Homepage Layout - different header */}
-          {pathname === "/" ? (
+          {/* Desktop Homepage Layout - same style for /, /features, /pricing, /about, /blog */}
+          {pathname === "/" || pathname === "/features" || pathname === "/pricing" || pathname === "/about" || pathname === "/blog" ? (
             <>
               {/* Homepage Desktop Header */}
               <div className="hidden md:flex items-center justify-between w-full">
@@ -878,7 +878,7 @@ export function PlatformHeaderClient() {
                 </div>
               </div>
 
-              {/* Mobile Homepage Header - Logo left, hamburger right */}
+              {/* Mobile Homepage/Marketing Header - Logo left, hamburger right */}
               <div className="md:hidden flex items-center justify-between w-full">
                 {/* Left - Logo */}
                 <div className="flex items-center gap-0">
@@ -1627,8 +1627,8 @@ export function PlatformHeaderClient() {
             </>
           )}
 
-          {/* Logged-in User Profile Section - Only on Homepage */}
-          {user && pathname === "/" && (
+          {/* Logged-in User Profile Section - On Homepage and Marketing Pages */}
+          {user && (pathname === "/" || pathname === "/features" || pathname === "/pricing" || pathname === "/about" || pathname === "/blog") && (
             <div className="mb-4 pb-4 border-b border-gray-200">
               {/* Profile Info */}
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl mb-3">
@@ -1666,8 +1666,8 @@ export function PlatformHeaderClient() {
             </div>
           )}
 
-          {/* Menu Links - Only on Homepage */}
-          {pathname === "/" && (
+          {/* Menu Links - On Homepage and Marketing Pages */}
+          {(pathname === "/" || pathname === "/features" || pathname === "/pricing" || pathname === "/about" || pathname === "/blog") && (
             <div className="mb-4 pb-4 border-b border-gray-200">
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Menu</h3>
               <div className="space-y-0.5">
