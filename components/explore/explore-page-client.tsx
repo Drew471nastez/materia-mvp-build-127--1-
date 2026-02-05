@@ -609,7 +609,7 @@ function CategorySelectorModal({
           </div>
         </div>
       </div>
-      {/* Mobile Bottom Sheet - Half screen height */}
+      {/* Mobile Bottom Sheet - 65% screen height */}
       <div
         ref={sheetRef}
         onTouchStart={handleTouchStart}
@@ -619,7 +619,7 @@ function CategorySelectorModal({
         style={{
           transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)",
           transition: isDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
-          maxHeight: '50vh',
+          maxHeight: '65vh',
         }}
       >
         <div className="pt-3 pb-2">
@@ -632,7 +632,7 @@ function CategorySelectorModal({
           <h3 className="text-lg font-semibold text-neutral-900">Select Category</h3>
         </div>
 
-        <div className="overflow-y-auto overscroll-contain p-3" style={{ maxHeight: 'calc(50vh - 80px)' }}>
+        <div className="overflow-y-auto overscroll-contain p-3" style={{ maxHeight: 'calc(65vh - 80px)' }}>
           {CATEGORIES.map((cat) => {
             const Icon = cat.icon
             const isSelected = selectedCategory === cat.id && !selectedSubcategory

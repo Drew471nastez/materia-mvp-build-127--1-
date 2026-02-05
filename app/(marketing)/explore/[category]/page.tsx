@@ -114,24 +114,59 @@ export default async function CategoryPage({ params }: Props) {
 
   const supabase = await createClient()
 
-  // Fetch products for this category
-  const { data: products, error } = await supabase
+  // Fetch published products
+  const { data: products, error: productsError } = await supabase
     .from("products")
-    .select(`
-      *,
-      creator:users!products_user_id_fkey (
-        id,
-        username,
-        display_name,
-        avatar_url,
-        niche_tags
-      )
-    `)
+    .select("id, title, slug, description, price_cents, compare_at_cents, thumbnail_url, type, category, creator_id, created_at, sales_count, reviews_count, reviews_average, tags")
     .eq("status", "published")
     .order("created_at", { ascending: false })
+    .limit(100)
 
-  if (error) {
-    console.error("Error fetching products:", error)
+  if (productsError) {
+    console.error("[CategoryPage] Products error:", productsError.message)
+  }
+
+  // Build products with creator info
+  let productsWithCreators: any[] = []
+
+  if (products && products.length > 0) {
+    // Get creators for products
+    const productCreatorIds = [...new Set(products.map((p) => p.creator_id).filter(Boolean))]
+    let productCreators: any[] = []
+
+    if (productCreatorIds.length > 0) {
+      const { data: pCreators } = await supabase
+        .from("creators")
+        .select("id, user_id, slug, niche_tags")
+        .in("id", productCreatorIds)
+      productCreators = pCreators || []
+    }
+
+    // Get profiles for product creators
+    const productCreatorUserIds = productCreators.map((c) => c.user_id).filter(Boolean)
+    let productCreatorProfiles: any[] = []
+
+    if (productCreatorUserIds.length > 0) {
+      const { data: pcProfiles } = await supabase
+        .from("profiles")
+        .select("id, display_name, avatar_url, username")
+        .in("id", productCreatorUserIds)
+      productCreatorProfiles = pcProfiles || []
+    }
+
+    // Build products with creator info
+    productsWithCreators = products.map((product) => {
+      const creator = productCreators.find((c) => c.id === product.creator_id)
+      const profile = creator ? productCreatorProfiles.find((p) => p.id === creator.user_id) : null
+      return {
+        ...product,
+        creator: creator ? { ...creator, profile } : null,
+        categories: [],
+        categoryName: product.category || null,
+        reviews_count: (product as any).reviews_count || 0,
+        reviews_average: (product as any).reviews_average || 0,
+      }
+    })
   }
 
   const categoryLabel = CATEGORY_LABELS[category] || category
@@ -140,7 +175,7 @@ export default async function CategoryPage({ params }: Props) {
     <main className="min-h-screen bg-white">
       <div className="mx-auto max-w-6xl lg:max-w-[1270px] px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         <CategoryPageClient
-          initialProducts={products || []}
+          initialProducts={productsWithCreators}
           category={category}
           categoryLabel={categoryLabel}
         />

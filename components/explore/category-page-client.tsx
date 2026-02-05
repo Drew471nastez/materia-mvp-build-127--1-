@@ -424,7 +424,7 @@ function MobileFilterSheet({
           </div>
         </div>
 
-        <div className="flex items-center gap-3 px-4 py-4 border-t border-neutral-100 bg-white">
+        <div className="flex items-center gap-3 px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-neutral-100 bg-white">
           <button
             onClick={resetFilters}
             className="flex-1 px-4 py-3 rounded-xl text-sm font-medium text-neutral-600 bg-neutral-100 hover:bg-neutral-200 transition-colors cursor-pointer"

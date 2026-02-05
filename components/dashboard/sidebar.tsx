@@ -1,14 +1,17 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { LayoutDashboard, Package, LogOut, Download, Menu, Heart, Sparkles } from "lucide-react"
+import { LayoutDashboard, Package, LogOut, Download, Menu, Heart, Compass } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+
+const LOGO_URL = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
 
 export function DashboardSidebar() {
   const pathname = usePathname()
@@ -36,9 +39,13 @@ export function DashboardSidebar() {
     <>
       <div className="flex h-14 items-center border-b border-border px-4">
         <Link href="/library" className="flex items-center gap-2" onClick={onItemClick}>
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-foreground shrink-0">
-            <span className="text-sm font-bold text-background">M</span>
-          </div>
+          <Image
+            src={LOGO_URL}
+            alt="Storelib"
+            width={32}
+            height={32}
+            className="h-8 w-8 shrink-0"
+          />
           <span className="text-lg font-semibold tracking-tight truncate">Storelib</span>
         </Link>
       </div>
@@ -69,18 +76,17 @@ export function DashboardSidebar() {
         <Link
           href="/signup/success?action=become-creator"
           onClick={onItemClick}
-          className="mb-1 flex items-center gap-3 rounded-lg px-3 py-3 min-h-[44px] text-sm font-medium bg-purple-600 text-white hover:bg-purple-700 active:scale-[0.98] transition-colors"
+          className="mb-1 flex items-center justify-center rounded-lg px-3 py-3 min-h-[44px] text-sm font-medium bg-purple-600 text-white hover:bg-purple-700 active:scale-[0.98] transition-colors"
         >
-          <Sparkles className="h-5 w-5 shrink-0" />
-          <span className="truncate">Start selling</span>
+          <span>Start Selling</span>
         </Link>
         <Link
           href="/explore"
           onClick={onItemClick}
           className="mb-1 flex items-center gap-3 rounded-lg px-3 py-3 min-h-[44px] text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground active:scale-[0.98]"
         >
-          <Package className="h-5 w-5 shrink-0" />
-          <span className="truncate">Explore products</span>
+          <Compass className="h-5 w-5 shrink-0" />
+          <span className="truncate">Discover</span>
         </Link>
         <Button
           variant="ghost"
@@ -98,9 +104,13 @@ export function DashboardSidebar() {
     <>
       <header className="fixed top-0 left-0 right-0 z-50 flex h-14 items-center justify-between border-b border-border bg-background px-4 pt-[env(safe-area-inset-top)] md:hidden">
         <Link href="/library" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-foreground shrink-0">
-            <span className="text-sm font-bold text-background">M</span>
-          </div>
+          <Image
+            src={LOGO_URL}
+            alt="Storelib"
+            width={32}
+            height={32}
+            className="h-8 w-8 shrink-0"
+          />
           <span className="text-lg font-semibold tracking-tight">Storelib</span>
         </Link>
         <Button

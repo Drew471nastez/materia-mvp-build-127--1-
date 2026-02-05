@@ -429,7 +429,7 @@ function MobileBottomSheet({
         style={{
           transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)",
           transition: isDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
-          maxHeight: '85vh',
+          maxHeight: '60vh',
         }}
       >
         {/* Handle bar */}
@@ -446,7 +446,7 @@ function MobileBottomSheet({
             <h3 className="text-[16px] font-semibold text-gray-900">{title}</h3>
           </div>
         )}
-        <div className="overflow-y-auto overscroll-contain" style={{ maxHeight: 'calc(85vh - 80px)' }}>
+        <div className="overflow-y-auto overscroll-contain" style={{ maxHeight: 'calc(60vh - 80px)' }}>
           {children}
         </div>
       </div>
@@ -454,22 +454,22 @@ function MobileBottomSheet({
   )
 }
 
-// Animated Hamburger Icon Component - subtle animation only
+// Animated Hamburger Icon Component - subtle animation only (15% bigger on mobile)
 function AnimatedHamburger({ isOpen }: { isOpen: boolean }) {
   return (
-    <div className="w-5 h-5 flex flex-col justify-center items-center gap-1">
+    <div className="w-6 h-6 flex flex-col justify-center items-center gap-1.5">
       <span
-        className={`block h-0.5 w-5 bg-current rounded-full transition-all duration-200 ease-out ${
+        className={`block h-0.5 w-6 bg-current rounded-full transition-all duration-200 ease-out ${
           isOpen ? "opacity-60" : "opacity-100"
         }`}
       />
       <span
-        className={`block h-0.5 w-5 bg-current rounded-full transition-all duration-200 ease-out ${
-          isOpen ? "opacity-60 w-3" : "opacity-100 w-5"
+        className={`block h-0.5 bg-current rounded-full transition-all duration-200 ease-out ${
+          isOpen ? "opacity-60 w-4" : "opacity-100 w-6"
         }`}
       />
       <span
-        className={`block h-0.5 w-5 bg-current rounded-full transition-all duration-200 ease-out ${
+        className={`block h-0.5 w-6 bg-current rounded-full transition-all duration-200 ease-out ${
           isOpen ? "opacity-60" : "opacity-100"
         }`}
       />
