@@ -6,20 +6,20 @@ import { MostPopularSection } from "@/components/explore/most-popular-section"
 
 // SEO-optimized metadata with enhanced tags for Google
 export const metadata: Metadata = {
-  title: "Discover Digital Products | Storelib",
-  description: "Browse and discover the best digital products from top creators. Find productivity tools, design assets, social media templates, AI resources and more. Shop thousands of digital downloads.",
+  title: "Discover | Storelib",
+  description: "Explore thousands of digital products from independent creators. Browse design templates, productivity tools, AI prompts, social media kits, development resources and more on the Storelib marketplace.",
   keywords: ["digital products", "productivity tools", "design assets", "social media templates", "AI tools", "digital downloads", "creator marketplace", "online store"],
   openGraph: {
-    title: "Discover Digital Products | Storelib",
-    description: "Browse and discover the best digital products from top creators. Shop thousands of digital downloads.",
+    title: "Discover | Storelib",
+    description: "Explore thousands of digital products from independent creators. Browse design templates, productivity tools, AI prompts, social media kits, development resources and more on the Storelib marketplace.",
     type: "website",
     url: "/explore",
     siteName: "Storelib",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Discover Digital Products | Storelib",
-    description: "Browse and discover the best digital products from top creators. Shop thousands of digital downloads.",
+    title: "Discover | Storelib",
+    description: "Explore thousands of digital products from independent creators. Browse design templates, productivity tools, AI prompts, social media kits, development resources and more on the Storelib marketplace.",
   },
   alternates: {
     canonical: "/explore",
@@ -140,7 +140,7 @@ export default async function ExplorePage({
   return (
     <main className="min-h-screen bg-white">
       {/* Semantic page structure for SEO - optimized width for desktop (~10% wider on lg screens) */}
-      <div className="mx-auto max-w-6xl lg:max-w-[1270px] px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <div className="mx-auto max-w-6xl lg:max-w-[1270px] px-4 sm:px-6 lg:px-8 pt-4 pb-6 sm:pt-5 sm:pb-8">
         {/* Hidden H1 for SEO - visible to screen readers and crawlers */}
         <h1 className="sr-only">
           Discover Digital Products - Productivity, Design, AI & More | Storelib

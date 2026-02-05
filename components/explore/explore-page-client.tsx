@@ -323,20 +323,20 @@ function MobileFilterSheet({
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
+        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl flex flex-col"
         style={{
           transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)",
           transition: isDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
           maxHeight: '85vh',
         }}
       >
-        <div className="pt-3 pb-2">
+        <div className="pt-3 pb-2 shrink-0">
           <button onClick={handleClose} className="w-full flex justify-center py-2 cursor-pointer touch-none">
             <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
           </button>
         </div>
 
-        <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-100">
+        <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-100 shrink-0">
           <h3 className="text-lg font-semibold text-neutral-900">Filters</h3>
           {activeFilterCount > 0 && (
             <button onClick={resetFilters} className="text-sm text-violet-600 font-medium cursor-pointer">
@@ -345,7 +345,7 @@ function MobileFilterSheet({
           )}
         </div>
 
-        <div className="overflow-y-auto overscroll-contain p-4 space-y-6" style={{ maxHeight: 'calc(85vh - 140px)' }}>
+        <div className="overflow-y-auto overscroll-contain p-4 space-y-6 flex-1 min-h-0">
           {availableSubcategories.length > 0 && (
             <div>
               <h4 className="text-sm font-semibold text-neutral-900 mb-3">Subcategories</h4>
@@ -407,7 +407,7 @@ function MobileFilterSheet({
           </div>
         </div>
 
-        <div className="flex items-center gap-3 px-4 pt-4 pb-8 border-t border-neutral-100 bg-white" style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}>
+        <div className="flex items-center gap-3 px-4 pt-4 border-t border-neutral-100 bg-white shrink-0" style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}>
           <button
             onClick={resetFilters}
             className="flex-1 px-4 py-3 rounded-xl text-sm font-medium text-neutral-600 bg-neutral-100 hover:bg-neutral-200 transition-colors cursor-pointer"
@@ -619,7 +619,7 @@ function CategorySelectorModal({
         style={{
           transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)",
           transition: isDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
-          maxHeight: '65vh',
+          maxHeight: '70vh',
         }}
       >
         <div className="pt-3 pb-2">
@@ -632,7 +632,7 @@ function CategorySelectorModal({
           <h3 className="text-lg font-semibold text-neutral-900">Select Category</h3>
         </div>
 
-        <div className="overflow-y-auto overscroll-contain p-3" style={{ maxHeight: 'calc(65vh - 80px)' }}>
+        <div className="overflow-y-auto overscroll-contain p-3" style={{ maxHeight: 'calc(70vh - 80px)' }}>
           {CATEGORIES.map((cat) => {
             const Icon = cat.icon
             const isSelected = selectedCategory === cat.id && !selectedSubcategory
@@ -643,10 +643,6 @@ function CategorySelectorModal({
               <div key={cat.id}>
                 <button
                   onClick={() => handleCategoryClick(cat)}
-                  onTouchEnd={(e) => {
-                    e.preventDefault()
-                    handleCategoryClick(cat)
-                  }}
                   className={`flex items-center gap-3 w-full px-4 py-4 rounded-xl text-left transition-all duration-150 cursor-pointer touch-manipulation ${
                     isSelected
                       ? "bg-neutral-900 text-white"
@@ -665,10 +661,6 @@ function CategorySelectorModal({
                   <div className="ml-6 mt-1 mb-2 space-y-1 animate-in fade-in slide-in-from-top-2 duration-200">
                     <button
                       onClick={() => handleSelectCategory(cat.id)}
-                      onTouchEnd={(e) => {
-                        e.preventDefault()
-                        handleSelectCategory(cat.id)
-                      }}
                       className={`flex items-center gap-2 w-full px-4 py-3 rounded-lg text-sm text-left transition-all duration-150 cursor-pointer touch-manipulation ${
                         selectedCategory === cat.id && !selectedSubcategory
                           ? "bg-violet-100 text-violet-700 font-medium"
@@ -682,10 +674,6 @@ function CategorySelectorModal({
                       <button
                         key={sub.id}
                         onClick={() => handleSelectSubcategory(cat.id, sub.id, sub.label)}
-                        onTouchEnd={(e) => {
-                          e.preventDefault()
-                          handleSelectSubcategory(cat.id, sub.id, sub.label)
-                        }}
                         className={`flex items-center gap-2 w-full px-4 py-3 rounded-lg text-sm text-left transition-all duration-150 cursor-pointer touch-manipulation animate-in fade-in slide-in-from-right-2 ${
                           selectedSubcategory === sub.id
                             ? "bg-violet-100 text-violet-700 font-medium"
@@ -885,11 +873,24 @@ export function ExplorePageClient({
     else if (mainCategory !== "all") {
       products = products.filter(p => {
         const productCategory = (p.category || p.categoryName || "").toLowerCase()
+        const productTitle = (p.title || "").toLowerCase()
+        const productDesc = (p.description || "").toLowerCase()
+        const productTags = p.tags?.map((t: string) => t.toLowerCase()) || []
         const creatorTags = p.creator?.niche_tags?.map((t: string) => t.toLowerCase()) || []
-        return productCategory === mainCategory ||
-               productCategory.includes(mainCategory) ||
-               creatorTags.includes(mainCategory) ||
-               creatorTags.some((tag: string) => tag.includes(mainCategory))
+
+        // Direct category match
+        if (productCategory === mainCategory || productCategory.includes(mainCategory)) return true
+
+        // Creator tags match
+        if (creatorTags.includes(mainCategory) || creatorTags.some((tag: string) => tag.includes(mainCategory))) return true
+
+        // Title or tag keyword match
+        if (productTitle.includes(mainCategory) || productTags.some((tag: string) => tag.includes(mainCategory))) return true
+
+        // Description keyword match
+        if (productDesc.includes(mainCategory)) return true
+
+        return false
       })
     }
 

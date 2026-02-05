@@ -17,10 +17,27 @@ export function DashboardSidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [isCreator, setIsCreator] = useState(false)
 
   useEffect(() => {
     setMobileMenuOpen(false)
   }, [pathname])
+
+  useEffect(() => {
+    const supabase = createClient()
+    async function checkCreatorStatus() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("is_creator")
+          .eq("id", user.id)
+          .single()
+        setIsCreator(profile?.is_creator ?? false)
+      }
+    }
+    checkCreatorStatus()
+  }, [])
 
   const handleSignOut = async () => {
     const supabase = createClient()
@@ -73,13 +90,25 @@ export function DashboardSidebar() {
       </nav>
 
       <div className="border-t border-border p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-        <Link
-          href="/signup/success?action=become-creator"
-          onClick={onItemClick}
-          className="mb-1 flex items-center justify-center rounded-lg px-3 py-3 min-h-[44px] text-sm font-medium bg-purple-600 text-white hover:bg-purple-700 active:scale-[0.98] transition-colors"
-        >
-          <span>Start Selling</span>
-        </Link>
+        {!isCreator && (
+          <Link
+            href="/signup/success?action=become-creator"
+            onClick={onItemClick}
+            className="mb-1 flex items-center justify-center rounded-lg px-3 py-3 min-h-[44px] text-sm font-medium bg-purple-600 text-white hover:bg-purple-700 active:scale-[0.98] transition-colors"
+          >
+            <span>Start Selling</span>
+          </Link>
+        )}
+        {isCreator && (
+          <Link
+            href="/app"
+            onClick={onItemClick}
+            className="mb-1 flex items-center gap-3 rounded-lg px-3 py-3 min-h-[44px] text-sm font-medium bg-purple-600 text-white hover:bg-purple-700 active:scale-[0.98] transition-colors justify-center"
+          >
+            <LayoutDashboard className="h-5 w-5 shrink-0" />
+            <span>Dashboard</span>
+          </Link>
+        )}
         <Link
           href="/explore"
           onClick={onItemClick}

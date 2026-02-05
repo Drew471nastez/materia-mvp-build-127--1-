@@ -340,20 +340,20 @@ function MobileFilterSheet({
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
+        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl flex flex-col"
         style={{
           transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)",
           transition: isDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
           maxHeight: '85vh',
         }}
       >
-        <div className="pt-3 pb-2">
+        <div className="pt-3 pb-2 shrink-0">
           <button onClick={handleClose} className="w-full flex justify-center py-2 cursor-pointer touch-none">
             <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
           </button>
         </div>
 
-        <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-100">
+        <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-100 shrink-0">
           <h3 className="text-lg font-semibold text-neutral-900">Filters</h3>
           {activeFilterCount > 0 && (
             <button onClick={resetFilters} className="text-sm text-violet-600 font-medium cursor-pointer">
@@ -362,7 +362,7 @@ function MobileFilterSheet({
           )}
         </div>
 
-        <div className="overflow-y-auto overscroll-contain p-4 space-y-6" style={{ maxHeight: 'calc(85vh - 140px)' }}>
+        <div className="overflow-y-auto overscroll-contain p-4 space-y-6 flex-1 min-h-0">
           {availableSubcategories.length > 0 && (
             <div>
               <h4 className="text-sm font-semibold text-neutral-900 mb-3">Subcategories</h4>
@@ -424,7 +424,7 @@ function MobileFilterSheet({
           </div>
         </div>
 
-        <div className="flex items-center gap-3 px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-neutral-100 bg-white">
+        <div className="flex items-center gap-3 px-4 pt-4 border-t border-neutral-100 bg-white shrink-0" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
           <button
             onClick={resetFilters}
             className="flex-1 px-4 py-3 rounded-xl text-sm font-medium text-neutral-600 bg-neutral-100 hover:bg-neutral-200 transition-colors cursor-pointer"
@@ -675,11 +675,11 @@ export function CategoryPageClient({
       }
       // If no "other" products, products stays as all products
     }
-    // Regular category filtering - sort by relevance, always show all products
+    // Regular category filtering - sort by relevance, show matched products first
     else {
       const keywords = categoryKeywords[category] || [category]
 
-      // Score-based sorting for better relevance (but show ALL products)
+      // Score-based sorting for better relevance
       const scoredProducts = products.map(p => {
         const productCategory = (p.category || p.categoryName || "").toLowerCase()
         const productTitle = (p.title || "").toLowerCase()
@@ -690,6 +690,12 @@ export function CategoryPageClient({
 
         // Calculate match score - how many keywords match
         let score = 0
+
+        // Direct category field match gets highest priority
+        if (productCategory === category) {
+          score += 10
+        }
+
         keywords.forEach(keyword => {
           if (allSearchableText.includes(keyword)) {
             score += 1
@@ -702,14 +708,23 @@ export function CategoryPageClient({
         return { product: p, score }
       })
 
-      // Sort by score (highest first), then by created_at for products with same score
-      // This ensures ALL products are shown, with most relevant first
-      products = scoredProducts
-        .sort((a, b) => {
-          if (b.score !== a.score) return b.score - a.score
-          return new Date(b.product.created_at).getTime() - new Date(a.product.created_at).getTime()
-        })
-        .map(item => item.product)
+      // Only show products with at least some relevance (score > 0)
+      // If no products match at all, show all as fallback
+      const matchedProducts = scoredProducts.filter(item => item.score > 0)
+
+      if (matchedProducts.length > 0) {
+        products = matchedProducts
+          .sort((a, b) => {
+            if (b.score !== a.score) return b.score - a.score
+            return new Date(b.product.created_at).getTime() - new Date(a.product.created_at).getTime()
+          })
+          .map(item => item.product)
+      } else {
+        // Fallback: show all products sorted by newest if none match
+        products = scoredProducts
+          .sort((a, b) => new Date(b.product.created_at).getTime() - new Date(a.product.created_at).getTime())
+          .map(item => item.product)
+      }
     }
 
     // Filter by subcategories
