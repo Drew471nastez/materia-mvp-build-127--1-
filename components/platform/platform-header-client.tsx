@@ -1247,7 +1247,6 @@ export function PlatformHeaderClient() {
               </>
             )}
           </div>
-            </div>
           </>
           )}
 
@@ -1378,6 +1377,7 @@ export function PlatformHeaderClient() {
           )}
         </div>
         )}
+        </div>
 
         {/* Mobile Category Pills */}
         {showCategories && (
