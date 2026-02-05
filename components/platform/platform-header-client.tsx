@@ -203,6 +203,126 @@ type Profile = {
   is_creator?: boolean | null
 }
 
+// Mobile Top Sheet Component for Search - slides down from top
+function MobileTopSheet({
+  isOpen,
+  onClose,
+  children,
+}: {
+  isOpen: boolean
+  onClose: () => void
+  children: React.ReactNode
+}) {
+  const [isVisible, setIsVisible] = useState(false)
+  const [isAnimating, setIsAnimating] = useState(false)
+  const [dragY, setDragY] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+  const startY = useRef(0)
+  const sheetRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (isOpen && !isVisible) {
+      setIsVisible(true)
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setIsAnimating(true)
+        })
+      })
+    } else if (!isOpen && isVisible) {
+      setIsAnimating(false)
+      const timer = setTimeout(() => {
+        setIsVisible(false)
+        setDragY(0)
+      }, 400)
+      return () => clearTimeout(timer)
+    }
+  }, [isOpen, isVisible])
+
+  const handleClose = () => {
+    setIsAnimating(false)
+    setDragY(0)
+    setTimeout(() => {
+      onClose()
+    }, 400)
+  }
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0]
+    const sheetElement = sheetRef.current
+    if (!sheetElement) return
+
+    const sheetRect = sheetElement.getBoundingClientRect()
+    const touchYInSheet = touch.clientY - sheetRect.top
+    const sheetHeight = sheetRect.height
+
+    // Only start dragging if touch is in the handle area (bottom 60px of the sheet)
+    if (touchYInSheet >= sheetHeight - 60) {
+      startY.current = touch.clientY
+      setIsDragging(true)
+    }
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging) return
+    const currentY = e.touches[0].clientY
+    const diff = startY.current - currentY
+    if (diff > 0) {
+      setDragY(-diff * 0.8)
+    }
+  }
+
+  const handleTouchEnd = () => {
+    if (!isDragging) return
+    setIsDragging(false)
+    if (dragY < -80) {
+      handleClose()
+    } else {
+      setDragY(0)
+    }
+  }
+
+  if (!isVisible) return null
+
+  return (
+    <div className="fixed inset-0 z-[100] md:hidden">
+      {/* Backdrop */}
+      <div
+        className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity ease-out ${
+          isAnimating ? "opacity-100" : "opacity-0"
+        }`}
+        style={{ transitionDuration: '400ms' }}
+        onClick={handleClose}
+      />
+      {/* Top Sheet */}
+      <div
+        ref={sheetRef}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        className="absolute top-0 left-0 right-0 bg-white rounded-b-[24px] shadow-2xl"
+        style={{
+          transform: isAnimating ? `translateY(${dragY}px)` : "translateY(-100%)",
+          transition: isDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
+          maxHeight: '75vh',
+        }}
+      >
+        <div className="overflow-y-auto overscroll-contain" style={{ maxHeight: 'calc(75vh - 40px)' }}>
+          {children}
+        </div>
+        {/* Handle bar at bottom */}
+        <div className="pb-3 pt-2">
+          <button
+            onClick={handleClose}
+            className="w-full flex justify-center py-2 cursor-pointer touch-none"
+          >
+            <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // Mobile Bottom Sheet Component with swipe-to-close
 function MobileBottomSheet({
   isOpen,
@@ -1246,17 +1366,35 @@ export function PlatformHeaderClient() {
 
         </div>
 
-        {/* Mobile Search Bar - hidden on homepage, shown on /explore and other pages - OUTSIDE main flex container */}
+        {/* Mobile Search Bar Trigger - hidden on homepage, shown on /explore and other pages */}
         {pathname !== "/" && (
-          <div className="md:hidden py-3 border-t border-gray-100 relative">
-            <div className="relative">
+          <div className="md:hidden py-3 border-t border-gray-100">
+            <button
+              type="button"
+              onClick={() => setSearchModalOpen(true)}
+              className="w-full h-10 flex items-center gap-2 px-4 bg-gray-100 border border-gray-200 text-gray-500 rounded-full text-sm cursor-pointer"
+            >
+              <Search className="h-4 w-4 text-gray-400" />
+              <span>{t("search_placeholder")}</span>
+            </button>
+          </div>
+        )}
+
+        {/* Mobile Search Top Sheet Modal */}
+        <MobileTopSheet
+          isOpen={searchModalOpen}
+          onClose={() => setSearchModalOpen(false)}
+        >
+          <div className="px-4 pt-4 pb-2">
+            {/* Search Input inside modal */}
+            <div className="relative mb-4">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 pointer-events-none z-10" />
               <Input
                 value={query}
                 onChange={(e) => handleSearchChange(e.target.value)}
-                onFocus={() => setSearchModalOpen(true)}
                 placeholder={t("search_placeholder")}
-                className="h-10 w-full pl-10 pr-10 bg-gray-100 border-gray-200 text-gray-900 placeholder:text-gray-500 rounded-full text-sm"
+                className="h-11 w-full pl-10 pr-10 bg-gray-100 border-gray-200 text-gray-900 placeholder:text-gray-500 rounded-full text-sm"
+                autoFocus
               />
               {query && (
                 <button
@@ -1272,107 +1410,104 @@ export function PlatformHeaderClient() {
               )}
             </div>
 
-            {/* Mobile Search Modal */}
-            {searchModalOpen && (
-              <>
-                <div
-                  className="fixed inset-0 z-40 bg-black/20"
-                  onClick={() => setSearchModalOpen(false)}
-                />
-                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden animate-in fade-in-0 slide-in-from-top-2 duration-200 z-50 max-h-[60vh] overflow-y-auto mx-4">
-                  {!query && (
-                    <div className="p-4 border-b border-gray-100">
-                      <h3 className="text-sm font-semibold text-gray-900 mb-3">Categories</h3>
-                      <div className="flex flex-wrap gap-2">
-                        {SEARCH_CATEGORIES.map((cat) => (
-                          <Link
-                            key={cat.label}
-                            href={cat.href}
-                            onClick={() => setSearchModalOpen(false)}
-                            className="px-3 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 transition-colors cursor-pointer"
-                          >
-                            {cat.label}
-                          </Link>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {searchLoading && (
-                    <div className="p-6 flex items-center justify-center">
-                      <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
-                      <span className="ml-2 text-sm text-gray-500">Searching...</span>
-                    </div>
-                  )}
-
-                  {!searchLoading && searchResults.length > 0 && (
-                    <div className="p-2">
-                      <h3 className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">Products</h3>
-                      {searchResults.map((product) => (
-                        <Link
-                          key={product.id}
-                          href={`/p/${product.slug}`}
-                          onClick={() => setSearchModalOpen(false)}
-                          className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
-                        >
-                          {product.thumbnail_url ? (
-                            <Image
-                              src={product.thumbnail_url}
-                              alt={product.title}
-                              width={48}
-                              height={48}
-                              className="w-12 h-12 rounded-lg object-cover border border-gray-200"
-                            />
-                          ) : (
-                            <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
-                              <Search className="w-5 h-5 text-gray-400" />
-                            </div>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900 truncate">{product.title}</p>
-                            {product.creator?.display_name && (
-                              <p className="text-xs text-gray-500 truncate">Product by {product.creator.display_name}</p>
-                            )}
-                          </div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {product.price_cents === 0 ? "Free" : `$${(product.price_cents / 100).toFixed(0)}+`}
-                          </div>
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-
-                  {!searchLoading && query.trim().length >= 1 && searchResults.length === 0 && (
-                    <div className="p-6 text-center">
-                      <p className="text-sm text-gray-500">No products found for "{query}"</p>
-                    </div>
-                  )}
-
-                  {!query && (
-                    <div className="p-4 bg-gray-50 text-center">
-                      <p className="text-xs text-gray-500">Start typing to search products</p>
-                    </div>
-                  )}
-
-                  {query.trim() && (
-                    <div className="p-3 border-t border-gray-100 bg-gray-50">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          router.push(`/explore?q=${encodeURIComponent(query)}`)
-                          setSearchModalOpen(false)
-                        }}
-                        className="w-full py-2.5 rounded-lg text-sm font-medium text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
-                      >
-                        View all results for "{query}"
-                      </button>
-                    </div>
-                  )}
+            {/* Categories */}
+            {!query && (
+              <div className="pb-4 border-b border-gray-100">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Categories</h3>
+                <div className="flex flex-wrap gap-2">
+                  {SEARCH_CATEGORIES.map((cat) => (
+                    <Link
+                      key={cat.label}
+                      href={cat.href}
+                      onClick={() => setSearchModalOpen(false)}
+                      className="px-3 py-2 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 transition-colors cursor-pointer"
+                    >
+                      {cat.label}
+                    </Link>
+                  ))}
                 </div>
-              </>
+              </div>
+            )}
+
+            {/* Loading */}
+            {searchLoading && (
+              <div className="py-8 flex items-center justify-center">
+                <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
+                <span className="ml-2 text-sm text-gray-500">Searching...</span>
+              </div>
+            )}
+
+            {/* Search Results */}
+            {!searchLoading && searchResults.length > 0 && (
+              <div className="pt-2">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-2">Products</h3>
+                <div className="space-y-0.5">
+                  {searchResults.map((product) => (
+                    <Link
+                      key={product.id}
+                      href={`/p/${product.slug}`}
+                      onClick={() => setSearchModalOpen(false)}
+                      className="flex items-center gap-3 px-2 py-2.5 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer"
+                    >
+                      {product.thumbnail_url ? (
+                        <Image
+                          src={product.thumbnail_url}
+                          alt={product.title}
+                          width={48}
+                          height={48}
+                          className="w-12 h-12 rounded-lg object-cover border border-gray-200"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
+                          <Search className="w-5 h-5 text-gray-400" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{product.title}</p>
+                        {product.creator?.display_name && (
+                          <p className="text-xs text-gray-500 truncate">by {product.creator.display_name}</p>
+                        )}
+                      </div>
+                      <div className="text-sm font-semibold text-gray-900">
+                        {product.price_cents === 0 ? "Free" : `$${(product.price_cents / 100).toFixed(0)}+`}
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* No results */}
+            {!searchLoading && query.trim().length >= 1 && searchResults.length === 0 && (
+              <div className="py-8 text-center">
+                <p className="text-sm text-gray-500">No products found for "{query}"</p>
+              </div>
+            )}
+
+            {/* Hint text */}
+            {!query && !searchLoading && (
+              <div className="py-4 text-center">
+                <p className="text-xs text-gray-500">Start typing to search products</p>
+              </div>
+            )}
+
+            {/* View all results button */}
+            {query.trim() && (
+              <div className="pt-3 mt-2 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    router.push(`/explore?q=${encodeURIComponent(query)}`)
+                    setSearchModalOpen(false)
+                  }}
+                  className="w-full py-3 rounded-xl text-sm font-medium text-white bg-violet-600 hover:bg-violet-700 transition-colors cursor-pointer"
+                >
+                  View all results for "{query}"
+                </button>
+              </div>
             )}
           </div>
-        )}
+        </MobileTopSheet>
 
         {/* Mobile Category Pills */}
         {showCategories && (
