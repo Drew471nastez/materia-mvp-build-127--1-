@@ -89,7 +89,7 @@ export function MarketingFooter() {
         <div className="grid grid-cols-2 md:grid-cols-5 gap-8 lg:gap-12">
           {/* Logo and Info Column */}
           <div className="col-span-2 md:col-span-1 space-y-6">
-            {/* Logo */}
+            {/* Logo with text */}
             <div className="flex items-center gap-3 flex-wrap">
               <Image
                 src={LOGO_URL}
@@ -98,6 +98,7 @@ export function MarketingFooter() {
                 height={40}
                 className="h-10 w-10"
               />
+              <span className="text-xl font-bold text-white">Storelib</span>
             </div>
 
             {/* Copyright and Email */}
@@ -243,7 +244,7 @@ export function MarketingFooter() {
         </div>
 
         {/* Bottom Bar */}
-        <div className="mt-12 pt-8 border-t border-[#1a1a1a]">
+        <div className="mt-8 pt-4 border-t border-[#1a1a1a]">
           <p className="text-center text-sm text-gray-500">
             &copy; {new Date().getFullYear()} Storelib. All rights reserved.
           </p>

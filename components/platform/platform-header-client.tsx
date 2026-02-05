@@ -15,7 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
-import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, Menu, X, Loader2, ChevronRight, ChevronLeft, ChevronDown, Sparkles, Code, Megaphone, Briefcase, Music, Camera, Video, LayoutGrid, Gift, MoreHorizontal, Bot, Share2, Flame, Zap, ShoppingBag, Lightbulb, ArrowRight, User as UserIcon } from "lucide-react"
+import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, Menu, X, Loader2, ChevronRight, ChevronLeft, ChevronDown, Sparkles, Code, Megaphone, Briefcase, Music, Camera, Video, LayoutGrid, Gift, MoreHorizontal, Bot, Share2, Flame, Zap, ShoppingBag, Lightbulb, ArrowRight, User as UserIcon, Compass } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 
 const LOGO_URL =
@@ -627,26 +627,136 @@ export function PlatformHeaderClient() {
     : null
 
   return (
+    <>
+      {/* Homepage Announcement Bar */}
+      {pathname === "/" && (
+        <div className="bg-violet-600 text-white">
+          <div className="py-2 px-4 md:py-2.5">
+            <div className="max-w-[1400px] mx-auto flex items-center justify-center gap-2 md:gap-3 text-center">
+              <span className="text-[12px] md:text-[14px] text-white/90">
+                <span className="font-semibold text-white">🎉 Start selling in minutes</span>
+                <span className="hidden md:inline"> — Join thousands of creators earning on Storelib</span>
+              </span>
+              <Link
+                href="/signup"
+                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 md:px-4 md:py-1.5 text-[11px] md:text-[12px] font-semibold bg-white text-violet-700 hover:bg-white/90 transition-colors"
+              >
+                <span>Get Started</span>
+                <ArrowRight className="h-3 w-3 md:h-3.5 md:w-3.5" />
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
     <header className="sticky top-0 z-50 w-full bg-white border-b border-gray-200 rounded-t-[14px] md:rounded-none">
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
         <div className="flex h-[68px] md:h-[81px] items-center justify-between gap-4 md:py-[3px]">
-          {/* Left side - Logo and Categories Button */}
-          <div className="flex items-center gap-3 shrink-0">
-            {/* Logo with Storelib text - logo height 46px (10% larger) */}
-            <Link href="/" className="shrink-0 hidden md:flex items-center gap-2">
-              <Image
-                src={LOGO_URL || "/placeholder.svg"}
-                alt="Storelib"
-                width={138}
-                height={46}
-                className="h-[46px] w-auto"
-                priority
-              />
-              <span className="text-[22px] font-bold text-gray-900 tracking-tight">Storelib</span>
-            </Link>
+          {/* Desktop Homepage Layout - different header */}
+          {pathname === "/" ? (
+            <>
+              {/* Homepage Desktop Header */}
+              <div className="hidden md:flex items-center justify-between w-full">
+                {/* Left - Logo */}
+                <Link href="/" className="shrink-0 flex items-center gap-2">
+                  <Image
+                    src={LOGO_URL || "/placeholder.svg"}
+                    alt="Storelib"
+                    width={138}
+                    height={46}
+                    className="h-[46px] w-auto"
+                    priority
+                  />
+                  <span className="text-[22px] font-bold text-gray-900 tracking-tight">Storelib</span>
+                </Link>
 
-            {/* Categories Dropdown Button with Tooltip */}
-            <div className="relative hidden md:block" data-categories-dropdown>
+                {/* Center - Nav Links (only when not logged in) */}
+                {!user && (
+                  <nav className="flex items-center gap-8">
+                    <Link href="/explore" className="text-[15px] font-medium text-gray-600 hover:text-gray-900 transition-colors">
+                      Discover
+                    </Link>
+                    <Link href="/blog" className="text-[15px] font-medium text-gray-600 hover:text-gray-900 transition-colors">
+                      Blog
+                    </Link>
+                    <Link href="/pricing" className="text-[15px] font-medium text-gray-600 hover:text-gray-900 transition-colors">
+                      Pricing
+                    </Link>
+                    <Link href="/features" className="text-[15px] font-medium text-gray-600 hover:text-gray-900 transition-colors">
+                      Features
+                    </Link>
+                    <Link href="/about" className="text-[15px] font-medium text-gray-600 hover:text-gray-900 transition-colors">
+                      About
+                    </Link>
+                  </nav>
+                )}
+
+                {/* Right - Actions */}
+                <div className="flex items-center gap-3">
+                  {loading ? (
+                    <HeaderActionsSkeleton />
+                  ) : user ? (
+                    <>
+                      {/* Discover icon */}
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Link
+                            href="/explore"
+                            className="flex h-11 w-11 items-center justify-center rounded-full text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition cursor-pointer"
+                            aria-label="Discover"
+                          >
+                            <Compass className="h-[22px] w-[22px]" />
+                          </Link>
+                        </TooltipTrigger>
+                        <TooltipContent className="bg-neutral-900 text-white text-xs px-2 py-1" sideOffset={8}>
+                          Discover
+                        </TooltipContent>
+                      </Tooltip>
+                      {/* Dashboard Button - redirects to /library for buyers, /app for sellers */}
+                      <Button asChild className="h-11 rounded-full px-6 text-[15px] bg-violet-600 text-white hover:bg-violet-700">
+                        <Link href={isCreator ? "/app" : "/library"}>
+                          Dashboard
+                        </Link>
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      {/* Log In */}
+                      <Link href="/login">
+                        <Button variant="ghost" className="h-11 px-5 rounded-full text-[15px] font-medium text-gray-700 hover:bg-gray-100">
+                          Log In
+                        </Button>
+                      </Link>
+                      {/* Start Selling */}
+                      <Button asChild className="h-11 rounded-full px-6 text-[15px] bg-violet-600 text-white hover:bg-violet-700">
+                        <Link href="/signup">
+                          Start Selling
+                        </Link>
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Non-Homepage Desktop Header - Original Layout */}
+              {/* Left side - Logo and Categories Button */}
+              <div className="flex items-center gap-3 shrink-0">
+                {/* Logo with Storelib text - logo height 46px (10% larger) */}
+                <Link href="/" className="shrink-0 hidden md:flex items-center gap-2">
+                  <Image
+                    src={LOGO_URL || "/placeholder.svg"}
+                    alt="Storelib"
+                    width={138}
+                    height={46}
+                    className="h-[46px] w-auto"
+                    priority
+                  />
+                  <span className="text-[22px] font-bold text-gray-900 tracking-tight">Storelib</span>
+                </Link>
+
+                {/* Categories Dropdown Button with Tooltip */}
+                <div className="relative hidden md:block" data-categories-dropdown>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
@@ -895,18 +1005,18 @@ export function PlatformHeaderClient() {
             {/* Homepage layout (not logged in): Logo left, hamburger right */}
             {pathname === "/" && !user ? (
               <>
-                {/* Left - Logo (10% bigger on homepage) */}
-                <div className="flex items-center gap-0 ml-1">
+                {/* Left - Logo (bigger on homepage) */}
+                <div className="flex items-center gap-0 ml-2">
                   <Link href="/" className="shrink-0 flex items-center gap-1.5">
                     <Image
                       src={LOGO_URL || "/placeholder.svg"}
                       alt="Storelib"
-                      width={120}
-                      height={40}
-                      className="h-[40px] w-auto"
+                      width={126}
+                      height={42}
+                      className="h-[42px] w-auto"
                       priority
                     />
-                    <span className="text-[19px] font-bold text-gray-900 tracking-tight">Storelib</span>
+                    <span className="text-[20px] font-bold text-gray-900 tracking-tight">Storelib</span>
                   </Link>
                 </div>
 
@@ -938,12 +1048,12 @@ export function PlatformHeaderClient() {
                     <Image
                       src={LOGO_URL || "/placeholder.svg"}
                       alt="Storelib"
-                      width={108}
-                      height={36}
-                      className="h-[36px] w-auto"
+                      width={114}
+                      height={38}
+                      className="h-[38px] w-auto"
                       priority
                     />
-                    <span className="text-lg font-bold text-gray-900 tracking-tight">Storelib</span>
+                    <span className="text-[19px] font-bold text-gray-900 tracking-tight">Storelib</span>
                   </Link>
                 </div>
 
@@ -1137,7 +1247,9 @@ export function PlatformHeaderClient() {
               </>
             )}
           </div>
-        </div>
+            </div>
+          </>
+          )}
 
         {/* Mobile Search Bar - hidden on homepage when not logged in */}
         {!(pathname === "/" && !user) && (
@@ -1326,30 +1438,42 @@ export function PlatformHeaderClient() {
         <div className="px-4 pb-6">
           {/* Guest User Banner with Sign In / Start Selling */}
           {!user && (
-            <div className="p-3 mb-4 bg-gray-50 rounded-xl border border-gray-200">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-200">
-                    <UserIcon className="h-5 w-5 text-gray-500" />
+            <>
+              <div className="p-3 mb-3 bg-gray-50 rounded-xl border border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-200">
+                      <UserIcon className="h-5 w-5 text-gray-500" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">Guest</p>
+                      <p className="text-xs text-gray-500">Not logged in</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">Guest</p>
-                    <p className="text-xs text-gray-500">Not logged in</p>
-                  </div>
+                  <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
+                    <Button className="h-9 px-4 rounded-full text-sm font-medium bg-violet-600 text-white hover:bg-violet-700">
+                      Sign in
+                      <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                    </Button>
+                  </Link>
                 </div>
-                <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
-                  <Button className="h-9 px-4 rounded-full text-sm font-medium bg-violet-600 text-white hover:bg-violet-700">
-                    Sign in
-                    <ArrowRight className="ml-1 h-3.5 w-3.5" />
-                  </Button>
-                </Link>
               </div>
-              <Link href="/signup" onClick={() => setMobileMenuOpen(false)} className="block mt-3">
-                <Button variant="outline" className="w-full h-10 rounded-full text-sm font-medium border-gray-300 text-gray-700 bg-white hover:bg-gray-50">
+              {/* Start Selling button - below Guest banner */}
+              <Link href="/signup" onClick={() => setMobileMenuOpen(false)} className="block mb-3">
+                <Button variant="outline" className="w-full h-11 rounded-xl text-sm font-medium border-gray-300 text-gray-700 bg-white hover:bg-gray-50">
                   Start Selling
                 </Button>
               </Link>
-            </div>
+              {/* Discover button - only on homepage mobile */}
+              {pathname === "/" && (
+                <Link href="/explore" onClick={() => setMobileMenuOpen(false)} className="block mb-4">
+                  <Button className="w-full h-11 rounded-xl text-sm font-medium bg-violet-600 text-white hover:bg-violet-700 gap-2">
+                    <Compass className="h-4 w-4" />
+                    Discover
+                  </Button>
+                </Link>
+              )}
+            </>
           )}
 
           {/* Subcategory View */}
@@ -1472,22 +1596,6 @@ export function PlatformHeaderClient() {
                   </Link>
                 )}
               </div>
-
-              {/* Auth buttons for guest */}
-              {!user && (
-                <div className="mt-4 pt-4 border-t border-gray-200 space-y-3">
-                  <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
-                    <Button className="w-full h-12 rounded-xl text-base font-medium bg-violet-600 text-white hover:bg-violet-700">
-                      Log in
-                    </Button>
-                  </Link>
-                  <Link href="/signup" onClick={() => setMobileMenuOpen(false)}>
-                    <Button variant="outline" className="w-full h-12 rounded-xl text-base font-medium border-gray-300 text-gray-700 hover:bg-gray-50">
-                      Start selling
-                    </Button>
-                  </Link>
-                </div>
-              )}
             </>
           )}
         </div>
@@ -1563,6 +1671,7 @@ export function PlatformHeaderClient() {
         </div>
       </MobileBottomSheet>
     </header>
+    </>
   )
 }
 

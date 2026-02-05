@@ -105,7 +105,7 @@ export function MostPopularSection({ products }: MostPopularSectionProps) {
   }
 
   return (
-    <section className="mt-8 md:mt-12 pt-6 md:pt-8 border-t border-neutral-100">
+    <section className="mt-8 md:mt-12 pt-6 md:pt-8 pb-[10px] border-t border-neutral-100">
       {/* Section header */}
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl sm:text-2xl font-bold text-neutral-900">
