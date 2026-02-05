@@ -39,8 +39,13 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic"
 
-// Categories that match the client-side categories
-const VALID_CATEGORIES = ["all", "productivity", "design", "social-media", "ai"]
+// Categories that match the client-side categories (including header categories)
+const VALID_CATEGORIES = [
+  "all", "productivity", "design", "social-media", "ai",
+  // Additional categories from header
+  "development", "marketing", "business", "music", "photography",
+  "video", "ecommerce", "education", "audio-music", "other", "freebies"
+]
 
 export default async function ExplorePage({
   searchParams,
