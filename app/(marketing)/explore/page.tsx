@@ -4,31 +4,43 @@ import { ExplorePageClient } from "@/components/explore/explore-page-client"
 import { FeaturedCategoriesSection } from "@/components/explore/featured-categories-section"
 import { MostPopularSection } from "@/components/explore/most-popular-section"
 
-// SEO-optimized metadata
+// SEO-optimized metadata with enhanced tags for Google
 export const metadata: Metadata = {
-  title: "Discover",
-  description: "Discover - Sell Digital Products On Storelib. Browse thousands of digital products from top creators. Find courses, templates, ebooks, and design assets.",
-  keywords: ["digital products", "online courses", "templates", "ebooks", "design assets", "creator economy", "sell digital products"],
+  title: "Discover Digital Products | Storelib",
+  description: "Browse and discover the best digital products from top creators. Find productivity tools, design assets, social media templates, AI resources and more. Shop thousands of digital downloads.",
+  keywords: ["digital products", "productivity tools", "design assets", "social media templates", "AI tools", "digital downloads", "creator marketplace", "online store"],
   openGraph: {
-    title: "Discover | Storelib",
-    description: "Discover - Sell Digital Products On Storelib. Browse thousands of digital products from top creators.",
+    title: "Discover Digital Products | Storelib",
+    description: "Browse and discover the best digital products from top creators. Shop thousands of digital downloads.",
     type: "website",
     url: "/explore",
+    siteName: "Storelib",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Discover | Storelib",
-    description: "Discover - Sell Digital Products On Storelib. Browse thousands of digital products from top creators.",
+    title: "Discover Digital Products | Storelib",
+    description: "Browse and discover the best digital products from top creators. Shop thousands of digital downloads.",
   },
   alternates: {
     canonical: "/explore",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
   },
 }
 
 export const dynamic = "force-dynamic"
 
 // Categories that match the client-side categories
-const VALID_CATEGORIES = ["all", "design", "development", "marketing", "business", "education"]
+const VALID_CATEGORIES = ["all", "productivity", "design", "social-media", "ai"]
 
 export default async function ExplorePage({
   searchParams,
@@ -126,7 +138,7 @@ export default async function ExplorePage({
       <div className="mx-auto max-w-6xl lg:max-w-[1270px] px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Hidden H1 for SEO - visible to screen readers and crawlers */}
         <h1 className="sr-only">
-          Discover - Sell Digital Products On Storelib
+          Discover Digital Products - Productivity, Design, AI & More | Storelib
         </h1>
 
         {/* Main content */}

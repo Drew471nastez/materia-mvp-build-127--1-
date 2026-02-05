@@ -6,16 +6,15 @@ import { FeaturedBannerCarousel } from "./featured-banner-carousel"
 import { RecommendedSection } from "./recommended-section"
 import { ProductCard } from "./product-card"
 import { ProductCardSkeleton } from "./product-card-skeleton"
-import { Layers, Sparkles, Code, Megaphone, Briefcase, GraduationCap } from "lucide-react"
+import { Layers, Sparkles, Zap, Share2, Bot } from "lucide-react"
 
-// Fixed 6 categories only with icons
+// Fixed 5 categories only with icons
 const CATEGORIES = [
   { id: "all", label: "All", icon: Layers },
+  { id: "productivity", label: "Productivity", icon: Zap },
   { id: "design", label: "Design", icon: Sparkles },
-  { id: "development", label: "Development", icon: Code },
-  { id: "marketing", label: "Marketing", icon: Megaphone },
-  { id: "business", label: "Business", icon: Briefcase },
-  { id: "education", label: "Education", icon: GraduationCap },
+  { id: "social-media", label: "Social Media", icon: Share2 },
+  { id: "ai", label: "AI", icon: Bot },
 ] as const
 
 // Filter types for Recommended section

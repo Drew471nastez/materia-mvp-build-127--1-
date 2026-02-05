@@ -381,19 +381,26 @@ export function PlatformHeaderClient() {
               <span className="text-xl font-bold text-gray-900 tracking-tight">Storelib</span>
             </Link>
 
-            {/* Categories Dropdown Button */}
+            {/* Categories Dropdown Button with Tooltip */}
             <div className="relative hidden md:block" data-categories-dropdown>
-              <button
-                onClick={() => setCategoriesDropdownOpen(!categoriesDropdownOpen)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 cursor-pointer ${
-                  categoriesDropdownOpen
-                    ? "bg-gray-100 text-gray-900"
-                    : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-                }`}
-              >
-                <Menu className="w-4 h-4" />
-                <span>Categories</span>
-              </button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => setCategoriesDropdownOpen(!categoriesDropdownOpen)}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 cursor-pointer ${
+                      categoriesDropdownOpen
+                        ? "bg-gray-100 text-gray-900"
+                        : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                    }`}
+                  >
+                    <Menu className="w-4 h-4" />
+                    <span>Categories</span>
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="bg-neutral-900 text-white text-xs px-2 py-1" sideOffset={8}>
+                  Browse all categories
+                </TooltipContent>
+              </Tooltip>
 
               {/* Categories Megamenu Dropdown */}
               {categoriesDropdownOpen && (
@@ -676,13 +683,13 @@ export function PlatformHeaderClient() {
                 )}
               </Link>
 
-              {/* Mobile Avatar - increased gap from wishlist */}
+              {/* Mobile Avatar - increased gap from wishlist (+2px more) */}
               {user ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
                       type="button"
-                      className="rounded-full cursor-pointer ml-1.5"
+                      className="rounded-full cursor-pointer ml-2"
                       aria-label="Open profile menu"
                     >
                       <Avatar className="h-8 w-8 border border-gray-200">
@@ -736,7 +743,7 @@ export function PlatformHeaderClient() {
                   </DropdownMenuContent>
                 </DropdownMenu>
               ) : (
-                <Avatar className="h-8 w-8 border border-gray-200 ml-2">
+                <Avatar className="h-8 w-8 border border-gray-200 ml-2.5">
                   <AvatarFallback className="text-[10px] bg-gray-100 text-gray-700">?</AvatarFallback>
                 </Avatar>
               )}

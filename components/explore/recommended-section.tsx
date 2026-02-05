@@ -89,10 +89,11 @@ export function RecommendedSection({ products, filterType = "curated" }: Recomme
                 disabled={!canGoPrevious || isAnimating}
                 className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-150 ${
                   canGoPrevious && !isAnimating
-                    ? "hover:bg-neutral-100 text-neutral-700"
+                    ? "hover:bg-neutral-100 text-neutral-700 cursor-pointer active:scale-95"
                     : "text-neutral-300 cursor-not-allowed"
                 }`}
                 aria-label="Previous page"
+                type="button"
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
@@ -101,10 +102,11 @@ export function RecommendedSection({ products, filterType = "curated" }: Recomme
                 disabled={!canGoNext || isAnimating}
                 className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-150 ${
                   canGoNext && !isAnimating
-                    ? "hover:bg-neutral-100 text-neutral-700"
+                    ? "hover:bg-neutral-100 text-neutral-700 cursor-pointer active:scale-95"
                     : "text-neutral-300 cursor-not-allowed"
                 }`}
                 aria-label="Next page"
+                type="button"
               >
                 <ChevronRight className="w-5 h-5" />
               </button>
