@@ -168,6 +168,9 @@ export function MarketingFooter() {
           <div className="space-y-4">
             <h4 className="text-sm font-semibold text-white">Product</h4>
             <div className="space-y-3">
+              <Link href="/" className="block text-sm text-gray-400 hover:text-white transition-colors">
+                Home
+              </Link>
               <Link href="/explore" className="block text-sm text-gray-400 hover:text-white transition-colors">
                 Discover
               </Link>

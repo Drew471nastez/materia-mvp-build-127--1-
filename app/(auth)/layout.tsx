@@ -7,21 +7,21 @@ export const metadata: Metadata = {
     locale: "en_US",
     url: "https://storelib.com",
     siteName: "Storelib",
-    title: "Storelib - Sell products & Grow your audience",
-    description: "The all-in-one platform for creators to sell digital products, courses, and grow their audience.",
+    title: "Storelib - Sell Products & Grow Your Audience",
+    description: "The all-in-one ecommerce platform to sell digital products, build your online store & grow your audience.",
     images: [
       {
         url: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/89.jpg",
         width: 1200,
         height: 630,
-        alt: "Storelib - Sell products & Grow your audience",
+        alt: "Storelib - Sell Products & Grow Your Audience",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Storelib - Sell products & Grow your audience",
-    description: "The all-in-one platform for creators to sell digital products, courses, and grow their audience.",
+    title: "Storelib - Sell Products & Grow Your Audience",
+    description: "The all-in-one ecommerce platform to sell digital products, build your online store & grow your audience.",
     images: ["https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/89.jpg"],
   },
 }

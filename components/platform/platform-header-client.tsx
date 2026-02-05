@@ -1176,7 +1176,7 @@ export function PlatformHeaderClient() {
               <button
                 type="button"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="flex h-9 w-9 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 transition cursor-pointer"
+                className="flex h-9 w-9 items-center justify-center text-gray-700 transition cursor-pointer"
                 aria-label={mobileMenuOpen ? "Close categories" : "Open categories"}
               >
                 <AnimatedHamburger isOpen={mobileMenuOpen} />
@@ -1715,9 +1715,9 @@ export function PlatformHeaderClient() {
             </div>
           )}
 
-          {/* Subcategory View */}
+          {/* Subcategory View with animation */}
           {expandedCategory ? (
-            <>
+            <div className="animate-in slide-in-from-right-4 fade-in duration-200">
               <button
                 type="button"
                 onClick={() => setExpandedCategory(null)}
@@ -1754,7 +1754,7 @@ export function PlatformHeaderClient() {
                       <ArrowRight className="h-4 w-4" />
                     </Link>
                     <div className="space-y-0.5">
-                      {cat.subcategories.map((sub) => (
+                      {cat.subcategories.map((sub, index) => (
                         <Link
                           key={sub.label}
                           href={sub.href}
@@ -1762,7 +1762,8 @@ export function PlatformHeaderClient() {
                             setExpandedCategory(null)
                             setMobileMenuOpen(false)
                           }}
-                          className="block px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
+                          className="block px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer animate-in fade-in slide-in-from-right-2"
+                          style={{ animationDelay: `${index * 30}ms`, animationFillMode: 'both' }}
                         >
                           {sub.label}
                         </Link>
@@ -1771,7 +1772,7 @@ export function PlatformHeaderClient() {
                   </>
                 )
               })()}
-            </>
+            </div>
           ) : (
             /* Main Categories List */
             <>
