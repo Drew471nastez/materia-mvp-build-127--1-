@@ -90,7 +90,7 @@ export function MarketingFooter() {
           {/* Logo and Info Column */}
           <div className="col-span-2 md:col-span-1 space-y-6">
             {/* Logo with text */}
-            <div className="flex items-center gap-3 flex-wrap">
+            <Link href="https://storelib.com" className="flex items-center gap-3 flex-wrap hover:opacity-80 transition-opacity">
               <Image
                 src={LOGO_URL}
                 alt="Storelib"
@@ -99,7 +99,7 @@ export function MarketingFooter() {
                 className="h-10 w-10"
               />
               <span className="text-xl font-bold text-white">Storelib</span>
-            </div>
+            </Link>
 
             {/* Copyright and Email */}
             <div className="space-y-2">
@@ -247,8 +247,8 @@ export function MarketingFooter() {
         </div>
 
         {/* Bottom Bar */}
-        <div className="mt-8 pt-4 border-t border-[#1a1a1a]">
-          <p className="text-center text-sm text-gray-500">
+        <div className="mt-4 pt-2 border-t border-[#1a1a1a]">
+          <p className="text-center text-xs text-gray-500">
             &copy; {new Date().getFullYear()} Storelib. All rights reserved.
           </p>
         </div>

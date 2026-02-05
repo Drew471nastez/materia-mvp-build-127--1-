@@ -105,12 +105,18 @@ export function MostPopularSection({ products }: MostPopularSectionProps) {
   }
 
   return (
-    <section className="mt-8 md:mt-12 pt-6 md:pt-8 pb-[10px] border-t border-neutral-100">
+    <section className="mt-8 md:mt-12 pt-6 md:pt-8 pb-[30px] border-t border-neutral-100">
       {/* Section header */}
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl sm:text-2xl font-bold text-neutral-900">
-          Most popular
-        </h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-xl sm:text-2xl font-bold text-neutral-900">
+            Most popular
+          </h2>
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
+            <span>🔥</span>
+            <span>last 48 hours</span>
+          </span>
+        </div>
       </div>
 
       {/* Desktop: Static 3x2 grid - no carousel, no dots */}

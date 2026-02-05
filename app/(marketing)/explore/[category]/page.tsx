@@ -116,10 +116,14 @@ export default async function CategoryPage({ params }: Props) {
   const categoryLabel = CATEGORY_LABELS[category] || category
 
   return (
-    <CategoryPageClient
-      initialProducts={products || []}
-      category={category}
-      categoryLabel={categoryLabel}
-    />
+    <main className="min-h-screen bg-white">
+      <div className="mx-auto max-w-6xl lg:max-w-[1270px] px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <CategoryPageClient
+          initialProducts={products || []}
+          category={category}
+          categoryLabel={categoryLabel}
+        />
+      </div>
+    </main>
   )
 }

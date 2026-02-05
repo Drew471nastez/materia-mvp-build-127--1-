@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
@@ -74,12 +75,16 @@ const SECONDARY_NAV_CATEGORIES = [
 ]
 
 export function MarketingHeaderClient() {
+  const pathname = usePathname()
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<any>(null)
   const [isCreator, setIsCreator] = useState(false)
   const [creatorSlug, setCreatorSlug] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [categoriesOpen, setCategoriesOpen] = useState(false)
+
+  // Determine logo link - on /explore pages, link to /explore, otherwise link to home
+  const logoLink = pathname?.startsWith('/explore') ? '/explore' : '/?src=platform'
 
   useEffect(() => {
     const supabase = createClient()
@@ -145,7 +150,7 @@ export function MarketingHeaderClient() {
           {/* Left side - Logo and Categories Button */}
           <div className="flex items-center gap-4 shrink-0">
             {/* Logo - 30% bigger (~2.6rem from 2rem) */}
-            <Link href="/?src=platform" className="flex items-center gap-2 shrink-0">
+            <Link href={logoLink} className="flex items-center gap-2 shrink-0">
               <span className="text-[2.6rem] font-bold tracking-tight leading-none">Storelib</span>
             </Link>
 
