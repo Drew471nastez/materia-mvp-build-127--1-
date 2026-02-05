@@ -1023,10 +1023,11 @@ export function ExplorePageClient({
       setIsLoadingCategory(false)
 
       // Smooth scroll to Recommended section for both desktop and mobile
+      // Wait 450ms for modal animation to complete before scrolling
       if (categoryId !== "all" || subcategoryId) {
         setTimeout(() => {
           smoothScrollToSection(categorySectionRef)
-        }, 150)
+        }, 450)
       }
     }, 100)
   }, [router, urlSearchQuery])
@@ -1110,6 +1111,24 @@ export function ExplorePageClient({
               </div>
 
               <div className="flex items-center gap-2">
+                {/* Mobile: Category Icon Button */}
+                <button
+                  onClick={() => setCategorySelectorOpen(true)}
+                  className="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-full bg-neutral-100 text-neutral-700 hover:bg-neutral-200 transition-all duration-150 cursor-pointer"
+                >
+                  <Layers className="w-4 h-4" />
+                </button>
+
+                {/* Desktop: By Category Pill Button */}
+                <button
+                  onClick={() => setCategorySelectorOpen(true)}
+                  className="hidden md:inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium bg-neutral-100 text-neutral-700 hover:bg-neutral-200 transition-all duration-150 cursor-pointer"
+                >
+                  <Layers className="w-4 h-4" />
+                  <span>By Category</span>
+                  <ChevronDown className="w-3.5 h-3.5" />
+                </button>
+
                 {/* Search Button */}
                 <button
                   onClick={() => setSearchOpen(!searchOpen)}
@@ -1244,28 +1263,6 @@ export function ExplorePageClient({
               categoryName={sectionTitle}
             />
 
-            {/* Category Icon Buttons Row */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
-              {CATEGORIES.slice(0, 9).map((category) => {
-                const Icon = category.icon
-                const isSelected = mainCategory === category.id
-                return (
-                  <button
-                    key={category.id}
-                    onClick={() => handleCategoryChange(category.id)}
-                    className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium cursor-pointer select-none whitespace-nowrap transition-all duration-150 ease-out active:scale-[0.98] ${
-                      isSelected
-                        ? "bg-neutral-900 text-white shadow-sm"
-                        : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200 hover:text-neutral-900"
-                    }`}
-                  >
-                    <Icon className="w-4 h-4" />
-                    <span className="hidden sm:inline">{category.label}</span>
-                  </button>
-                )
-              })}
-            </div>
-
             {/* Filter Pills Row */}
             <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
               {RECOMMENDATION_FILTERS.map((filter) => {
@@ -1276,7 +1273,7 @@ export function ExplorePageClient({
                     onClick={() => setRecommendationFilter(filter.id as typeof recommendationFilter)}
                     className={`px-4 py-2 rounded-full text-sm font-medium cursor-pointer select-none whitespace-nowrap transition-all duration-150 ease-out active:scale-[0.98] ${
                       isSelected
-                        ? "bg-violet-600 text-white shadow-sm"
+                        ? "bg-neutral-900 text-white shadow-sm"
                         : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200 hover:text-neutral-900"
                     }`}
                   >

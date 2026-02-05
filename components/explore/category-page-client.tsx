@@ -600,18 +600,38 @@ export function CategoryPageClient({
     })
   }, [category, router])
 
+  // Category keywords for matching
+  const categoryKeywords: Record<string, string[]> = {
+    "design": ["design", "ui", "ux", "graphic", "template", "figma", "canva", "photoshop", "illustrator", "mockup", "logo", "brand", "icon", "font", "typography"],
+    "development": ["development", "code", "web", "app", "react", "nextjs", "javascript", "typescript", "html", "css", "wordpress", "shopify", "plugin", "script", "api"],
+    "marketing": ["marketing", "email", "newsletter", "ad", "ads", "landing", "seo", "copywriting", "funnel", "campaign", "conversion"],
+    "business": ["business", "spreadsheet", "excel", "presentation", "powerpoint", "document", "contract", "invoice", "proposal", "plan", "finance"],
+    "ai": ["ai", "artificial intelligence", "chatgpt", "gpt", "prompt", "midjourney", "dalle", "automation", "machine learning", "openai"],
+    "social-media": ["social", "instagram", "tiktok", "youtube", "twitter", "linkedin", "pinterest", "reels", "shorts", "content", "post"],
+    "productivity": ["productivity", "notion", "planner", "calendar", "checklist", "tracker", "dashboard", "airtable", "organization", "workflow"],
+    "photography": ["photo", "photography", "lightroom", "preset", "overlay", "photoshop", "action", "lut", "stock"],
+    "video": ["video", "motion", "after effects", "premiere", "davinci", "transition", "effect", "animation"],
+    "audio-music": ["audio", "music", "sound", "sfx", "loop", "sample", "podcast", "royalty"],
+    "education": ["education", "course", "ebook", "tutorial", "worksheet", "guide", "learn", "training"],
+    "ecommerce": ["ecommerce", "e-commerce", "store", "shop", "product", "pricing", "shopify", "woocommerce"],
+  }
+
   // Filter products
   const filteredProducts = useMemo(() => {
     let products = [...initialProducts]
 
-    // Filter by category
+    // Filter by category - using keyword matching for better results
+    const keywords = categoryKeywords[category] || [category]
     products = products.filter(p => {
       const productCategory = (p.category || p.categoryName || "").toLowerCase()
+      const productTitle = (p.title || "").toLowerCase()
+      const productDesc = (p.description || "").toLowerCase()
+      const productTags = p.tags?.map((t: string) => t.toLowerCase()) || []
       const creatorTags = p.creator?.niche_tags?.map((t: string) => t.toLowerCase()) || []
-      return productCategory === category ||
-             productCategory.includes(category) ||
-             creatorTags.includes(category) ||
-             creatorTags.some((tag: string) => tag.includes(category))
+      const allSearchableText = `${productCategory} ${productTitle} ${productDesc} ${productTags.join(" ")} ${creatorTags.join(" ")}`
+
+      // Check if any keyword matches
+      return keywords.some(keyword => allSearchableText.includes(keyword))
     })
 
     // Filter by subcategories

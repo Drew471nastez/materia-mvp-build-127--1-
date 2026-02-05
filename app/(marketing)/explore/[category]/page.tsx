@@ -12,6 +12,11 @@ const VALID_CATEGORIES = [
   "ai",
   "social-media",
   "productivity",
+  "photography",
+  "video",
+  "audio-music",
+  "education",
+  "ecommerce",
 ]
 
 // Category labels for display
@@ -23,6 +28,11 @@ const CATEGORY_LABELS: Record<string, string> = {
   "ai": "AI",
   "social-media": "Social Media",
   "productivity": "Productivity",
+  "photography": "Photography",
+  "video": "Video",
+  "audio-music": "Audio & Music",
+  "education": "Education",
+  "ecommerce": "E-commerce",
 }
 
 // Category descriptions for SEO
@@ -34,6 +44,11 @@ const CATEGORY_DESCRIPTIONS: Record<string, string> = {
   "ai": "Explore AI prompts, ChatGPT templates and automation tools. Leverage AI with curated prompt libraries and tools.",
   "social-media": "Download Instagram templates, TikTok content, YouTube assets and more. Grow your social media presence with stunning templates.",
   "productivity": "Find Notion templates, calendars, planners and checklists. Boost your productivity with organized template systems.",
+  "photography": "Discover Lightroom presets, photo overlays, Photoshop actions and stock photos. Enhance your photography with professional tools.",
+  "video": "Find video templates, transitions, motion graphics and effects. Create stunning videos with premium assets.",
+  "audio-music": "Browse royalty-free music, sound effects, loops and samples. Find the perfect audio for your projects.",
+  "education": "Explore online courses, eBooks, tutorials and worksheets. Learn new skills with quality educational content.",
+  "ecommerce": "Get store themes, product photography templates and e-commerce tools. Build and grow your online store.",
 }
 
 type Props = {
