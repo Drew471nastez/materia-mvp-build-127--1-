@@ -12,19 +12,10 @@ import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 
-import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, Menu, X, Loader2, ChevronRight, ChevronDown, Sparkles, Code, Megaphone, Briefcase, Music, Camera, Video, LayoutGrid, Gift, MoreHorizontal, Bot, Share2, Flame, Zap, FileText, Palette, Globe, ShoppingBag, Lightbulb, Smartphone, TrendingUp } from "lucide-react"
+import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, Menu, X, Loader2, ChevronRight, ChevronLeft, ChevronDown, Sparkles, Code, Megaphone, Briefcase, Music, Camera, Video, LayoutGrid, Gift, MoreHorizontal, Bot, Share2, Flame, Zap, ShoppingBag, Lightbulb, ArrowRight, User as UserIcon } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 
 const LOGO_URL =
@@ -212,6 +203,137 @@ type Profile = {
   is_creator?: boolean | null
 }
 
+// Mobile Bottom Sheet Component with swipe-to-close
+function MobileBottomSheet({
+  isOpen,
+  onClose,
+  children,
+  title,
+}: {
+  isOpen: boolean
+  onClose: () => void
+  children: React.ReactNode
+  title?: string
+}) {
+  const [isVisible, setIsVisible] = useState(false)
+  const [isAnimating, setIsAnimating] = useState(false)
+  const [dragY, setDragY] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+  const startY = useRef(0)
+  const sheetRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (isOpen && !isVisible) {
+      setIsVisible(true)
+      document.body.style.overflow = "hidden"
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setIsAnimating(true)
+        })
+      })
+    } else if (!isOpen && isVisible) {
+      setIsAnimating(false)
+      document.body.style.overflow = ""
+      const timer = setTimeout(() => {
+        setIsVisible(false)
+        setDragY(0)
+      }, 400)
+      return () => clearTimeout(timer)
+    }
+    return () => {
+      document.body.style.overflow = ""
+    }
+  }, [isOpen, isVisible])
+
+  const handleClose = () => {
+    setIsAnimating(false)
+    setDragY(0)
+    setTimeout(() => {
+      onClose()
+    }, 400)
+  }
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0]
+    const sheetElement = sheetRef.current
+    if (!sheetElement) return
+
+    const sheetRect = sheetElement.getBoundingClientRect()
+    const touchYInSheet = touch.clientY - sheetRect.top
+
+    // Only start dragging if touch is in the handle area (top 60px)
+    if (touchYInSheet <= 60) {
+      startY.current = touch.clientY
+      setIsDragging(true)
+    }
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging) return
+    const currentY = e.touches[0].clientY
+    const diff = currentY - startY.current
+    if (diff > 0) {
+      setDragY(diff * 0.8)
+    }
+  }
+
+  const handleTouchEnd = () => {
+    if (!isDragging) return
+    setIsDragging(false)
+    if (dragY > 80) {
+      handleClose()
+    } else {
+      setDragY(0)
+    }
+  }
+
+  if (!isVisible) return null
+
+  return (
+    <div className="fixed inset-0 z-[100] md:hidden">
+      {/* Backdrop */}
+      <div
+        className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity ease-out ${
+          isAnimating ? "opacity-100" : "opacity-0"
+        }`}
+        style={{ transitionDuration: '400ms' }}
+        onClick={handleClose}
+      />
+      {/* Bottom Sheet */}
+      <div
+        ref={sheetRef}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
+        style={{
+          transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)",
+          transition: isDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
+          maxHeight: '85vh',
+        }}
+      >
+        {/* Handle bar */}
+        <div className="pt-3 pb-2">
+          <button
+            onClick={handleClose}
+            className="w-full flex justify-center py-2 cursor-pointer touch-none"
+          >
+            <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
+          </button>
+        </div>
+        {title && (
+          <div className="px-4 pb-3">
+            <h3 className="text-[16px] font-semibold text-gray-900">{title}</h3>
+          </div>
+        )}
+        <div className="overflow-y-auto overscroll-contain" style={{ maxHeight: 'calc(85vh - 80px)' }}>
+          {children}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function PlatformHeaderClient() {
   const router = useRouter()
   const pathname = usePathname()
@@ -221,7 +343,6 @@ export function PlatformHeaderClient() {
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [isCreator, setIsCreator] = useState(false)
-  // Start with false to avoid skeleton flash - only show skeleton on true initial load
   const [loading, setLoading] = useState(false)
   const [initialLoadDone, setInitialLoadDone] = useState(false)
   const [wishlistCount, setWishlistCount] = useState(0)
@@ -234,9 +355,13 @@ export function PlatformHeaderClient() {
   const [searchLoading, setSearchLoading] = useState(false)
   const [categoriesDropdownOpen, setCategoriesDropdownOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [mobileProfileOpen, setMobileProfileOpen] = useState(false)
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
+  const [selectedCategoryForSubs, setSelectedCategoryForSubs] = useState<string | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const profileDropdownRef = useRef<HTMLDivElement>(null)
+  const [desktopProfileOpen, setDesktopProfileOpen] = useState(false)
 
   useEffect(() => {
     setQuery(searchParams.get("q") ?? "")
@@ -247,14 +372,23 @@ export function PlatformHeaderClient() {
     setSearchModalOpen(false)
     setCategoriesDropdownOpen(false)
     setMobileMenuOpen(false)
+    setMobileProfileOpen(false)
+    setExpandedCategory(null)
+    setSelectedCategoryForSubs(null)
+    setDesktopProfileOpen(false)
   }, [pathname])
 
-  // Close categories dropdown when clicking outside
+  // Close desktop dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement
       if (!target.closest('[data-categories-dropdown]')) {
         setCategoriesDropdownOpen(false)
+        setExpandedCategory(null)
+        setSelectedCategoryForSubs(null)
+      }
+      if (profileDropdownRef.current && !profileDropdownRef.current.contains(target)) {
+        setDesktopProfileOpen(false)
       }
     }
     document.addEventListener('click', handleClickOutside)
@@ -376,7 +510,6 @@ export function PlatformHeaderClient() {
     const loadUser = async (isInitial = false) => {
       try {
         if (!mountedRef.current) return
-        // Only show loading skeleton on initial load, not on auth state changes
         if (isInitial && !initialLoadDone) {
           setLoading(true)
         }
@@ -472,18 +605,10 @@ export function PlatformHeaderClient() {
   async function handleLogout() {
     const supabase = createClient()
     await supabase.auth.signOut()
+    setMobileProfileOpen(false)
+    setDesktopProfileOpen(false)
     router.push("/")
     router.refresh()
-  }
-
-  const onSubmitSearch = (e: React.FormEvent) => {
-    e.preventDefault()
-    const trimmed = query.trim()
-    if (trimmed) {
-      router.push(`/explore?q=${encodeURIComponent(trimmed)}`)
-    } else {
-      router.push("/explore")
-    }
   }
 
   const onCategoryClick = (cat: string) => {
@@ -491,6 +616,11 @@ export function PlatformHeaderClient() {
   }
 
   const showCategories = pathname === "/explore" || pathname.startsWith("/explore")
+
+  // Get selected category data for subcategory view
+  const selectedCategoryData = selectedCategoryForSubs
+    ? CATEGORIES_WITH_SUBS.find(c => c.label === selectedCategoryForSubs)
+    : null
 
   return (
     <header className="sticky top-0 z-50 w-full bg-white border-b border-gray-200 rounded-t-[14px] md:rounded-none">
@@ -519,6 +649,7 @@ export function PlatformHeaderClient() {
                     onClick={() => {
                       setCategoriesDropdownOpen(!categoriesDropdownOpen)
                       setExpandedCategory(null)
+                      setSelectedCategoryForSubs(null)
                     }}
                     className={`flex items-center gap-2 px-3.5 py-2.5 rounded-lg text-[15px] font-medium transition-all duration-150 cursor-pointer ${
                       categoriesDropdownOpen
@@ -535,62 +666,91 @@ export function PlatformHeaderClient() {
                 </TooltipContent>
               </Tooltip>
 
-              {/* Categories Megamenu Dropdown with Subcategories */}
+              {/* Categories Megamenu Dropdown with dedicated subcategory view */}
               {categoriesDropdownOpen && (
                 <div className="absolute top-full left-0 mt-2 w-[320px] bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden animate-in fade-in-0 slide-in-from-top-2 duration-200 z-50">
-                  <div className="p-3 max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400" style={{ scrollbarWidth: 'thin', scrollbarColor: '#d1d5db transparent' }}>
-                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-2">Browse Categories</h3>
-                    <div className="space-y-0.5">
-                      {CATEGORIES_WITH_SUBS.map((cat) => {
-                        const Icon = cat.icon
-                        const isExpanded = expandedCategory === cat.label
-                        const hasSubcats = cat.subcategories && cat.subcategories.length > 0
-                        return (
-                          <div key={cat.label}>
-                            <button
-                              onClick={() => {
-                                if (hasSubcats) {
-                                  setExpandedCategory(isExpanded ? null : cat.label)
-                                } else {
-                                  router.push(cat.href)
-                                  setCategoriesDropdownOpen(false)
-                                }
-                              }}
-                              className="flex items-center justify-between w-full px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors cursor-pointer"
+                  <div className="max-h-[70vh] overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#d1d5db transparent' }}>
+                    {/* Subcategory View */}
+                    {selectedCategoryForSubs && selectedCategoryData ? (
+                      <div className="p-3">
+                        <button
+                          onClick={() => setSelectedCategoryForSubs(null)}
+                          className="flex items-center gap-2 px-2 py-2 mb-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors cursor-pointer"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                          <span>Back to Categories</span>
+                        </button>
+                        <div className="flex items-center gap-3 px-3 py-2 mb-2">
+                          <selectedCategoryData.icon className="h-5 w-5 text-violet-500" />
+                          <span className="text-base font-semibold text-gray-900">{selectedCategoryData.label}</span>
+                          {selectedCategoryData.isHot && (
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-600">
+                              <Flame className="h-3 w-3" />
+                              Hot
+                            </span>
+                          )}
+                        </div>
+                        <Link
+                          href={selectedCategoryData.href}
+                          onClick={() => setCategoriesDropdownOpen(false)}
+                          className="flex items-center justify-between px-3 py-2.5 mb-1 rounded-lg text-sm font-medium text-violet-600 bg-violet-50 hover:bg-violet-100 transition-colors cursor-pointer"
+                        >
+                          <span>View All {selectedCategoryData.label}</span>
+                          <ArrowRight className="h-4 w-4" />
+                        </Link>
+                        <div className="space-y-0.5 mt-2">
+                          {selectedCategoryData.subcategories.map((sub) => (
+                            <Link
+                              key={sub.label}
+                              href={sub.href}
+                              onClick={() => setCategoriesDropdownOpen(false)}
+                              className="block px-3 py-2.5 rounded-lg text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors cursor-pointer"
                             >
-                              <div className="flex items-center gap-3">
-                                <Icon className="h-4 w-4 text-gray-400" />
-                                <span>{cat.label}</span>
-                                {cat.isHot && (
-                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-600">
-                                    <Flame className="h-3 w-3" />
-                                    Hot
-                                  </span>
+                              {sub.label}
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      /* Main Categories List */
+                      <div className="p-3">
+                        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-2">Browse Categories</h3>
+                        <div className="space-y-0.5">
+                          {CATEGORIES_WITH_SUBS.map((cat) => {
+                            const Icon = cat.icon
+                            const hasSubcats = cat.subcategories && cat.subcategories.length > 0
+                            return (
+                              <button
+                                key={cat.label}
+                                onClick={() => {
+                                  if (hasSubcats) {
+                                    setSelectedCategoryForSubs(cat.label)
+                                  } else {
+                                    router.push(cat.href)
+                                    setCategoriesDropdownOpen(false)
+                                  }
+                                }}
+                                className="flex items-center justify-between w-full px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors cursor-pointer"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <Icon className="h-4 w-4 text-gray-400" />
+                                  <span>{cat.label}</span>
+                                  {cat.isHot && (
+                                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-600">
+                                      <Flame className="h-3 w-3" />
+                                      Hot
+                                    </span>
+                                  )}
+                                </div>
+                                {hasSubcats && (
+                                  <ChevronRight className="h-4 w-4 text-gray-400" />
                                 )}
-                              </div>
-                              {hasSubcats && (
-                                <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
-                              )}
-                            </button>
-                            {/* Subcategories */}
-                            {hasSubcats && isExpanded && (
-                              <div className="ml-7 pl-3 border-l border-gray-200 mt-1 mb-2 space-y-0.5 animate-in fade-in-0 slide-in-from-top-1 duration-150">
-                                {cat.subcategories.map((sub) => (
-                                  <Link
-                                    key={sub.label}
-                                    href={sub.href}
-                                    onClick={() => setCategoriesDropdownOpen(false)}
-                                    className="block px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors cursor-pointer"
-                                  >
-                                    {sub.label}
-                                  </Link>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -627,14 +787,11 @@ export function PlatformHeaderClient() {
             {/* Search Modal Dropdown */}
             {searchModalOpen && (
               <>
-                {/* Backdrop */}
                 <div
                   className="fixed inset-0 z-40"
                   onClick={() => setSearchModalOpen(false)}
                 />
-                {/* Modal */}
                 <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden animate-in fade-in-0 slide-in-from-top-2 duration-200 z-50 max-h-[70vh] overflow-y-auto">
-                  {/* Categories Section */}
                   {!query && (
                     <div className="p-4 border-b border-gray-100">
                       <h3 className="text-sm font-semibold text-gray-900 mb-3">Categories</h3>
@@ -653,7 +810,6 @@ export function PlatformHeaderClient() {
                     </div>
                   )}
 
-                  {/* Loading State */}
                   {searchLoading && (
                     <div className="p-6 flex items-center justify-center">
                       <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
@@ -661,7 +817,6 @@ export function PlatformHeaderClient() {
                     </div>
                   )}
 
-                  {/* Search Results */}
                   {!searchLoading && searchResults.length > 0 && (
                     <div className="p-2">
                       <h3 className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">Products</h3>
@@ -686,13 +841,9 @@ export function PlatformHeaderClient() {
                             </div>
                           )}
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900 truncate">
-                              {product.title}
-                            </p>
+                            <p className="text-sm font-medium text-gray-900 truncate">{product.title}</p>
                             {product.creator?.display_name && (
-                              <p className="text-xs text-gray-500 truncate">
-                                Product by {product.creator.display_name}
-                              </p>
+                              <p className="text-xs text-gray-500 truncate">Product by {product.creator.display_name}</p>
                             )}
                           </div>
                           <div className="text-sm font-medium text-gray-900">
@@ -703,21 +854,18 @@ export function PlatformHeaderClient() {
                     </div>
                   )}
 
-                  {/* No Results */}
                   {!searchLoading && query.trim().length >= 1 && searchResults.length === 0 && (
                     <div className="p-6 text-center">
                       <p className="text-sm text-gray-500">No products found for "{query}"</p>
                     </div>
                   )}
 
-                  {/* Search Tip */}
                   {!query && (
                     <div className="p-4 bg-gray-50 text-center">
                       <p className="text-xs text-gray-500">Start typing to search products</p>
                     </div>
                   )}
 
-                  {/* View All Results Button */}
                   {query.trim() && (
                     <div className="p-3 border-t border-gray-100 bg-gray-50">
                       <button
@@ -737,82 +885,20 @@ export function PlatformHeaderClient() {
             )}
           </div>
 
-          {/* Mobile Header - hamburger opens categories from bottom, logo, then icons */}
-          <div className="md:hidden flex items-center justify-between flex-1 -ml-4">
-            {/* Left - Categories Button and Logo (positioned more to the left) */}
-            <div className="flex items-center gap-0">
-              <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-                <SheetTrigger asChild>
-                  <button
-                    type="button"
-                    className="flex h-9 w-9 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 transition cursor-pointer"
-                    aria-label="Open categories"
-                  >
-                    <Menu className="h-5 w-5" />
-                  </button>
-                </SheetTrigger>
+          {/* Mobile Header - hamburger and logo more to the left */}
+          <div className="md:hidden flex items-center justify-between flex-1 -ml-5">
+            {/* Left - Categories Button and Logo */}
+            <div className="flex items-center gap-0 -ml-1">
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen(true)}
+                className="flex h-9 w-9 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 transition cursor-pointer"
+                aria-label="Open categories"
+              >
+                <Menu className="h-5 w-5" />
+              </button>
 
-                {/* Categories Sheet from bottom */}
-                <SheetContent
-                  side="bottom"
-                  className="rounded-t-[20px] pb-[env(safe-area-inset-bottom)] bg-white border-t border-gray-200 max-h-[85vh]"
-                >
-                  <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mt-2 mb-4" />
-
-                  {/* Categories List */}
-                  <div className="overflow-y-auto max-h-[70vh] px-2">
-                    <div className="space-y-0.5">
-                      {SEARCH_CATEGORIES.map((cat) => {
-                        const Icon = cat.icon
-                        return (
-                          <Link
-                            key={cat.label}
-                            href={cat.href}
-                            onClick={() => setMobileMenuOpen(false)}
-                            className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
-                          >
-                            <div className="flex items-center gap-3">
-                              <Icon className="h-5 w-5 text-gray-400" />
-                              <span>{cat.label}</span>
-                            </div>
-                            <ChevronRight className="h-5 w-5 text-gray-400" />
-                          </Link>
-                        )
-                      })}
-                    </div>
-
-                    {/* Quick Links section */}
-                    <div className="mt-4 pt-4 border-t border-gray-200">
-                      <Link
-                        href="/library"
-                        onClick={() => setMobileMenuOpen(false)}
-                        className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
-                      >
-                        <div className="flex items-center gap-3">
-                          <Library className="h-5 w-5" />
-                          <span>My Library</span>
-                        </div>
-                        <ChevronRight className="h-5 w-5 text-gray-400" />
-                      </Link>
-                      {user && (
-                        <Link
-                          href={dashboardHref}
-                          onClick={() => setMobileMenuOpen(false)}
-                          className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
-                        >
-                          <div className="flex items-center gap-3">
-                            <LayoutDashboard className="h-5 w-5" />
-                            <span>Dashboard</span>
-                          </div>
-                          <ChevronRight className="h-5 w-5 text-gray-400" />
-                        </Link>
-                      )}
-                    </div>
-                  </div>
-                </SheetContent>
-              </Sheet>
-
-              {/* Logo next to hamburger - 5px bigger (36px) */}
+              {/* Logo next to hamburger */}
               <Link href="/" className="shrink-0 flex items-center gap-1.5">
                 <Image
                   src={LOGO_URL || "/placeholder.svg"}
@@ -826,16 +912,18 @@ export function PlatformHeaderClient() {
               </Link>
             </div>
 
-            {/* Right - Mobile Icons: Library, Wishlist, Avatar - reduced gaps (20% less) */}
+            {/* Right - Mobile Icons: Wishlist only when not logged in, Sign In button */}
             <div className="flex items-center gap-1">
-              {/* Library */}
-              <Link
-                href="/library"
-                className="flex h-9 w-9 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 transition cursor-pointer"
-                aria-label="Library"
-              >
-                <Library className="h-5 w-5" />
-              </Link>
+              {/* Library - only show when logged in */}
+              {user && (
+                <Link
+                  href="/library"
+                  className="flex h-9 w-9 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 transition cursor-pointer"
+                  aria-label="Library"
+                >
+                  <Library className="h-5 w-5" />
+                </Link>
+              )}
 
               {/* Wishlist */}
               <Link
@@ -851,69 +939,26 @@ export function PlatformHeaderClient() {
                 )}
               </Link>
 
-              {/* Mobile Avatar - increased gap from wishlist (+2px more) */}
+              {/* Mobile Avatar or Sign In button */}
               {user ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      type="button"
-                      className="rounded-full cursor-pointer ml-2"
-                      aria-label="Open profile menu"
-                    >
-                      <Avatar className="h-8 w-8 border border-gray-200">
-                        <AvatarImage src={avatarUrl || "/placeholder.svg"} alt={displayName} />
-                        <AvatarFallback className="text-[10px] bg-gray-100 text-gray-700">{initials}</AvatarFallback>
-                      </Avatar>
-                    </button>
-                  </DropdownMenuTrigger>
-
-                  <DropdownMenuContent
-                    align="end"
-                    sideOffset={8}
-                    className="w-[calc(100vw-32px)] max-w-[280px] mr-2 bg-white text-gray-900 border border-gray-200 rounded-xl shadow-lg"
-                  >
-                    <DropdownMenuLabel className="py-3 px-4">
-                      <div className="flex flex-col">
-                        <span className="text-base font-medium leading-none">{displayName}</span>
-                        {user.email && <span className="text-sm text-gray-500 mt-1.5 truncate">{user.email}</span>}
-                      </div>
-                    </DropdownMenuLabel>
-                    <DropdownMenuSeparator className="bg-gray-200" />
-                    <DropdownMenuItem
-                      onClick={() => router.push(dashboardHref)}
-                      className="cursor-pointer hover:bg-gray-100 focus:bg-gray-100 gap-3 py-3 px-4"
-                    >
-                      <LayoutDashboard className="h-5 w-5" />
-                      <span className="text-base">Dashboard</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => router.push("/library")}
-                      className="cursor-pointer hover:bg-gray-100 focus:bg-gray-100 gap-3 py-3 px-4"
-                    >
-                      <Library className="h-5 w-5" />
-                      <span className="text-base">My Library</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => router.push("/settings")}
-                      className="cursor-pointer hover:bg-gray-100 focus:bg-gray-100 gap-3 py-3 px-4"
-                    >
-                      <Settings className="h-5 w-5" />
-                      <span className="text-base">Settings</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator className="bg-gray-200" />
-                    <DropdownMenuItem
-                      onClick={handleLogout}
-                      className="cursor-pointer text-red-600 hover:bg-gray-100 focus:bg-gray-100 gap-3 py-3 px-4"
-                    >
-                      <LogOut className="h-5 w-5" />
-                      <span className="text-base">Log out</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <button
+                  type="button"
+                  onClick={() => setMobileProfileOpen(true)}
+                  className="rounded-full cursor-pointer ml-2"
+                  aria-label="Open profile menu"
+                >
+                  <Avatar className="h-8 w-8 border border-gray-200">
+                    <AvatarImage src={avatarUrl || "/placeholder.svg"} alt={displayName} />
+                    <AvatarFallback className="text-[10px] bg-gray-100 text-gray-700">{initials}</AvatarFallback>
+                  </Avatar>
+                </button>
               ) : (
-                <Avatar className="h-8 w-8 border border-gray-200 ml-2.5">
-                  <AvatarFallback className="text-[10px] bg-gray-100 text-gray-700">?</AvatarFallback>
-                </Avatar>
+                <Link href="/login">
+                  <Button className="ml-2 h-8 px-4 rounded-full text-sm font-medium bg-violet-600 text-white hover:bg-violet-700">
+                    Sign in
+                    <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                  </Button>
+                </Link>
               )}
             </div>
           </div>
@@ -924,7 +969,7 @@ export function PlatformHeaderClient() {
               <HeaderActionsSkeleton />
             ) : (
               <>
-                {/* Wishlist - icon only with tooltip */}
+                {/* Wishlist */}
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Link
@@ -945,7 +990,7 @@ export function PlatformHeaderClient() {
                   </TooltipContent>
                 </Tooltip>
 
-                {/* Library - icon only with tooltip */}
+                {/* Library */}
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Link
@@ -961,83 +1006,103 @@ export function PlatformHeaderClient() {
                   </TooltipContent>
                 </Tooltip>
 
-                {/* Start Selling or Dashboard - Purple (10% larger) */}
+                {/* Start Selling or Dashboard */}
                 <Button asChild className="h-11 rounded-full px-6 text-[15px] bg-violet-600 text-white hover:bg-violet-700">
                   <Link href={user && isCreator ? "/app" : startSellingHref}>
                     {user && isCreator ? t("dashboard") : t("start_selling")}
                   </Link>
                 </Button>
 
-                {/* User Menu - only show when logged in */}
+                {/* User Menu - Desktop styled like sidebar dropdown */}
                 {user && (
-                  <DropdownMenu>
+                  <div ref={profileDropdownRef} className="relative">
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <DropdownMenuTrigger asChild>
-                          <button
-                            type="button"
-                            className="rounded-full cursor-pointer outline-none ring-offset-white transition-all duration-150 ease-out hover:ring-2 hover:ring-violet-200 hover:ring-offset-2 hover:scale-105 active:scale-95 focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-2"
-                            aria-label="Open profile menu"
-                          >
-                            <Avatar className="h-11 w-11 border border-gray-200 transition-opacity duration-150">
-                              <AvatarImage src={avatarUrl || "/placeholder.svg"} alt={displayName} />
-                              <AvatarFallback className="text-sm bg-gray-100 text-gray-700">{initials}</AvatarFallback>
-                            </Avatar>
-                          </button>
-                        </DropdownMenuTrigger>
+                        <button
+                          type="button"
+                          onClick={() => setDesktopProfileOpen(!desktopProfileOpen)}
+                          className="rounded-full cursor-pointer outline-none ring-offset-white transition-all duration-150 ease-out hover:ring-2 hover:ring-violet-200 hover:ring-offset-2 hover:scale-105 active:scale-95 focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-2"
+                          aria-label="Open profile menu"
+                        >
+                          <Avatar className="h-11 w-11 border border-gray-200 transition-opacity duration-150">
+                            <AvatarImage src={avatarUrl || "/placeholder.svg"} alt={displayName} />
+                            <AvatarFallback className="text-sm bg-gray-100 text-gray-700">{initials}</AvatarFallback>
+                          </Avatar>
+                        </button>
                       </TooltipTrigger>
                       <TooltipContent className="bg-neutral-900 text-white text-xs px-2 py-1" sideOffset={8}>
                         Your Account
                       </TooltipContent>
                     </Tooltip>
 
-                    <DropdownMenuContent
-                      align="end"
-                      className="min-w-[220px] bg-white text-gray-900 border border-gray-200"
+                    {/* Desktop Profile Dropdown - styled like sidebar */}
+                    <div
+                      className={`absolute right-0 top-full mt-2 z-50 origin-top-right transition-all ease-out ${
+                        desktopProfileOpen
+                          ? "opacity-100 scale-100 translate-y-0 pointer-events-auto"
+                          : "opacity-0 scale-[0.97] -translate-y-1 pointer-events-none"
+                      }`}
+                      style={{ transitionDuration: '200ms', transitionTimingFunction: 'cubic-bezier(0.32, 0.72, 0, 1)' }}
                     >
-                      <DropdownMenuLabel className="py-2">
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium leading-none">{displayName}</span>
-                          {user.email && <span className="text-xs text-gray-500 mt-1">{user.email}</span>}
+                      <div className="min-w-[220px] rounded-xl border border-gray-200/70 bg-white p-1.5 shadow-lg shadow-black/5">
+                        {/* User Info */}
+                        <div className="px-3 py-2.5 border-b border-gray-100 mb-1">
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-10 w-10 border border-gray-200">
+                              <AvatarImage src={avatarUrl || "/placeholder.svg"} alt={displayName} />
+                              <AvatarFallback className="text-xs bg-gray-100 text-gray-700">{initials}</AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900 truncate">{displayName}</p>
+                              {user.email && <p className="text-xs text-gray-500 truncate">{user.email}</p>}
+                            </div>
+                          </div>
                         </div>
-                      </DropdownMenuLabel>
 
-                      <DropdownMenuSeparator className="bg-gray-200" />
+                        <Link
+                          href={dashboardHref}
+                          onClick={() => setDesktopProfileOpen(false)}
+                          className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
+                        >
+                          <LayoutDashboard className="h-4 w-4 shrink-0" />
+                          <span>Dashboard</span>
+                        </Link>
+                        <Link
+                          href="/library"
+                          onClick={() => setDesktopProfileOpen(false)}
+                          className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
+                        >
+                          <Library className="h-4 w-4 shrink-0" />
+                          <span>My Library</span>
+                        </Link>
+                        <Link
+                          href="/settings"
+                          onClick={() => setDesktopProfileOpen(false)}
+                          className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
+                        >
+                          <Settings className="h-4 w-4 shrink-0" />
+                          <span>Settings</span>
+                        </Link>
 
-                      <DropdownMenuItem
-                        onClick={() => router.push(dashboardHref)}
-                        className="cursor-pointer hover:bg-gray-100 focus:bg-gray-100 gap-2"
-                      >
-                        <LayoutDashboard className="h-4 w-4" />
-                        Dashboard
-                      </DropdownMenuItem>
+                        <div className="my-1.5 h-px bg-gray-100" />
 
-                      <DropdownMenuItem
-                        onClick={() => router.push("/settings")}
-                        className="cursor-pointer hover:bg-gray-100 focus:bg-gray-100 gap-2"
-                      >
-                        <Settings className="h-4 w-4" />
-                        Settings
-                      </DropdownMenuItem>
-
-                      <DropdownMenuSeparator className="bg-gray-200" />
-
-                      <DropdownMenuItem
-                        onClick={handleLogout}
-                        className="cursor-pointer text-red-600 hover:bg-gray-100 focus:bg-gray-100 gap-2"
-                      >
-                        <LogOut className="h-4 w-4" />
-                        Log out
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                        <button
+                          onClick={handleLogout}
+                          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-red-50 hover:text-red-600"
+                        >
+                          <LogOut className="h-4 w-4 shrink-0" />
+                          <span>Log out</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </>
             )}
           </div>
         </div>
 
-        {/* Mobile Search Bar - below header on mobile with modal */}
+        {/* Mobile Search Bar */}
         <div className="md:hidden py-2 border-t border-gray-100 relative">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 pointer-events-none z-10" />
@@ -1065,14 +1130,11 @@ export function PlatformHeaderClient() {
           {/* Mobile Search Modal */}
           {searchModalOpen && (
             <>
-              {/* Backdrop */}
               <div
                 className="fixed inset-0 z-40 bg-black/20"
                 onClick={() => setSearchModalOpen(false)}
               />
-              {/* Modal */}
               <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden animate-in fade-in-0 slide-in-from-top-2 duration-200 z-50 max-h-[60vh] overflow-y-auto mx-4">
-                {/* Categories Section */}
                 {!query && (
                   <div className="p-4 border-b border-gray-100">
                     <h3 className="text-sm font-semibold text-gray-900 mb-3">Categories</h3>
@@ -1091,7 +1153,6 @@ export function PlatformHeaderClient() {
                   </div>
                 )}
 
-                {/* Loading State */}
                 {searchLoading && (
                   <div className="p-6 flex items-center justify-center">
                     <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
@@ -1099,7 +1160,6 @@ export function PlatformHeaderClient() {
                   </div>
                 )}
 
-                {/* Search Results */}
                 {!searchLoading && searchResults.length > 0 && (
                   <div className="p-2">
                     <h3 className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">Products</h3>
@@ -1124,13 +1184,9 @@ export function PlatformHeaderClient() {
                           </div>
                         )}
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">
-                            {product.title}
-                          </p>
+                          <p className="text-sm font-medium text-gray-900 truncate">{product.title}</p>
                           {product.creator?.display_name && (
-                            <p className="text-xs text-gray-500 truncate">
-                              Product by {product.creator.display_name}
-                            </p>
+                            <p className="text-xs text-gray-500 truncate">Product by {product.creator.display_name}</p>
                           )}
                         </div>
                         <div className="text-sm font-medium text-gray-900">
@@ -1141,21 +1197,18 @@ export function PlatformHeaderClient() {
                   </div>
                 )}
 
-                {/* No Results */}
                 {!searchLoading && query.trim().length >= 1 && searchResults.length === 0 && (
                   <div className="p-6 text-center">
                     <p className="text-sm text-gray-500">No products found for "{query}"</p>
                   </div>
                 )}
 
-                {/* Search Tip */}
                 {!query && (
                   <div className="p-4 bg-gray-50 text-center">
                     <p className="text-xs text-gray-500">Start typing to search products</p>
                   </div>
                 )}
 
-                {/* View All Results Button */}
                 {query.trim() && (
                   <div className="p-3 border-t border-gray-100 bg-gray-50">
                     <button
@@ -1175,7 +1228,7 @@ export function PlatformHeaderClient() {
           )}
         </div>
 
-        {/* Mobile Category Pills - horizontal scrolling with icons (+1px gap) */}
+        {/* Mobile Category Pills */}
         {showCategories && (
           <div className="md:hidden -mx-4 px-4 pt-0.5 pb-2 overflow-x-auto scrollbar-hide">
             <div className="flex items-center gap-2 whitespace-nowrap">
@@ -1197,7 +1250,7 @@ export function PlatformHeaderClient() {
           </div>
         )}
 
-        {/* Categories - only on /explore page, text links with icon on All - Desktop only (10% larger) */}
+        {/* Desktop Categories - only on /explore page */}
         {showCategories && (
           <nav className="border-t border-gray-200 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 hidden md:block">
             <div className="overflow-x-auto scrollbar-hide">
@@ -1222,6 +1275,242 @@ export function PlatformHeaderClient() {
           </nav>
         )}
       </div>
+
+      {/* Mobile Categories Bottom Sheet with swipe-to-close */}
+      <MobileBottomSheet
+        isOpen={mobileMenuOpen}
+        onClose={() => {
+          setMobileMenuOpen(false)
+          setExpandedCategory(null)
+        }}
+      >
+        <div className="px-4 pb-6">
+          {/* Guest User Banner with Sign In / Sign Up */}
+          {!user && (
+            <div className="flex items-center justify-between p-3 mb-4 bg-gray-50 rounded-xl border border-gray-200">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-200">
+                  <UserIcon className="h-5 w-5 text-gray-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Guest</p>
+                  <p className="text-xs text-gray-500">Not logged in</p>
+                </div>
+              </div>
+              <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
+                <Button className="h-9 px-4 rounded-full text-sm font-medium bg-violet-600 text-white hover:bg-violet-700">
+                  Sign in
+                  <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                </Button>
+              </Link>
+            </div>
+          )}
+
+          {/* Subcategory View */}
+          {expandedCategory ? (
+            <>
+              <button
+                onClick={() => setExpandedCategory(null)}
+                className="flex items-center gap-2 px-2 py-2 mb-3 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors cursor-pointer"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                <span>Back to Categories</span>
+              </button>
+              {(() => {
+                const cat = CATEGORIES_WITH_SUBS.find(c => c.label === expandedCategory)
+                if (!cat) return null
+                const Icon = cat.icon
+                return (
+                  <>
+                    <div className="flex items-center gap-3 px-2 py-2 mb-3">
+                      <Icon className="h-5 w-5 text-violet-500" />
+                      <span className="text-base font-semibold text-gray-900">{cat.label}</span>
+                      {cat.isHot && (
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-600">
+                          <Flame className="h-3 w-3" />
+                          Hot
+                        </span>
+                      )}
+                    </div>
+                    <Link
+                      href={cat.href}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center justify-between px-4 py-3 mb-2 rounded-xl text-sm font-medium text-violet-600 bg-violet-50 hover:bg-violet-100 transition-colors cursor-pointer"
+                    >
+                      <span>View All {cat.label}</span>
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
+                    <div className="space-y-0.5">
+                      {cat.subcategories.map((sub) => (
+                        <Link
+                          key={sub.label}
+                          href={sub.href}
+                          onClick={() => setMobileMenuOpen(false)}
+                          className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
+                        >
+                          <span>{sub.label}</span>
+                          <ChevronRight className="h-5 w-5 text-gray-400" />
+                        </Link>
+                      ))}
+                    </div>
+                  </>
+                )
+              })()}
+            </>
+          ) : (
+            /* Main Categories List */
+            <>
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Browse Categories</h3>
+              <div className="space-y-0.5">
+                {CATEGORIES_WITH_SUBS.map((cat) => {
+                  const Icon = cat.icon
+                  const hasSubcats = cat.subcategories && cat.subcategories.length > 0
+                  return (
+                    <button
+                      key={cat.label}
+                      onClick={() => {
+                        if (hasSubcats) {
+                          setExpandedCategory(cat.label)
+                        } else {
+                          router.push(cat.href)
+                          setMobileMenuOpen(false)
+                        }
+                      }}
+                      className="flex items-center justify-between w-full px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Icon className="h-5 w-5 text-gray-400" />
+                        <span>{cat.label}</span>
+                        {cat.isHot && (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-600">
+                            <Flame className="h-3 w-3" />
+                            Hot
+                          </span>
+                        )}
+                      </div>
+                      <ChevronRight className="h-5 w-5 text-gray-400" />
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* Quick Links section */}
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <Link
+                  href="/library"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center gap-3">
+                    <Library className="h-5 w-5" />
+                    <span>My Library</span>
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-gray-400" />
+                </Link>
+                {user && (
+                  <Link
+                    href={dashboardHref}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3">
+                      <LayoutDashboard className="h-5 w-5" />
+                      <span>Dashboard</span>
+                    </div>
+                    <ChevronRight className="h-5 w-5 text-gray-400" />
+                  </Link>
+                )}
+              </div>
+
+              {/* Auth buttons for guest */}
+              {!user && (
+                <div className="mt-4 pt-4 border-t border-gray-200 space-y-2">
+                  <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
+                    <Button className="w-full h-12 rounded-xl text-base font-medium bg-violet-600 text-white hover:bg-violet-700">
+                      Log in
+                    </Button>
+                  </Link>
+                  <Link href="/signup" onClick={() => setMobileMenuOpen(false)}>
+                    <Button variant="outline" className="w-full h-12 rounded-xl text-base font-medium border-gray-300 text-gray-700 hover:bg-gray-50">
+                      Sign up
+                    </Button>
+                  </Link>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </MobileBottomSheet>
+
+      {/* Mobile Profile Bottom Sheet with swipe-to-close */}
+      <MobileBottomSheet
+        isOpen={mobileProfileOpen}
+        onClose={() => setMobileProfileOpen(false)}
+      >
+        <div className="px-4 pb-6">
+          {/* User Info */}
+          <div className="flex items-center gap-3 p-3 mb-4 bg-gray-50 rounded-xl">
+            <Avatar className="h-12 w-12 border border-gray-200">
+              <AvatarImage src={avatarUrl || "/placeholder.svg"} alt={displayName} />
+              <AvatarFallback className="text-sm bg-gray-100 text-gray-700">{initials}</AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <p className="text-base font-medium text-gray-900 truncate">{displayName}</p>
+              {user?.email && <p className="text-sm text-gray-500 truncate">{user.email}</p>}
+            </div>
+          </div>
+
+          {/* Menu Items */}
+          <div className="space-y-0.5">
+            <Link
+              href={dashboardHref}
+              onClick={() => setMobileProfileOpen(false)}
+              className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <LayoutDashboard className="h-5 w-5 text-gray-400" />
+                <span>Dashboard</span>
+              </div>
+              <ChevronRight className="h-5 w-5 text-gray-400" />
+            </Link>
+            <Link
+              href="/library"
+              onClick={() => setMobileProfileOpen(false)}
+              className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <Library className="h-5 w-5 text-gray-400" />
+                <span>My Library</span>
+              </div>
+              <ChevronRight className="h-5 w-5 text-gray-400" />
+            </Link>
+            <Link
+              href="/settings"
+              onClick={() => setMobileProfileOpen(false)}
+              className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <Settings className="h-5 w-5 text-gray-400" />
+                <span>Settings</span>
+              </div>
+              <ChevronRight className="h-5 w-5 text-gray-400" />
+            </Link>
+          </div>
+
+          {/* Logout */}
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <button
+              onClick={handleLogout}
+              className="flex items-center justify-between w-full px-4 py-3.5 rounded-xl text-base font-medium text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <LogOut className="h-5 w-5" />
+                <span>Log out</span>
+              </div>
+            </button>
+          </div>
+        </div>
+      </MobileBottomSheet>
     </header>
   )
 }
