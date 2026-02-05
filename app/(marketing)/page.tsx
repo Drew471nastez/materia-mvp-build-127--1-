@@ -711,47 +711,6 @@ export default function StorelibLanding() {
         </div>
       </section>
 
-      {/* FOOTER */}
-      <footer className="bg-white py-16 border-t border-black/5">
-        <div className="max-w-[1100px] mx-auto px-6">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-12">
-            <div className="col-span-2 md:col-span-1">
-              <Link href="/" className="flex items-center gap-2 mb-4">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" strokeWidth="2">
-                  <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                  <path d="M2 17l10 5 10-5"/>
-                  <path d="M2 12l10 5 10-5"/>
-                </svg>
-                <span className="font-semibold text-[#1a1a1a]">Storelib</span>
-              </Link>
-              <p className="text-[13px] text-[#666]">Sell your digital products.</p>
-            </div>
-            {[
-              { title: "Product", links: ["Features", "Pricing", "Examples"] },
-              { title: "Resources", links: ["Blog", "Help", "Guides"] },
-              { title: "Company", links: ["About", "Careers", "Contact"] },
-              { title: "Legal", links: ["Privacy", "Terms"] }
-            ].map((col, i) => (
-              <div key={i}>
-                <div className="font-medium text-[#1a1a1a] text-[13px] mb-4">{col.title}</div>
-                <div className="space-y-3">
-                  {col.links.map((link) => (
-                    <Link key={link} href="#" className="block text-[13px] text-[#666] hover:text-[#1a1a1a] transition-colors">{link}</Link>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="border-t border-black/5 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="text-[13px] text-[#999]">© 2025 Storelib</div>
-            <div className="flex items-center gap-6">
-              {["Twitter", "Instagram", "GitHub"].map((s) => (
-                <Link key={s} href="#" className="text-[13px] text-[#999] hover:text-[#1a1a1a] transition-colors">{s}</Link>
-              ))}
-            </div>
-          </div>
-        </div>
-      </footer>
     </div>
   )
 }

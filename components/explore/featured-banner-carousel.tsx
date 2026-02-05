@@ -165,7 +165,7 @@ export function FeaturedBannerCarousel({ products }: FeaturedBannerCarouselProps
       {/* Banner Container */}
       <div
         className="relative w-full rounded-2xl overflow-hidden bg-neutral-200 touch-pan-y"
-        style={{ aspectRatio: "3.15 / 1", minHeight: "190px", maxHeight: "300px" }}
+        style={{ aspectRatio: "3.15 / 1", minHeight: "220px", maxHeight: "300px" }}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         onTouchStart={handleTouchStart}

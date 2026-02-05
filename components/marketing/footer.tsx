@@ -83,13 +83,13 @@ export function MarketingFooter() {
   }
 
   return (
-    <footer className="bg-[#1a1a1a] text-white">
+    <footer className="bg-[#0f0f0f] text-white">
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 py-12 md:py-16">
         {/* Main Footer Content */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-8 lg:gap-12">
           {/* Logo and Info Column */}
           <div className="col-span-2 md:col-span-1 space-y-6">
-            {/* Logo and Compliance Badges */}
+            {/* Logo */}
             <div className="flex items-center gap-3 flex-wrap">
               <Image
                 src={LOGO_URL}
@@ -98,8 +98,6 @@ export function MarketingFooter() {
                 height={40}
                 className="h-10 w-10"
               />
-              <GDPRBadge />
-              <CPRABadge />
             </div>
 
             {/* Copyright and Email */}
@@ -235,7 +233,7 @@ export function MarketingFooter() {
                 <Button
                   type="submit"
                   disabled={isSubscribing}
-                  className="h-11 px-6 rounded-lg bg-white text-[#1a1a1a] font-semibold hover:bg-gray-100 transition-colors"
+                  className="h-11 px-6 rounded-lg bg-violet-600 text-white font-semibold hover:bg-violet-700 transition-colors"
                 >
                   {isSubscribing ? "..." : "Sign Up"}
                 </Button>
@@ -245,7 +243,7 @@ export function MarketingFooter() {
         </div>
 
         {/* Bottom Bar */}
-        <div className="mt-12 pt-8 border-t border-[#2a2a2a]">
+        <div className="mt-12 pt-8 border-t border-[#1a1a1a]">
           <p className="text-center text-sm text-gray-500">
             &copy; {new Date().getFullYear()} Storelib. All rights reserved.
           </p>

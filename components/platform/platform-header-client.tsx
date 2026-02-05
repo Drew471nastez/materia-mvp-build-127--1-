@@ -697,7 +697,7 @@ export function PlatformHeaderClient() {
                         <Link
                           href={selectedCategoryData.href}
                           onClick={() => setCategoriesDropdownOpen(false)}
-                          className="flex items-center justify-between px-3 py-2.5 mb-1 rounded-lg text-sm font-medium text-violet-600 bg-violet-50 hover:bg-violet-100 transition-colors cursor-pointer"
+                          className="flex items-center justify-between px-3 py-2.5 mb-1 rounded-lg text-sm font-medium text-gray-800 bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
                         >
                           <span>View All {selectedCategoryData.label}</span>
                           <ArrowRight className="h-4 w-4" />
@@ -896,7 +896,7 @@ export function PlatformHeaderClient() {
             {pathname === "/" && !user ? (
               <>
                 {/* Left - Logo (10% bigger on homepage) */}
-                <div className="flex items-center gap-0 -ml-1">
+                <div className="flex items-center gap-0 ml-1">
                   <Link href="/" className="shrink-0 flex items-center gap-1.5">
                     <Image
                       src={LOGO_URL || "/placeholder.svg"}
@@ -1324,22 +1324,29 @@ export function PlatformHeaderClient() {
         }}
       >
         <div className="px-4 pb-6">
-          {/* Guest User Banner with Sign In / Sign Up */}
+          {/* Guest User Banner with Sign In / Start Selling */}
           {!user && (
-            <div className="flex items-center justify-between p-3 mb-4 bg-gray-50 rounded-xl border border-gray-200">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-200">
-                  <UserIcon className="h-5 w-5 text-gray-500" />
+            <div className="p-3 mb-4 bg-gray-50 rounded-xl border border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-200">
+                    <UserIcon className="h-5 w-5 text-gray-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">Guest</p>
+                    <p className="text-xs text-gray-500">Not logged in</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-900">Guest</p>
-                  <p className="text-xs text-gray-500">Not logged in</p>
-                </div>
+                <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
+                  <Button className="h-9 px-4 rounded-full text-sm font-medium bg-violet-600 text-white hover:bg-violet-700">
+                    Sign in
+                    <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                  </Button>
+                </Link>
               </div>
-              <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
-                <Button className="h-9 px-4 rounded-full text-sm font-medium bg-violet-600 text-white hover:bg-violet-700">
-                  Sign in
-                  <ArrowRight className="ml-1 h-3.5 w-3.5" />
+              <Link href="/signup" onClick={() => setMobileMenuOpen(false)} className="block mt-3">
+                <Button variant="outline" className="w-full h-10 rounded-full text-sm font-medium border-gray-300 text-gray-700 bg-white hover:bg-gray-50">
+                  Start Selling
                 </Button>
               </Link>
             </div>
@@ -1349,7 +1356,11 @@ export function PlatformHeaderClient() {
           {expandedCategory ? (
             <>
               <button
-                onClick={() => setExpandedCategory(null)}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setExpandedCategory(null)
+                }}
                 className="flex items-center gap-2 px-2 py-2 mb-3 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors cursor-pointer"
               >
                 <ChevronLeft className="h-4 w-4" />
@@ -1374,7 +1385,7 @@ export function PlatformHeaderClient() {
                     <Link
                       href={cat.href}
                       onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center justify-between px-4 py-3 mb-2 rounded-xl text-sm font-medium text-violet-600 bg-violet-50 hover:bg-violet-100 transition-colors cursor-pointer"
+                      className="flex items-center justify-between px-4 py-3 mb-2 rounded-xl text-sm font-medium text-gray-800 bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
                     >
                       <span>View All {cat.label}</span>
                       <ArrowRight className="h-4 w-4" />
@@ -1385,10 +1396,9 @@ export function PlatformHeaderClient() {
                           key={sub.label}
                           href={sub.href}
                           onClick={() => setMobileMenuOpen(false)}
-                          className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
+                          className="block px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
                         >
-                          <span>{sub.label}</span>
-                          <ChevronRight className="h-5 w-5 text-gray-400" />
+                          {sub.label}
                         </Link>
                       ))}
                     </div>
@@ -1407,7 +1417,9 @@ export function PlatformHeaderClient() {
                   return (
                     <button
                       key={cat.label}
-                      onClick={() => {
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
                         if (hasSubcats) {
                           setExpandedCategory(cat.label)
                         } else {
@@ -1463,7 +1475,7 @@ export function PlatformHeaderClient() {
 
               {/* Auth buttons for guest */}
               {!user && (
-                <div className="mt-4 pt-4 border-t border-gray-200 space-y-2">
+                <div className="mt-4 pt-4 border-t border-gray-200 space-y-3">
                   <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
                     <Button className="w-full h-12 rounded-xl text-base font-medium bg-violet-600 text-white hover:bg-violet-700">
                       Log in
@@ -1471,7 +1483,7 @@ export function PlatformHeaderClient() {
                   </Link>
                   <Link href="/signup" onClick={() => setMobileMenuOpen(false)}>
                     <Button variant="outline" className="w-full h-12 rounded-xl text-base font-medium border-gray-300 text-gray-700 hover:bg-gray-50">
-                      Sign up
+                      Start selling
                     </Button>
                   </Link>
                 </div>
