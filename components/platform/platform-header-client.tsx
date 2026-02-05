@@ -15,7 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
-import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, Menu, X, Loader2, ChevronRight, ChevronLeft, ChevronDown, Sparkles, Code, Megaphone, Briefcase, Music, Camera, Video, LayoutGrid, Gift, MoreHorizontal, Bot, Share2, Flame, Zap, ShoppingBag, Lightbulb, ArrowRight, User as UserIcon, Compass } from "lucide-react"
+import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, LogIn, Menu, X, Loader2, ChevronRight, ChevronLeft, ChevronDown, Sparkles, Code, Megaphone, Briefcase, Music, Camera, Video, LayoutGrid, Gift, MoreHorizontal, Bot, Share2, Flame, Zap, ShoppingBag, Lightbulb, ArrowRight, User as UserIcon, Compass } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 
 const LOGO_URL =
@@ -1170,9 +1170,9 @@ export function PlatformHeaderClient() {
           </div>
 
           {/* Mobile Header for Non-Homepage pages */}
-          <div className="md:hidden flex items-center justify-between flex-1 -ml-5">
+          <div className="md:hidden flex items-center justify-between flex-1 -ml-3">
             {/* Hamburger + Logo left, icons right */}
-            <div className="flex items-center gap-0 -ml-1">
+            <div className="flex items-center gap-1 ml-0.5">
               <button
                 type="button"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -1183,7 +1183,7 @@ export function PlatformHeaderClient() {
               </button>
 
               {/* Logo next to hamburger - redirect to /explore if on explore pages */}
-              <Link href={pathname.startsWith("/explore") ? "/explore" : "/"} className="shrink-0 flex items-center gap-1.5">
+              <Link href={pathname.startsWith("/explore") ? "/explore" : "/"} className="shrink-0 flex items-center gap-1.5 ml-0.5">
                 <Image
                   src={LOGO_URL || "/placeholder.svg"}
                   alt="Storelib"
@@ -1591,10 +1591,11 @@ export function PlatformHeaderClient() {
         <div className="px-4 pb-6">
           {/* Guest User - Simple Sign in and Discover buttons only */}
           {!user && (
-            <div className="mb-4">
+            <div className="mb-6">
               {/* Sign in button */}
               <Link href="/login" onClick={() => setMobileMenuOpen(false)} className="block mb-2">
-                <Button className="w-full h-11 rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700">
+                <Button className="w-full h-11 rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700 gap-2">
+                  <LogIn className="h-4 w-4" />
                   Sign in
                 </Button>
               </Link>
@@ -1649,8 +1650,8 @@ export function PlatformHeaderClient() {
 
           {/* Menu Links - On Homepage and Marketing Pages */}
           {(pathname === "/" || pathname === "/features" || pathname === "/pricing" || pathname === "/about" || pathname === "/blog") && (
-            <div className="mb-4 pb-4 border-b border-gray-200 mt-2">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2 pt-1">Menu</h3>
+            <div className="mb-4 pb-4 border-b border-gray-200 mt-4">
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2 pt-2">Menu</h3>
               <div className="space-y-0.5">
                 <Link
                   href="/explore"
