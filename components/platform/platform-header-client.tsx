@@ -24,7 +24,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
-import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, Menu, X, Loader2, ChevronRight, Sparkles, Code, Megaphone, Briefcase, GraduationCap, Music, Camera, PenTool, Video, LayoutGrid, Gift, MoreHorizontal } from "lucide-react"
+import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, Menu, X, Loader2, ChevronRight, ChevronDown, Sparkles, Code, Megaphone, Briefcase, Music, Camera, Video, LayoutGrid, Gift, MoreHorizontal, Bot, Share2, Flame, Zap, FileText, Palette, Globe, ShoppingBag, Lightbulb, Smartphone, TrendingUp } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 
 const LOGO_URL =
@@ -47,21 +47,150 @@ const MOBILE_CATEGORIES = [
   { id: "development", label: "Development", icon: Code },
   { id: "marketing", label: "Marketing", icon: Megaphone },
   { id: "business", label: "Business", icon: Briefcase },
-  { id: "education", label: "Education", icon: GraduationCap },
+  { id: "ai", label: "AI", icon: Bot },
 ]
 
-// Search modal categories - expanded list with icons
-const SEARCH_CATEGORIES = [
-  { label: "Design", href: "/explore?category=design", icon: Sparkles },
-  { label: "Development", href: "/explore?category=development", icon: Code },
-  { label: "Marketing", href: "/explore?category=marketing", icon: Megaphone },
-  { label: "Business", href: "/explore?category=business", icon: Briefcase },
-  { label: "Education", href: "/explore?category=education", icon: GraduationCap },
-  { label: "Music & Audio", href: "/explore?category=music", icon: Music },
-  { label: "Photography", href: "/explore?category=photography", icon: Camera },
-  { label: "Writing", href: "/explore?category=writing", icon: PenTool },
-  { label: "Video & Film", href: "/explore?category=video", icon: Video },
+// Categories with subcategories for the dropdown
+const CATEGORIES_WITH_SUBS = [
+  {
+    label: "Design",
+    href: "/explore?category=design",
+    icon: Sparkles,
+    subcategories: [
+      { label: "UI/UX Templates", href: "/explore?category=design&sub=ui-ux" },
+      { label: "Graphics & Illustrations", href: "/explore?category=design&sub=graphics" },
+      { label: "Fonts & Typography", href: "/explore?category=design&sub=fonts" },
+      { label: "Icons & Elements", href: "/explore?category=design&sub=icons" },
+      { label: "Mockups", href: "/explore?category=design&sub=mockups" },
+    ]
+  },
+  {
+    label: "Development",
+    href: "/explore?category=development",
+    icon: Code,
+    subcategories: [
+      { label: "Web Templates", href: "/explore?category=development&sub=web" },
+      { label: "Mobile Apps", href: "/explore?category=development&sub=mobile" },
+      { label: "Scripts & Plugins", href: "/explore?category=development&sub=scripts" },
+      { label: "APIs & Tools", href: "/explore?category=development&sub=apis" },
+      { label: "Code Snippets", href: "/explore?category=development&sub=snippets" },
+    ]
+  },
+  {
+    label: "Marketing",
+    href: "/explore?category=marketing",
+    icon: Megaphone,
+    subcategories: [
+      { label: "Email Templates", href: "/explore?category=marketing&sub=email" },
+      { label: "Ad Creatives", href: "/explore?category=marketing&sub=ads" },
+      { label: "Landing Pages", href: "/explore?category=marketing&sub=landing" },
+      { label: "SEO Tools", href: "/explore?category=marketing&sub=seo" },
+    ]
+  },
+  {
+    label: "Business",
+    href: "/explore?category=business",
+    icon: Briefcase,
+    subcategories: [
+      { label: "Spreadsheets", href: "/explore?category=business&sub=spreadsheets" },
+      { label: "Presentations", href: "/explore?category=business&sub=presentations" },
+      { label: "Documents & Contracts", href: "/explore?category=business&sub=documents" },
+      { label: "Finance Tools", href: "/explore?category=business&sub=finance" },
+    ]
+  },
+  {
+    label: "AI",
+    href: "/explore?category=ai",
+    icon: Bot,
+    isHot: true,
+    subcategories: [
+      { label: "AI Prompts", href: "/explore?category=ai&sub=prompts" },
+      { label: "ChatGPT Templates", href: "/explore?category=ai&sub=chatgpt" },
+      { label: "AI Art Prompts", href: "/explore?category=ai&sub=art-prompts" },
+      { label: "Automation Tools", href: "/explore?category=ai&sub=automation" },
+      { label: "AI Workflows", href: "/explore?category=ai&sub=workflows" },
+    ]
+  },
+  {
+    label: "Social Media",
+    href: "/explore?category=social-media",
+    icon: Share2,
+    subcategories: [
+      { label: "Instagram Templates", href: "/explore?category=social-media&sub=instagram" },
+      { label: "TikTok Content", href: "/explore?category=social-media&sub=tiktok" },
+      { label: "YouTube Assets", href: "/explore?category=social-media&sub=youtube" },
+      { label: "Social Media Kits", href: "/explore?category=social-media&sub=kits" },
+    ]
+  },
+  {
+    label: "Music & Audio",
+    href: "/explore?category=music",
+    icon: Music,
+    subcategories: [
+      { label: "Sound Effects", href: "/explore?category=music&sub=sfx" },
+      { label: "Music Loops", href: "/explore?category=music&sub=loops" },
+      { label: "Podcast Templates", href: "/explore?category=music&sub=podcast" },
+    ]
+  },
+  {
+    label: "Photography",
+    href: "/explore?category=photography",
+    icon: Camera,
+    subcategories: [
+      { label: "Presets & Filters", href: "/explore?category=photography&sub=presets" },
+      { label: "Stock Photos", href: "/explore?category=photography&sub=stock" },
+      { label: "Overlays & Textures", href: "/explore?category=photography&sub=overlays" },
+    ]
+  },
+  {
+    label: "Video & Film",
+    href: "/explore?category=video",
+    icon: Video,
+    subcategories: [
+      { label: "Video Templates", href: "/explore?category=video&sub=templates" },
+      { label: "Motion Graphics", href: "/explore?category=video&sub=motion" },
+      { label: "LUTs & Color Grades", href: "/explore?category=video&sub=luts" },
+    ]
+  },
+  {
+    label: "Productivity",
+    href: "/explore?category=productivity",
+    icon: Zap,
+    subcategories: [
+      { label: "Notion Templates", href: "/explore?category=productivity&sub=notion" },
+      { label: "Calendars & Planners", href: "/explore?category=productivity&sub=planners" },
+      { label: "Checklists", href: "/explore?category=productivity&sub=checklists" },
+    ]
+  },
+  {
+    label: "E-commerce",
+    href: "/explore?category=ecommerce",
+    icon: ShoppingBag,
+    subcategories: [
+      { label: "Shopify Themes", href: "/explore?category=ecommerce&sub=shopify" },
+      { label: "Product Mockups", href: "/explore?category=ecommerce&sub=mockups" },
+      { label: "Store Templates", href: "/explore?category=ecommerce&sub=stores" },
+    ]
+  },
+  {
+    label: "Education",
+    href: "/explore?category=education",
+    icon: Lightbulb,
+    subcategories: [
+      { label: "Online Courses", href: "/explore?category=education&sub=courses" },
+      { label: "Ebooks & Guides", href: "/explore?category=education&sub=ebooks" },
+      { label: "Worksheets", href: "/explore?category=education&sub=worksheets" },
+    ]
+  },
 ]
+
+// Simple search categories for search modal
+const SEARCH_CATEGORIES = CATEGORIES_WITH_SUBS.slice(0, 9).map(cat => ({
+  label: cat.label,
+  href: cat.href,
+  icon: cat.icon,
+  isHot: cat.isHot,
+}))
 
 // Product type for search results
 type SearchProduct = {
@@ -105,6 +234,7 @@ export function PlatformHeaderClient() {
   const [searchLoading, setSearchLoading] = useState(false)
   const [categoriesDropdownOpen, setCategoriesDropdownOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -365,20 +495,20 @@ export function PlatformHeaderClient() {
   return (
     <header className="sticky top-0 z-50 w-full bg-white border-b border-gray-200 rounded-t-[14px] md:rounded-none">
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
-        <div className="flex h-[68px] md:h-[74px] items-center justify-between gap-4 md:py-[3px]">
+        <div className="flex h-[68px] md:h-[81px] items-center justify-between gap-4 md:py-[3px]">
           {/* Left side - Logo and Categories Button */}
           <div className="flex items-center gap-3 shrink-0">
-            {/* Logo with Storelib text - logo height 42px */}
+            {/* Logo with Storelib text - logo height 46px (10% larger) */}
             <Link href="/" className="shrink-0 hidden md:flex items-center gap-2">
               <Image
                 src={LOGO_URL || "/placeholder.svg"}
                 alt="Storelib"
-                width={126}
-                height={42}
-                className="h-[42px] w-auto"
+                width={138}
+                height={46}
+                className="h-[46px] w-auto"
                 priority
               />
-              <span className="text-xl font-bold text-gray-900 tracking-tight">Storelib</span>
+              <span className="text-[22px] font-bold text-gray-900 tracking-tight">Storelib</span>
             </Link>
 
             {/* Categories Dropdown Button with Tooltip */}
@@ -386,14 +516,17 @@ export function PlatformHeaderClient() {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
-                    onClick={() => setCategoriesDropdownOpen(!categoriesDropdownOpen)}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 cursor-pointer ${
+                    onClick={() => {
+                      setCategoriesDropdownOpen(!categoriesDropdownOpen)
+                      setExpandedCategory(null)
+                    }}
+                    className={`flex items-center gap-2 px-3.5 py-2.5 rounded-lg text-[15px] font-medium transition-all duration-150 cursor-pointer ${
                       categoriesDropdownOpen
                         ? "bg-gray-100 text-gray-900"
                         : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
                     }`}
                   >
-                    <Menu className="w-4 h-4" />
+                    <Menu className="w-[18px] h-[18px]" />
                     <span>Categories</span>
                   </button>
                 </TooltipTrigger>
@@ -402,24 +535,59 @@ export function PlatformHeaderClient() {
                 </TooltipContent>
               </Tooltip>
 
-              {/* Categories Megamenu Dropdown */}
+              {/* Categories Megamenu Dropdown with Subcategories */}
               {categoriesDropdownOpen && (
-                <div className="absolute top-full left-0 mt-2 w-[280px] bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden animate-in fade-in-0 slide-in-from-top-2 duration-200 z-50">
-                  <div className="p-3">
+                <div className="absolute top-full left-0 mt-2 w-[320px] bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden animate-in fade-in-0 slide-in-from-top-2 duration-200 z-50">
+                  <div className="p-3 max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400" style={{ scrollbarWidth: 'thin', scrollbarColor: '#d1d5db transparent' }}>
                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-2">Browse Categories</h3>
                     <div className="space-y-0.5">
-                      {SEARCH_CATEGORIES.map((cat) => {
+                      {CATEGORIES_WITH_SUBS.map((cat) => {
                         const Icon = cat.icon
+                        const isExpanded = expandedCategory === cat.label
+                        const hasSubcats = cat.subcategories && cat.subcategories.length > 0
                         return (
-                          <Link
-                            key={cat.label}
-                            href={cat.href}
-                            onClick={() => setCategoriesDropdownOpen(false)}
-                            className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors cursor-pointer"
-                          >
-                            <Icon className="h-4 w-4 text-gray-400" />
-                            {cat.label}
-                          </Link>
+                          <div key={cat.label}>
+                            <button
+                              onClick={() => {
+                                if (hasSubcats) {
+                                  setExpandedCategory(isExpanded ? null : cat.label)
+                                } else {
+                                  router.push(cat.href)
+                                  setCategoriesDropdownOpen(false)
+                                }
+                              }}
+                              className="flex items-center justify-between w-full px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors cursor-pointer"
+                            >
+                              <div className="flex items-center gap-3">
+                                <Icon className="h-4 w-4 text-gray-400" />
+                                <span>{cat.label}</span>
+                                {cat.isHot && (
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-600">
+                                    <Flame className="h-3 w-3" />
+                                    Hot
+                                  </span>
+                                )}
+                              </div>
+                              {hasSubcats && (
+                                <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                              )}
+                            </button>
+                            {/* Subcategories */}
+                            {hasSubcats && isExpanded && (
+                              <div className="ml-7 pl-3 border-l border-gray-200 mt-1 mb-2 space-y-0.5 animate-in fade-in-0 slide-in-from-top-1 duration-150">
+                                {cat.subcategories.map((sub) => (
+                                  <Link
+                                    key={sub.label}
+                                    href={sub.href}
+                                    onClick={() => setCategoriesDropdownOpen(false)}
+                                    className="block px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors cursor-pointer"
+                                  >
+                                    {sub.label}
+                                  </Link>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         )
                       })}
                     </div>
@@ -429,17 +597,17 @@ export function PlatformHeaderClient() {
             </div>
           </div>
 
-          {/* Desktop Search - Centered with Modal */}
+          {/* Desktop Search - Centered with Modal (10% larger) */}
           <div className="hidden md:flex flex-1 max-w-xl mx-4 relative">
             <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 pointer-events-none z-10" />
+              <Search className="absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-gray-400 pointer-events-none z-10" />
               <Input
                 ref={searchInputRef}
                 value={query}
                 onChange={(e) => handleSearchChange(e.target.value)}
                 onFocus={() => setSearchModalOpen(true)}
                 placeholder={t("search_placeholder")}
-                className="h-10 w-full rounded-full pl-10 pr-4 bg-gray-100 border-gray-200 text-gray-900 placeholder:text-gray-500 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0 focus-visible:border-blue-500"
+                className="h-11 w-full rounded-full pl-11 pr-4 bg-gray-100 border-gray-200 text-gray-900 text-[15px] placeholder:text-gray-500 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0 focus-visible:border-blue-500"
               />
               {query && (
                 <button
@@ -750,8 +918,8 @@ export function PlatformHeaderClient() {
             </div>
           </div>
 
-          {/* Right Side Actions - Desktop only */}
-          <div className="hidden md:flex items-center gap-2 shrink-0">
+          {/* Right Side Actions - Desktop only (10% larger) */}
+          <div className="hidden md:flex items-center gap-2.5 shrink-0">
             {loading ? (
               <HeaderActionsSkeleton />
             ) : (
@@ -761,12 +929,12 @@ export function PlatformHeaderClient() {
                   <TooltipTrigger asChild>
                     <Link
                       href={wishlistHref}
-                      className="relative flex h-10 w-10 items-center justify-center rounded-full text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition cursor-pointer"
+                      className="relative flex h-11 w-11 items-center justify-center rounded-full text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition cursor-pointer"
                       aria-label={t("wishlist")}
                     >
-                      <Heart className="h-5 w-5" />
+                      <Heart className="h-[22px] w-[22px]" />
                       {wishlistCount > 0 && (
-                        <span className="absolute -top-0.5 -right-0.5 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white ring-2 ring-white">
+                        <span className="absolute -top-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white ring-2 ring-white">
                           {wishlistCount > 99 ? "99+" : wishlistCount}
                         </span>
                       )}
@@ -782,10 +950,10 @@ export function PlatformHeaderClient() {
                   <TooltipTrigger asChild>
                     <Link
                       href="/library"
-                      className="hidden sm:flex h-10 w-10 items-center justify-center rounded-full text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition cursor-pointer"
+                      className="hidden sm:flex h-11 w-11 items-center justify-center rounded-full text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition cursor-pointer"
                       aria-label={t("library")}
                     >
-                      <Library className="h-5 w-5" />
+                      <Library className="h-[22px] w-[22px]" />
                     </Link>
                   </TooltipTrigger>
                   <TooltipContent className="bg-neutral-900 text-white text-xs px-2 py-1" sideOffset={8}>
@@ -793,8 +961,8 @@ export function PlatformHeaderClient() {
                   </TooltipContent>
                 </Tooltip>
 
-                {/* Start Selling or Dashboard - Purple */}
-                <Button asChild className="h-10 rounded-full px-5 bg-violet-600 text-white hover:bg-violet-700">
+                {/* Start Selling or Dashboard - Purple (10% larger) */}
+                <Button asChild className="h-11 rounded-full px-6 text-[15px] bg-violet-600 text-white hover:bg-violet-700">
                   <Link href={user && isCreator ? "/app" : startSellingHref}>
                     {user && isCreator ? t("dashboard") : t("start_selling")}
                   </Link>
@@ -811,9 +979,9 @@ export function PlatformHeaderClient() {
                             className="rounded-full cursor-pointer outline-none ring-offset-white transition-all duration-150 ease-out hover:ring-2 hover:ring-violet-200 hover:ring-offset-2 hover:scale-105 active:scale-95 focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-2"
                             aria-label="Open profile menu"
                           >
-                            <Avatar className="h-10 w-10 border border-gray-200 transition-opacity duration-150">
+                            <Avatar className="h-11 w-11 border border-gray-200 transition-opacity duration-150">
                               <AvatarImage src={avatarUrl || "/placeholder.svg"} alt={displayName} />
-                              <AvatarFallback className="text-xs bg-gray-100 text-gray-700">{initials}</AvatarFallback>
+                              <AvatarFallback className="text-sm bg-gray-100 text-gray-700">{initials}</AvatarFallback>
                             </Avatar>
                           </button>
                         </DropdownMenuTrigger>
@@ -1007,9 +1175,9 @@ export function PlatformHeaderClient() {
           )}
         </div>
 
-        {/* Mobile Category Pills - horizontal scrolling with icons */}
+        {/* Mobile Category Pills - horizontal scrolling with icons (+1px gap) */}
         {showCategories && (
-          <div className="md:hidden -mx-4 px-4 pb-2 overflow-x-auto scrollbar-hide">
+          <div className="md:hidden -mx-4 px-4 pt-0.5 pb-2 overflow-x-auto scrollbar-hide">
             <div className="flex items-center gap-2 whitespace-nowrap">
               {MOBILE_CATEGORIES.map((cat) => {
                 const Icon = cat.icon
@@ -1029,11 +1197,11 @@ export function PlatformHeaderClient() {
           </div>
         )}
 
-        {/* Categories - only on /explore page, text links with icon on All - Desktop only */}
+        {/* Categories - only on /explore page, text links with icon on All - Desktop only (10% larger) */}
         {showCategories && (
           <nav className="border-t border-gray-200 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 hidden md:block">
             <div className="overflow-x-auto scrollbar-hide">
-              <div className="flex h-11 items-center justify-start gap-6 whitespace-nowrap text-sm">
+              <div className="flex h-12 items-center justify-start gap-7 whitespace-nowrap text-[15px]">
                 {DEFAULT_CATEGORIES.map((cat) => {
                   const Icon = cat.icon
                   const isAll = cat.id === "all"
@@ -1044,7 +1212,7 @@ export function PlatformHeaderClient() {
                       onClick={() => onCategoryClick(cat.id)}
                       className="inline-flex items-center gap-1.5 text-gray-500 hover:text-gray-900 transition-colors cursor-pointer font-medium"
                     >
-                      {isAll && <Icon className="w-4 h-4" />}
+                      {isAll && <Icon className="w-[18px] h-[18px]" />}
                       {cat.label}
                     </button>
                   )
@@ -1060,11 +1228,11 @@ export function PlatformHeaderClient() {
 
 function HeaderActionsSkeleton() {
   return (
-    <div className="flex items-center gap-2">
-      <Skeleton className="h-10 w-10 rounded-full bg-gray-200" />
-      <Skeleton className="h-10 w-10 rounded-full bg-gray-200" />
-      <Skeleton className="h-10 w-20 rounded-full hidden sm:block bg-gray-200" />
-      <Skeleton className="h-10 w-24 rounded-full bg-gray-200" />
+    <div className="flex items-center gap-2.5">
+      <Skeleton className="h-11 w-11 rounded-full bg-gray-200" />
+      <Skeleton className="h-11 w-11 rounded-full bg-gray-200" />
+      <Skeleton className="h-11 w-24 rounded-full hidden sm:block bg-gray-200" />
+      <Skeleton className="h-11 w-28 rounded-full bg-gray-200" />
     </div>
   )
 }
