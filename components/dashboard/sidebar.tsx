@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { LayoutDashboard, Package, GraduationCap, LogOut, Download, Menu, Heart, Sparkles } from "lucide-react"
+import { LayoutDashboard, Package, LogOut, Download, Menu, Heart, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
@@ -29,7 +29,6 @@ export function DashboardSidebar() {
   const navItems = [
     { href: "/library", label: "Overview", icon: LayoutDashboard },
     { href: "/library/my-downloads", label: "My Downloads", icon: Download },
-    { href: "/library/courses", label: "Courses", icon: GraduationCap },
     { href: "/library/wishlist", label: "Wishlist", icon: Heart },
   ]
 

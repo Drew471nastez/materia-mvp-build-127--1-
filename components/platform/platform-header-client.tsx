@@ -1170,9 +1170,9 @@ export function PlatformHeaderClient() {
           </div>
 
           {/* Mobile Header for Non-Homepage pages */}
-          <div className="md:hidden flex items-center justify-between flex-1 -ml-3">
+          <div className="md:hidden flex items-center justify-between flex-1 -ml-6">
             {/* Hamburger + Logo left, icons right */}
-            <div className="flex items-center gap-1 ml-0.5">
+            <div className="flex items-center gap-0">
               <button
                 type="button"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -1183,7 +1183,7 @@ export function PlatformHeaderClient() {
               </button>
 
               {/* Logo next to hamburger - redirect to /explore if on explore pages */}
-              <Link href={pathname.startsWith("/explore") ? "/explore" : "/"} className="shrink-0 flex items-center gap-1.5 ml-0.5">
+              <Link href={pathname.startsWith("/explore") ? "/explore" : "/"} className="shrink-0 flex items-center gap-1.5">
                 <Image
                   src={LOGO_URL || "/placeholder.svg"}
                   alt="Storelib"
@@ -1360,7 +1360,7 @@ export function PlatformHeaderClient() {
                           <span>My Library</span>
                         </Link>
                         <Link
-                          href="/settings"
+                          href="/app/settings"
                           onClick={() => setDesktopProfileOpen(false)}
                           className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
                         >
@@ -1875,7 +1875,7 @@ export function PlatformHeaderClient() {
               <ChevronRight className="h-5 w-5 text-gray-400" />
             </Link>
             <Link
-              href="/settings"
+              href="/app/settings"
               onClick={() => setMobileProfileOpen(false)}
               className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
             >

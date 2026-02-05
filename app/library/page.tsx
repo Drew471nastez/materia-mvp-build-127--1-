@@ -2,7 +2,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { createClient } from "@/lib/supabase/server"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Package, GraduationCap, ArrowRight, CheckCircle, Download, Calendar } from "lucide-react"
+import { Package, ArrowRight, CheckCircle, Download, Calendar, Heart } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 
@@ -66,7 +66,6 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
   }
 
   const products = entitlements?.filter((e) => e.product?.type === "digital") || []
-  const courses = entitlements?.filter((e) => e.product?.type === "course") || []
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
@@ -106,20 +105,18 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
             </CardContent>
           </Card>
         </Link>
-        {courses.length > 0 && (
-          <Link href="/library/courses">
-            <Card className="cursor-pointer transition-colors hover:border-primary/50">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Courses</CardTitle>
-                <GraduationCap className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold">{courses.length}</div>
-                <p className="text-xs text-muted-foreground">Courses enrolled</p>
-              </CardContent>
-            </Card>
-          </Link>
-        )}
+        <Link href="/library/wishlist">
+          <Card className="cursor-pointer transition-colors hover:border-primary/50">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Wishlist</CardTitle>
+              <Heart className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-semibold">View</div>
+              <p className="text-xs text-muted-foreground">Products you saved</p>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       {entitlements && entitlements.length > 0 ? (
@@ -192,53 +189,6 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
             </div>
           )}
 
-          {courses.length > 0 && (
-            <div>
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-lg font-semibold">My Courses</h2>
-                <Link
-                  href="/library/courses"
-                  className="flex items-center text-sm text-muted-foreground hover:text-foreground"
-                >
-                  View all <ArrowRight className="ml-1 h-4 w-4" />
-                </Link>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {courses.slice(0, 6).map((e) => (
-                  <Link
-                    key={e.id}
-                    href={`/library/courses/${e.product_id}`}
-                    className="group overflow-hidden rounded-lg border border-border bg-card transition-colors hover:border-primary/50"
-                  >
-                    <div className="relative aspect-video bg-muted">
-                      {e.product?.thumbnail_url ? (
-                        <Image
-                          src={e.product.thumbnail_url || "/placeholder.svg"}
-                          alt={e.product.title}
-                          fill
-                          className="object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-full items-center justify-center">
-                          <GraduationCap className="h-8 w-8 text-muted-foreground/50" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="p-4">
-                      <h3 className="font-medium group-hover:text-primary">{e.product?.title}</h3>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        by {(e.creator?.profile as { display_name?: string })?.display_name || "Creator"}
-                      </p>
-                      <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
-                        <Calendar className="h-3 w-3" />
-                        <span>Enrolled {formatDate(e.created_at)}</span>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       ) : (
         <div className="rounded-lg border border-dashed border-border p-12 text-center">
