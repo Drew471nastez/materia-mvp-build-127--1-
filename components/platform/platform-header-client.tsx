@@ -18,6 +18,29 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, Menu, X, Loader2, ChevronRight, ChevronLeft, ChevronDown, Sparkles, Code, Megaphone, Briefcase, Music, Camera, Video, LayoutGrid, Gift, MoreHorizontal, Bot, Share2, Flame, Zap, ShoppingBag, Lightbulb, ArrowRight, User as UserIcon, Compass } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 
+// Animated Hamburger Icon Component
+function AnimatedHamburger({ isOpen, className }: { isOpen: boolean; className?: string }) {
+  return (
+    <div className={`relative w-5 h-5 flex flex-col justify-center items-center ${className || ''}`}>
+      <span
+        className={`absolute h-[2px] w-5 bg-current rounded-full transition-all duration-300 ease-out ${
+          isOpen ? 'rotate-45 translate-y-0' : '-translate-y-[6px]'
+        }`}
+      />
+      <span
+        className={`absolute h-[2px] w-5 bg-current rounded-full transition-all duration-300 ease-out ${
+          isOpen ? 'opacity-0 scale-0' : 'opacity-100 scale-100'
+        }`}
+      />
+      <span
+        className={`absolute h-[2px] w-5 bg-current rounded-full transition-all duration-300 ease-out ${
+          isOpen ? '-rotate-45 translate-y-0' : 'translate-y-[6px]'
+        }`}
+      />
+    </div>
+  )
+}
+
 const LOGO_URL =
   "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
 
@@ -1003,14 +1026,14 @@ export function PlatformHeaderClient() {
                   </Link>
                 </div>
 
-                {/* Right - Only hamburger (glassmorphism) */}
+                {/* Right - Only hamburger (glassmorphism) with animation */}
                 <button
                   type="button"
-                  onClick={() => setMobileMenuOpen(true)}
+                  onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                   className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100/60 backdrop-blur-sm border border-gray-200/50 text-gray-700 hover:bg-gray-100 transition cursor-pointer"
-                  aria-label="Open menu"
+                  aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
                 >
-                  <Menu className="h-5 w-5" />
+                  <AnimatedHamburger isOpen={mobileMenuOpen} />
                 </button>
               </>
             ) : (
@@ -1019,11 +1042,11 @@ export function PlatformHeaderClient() {
                 <div className="flex items-center gap-0 -ml-1">
                   <button
                     type="button"
-                    onClick={() => setMobileMenuOpen(true)}
+                    onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                     className="flex h-9 w-9 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 transition cursor-pointer"
-                    aria-label="Open categories"
+                    aria-label={mobileMenuOpen ? "Close menu" : "Open categories"}
                   >
-                    <Menu className="h-5 w-5" />
+                    <AnimatedHamburger isOpen={mobileMenuOpen} />
                   </button>
 
                   {/* Logo next to hamburger */}
@@ -1503,11 +1526,8 @@ export function PlatformHeaderClient() {
             <>
               <button
                 type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setExpandedCategory(null)
-                }}
-                className="flex items-center gap-2 px-2 py-2 mb-3 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors cursor-pointer"
+                onClick={() => setExpandedCategory(null)}
+                className="flex items-center gap-2 px-2 py-2 mb-3 text-sm font-medium text-gray-600 hover:text-gray-900 active:text-gray-900 transition-colors cursor-pointer"
               >
                 <ChevronLeft className="h-4 w-4" />
                 <span>Back to Categories</span>
@@ -1565,8 +1585,7 @@ export function PlatformHeaderClient() {
                       <button
                         key={cat.label}
                         type="button"
-                        onClick={(e) => {
-                          e.stopPropagation()
+                        onClick={() => {
                           if (hasSubcats) {
                             setExpandedCategory(cat.label)
                           } else {
@@ -1574,7 +1593,7 @@ export function PlatformHeaderClient() {
                             setMobileMenuOpen(false)
                           }
                         }}
-                        className="flex items-center justify-between w-full px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
+                        className="flex items-center justify-between w-full px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 active:bg-gray-200 transition-colors cursor-pointer"
                       >
                         <div className="flex items-center gap-3">
                           <Icon className="h-5 w-5 text-gray-400" />
@@ -1601,7 +1620,7 @@ export function PlatformHeaderClient() {
                   className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
                 >
                   <div className="flex items-center gap-3">
-                    <Library className="h-5 w-5" />
+                    <Library className="h-5 w-5 text-gray-400" />
                     <span>My Library</span>
                   </div>
                   <ChevronRight className="h-5 w-5 text-gray-400" />
@@ -1613,7 +1632,7 @@ export function PlatformHeaderClient() {
                     className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
                   >
                     <div className="flex items-center gap-3">
-                      <LayoutDashboard className="h-5 w-5" />
+                      <LayoutDashboard className="h-5 w-5 text-gray-400" />
                       <span>Dashboard</span>
                     </div>
                     <ChevronRight className="h-5 w-5 text-gray-400" />
