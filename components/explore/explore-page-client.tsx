@@ -893,29 +893,38 @@ export function ExplorePageClient({
         return matchCount < 2 // Products with less than 2 keyword matches
       })
     }
-    // Regular category filtering
+    // Regular category filtering - sort by relevance, always show products
     else if (mainCategory !== "all") {
-      products = products.filter(p => {
+      const allProducts = [...products]
+      const scored = allProducts.map(p => {
         const productCategory = (p.category || p.categoryName || "").toLowerCase()
         const productTitle = (p.title || "").toLowerCase()
         const productDesc = (p.description || "").toLowerCase()
         const productTags = p.tags?.map((t: string) => t.toLowerCase()) || []
         const creatorTags = p.creator?.niche_tags?.map((t: string) => t.toLowerCase()) || []
 
-        // Direct category match
-        if (productCategory === mainCategory || productCategory.includes(mainCategory)) return true
-
+        let score = 0
+        // Direct category field match
+        if (productCategory === mainCategory || productCategory.includes(mainCategory)) score += 10
         // Creator tags match
-        if (creatorTags.includes(mainCategory) || creatorTags.some((tag: string) => tag.includes(mainCategory))) return true
+        if (creatorTags.includes(mainCategory) || creatorTags.some((tag: string) => tag.includes(mainCategory))) score += 5
+        // Title match
+        if (productTitle.includes(mainCategory)) score += 3
+        // Tag match
+        if (productTags.some((tag: string) => tag.includes(mainCategory))) score += 2
+        // Description match
+        if (productDesc.includes(mainCategory)) score += 1
 
-        // Title or tag keyword match
-        if (productTitle.includes(mainCategory) || productTags.some((tag: string) => tag.includes(mainCategory))) return true
-
-        // Description keyword match
-        if (productDesc.includes(mainCategory)) return true
-
-        return false
+        return { product: p, score }
       })
+
+      // Sort by relevance - matched products first, then the rest
+      products = scored
+        .sort((a, b) => {
+          if (b.score !== a.score) return b.score - a.score
+          return new Date(b.product.created_at).getTime() - new Date(a.product.created_at).getTime()
+        })
+        .map(item => item.product)
     }
 
     // Filter by selected subcategory from modal

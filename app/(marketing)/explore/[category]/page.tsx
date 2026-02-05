@@ -110,23 +110,11 @@ export default async function CategoryPage({ params }: Props) {
 
   const supabase = await createClient()
 
-  // First try to fetch products that match this category in the DB
-  const { data: categoryProducts, error: categoryError } = await supabase
+  // Fetch ALL published products - same query as the working /explore page
+  // Category filtering is done client-side for relevance-based sorting
+  const { data: products, error: productsError } = await supabase
     .from("products")
-    .select("id, title, slug, description, price_cents, compare_at_cents, thumbnail_url, type, category, creator_id, created_at, sales_count, reviews_count, reviews_average, tags")
-    .eq("status", "published")
-    .eq("category", category)
-    .order("created_at", { ascending: false })
-    .limit(100)
-
-  if (categoryError) {
-    console.error("[CategoryPage] Category filter error:", categoryError.message)
-  }
-
-  // Also fetch all published products for fallback/supplementing
-  const { data: allProducts, error: productsError } = await supabase
-    .from("products")
-    .select("id, title, slug, description, price_cents, compare_at_cents, thumbnail_url, type, category, creator_id, created_at, sales_count, reviews_count, reviews_average, tags")
+    .select("id, title, slug, description, price_cents, compare_at_cents, thumbnail_url, type, category, creator_id, created_at, sales_count, reviews_count, reviews_average")
     .eq("status", "published")
     .order("created_at", { ascending: false })
     .limit(100)
@@ -134,11 +122,6 @@ export default async function CategoryPage({ params }: Props) {
   if (productsError) {
     console.error("[CategoryPage] Products error:", productsError.message)
   }
-
-  // Merge: category-matched products first, then fill with remaining products
-  const categoryProductIds = new Set((categoryProducts || []).map(p => p.id))
-  const remainingProducts = (allProducts || []).filter(p => !categoryProductIds.has(p.id))
-  const products = [...(categoryProducts || []), ...remainingProducts]
 
   // Build products with creator info
   let productsWithCreators: any[] = []
