@@ -6,10 +6,10 @@ import Link from "next/link"
 import { FeaturedBannerCarousel } from "./featured-banner-carousel"
 import { ProductCard } from "./product-card"
 import { ProductCardSkeleton } from "./product-card-skeleton"
-import { Layers, Sparkles, Zap, Share2, Bot, SlidersHorizontal, X, Check, Search, ChevronLeft, ChevronRight, Briefcase, Megaphone, ChevronDown, ArrowRight } from "lucide-react"
+import { Layers, Sparkles, Zap, Share2, Bot, SlidersHorizontal, X, Check, Search, ChevronLeft, ChevronRight, Briefcase, Megaphone, ChevronDown, ArrowRight, Music, Camera, Video, ShoppingBag, GraduationCap, Palette, Code, Lightbulb, FileText } from "lucide-react"
 import { Input } from "@/components/ui/input"
 
-// Categories with icons and subcategories
+// Categories with icons and subcategories - Extended list
 const CATEGORIES = [
   {
     id: "all",
@@ -27,17 +27,24 @@ const CATEGORIES = [
       { id: "fonts", label: "Fonts & Typography" },
       { id: "icons", label: "Icons & Elements" },
       { id: "mockups", label: "Mockups" },
+      { id: "logos", label: "Logo Templates" },
+      { id: "branding", label: "Branding Kits" },
+      { id: "print", label: "Print Design" },
     ]
   },
   {
     id: "development",
     label: "Development",
-    icon: Zap,
+    icon: Code,
     subcategories: [
       { id: "web", label: "Web Templates" },
       { id: "mobile", label: "Mobile Apps" },
       { id: "scripts", label: "Scripts & Plugins" },
       { id: "apis", label: "APIs & Tools" },
+      { id: "wordpress", label: "WordPress Themes" },
+      { id: "shopify", label: "Shopify Themes" },
+      { id: "react", label: "React Components" },
+      { id: "nextjs", label: "Next.js Templates" },
     ]
   },
   {
@@ -49,6 +56,8 @@ const CATEGORIES = [
       { id: "ads", label: "Ad Creatives" },
       { id: "landing", label: "Landing Pages" },
       { id: "seo", label: "SEO Tools" },
+      { id: "copywriting", label: "Copywriting Templates" },
+      { id: "funnels", label: "Sales Funnels" },
     ]
   },
   {
@@ -59,6 +68,9 @@ const CATEGORIES = [
       { id: "spreadsheets", label: "Spreadsheets" },
       { id: "presentations", label: "Presentations" },
       { id: "documents", label: "Documents & Contracts" },
+      { id: "invoices", label: "Invoice Templates" },
+      { id: "proposals", label: "Proposal Templates" },
+      { id: "business-plans", label: "Business Plans" },
     ]
   },
   {
@@ -68,7 +80,9 @@ const CATEGORIES = [
     subcategories: [
       { id: "prompts", label: "AI Prompts" },
       { id: "chatgpt", label: "ChatGPT Templates" },
+      { id: "midjourney", label: "Midjourney Prompts" },
       { id: "automation", label: "Automation Tools" },
+      { id: "ai-tools", label: "AI-Powered Tools" },
     ]
   },
   {
@@ -79,6 +93,10 @@ const CATEGORIES = [
       { id: "instagram", label: "Instagram Templates" },
       { id: "tiktok", label: "TikTok Content" },
       { id: "youtube", label: "YouTube Assets" },
+      { id: "twitter", label: "Twitter/X Templates" },
+      { id: "linkedin", label: "LinkedIn Templates" },
+      { id: "pinterest", label: "Pinterest Templates" },
+      { id: "reels", label: "Reels & Shorts" },
     ]
   },
   {
@@ -89,6 +107,68 @@ const CATEGORIES = [
       { id: "notion", label: "Notion Templates" },
       { id: "planners", label: "Calendars & Planners" },
       { id: "checklists", label: "Checklists" },
+      { id: "trackers", label: "Habit Trackers" },
+      { id: "dashboards", label: "Dashboards" },
+      { id: "airtable", label: "Airtable Templates" },
+    ]
+  },
+  {
+    id: "photography",
+    label: "Photography",
+    icon: Camera,
+    subcategories: [
+      { id: "presets", label: "Lightroom Presets" },
+      { id: "overlays", label: "Photo Overlays" },
+      { id: "actions", label: "Photoshop Actions" },
+      { id: "luts", label: "Color LUTs" },
+      { id: "stock", label: "Stock Photos" },
+    ]
+  },
+  {
+    id: "video",
+    label: "Video",
+    icon: Video,
+    subcategories: [
+      { id: "templates", label: "Video Templates" },
+      { id: "transitions", label: "Transitions & Effects" },
+      { id: "motion", label: "Motion Graphics" },
+      { id: "after-effects", label: "After Effects" },
+      { id: "premiere", label: "Premiere Pro" },
+      { id: "davinci", label: "DaVinci Resolve" },
+    ]
+  },
+  {
+    id: "audio-music",
+    label: "Audio & Music",
+    icon: Music,
+    subcategories: [
+      { id: "music", label: "Royalty-Free Music" },
+      { id: "sfx", label: "Sound Effects" },
+      { id: "loops", label: "Loops & Samples" },
+      { id: "podcasts", label: "Podcast Templates" },
+    ]
+  },
+  {
+    id: "education",
+    label: "Education",
+    icon: GraduationCap,
+    subcategories: [
+      { id: "courses", label: "Online Courses" },
+      { id: "ebooks", label: "eBooks" },
+      { id: "tutorials", label: "Tutorials" },
+      { id: "worksheets", label: "Worksheets" },
+      { id: "guides", label: "Guides & How-tos" },
+    ]
+  },
+  {
+    id: "ecommerce",
+    label: "E-commerce",
+    icon: ShoppingBag,
+    subcategories: [
+      { id: "product-photos", label: "Product Photography" },
+      { id: "store-themes", label: "Store Themes" },
+      { id: "pricing", label: "Pricing Templates" },
+      { id: "emails", label: "E-commerce Emails" },
     ]
   },
 ] as const
@@ -254,7 +334,6 @@ function MobileFilterSheet({
         </div>
 
         <div className="overflow-y-auto overscroll-contain p-4 space-y-6" style={{ maxHeight: 'calc(85vh - 140px)' }}>
-          {/* Subcategories */}
           {availableSubcategories.length > 0 && (
             <div>
               <h4 className="text-sm font-semibold text-neutral-900 mb-3">Subcategories</h4>
@@ -277,7 +356,6 @@ function MobileFilterSheet({
             </div>
           )}
 
-          {/* Price Filter */}
           <div>
             <h4 className="text-sm font-semibold text-neutral-900 mb-3">Price Range</h4>
             <div className="flex flex-wrap gap-2">
@@ -298,7 +376,6 @@ function MobileFilterSheet({
             </div>
           </div>
 
-          {/* Sort By */}
           <div>
             <h4 className="text-sm font-semibold text-neutral-900 mb-3">Sort By</h4>
             <div className="space-y-1">
@@ -337,7 +414,7 @@ function MobileFilterSheet({
   )
 }
 
-// Category Selector Modal Component
+// Category Selector Modal Component with Subcategories
 function CategorySelectorModal({
   isOpen,
   onClose,
@@ -353,12 +430,14 @@ function CategorySelectorModal({
   const [isAnimating, setIsAnimating] = useState(false)
   const [dragY, setDragY] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
   const startY = useRef(0)
   const sheetRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (isOpen && !isVisible) {
       setIsVisible(true)
+      setExpandedCategory(null)
       document.body.style.overflow = "hidden"
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -371,6 +450,7 @@ function CategorySelectorModal({
       const timer = setTimeout(() => {
         setIsVisible(false)
         setDragY(0)
+        setExpandedCategory(null)
       }, 400)
       return () => clearTimeout(timer)
     }
@@ -418,6 +498,14 @@ function CategorySelectorModal({
     handleClose()
   }
 
+  const handleCategoryClick = (cat: typeof CATEGORIES[number]) => {
+    if (cat.subcategories && cat.subcategories.length > 0) {
+      setExpandedCategory(expandedCategory === cat.id ? null : cat.id)
+    } else {
+      handleSelect(cat.id)
+    }
+  }
+
   if (!isVisible) return null
 
   return (
@@ -430,7 +518,7 @@ function CategorySelectorModal({
       {/* Desktop Modal */}
       <div className="hidden md:flex items-center justify-center h-full p-4">
         <div
-          className={`bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transition-all duration-300 ${
+          className={`bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden transition-all duration-300 ${
             isAnimating ? "opacity-100 scale-100" : "opacity-0 scale-95"
           }`}
         >
@@ -444,20 +532,52 @@ function CategorySelectorModal({
             {CATEGORIES.map((cat) => {
               const Icon = cat.icon
               const isSelected = selectedCategory === cat.id
+              const isExpanded = expandedCategory === cat.id
+              const hasSubcats = cat.subcategories && cat.subcategories.length > 0
+
               return (
-                <button
-                  key={cat.id}
-                  onClick={() => handleSelect(cat.id)}
-                  className={`flex items-center gap-3 w-full px-4 py-3.5 rounded-xl text-left transition-all duration-150 cursor-pointer ${
-                    isSelected
-                      ? "bg-neutral-900 text-white"
-                      : "text-neutral-700 hover:bg-neutral-100"
-                  }`}
-                >
-                  <Icon className={`w-5 h-5 ${isSelected ? "text-white" : "text-neutral-400"}`} />
-                  <span className="font-medium">{cat.label}</span>
-                  {isSelected && <Check className="w-5 h-5 ml-auto" />}
-                </button>
+                <div key={cat.id}>
+                  <button
+                    onClick={() => hasSubcats ? handleCategoryClick(cat) : handleSelect(cat.id)}
+                    className={`flex items-center gap-3 w-full px-4 py-3.5 rounded-xl text-left transition-all duration-150 cursor-pointer ${
+                      isSelected
+                        ? "bg-neutral-900 text-white"
+                        : "text-neutral-700 hover:bg-neutral-100"
+                    }`}
+                  >
+                    <Icon className={`w-5 h-5 ${isSelected ? "text-white" : "text-neutral-400"}`} />
+                    <span className="font-medium flex-1">{cat.label}</span>
+                    {hasSubcats && (
+                      <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""} ${isSelected ? "text-white" : "text-neutral-400"}`} />
+                    )}
+                    {isSelected && !hasSubcats && <Check className="w-5 h-5" />}
+                  </button>
+                  {/* Subcategories */}
+                  {hasSubcats && isExpanded && (
+                    <div className="ml-8 mt-1 mb-2 space-y-1 animate-in fade-in slide-in-from-top-2 duration-200">
+                      <button
+                        onClick={() => handleSelect(cat.id)}
+                        className={`flex items-center gap-2 w-full px-4 py-2.5 rounded-lg text-sm text-left transition-all duration-150 cursor-pointer ${
+                          selectedCategory === cat.id
+                            ? "bg-violet-100 text-violet-700 font-medium"
+                            : "text-neutral-600 hover:bg-neutral-50"
+                        }`}
+                      >
+                        <span>All {cat.label}</span>
+                        {selectedCategory === cat.id && <Check className="w-4 h-4 ml-auto" />}
+                      </button>
+                      {cat.subcategories.map((sub) => (
+                        <button
+                          key={sub.id}
+                          onClick={() => handleSelect(cat.id)}
+                          className="flex items-center gap-2 w-full px-4 py-2.5 rounded-lg text-sm text-left text-neutral-600 hover:bg-neutral-50 transition-all duration-150 cursor-pointer"
+                        >
+                          <span>{sub.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )
             })}
           </div>
@@ -490,20 +610,65 @@ function CategorySelectorModal({
           {CATEGORIES.map((cat) => {
             const Icon = cat.icon
             const isSelected = selectedCategory === cat.id
+            const isExpanded = expandedCategory === cat.id
+            const hasSubcats = cat.subcategories && cat.subcategories.length > 0
+
             return (
-              <button
-                key={cat.id}
-                onClick={() => handleSelect(cat.id)}
-                className={`flex items-center gap-3 w-full px-4 py-4 rounded-xl text-left transition-all duration-150 cursor-pointer ${
-                  isSelected
-                    ? "bg-neutral-900 text-white"
-                    : "text-neutral-700 hover:bg-neutral-100"
-                }`}
-              >
-                <Icon className={`w-5 h-5 ${isSelected ? "text-white" : "text-neutral-400"}`} />
-                <span className="font-medium text-base">{cat.label}</span>
-                {isSelected && <Check className="w-5 h-5 ml-auto" />}
-              </button>
+              <div key={cat.id}>
+                <button
+                  onClick={() => hasSubcats ? handleCategoryClick(cat) : handleSelect(cat.id)}
+                  onTouchEnd={(e) => {
+                    e.preventDefault()
+                    hasSubcats ? handleCategoryClick(cat) : handleSelect(cat.id)
+                  }}
+                  className={`flex items-center gap-3 w-full px-4 py-4 rounded-xl text-left transition-all duration-150 cursor-pointer touch-manipulation ${
+                    isSelected
+                      ? "bg-neutral-900 text-white"
+                      : "text-neutral-700 hover:bg-neutral-100"
+                  }`}
+                >
+                  <Icon className={`w-5 h-5 ${isSelected ? "text-white" : "text-neutral-400"}`} />
+                  <span className="font-medium text-base flex-1">{cat.label}</span>
+                  {hasSubcats && (
+                    <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""} ${isSelected ? "text-white" : "text-neutral-400"}`} />
+                  )}
+                  {isSelected && !hasSubcats && <Check className="w-5 h-5" />}
+                </button>
+                {/* Mobile Subcategories */}
+                {hasSubcats && isExpanded && (
+                  <div className="ml-6 mt-1 mb-2 space-y-1 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <button
+                      onClick={() => handleSelect(cat.id)}
+                      onTouchEnd={(e) => {
+                        e.preventDefault()
+                        handleSelect(cat.id)
+                      }}
+                      className={`flex items-center gap-2 w-full px-4 py-3 rounded-lg text-sm text-left transition-all duration-150 cursor-pointer touch-manipulation ${
+                        selectedCategory === cat.id
+                          ? "bg-violet-100 text-violet-700 font-medium"
+                          : "text-neutral-600 hover:bg-neutral-50"
+                      }`}
+                    >
+                      <span>All {cat.label}</span>
+                      {selectedCategory === cat.id && <Check className="w-4 h-4 ml-auto" />}
+                    </button>
+                    {cat.subcategories.map((sub, index) => (
+                      <button
+                        key={sub.id}
+                        onClick={() => handleSelect(cat.id)}
+                        onTouchEnd={(e) => {
+                          e.preventDefault()
+                          handleSelect(cat.id)
+                        }}
+                        className="flex items-center gap-2 w-full px-4 py-3 rounded-lg text-sm text-left text-neutral-600 hover:bg-neutral-50 transition-all duration-150 cursor-pointer touch-manipulation animate-in fade-in slide-in-from-right-2"
+                        style={{ animationDelay: `${index * 30}ms`, animationFillMode: 'both' }}
+                      >
+                        <span>{sub.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             )
           })}
         </div>
@@ -512,7 +677,7 @@ function CategorySelectorModal({
   )
 }
 
-// Search Input Component with smooth animation
+// Search Input Component
 function SearchInput({
   isOpen,
   onClose,
@@ -576,7 +741,7 @@ export function ExplorePageClient({
   const searchParams = useSearchParams()
   const [isPending, startTransition] = useTransition()
 
-  // Main category from URL (for Recommended section)
+  // Main category (for Recommended section)
   const [mainCategory, setMainCategory] = useState(initialCategory.toLowerCase() || "all")
 
   // Separate category for the Browse by Category section
@@ -605,7 +770,7 @@ export function ExplorePageClient({
   // Pagination
   const [currentPage, setCurrentPage] = useState(1)
 
-  // Smooth scroll to category section when category changes from URL
+  // Smooth scroll to Recommended section when category changes from URL
   useEffect(() => {
     const categoryParam = searchParams.get("category")
     if (categoryParam && categoryParam !== "all" && !hasScrolledRef.current) {
@@ -636,7 +801,7 @@ export function ExplorePageClient({
     return initialProducts.filter(p => p.thumbnail_url).slice(0, 5)
   }, [initialProducts])
 
-  // Get Recommended section products (based on main category from URL/header)
+  // Get Recommended section products (based on main category)
   const recommendedProducts = useMemo(() => {
     let products = [...initialProducts]
 
@@ -747,14 +912,13 @@ export function ExplorePageClient({
       })
     }
 
-    // Sort by curated score
     products = products.sort((a, b) => {
       const scoreA = (a.reviews_average || 0) * (a.reviews_count || 0) + (a.sales_count || 0)
       const scoreB = (b.reviews_average || 0) * (b.reviews_count || 0) + (b.sales_count || 0)
       return scoreB - scoreA
     })
 
-    return products.slice(0, 6) // 2 rows x 3 products
+    return products.slice(0, 6)
   }, [initialProducts, browseCategory])
 
   // Get active filter count
@@ -780,9 +944,10 @@ export function ExplorePageClient({
     return CATEGORIES.find(c => c.id === mainCategory)?.label || "Products"
   }, [mainCategory, urlSearchQuery])
 
-  // Handle category change from URL/header
-  const handleMainCategoryChange = useCallback((categoryId: string) => {
+  // Handle category change - updates main category and scrolls to Recommended section
+  const handleCategoryChange = useCallback((categoryId: string) => {
     setMainCategory(categoryId)
+    setBrowseCategory(categoryId) // Also sync browse category
     setSelectedSubcategories([])
     setIsLoadingCategory(true)
 
@@ -795,13 +960,24 @@ export function ExplorePageClient({
       })
       setIsLoadingCategory(false)
 
+      // Smooth scroll to Recommended section
       if (categoryId !== "all") {
         setTimeout(() => {
           categorySectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
-        }, 50)
+        }, 100)
       }
     }, 100)
   }, [router, urlSearchQuery])
+
+  // Handle browse category change from pills (only updates browse section, not recommended)
+  const handleBrowseCategoryChange = useCallback((categoryId: string) => {
+    setBrowseCategory(categoryId)
+  }, [])
+
+  // Handle category selection from modal - updates MAIN category and scrolls
+  const handleCategorySelectorSelect = useCallback((categoryId: string) => {
+    handleCategoryChange(categoryId)
+  }, [handleCategoryChange])
 
   useEffect(() => {
     return () => {
@@ -830,7 +1006,7 @@ export function ExplorePageClient({
       {!urlSearchQuery && (
         <section ref={categorySectionRef} className="mt-10 scroll-mt-28">
           {/* Section Header */}
-          <div className="flex flex-col gap-4 mb-6">
+          <div className="flex flex-col gap-4 mb-6 relative">
             {/* Title Row with Search and Filters */}
             <div className="flex items-center justify-between gap-4">
               <h2 className="text-xl sm:text-2xl font-semibold text-neutral-900">
@@ -873,7 +1049,7 @@ export function ExplorePageClient({
                 {filtersOpen && (
                   <>
                     <div className="fixed inset-0 z-40 hidden md:block" onClick={() => setFiltersOpen(false)} />
-                    <div className="hidden md:block absolute right-4 top-full mt-2 w-[340px] bg-white rounded-2xl shadow-xl border border-neutral-200 z-50 animate-in fade-in-0 slide-in-from-top-2 duration-200 overflow-hidden">
+                    <div className="hidden md:block absolute right-0 top-full mt-2 w-[340px] bg-white rounded-2xl shadow-xl border border-neutral-200 z-50 animate-in fade-in-0 slide-in-from-top-2 duration-200 overflow-hidden">
                       <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-100">
                         <h3 className="text-sm font-semibold text-neutral-900">Filters</h3>
                         <button onClick={() => setFiltersOpen(false)} className="p-1 rounded-full hover:bg-neutral-100 transition-colors cursor-pointer">
@@ -882,7 +1058,6 @@ export function ExplorePageClient({
                       </div>
 
                       <div className="p-4 space-y-5 max-h-[60vh] overflow-y-auto">
-                        {/* Subcategories */}
                         {availableSubcategories.length > 0 && (
                           <div>
                             <h4 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">Subcategories</h4>
@@ -911,7 +1086,6 @@ export function ExplorePageClient({
                           </div>
                         )}
 
-                        {/* Price Filter */}
                         <div>
                           <h4 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">Price</h4>
                           <div className="flex flex-wrap gap-2">
@@ -932,7 +1106,6 @@ export function ExplorePageClient({
                           </div>
                         </div>
 
-                        {/* Sort By */}
                         <div>
                           <h4 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-3">Sort By</h4>
                           <div className="space-y-1">
@@ -1103,7 +1276,6 @@ export function ExplorePageClient({
                 </div>
               )}
 
-              {/* Product count */}
               <p className="text-sm text-neutral-500 mt-4 text-center">
                 Showing {(currentPage - 1) * PRODUCTS_PER_PAGE + 1}-{Math.min(currentPage * PRODUCTS_PER_PAGE, recommendedProducts.length)} of {recommendedProducts.length} products
               </p>
@@ -1115,7 +1287,7 @@ export function ExplorePageClient({
                   ? `No products found for "${localSearchQuery}"`
                   : priceFilter !== "all"
                     ? "No products match your filters. Try adjusting your price range."
-                    : "No products found in this category."
+                    : `No products found in ${sectionTitle}.`
                 }
               </p>
               {activeFilterCount > 0 && (
@@ -1161,13 +1333,13 @@ export function ExplorePageClient({
 
           {/* Category Pills */}
           <nav aria-label="Browse categories" className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
-            {CATEGORIES.map((category) => {
+            {CATEGORIES.slice(0, 8).map((category) => {
               const isSelected = browseCategory === category.id
               const Icon = category.icon
               return (
                 <button
                   key={category.id}
-                  onClick={() => setBrowseCategory(category.id)}
+                  onClick={() => handleBrowseCategoryChange(category.id)}
                   className={`relative inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap cursor-pointer select-none transition-all duration-150 ease-out active:scale-[0.98] ${
                     isSelected
                       ? "bg-neutral-900 text-white shadow-sm"
@@ -1259,8 +1431,8 @@ export function ExplorePageClient({
       <CategorySelectorModal
         isOpen={categorySelectorOpen}
         onClose={() => setCategorySelectorOpen(false)}
-        selectedCategory={browseCategory}
-        onSelectCategory={setBrowseCategory}
+        selectedCategory={mainCategory}
+        onSelectCategory={handleCategorySelectorSelect}
       />
     </div>
   )
