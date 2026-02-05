@@ -188,6 +188,22 @@ const CATEGORIES = [
       { id: "emails", label: "E-commerce Emails" },
     ]
   },
+  {
+    id: "freebies",
+    label: "Freebies",
+    icon: Sparkles,
+    description: "Free digital products, templates, and resources",
+    color: "from-green-500 to-emerald-500",
+    subcategories: []
+  },
+  {
+    id: "other",
+    label: "Other",
+    icon: Layers,
+    description: "Miscellaneous digital products and resources",
+    color: "from-gray-500 to-slate-500",
+    subcategories: []
+  },
 ] as const
 
 // Price filter options
@@ -600,39 +616,69 @@ export function CategoryPageClient({
     })
   }, [category, router])
 
-  // Category keywords for matching
+  // Category keywords for matching - more comprehensive
   const categoryKeywords: Record<string, string[]> = {
-    "design": ["design", "ui", "ux", "graphic", "template", "figma", "canva", "photoshop", "illustrator", "mockup", "logo", "brand", "icon", "font", "typography"],
-    "development": ["development", "code", "web", "app", "react", "nextjs", "javascript", "typescript", "html", "css", "wordpress", "shopify", "plugin", "script", "api"],
-    "marketing": ["marketing", "email", "newsletter", "ad", "ads", "landing", "seo", "copywriting", "funnel", "campaign", "conversion"],
-    "business": ["business", "spreadsheet", "excel", "presentation", "powerpoint", "document", "contract", "invoice", "proposal", "plan", "finance"],
-    "ai": ["ai", "artificial intelligence", "chatgpt", "gpt", "prompt", "midjourney", "dalle", "automation", "machine learning", "openai"],
-    "social-media": ["social", "instagram", "tiktok", "youtube", "twitter", "linkedin", "pinterest", "reels", "shorts", "content", "post"],
-    "productivity": ["productivity", "notion", "planner", "calendar", "checklist", "tracker", "dashboard", "airtable", "organization", "workflow"],
-    "photography": ["photo", "photography", "lightroom", "preset", "overlay", "photoshop", "action", "lut", "stock"],
-    "video": ["video", "motion", "after effects", "premiere", "davinci", "transition", "effect", "animation"],
-    "audio-music": ["audio", "music", "sound", "sfx", "loop", "sample", "podcast", "royalty"],
-    "education": ["education", "course", "ebook", "tutorial", "worksheet", "guide", "learn", "training"],
-    "ecommerce": ["ecommerce", "e-commerce", "store", "shop", "product", "pricing", "shopify", "woocommerce"],
+    "design": ["design", "ui", "ux", "graphic", "template", "figma", "canva", "photoshop", "illustrator", "mockup", "logo", "brand", "icon", "font", "typography", "creative", "visual", "layout", "sketch", "adobe", "style", "art", "image", "banner", "poster", "flyer", "card", "kit"],
+    "development": ["development", "code", "web", "app", "react", "nextjs", "javascript", "typescript", "html", "css", "wordpress", "shopify", "plugin", "script", "api", "software", "developer", "coding", "programming", "tech", "website", "saas", "tool", "component", "library", "framework"],
+    "marketing": ["marketing", "email", "newsletter", "ad", "ads", "landing", "seo", "copywriting", "funnel", "campaign", "conversion", "growth", "leads", "sales", "promotion", "advertising", "digital", "content", "strategy", "brand"],
+    "business": ["business", "spreadsheet", "excel", "presentation", "powerpoint", "document", "contract", "invoice", "proposal", "plan", "finance", "startup", "entrepreneur", "company", "corporate", "office", "professional", "management", "report", "pitch", "deck"],
+    "ai": ["ai", "artificial intelligence", "chatgpt", "gpt", "prompt", "midjourney", "dalle", "automation", "machine learning", "openai", "claude", "llm", "bot", "assistant", "generative"],
+    "social-media": ["social", "instagram", "tiktok", "youtube", "twitter", "linkedin", "pinterest", "reels", "shorts", "content", "post", "feed", "story", "stories", "influencer", "creator", "viral", "engagement", "followers"],
+    "productivity": ["productivity", "notion", "planner", "calendar", "checklist", "tracker", "dashboard", "airtable", "organization", "workflow", "todo", "task", "schedule", "time", "management", "efficiency", "system", "template"],
+    "photography": ["photo", "photography", "lightroom", "preset", "overlay", "photoshop", "action", "lut", "stock", "camera", "image", "picture", "portrait", "landscape", "editing", "filter", "color"],
+    "video": ["video", "motion", "after effects", "premiere", "davinci", "transition", "effect", "animation", "film", "movie", "editing", "footage", "vfx", "intro", "outro", "youtube"],
+    "audio-music": ["audio", "music", "sound", "sfx", "loop", "sample", "podcast", "royalty", "beat", "track", "song", "voice", "recording", "mix"],
+    "education": ["education", "course", "ebook", "tutorial", "worksheet", "guide", "learn", "training", "lesson", "class", "teaching", "knowledge", "book", "pdf", "study"],
+    "ecommerce": ["ecommerce", "e-commerce", "store", "shop", "product", "pricing", "shopify", "woocommerce", "sell", "retail", "commerce", "marketplace", "cart", "checkout"],
+    "other": ["other", "misc", "miscellaneous", "general", "various"],
+    "freebies": ["free", "freebie", "giveaway"],
   }
 
   // Filter products
   const filteredProducts = useMemo(() => {
     let products = [...initialProducts]
 
-    // Filter by category - using keyword matching for better results
-    const keywords = categoryKeywords[category] || [category]
-    products = products.filter(p => {
-      const productCategory = (p.category || p.categoryName || "").toLowerCase()
-      const productTitle = (p.title || "").toLowerCase()
-      const productDesc = (p.description || "").toLowerCase()
-      const productTags = p.tags?.map((t: string) => t.toLowerCase()) || []
-      const creatorTags = p.creator?.niche_tags?.map((t: string) => t.toLowerCase()) || []
-      const allSearchableText = `${productCategory} ${productTitle} ${productDesc} ${productTags.join(" ")} ${creatorTags.join(" ")}`
+    // Special handling for "freebies" category - show free products
+    if (category === "freebies") {
+      products = products.filter(p => p.price_cents === 0)
+    }
+    // Special handling for "other" category - show products that don't match main categories
+    else if (category === "other") {
+      const mainCategoryKeywords = Object.entries(categoryKeywords)
+        .filter(([key]) => key !== "other" && key !== "freebies")
+        .flatMap(([_, keywords]) => keywords)
 
-      // Check if any keyword matches
-      return keywords.some(keyword => allSearchableText.includes(keyword))
-    })
+      products = products.filter(p => {
+        const productCategory = (p.category || p.categoryName || "").toLowerCase()
+        const productTitle = (p.title || "").toLowerCase()
+        const productDesc = (p.description || "").toLowerCase()
+        const productTags = p.tags?.map((t: string) => t.toLowerCase()) || []
+        const allSearchableText = `${productCategory} ${productTitle} ${productDesc} ${productTags.join(" ")}`
+
+        // Include if it doesn't strongly match any main category
+        const matchCount = mainCategoryKeywords.filter(keyword => allSearchableText.includes(keyword)).length
+        return matchCount < 3 // Products with less than 3 keyword matches are "other"
+      })
+    }
+    // Regular category filtering - try keyword matching first, fall back to all products
+    else {
+      const keywords = categoryKeywords[category] || [category]
+      const keywordFilteredProducts = products.filter(p => {
+        const productCategory = (p.category || p.categoryName || "").toLowerCase()
+        const productTitle = (p.title || "").toLowerCase()
+        const productDesc = (p.description || "").toLowerCase()
+        const productTags = p.tags?.map((t: string) => t.toLowerCase()) || []
+        const creatorTags = p.creator?.niche_tags?.map((t: string) => t.toLowerCase()) || []
+        const allSearchableText = `${productCategory} ${productTitle} ${productDesc} ${productTags.join(" ")} ${creatorTags.join(" ")}`
+
+        // Check if any keyword matches
+        return keywords.some(keyword => allSearchableText.includes(keyword))
+      })
+
+      // If keyword filtering returns products, use them; otherwise show all products for the category
+      // This ensures users always see products on category pages
+      products = keywordFilteredProducts.length > 0 ? keywordFilteredProducts : products
+    }
 
     // Filter by subcategories
     if (selectedSubcategories.length > 0) {

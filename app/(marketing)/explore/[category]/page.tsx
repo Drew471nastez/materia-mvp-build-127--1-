@@ -17,6 +17,8 @@ const VALID_CATEGORIES = [
   "audio-music",
   "education",
   "ecommerce",
+  "freebies",
+  "other",
 ]
 
 // Category labels for display
@@ -33,6 +35,8 @@ const CATEGORY_LABELS: Record<string, string> = {
   "audio-music": "Audio & Music",
   "education": "Education",
   "ecommerce": "E-commerce",
+  "freebies": "Freebies",
+  "other": "Other",
 }
 
 // Category descriptions for SEO
@@ -49,6 +53,8 @@ const CATEGORY_DESCRIPTIONS: Record<string, string> = {
   "audio-music": "Browse royalty-free music, sound effects, loops and samples. Find the perfect audio for your projects.",
   "education": "Explore online courses, eBooks, tutorials and worksheets. Learn new skills with quality educational content.",
   "ecommerce": "Get store themes, product photography templates and e-commerce tools. Build and grow your online store.",
+  "freebies": "Discover free digital products, templates, and resources. Get started with no cost - perfect for trying before you buy.",
+  "other": "Browse miscellaneous digital products and resources that don't fit into specific categories.",
 }
 
 type Props = {

@@ -171,6 +171,18 @@ const CATEGORIES = [
       { id: "emails", label: "E-commerce Emails" },
     ]
   },
+  {
+    id: "freebies",
+    label: "Freebies",
+    icon: Sparkles,
+    subcategories: []
+  },
+  {
+    id: "other",
+    label: "Other",
+    icon: Layers,
+    subcategories: []
+  },
 ] as const
 
 // Filter types for Recommended section
@@ -840,8 +852,37 @@ export function ExplorePageClient({
   const recommendedProducts = useMemo(() => {
     let products = [...initialProducts]
 
-    // Filter by main category
-    if (mainCategory !== "all") {
+    // Special handling for "freebies" category - show free products
+    if (mainCategory === "freebies") {
+      products = products.filter(p => p.price_cents === 0)
+    }
+    // Special handling for "other" category
+    else if (mainCategory === "other") {
+      // Show products that don't strongly match main categories
+      const mainCategoryKeywords = [
+        "design", "ui", "ux", "graphic", "template", "figma", "canva",
+        "development", "code", "web", "app", "react", "wordpress",
+        "marketing", "email", "ad", "seo", "funnel",
+        "business", "spreadsheet", "presentation", "invoice",
+        "ai", "chatgpt", "gpt", "prompt", "midjourney",
+        "social", "instagram", "tiktok", "youtube",
+        "productivity", "notion", "planner", "calendar",
+        "photo", "lightroom", "preset",
+        "video", "motion", "premiere",
+        "audio", "music", "sound",
+        "education", "course", "ebook",
+        "ecommerce", "store", "shop"
+      ]
+      products = products.filter(p => {
+        const productTitle = (p.title || "").toLowerCase()
+        const productDesc = (p.description || "").toLowerCase()
+        const allText = `${productTitle} ${productDesc}`
+        const matchCount = mainCategoryKeywords.filter(kw => allText.includes(kw)).length
+        return matchCount < 2 // Products with less than 2 keyword matches
+      })
+    }
+    // Regular category filtering
+    else if (mainCategory !== "all") {
       products = products.filter(p => {
         const productCategory = (p.category || p.categoryName || "").toLowerCase()
         const creatorTags = p.creator?.niche_tags?.map((t: string) => t.toLowerCase()) || []
