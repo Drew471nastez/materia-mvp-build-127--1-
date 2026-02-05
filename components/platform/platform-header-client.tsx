@@ -628,9 +628,9 @@ export function PlatformHeaderClient() {
 
   return (
     <>
-      {/* Homepage Announcement Bar */}
+      {/* Homepage Announcement Bar - Black */}
       {pathname === "/" && (
-        <div className="bg-violet-600 text-white">
+        <div className="bg-black text-white">
           <div className="py-2 px-4 md:py-2.5">
             <div className="max-w-[1400px] mx-auto flex items-center justify-center gap-2 md:gap-3 text-center">
               <span className="text-[12px] md:text-[14px] text-white/90">
@@ -639,7 +639,7 @@ export function PlatformHeaderClient() {
               </span>
               <Link
                 href="/signup"
-                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 md:px-4 md:py-1.5 text-[11px] md:text-[12px] font-semibold bg-white text-violet-700 hover:bg-white/90 transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 md:px-4 md:py-1.5 text-[11px] md:text-[12px] font-semibold bg-white text-black hover:bg-white/90 transition-colors"
               >
                 <span>Get Started</span>
                 <ArrowRight className="h-3 w-3 md:h-3.5 md:w-3.5" />
@@ -669,26 +669,24 @@ export function PlatformHeaderClient() {
                   <span className="text-[22px] font-bold text-gray-900 tracking-tight">Storelib</span>
                 </Link>
 
-                {/* Center - Nav Links (only when not logged in) */}
-                {!user && (
-                  <nav className="flex items-center gap-8">
-                    <Link href="/explore" className="text-[15px] font-medium text-gray-600 hover:text-gray-900 transition-colors">
-                      Discover
-                    </Link>
-                    <Link href="/blog" className="text-[15px] font-medium text-gray-600 hover:text-gray-900 transition-colors">
-                      Blog
-                    </Link>
-                    <Link href="/pricing" className="text-[15px] font-medium text-gray-600 hover:text-gray-900 transition-colors">
-                      Pricing
-                    </Link>
-                    <Link href="/features" className="text-[15px] font-medium text-gray-600 hover:text-gray-900 transition-colors">
-                      Features
-                    </Link>
-                    <Link href="/about" className="text-[15px] font-medium text-gray-600 hover:text-gray-900 transition-colors">
-                      About
-                    </Link>
-                  </nav>
-                )}
+                {/* Center - Nav Links (always visible for logged in and not logged in) */}
+                <nav className="flex items-center gap-2">
+                  <Link href="/explore" className="px-4 py-2 rounded-full text-[15px] font-medium text-gray-600 hover:text-gray-900 border border-gray-200 hover:border-gray-300 transition-colors">
+                    Discover
+                  </Link>
+                  <Link href="/blog" className="px-4 py-2 rounded-full text-[15px] font-medium text-gray-600 hover:text-gray-900 border border-gray-200 hover:border-gray-300 transition-colors">
+                    Blog
+                  </Link>
+                  <Link href="/pricing" className="px-4 py-2 rounded-full text-[15px] font-medium text-gray-600 hover:text-gray-900 border border-gray-200 hover:border-gray-300 transition-colors">
+                    Pricing
+                  </Link>
+                  <Link href="/features" className="px-4 py-2 rounded-full text-[15px] font-medium text-gray-600 hover:text-gray-900 border border-gray-200 hover:border-gray-300 transition-colors">
+                    Features
+                  </Link>
+                  <Link href="/about" className="px-4 py-2 rounded-full text-[15px] font-medium text-gray-600 hover:text-gray-900 border border-gray-200 hover:border-gray-300 transition-colors">
+                    About
+                  </Link>
+                </nav>
 
                 {/* Right - Actions */}
                 <div className="flex items-center gap-3">
@@ -696,23 +694,8 @@ export function PlatformHeaderClient() {
                     <HeaderActionsSkeleton />
                   ) : user ? (
                     <>
-                      {/* Discover icon */}
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Link
-                            href="/explore"
-                            className="flex h-11 w-11 items-center justify-center rounded-full text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition cursor-pointer"
-                            aria-label="Discover"
-                          >
-                            <Compass className="h-[22px] w-[22px]" />
-                          </Link>
-                        </TooltipTrigger>
-                        <TooltipContent className="bg-neutral-900 text-white text-xs px-2 py-1" sideOffset={8}>
-                          Discover
-                        </TooltipContent>
-                      </Tooltip>
                       {/* Dashboard Button - redirects to /library for buyers, /app for sellers */}
-                      <Button asChild className="h-11 rounded-full px-6 text-[15px] bg-violet-600 text-white hover:bg-violet-700">
+                      <Button asChild className="h-11 rounded-lg px-6 text-[15px] bg-violet-600 text-white hover:bg-violet-700">
                         <Link href={isCreator ? "/app" : "/library"}>
                           Dashboard
                         </Link>
@@ -720,14 +703,14 @@ export function PlatformHeaderClient() {
                     </>
                   ) : (
                     <>
-                      {/* Log In */}
+                      {/* Log In - Black background, border-radius 8px */}
                       <Link href="/login">
-                        <Button variant="ghost" className="h-11 px-5 rounded-full text-[15px] font-medium text-gray-700 hover:bg-gray-100">
+                        <Button className="h-11 px-5 rounded-lg text-[15px] font-medium bg-black text-white hover:bg-gray-800">
                           Log In
                         </Button>
                       </Link>
-                      {/* Start Selling */}
-                      <Button asChild className="h-11 rounded-full px-6 text-[15px] bg-violet-600 text-white hover:bg-violet-700">
+                      {/* Start Selling - Purple, border-radius 8px */}
+                      <Button asChild className="h-11 rounded-lg px-6 text-[15px] bg-violet-600 text-white hover:bg-violet-700">
                         <Link href="/signup">
                           Start Selling
                         </Link>
@@ -1002,8 +985,8 @@ export function PlatformHeaderClient() {
 
           {/* Mobile Header - different layout for homepage vs other pages */}
           <div className="md:hidden flex items-center justify-between flex-1 -ml-5">
-            {/* Homepage layout (not logged in): Logo left, hamburger right */}
-            {pathname === "/" && !user ? (
+            {/* Homepage layout (both logged in and not logged in): Logo left, hamburger right */}
+            {pathname === "/" ? (
               <>
                 {/* Left - Logo (bigger on homepage) */}
                 <div className="flex items-center gap-0 ml-2">
@@ -1099,9 +1082,8 @@ export function PlatformHeaderClient() {
                     </button>
                   ) : (
                     <Link href="/login">
-                      <Button className="ml-2 h-9 px-5 rounded-full text-sm font-semibold bg-violet-500 text-white hover:bg-violet-600 gap-2">
-                        <UserIcon className="h-4 w-4" />
-                        Sign in
+                      <Button className="ml-2 h-9 px-4 rounded-lg text-sm font-semibold bg-black text-white hover:bg-gray-800">
+                        Log In
                       </Button>
                     </Link>
                   )}
@@ -1250,9 +1232,9 @@ export function PlatformHeaderClient() {
           </>
           )}
 
-        {/* Mobile Search Bar - hidden on homepage when not logged in */}
-        {!(pathname === "/" && !user) && (
-        <div className="md:hidden py-2 border-t border-gray-100 relative">
+        {/* Mobile Search Bar - hidden on homepage, shown on /explore and other pages */}
+        {pathname !== "/" && (
+        <div className="md:hidden py-3 border-t border-gray-100 relative">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 pointer-events-none z-10" />
             <Input
@@ -1436,6 +1418,56 @@ export function PlatformHeaderClient() {
         }}
       >
         <div className="px-4 pb-6">
+          {/* Menu Links FIRST - NOT pill-shaped */}
+          <div className="mb-4">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Menu</h3>
+            <div className="space-y-0.5">
+              <Link
+                href="/explore"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-3">
+                  <Compass className="h-5 w-5 text-gray-400" />
+                  <span>Discover</span>
+                </div>
+                <ChevronRight className="h-5 w-5 text-gray-400" />
+              </Link>
+              <Link
+                href="/blog"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
+              >
+                <span className="pl-8">Blog</span>
+                <ChevronRight className="h-5 w-5 text-gray-400" />
+              </Link>
+              <Link
+                href="/pricing"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
+              >
+                <span className="pl-8">Pricing</span>
+                <ChevronRight className="h-5 w-5 text-gray-400" />
+              </Link>
+              <Link
+                href="/features"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
+              >
+                <span className="pl-8">Features</span>
+                <ChevronRight className="h-5 w-5 text-gray-400" />
+              </Link>
+              <Link
+                href="/about"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
+              >
+                <span className="pl-8">About</span>
+                <ChevronRight className="h-5 w-5 text-gray-400" />
+              </Link>
+            </div>
+          </div>
+
           {/* Guest User Banner with Sign In / Start Selling */}
           {!user && (
             <>
@@ -1451,28 +1483,18 @@ export function PlatformHeaderClient() {
                     </div>
                   </div>
                   <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
-                    <Button className="h-9 px-4 rounded-full text-sm font-medium bg-violet-600 text-white hover:bg-violet-700">
-                      Sign in
-                      <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                    <Button className="h-9 px-4 rounded-lg text-sm font-medium bg-black text-white hover:bg-gray-800">
+                      Log In
                     </Button>
                   </Link>
                 </div>
               </div>
               {/* Start Selling button - below Guest banner */}
-              <Link href="/signup" onClick={() => setMobileMenuOpen(false)} className="block mb-3">
-                <Button variant="outline" className="w-full h-11 rounded-xl text-sm font-medium border-gray-300 text-gray-700 bg-white hover:bg-gray-50">
+              <Link href="/signup" onClick={() => setMobileMenuOpen(false)} className="block mb-4">
+                <Button className="w-full h-11 rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700">
                   Start Selling
                 </Button>
               </Link>
-              {/* Discover button - only on homepage mobile */}
-              {pathname === "/" && (
-                <Link href="/explore" onClick={() => setMobileMenuOpen(false)} className="block mb-4">
-                  <Button className="w-full h-11 rounded-xl text-sm font-medium bg-violet-600 text-white hover:bg-violet-700 gap-2">
-                    <Compass className="h-4 w-4" />
-                    Discover
-                  </Button>
-                </Link>
-              )}
             </>
           )}
 
@@ -1531,42 +1553,44 @@ export function PlatformHeaderClient() {
               })()}
             </>
           ) : (
-            /* Main Categories List */
+            /* Browse Categories - AFTER menu links */
             <>
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Browse Categories</h3>
-              <div className="space-y-0.5">
-                {CATEGORIES_WITH_SUBS.map((cat) => {
-                  const Icon = cat.icon
-                  const hasSubcats = cat.subcategories && cat.subcategories.length > 0
-                  return (
-                    <button
-                      key={cat.label}
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        if (hasSubcats) {
-                          setExpandedCategory(cat.label)
-                        } else {
-                          router.push(cat.href)
-                          setMobileMenuOpen(false)
-                        }
-                      }}
-                      className="flex items-center justify-between w-full px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
-                    >
-                      <div className="flex items-center gap-3">
-                        <Icon className="h-5 w-5 text-gray-400" />
-                        <span>{cat.label}</span>
-                        {cat.isHot && (
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-600">
-                            <Flame className="h-3 w-3" />
-                            Hot
-                          </span>
-                        )}
-                      </div>
-                      <ChevronRight className="h-5 w-5 text-gray-400" />
-                    </button>
-                  )
-                })}
+              <div className="pt-4 border-t border-gray-200">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Browse Categories</h3>
+                <div className="space-y-0.5">
+                  {CATEGORIES_WITH_SUBS.map((cat) => {
+                    const Icon = cat.icon
+                    const hasSubcats = cat.subcategories && cat.subcategories.length > 0
+                    return (
+                      <button
+                        key={cat.label}
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (hasSubcats) {
+                            setExpandedCategory(cat.label)
+                          } else {
+                            router.push(cat.href)
+                            setMobileMenuOpen(false)
+                          }
+                        }}
+                        className="flex items-center justify-between w-full px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
+                      >
+                        <div className="flex items-center gap-3">
+                          <Icon className="h-5 w-5 text-gray-400" />
+                          <span>{cat.label}</span>
+                          {cat.isHot && (
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-600">
+                              <Flame className="h-3 w-3" />
+                              Hot
+                            </span>
+                          )}
+                        </div>
+                        <ChevronRight className="h-5 w-5 text-gray-400" />
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
 
               {/* Quick Links section */}
