@@ -407,7 +407,7 @@ function MobileFilterSheet({
           </div>
         </div>
 
-        <div className="flex items-center gap-3 px-4 py-4 border-t border-neutral-100 bg-white">
+        <div className="flex items-center gap-3 px-4 pt-4 pb-8 border-t border-neutral-100 bg-white" style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}>
           <button
             onClick={resetFilters}
             className="flex-1 px-4 py-3 rounded-xl text-sm font-medium text-neutral-600 bg-neutral-100 hover:bg-neutral-200 transition-colors cursor-pointer"
@@ -1229,16 +1229,6 @@ export function ExplorePageClient({
                   <Layers className="w-4 h-4" />
                   <span>By Category</span>
                   <ChevronDown className="w-3.5 h-3.5" />
-                </button>
-
-                {/* Search Button */}
-                <button
-                  onClick={() => setSearchOpen(!searchOpen)}
-                  className={`inline-flex items-center justify-center w-10 h-10 rounded-full transition-all duration-150 cursor-pointer ${
-                    searchOpen ? "bg-neutral-900 text-white" : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
-                  }`}
-                >
-                  <Search className="w-4 h-4" />
                 </button>
 
                 {/* Filters Button */}

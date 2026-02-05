@@ -771,8 +771,8 @@ export function PlatformHeaderClient() {
 
   return (
     <>
-      {/* Homepage Announcement Bar */}
-      {pathname === "/" && (
+      {/* Homepage and Features Page Announcement Bar */}
+      {(pathname === "/" || pathname === "/features") && (
         <div className="bg-violet-600 text-white">
           <div className="py-2 px-4 md:py-2.5">
             <div className="max-w-[1400px] mx-auto flex items-center justify-center gap-2 md:gap-3 text-center">
@@ -1668,8 +1668,8 @@ export function PlatformHeaderClient() {
 
           {/* Menu Links - On Homepage and Marketing Pages */}
           {(pathname === "/" || pathname === "/features" || pathname === "/pricing" || pathname === "/about" || pathname === "/blog") && (
-            <div className="mb-4 pb-4 border-b border-gray-200">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Menu</h3>
+            <div className="mb-4 pb-4 border-b border-gray-200 mt-2">
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2 pt-1">Menu</h3>
               <div className="space-y-0.5">
                 <Link
                   href="/explore"
