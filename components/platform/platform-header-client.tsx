@@ -454,23 +454,23 @@ function MobileBottomSheet({
   )
 }
 
-// Animated Hamburger Icon Component
+// Animated Hamburger Icon Component - subtle animation only
 function AnimatedHamburger({ isOpen }: { isOpen: boolean }) {
   return (
-    <div className="w-5 h-5 flex flex-col justify-center items-center relative">
+    <div className="w-5 h-5 flex flex-col justify-center items-center gap-1">
       <span
-        className={`block h-0.5 w-5 bg-current rounded-full transition-all duration-300 ease-out ${
-          isOpen ? "rotate-45 translate-y-0" : "-translate-y-1.5"
+        className={`block h-0.5 w-5 bg-current rounded-full transition-all duration-200 ease-out ${
+          isOpen ? "opacity-60" : "opacity-100"
         }`}
       />
       <span
-        className={`block h-0.5 w-5 bg-current rounded-full transition-all duration-300 ease-out ${
-          isOpen ? "opacity-0 scale-0" : "opacity-100 scale-100"
+        className={`block h-0.5 w-5 bg-current rounded-full transition-all duration-200 ease-out ${
+          isOpen ? "opacity-60 w-3" : "opacity-100 w-5"
         }`}
       />
       <span
-        className={`block h-0.5 w-5 bg-current rounded-full transition-all duration-300 ease-out ${
-          isOpen ? "-rotate-45 translate-y-0" : "translate-y-1.5"
+        className={`block h-0.5 w-5 bg-current rounded-full transition-all duration-200 ease-out ${
+          isOpen ? "opacity-60" : "opacity-100"
         }`}
       />
     </div>
@@ -1780,21 +1780,28 @@ export function PlatformHeaderClient() {
                 {CATEGORIES_WITH_SUBS.map((cat) => {
                   const Icon = cat.icon
                   const hasSubcats = cat.subcategories && cat.subcategories.length > 0
+
+                  const handleCategoryClick = () => {
+                    if (hasSubcats) {
+                      setExpandedCategory(cat.label)
+                    } else {
+                      router.push(cat.href)
+                      setMobileMenuOpen(false)
+                    }
+                  }
+
                   return (
                     <button
                       key={cat.label}
                       type="button"
-                      onClick={() => {
-                        if (hasSubcats) {
-                          setExpandedCategory(cat.label)
-                        } else {
-                          router.push(cat.href)
-                          setMobileMenuOpen(false)
-                        }
+                      onClick={handleCategoryClick}
+                      onTouchEnd={(e) => {
+                        e.preventDefault()
+                        handleCategoryClick()
                       }}
-                      className="flex items-center justify-between w-full px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer active:bg-gray-200"
+                      className="flex items-center justify-between w-full px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer active:bg-gray-200 touch-manipulation select-none"
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 pointer-events-none">
                         <Icon className="h-5 w-5 text-gray-400" />
                         <span>{cat.label}</span>
                         {cat.isHot && (
@@ -1804,7 +1811,7 @@ export function PlatformHeaderClient() {
                           </span>
                         )}
                       </div>
-                      <ChevronRight className="h-5 w-5 text-gray-400" />
+                      <ChevronRight className="h-5 w-5 text-gray-400 pointer-events-none" />
                     </button>
                   )
                 })}
