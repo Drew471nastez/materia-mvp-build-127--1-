@@ -630,7 +630,7 @@ export function PlatformHeaderClient() {
     <>
       {/* Homepage Announcement Bar */}
       {pathname === "/" && (
-        <div className="bg-[#1a1a1a] text-white">
+        <div className="bg-violet-600 text-white">
           <div className="py-2 px-4 md:py-2.5">
             <div className="max-w-[1400px] mx-auto flex items-center justify-center gap-2 md:gap-3 text-center">
               <span className="text-[12px] md:text-[14px] text-white/90">
@@ -1244,134 +1244,135 @@ export function PlatformHeaderClient() {
           </>
           )}
 
-        {/* Mobile Search Bar - hidden on homepage, shown on /explore and other pages */}
-        {pathname !== "/" && (
-        <div className="md:hidden py-3 border-t border-gray-100 relative">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 pointer-events-none z-10" />
-            <Input
-              value={query}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              onFocus={() => setSearchModalOpen(true)}
-              placeholder={t("search_placeholder")}
-              className="h-10 w-full pl-10 pr-10 bg-gray-100 border-gray-200 text-gray-900 placeholder:text-gray-500 rounded-full text-sm"
-            />
-            {query && (
-              <button
-                type="button"
-                onClick={() => {
-                  setQuery("")
-                  setSearchResults([])
-                }}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer z-10"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
+        </div>
 
-          {/* Mobile Search Modal */}
-          {searchModalOpen && (
-            <>
-              <div
-                className="fixed inset-0 z-40 bg-black/20"
-                onClick={() => setSearchModalOpen(false)}
+        {/* Mobile Search Bar - hidden on homepage, shown on /explore and other pages - OUTSIDE main flex container */}
+        {pathname !== "/" && (
+          <div className="md:hidden py-3 border-t border-gray-100 relative">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 pointer-events-none z-10" />
+              <Input
+                value={query}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                onFocus={() => setSearchModalOpen(true)}
+                placeholder={t("search_placeholder")}
+                className="h-10 w-full pl-10 pr-10 bg-gray-100 border-gray-200 text-gray-900 placeholder:text-gray-500 rounded-full text-sm"
               />
-              <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden animate-in fade-in-0 slide-in-from-top-2 duration-200 z-50 max-h-[60vh] overflow-y-auto mx-4">
-                {!query && (
-                  <div className="p-4 border-b border-gray-100">
-                    <h3 className="text-sm font-semibold text-gray-900 mb-3">Categories</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {SEARCH_CATEGORIES.map((cat) => (
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQuery("")
+                    setSearchResults([])
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer z-10"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Mobile Search Modal */}
+            {searchModalOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-40 bg-black/20"
+                  onClick={() => setSearchModalOpen(false)}
+                />
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden animate-in fade-in-0 slide-in-from-top-2 duration-200 z-50 max-h-[60vh] overflow-y-auto mx-4">
+                  {!query && (
+                    <div className="p-4 border-b border-gray-100">
+                      <h3 className="text-sm font-semibold text-gray-900 mb-3">Categories</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {SEARCH_CATEGORIES.map((cat) => (
+                          <Link
+                            key={cat.label}
+                            href={cat.href}
+                            onClick={() => setSearchModalOpen(false)}
+                            className="px-3 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 transition-colors cursor-pointer"
+                          >
+                            {cat.label}
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {searchLoading && (
+                    <div className="p-6 flex items-center justify-center">
+                      <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
+                      <span className="ml-2 text-sm text-gray-500">Searching...</span>
+                    </div>
+                  )}
+
+                  {!searchLoading && searchResults.length > 0 && (
+                    <div className="p-2">
+                      <h3 className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">Products</h3>
+                      {searchResults.map((product) => (
                         <Link
-                          key={cat.label}
-                          href={cat.href}
+                          key={product.id}
+                          href={`/p/${product.slug}`}
                           onClick={() => setSearchModalOpen(false)}
-                          className="px-3 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 transition-colors cursor-pointer"
+                          className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
                         >
-                          {cat.label}
+                          {product.thumbnail_url ? (
+                            <Image
+                              src={product.thumbnail_url}
+                              alt={product.title}
+                              width={48}
+                              height={48}
+                              className="w-12 h-12 rounded-lg object-cover border border-gray-200"
+                            />
+                          ) : (
+                            <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
+                              <Search className="w-5 h-5 text-gray-400" />
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate">{product.title}</p>
+                            {product.creator?.display_name && (
+                              <p className="text-xs text-gray-500 truncate">Product by {product.creator.display_name}</p>
+                            )}
+                          </div>
+                          <div className="text-sm font-medium text-gray-900">
+                            {product.price_cents === 0 ? "Free" : `$${(product.price_cents / 100).toFixed(0)}+`}
+                          </div>
                         </Link>
                       ))}
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {searchLoading && (
-                  <div className="p-6 flex items-center justify-center">
-                    <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
-                    <span className="ml-2 text-sm text-gray-500">Searching...</span>
-                  </div>
-                )}
+                  {!searchLoading && query.trim().length >= 1 && searchResults.length === 0 && (
+                    <div className="p-6 text-center">
+                      <p className="text-sm text-gray-500">No products found for "{query}"</p>
+                    </div>
+                  )}
 
-                {!searchLoading && searchResults.length > 0 && (
-                  <div className="p-2">
-                    <h3 className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">Products</h3>
-                    {searchResults.map((product) => (
-                      <Link
-                        key={product.id}
-                        href={`/p/${product.slug}`}
-                        onClick={() => setSearchModalOpen(false)}
-                        className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+                  {!query && (
+                    <div className="p-4 bg-gray-50 text-center">
+                      <p className="text-xs text-gray-500">Start typing to search products</p>
+                    </div>
+                  )}
+
+                  {query.trim() && (
+                    <div className="p-3 border-t border-gray-100 bg-gray-50">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          router.push(`/explore?q=${encodeURIComponent(query)}`)
+                          setSearchModalOpen(false)
+                        }}
+                        className="w-full py-2.5 rounded-lg text-sm font-medium text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
                       >
-                        {product.thumbnail_url ? (
-                          <Image
-                            src={product.thumbnail_url}
-                            alt={product.title}
-                            width={48}
-                            height={48}
-                            className="w-12 h-12 rounded-lg object-cover border border-gray-200"
-                          />
-                        ) : (
-                          <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
-                            <Search className="w-5 h-5 text-gray-400" />
-                          </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">{product.title}</p>
-                          {product.creator?.display_name && (
-                            <p className="text-xs text-gray-500 truncate">Product by {product.creator.display_name}</p>
-                          )}
-                        </div>
-                        <div className="text-sm font-medium text-gray-900">
-                          {product.price_cents === 0 ? "Free" : `$${(product.price_cents / 100).toFixed(0)}+`}
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                )}
-
-                {!searchLoading && query.trim().length >= 1 && searchResults.length === 0 && (
-                  <div className="p-6 text-center">
-                    <p className="text-sm text-gray-500">No products found for "{query}"</p>
-                  </div>
-                )}
-
-                {!query && (
-                  <div className="p-4 bg-gray-50 text-center">
-                    <p className="text-xs text-gray-500">Start typing to search products</p>
-                  </div>
-                )}
-
-                {query.trim() && (
-                  <div className="p-3 border-t border-gray-100 bg-gray-50">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        router.push(`/explore?q=${encodeURIComponent(query)}`)
-                        setSearchModalOpen(false)
-                      }}
-                      className="w-full py-2.5 rounded-lg text-sm font-medium text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
-                    >
-                      View all results for "{query}"
-                    </button>
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-        </div>
+                        View all results for "{query}"
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
         )}
-        </div>
 
         {/* Mobile Category Pills */}
         {showCategories && (
@@ -1453,12 +1454,57 @@ export function PlatformHeaderClient() {
                 </div>
               </div>
               {/* Start Selling button - below Guest banner */}
-              <Link href="/signup" onClick={() => setMobileMenuOpen(false)} className="block mb-4">
+              <Link href="/signup" onClick={() => setMobileMenuOpen(false)} className="block mb-2">
                 <Button className="w-full h-11 rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700">
                   Start Selling
                 </Button>
               </Link>
+              {/* Discover button - black with icon */}
+              <Link href="/explore" onClick={() => setMobileMenuOpen(false)} className="block mb-4">
+                <Button className="w-full h-11 rounded-lg text-sm font-medium bg-gray-900 text-white hover:bg-gray-800 gap-2">
+                  <Compass className="h-4 w-4" />
+                  Discover
+                </Button>
+              </Link>
             </>
+          )}
+
+          {/* Logged-in User Profile Section - Only on Homepage */}
+          {user && pathname === "/" && (
+            <div className="mb-4 pb-4 border-b border-gray-200">
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-11 w-11 border border-gray-200">
+                    <AvatarImage src={avatarUrl || "/placeholder.svg"} alt={displayName} />
+                    <AvatarFallback className="text-sm bg-gray-100 text-gray-700">{initials}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">{displayName}</p>
+                    {user.email && <p className="text-xs text-gray-500 truncate">{user.email}</p>}
+                  </div>
+                </div>
+                <Link href={dashboardHref} onClick={() => setMobileMenuOpen(false)}>
+                  <Button className="h-9 px-4 rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700">
+                    Dashboard
+                  </Button>
+                </Link>
+              </div>
+              {/* Start Selling button for logged-in users who are not creators */}
+              {!isCreator && (
+                <Link href="/onboarding" onClick={() => setMobileMenuOpen(false)} className="block mt-3 mb-2">
+                  <Button className="w-full h-11 rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700">
+                    Start Selling
+                  </Button>
+                </Link>
+              )}
+              {/* Discover button - black with icon */}
+              <Link href="/explore" onClick={() => setMobileMenuOpen(false)} className="block mt-3">
+                <Button className="w-full h-11 rounded-lg text-sm font-medium bg-gray-900 text-white hover:bg-gray-800 gap-2">
+                  <Compass className="h-4 w-4" />
+                  Discover
+                </Button>
+              </Link>
+            </div>
           )}
 
           {/* Menu Links - Only on Homepage */}
@@ -1471,10 +1517,7 @@ export function PlatformHeaderClient() {
                   onClick={() => setMobileMenuOpen(false)}
                   className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
                 >
-                  <div className="flex items-center gap-3">
-                    <Compass className="h-5 w-5 text-gray-400" />
-                    <span>Discover</span>
-                  </div>
+                  <span>Discover</span>
                   <ChevronRight className="h-5 w-5 text-gray-400" />
                 </Link>
                 <Link
@@ -1482,7 +1525,7 @@ export function PlatformHeaderClient() {
                   onClick={() => setMobileMenuOpen(false)}
                   className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
                 >
-                  <span className="pl-8">Blog</span>
+                  <span>Blog</span>
                   <ChevronRight className="h-5 w-5 text-gray-400" />
                 </Link>
                 <Link
@@ -1490,7 +1533,7 @@ export function PlatformHeaderClient() {
                   onClick={() => setMobileMenuOpen(false)}
                   className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
                 >
-                  <span className="pl-8">Pricing</span>
+                  <span>Pricing</span>
                   <ChevronRight className="h-5 w-5 text-gray-400" />
                 </Link>
                 <Link
@@ -1498,7 +1541,7 @@ export function PlatformHeaderClient() {
                   onClick={() => setMobileMenuOpen(false)}
                   className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
                 >
-                  <span className="pl-8">Features</span>
+                  <span>Features</span>
                   <ChevronRight className="h-5 w-5 text-gray-400" />
                 </Link>
                 <Link
@@ -1506,7 +1549,7 @@ export function PlatformHeaderClient() {
                   onClick={() => setMobileMenuOpen(false)}
                   className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
                 >
-                  <span className="pl-8">About</span>
+                  <span>About</span>
                   <ChevronRight className="h-5 w-5 text-gray-400" />
                 </Link>
               </div>
