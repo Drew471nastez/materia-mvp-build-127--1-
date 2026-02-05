@@ -419,12 +419,16 @@ function CategorySelectorModal({
   isOpen,
   onClose,
   selectedCategory,
+  selectedSubcategory,
   onSelectCategory,
+  onSelectSubcategory,
 }: {
   isOpen: boolean
   onClose: () => void
   selectedCategory: string
-  onSelectCategory: (categoryId: string) => void
+  selectedSubcategory: string | null
+  onSelectCategory: (categoryId: string, subcategoryId?: string, subcategoryLabel?: string) => void
+  onSelectSubcategory: (categoryId: string, subcategoryId: string, subcategoryLabel: string) => void
 }) {
   const [isVisible, setIsVisible] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
@@ -493,8 +497,13 @@ function CategorySelectorModal({
     else setDragY(0)
   }
 
-  const handleSelect = (categoryId: string) => {
+  const handleSelectCategory = (categoryId: string) => {
     onSelectCategory(categoryId)
+    handleClose()
+  }
+
+  const handleSelectSubcategory = (categoryId: string, subId: string, subLabel: string) => {
+    onSelectSubcategory(categoryId, subId, subLabel)
     handleClose()
   }
 
@@ -502,7 +511,7 @@ function CategorySelectorModal({
     if (cat.subcategories && cat.subcategories.length > 0) {
       setExpandedCategory(expandedCategory === cat.id ? null : cat.id)
     } else {
-      handleSelect(cat.id)
+      handleSelectCategory(cat.id)
     }
   }
 
@@ -531,14 +540,14 @@ function CategorySelectorModal({
           <div className="p-3 max-h-[60vh] overflow-y-auto">
             {CATEGORIES.map((cat) => {
               const Icon = cat.icon
-              const isSelected = selectedCategory === cat.id
+              const isSelected = selectedCategory === cat.id && !selectedSubcategory
               const isExpanded = expandedCategory === cat.id
               const hasSubcats = cat.subcategories && cat.subcategories.length > 0
 
               return (
                 <div key={cat.id}>
                   <button
-                    onClick={() => hasSubcats ? handleCategoryClick(cat) : handleSelect(cat.id)}
+                    onClick={() => handleCategoryClick(cat)}
                     className={`flex items-center gap-3 w-full px-4 py-3.5 rounded-xl text-left transition-all duration-150 cursor-pointer ${
                       isSelected
                         ? "bg-neutral-900 text-white"
@@ -556,23 +565,28 @@ function CategorySelectorModal({
                   {hasSubcats && isExpanded && (
                     <div className="ml-8 mt-1 mb-2 space-y-1 animate-in fade-in slide-in-from-top-2 duration-200">
                       <button
-                        onClick={() => handleSelect(cat.id)}
+                        onClick={() => handleSelectCategory(cat.id)}
                         className={`flex items-center gap-2 w-full px-4 py-2.5 rounded-lg text-sm text-left transition-all duration-150 cursor-pointer ${
-                          selectedCategory === cat.id
+                          selectedCategory === cat.id && !selectedSubcategory
                             ? "bg-violet-100 text-violet-700 font-medium"
                             : "text-neutral-600 hover:bg-neutral-50"
                         }`}
                       >
                         <span>All {cat.label}</span>
-                        {selectedCategory === cat.id && <Check className="w-4 h-4 ml-auto" />}
+                        {selectedCategory === cat.id && !selectedSubcategory && <Check className="w-4 h-4 ml-auto" />}
                       </button>
                       {cat.subcategories.map((sub) => (
                         <button
                           key={sub.id}
-                          onClick={() => handleSelect(cat.id)}
-                          className="flex items-center gap-2 w-full px-4 py-2.5 rounded-lg text-sm text-left text-neutral-600 hover:bg-neutral-50 transition-all duration-150 cursor-pointer"
+                          onClick={() => handleSelectSubcategory(cat.id, sub.id, sub.label)}
+                          className={`flex items-center gap-2 w-full px-4 py-2.5 rounded-lg text-sm text-left transition-all duration-150 cursor-pointer ${
+                            selectedSubcategory === sub.id
+                              ? "bg-violet-100 text-violet-700 font-medium"
+                              : "text-neutral-600 hover:bg-neutral-50"
+                          }`}
                         >
                           <span>{sub.label}</span>
+                          {selectedSubcategory === sub.id && <Check className="w-4 h-4 ml-auto" />}
                         </button>
                       ))}
                     </div>
@@ -609,17 +623,17 @@ function CategorySelectorModal({
         <div className="overflow-y-auto overscroll-contain p-3" style={{ maxHeight: 'calc(85vh - 80px)' }}>
           {CATEGORIES.map((cat) => {
             const Icon = cat.icon
-            const isSelected = selectedCategory === cat.id
+            const isSelected = selectedCategory === cat.id && !selectedSubcategory
             const isExpanded = expandedCategory === cat.id
             const hasSubcats = cat.subcategories && cat.subcategories.length > 0
 
             return (
               <div key={cat.id}>
                 <button
-                  onClick={() => hasSubcats ? handleCategoryClick(cat) : handleSelect(cat.id)}
+                  onClick={() => handleCategoryClick(cat)}
                   onTouchEnd={(e) => {
                     e.preventDefault()
-                    hasSubcats ? handleCategoryClick(cat) : handleSelect(cat.id)
+                    handleCategoryClick(cat)
                   }}
                   className={`flex items-center gap-3 w-full px-4 py-4 rounded-xl text-left transition-all duration-150 cursor-pointer touch-manipulation ${
                     isSelected
@@ -638,32 +652,37 @@ function CategorySelectorModal({
                 {hasSubcats && isExpanded && (
                   <div className="ml-6 mt-1 mb-2 space-y-1 animate-in fade-in slide-in-from-top-2 duration-200">
                     <button
-                      onClick={() => handleSelect(cat.id)}
+                      onClick={() => handleSelectCategory(cat.id)}
                       onTouchEnd={(e) => {
                         e.preventDefault()
-                        handleSelect(cat.id)
+                        handleSelectCategory(cat.id)
                       }}
                       className={`flex items-center gap-2 w-full px-4 py-3 rounded-lg text-sm text-left transition-all duration-150 cursor-pointer touch-manipulation ${
-                        selectedCategory === cat.id
+                        selectedCategory === cat.id && !selectedSubcategory
                           ? "bg-violet-100 text-violet-700 font-medium"
                           : "text-neutral-600 hover:bg-neutral-50"
                       }`}
                     >
                       <span>All {cat.label}</span>
-                      {selectedCategory === cat.id && <Check className="w-4 h-4 ml-auto" />}
+                      {selectedCategory === cat.id && !selectedSubcategory && <Check className="w-4 h-4 ml-auto" />}
                     </button>
                     {cat.subcategories.map((sub, index) => (
                       <button
                         key={sub.id}
-                        onClick={() => handleSelect(cat.id)}
+                        onClick={() => handleSelectSubcategory(cat.id, sub.id, sub.label)}
                         onTouchEnd={(e) => {
                           e.preventDefault()
-                          handleSelect(cat.id)
+                          handleSelectSubcategory(cat.id, sub.id, sub.label)
                         }}
-                        className="flex items-center gap-2 w-full px-4 py-3 rounded-lg text-sm text-left text-neutral-600 hover:bg-neutral-50 transition-all duration-150 cursor-pointer touch-manipulation animate-in fade-in slide-in-from-right-2"
+                        className={`flex items-center gap-2 w-full px-4 py-3 rounded-lg text-sm text-left transition-all duration-150 cursor-pointer touch-manipulation animate-in fade-in slide-in-from-right-2 ${
+                          selectedSubcategory === sub.id
+                            ? "bg-violet-100 text-violet-700 font-medium"
+                            : "text-neutral-600 hover:bg-neutral-50"
+                        }`}
                         style={{ animationDelay: `${index * 30}ms`, animationFillMode: 'both' }}
                       >
                         <span>{sub.label}</span>
+                        {selectedSubcategory === sub.id && <Check className="w-4 h-4 ml-auto" />}
                       </button>
                     ))}
                   </div>
@@ -726,6 +745,20 @@ function SearchInput({
   )
 }
 
+// Smooth scroll utility function
+function smoothScrollToSection(ref: React.RefObject<HTMLElement | null>) {
+  if (ref.current) {
+    const yOffset = -100 // Offset for fixed header
+    const element = ref.current
+    const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset
+
+    window.scrollTo({
+      top: y,
+      behavior: 'smooth'
+    })
+  }
+}
+
 interface ExplorePageClientProps {
   initialProducts: any[]
   initialCategory: string
@@ -744,6 +777,10 @@ export function ExplorePageClient({
   // Main category (for Recommended section)
   const [mainCategory, setMainCategory] = useState(initialCategory.toLowerCase() || "all")
 
+  // Selected subcategory from modal
+  const [selectedSubcategoryId, setSelectedSubcategoryId] = useState<string | null>(null)
+  const [selectedSubcategoryLabel, setSelectedSubcategoryLabel] = useState<string | null>(null)
+
   // Separate category for the Browse by Category section
   const [browseCategory, setBrowseCategory] = useState("all")
 
@@ -751,7 +788,6 @@ export function ExplorePageClient({
   const [recommendationFilter, setRecommendationFilter] = useState<"curated" | "trending" | "hot-new">("curated")
   const categoryChangeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const categorySectionRef = useRef<HTMLElement>(null)
-  const hasScrolledRef = useRef(false)
 
   // Filter states
   const [priceFilter, setPriceFilter] = useState<string>("all")
@@ -773,22 +809,21 @@ export function ExplorePageClient({
   // Smooth scroll to Recommended section when category changes from URL
   useEffect(() => {
     const categoryParam = searchParams.get("category")
-    if (categoryParam && categoryParam !== "all" && !hasScrolledRef.current) {
-      hasScrolledRef.current = true
-      setTimeout(() => {
-        categorySectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
-      }, 150)
+    const subParam = searchParams.get("sub")
+
+    if (categoryParam && categoryParam !== "all") {
+      // Small delay to ensure DOM is ready
+      const timer = setTimeout(() => {
+        smoothScrollToSection(categorySectionRef)
+      }, 200)
+      return () => clearTimeout(timer)
     }
   }, [searchParams])
-
-  useEffect(() => {
-    if (mainCategory === "all") hasScrolledRef.current = false
-  }, [mainCategory])
 
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1)
-  }, [mainCategory, recommendationFilter, priceFilter, sortBy, selectedSubcategories, localSearchQuery])
+  }, [mainCategory, selectedSubcategoryId, recommendationFilter, priceFilter, sortBy, selectedSubcategories, localSearchQuery])
 
   // Get available subcategories for current main category
   const availableSubcategories = useMemo(() => {
@@ -801,7 +836,7 @@ export function ExplorePageClient({
     return initialProducts.filter(p => p.thumbnail_url).slice(0, 5)
   }, [initialProducts])
 
-  // Get Recommended section products (based on main category)
+  // Get Recommended section products (based on main category and subcategory)
   const recommendedProducts = useMemo(() => {
     let products = [...initialProducts]
 
@@ -810,11 +845,29 @@ export function ExplorePageClient({
       products = products.filter(p => {
         const productCategory = (p.category || p.categoryName || "").toLowerCase()
         const creatorTags = p.creator?.niche_tags?.map((t: string) => t.toLowerCase()) || []
-        return productCategory === mainCategory || creatorTags.includes(mainCategory)
+        return productCategory === mainCategory ||
+               productCategory.includes(mainCategory) ||
+               creatorTags.includes(mainCategory) ||
+               creatorTags.some((tag: string) => tag.includes(mainCategory))
       })
     }
 
-    // Filter by subcategories
+    // Filter by selected subcategory from modal
+    if (selectedSubcategoryId) {
+      products = products.filter(p => {
+        const productSub = (p.subcategory || "").toLowerCase()
+        const productTags = p.tags?.map((t: string) => t.toLowerCase()) || []
+        const productTitle = (p.title || "").toLowerCase()
+        const productDesc = (p.description || "").toLowerCase()
+
+        return productSub.includes(selectedSubcategoryId) ||
+               productTags.some((tag: string) => tag.includes(selectedSubcategoryId)) ||
+               productTitle.includes(selectedSubcategoryId) ||
+               productDesc.includes(selectedSubcategoryId)
+      })
+    }
+
+    // Filter by subcategories from filters
     if (selectedSubcategories.length > 0) {
       products = products.filter(p => {
         const productSub = (p.subcategory || "").toLowerCase()
@@ -890,7 +943,7 @@ export function ExplorePageClient({
     }
 
     return products
-  }, [initialProducts, mainCategory, recommendationFilter, priceFilter, sortBy, selectedSubcategories, localSearchQuery])
+  }, [initialProducts, mainCategory, selectedSubcategoryId, recommendationFilter, priceFilter, sortBy, selectedSubcategories, localSearchQuery])
 
   // Paginated products
   const paginatedProducts = useMemo(() => {
@@ -937,17 +990,20 @@ export function ExplorePageClient({
     setSelectedSubcategories([])
   }, [])
 
-  // Get section title
+  // Get section title - shows subcategory label if selected
   const sectionTitle = useMemo(() => {
     if (urlSearchQuery) return `Results for "${urlSearchQuery}"`
+    if (selectedSubcategoryLabel) return selectedSubcategoryLabel
     if (mainCategory === "all") return "Recommended"
     return CATEGORIES.find(c => c.id === mainCategory)?.label || "Products"
-  }, [mainCategory, urlSearchQuery])
+  }, [mainCategory, selectedSubcategoryLabel, urlSearchQuery])
 
   // Handle category change - updates main category and scrolls to Recommended section
-  const handleCategoryChange = useCallback((categoryId: string) => {
+  const handleCategoryChange = useCallback((categoryId: string, subcategoryId?: string, subcategoryLabel?: string) => {
     setMainCategory(categoryId)
-    setBrowseCategory(categoryId) // Also sync browse category
+    setBrowseCategory(categoryId)
+    setSelectedSubcategoryId(subcategoryId || null)
+    setSelectedSubcategoryLabel(subcategoryLabel || null)
     setSelectedSubcategories([])
     setIsLoadingCategory(true)
 
@@ -955,19 +1011,30 @@ export function ExplorePageClient({
 
     categoryChangeTimeoutRef.current = setTimeout(() => {
       startTransition(() => {
-        const newUrl = `/explore?category=${categoryId}${urlSearchQuery ? `&q=${urlSearchQuery}` : ""}`
+        let newUrl = `/explore?category=${categoryId}`
+        if (subcategoryId) {
+          newUrl += `&sub=${subcategoryId}`
+        }
+        if (urlSearchQuery) {
+          newUrl += `&q=${urlSearchQuery}`
+        }
         router.push(newUrl, { scroll: false })
       })
       setIsLoadingCategory(false)
 
-      // Smooth scroll to Recommended section
-      if (categoryId !== "all") {
+      // Smooth scroll to Recommended section for both desktop and mobile
+      if (categoryId !== "all" || subcategoryId) {
         setTimeout(() => {
-          categorySectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
-        }, 100)
+          smoothScrollToSection(categorySectionRef)
+        }, 150)
       }
     }, 100)
   }, [router, urlSearchQuery])
+
+  // Handle subcategory selection from modal
+  const handleSubcategorySelect = useCallback((categoryId: string, subcategoryId: string, subcategoryLabel: string) => {
+    handleCategoryChange(categoryId, subcategoryId, subcategoryLabel)
+  }, [handleCategoryChange])
 
   // Handle browse category change from pills (only updates browse section, not recommended)
   const handleBrowseCategoryChange = useCallback((categoryId: string) => {
@@ -988,7 +1055,21 @@ export function ExplorePageClient({
   useEffect(() => {
     const normalizedCategory = initialCategory.toLowerCase() || "all"
     if (normalizedCategory !== mainCategory) setMainCategory(normalizedCategory)
-  }, [initialCategory])
+
+    // Check for subcategory in URL
+    const subParam = searchParams.get("sub")
+    if (subParam && subParam !== selectedSubcategoryId) {
+      setSelectedSubcategoryId(subParam)
+      // Find the label for this subcategory
+      for (const cat of CATEGORIES) {
+        const foundSub = cat.subcategories.find(s => s.id === subParam)
+        if (foundSub) {
+          setSelectedSubcategoryLabel(foundSub.label)
+          break
+        }
+      }
+    }
+  }, [initialCategory, searchParams])
 
   const showSkeletons = isPending || isLoadingCategory
 
@@ -1009,9 +1090,24 @@ export function ExplorePageClient({
           <div className="flex flex-col gap-4 mb-6 relative">
             {/* Title Row with Search and Filters */}
             <div className="flex items-center justify-between gap-4">
-              <h2 className="text-xl sm:text-2xl font-semibold text-neutral-900">
-                {sectionTitle}
-              </h2>
+              <div className="flex items-center gap-3">
+                <h2 className="text-xl sm:text-2xl font-semibold text-neutral-900">
+                  {sectionTitle}
+                </h2>
+                {selectedSubcategoryId && (
+                  <button
+                    onClick={() => {
+                      setSelectedSubcategoryId(null)
+                      setSelectedSubcategoryLabel(null)
+                      router.push(`/explore?category=${mainCategory}`, { scroll: false })
+                    }}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-violet-100 text-violet-700 hover:bg-violet-200 transition-colors cursor-pointer"
+                  >
+                    <X className="w-3 h-3" />
+                    Clear
+                  </button>
+                )}
+              </div>
 
               <div className="flex items-center gap-2">
                 {/* Search Button */}
@@ -1216,7 +1312,7 @@ export function ExplorePageClient({
           ) : paginatedProducts.length > 0 ? (
             <>
               <div
-                key={`products-${mainCategory}-${recommendationFilter}-${priceFilter}-${sortBy}-${currentPage}`}
+                key={`products-${mainCategory}-${selectedSubcategoryId}-${recommendationFilter}-${priceFilter}-${sortBy}-${currentPage}`}
                 className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 animate-in fade-in-0 slide-in-from-bottom-2 duration-300"
               >
                 {paginatedProducts.map((product, index) => (
@@ -1290,8 +1386,15 @@ export function ExplorePageClient({
                     : `No products found in ${sectionTitle}.`
                 }
               </p>
-              {activeFilterCount > 0 && (
-                <button onClick={resetFilters} className="mt-3 text-sm text-violet-600 hover:text-violet-700 font-medium cursor-pointer">
+              {(activeFilterCount > 0 || selectedSubcategoryId) && (
+                <button
+                  onClick={() => {
+                    resetFilters()
+                    setSelectedSubcategoryId(null)
+                    setSelectedSubcategoryLabel(null)
+                  }}
+                  className="mt-3 text-sm text-violet-600 hover:text-violet-700 font-medium cursor-pointer"
+                >
                   Clear filters
                 </button>
               )}
@@ -1432,7 +1535,9 @@ export function ExplorePageClient({
         isOpen={categorySelectorOpen}
         onClose={() => setCategorySelectorOpen(false)}
         selectedCategory={mainCategory}
+        selectedSubcategory={selectedSubcategoryId}
         onSelectCategory={handleCategorySelectorSelect}
+        onSelectSubcategory={handleSubcategorySelect}
       />
     </div>
   )
