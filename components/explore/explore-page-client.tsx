@@ -893,38 +893,49 @@ export function ExplorePageClient({
         return matchCount < 2 // Products with less than 2 keyword matches
       })
     }
-    // Regular category filtering - sort by relevance, always show products
+    // Regular category filtering - actually filter to show only matching products
     else if (mainCategory !== "all") {
-      const allProducts = [...products]
-      const scored = allProducts.map(p => {
+      // Comprehensive keyword map for each category
+      const categoryKeywordMap: Record<string, string[]> = {
+        "design": ["design", "ui", "ux", "graphic", "figma", "canva", "photoshop", "illustrator", "mockup", "logo", "brand", "icon", "font", "typography", "creative", "visual", "layout", "sketch", "adobe", "art", "banner", "poster", "flyer", "kit", "illustration"],
+        "development": ["development", "code", "web", "app", "react", "nextjs", "next.js", "javascript", "typescript", "html", "css", "wordpress", "shopify", "plugin", "script", "api", "software", "developer", "coding", "programming", "tech", "website", "saas", "component", "framework"],
+        "marketing": ["marketing", "email", "newsletter", "landing page", "seo", "copywriting", "funnel", "campaign", "conversion", "growth", "leads", "advertising", "strategy"],
+        "business": ["business", "spreadsheet", "excel", "presentation", "powerpoint", "document", "contract", "invoice", "proposal", "finance", "startup", "entrepreneur", "corporate", "pitch", "deck", "report"],
+        "ai": ["ai ", "artificial intelligence", "chatgpt", "gpt", "prompt", "midjourney", "dall-e", "automation", "machine learning", "openai", "claude", "llm", "generative"],
+        "social-media": ["social media", "instagram", "tiktok", "youtube", "twitter", "linkedin", "pinterest", "reels", "shorts", "influencer", "viral", "engagement", "followers", "content creator"],
+        "productivity": ["productivity", "notion", "planner", "calendar", "checklist", "tracker", "dashboard", "airtable", "organization", "workflow", "todo", "task", "schedule", "habit", "journal", "organizer"],
+        "photography": ["photo", "photography", "lightroom", "preset", "overlay", "photoshop", "lut", "stock photo", "camera", "portrait", "landscape", "editing"],
+        "video": ["video", "motion graphic", "after effects", "premiere", "davinci", "transition", "animation", "film", "footage", "vfx", "intro", "outro"],
+        "audio-music": ["audio", "music", "sound", "sfx", "loop", "sample", "podcast", "royalty", "beat", "track", "voice", "recording"],
+        "education": ["education", "course", "ebook", "e-book", "tutorial", "worksheet", "guide", "learn", "training", "lesson", "teaching", "study"],
+        "ecommerce": ["ecommerce", "e-commerce", "shopify", "woocommerce", "store theme", "product mockup", "retail", "commerce"],
+      }
+
+      const keywords = categoryKeywordMap[mainCategory] || [mainCategory]
+
+      const filtered = products.filter(p => {
         const productCategory = (p.category || p.categoryName || "").toLowerCase()
         const productTitle = (p.title || "").toLowerCase()
         const productDesc = (p.description || "").toLowerCase()
-        const productTags = p.tags?.map((t: string) => t.toLowerCase()) || []
         const creatorTags = p.creator?.niche_tags?.map((t: string) => t.toLowerCase()) || []
 
-        let score = 0
         // Direct category field match
-        if (productCategory === mainCategory || productCategory.includes(mainCategory)) score += 10
-        // Creator tags match
-        if (creatorTags.includes(mainCategory) || creatorTags.some((tag: string) => tag.includes(mainCategory))) score += 5
-        // Title match
-        if (productTitle.includes(mainCategory)) score += 3
-        // Tag match
-        if (productTags.some((tag: string) => tag.includes(mainCategory))) score += 2
-        // Description match
-        if (productDesc.includes(mainCategory)) score += 1
+        if (productCategory === mainCategory || productCategory.includes(mainCategory)) return true
 
-        return { product: p, score }
+        // Creator niche tags match
+        if (creatorTags.some((tag: string) => tag === mainCategory || tag.includes(mainCategory))) return true
+
+        // Keyword match in title or description
+        const allText = `${productTitle} ${productDesc}`
+        if (keywords.some(kw => allText.includes(kw))) return true
+
+        return false
       })
 
-      // Sort by relevance - matched products first, then the rest
-      products = scored
-        .sort((a, b) => {
-          if (b.score !== a.score) return b.score - a.score
-          return new Date(b.product.created_at).getTime() - new Date(a.product.created_at).getTime()
-        })
-        .map(item => item.product)
+      // Use filtered results if we got matches, otherwise fall back to all products
+      if (filtered.length > 0) {
+        products = filtered
+      }
     }
 
     // Filter by selected subcategory from modal

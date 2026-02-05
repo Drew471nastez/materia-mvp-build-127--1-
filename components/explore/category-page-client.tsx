@@ -618,18 +618,18 @@ export function CategoryPageClient({
 
   // Category keywords for matching - more comprehensive
   const categoryKeywords: Record<string, string[]> = {
-    "design": ["design", "ui", "ux", "graphic", "template", "figma", "canva", "photoshop", "illustrator", "mockup", "logo", "brand", "icon", "font", "typography", "creative", "visual", "layout", "sketch", "adobe", "style", "art", "image", "banner", "poster", "flyer", "card", "kit"],
-    "development": ["development", "code", "web", "app", "react", "nextjs", "javascript", "typescript", "html", "css", "wordpress", "shopify", "plugin", "script", "api", "software", "developer", "coding", "programming", "tech", "website", "saas", "tool", "component", "library", "framework"],
-    "marketing": ["marketing", "email", "newsletter", "ad", "ads", "landing", "seo", "copywriting", "funnel", "campaign", "conversion", "growth", "leads", "sales", "promotion", "advertising", "digital", "content", "strategy", "brand"],
-    "business": ["business", "spreadsheet", "excel", "presentation", "powerpoint", "document", "contract", "invoice", "proposal", "plan", "finance", "startup", "entrepreneur", "company", "corporate", "office", "professional", "management", "report", "pitch", "deck"],
-    "ai": ["ai", "artificial intelligence", "chatgpt", "gpt", "prompt", "midjourney", "dalle", "automation", "machine learning", "openai", "claude", "llm", "bot", "assistant", "generative"],
-    "social-media": ["social", "instagram", "tiktok", "youtube", "twitter", "linkedin", "pinterest", "reels", "shorts", "content", "post", "feed", "story", "stories", "influencer", "creator", "viral", "engagement", "followers"],
-    "productivity": ["productivity", "notion", "planner", "calendar", "checklist", "tracker", "dashboard", "airtable", "organization", "workflow", "todo", "task", "schedule", "time", "management", "efficiency", "system", "template"],
-    "photography": ["photo", "photography", "lightroom", "preset", "overlay", "photoshop", "action", "lut", "stock", "camera", "image", "picture", "portrait", "landscape", "editing", "filter", "color"],
-    "video": ["video", "motion", "after effects", "premiere", "davinci", "transition", "effect", "animation", "film", "movie", "editing", "footage", "vfx", "intro", "outro", "youtube"],
-    "audio-music": ["audio", "music", "sound", "sfx", "loop", "sample", "podcast", "royalty", "beat", "track", "song", "voice", "recording", "mix"],
-    "education": ["education", "course", "ebook", "tutorial", "worksheet", "guide", "learn", "training", "lesson", "class", "teaching", "knowledge", "book", "pdf", "study"],
-    "ecommerce": ["ecommerce", "e-commerce", "store", "shop", "product", "pricing", "shopify", "woocommerce", "sell", "retail", "commerce", "marketplace", "cart", "checkout"],
+    "design": ["design", "ui", "ux", "graphic", "figma", "canva", "photoshop", "illustrator", "mockup", "logo", "brand", "icon", "font", "typography", "creative", "visual", "layout", "sketch", "adobe", "art", "banner", "poster", "flyer", "kit", "illustration"],
+    "development": ["development", "code", "web app", "react", "nextjs", "next.js", "javascript", "typescript", "html", "css", "wordpress", "shopify", "plugin", "script", "api", "software", "developer", "coding", "programming", "tech", "website", "saas", "component", "framework"],
+    "marketing": ["marketing", "email template", "newsletter", "landing page", "seo", "copywriting", "funnel", "campaign", "conversion", "growth", "leads", "advertising", "strategy"],
+    "business": ["business", "spreadsheet", "excel", "presentation", "powerpoint", "document", "contract", "invoice", "proposal", "finance", "startup", "entrepreneur", "corporate", "pitch", "deck", "report"],
+    "ai": ["ai ", "artificial intelligence", "chatgpt", "gpt", "prompt", "midjourney", "dall-e", "automation", "machine learning", "openai", "claude", "llm", "generative"],
+    "social-media": ["social media", "instagram", "tiktok", "youtube", "twitter", "linkedin", "pinterest", "reels", "shorts", "influencer", "viral", "engagement", "followers", "content creator"],
+    "productivity": ["productivity", "notion", "planner", "calendar", "checklist", "tracker", "dashboard", "airtable", "organization", "workflow", "todo", "task", "schedule", "habit", "journal", "organizer"],
+    "photography": ["photo", "photography", "lightroom", "preset", "overlay", "photoshop", "lut", "stock photo", "camera", "portrait", "landscape", "editing"],
+    "video": ["video", "motion graphic", "after effects", "premiere", "davinci", "transition", "animation", "film", "footage", "vfx", "intro", "outro"],
+    "audio-music": ["audio", "music", "sound", "sfx", "loop", "sample", "podcast", "royalty", "beat", "track", "voice", "recording"],
+    "education": ["education", "course", "ebook", "e-book", "tutorial", "worksheet", "guide", "learn", "training", "lesson", "teaching", "study"],
+    "ecommerce": ["ecommerce", "e-commerce", "shopify", "woocommerce", "store theme", "product mockup", "retail", "commerce"],
     "other": ["other", "misc", "miscellaneous", "general", "various"],
     "freebies": ["free", "freebie", "giveaway"],
   }
@@ -675,47 +675,33 @@ export function CategoryPageClient({
       }
       // If no "other" products, products stays as all products
     }
-    // Regular category filtering - sort by relevance, show matched products first
+    // Regular category filtering - filter to show only matching products
     else {
       const keywords = categoryKeywords[category] || [category]
 
-      // Score-based sorting for better relevance
-      const scoredProducts = products.map(p => {
+      const filtered = products.filter(p => {
         const productCategory = (p.category || p.categoryName || "").toLowerCase()
         const productTitle = (p.title || "").toLowerCase()
         const productDesc = (p.description || "").toLowerCase()
-        const productTags = p.tags?.map((t: string) => t.toLowerCase()) || []
         const creatorTags = p.creator?.niche_tags?.map((t: string) => t.toLowerCase()) || []
-        const allSearchableText = `${productCategory} ${productTitle} ${productDesc} ${productTags.join(" ")} ${creatorTags.join(" ")}`
 
-        // Calculate match score - how many keywords match
-        let score = 0
+        // Direct category field match
+        if (productCategory === category || productCategory.includes(category)) return true
 
-        // Direct category field match gets highest priority
-        if (productCategory === category) {
-          score += 10
-        }
+        // Creator niche tags match
+        if (creatorTags.some((tag: string) => tag === category || tag.includes(category))) return true
 
-        keywords.forEach(keyword => {
-          if (allSearchableText.includes(keyword)) {
-            score += 1
-            // Bonus for title match
-            if (productTitle.includes(keyword)) score += 2
-            // Bonus for category match
-            if (productCategory.includes(keyword)) score += 2
-          }
-        })
-        return { product: p, score }
+        // Keyword match in title or description
+        const allText = `${productTitle} ${productDesc}`
+        if (keywords.some(kw => allText.includes(kw))) return true
+
+        return false
       })
 
-      // Always show ALL products, sorted by relevance (highest score first)
-      // This ensures category pages never show "0 products"
-      products = scoredProducts
-        .sort((a, b) => {
-          if (b.score !== a.score) return b.score - a.score
-          return new Date(b.product.created_at).getTime() - new Date(a.product.created_at).getTime()
-        })
-        .map(item => item.product)
+      // Use filtered results if we got matches, otherwise fall back to all products
+      if (filtered.length > 0) {
+        products = filtered
+      }
     }
 
     // Filter by subcategories
