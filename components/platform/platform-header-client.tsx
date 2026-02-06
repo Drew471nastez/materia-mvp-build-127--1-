@@ -669,33 +669,45 @@ export function PlatformHeaderClient() {
 
   // Scroll detection for sticky header behavior
   useEffect(() => {
+    let ticking = false
+
     const handleScroll = () => {
-      const currentScrollY = window.scrollY
-      const isScrollingUp = currentScrollY < lastScrollY.current
-      const isDesktop = window.innerWidth >= 1024 // lg breakpoint
-      const isExplorePage = pathname.startsWith("/explore")
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const currentScrollY = window.scrollY
+          const isScrollingUp = currentScrollY < lastScrollY.current
+          const isDesktop = window.innerWidth >= 1024 // lg breakpoint
+          const isExplorePage = pathname.startsWith("/explore")
 
-      // On desktop /explore page: always keep header visible (no sticky hide behavior)
-      if (isDesktop && isExplorePage) {
-        setIsHeaderVisible(true)
-        lastScrollY.current = currentScrollY
-        return
+          // On desktop /explore page: always keep header visible (no sticky hide behavior)
+          if (isDesktop && isExplorePage) {
+            setIsHeaderVisible(true)
+            lastScrollY.current = currentScrollY
+            ticking = false
+            return
+          }
+
+          // For other pages: hide on scroll down, show on scroll up
+          if (currentScrollY <= 50) {
+            // Near top of page
+            setIsHeaderVisible(true)
+          } else if (isScrollingUp && currentScrollY < lastScrollY.current - 5) {
+            // Scrolling up with threshold
+            setIsHeaderVisible(true)
+          } else if (!isScrollingUp && currentScrollY > lastScrollY.current + 10) {
+            // Scrolling down with threshold
+            setIsHeaderVisible(false)
+          }
+
+          lastScrollY.current = currentScrollY
+          ticking = false
+        })
+        ticking = true
       }
-
-      // For other pages: hide on scroll down, show on scroll up
-      if (currentScrollY <= 50) {
-        // Near top of page
-        setIsHeaderVisible(true)
-      } else if (isScrollingUp) {
-        // Scrolling up
-        setIsHeaderVisible(true)
-      } else if (currentScrollY > lastScrollY.current + 10) {
-        // Scrolling down with some threshold
-        setIsHeaderVisible(false)
-      }
-
-      lastScrollY.current = currentScrollY
     }
+
+    // Initial check
+    handleScroll()
 
     window.addEventListener("scroll", handleScroll, { passive: true })
     return () => window.removeEventListener("scroll", handleScroll)

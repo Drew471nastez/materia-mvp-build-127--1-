@@ -471,7 +471,7 @@ export function Hero() {
         </div>
       </div>
 
-      <div className="flex flex-row items-center gap-3 mb-5">
+      <div className="flex flex-row items-center gap-3 mb-5 sm:mb-[23px]">
         <Link
           href="/explore"
           className="inline-flex items-center px-6 sm:px-7 py-2.5 sm:py-3 rounded-full text-sm font-semibold bg-neutral-100 text-neutral-700 hover:bg-neutral-200 transition-colors"
@@ -487,7 +487,7 @@ export function Hero() {
         </Link>
       </div>
 
-      <p className="text-[16px] sm:text-[19.5px] text-neutral-600 text-center mb-[102px] sm:mb-[127px] max-w-[90%] sm:max-w-[480px] leading-relaxed px-4">
+      <p className="text-[16px] sm:text-[19.5px] text-neutral-600 text-center mb-[102px] sm:mb-[127px] max-w-[90%] sm:max-w-[450px] leading-relaxed px-4 mx-auto">
         The #1 e-commerce platform for creators & entrepreneurs. Create, sell, and grow with your audience.
       </p>
 
