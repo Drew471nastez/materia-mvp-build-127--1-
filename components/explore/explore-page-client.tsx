@@ -1005,6 +1005,9 @@ export function ExplorePageClient({
       )
     }
 
+    // Save the category-filtered set before recommendation sorting (for backfill)
+    const categoryFilteredProducts = [...products]
+
     // Apply recommendation filter with smart sorting algorithms
     switch (recommendationFilter) {
       case "trending":
@@ -1014,7 +1017,6 @@ export function ExplorePageClient({
         products = products.sort((a, b) => {
           const aCreatedRecently = new Date(a.created_at).getTime() > fourteenDaysAgo ? 1.5 : 1
           const bCreatedRecently = new Date(b.created_at).getTime() > fourteenDaysAgo ? 1.5 : 1
-          // Sales weight + review engagement + view boost for recent products
           const scoreA = ((a.sales_count || 0) * 3 + (a.reviews_count || 0) * 2 + (a.view_count || 0) * 0.1) * aCreatedRecently
           const scoreB = ((b.sales_count || 0) * 3 + (b.reviews_count || 0) * 2 + (b.view_count || 0) * 0.1) * bCreatedRecently
           return scoreB - scoreA
@@ -1029,21 +1031,18 @@ export function ExplorePageClient({
           .sort((a, b) => {
             const aIsNew = new Date(a.created_at).getTime() > sevenDaysAgo
             const bIsNew = new Date(b.created_at).getTime() > sevenDaysAgo
-            // Boost very new products (< 7 days) with any engagement
             const aNewBoost = aIsNew ? 2 : 1
             const bNewBoost = bIsNew ? 2 : 1
-            // Calculate early traction score (sales, reviews, views for new products matter more)
             const scoreA = ((a.sales_count || 0) * 5 + (a.reviews_count || 0) * 3 + (a.reviews_average || 0) * 2) * aNewBoost
             const scoreB = ((b.sales_count || 0) * 5 + (b.reviews_count || 0) * 3 + (b.reviews_average || 0) * 2) * bNewBoost
-            // If scores are close, prefer newer
             if (Math.abs(scoreA - scoreB) < 5) {
               return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
             }
             return scoreB - scoreA
           })
-        // Backfill if not enough hot & new products
+        // Backfill from SAME category (not all products) if not enough hot & new
         if (products.length < 15) {
-          const olderProducts = initialProducts
+          const olderProducts = categoryFilteredProducts
             .filter(p => !products.find(rp => rp.id === p.id))
             .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
             .slice(0, 15 - products.length)
@@ -1053,22 +1052,16 @@ export function ExplorePageClient({
       case "curated":
       default:
         // Curated: Best overall quality - weighted scoring algorithm
-        // Factors: review quality, sales performance, completeness, creator reputation
         products = products.sort((a, b) => {
-          // Review quality score (rating * number of reviews, diminishing returns after 10 reviews)
           const aReviewScore = (a.reviews_average || 0) * Math.min(a.reviews_count || 0, 20) * 0.5
           const bReviewScore = (b.reviews_average || 0) * Math.min(b.reviews_count || 0, 20) * 0.5
-          // Sales performance (capped to prevent monopoly)
           const aSalesScore = Math.min(a.sales_count || 0, 100) * 2
           const bSalesScore = Math.min(b.sales_count || 0, 100) * 2
-          // Completeness bonus (has thumbnail, description length)
           const aCompleteBonus = (a.thumbnail_url ? 5 : 0) + ((a.description?.length || 0) > 100 ? 5 : 0)
           const bCompleteBonus = (b.thumbnail_url ? 5 : 0) + ((b.description?.length || 0) > 100 ? 5 : 0)
-          // Fresh content bonus (products updated/created in last 60 days)
           const sixtyDaysAgo = Date.now() - 60 * 24 * 60 * 60 * 1000
           const aFreshBonus = new Date(a.created_at).getTime() > sixtyDaysAgo ? 10 : 0
           const bFreshBonus = new Date(b.created_at).getTime() > sixtyDaysAgo ? 10 : 0
-
           const scoreA = aReviewScore + aSalesScore + aCompleteBonus + aFreshBonus
           const scoreB = bReviewScore + bSalesScore + bCompleteBonus + bFreshBonus
           return scoreB - scoreA

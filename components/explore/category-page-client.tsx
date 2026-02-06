@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ProductCard } from "./product-card"
 import { ProductCardSkeleton } from "./product-card-skeleton"
+import { FeaturedBannerCarousel } from "./featured-banner-carousel"
 import { Layers, Sparkles, Zap, Share2, Bot, SlidersHorizontal, X, Check, Search, ChevronLeft, ChevronRight, Briefcase, Megaphone, ArrowLeft, Music, Camera, Video, ShoppingBag, GraduationCap, Code, Grid3X3, LayoutGrid, Rows3, ChevronDown } from "lucide-react"
 import { Input } from "@/components/ui/input"
 
@@ -835,38 +836,80 @@ export function CategoryPageClient({
     }
   }, [viewMode])
 
+  // Featured products for carousel banner - 5 products from this category with thumbnails
+  const categoryFeaturedProducts = useMemo(() => {
+    return initialProducts
+      .filter(p => {
+        if (!p.thumbnail_url) return false
+        const normalizedCategory = normalizeCategoryToId(p.category || p.categoryName || "")
+        return normalizedCategory === category
+      })
+      .slice(0, 5)
+  }, [initialProducts, category])
+
+  // Fallback: if no products with thumbnails match category, use any products with thumbnails
+  const bannerProducts = useMemo(() => {
+    if (categoryFeaturedProducts.length > 0) return categoryFeaturedProducts
+    return initialProducts.filter(p => p.thumbnail_url).slice(0, 5)
+  }, [categoryFeaturedProducts, initialProducts])
+
   return (
     <div className="space-y-6">
-      {/* Hero Header */}
-      <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-r ${categoryColor} p-6 sm:p-8`}>
-        <div className="absolute inset-0 bg-black/10" />
-        <div className="absolute -right-10 -top-10 w-40 h-40 bg-white/10 rounded-full blur-3xl" />
-        <div className="absolute -left-10 -bottom-10 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
-
-        <div className="relative z-10">
-          {/* Back link */}
-          <Link
-            href="/explore"
-            className="inline-flex items-center gap-2 text-sm text-white/80 hover:text-white transition-colors mb-4"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Back to Explore</span>
-          </Link>
-
-          <div className="flex items-start gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-              <CategoryIcon className="w-7 h-7 text-white" />
+      {/* Hero Banner Carousel - same as /explore page but with category info overlay */}
+      {bannerProducts.length > 0 ? (
+        <FeaturedBannerCarousel
+          products={bannerProducts}
+          overlay={
+            <div className="max-w-lg">
+              <Link
+                href="/explore"
+                className="inline-flex items-center gap-2 text-sm text-white/80 hover:text-white transition-colors mb-4"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Back to Explore</span>
+              </Link>
+              <div className="flex items-start gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center shrink-0">
+                  <CategoryIcon className="w-7 h-7 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1 drop-shadow-lg">
+                    {currentSubcategoryLabel || categoryLabel}
+                  </h1>
+                  <p className="text-white/80 text-sm sm:text-base drop-shadow-md">{categoryDescription}</p>
+                  <p className="text-white/60 text-sm mt-2 drop-shadow-md">{filteredProducts.length} products available</p>
+                </div>
+              </div>
             </div>
-            <div className="flex-1">
-              <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">
-                {currentSubcategoryLabel || categoryLabel}
-              </h1>
-              <p className="text-white/80 text-sm sm:text-base">{categoryDescription}</p>
-              <p className="text-white/60 text-sm mt-2">{filteredProducts.length} products available</p>
+          }
+        />
+      ) : (
+        /* Fallback gradient banner if no products have thumbnails */
+        <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-r ${categoryColor} p-6 sm:p-8`}>
+          <div className="absolute inset-0 bg-black/10" />
+          <div className="relative z-10">
+            <Link
+              href="/explore"
+              className="inline-flex items-center gap-2 text-sm text-white/80 hover:text-white transition-colors mb-4"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back to Explore</span>
+            </Link>
+            <div className="flex items-start gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                <CategoryIcon className="w-7 h-7 text-white" />
+              </div>
+              <div className="flex-1">
+                <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">
+                  {currentSubcategoryLabel || categoryLabel}
+                </h1>
+                <p className="text-white/80 text-sm sm:text-base">{categoryDescription}</p>
+                <p className="text-white/60 text-sm mt-2">{filteredProducts.length} products available</p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Subcategory Pills */}
       {availableSubcategories.length > 0 && (

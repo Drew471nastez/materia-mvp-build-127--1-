@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef, TouchEvent } from "react"
+import { useState, useEffect, useCallback, useRef, TouchEvent, ReactNode } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { ChevronLeft, ChevronRight } from "lucide-react"
@@ -24,11 +24,12 @@ interface FeaturedProduct {
 
 interface FeaturedBannerCarouselProps {
   products: FeaturedProduct[]
+  overlay?: React.ReactNode  // Custom overlay replaces default product info
 }
 
 const AUTOPLAY_INTERVAL = 5000 // 5 seconds
 
-export function FeaturedBannerCarousel({ products }: FeaturedBannerCarouselProps) {
+export function FeaturedBannerCarousel({ products, overlay }: FeaturedBannerCarouselProps) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [progress, setProgress] = useState(0)
   const [isHovered, setIsHovered] = useState(false)
@@ -209,50 +210,54 @@ export function FeaturedBannerCarousel({ products }: FeaturedBannerCarouselProps
         })}
       </div>
 
-      {/* Content overlay - always visible for current slide */}
+      {/* Content overlay - custom or default product info */}
       <div className="absolute inset-0 z-20 flex flex-col justify-end p-5 sm:p-6 md:p-8">
-        <div className="max-w-lg">
-          {/* Product title */}
-          <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-3 line-clamp-2 drop-shadow-lg">
-            {currentProduct?.title || "Featured Product"}
-          </h2>
+        {overlay ? (
+          <>{overlay}</>
+        ) : (
+          <div className="max-w-lg">
+            {/* Product title */}
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-3 line-clamp-2 drop-shadow-lg">
+              {currentProduct?.title || "Featured Product"}
+            </h2>
 
-          {/* Creator info with avatar - clickable */}
-          <a
-            href={creatorStoreUrl}
-            className="inline-flex items-center gap-2.5 mb-4 group"
-          >
-            {creatorAvatar ? (
-              <Image
-                src={creatorAvatar}
-                alt={creatorName}
-                width={24}
-                height={24}
-                className="rounded-full object-cover shrink-0"
-              />
-            ) : (
-              <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-[10px] font-medium text-white shrink-0">
-                {creatorName.charAt(0).toUpperCase()}
-              </div>
-            )}
-            <span className="text-sm text-white/80 group-hover:text-white transition-colors">
-              {creatorName}
-            </span>
-          </a>
-
-          {/* Price and CTA */}
-          <div className="flex items-center gap-4">
-            <Link
-              href={productUrl}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-white text-neutral-900 font-semibold text-sm rounded-lg hover:bg-white/90 transition-colors shadow-lg"
+            {/* Creator info with avatar - clickable */}
+            <a
+              href={creatorStoreUrl}
+              className="inline-flex items-center gap-2.5 mb-4 group"
             >
-              View product
-            </Link>
-            <span className="text-lg font-bold text-white drop-shadow-md">
-              {formatPrice(productPrice)}
-            </span>
+              {creatorAvatar ? (
+                <Image
+                  src={creatorAvatar}
+                  alt={creatorName}
+                  width={24}
+                  height={24}
+                  className="rounded-full object-cover shrink-0"
+                />
+              ) : (
+                <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-[10px] font-medium text-white shrink-0">
+                  {creatorName.charAt(0).toUpperCase()}
+                </div>
+              )}
+              <span className="text-sm text-white/80 group-hover:text-white transition-colors">
+                {creatorName}
+              </span>
+            </a>
+
+            {/* Price and CTA */}
+            <div className="flex items-center gap-4">
+              <Link
+                href={productUrl}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-white text-neutral-900 font-semibold text-sm rounded-lg hover:bg-white/90 transition-colors shadow-lg"
+              >
+                View product
+              </Link>
+              <span className="text-lg font-bold text-white drop-shadow-md">
+                {formatPrice(productPrice)}
+              </span>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Navigation arrows - positioned at bottom right, hidden on mobile */}
