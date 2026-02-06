@@ -443,8 +443,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           </div>
         )}
 
-        {/* Setup Progress Section for Mobile */}
-        {setupProgress && setupProgress.completed < setupProgress.total && (
+        {/* Setup Progress Section for Mobile - hidden on settings and emails pages */}
+        {setupProgress && setupProgress.completed < setupProgress.total && !pathname.startsWith("/app/settings") && !pathname.startsWith("/app/emails") && (
           <button
             onClick={() => {
               onItemClick?.()
@@ -741,7 +741,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         <SidebarContent />
       </aside>
 
-      {/* Floating Setup Progress Circle - shows on both mobile and desktop */}
+      {/* Floating Setup Progress Circle - hidden on mobile for settings and emails pages */}
       {showSetupWidget && !mobileMenuOpen && (
         <button
           onClick={() => {
@@ -760,7 +760,10 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               }, 100)
             }
           }}
-          className="fixed bottom-6 right-4 md:right-6 z-40 flex items-center gap-2 bg-white rounded-full pl-2 pr-3 py-2 md:pl-2.5 md:pr-4 md:py-2.5 shadow-lg border border-neutral-200/70 transition-all duration-200 hover:shadow-xl hover:scale-105 active:scale-95"
+          className={cn(
+            "fixed bottom-6 right-4 md:right-6 z-40 flex items-center gap-2 bg-white rounded-full pl-2 pr-3 py-2 md:pl-2.5 md:pr-4 md:py-2.5 shadow-lg border border-neutral-200/70 transition-all duration-200 hover:shadow-xl hover:scale-105 active:scale-95",
+            (pathname.startsWith("/app/settings") || pathname.startsWith("/app/emails")) && "md:flex hidden"
+          )}
         >
           <div className="relative shrink-0 w-8 h-8 md:w-[37px] md:h-[37px]">
             <div className="md:hidden">
