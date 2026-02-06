@@ -100,8 +100,9 @@ const AUTOPLAY_INTERVAL = 5000
 const CARD_TRANSITION_MS = 1200
 const SWIPE_THRESHOLD = 40
 const SWIPE_COMMIT_DISTANCE = 140
-const DRAG_SMOOTHING = 0.26
-const DRAG_SLOWDOWN = 0.77
+const DRAG_SMOOTHING = 0.35
+const DRAG_SLOWDOWN = 0.65
+const MAX_DRAG_DISTANCE = 200
 
 const rotateOrder = (order: number[], direction: 1 | -1) => {
   const next = [...order]
@@ -248,9 +249,11 @@ export function Hero() {
   }, [])
 
   const updateDragTransition = useCallback((rawDelta: number) => {
-    dragRef.current.rawDelta = rawDelta
+    // Clamp raw delta to prevent excessive dragging
+    const clampedRawDelta = Math.max(-MAX_DRAG_DISTANCE, Math.min(MAX_DRAG_DISTANCE, rawDelta))
+    dragRef.current.rawDelta = clampedRawDelta
 
-    const slowedDelta = rawDelta * DRAG_SLOWDOWN
+    const slowedDelta = clampedRawDelta * DRAG_SLOWDOWN
     const smoothedDelta = lerp(dragRef.current.delta, slowedDelta, DRAG_SMOOTHING)
     dragRef.current.delta = smoothedDelta
 
@@ -260,8 +263,8 @@ export function Hero() {
       return
     }
 
-    const direction = rawDelta < 0 ? 1 : -1
-    const progress = Math.min(0.95, distance / SWIPE_COMMIT_DISTANCE)
+    const direction = clampedRawDelta < 0 ? 1 : -1
+    const progress = Math.min(0.92, distance / SWIPE_COMMIT_DISTANCE)
     const from = orderRef.current
     const to = rotateOrder(from, direction)
     setTransition({ from, to, progress })
@@ -350,13 +353,14 @@ export function Hero() {
               if (!dragRef.current.active) return
 
               const rawDelta = dragRef.current.rawDelta || e.clientX - dragRef.current.startX
-              const progress = transition?.progress ?? Math.min(0.95, Math.abs(rawDelta * DRAG_SLOWDOWN) / SWIPE_COMMIT_DISTANCE)
+              const clampedDelta = Math.max(-MAX_DRAG_DISTANCE, Math.min(MAX_DRAG_DISTANCE, rawDelta))
+              const progress = transition?.progress ?? Math.min(0.92, Math.abs(clampedDelta * DRAG_SLOWDOWN) / SWIPE_COMMIT_DISTANCE)
               dragRef.current.active = false
               dragRef.current.delta = 0
               dragRef.current.rawDelta = 0
 
-              if (Math.abs(rawDelta) >= SWIPE_THRESHOLD) {
-                startRotation(rawDelta < 0 ? 1 : -1, progress)
+              if (Math.abs(clampedDelta) >= SWIPE_THRESHOLD) {
+                startRotation(clampedDelta < 0 ? 1 : -1, progress)
               } else {
                 setTransition(null)
               }
@@ -367,13 +371,14 @@ export function Hero() {
               if (!dragRef.current.active) return
 
               const rawDelta = dragRef.current.rawDelta
-              const progress = transition?.progress ?? Math.min(0.95, Math.abs(rawDelta * DRAG_SLOWDOWN) / SWIPE_COMMIT_DISTANCE)
+              const clampedDelta = Math.max(-MAX_DRAG_DISTANCE, Math.min(MAX_DRAG_DISTANCE, rawDelta))
+              const progress = transition?.progress ?? Math.min(0.92, Math.abs(clampedDelta * DRAG_SLOWDOWN) / SWIPE_COMMIT_DISTANCE)
               dragRef.current.active = false
               dragRef.current.delta = 0
               dragRef.current.rawDelta = 0
 
-              if (Math.abs(rawDelta) >= SWIPE_THRESHOLD) {
-                startRotation(rawDelta < 0 ? 1 : -1, progress)
+              if (Math.abs(clampedDelta) >= SWIPE_THRESHOLD) {
+                startRotation(clampedDelta < 0 ? 1 : -1, progress)
               } else {
                 setTransition(null)
               }
@@ -482,8 +487,8 @@ export function Hero() {
         </Link>
       </div>
 
-      <p className="text-[16px] sm:text-[19.5px] text-neutral-600 text-center mb-[74px] sm:mb-[92px] max-w-lg leading-relaxed px-4">
-        The #1 E-commerce platform for creators & entrepreneurs. Create, sell, and grow with your audience.
+      <p className="text-[16px] sm:text-[19.5px] text-neutral-600 text-center mb-[85px] sm:mb-[106px] max-w-[90%] sm:max-w-[540px] leading-relaxed px-4">
+        The #1 e-commerce platform for creators & entrepreneurs. Create, sell, and grow with your audience.
       </p>
 
       <div className="relative w-full">
@@ -506,7 +511,7 @@ export function Hero() {
                     src={src}
                     alt="Partner logo"
                     className={`w-auto mx-6 sm:mx-8 md:mx-10 opacity-95 grayscale select-none ${
-                      isStripe ? "h-[29px] sm:h-[34px] md:h-[40px]" : "h-[17px] sm:h-5 md:h-6"
+                      isStripe ? "h-[33px] sm:h-[39px] md:h-[46px]" : "h-[17px] sm:h-5 md:h-6"
                     }`}
                     draggable={false}
                   />
