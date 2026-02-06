@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
-import { ArrowRight, Lock } from "lucide-react"
+import { ArrowRight } from "lucide-react"
 
 // ── Typing animation ──────────────────────────────────────────────
 
@@ -94,6 +94,7 @@ const BASE_CARDS: CardDef[] = [
 const CANVAS_W = 1100
 const CANVAS_H = 440
 const AUTOPLAY_INTERVAL = 5000
+const DRAG_THRESHOLD = 40
 
 // ── Hero ──────────────────────────────────────────────────────────
 
@@ -103,10 +104,10 @@ export function Hero() {
   // Card order: indices into IMAGES array
   const [cardOrder, setCardOrder] = useState([0, 1, 2, 3, 4])
 
-  // Swipe gesture detection only — no visual offset
-  const dragRef = useRef<{ startX: number; currentX: number } | null>(null)
+  // Drag ref tracks start position — resets on each rotation
+  const dragRef = useRef<{ startX: number; active: boolean } | null>(null)
 
-  // Rotate cards forward (next becomes center)
+  // Rotate helpers
   const rotateForward = useCallback(() => {
     setCardOrder(prev => {
       const next = [...prev]
@@ -116,7 +117,6 @@ export function Hero() {
     })
   }, [])
 
-  // Rotate cards backward (prev becomes center)
   const rotateBackward = useCallback(() => {
     setCardOrder(prev => {
       const next = [...prev]
@@ -143,52 +143,66 @@ export function Hero() {
     }
   }, [startAutoplay])
 
-  // ── Mouse swipe gesture (no visual dragging) ──
+  // ── Real-time drag: rotate WHILE dragging, not on release ──
+  const handleDragStart = useCallback((clientX: number) => {
+    dragRef.current = { startX: clientX, active: true }
+    // Pause autoplay while dragging
+    if (autoplayRef.current) clearInterval(autoplayRef.current)
+  }, [])
+
+  const handleDragMove = useCallback((clientX: number) => {
+    if (!dragRef.current?.active) return
+    const diff = clientX - dragRef.current.startX
+
+    // When threshold is crossed, rotate immediately and reset start position
+    if (diff < -DRAG_THRESHOLD) {
+      rotateForward()
+      dragRef.current.startX = clientX // reset so continuous drag triggers more rotations
+    } else if (diff > DRAG_THRESHOLD) {
+      rotateBackward()
+      dragRef.current.startX = clientX
+    }
+  }, [rotateForward, rotateBackward])
+
+  const handleDragEnd = useCallback(() => {
+    if (!dragRef.current?.active) return
+    dragRef.current = null
+    startAutoplay() // resume autoplay
+  }, [startAutoplay])
+
+  // Mouse events
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
-    dragRef.current = { startX: e.clientX, currentX: e.clientX }
-  }, [])
+    handleDragStart(e.clientX)
+  }, [handleDragStart])
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!dragRef.current) return
-    dragRef.current.currentX = e.clientX
-  }, [])
+    handleDragMove(e.clientX)
+  }, [handleDragMove])
 
   const handleMouseUp = useCallback(() => {
-    if (!dragRef.current) return
-    const diff = dragRef.current.currentX - dragRef.current.startX
-    const threshold = 40
-
-    if (Math.abs(diff) > threshold) {
-      if (diff < 0) rotateForward()
-      else rotateBackward()
-      startAutoplay() // reset timer after manual swipe
-    }
-
-    dragRef.current = null
-  }, [rotateForward, rotateBackward, startAutoplay])
+    handleDragEnd()
+  }, [handleDragEnd])
 
   const handleMouseLeave = useCallback(() => {
-    if (dragRef.current) handleMouseUp()
-  }, [handleMouseUp])
+    if (dragRef.current?.active) handleDragEnd()
+  }, [handleDragEnd])
 
-  // ── Touch swipe gesture (no visual dragging) ──
+  // Touch events
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    const touch = e.touches[0]
-    dragRef.current = { startX: touch.clientX, currentX: touch.clientX }
-  }, [])
+    handleDragStart(e.touches[0].clientX)
+  }, [handleDragStart])
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!dragRef.current) return
-    dragRef.current.currentX = e.touches[0].clientX
-  }, [])
+    handleDragMove(e.touches[0].clientX)
+  }, [handleDragMove])
 
   const handleTouchEnd = useCallback(() => {
-    handleMouseUp()
-  }, [handleMouseUp])
+    handleDragEnd()
+  }, [handleDragEnd])
 
   return (
-    <section className="flex flex-col items-center bg-white pt-6 sm:pt-10 pb-10 sm:pb-14 overflow-hidden">
+    <section className="flex flex-col items-center bg-white pt-6 sm:pt-10 pb-12 sm:pb-[67px] overflow-hidden">
       <style dangerouslySetInnerHTML={{ __html: `
         .hero-collage-inner {
           transform: scale(0.35);
@@ -226,7 +240,7 @@ export function Hero() {
       <div className="relative w-full mb-6 sm:mb-8">
         <div className="relative w-full h-[154px] sm:h-[224px] md:h-[277px] lg:h-[352px] xl:h-[409px]">
 
-          {/* Collage canvas — swipe gesture area, cards stay in place */}
+          {/* Collage canvas — real-time drag rotates cards while holding */}
           <div
             className="hero-collage-inner absolute left-1/2 -translate-x-1/2 origin-top select-none cursor-grab active:cursor-grabbing"
             style={{ width: CANVAS_W, height: CANVAS_H }}
@@ -270,8 +284,12 @@ export function Hero() {
               {/* Badge — pill on top edge of bubble */}
               <div className="absolute left-1/2 -translate-x-1/2 -top-3.5 sm:-top-4">
                 <div className="flex items-center gap-1.5 bg-gray-100/95 backdrop-blur-sm text-gray-700 text-[10px] sm:text-[11px] font-medium px-3 sm:px-3.5 py-1.5 rounded-full whitespace-nowrap shadow-sm border border-gray-200/50">
-                  <Lock className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                  Powering 1,550+ Shopify Brands
+                  <img
+                    src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib_pixian_ai.png"
+                    alt="Storelib"
+                    className="w-3.5 h-3.5 sm:w-4 sm:h-4 object-contain"
+                  />
+                  Built for Creators
                 </div>
               </div>
               <h1 className="text-[22px] sm:text-3xl md:text-[38px] md:leading-[1.2] font-bold text-neutral-900 leading-tight min-h-[2.4em] flex items-center justify-center">
@@ -303,7 +321,7 @@ export function Hero() {
       </div>
 
       {/* ─── Description — 2 rows, ~9-10 words per row ─── */}
-      <p className="text-[18px] text-neutral-600 text-center mb-16 sm:mb-20 max-w-lg leading-relaxed px-4">
+      <p className="text-[18px] text-neutral-600 text-center mb-[74px] sm:mb-[92px] max-w-lg leading-relaxed px-4">
         Storelib lets you turn big ideas into real products. Create, sell, and grow with your audience.
       </p>
 

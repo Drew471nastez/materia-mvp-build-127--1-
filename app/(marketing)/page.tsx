@@ -73,7 +73,7 @@ export default function StorelibLanding() {
       <Hero />
 
       {/* STATS SECTION */}
-      <section className="py-16 border-y border-neutral-100 bg-neutral-50">
+      <section className="pt-20 pb-16 border-y border-neutral-100 bg-neutral-50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {STATS.map((stat, index) => (
