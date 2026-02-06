@@ -111,6 +111,8 @@ export function Hero() {
   const [isMobile, setIsMobile] = useState(false)
   const [dragOffset, setDragOffset] = useState(0)
   const [isMouseHolding, setIsMouseHolding] = useState(false)
+  const [imagesLoaded, setImagesLoaded] = useState<Record<number, boolean>>({})
+  const [allImagesLoaded, setAllImagesLoaded] = useState(false)
 
   const dragRef = useRef<{ startX: number; active: boolean }>({ startX: 0, active: false })
   const autoplayRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -159,36 +161,59 @@ export function Hero() {
     return () => window.removeEventListener("resize", update)
   }, [])
 
+  // Check if all images are loaded
+  useEffect(() => {
+    if (Object.keys(imagesLoaded).length === IMAGES.length) {
+      const allLoaded = Object.values(imagesLoaded).every(loaded => loaded)
+      setAllImagesLoaded(allLoaded)
+    }
+  }, [imagesLoaded])
+
+  const handleImageLoad = useCallback((imageIdx: number) => {
+    setImagesLoaded(prev => ({ ...prev, [imageIdx]: true }))
+  }, [])
+
   const stopAutoplay = useCallback(() => {
     if (autoplayRef.current) clearInterval(autoplayRef.current)
   }, [])
 
   const handleDragStart = useCallback((clientX: number, fromMouse: boolean) => {
     dragRef.current = { startX: clientX, active: true }
-    setDragOffset(0)
+    // Only set dragOffset for mobile (touch) or mouse holding on mobile
+    if (!fromMouse || isMobile) {
+      setDragOffset(0)
+    }
     if (fromMouse) {
       setIsMouseHolding(true)
     }
     stopAutoplay()
-  }, [stopAutoplay])
+  }, [stopAutoplay, isMobile])
 
-  const handleDragMove = useCallback((clientX: number) => {
+  const handleDragMove = useCallback((clientX: number, fromMouse: boolean) => {
     if (!dragRef.current.active) return
 
     const step = getStep()
     const diff = clientX - dragRef.current.startX
-    setDragOffset(diff)
+
+    // Only show real-time dragging on mobile or when using touch
+    if (!fromMouse || isMobile) {
+      setDragOffset(diff)
+    }
 
     if (diff <= -step) {
       rotateForward()
       dragRef.current.startX -= step
-      setDragOffset(clientX - dragRef.current.startX)
+      if (!fromMouse || isMobile) {
+        setDragOffset(clientX - dragRef.current.startX)
+      }
     } else if (diff >= step) {
       rotateBackward()
       dragRef.current.startX += step
-      setDragOffset(clientX - dragRef.current.startX)
+      if (!fromMouse || isMobile) {
+        setDragOffset(clientX - dragRef.current.startX)
+      }
     }
-  }, [getStep, rotateBackward, rotateForward])
+  }, [getStep, rotateBackward, rotateForward, isMobile])
 
   const handleDragEnd = useCallback(() => {
     if (!dragRef.current.active) return
@@ -261,7 +286,9 @@ export function Hero() {
       <div className="relative w-full mb-6 sm:mb-8">
         <div className="relative w-full h-[154px] sm:h-[224px] md:h-[277px] lg:h-[352px] xl:h-[409px]">
           <div
-            className="hero-collage-inner absolute left-1/2 -translate-x-1/2 origin-top select-none cursor-grab active:cursor-grabbing"
+            className={`hero-collage-inner absolute left-1/2 -translate-x-1/2 origin-top select-none ${
+              isMobile ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
+            }`}
             style={{
               width: CANVAS_W,
               height: CANVAS_H,
@@ -272,9 +299,9 @@ export function Hero() {
               e.preventDefault()
               handleDragStart(e.clientX, true)
             }}
-            onMouseMove={(e) => handleDragMove(e.clientX)}
+            onMouseMove={(e) => handleDragMove(e.clientX, true)}
             onTouchStart={(e) => handleDragStart(e.touches[0].clientX, false)}
-            onTouchMove={(e) => handleDragMove(e.touches[0].clientX)}
+            onTouchMove={(e) => handleDragMove(e.touches[0].clientX, false)}
             onTouchEnd={handleDragEnd}
             onWheel={handleWheel}
           >
@@ -295,11 +322,18 @@ export function Hero() {
                     filter: card.zIndex === 3 && !isMouseHolding ? "none" : "saturate(0.96)",
                   }}
                 >
+                  {/* Skeleton loader */}
+                  {!imagesLoaded[imageIdx] && (
+                    <div className="absolute inset-0 bg-gray-200 animate-pulse" />
+                  )}
                   <img
                     src={IMAGES[imageIdx]}
                     alt=""
-                    className="w-full h-full object-cover pointer-events-none"
+                    className={`w-full h-full object-cover pointer-events-none transition-opacity duration-300 ${
+                      imagesLoaded[imageIdx] ? "opacity-100" : "opacity-0"
+                    }`}
                     draggable={false}
+                    onLoad={() => handleImageLoad(imageIdx)}
                   />
                 </div>
               )
@@ -313,7 +347,7 @@ export function Hero() {
                   <span className="w-4 h-4 sm:w-[18px] sm:h-[18px] rounded-full bg-black text-white inline-flex items-center justify-center text-[9px] sm:text-[10px] font-semibold leading-none">
                     S
                   </span>
-                  Built for Creators
+                  Beta release
                 </div>
               </div>
               <h1 className="text-[22px] sm:text-3xl md:text-[38px] md:leading-[1.2] font-bold text-neutral-900 leading-tight min-h-[2.4em] flex items-center justify-center">
