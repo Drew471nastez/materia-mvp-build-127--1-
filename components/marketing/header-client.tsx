@@ -7,6 +7,7 @@ import { useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import type { User } from "@supabase/supabase-js"
 import { UserNavClient } from "./user-nav-client"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Heart,
   Menu,
@@ -260,56 +261,66 @@ export function MarketingHeaderClient() {
 
           {/* Right side - Actions */}
           <div className="flex items-center gap-3 shrink-0">
-            {/* Wishlist Heart */}
-            {!loading && user && (
-              <Tooltip>
-                <TooltipTrigger asChild>
+            {loading ? (
+              <>
+                <Skeleton className="w-10 h-10 rounded-full" />
+                <Skeleton className="hidden sm:block w-20 h-9 rounded-lg" />
+                <Skeleton className="w-20 h-9 rounded-lg" />
+              </>
+            ) : (
+              <>
+                {/* Wishlist Heart */}
+                {user && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Link
+                        href="/library"
+                        className="w-10 h-10 rounded-full flex items-center justify-center text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 transition-all duration-150 cursor-pointer"
+                      >
+                        <Heart className="w-5 h-5" />
+                      </Link>
+                    </TooltipTrigger>
+                    <TooltipContent className="bg-neutral-900 text-white text-xs px-2 py-1">
+                      Wishlist
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+
+                {/* Library link */}
+                {user && (
                   <Link
                     href="/library"
-                    className="w-10 h-10 rounded-full flex items-center justify-center text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 transition-all duration-150 cursor-pointer"
+                    className="hidden sm:flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-neutral-700 hover:text-neutral-900 transition-colors cursor-pointer"
                   >
-                    <Heart className="w-5 h-5" />
+                    <BookOpen className="w-4 h-4" />
+                    <span>Library</span>
                   </Link>
-                </TooltipTrigger>
-                <TooltipContent className="bg-neutral-900 text-white text-xs px-2 py-1">
-                  Wishlist
-                </TooltipContent>
-              </Tooltip>
-            )}
+                )}
 
-            {/* Library link */}
-            {!loading && user && (
-              <Link
-                href="/library"
-                className="hidden sm:flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-neutral-700 hover:text-neutral-900 transition-colors cursor-pointer"
-              >
-                <BookOpen className="w-4 h-4" />
-                <span>Library</span>
-              </Link>
-            )}
+                {/* Dashboard button for creators */}
+                {user && isCreator && (
+                  <Button size="sm" asChild className="bg-violet-600 hover:bg-violet-700">
+                    <Link href="/app">Dashboard</Link>
+                  </Button>
+                )}
 
-            {/* Dashboard button for creators */}
-            {!loading && user && isCreator && (
-              <Button size="sm" asChild className="bg-violet-600 hover:bg-violet-700">
-                <Link href="/app">Dashboard</Link>
-              </Button>
-            )}
-
-            {!loading && user && profile ? (
-              <UserNavClient user={user} profile={profile} isCreator={isCreator} creatorSlug={creatorSlug} />
-            ) : !loading ? (
-              <>
-                <Button variant="ghost" size="sm" asChild>
-                  <Link href="/login">Sign in</Link>
-                </Button>
-                <Button size="sm" asChild>
-                  <Link href="/signup" className="whitespace-nowrap">
-                    <span className="hidden xs:inline">Start selling</span>
-                    <span className="xs:hidden">Sign up</span>
-                  </Link>
-                </Button>
+                {user && profile ? (
+                  <UserNavClient user={user} profile={profile} isCreator={isCreator} creatorSlug={creatorSlug} />
+                ) : (
+                  <>
+                    <Button variant="ghost" size="sm" asChild>
+                      <Link href="/login">Sign in</Link>
+                    </Button>
+                    <Button size="sm" asChild>
+                      <Link href="/signup" className="whitespace-nowrap">
+                        <span className="hidden xs:inline">Start selling</span>
+                        <span className="xs:hidden">Sign up</span>
+                      </Link>
+                    </Button>
+                  </>
+                )}
               </>
-            ) : null}
+            )}
           </div>
         </div>
       </header>

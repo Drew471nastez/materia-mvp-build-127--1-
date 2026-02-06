@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
 import { ArrowRight } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
 
 const TYPING_PHRASES = [
   "Start monetizing your passion...",
@@ -122,6 +123,10 @@ export function Hero() {
   const [cardOrder, setCardOrder] = useState([0, 1, 2, 3, 4])
   const [transition, setTransition] = useState<CardTransition | null>(null)
   const [isMobile, setIsMobile] = useState(false)
+  const [imagesLoaded, setImagesLoaded] = useState(false)
+  const [logosLoaded, setLogosLoaded] = useState(false)
+  const loadedImagesCount = useRef(0)
+  const loadedLogosCount = useRef(0)
 
   const autoplayRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const orderRef = useRef(cardOrder)
@@ -188,6 +193,60 @@ export function Hero() {
     }
   }, [clearAutoplay, restartAutoplay])
 
+  // Preload collage images
+  useEffect(() => {
+    loadedImagesCount.current = 0
+    const loadImage = (src: string) => {
+      return new Promise<void>((resolve) => {
+        const img = new Image()
+        img.onload = () => {
+          loadedImagesCount.current++
+          if (loadedImagesCount.current === IMAGES.length) {
+            setImagesLoaded(true)
+          }
+          resolve()
+        }
+        img.onerror = () => {
+          loadedImagesCount.current++
+          if (loadedImagesCount.current === IMAGES.length) {
+            setImagesLoaded(true)
+          }
+          resolve()
+        }
+        img.src = src
+      })
+    }
+
+    Promise.all(IMAGES.map(loadImage))
+  }, [])
+
+  // Preload partner logos
+  useEffect(() => {
+    loadedLogosCount.current = 0
+    const loadLogo = (src: string) => {
+      return new Promise<void>((resolve) => {
+        const img = new Image()
+        img.onload = () => {
+          loadedLogosCount.current++
+          if (loadedLogosCount.current === PARTNER_LOGOS.length) {
+            setLogosLoaded(true)
+          }
+          resolve()
+        }
+        img.onerror = () => {
+          loadedLogosCount.current++
+          if (loadedLogosCount.current === PARTNER_LOGOS.length) {
+            setLogosLoaded(true)
+          }
+          resolve()
+        }
+        img.src = src
+      })
+    }
+
+    Promise.all(PARTNER_LOGOS.map(loadLogo))
+  }, [])
+
   const updateDragTransition = useCallback((rawDelta: number) => {
     dragRef.current.rawDelta = rawDelta
 
@@ -245,7 +304,7 @@ export function Hero() {
       <div className="relative w-full mb-10 sm:mb-8">
         <div className="relative w-full h-[296px] sm:h-[224px] md:h-[277px] lg:h-[352px] xl:h-[409px]">
           <div
-            className="hero-collage-inner absolute left-1/2 -translate-x-1/2 origin-top select-none sm:cursor-grab sm:active:cursor-grabbing"
+            className="hero-collage-inner absolute left-1/2 -translate-x-1/2 origin-top select-none cursor-pointer"
             style={{ width: CANVAS_W, height: CANVAS_H }}
             onTouchStart={(e) => {
               clearAutoplay()
@@ -344,12 +403,16 @@ export function Hero() {
                     filter: `saturate(${saturation})`,
                   }}
                 >
-                  <img
-                    src={src}
-                    alt=""
-                    className="w-full h-full object-cover pointer-events-none"
-                    draggable={false}
-                  />
+                  {!imagesLoaded ? (
+                    <Skeleton className="w-full h-full" />
+                  ) : (
+                    <img
+                      src={src}
+                      alt=""
+                      className="w-full h-full object-cover pointer-events-none"
+                      draggable={false}
+                    />
+                  )}
                 </div>
               )
             })}
@@ -357,24 +420,38 @@ export function Hero() {
 
           <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none -translate-y-[2%] sm:translate-y-0">
             <div className="relative bg-white rounded-[24px] sm:rounded-[28px] shadow-lg shadow-neutral-200/50 border border-neutral-100/80 px-5 sm:px-10 md:px-14 md:pt-14 md:pb-12 w-[82%] max-w-[480px] text-center pointer-events-auto scale-y-[0.99] sm:scale-y-100 origin-top pt-9 pb-9 sm:pt-12 sm:pb-10">
-              <div className="absolute left-1/2 -translate-x-1/2 -top-3.5 sm:-top-4">
-                <div className="flex items-center gap-2 bg-gray-100/95 backdrop-blur-sm text-gray-700 text-[10px] sm:text-[11px] font-medium px-3 sm:px-3.5 py-1.5 rounded-full whitespace-nowrap shadow-sm border border-gray-200/50">
-                  <span className="w-4 h-4 sm:w-[18px] sm:h-[18px] rounded-full bg-black inline-flex items-center justify-center overflow-hidden">
-                    <img
-                      src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib_pixian_ai.png"
-                      alt="Storelib logo"
-                      className="w-full h-full object-contain p-[1px]"
-                    />
-                  </span>
-                  Beta relase
-                </div>
-              </div>
-              <h1 className="text-[22px] sm:text-3xl md:text-[38px] md:leading-[1.2] font-bold text-neutral-900 leading-tight min-h-[2.5em] sm:min-h-[2.4em] flex items-center justify-center">
-                <span>
-                  {typedText}
-                  <span className="inline-block w-[3px] h-[0.85em] bg-violet-500 ml-0.5 animate-pulse align-middle rounded-full" />
-                </span>
-              </h1>
+              {!imagesLoaded ? (
+                <>
+                  <div className="absolute left-1/2 -translate-x-1/2 -top-3.5 sm:-top-4">
+                    <Skeleton className="h-[28px] sm:h-[30px] w-[120px] rounded-full" />
+                  </div>
+                  <div className="flex flex-col items-center gap-3">
+                    <Skeleton className="h-[28px] sm:h-[36px] md:h-[46px] w-[85%]" />
+                    <Skeleton className="h-[28px] sm:h-[36px] md:h-[46px] w-[75%]" />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="absolute left-1/2 -translate-x-1/2 -top-3.5 sm:-top-4">
+                    <div className="flex items-center gap-2 bg-gray-100/95 backdrop-blur-sm text-gray-700 text-[10px] sm:text-[11px] font-medium px-3 sm:px-3.5 py-1.5 rounded-full whitespace-nowrap shadow-sm border border-gray-200/50">
+                      <span className="w-4 h-4 sm:w-[18px] sm:h-[18px] rounded-full bg-black inline-flex items-center justify-center overflow-hidden">
+                        <img
+                          src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib_pixian_ai.png"
+                          alt="Storelib logo"
+                          className="w-full h-full object-contain p-[1px]"
+                        />
+                      </span>
+                      Beta relase
+                    </div>
+                  </div>
+                  <h1 className="text-[22px] sm:text-3xl md:text-[38px] md:leading-[1.2] font-bold text-neutral-900 leading-tight min-h-[2.5em] sm:min-h-[2.4em] flex items-center justify-center">
+                    <span>
+                      {typedText}
+                      <span className="inline-block w-[3px] h-[0.85em] bg-violet-500 ml-0.5 animate-pulse align-middle rounded-full" />
+                    </span>
+                  </h1>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -391,7 +468,7 @@ export function Hero() {
           href="/signup"
           className="inline-flex items-center gap-2 px-6 sm:px-7 py-2.5 sm:py-3 rounded-full text-sm font-semibold bg-violet-600 text-white hover:bg-violet-700 transition-colors"
         >
-          Try free
+          Start Selling
           <ArrowRight className="w-3.5 h-3.5" />
         </Link>
       </div>
@@ -404,17 +481,30 @@ export function Hero() {
         <div className="absolute left-0 top-0 bottom-0 w-20 sm:w-32 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none" />
         <div className="absolute right-0 top-0 bottom-0 w-20 sm:w-32 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none" />
         <div className="overflow-hidden">
-          <div className="logo-marquee flex items-center w-max">
-            {[...PARTNER_LOGOS, ...PARTNER_LOGOS].map((src, i) => (
-              <img
-                key={i}
-                src={src}
-                alt="Partner logo"
-                className="h-[17px] sm:h-5 md:h-6 w-auto mx-6 sm:mx-8 md:mx-10 opacity-95 grayscale select-none"
-                draggable={false}
-              />
-            ))}
-          </div>
+          {!logosLoaded ? (
+            <div className="flex items-center justify-center gap-6 sm:gap-8 md:gap-10 py-2">
+              {[...Array(5)].map((_, i) => (
+                <Skeleton key={i} className="h-[17px] sm:h-5 md:h-6 w-[60px] sm:w-[80px] md:w-[100px]" />
+              ))}
+            </div>
+          ) : (
+            <div className="logo-marquee flex items-center w-max">
+              {[...PARTNER_LOGOS, ...PARTNER_LOGOS].map((src, i) => {
+                const isStripe = src.includes("bbfcc0e04437442a9637cc58efde849dfadb313c")
+                return (
+                  <img
+                    key={i}
+                    src={src}
+                    alt="Partner logo"
+                    className={`w-auto mx-6 sm:mx-8 md:mx-10 opacity-95 grayscale select-none ${
+                      isStripe ? "h-[22px] sm:h-[26px] md:h-[31px]" : "h-[17px] sm:h-5 md:h-6"
+                    }`}
+                    draggable={false}
+                  />
+                )
+              })}
+            </div>
+          )}
         </div>
       </div>
     </section>
