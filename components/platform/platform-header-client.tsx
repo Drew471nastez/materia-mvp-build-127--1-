@@ -323,7 +323,7 @@ function MobileTopSheet({
   )
 }
 
-// Mobile Bottom Sheet Component with swipe-to-close
+// Mobile Bottom Sheet Component with swipe-to-close and scroll protection
 function MobileBottomSheet({
   isOpen,
   onClose,
@@ -339,8 +339,12 @@ function MobileBottomSheet({
   const [isAnimating, setIsAnimating] = useState(false)
   const [dragY, setDragY] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
+  const [isScrolling, setIsScrolling] = useState(false)
   const startY = useRef(0)
+  const scrollStartY = useRef(0)
   const sheetRef = useRef<HTMLDivElement>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
+  const scrollTimeout = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     if (isOpen && !isVisible) {
@@ -362,6 +366,7 @@ function MobileBottomSheet({
     }
     return () => {
       document.body.style.overflow = ""
+      if (scrollTimeout.current) clearTimeout(scrollTimeout.current)
     }
   }, [isOpen, isVisible])
 
@@ -381,6 +386,10 @@ function MobileBottomSheet({
     const sheetRect = sheetElement.getBoundingClientRect()
     const touchYInSheet = touch.clientY - sheetRect.top
 
+    // Track scroll start position
+    scrollStartY.current = touch.clientY
+    setIsScrolling(false)
+
     // Only start dragging if touch is in the handle area (top 60px)
     if (touchYInSheet <= 60) {
       startY.current = touch.clientY
@@ -389,8 +398,15 @@ function MobileBottomSheet({
   }
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging) return
     const currentY = e.touches[0].clientY
+    const scrollDiff = Math.abs(currentY - scrollStartY.current)
+
+    // If moved more than 10px, consider it scrolling
+    if (scrollDiff > 10) {
+      setIsScrolling(true)
+    }
+
+    if (!isDragging) return
     const diff = currentY - startY.current
     if (diff > 0) {
       setDragY(diff * 0.8)
@@ -398,12 +414,26 @@ function MobileBottomSheet({
   }
 
   const handleTouchEnd = () => {
+    // Clear scrolling state after a short delay
+    if (scrollTimeout.current) clearTimeout(scrollTimeout.current)
+    scrollTimeout.current = setTimeout(() => {
+      setIsScrolling(false)
+    }, 100)
+
     if (!isDragging) return
     setIsDragging(false)
     if (dragY > 80) {
       handleClose()
     } else {
       setDragY(0)
+    }
+  }
+
+  // Prevent click events when scrolling
+  const handleContentClick = (e: React.MouseEvent) => {
+    if (isScrolling) {
+      e.preventDefault()
+      e.stopPropagation()
     }
   }
 
@@ -429,7 +459,7 @@ function MobileBottomSheet({
         style={{
           transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)",
           transition: isDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
-          maxHeight: '60vh',
+          maxHeight: '74vh',
         }}
       >
         {/* Handle bar */}
@@ -446,7 +476,13 @@ function MobileBottomSheet({
             <h3 className="text-[16px] font-semibold text-gray-900">{title}</h3>
           </div>
         )}
-        <div className="overflow-y-auto overscroll-contain" style={{ maxHeight: 'calc(60vh - 80px)' }}>
+        <div
+          ref={contentRef}
+          onClick={handleContentClick}
+          onClickCapture={handleContentClick}
+          className="overflow-y-auto overscroll-contain"
+          style={{ maxHeight: 'calc(74vh - 80px)' }}
+        >
           {children}
         </div>
       </div>
@@ -454,22 +490,22 @@ function MobileBottomSheet({
   )
 }
 
-// Animated Hamburger Icon Component - subtle animation only (15% bigger on mobile)
+// Animated Hamburger Icon Component - subtle animation only
 function AnimatedHamburger({ isOpen }: { isOpen: boolean }) {
   return (
-    <div className="w-6 h-6 flex flex-col justify-center items-center gap-1.5">
+    <div className="w-[1.35rem] h-[1.35rem] flex flex-col justify-center items-center gap-1">
       <span
-        className={`block h-0.5 w-6 bg-current rounded-full transition-all duration-200 ease-out ${
+        className={`block h-0.5 w-[1.35rem] bg-current rounded-full transition-all duration-200 ease-out ${
           isOpen ? "opacity-60" : "opacity-100"
         }`}
       />
       <span
         className={`block h-0.5 bg-current rounded-full transition-all duration-200 ease-out ${
-          isOpen ? "opacity-60 w-4" : "opacity-100 w-6"
+          isOpen ? "opacity-60 w-3" : "opacity-100 w-[1.35rem]"
         }`}
       />
       <span
-        className={`block h-0.5 w-6 bg-current rounded-full transition-all duration-200 ease-out ${
+        className={`block h-0.5 w-[1.35rem] bg-current rounded-full transition-all duration-200 ease-out ${
           isOpen ? "opacity-60" : "opacity-100"
         }`}
       />
@@ -1391,7 +1427,7 @@ export function PlatformHeaderClient() {
 
         {/* Mobile Search Bar Trigger - hidden on homepage, shown on /explore and other pages */}
         {pathname !== "/" && (
-          <div className="md:hidden py-3 border-t border-gray-100">
+          <div className="md:hidden py-2 border-t border-gray-100">
             <button
               type="button"
               onClick={() => setSearchModalOpen(true)}

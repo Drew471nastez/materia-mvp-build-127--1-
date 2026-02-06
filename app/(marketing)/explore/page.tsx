@@ -6,20 +6,20 @@ import { MostPopularSection } from "@/components/explore/most-popular-section"
 
 // SEO-optimized metadata with enhanced tags for Google
 export const metadata: Metadata = {
-  title: "Discover Digital Products | Storelib",
-  description: "Browse and discover the best digital products from top creators. Find productivity tools, design assets, social media templates, AI resources and more. Shop thousands of digital downloads.",
+  title: "Discover | Storelib",
+  description: "Explore premium digital products from independent creators. Browse Notion templates, design assets, AI tools, marketing resources, and more. Find what you need to level up your work.",
   keywords: ["digital products", "productivity tools", "design assets", "social media templates", "AI tools", "digital downloads", "creator marketplace", "online store"],
   openGraph: {
-    title: "Discover Digital Products | Storelib",
-    description: "Browse and discover the best digital products from top creators. Shop thousands of digital downloads.",
+    title: "Discover | Storelib",
+    description: "Explore premium digital products from independent creators. Browse Notion templates, design assets, AI tools, marketing resources, and more.",
     type: "website",
     url: "/explore",
     siteName: "Storelib",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Discover Digital Products | Storelib",
-    description: "Browse and discover the best digital products from top creators. Shop thousands of digital downloads.",
+    title: "Discover | Storelib",
+    description: "Explore premium digital products from independent creators. Browse Notion templates, design assets, AI tools, marketing resources, and more.",
   },
   alternates: {
     canonical: "/explore",
