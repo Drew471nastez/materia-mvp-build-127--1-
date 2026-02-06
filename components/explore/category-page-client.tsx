@@ -4,19 +4,16 @@ import { useState, useCallback, useMemo, useEffect, useRef } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ProductCard } from "./product-card"
-import { ProductCardSkeleton } from "./product-card-skeleton"
-import { FeaturedBannerCarousel } from "./featured-banner-carousel"
-import { Layers, Sparkles, Zap, Share2, Bot, SlidersHorizontal, X, Check, Search, ChevronLeft, ChevronRight, Briefcase, Megaphone, ArrowLeft, Music, Camera, Video, ShoppingBag, GraduationCap, Code, Grid3X3, LayoutGrid, Rows3, ChevronDown } from "lucide-react"
+import { Layers, Sparkles, Zap, Share2, Bot, SlidersHorizontal, X, Check, Search, ChevronLeft, ChevronRight, Briefcase, Megaphone, ArrowLeft, Music, Camera, Video, ShoppingBag, GraduationCap, Code, Grid3X3, LayoutGrid, ChevronDown } from "lucide-react"
 import { Input } from "@/components/ui/input"
 
-// Categories with icons and subcategories - Extended list matching explore-page-client
+// Categories with icons and subcategories
 const CATEGORIES = [
   {
     id: "design",
     label: "Design",
     icon: Sparkles,
     description: "Beautiful templates, graphics, fonts, and design assets",
-    color: "from-pink-500 to-violet-500",
     subcategories: [
       { id: "ui-ux", label: "UI/UX Templates" },
       { id: "graphics", label: "Graphics & Illustrations" },
@@ -33,7 +30,6 @@ const CATEGORIES = [
     label: "Development",
     icon: Code,
     description: "Web templates, mobile apps, scripts, and developer tools",
-    color: "from-blue-500 to-cyan-500",
     subcategories: [
       { id: "web", label: "Web Templates" },
       { id: "mobile", label: "Mobile Apps" },
@@ -50,7 +46,6 @@ const CATEGORIES = [
     label: "Marketing",
     icon: Megaphone,
     description: "Email templates, ad creatives, landing pages, and SEO tools",
-    color: "from-orange-500 to-red-500",
     subcategories: [
       { id: "email", label: "Email Templates" },
       { id: "ads", label: "Ad Creatives" },
@@ -65,7 +60,6 @@ const CATEGORIES = [
     label: "Business",
     icon: Briefcase,
     description: "Spreadsheets, presentations, documents, and business tools",
-    color: "from-emerald-500 to-teal-500",
     subcategories: [
       { id: "spreadsheets", label: "Spreadsheets" },
       { id: "presentations", label: "Presentations" },
@@ -80,7 +74,6 @@ const CATEGORIES = [
     label: "AI",
     icon: Bot,
     description: "AI prompts, ChatGPT templates, and automation tools",
-    color: "from-violet-500 to-purple-500",
     subcategories: [
       { id: "prompts", label: "AI Prompts" },
       { id: "chatgpt", label: "ChatGPT Templates" },
@@ -94,7 +87,6 @@ const CATEGORIES = [
     label: "Social Media",
     icon: Share2,
     description: "Instagram, TikTok, YouTube templates and content packs",
-    color: "from-pink-500 to-rose-500",
     subcategories: [
       { id: "instagram", label: "Instagram Templates" },
       { id: "tiktok", label: "TikTok Content" },
@@ -110,7 +102,6 @@ const CATEGORIES = [
     label: "Productivity",
     icon: Zap,
     description: "Notion templates, planners, checklists, and dashboards",
-    color: "from-amber-500 to-orange-500",
     subcategories: [
       { id: "notion", label: "Notion Templates" },
       { id: "planners", label: "Calendars & Planners" },
@@ -125,7 +116,6 @@ const CATEGORIES = [
     label: "Photography",
     icon: Camera,
     description: "Lightroom presets, photo overlays, and Photoshop actions",
-    color: "from-sky-500 to-blue-500",
     subcategories: [
       { id: "presets", label: "Lightroom Presets" },
       { id: "overlays", label: "Photo Overlays" },
@@ -139,7 +129,6 @@ const CATEGORIES = [
     label: "Video",
     icon: Video,
     description: "Video templates, transitions, motion graphics, and effects",
-    color: "from-red-500 to-pink-500",
     subcategories: [
       { id: "templates", label: "Video Templates" },
       { id: "transitions", label: "Transitions & Effects" },
@@ -154,7 +143,6 @@ const CATEGORIES = [
     label: "Audio & Music",
     icon: Music,
     description: "Royalty-free music, sound effects, loops, and samples",
-    color: "from-indigo-500 to-violet-500",
     subcategories: [
       { id: "music", label: "Royalty-Free Music" },
       { id: "sfx", label: "Sound Effects" },
@@ -167,7 +155,6 @@ const CATEGORIES = [
     label: "Education",
     icon: GraduationCap,
     description: "Online courses, eBooks, tutorials, and educational content",
-    color: "from-green-500 to-emerald-500",
     subcategories: [
       { id: "courses", label: "Online Courses" },
       { id: "ebooks", label: "eBooks" },
@@ -181,7 +168,6 @@ const CATEGORIES = [
     label: "E-commerce",
     icon: ShoppingBag,
     description: "Store themes, product photography, and e-commerce tools",
-    color: "from-teal-500 to-cyan-500",
     subcategories: [
       { id: "product-photos", label: "Product Photography" },
       { id: "store-themes", label: "Store Themes" },
@@ -194,7 +180,6 @@ const CATEGORIES = [
     label: "Freebies",
     icon: Sparkles,
     description: "Free digital products, templates, and resources",
-    color: "from-green-500 to-emerald-500",
     subcategories: []
   },
   {
@@ -202,15 +187,12 @@ const CATEGORIES = [
     label: "Other",
     icon: Layers,
     description: "Miscellaneous digital products and resources",
-    color: "from-gray-500 to-slate-500",
     subcategories: []
   },
 ] as const
 
 // Map from DB category display values to our code category IDs
-// Products in the DB may have values like "Digital Art", "Other", "Productivity" etc.
 const DB_CATEGORY_TO_ID: Record<string, string> = {
-  // Exact ID matches (after SQL migration has been run)
   "productivity": "productivity",
   "design": "design",
   "development": "development",
@@ -225,7 +207,6 @@ const DB_CATEGORY_TO_ID: Record<string, string> = {
   "ecommerce": "ecommerce",
   "freebies": "freebies",
   "other": "other",
-  // Common display-name variants from the DB
   "digital art": "design",
   "graphic design": "design",
   "graphics": "design",
@@ -289,14 +270,19 @@ const DB_CATEGORY_TO_ID: Record<string, string> = {
   "email marketing": "marketing",
 }
 
-// Normalize a DB category value to our code category ID
 function normalizeCategoryToId(dbCategory: string): string {
   const lower = (dbCategory || "").toLowerCase().trim()
   if (!lower) return ""
   return DB_CATEGORY_TO_ID[lower] || lower
 }
 
-// Price filter options
+// Recommendation filter types
+const RECOMMENDATION_FILTERS = [
+  { id: "curated", label: "Curated" },
+  { id: "trending", label: "Trending" },
+  { id: "hot-new", label: "Hot & New" },
+] as const
+
 const PRICE_FILTERS = [
   { id: "all", label: "All Prices" },
   { id: "free", label: "Free" },
@@ -305,7 +291,6 @@ const PRICE_FILTERS = [
   { id: "50-plus", label: "$50+" },
 ] as const
 
-// Sort options
 const SORT_OPTIONS = [
   { id: "newest", label: "Newest" },
   { id: "popular", label: "Most Popular" },
@@ -313,12 +298,12 @@ const SORT_OPTIONS = [
   { id: "price-high", label: "Price: High to Low" },
 ] as const
 
-const PRODUCTS_PER_PAGE = 15 // 3 per row x 5 rows
+const PRODUCTS_PER_PAGE = 15
+const MAX_VISIBLE_PILLS = 8
 
-// View mode options
-type ViewMode = "grid" | "compact" | "list"
+type ViewMode = "grid" | "compact"
 
-// Mobile Filter Bottom Sheet Component
+// Mobile Filter Bottom Sheet
 function MobileFilterSheet({
   isOpen,
   onClose,
@@ -356,30 +341,21 @@ function MobileFilterSheet({
       setIsVisible(true)
       document.body.style.overflow = "hidden"
       requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          setIsAnimating(true)
-        })
+        requestAnimationFrame(() => { setIsAnimating(true) })
       })
     } else if (!isOpen && isVisible) {
       setIsAnimating(false)
       document.body.style.overflow = ""
-      const timer = setTimeout(() => {
-        setIsVisible(false)
-        setDragY(0)
-      }, 400)
+      const timer = setTimeout(() => { setIsVisible(false); setDragY(0) }, 400)
       return () => clearTimeout(timer)
     }
-    return () => {
-      document.body.style.overflow = ""
-    }
+    return () => { document.body.style.overflow = "" }
   }, [isOpen, isVisible])
 
   const handleClose = () => {
     setIsAnimating(false)
     setDragY(0)
-    setTimeout(() => {
-      onClose()
-    }, 400)
+    setTimeout(() => { onClose() }, 400)
   }
 
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -396,8 +372,7 @@ function MobileFilterSheet({
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!isDragging) return
-    const currentY = e.touches[0].clientY
-    const diff = currentY - startY.current
+    const diff = e.touches[0].clientY - startY.current
     if (diff > 0) setDragY(diff * 0.8)
   }
 
@@ -446,9 +421,7 @@ function MobileFilterSheet({
         <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-100 shrink-0">
           <h3 className="text-lg font-semibold text-neutral-900">Filters</h3>
           {activeFilterCount > 0 && (
-            <button onClick={resetFilters} className="text-sm text-violet-600 font-medium cursor-pointer">
-              Reset all
-            </button>
+            <button onClick={resetFilters} className="text-sm text-violet-600 font-medium cursor-pointer">Reset all</button>
           )}
         </div>
 
@@ -515,31 +488,22 @@ function MobileFilterSheet({
         </div>
 
         <div className="flex items-center gap-3 px-4 pt-4 border-t border-neutral-100 bg-white shrink-0" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
-          <button
-            onClick={resetFilters}
-            className="flex-1 px-4 py-3 rounded-xl text-sm font-medium text-neutral-600 bg-neutral-100 hover:bg-neutral-200 transition-colors cursor-pointer"
-          >
-            Reset
-          </button>
-          <button
-            onClick={handleClose}
-            className="flex-1 px-4 py-3 rounded-xl text-sm font-semibold bg-neutral-900 text-white hover:bg-neutral-800 transition-colors cursor-pointer"
-          >
-            Apply Filters
-          </button>
+          <button onClick={resetFilters} className="flex-1 px-4 py-3 rounded-xl text-sm font-medium text-neutral-600 bg-neutral-100 hover:bg-neutral-200 transition-colors cursor-pointer">Reset</button>
+          <button onClick={handleClose} className="flex-1 px-4 py-3 rounded-xl text-sm font-semibold bg-neutral-900 text-white hover:bg-neutral-800 transition-colors cursor-pointer">Apply Filters</button>
         </div>
       </div>
     </div>
   )
 }
 
-// Subcategory Selector Modal
-function SubcategorySelectorModal({
+// Mobile Subcategory Bottom Sheet (slides up from bottom, like hamburger)
+function MobileSubcategorySheet({
   isOpen,
   onClose,
   subcategories,
   selectedSubcategories,
   onSelectSubcategory,
+  onSelectAll,
   categoryLabel,
 }: {
   isOpen: boolean
@@ -547,6 +511,148 @@ function SubcategorySelectorModal({
   subcategories: readonly { id: string; label: string }[]
   selectedSubcategories: string[]
   onSelectSubcategory: (subId: string) => void
+  onSelectAll: () => void
+  categoryLabel: string
+}) {
+  const [isVisible, setIsVisible] = useState(false)
+  const [isAnimating, setIsAnimating] = useState(false)
+  const [dragY, setDragY] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+  const startY = useRef(0)
+  const sheetRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (isOpen && !isVisible) {
+      setIsVisible(true)
+      document.body.style.overflow = "hidden"
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => { setIsAnimating(true) })
+      })
+    } else if (!isOpen && isVisible) {
+      setIsAnimating(false)
+      document.body.style.overflow = ""
+      const timer = setTimeout(() => { setIsVisible(false); setDragY(0) }, 400)
+      return () => clearTimeout(timer)
+    }
+    return () => { document.body.style.overflow = "" }
+  }, [isOpen, isVisible])
+
+  const handleClose = () => {
+    setIsAnimating(false)
+    setDragY(0)
+    setTimeout(() => { onClose() }, 400)
+  }
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0]
+    const el = sheetRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    if (touch.clientY - rect.top <= 60) {
+      startY.current = touch.clientY
+      setIsDragging(true)
+    }
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging) return
+    const diff = e.touches[0].clientY - startY.current
+    if (diff > 0) setDragY(diff * 0.8)
+  }
+
+  const handleTouchEnd = () => {
+    if (!isDragging) return
+    setIsDragging(false)
+    if (dragY > 80) handleClose()
+    else setDragY(0)
+  }
+
+  if (!isVisible) return null
+
+  return (
+    <div className="fixed inset-0 z-[100] md:hidden">
+      <div
+        className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity ease-out ${isAnimating ? "opacity-100" : "opacity-0"}`}
+        style={{ transitionDuration: '400ms' }}
+        onClick={handleClose}
+      />
+      <div
+        ref={sheetRef}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl flex flex-col"
+        style={{
+          transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)",
+          transition: isDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
+          maxHeight: '70vh',
+        }}
+      >
+        <div className="pt-3 pb-2 shrink-0">
+          <button onClick={handleClose} className="w-full flex justify-center py-2 cursor-pointer touch-none">
+            <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
+          </button>
+        </div>
+
+        <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-100 shrink-0">
+          <h3 className="text-lg font-semibold text-neutral-900">{categoryLabel} Subcategories</h3>
+          <button onClick={handleClose} className="p-1.5 rounded-full hover:bg-neutral-100 transition-colors cursor-pointer">
+            <X className="w-5 h-5 text-neutral-500" />
+          </button>
+        </div>
+
+        <div className="overflow-y-auto overscroll-contain p-4 flex-1 min-h-0">
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => { onSelectAll(); handleClose() }}
+              className={`inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-150 cursor-pointer ${
+                selectedSubcategories.length === 0
+                  ? "bg-neutral-900 text-white"
+                  : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+              }`}
+            >
+              All {categoryLabel}
+            </button>
+            {subcategories.map((sub) => {
+              const isSelected = selectedSubcategories.includes(sub.id)
+              return (
+                <button
+                  key={sub.id}
+                  onClick={() => { onSelectSubcategory(sub.id); handleClose() }}
+                  className={`inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-150 cursor-pointer ${
+                    isSelected
+                      ? "bg-violet-600 text-white"
+                      : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                  }`}
+                >
+                  {isSelected && <Check className="w-3.5 h-3.5" />}
+                  {sub.label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Desktop Subcategory Modal (centered)
+function DesktopSubcategoryModal({
+  isOpen,
+  onClose,
+  subcategories,
+  selectedSubcategories,
+  onSelectSubcategory,
+  onSelectAll,
+  categoryLabel,
+}: {
+  isOpen: boolean
+  onClose: () => void
+  subcategories: readonly { id: string; label: string }[]
+  selectedSubcategories: string[]
+  onSelectSubcategory: (subId: string) => void
+  onSelectAll: () => void
   categoryLabel: string
 }) {
   const [isVisible, setIsVisible] = useState(false)
@@ -557,34 +663,26 @@ function SubcategorySelectorModal({
       setIsVisible(true)
       document.body.style.overflow = "hidden"
       requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          setIsAnimating(true)
-        })
+        requestAnimationFrame(() => { setIsAnimating(true) })
       })
     } else if (!isOpen && isVisible) {
       setIsAnimating(false)
       document.body.style.overflow = ""
-      const timer = setTimeout(() => {
-        setIsVisible(false)
-      }, 300)
+      const timer = setTimeout(() => { setIsVisible(false) }, 300)
       return () => clearTimeout(timer)
     }
-    return () => {
-      document.body.style.overflow = ""
-    }
+    return () => { document.body.style.overflow = "" }
   }, [isOpen, isVisible])
 
   const handleClose = () => {
     setIsAnimating(false)
-    setTimeout(() => {
-      onClose()
-    }, 300)
+    setTimeout(() => { onClose() }, 300)
   }
 
   if (!isVisible) return null
 
   return (
-    <div className="fixed inset-0 z-[100]">
+    <div className="fixed inset-0 z-[100] hidden md:block">
       <div
         className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity ease-out ${isAnimating ? "opacity-100" : "opacity-0"}`}
         style={{ transitionDuration: '300ms' }}
@@ -603,24 +701,31 @@ function SubcategorySelectorModal({
             </button>
           </div>
           <div className="p-4 max-h-[60vh] overflow-y-auto">
-            <div className="grid grid-cols-2 gap-2">
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => { onSelectAll(); handleClose() }}
+                className={`inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-150 cursor-pointer ${
+                  selectedSubcategories.length === 0
+                    ? "bg-neutral-900 text-white"
+                    : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                }`}
+              >
+                All {categoryLabel}
+              </button>
               {subcategories.map((sub) => {
                 const isSelected = selectedSubcategories.includes(sub.id)
                 return (
                   <button
                     key={sub.id}
-                    onClick={() => {
-                      onSelectSubcategory(sub.id)
-                      handleClose()
-                    }}
-                    className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-150 cursor-pointer ${
+                    onClick={() => { onSelectSubcategory(sub.id); handleClose() }}
+                    className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-150 cursor-pointer ${
                       isSelected
                         ? "bg-violet-100 text-violet-700 ring-2 ring-violet-500"
                         : "bg-neutral-50 text-neutral-700 hover:bg-neutral-100"
                     }`}
                   >
                     {isSelected && <Check className="w-4 h-4" />}
-                    <span className="truncate">{sub.label}</span>
+                    <span>{sub.label}</span>
                   </button>
                 )
               })}
@@ -654,6 +759,7 @@ export function CategoryPageClient({
   const [selectedSubcategories, setSelectedSubcategories] = useState<string[]>(
     initialSubcategory ? [initialSubcategory] : []
   )
+  const [recommendationFilter, setRecommendationFilter] = useState<"curated" | "trending" | "hot-new">("curated")
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const [subcategorySelectorOpen, setSubcategorySelectorOpen] = useState(false)
@@ -662,7 +768,7 @@ export function CategoryPageClient({
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
 
-  // View mode
+  // View mode (only grid and compact — no list)
   const [viewMode, setViewMode] = useState<ViewMode>("grid")
 
   // Pagination
@@ -673,7 +779,6 @@ export function CategoryPageClient({
   const CategoryIcon = categoryInfo?.icon || Layers
   const availableSubcategories = categoryInfo?.subcategories || []
   const categoryDescription = categoryInfo?.description || ""
-  const categoryColor = categoryInfo?.color || "from-neutral-500 to-neutral-600"
 
   // Read subcategory from URL
   useEffect(() => {
@@ -686,45 +791,42 @@ export function CategoryPageClient({
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1)
-  }, [priceFilter, sortBy, selectedSubcategories, searchQuery])
+  }, [priceFilter, sortBy, selectedSubcategories, searchQuery, recommendationFilter])
 
   // Handle subcategory selection
   const handleSubcategorySelect = useCallback((subId: string) => {
     setSelectedSubcategories(prev => {
       if (prev.includes(subId)) {
         const newSubs = prev.filter(s => s !== subId)
-        // Update URL
         if (newSubs.length === 0) {
           router.push(`/explore/${category}`, { scroll: false })
         }
         return newSubs
       } else {
-        // Update URL
         router.push(`/explore/${category}?sub=${subId}`, { scroll: false })
         return [subId]
       }
     })
   }, [category, router])
 
-  // Filter products
+  const handleSelectAll = useCallback(() => {
+    setSelectedSubcategories([])
+    router.push(`/explore/${category}`, { scroll: false })
+  }, [category, router])
+
+  // Filter and sort products
   const filteredProducts = useMemo(() => {
     let products = [...initialProducts]
 
-    // Special handling for "freebies" category - show free products
+    // Category filtering
     if (category === "freebies") {
       products = products.filter(p => p.price_cents === 0)
-    }
-    // For all other categories: strictly filter by normalized DB category
-    else {
+    } else {
       products = products.filter(p => {
-        // Primary: match via normalized DB category field
         const normalizedCategory = normalizeCategoryToId(p.category || p.categoryName || "")
         if (normalizedCategory === category) return true
-
-        // Secondary: match via creator niche tags
         const creatorTags = p.creator?.niche_tags?.map((t: string) => normalizeCategoryToId(t)) || []
         if (creatorTags.includes(category)) return true
-
         return false
       })
     }
@@ -736,7 +838,6 @@ export function CategoryPageClient({
         const productTags = p.tags?.map((t: string) => t.toLowerCase()) || []
         const productTitle = (p.title || "").toLowerCase()
         const productDesc = (p.description || "").toLowerCase()
-
         return selectedSubcategories.some(sub =>
           productSub.includes(sub) ||
           productTags.some((tag: string) => tag.includes(sub)) ||
@@ -771,7 +872,68 @@ export function CategoryPageClient({
         break
     }
 
-    // Apply sort
+    // Save category-filtered set for backfill
+    const categoryFilteredProducts = [...products]
+
+    // Apply recommendation filter sorting
+    switch (recommendationFilter) {
+      case "trending": {
+        const fourteenDaysAgo = Date.now() - 14 * 24 * 60 * 60 * 1000
+        products = products.sort((a, b) => {
+          const aBoost = new Date(a.created_at).getTime() > fourteenDaysAgo ? 1.5 : 1
+          const bBoost = new Date(b.created_at).getTime() > fourteenDaysAgo ? 1.5 : 1
+          const scoreA = ((a.sales_count || 0) * 3 + (a.reviews_count || 0) * 2 + (a.view_count || 0) * 0.1) * aBoost
+          const scoreB = ((b.sales_count || 0) * 3 + (b.reviews_count || 0) * 2 + (b.view_count || 0) * 0.1) * bBoost
+          return scoreB - scoreA
+        })
+        break
+      }
+      case "hot-new": {
+        const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000
+        const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
+        products = products
+          .filter(p => new Date(p.created_at).getTime() > thirtyDaysAgo)
+          .sort((a, b) => {
+            const aNewBoost = new Date(a.created_at).getTime() > sevenDaysAgo ? 2 : 1
+            const bNewBoost = new Date(b.created_at).getTime() > sevenDaysAgo ? 2 : 1
+            const scoreA = ((a.sales_count || 0) * 5 + (a.reviews_count || 0) * 3 + (a.reviews_average || 0) * 2) * aNewBoost
+            const scoreB = ((b.sales_count || 0) * 5 + (b.reviews_count || 0) * 3 + (b.reviews_average || 0) * 2) * bNewBoost
+            if (Math.abs(scoreA - scoreB) < 5) {
+              return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+            }
+            return scoreB - scoreA
+          })
+        // Backfill from SAME category only
+        if (products.length < 15) {
+          const olderProducts = categoryFilteredProducts
+            .filter(p => !products.find(rp => rp.id === p.id))
+            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+            .slice(0, 15 - products.length)
+          products = [...products, ...olderProducts]
+        }
+        break
+      }
+      case "curated":
+      default: {
+        products = products.sort((a, b) => {
+          const aReviewScore = (a.reviews_average || 0) * Math.min(a.reviews_count || 0, 20) * 0.5
+          const bReviewScore = (b.reviews_average || 0) * Math.min(b.reviews_count || 0, 20) * 0.5
+          const aSalesScore = Math.min(a.sales_count || 0, 100) * 2
+          const bSalesScore = Math.min(b.sales_count || 0, 100) * 2
+          const aCompleteBonus = (a.thumbnail_url ? 5 : 0) + ((a.description?.length || 0) > 100 ? 5 : 0)
+          const bCompleteBonus = (b.thumbnail_url ? 5 : 0) + ((b.description?.length || 0) > 100 ? 5 : 0)
+          const sixtyDaysAgo = Date.now() - 60 * 24 * 60 * 60 * 1000
+          const aFreshBonus = new Date(a.created_at).getTime() > sixtyDaysAgo ? 10 : 0
+          const bFreshBonus = new Date(b.created_at).getTime() > sixtyDaysAgo ? 10 : 0
+          const scoreA = aReviewScore + aSalesScore + aCompleteBonus + aFreshBonus
+          const scoreB = bReviewScore + bSalesScore + bCompleteBonus + bFreshBonus
+          return scoreB - scoreA
+        })
+        break
+      }
+    }
+
+    // Apply additional sort override (only if user explicitly picks a sort)
     switch (sortBy) {
       case "popular":
         products = products.sort((a, b) => (b.sales_count || 0) - (a.sales_count || 0))
@@ -784,12 +946,13 @@ export function CategoryPageClient({
         break
       case "newest":
       default:
-        products = products.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        // Only override recommendation sort if user explicitly selected "newest"
+        // Default: let recommendation filter handle it
         break
     }
 
     return products
-  }, [initialProducts, category, priceFilter, sortBy, selectedSubcategories, searchQuery])
+  }, [initialProducts, category, priceFilter, sortBy, selectedSubcategories, searchQuery, recommendationFilter])
 
   // Paginated products
   const paginatedProducts = useMemo(() => {
@@ -799,7 +962,7 @@ export function CategoryPageClient({
 
   const totalPages = Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE)
 
-  // Get active filter count
+  // Active filter count
   const activeFilterCount = useMemo(() => {
     let count = 0
     if (priceFilter !== "all") count++
@@ -816,152 +979,165 @@ export function CategoryPageClient({
     router.push(`/explore/${category}`, { scroll: false })
   }, [category, router])
 
-  // Get current subcategory label
+  // Current subcategory label
   const currentSubcategoryLabel = useMemo(() => {
     if (selectedSubcategories.length === 0) return null
     const sub = availableSubcategories.find(s => s.id === selectedSubcategories[0])
     return sub?.label || null
   }, [selectedSubcategories, availableSubcategories])
 
-  // Grid class based on view mode
+  // Grid class (only grid and compact — no list)
   const gridClass = useMemo(() => {
     switch (viewMode) {
       case "compact":
         return "grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4"
-      case "list":
-        return "grid gap-4 grid-cols-1"
       case "grid":
       default:
         return "grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
     }
   }, [viewMode])
 
-  // Featured products for carousel banner - 5 products from this category with thumbnails
-  const categoryFeaturedProducts = useMemo(() => {
-    return initialProducts
-      .filter(p => {
-        if (!p.thumbnail_url) return false
-        const normalizedCategory = normalizeCategoryToId(p.category || p.categoryName || "")
-        return normalizedCategory === category
-      })
-      .slice(0, 5)
-  }, [initialProducts, category])
-
-  // Fallback: if no products with thumbnails match category, use any products with thumbnails
-  const bannerProducts = useMemo(() => {
-    if (categoryFeaturedProducts.length > 0) return categoryFeaturedProducts
-    return initialProducts.filter(p => p.thumbnail_url).slice(0, 5)
-  }, [categoryFeaturedProducts, initialProducts])
+  // Visible subcategory pills (max 8 on desktop, includes "All" button)
+  const visiblePillCount = MAX_VISIBLE_PILLS - 1 // -1 for the "All" button
+  const hasOverflow = availableSubcategories.length > visiblePillCount
+  const visibleSubcategories = hasOverflow ? availableSubcategories.slice(0, visiblePillCount) : availableSubcategories
 
   return (
     <div className="space-y-6">
-      {/* Hero Banner Carousel - same as /explore page but with category info overlay */}
-      {bannerProducts.length > 0 ? (
-        <FeaturedBannerCarousel
-          products={bannerProducts}
-          overlay={
-            <div className="max-w-lg">
-              <Link
-                href="/explore"
-                className="inline-flex items-center gap-2 text-sm text-white/80 hover:text-white transition-colors mb-4"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                <span>Back to Explore</span>
-              </Link>
-              <div className="flex items-start gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center shrink-0">
-                  <CategoryIcon className="w-7 h-7 text-white" />
-                </div>
-                <div className="flex-1">
-                  <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1 drop-shadow-lg">
-                    {currentSubcategoryLabel || categoryLabel}
-                  </h1>
-                  <p className="text-white/80 text-sm sm:text-base drop-shadow-md">{categoryDescription}</p>
-                  <p className="text-white/60 text-sm mt-2 drop-shadow-md">{filteredProducts.length} products available</p>
-                </div>
-              </div>
-            </div>
-          }
-        />
-      ) : (
-        /* Fallback gradient banner if no products have thumbnails */
-        <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-r ${categoryColor} p-6 sm:p-8`}>
-          <div className="absolute inset-0 bg-black/10" />
-          <div className="relative z-10">
-            <Link
-              href="/explore"
-              className="inline-flex items-center gap-2 text-sm text-white/80 hover:text-white transition-colors mb-4"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Back to Explore</span>
-            </Link>
-            <div className="flex items-start gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                <CategoryIcon className="w-7 h-7 text-white" />
-              </div>
-              <div className="flex-1">
-                <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">
-                  {currentSubcategoryLabel || categoryLabel}
-                </h1>
-                <p className="text-white/80 text-sm sm:text-base">{categoryDescription}</p>
-                <p className="text-white/60 text-sm mt-2">{filteredProducts.length} products available</p>
-              </div>
-            </div>
-          </div>
+      {/* Clean minimal header — no banner, no color */}
+      <div>
+        <Link
+          href="/explore"
+          className="inline-flex items-center gap-2 text-sm text-neutral-500 hover:text-neutral-900 transition-colors mb-4"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Back to Explore</span>
+        </Link>
+
+        <div className="flex items-center gap-3 mb-1">
+          <h1 className="text-2xl sm:text-3xl font-bold text-neutral-900">
+            {currentSubcategoryLabel || categoryLabel}
+          </h1>
         </div>
-      )}
+        <p className="text-neutral-500 text-sm sm:text-base">{categoryDescription}</p>
+        <p className="text-neutral-400 text-sm mt-1">{filteredProducts.length} products available</p>
+      </div>
+
+      {/* Recommendation Filter Pills */}
+      <div className="flex items-center gap-2">
+        {RECOMMENDATION_FILTERS.map((filter) => {
+          const isSelected = recommendationFilter === filter.id
+          return (
+            <button
+              key={filter.id}
+              onClick={() => setRecommendationFilter(filter.id as typeof recommendationFilter)}
+              className={`px-4 py-2 rounded-full text-sm font-medium cursor-pointer select-none whitespace-nowrap transition-all duration-150 ease-out active:scale-[0.98] ${
+                isSelected
+                  ? "bg-neutral-900 text-white shadow-sm"
+                  : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200 hover:text-neutral-900"
+              }`}
+            >
+              {filter.label}
+            </button>
+          )
+        })}
+      </div>
 
       {/* Subcategory Pills */}
       {availableSubcategories.length > 0 && (
         <div className="flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-neutral-700">Browse Subcategories</h3>
-            <button
-              onClick={() => setSubcategorySelectorOpen(true)}
-              className="md:hidden inline-flex items-center gap-1 text-sm text-violet-600 font-medium cursor-pointer"
-            >
-              <span>View All</span>
-              <ChevronDown className="w-4 h-4" />
-            </button>
-          </div>
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
-            <button
-              onClick={() => {
-                setSelectedSubcategories([])
-                router.push(`/explore/${category}`, { scroll: false })
-              }}
-              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap cursor-pointer select-none transition-all duration-150 ease-out active:scale-[0.98] ${
-                selectedSubcategories.length === 0
-                  ? "bg-neutral-900 text-white shadow-sm"
-                  : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
-              }`}
-            >
-              All {categoryLabel}
-            </button>
-            {availableSubcategories.map((sub) => {
-              const isSelected = selectedSubcategories.includes(sub.id)
-              return (
+          <h3 className="text-sm font-semibold text-neutral-700">Browse Subcategories</h3>
+
+          {/* Desktop: show max pills with fade + "Show all" */}
+          <div className="hidden md:block">
+            <div className="relative">
+              <div className="flex items-center gap-2 flex-wrap">
                 <button
-                  key={sub.id}
-                  onClick={() => handleSubcategorySelect(sub.id)}
+                  onClick={handleSelectAll}
                   className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap cursor-pointer select-none transition-all duration-150 ease-out active:scale-[0.98] ${
-                    isSelected
-                      ? "bg-violet-600 text-white shadow-sm"
+                    selectedSubcategories.length === 0
+                      ? "bg-neutral-900 text-white shadow-sm"
                       : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
                   }`}
                 >
-                  {isSelected && <Check className="w-3.5 h-3.5" />}
-                  {sub.label}
+                  All {categoryLabel}
                 </button>
-              )
-            })}
+                {visibleSubcategories.map((sub) => {
+                  const isSelected = selectedSubcategories.includes(sub.id)
+                  return (
+                    <button
+                      key={sub.id}
+                      onClick={() => handleSubcategorySelect(sub.id)}
+                      className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap cursor-pointer select-none transition-all duration-150 ease-out active:scale-[0.98] ${
+                        isSelected
+                          ? "bg-violet-600 text-white shadow-sm"
+                          : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                      }`}
+                    >
+                      {isSelected && <Check className="w-3.5 h-3.5" />}
+                      {sub.label}
+                    </button>
+                  )
+                })}
+                {hasOverflow && (
+                  <button
+                    onClick={() => setSubcategorySelectorOpen(true)}
+                    className="inline-flex items-center gap-1 px-4 py-2 rounded-full text-sm font-medium text-violet-600 bg-violet-50 hover:bg-violet-100 cursor-pointer select-none transition-all duration-150 whitespace-nowrap"
+                  >
+                    Show all
+                    <ChevronDown className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Mobile: scrollable row + "Show all" triggers bottom sheet */}
+          <div className="md:hidden">
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
+              <button
+                onClick={handleSelectAll}
+                className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap cursor-pointer select-none transition-all duration-150 ease-out active:scale-[0.98] ${
+                  selectedSubcategories.length === 0
+                    ? "bg-neutral-900 text-white shadow-sm"
+                    : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                }`}
+              >
+                All {categoryLabel}
+              </button>
+              {availableSubcategories.slice(0, 4).map((sub) => {
+                const isSelected = selectedSubcategories.includes(sub.id)
+                return (
+                  <button
+                    key={sub.id}
+                    onClick={() => handleSubcategorySelect(sub.id)}
+                    className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap cursor-pointer select-none transition-all duration-150 ease-out active:scale-[0.98] ${
+                      isSelected
+                        ? "bg-violet-600 text-white shadow-sm"
+                        : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                    }`}
+                  >
+                    {isSelected && <Check className="w-3.5 h-3.5" />}
+                    {sub.label}
+                  </button>
+                )
+              })}
+              {availableSubcategories.length > 4 && (
+                <button
+                  onClick={() => setSubcategorySelectorOpen(true)}
+                  className="inline-flex items-center gap-1 px-4 py-2 rounded-full text-sm font-medium text-violet-600 bg-violet-50 hover:bg-violet-100 cursor-pointer select-none transition-all duration-150 whitespace-nowrap shrink-0"
+                >
+                  Show all
+                  <ChevronDown className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
 
       {/* Controls Row */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative">
-        {/* Search */}
         {searchOpen ? (
           <div className="flex-1 animate-in fade-in slide-in-from-top-2 duration-200">
             <div className="relative">
@@ -974,10 +1150,7 @@ export function CategoryPageClient({
                 className="h-11 w-full pl-10 pr-10 bg-neutral-100 border-neutral-200 text-neutral-900 placeholder:text-neutral-500 rounded-full text-sm"
               />
               <button
-                onClick={() => {
-                  setSearchQuery("")
-                  setSearchOpen(false)
-                }}
+                onClick={() => { setSearchQuery(""); setSearchOpen(false) }}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 cursor-pointer"
               >
                 <X className="w-4 h-4" />
@@ -986,7 +1159,6 @@ export function CategoryPageClient({
           </div>
         ) : (
           <div className="flex items-center gap-2">
-            {/* Search Button */}
             <button
               onClick={() => setSearchOpen(true)}
               className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-neutral-100 text-neutral-700 hover:bg-neutral-200 transition-all duration-150 cursor-pointer"
@@ -994,7 +1166,7 @@ export function CategoryPageClient({
               <Search className="w-4 h-4" />
             </button>
 
-            {/* View Mode Toggle - Desktop only */}
+            {/* View Mode Toggle - Desktop only (grid + compact only) */}
             <div className="hidden md:flex items-center gap-1 bg-neutral-100 rounded-full p-1">
               <button
                 onClick={() => setViewMode("grid")}
@@ -1012,20 +1184,11 @@ export function CategoryPageClient({
               >
                 <Grid3X3 className="w-4 h-4" />
               </button>
-              <button
-                onClick={() => setViewMode("list")}
-                className={`p-2 rounded-full transition-colors cursor-pointer ${
-                  viewMode === "list" ? "bg-white shadow-sm text-neutral-900" : "text-neutral-500 hover:text-neutral-700"
-                }`}
-              >
-                <Rows3 className="w-4 h-4" />
-              </button>
             </div>
           </div>
         )}
 
         <div className="flex items-center gap-2">
-          {/* Filters Button */}
           <button
             onClick={() => {
               if (window.innerWidth >= 768) setFiltersOpen(!filtersOpen)
@@ -1099,12 +1262,8 @@ export function CategoryPageClient({
                 </div>
 
                 <div className="flex items-center gap-3 px-4 py-3 border-t border-neutral-100 bg-neutral-50">
-                  <button onClick={resetFilters} className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-neutral-600 hover:bg-neutral-200 transition-colors cursor-pointer">
-                    Reset
-                  </button>
-                  <button onClick={() => setFiltersOpen(false)} className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold bg-neutral-900 text-white hover:bg-neutral-800 transition-colors cursor-pointer">
-                    Apply
-                  </button>
+                  <button onClick={resetFilters} className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-neutral-600 hover:bg-neutral-200 transition-colors cursor-pointer">Reset</button>
+                  <button onClick={() => setFiltersOpen(false)} className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold bg-neutral-900 text-white hover:bg-neutral-800 transition-colors cursor-pointer">Apply</button>
                 </div>
               </div>
             </>
@@ -1143,9 +1302,7 @@ export function CategoryPageClient({
               </button>
             </span>
           )}
-          <button onClick={resetFilters} className="text-xs text-neutral-500 hover:text-neutral-700 underline cursor-pointer">
-            Clear all
-          </button>
+          <button onClick={resetFilters} className="text-xs text-neutral-500 hover:text-neutral-700 underline cursor-pointer">Clear all</button>
         </div>
       )}
 
@@ -1153,7 +1310,7 @@ export function CategoryPageClient({
       {paginatedProducts.length > 0 ? (
         <>
           <div
-            key={`products-${category}-${selectedSubcategories.join("-")}-${priceFilter}-${sortBy}-${currentPage}-${viewMode}`}
+            key={`products-${category}-${selectedSubcategories.join("-")}-${priceFilter}-${sortBy}-${recommendationFilter}-${currentPage}-${viewMode}`}
             className={`${gridClass} animate-in fade-in-0 slide-in-from-bottom-2 duration-300`}
           >
             {paginatedProducts.map((product, index) => (
@@ -1213,7 +1370,6 @@ export function CategoryPageClient({
             </div>
           )}
 
-          {/* Product count */}
           <p className="text-sm text-neutral-500 mt-4 text-center">
             Showing {(currentPage - 1) * PRODUCTS_PER_PAGE + 1}-{Math.min(currentPage * PRODUCTS_PER_PAGE, filteredProducts.length)} of {filteredProducts.length} products
           </p>
@@ -1231,9 +1387,7 @@ export function CategoryPageClient({
                 : `No products found in ${currentSubcategoryLabel || categoryLabel}`
             }
           </p>
-          <p className="text-neutral-400 text-sm mb-4">
-            Try adjusting your filters or search terms
-          </p>
+          <p className="text-neutral-400 text-sm mb-4">Try adjusting your filters or search terms</p>
           {activeFilterCount > 0 && (
             <button onClick={resetFilters} className="text-sm text-violet-600 hover:text-violet-700 font-medium cursor-pointer">
               Clear all filters
@@ -1257,13 +1411,25 @@ export function CategoryPageClient({
         activeFilterCount={activeFilterCount}
       />
 
-      {/* Subcategory Selector Modal */}
-      <SubcategorySelectorModal
+      {/* Desktop Subcategory Modal */}
+      <DesktopSubcategoryModal
         isOpen={subcategorySelectorOpen}
         onClose={() => setSubcategorySelectorOpen(false)}
         subcategories={availableSubcategories}
         selectedSubcategories={selectedSubcategories}
         onSelectSubcategory={handleSubcategorySelect}
+        onSelectAll={handleSelectAll}
+        categoryLabel={categoryLabel}
+      />
+
+      {/* Mobile Subcategory Bottom Sheet */}
+      <MobileSubcategorySheet
+        isOpen={subcategorySelectorOpen}
+        onClose={() => setSubcategorySelectorOpen(false)}
+        subcategories={availableSubcategories}
+        selectedSubcategories={selectedSubcategories}
+        onSelectSubcategory={handleSubcategorySelect}
+        onSelectAll={handleSelectAll}
         categoryLabel={categoryLabel}
       />
     </div>

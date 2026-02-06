@@ -74,10 +74,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const description = CATEGORY_DESCRIPTIONS[category] || `Browse ${label} products on Storelib`
 
   return {
-    title: `${label} Products | Storelib`,
+    title: `${label} | Storelib`,
     description,
     openGraph: {
-      title: `${label} Products | Storelib`,
+      title: `${label} | Storelib`,
       description,
       type: "website",
       url: `https://storelib.com/explore/${category}`,
@@ -86,13 +86,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
           url: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/89.jpg",
           width: 1200,
           height: 630,
-          alt: `${label} Products on Storelib`,
+          alt: `${label} on Storelib`,
         },
       ],
     },
     twitter: {
       card: "summary_large_image",
-      title: `${label} Products | Storelib`,
+      title: `${label} | Storelib`,
       description,
       images: ["https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/89.jpg"],
     },
