@@ -74,29 +74,26 @@ const IMAGES = [
 ]
 
 // ── Hero ──────────────────────────────────────────────────────────
-// 5 real image cards in a tight horizontal collage,
-// designed at 1100×400 fixed canvas, scaled responsively.
-// Center card is widest + raised. Edge cards partially cropped.
-// White bubble overlaps the middle of the strip.
+// 7 image cards in a curated collage matching the reference design.
+// Canvas: 1150×440, scaled responsively. White bubble overlaps center.
 
 export function Hero() {
   const typedText = useTypingEffect(TYPING_PHRASES)
 
   return (
     <section className="flex flex-col items-center bg-white pt-6 sm:pt-10 pb-10 sm:pb-14 overflow-hidden">
-      {/* Responsive scaling — 1100px design → viewport fit */}
       <style dangerouslySetInnerHTML={{ __html: `
         .hero-collage-inner {
-          transform: scale(0.32);
+          transform: scale(0.30);
         }
         @media (min-width: 640px) {
-          .hero-collage-inner { transform: scale(0.50); }
+          .hero-collage-inner { transform: scale(0.48); }
         }
         @media (min-width: 768px) {
-          .hero-collage-inner { transform: scale(0.65); }
+          .hero-collage-inner { transform: scale(0.62); }
         }
         @media (min-width: 1024px) {
-          .hero-collage-inner { transform: scale(0.85); }
+          .hero-collage-inner { transform: scale(0.82); }
         }
         @media (min-width: 1280px) {
           .hero-collage-inner { transform: scale(1); }
@@ -112,96 +109,115 @@ export function Hero() {
 
       {/* ─── Collage + floating bubble ─── */}
       <div className="relative w-full mb-6 sm:mb-8">
-        {/* Height container — matches scaled height at each breakpoint */}
-        <div className="relative w-full h-[128px] sm:h-[200px] md:h-[260px] lg:h-[340px] xl:h-[400px]">
+        <div className="relative w-full h-[132px] sm:h-[211px] md:h-[273px] lg:h-[361px] xl:h-[440px]">
 
-          {/* Collage canvas: 1100×400, absolute cards, scaled */}
+          {/* Collage canvas: 1150×440, scaled */}
           <div
             className="hero-collage-inner absolute left-1/2 -translate-x-1/2 origin-top"
-            style={{ width: 1100, height: 400 }}
+            style={{ width: 1150, height: 440 }}
           >
             {/* ─ Card 1: LEFT PILLAR — tall, partially off left edge ─ */}
             <div
-              className="absolute rounded-[16px] overflow-hidden shadow-lg shadow-black/10"
-              style={{ left: -25, top: 5, width: 205, height: 385, zIndex: 1 }}
+              className="absolute rounded-[14px] overflow-hidden shadow-lg shadow-black/8"
+              style={{ left: -30, top: 0, width: 200, height: 420, zIndex: 1 }}
             >
               <img
                 src={IMAGES[0]}
-                alt="Product showcase"
+                alt=""
                 className="w-full h-full object-cover"
                 draggable={false}
               />
             </div>
 
-            {/* ─ Card 2: LEFT-CENTER — tall dark card ─ */}
+            {/* ─ Card 2: DARK LEFT-CENTER — tall ─ */}
             <div
-              className="absolute rounded-[16px] overflow-hidden shadow-lg shadow-black/10"
-              style={{ left: 168, top: 28, width: 220, height: 345, zIndex: 2 }}
+              className="absolute rounded-[14px] overflow-hidden shadow-lg shadow-black/8"
+              style={{ left: 160, top: 18, width: 210, height: 375, zIndex: 2 }}
             >
               <img
                 src={IMAGES[1]}
-                alt="Product showcase"
+                alt=""
                 className="w-full h-full object-cover"
                 draggable={false}
               />
             </div>
 
-            {/* ─ Card 3: CENTER — widest, raised, landscape + badge ─ */}
+            {/* ─ Card 3: GEO GARDEN CENTER — wide landscape, raised highest ─ */}
             <div
-              className="absolute"
-              style={{ left: 370, top: 0, width: 350, height: 240, zIndex: 3 }}
+              className="absolute rounded-[14px] overflow-hidden shadow-xl shadow-black/12"
+              style={{ left: 355, top: 0, width: 345, height: 225, zIndex: 4 }}
             >
-              {/* The card itself */}
-              <div
-                className="absolute inset-x-0 top-0 rounded-[16px] overflow-hidden shadow-xl shadow-black/15"
-                style={{ height: 215 }}
-              >
-                <img
-                  src={IMAGES[2]}
-                  alt="Featured product"
-                  className="w-full h-full object-cover"
-                  draggable={false}
-                />
-              </div>
-              {/* Badge — half inside, half outside the card's bottom edge */}
-              <div className="absolute left-1/2 -translate-x-1/2" style={{ top: 203 }}>
-                <div className="flex items-center gap-1.5 bg-gray-100/95 backdrop-blur-sm text-gray-700 text-[11px] font-medium px-3.5 py-1.5 rounded-full whitespace-nowrap shadow-sm">
-                  <Lock className="w-3.5 h-3.5" />
-                  Powering 1,550+ Shopify Brands
-                </div>
-              </div>
+              <img
+                src={IMAGES[2]}
+                alt=""
+                className="w-full h-full object-cover"
+                draggable={false}
+              />
             </div>
 
-            {/* ─ Card 4: RIGHT-CENTER — tall card ─ */}
+            {/* ─ Card 4: NATURE PEEK — below center, behind bubble ─ */}
             <div
-              className="absolute rounded-[16px] overflow-hidden shadow-lg shadow-black/10"
-              style={{ left: 702, top: 28, width: 220, height: 345, zIndex: 2 }}
+              className="absolute rounded-[14px] overflow-hidden shadow-md shadow-black/8"
+              style={{ left: 375, top: 218, width: 305, height: 205, zIndex: 1 }}
+            >
+              <img
+                src={IMAGES[2]}
+                alt=""
+                className="w-full h-full object-cover object-bottom"
+                draggable={false}
+              />
+            </div>
+
+            {/* ─ Card 5: RIGHT-CENTER — tall ─ */}
+            <div
+              className="absolute rounded-[14px] overflow-hidden shadow-lg shadow-black/8"
+              style={{ left: 665, top: 8, width: 205, height: 365, zIndex: 3 }}
             >
               <img
                 src={IMAGES[3]}
-                alt="Product showcase"
+                alt=""
                 className="w-full h-full object-cover"
                 draggable={false}
               />
             </div>
 
-            {/* ─ Card 5: RIGHT PILLAR — tall, partially off right edge ─ */}
+            {/* ─ Card 6: EDITORIAL RIGHT — tall ─ */}
             <div
-              className="absolute rounded-[16px] overflow-hidden shadow-lg shadow-black/10"
-              style={{ left: 910, top: 5, width: 205, height: 385, zIndex: 1 }}
+              className="absolute rounded-[14px] overflow-hidden shadow-lg shadow-black/8"
+              style={{ left: 858, top: 0, width: 195, height: 410, zIndex: 2 }}
             >
               <img
                 src={IMAGES[4]}
-                alt="Product showcase"
+                alt=""
                 className="w-full h-full object-cover"
+                draggable={false}
+              />
+            </div>
+
+            {/* ─ Card 7: RIGHT PILLAR — partially off right edge ─ */}
+            <div
+              className="absolute rounded-[14px] overflow-hidden shadow-lg shadow-black/8"
+              style={{ left: 1040, top: 12, width: 185, height: 390, zIndex: 1 }}
+            >
+              <img
+                src={IMAGES[4]}
+                alt=""
+                className="w-full h-full object-cover object-right"
                 draggable={false}
               />
             </div>
           </div>
 
-          {/* ── White bubble — centered, overlapping collage middle, NOT scaled ── */}
+          {/* ── White bubble — centered, overlapping collage, NOT scaled ── */}
           <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
-            <div className="bg-white rounded-[24px] sm:rounded-[28px] shadow-lg shadow-neutral-200/50 border border-neutral-100/80 px-5 py-7 sm:px-10 sm:py-10 md:px-14 md:py-12 w-[82%] max-w-[480px] text-center pointer-events-auto">
+            <div className="relative bg-white rounded-[24px] sm:rounded-[28px] shadow-lg shadow-neutral-200/50 border border-neutral-100/80 px-5 pt-10 pb-7 sm:px-10 sm:pt-12 sm:pb-10 md:px-14 md:pt-14 md:pb-12 w-[82%] max-w-[480px] text-center pointer-events-auto">
+              {/* Badge — pill on top edge of bubble */}
+              <div className="absolute left-1/2 -translate-x-1/2 -top-3.5 sm:-top-4">
+                <div className="flex items-center gap-1.5 bg-gray-100/95 backdrop-blur-sm text-gray-700 text-[10px] sm:text-[11px] font-medium px-3 sm:px-3.5 py-1.5 rounded-full whitespace-nowrap shadow-sm border border-gray-200/50">
+                  <Lock className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                  Powering 1,550+ Shopify Brands
+                </div>
+              </div>
               <h1 className="text-[22px] sm:text-3xl md:text-[38px] md:leading-[1.2] font-bold text-neutral-900 leading-tight min-h-[2.4em] flex items-center justify-center">
                 <span>
                   {typedText}
@@ -231,25 +247,30 @@ export function Hero() {
       </div>
 
       {/* ─── Description ─── */}
-      <p className="text-[13px] text-neutral-400 text-center mb-10 sm:mb-12 max-w-sm leading-relaxed px-4">
+      <p className="text-[18px] text-neutral-600 text-center mb-10 sm:mb-12 max-w-md leading-relaxed px-4">
         Storelib lets you turn big ideas into real products.
         <br />
         Create, sell, and grow with your audience.
       </p>
 
-      {/* ─── Scrolling logo marquee ─── */}
-      <div className="w-full overflow-hidden">
-        <div className="logo-marquee flex items-center w-max">
-          {/* Render logos twice for seamless loop */}
-          {[...PARTNER_LOGOS, ...PARTNER_LOGOS].map((src, i) => (
-            <img
-              key={i}
-              src={src}
-              alt="Partner logo"
-              className="h-5 sm:h-6 md:h-7 w-auto mx-6 sm:mx-8 md:mx-10 opacity-70 grayscale select-none"
-              draggable={false}
-            />
-          ))}
+      {/* ─── Scrolling logo marquee with edge fades ─── */}
+      <div className="relative w-full">
+        {/* Left fade */}
+        <div className="absolute left-0 top-0 bottom-0 w-20 sm:w-32 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none" />
+        {/* Right fade */}
+        <div className="absolute right-0 top-0 bottom-0 w-20 sm:w-32 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none" />
+        <div className="overflow-hidden">
+          <div className="logo-marquee flex items-center w-max">
+            {[...PARTNER_LOGOS, ...PARTNER_LOGOS].map((src, i) => (
+              <img
+                key={i}
+                src={src}
+                alt="Partner logo"
+                className="h-5 sm:h-6 md:h-7 w-auto mx-6 sm:mx-8 md:mx-10 opacity-95 grayscale select-none"
+                draggable={false}
+              />
+            ))}
+          </div>
         </div>
       </div>
     </section>
