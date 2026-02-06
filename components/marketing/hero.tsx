@@ -74,8 +74,8 @@ const IMAGES = [
 ]
 
 // ── Hero ──────────────────────────────────────────────────────────
-// 7 image cards in a curated collage matching the reference design.
-// Canvas: 1150×440, scaled responsively. White bubble overlaps center.
+// Exactly 5 image cards in a symmetric collage.
+// Canvas: 1100×400, scaled responsively. White bubble overlaps center.
 
 export function Hero() {
   const typedText = useTypingEffect(TYPING_PHRASES)
@@ -84,16 +84,16 @@ export function Hero() {
     <section className="flex flex-col items-center bg-white pt-6 sm:pt-10 pb-10 sm:pb-14 overflow-hidden">
       <style dangerouslySetInnerHTML={{ __html: `
         .hero-collage-inner {
-          transform: scale(0.30);
+          transform: scale(0.32);
         }
         @media (min-width: 640px) {
-          .hero-collage-inner { transform: scale(0.48); }
+          .hero-collage-inner { transform: scale(0.50); }
         }
         @media (min-width: 768px) {
-          .hero-collage-inner { transform: scale(0.62); }
+          .hero-collage-inner { transform: scale(0.65); }
         }
         @media (min-width: 1024px) {
-          .hero-collage-inner { transform: scale(0.82); }
+          .hero-collage-inner { transform: scale(0.85); }
         }
         @media (min-width: 1280px) {
           .hero-collage-inner { transform: scale(1); }
@@ -109,17 +109,17 @@ export function Hero() {
 
       {/* ─── Collage + floating bubble ─── */}
       <div className="relative w-full mb-6 sm:mb-8">
-        <div className="relative w-full h-[132px] sm:h-[211px] md:h-[273px] lg:h-[361px] xl:h-[440px]">
+        <div className="relative w-full h-[128px] sm:h-[200px] md:h-[260px] lg:h-[340px] xl:h-[400px]">
 
-          {/* Collage canvas: 1150×440, scaled */}
+          {/* Collage canvas: 1100×400, exactly 5 cards, scaled */}
           <div
             className="hero-collage-inner absolute left-1/2 -translate-x-1/2 origin-top"
-            style={{ width: 1150, height: 440 }}
+            style={{ width: 1100, height: 400 }}
           >
-            {/* ─ Card 1: LEFT PILLAR — tall, partially off left edge ─ */}
+            {/* ─ Card 1: FAR LEFT — 205×385, tall pillar, partially off left edge ─ */}
             <div
               className="absolute rounded-[14px] overflow-hidden shadow-lg shadow-black/8"
-              style={{ left: -30, top: 0, width: 200, height: 420, zIndex: 1 }}
+              style={{ left: -23, top: 5, width: 205, height: 385, zIndex: 1 }}
             >
               <img
                 src={IMAGES[0]}
@@ -129,10 +129,10 @@ export function Hero() {
               />
             </div>
 
-            {/* ─ Card 2: DARK LEFT-CENTER — tall ─ */}
+            {/* ─ Card 2: LEFT-CENTER — 220×345, overlaps Card 1 by ~12px ─ */}
             <div
               className="absolute rounded-[14px] overflow-hidden shadow-lg shadow-black/8"
-              style={{ left: 160, top: 18, width: 210, height: 375, zIndex: 2 }}
+              style={{ left: 170, top: 28, width: 220, height: 345, zIndex: 2 }}
             >
               <img
                 src={IMAGES[1]}
@@ -142,36 +142,35 @@ export function Hero() {
               />
             </div>
 
-            {/* ─ Card 3: GEO GARDEN CENTER — wide landscape, raised highest ─ */}
+            {/* ─ Card 3: CENTER — 350×215, widest, raised highest, badge at bottom ─ */}
             <div
-              className="absolute rounded-[14px] overflow-hidden shadow-xl shadow-black/12"
-              style={{ left: 355, top: 0, width: 345, height: 225, zIndex: 4 }}
+              className="absolute"
+              style={{ left: 375, top: 0, width: 350, height: 240, zIndex: 3 }}
             >
-              <img
-                src={IMAGES[2]}
-                alt=""
-                className="w-full h-full object-cover"
-                draggable={false}
-              />
+              <div
+                className="absolute inset-x-0 top-0 rounded-[14px] overflow-hidden shadow-xl shadow-black/12"
+                style={{ height: 215 }}
+              >
+                <img
+                  src={IMAGES[2]}
+                  alt=""
+                  className="w-full h-full object-cover"
+                  draggable={false}
+                />
+              </div>
+              {/* Badge — half inside, half outside the card's bottom edge */}
+              <div className="absolute left-1/2 -translate-x-1/2" style={{ top: 203 }}>
+                <div className="flex items-center gap-1.5 bg-gray-100/95 backdrop-blur-sm text-gray-700 text-[11px] font-medium px-3.5 py-1.5 rounded-full whitespace-nowrap shadow-sm border border-gray-200/50">
+                  <Lock className="w-3.5 h-3.5" />
+                  Powering 1,550+ Shopify Brands
+                </div>
+              </div>
             </div>
 
-            {/* ─ Card 4: NATURE PEEK — below center, behind bubble ─ */}
-            <div
-              className="absolute rounded-[14px] overflow-hidden shadow-md shadow-black/8"
-              style={{ left: 375, top: 218, width: 305, height: 205, zIndex: 1 }}
-            >
-              <img
-                src={IMAGES[2]}
-                alt=""
-                className="w-full h-full object-cover object-bottom"
-                draggable={false}
-              />
-            </div>
-
-            {/* ─ Card 5: RIGHT-CENTER — tall ─ */}
+            {/* ─ Card 4: RIGHT-CENTER — 220×345, mirrors Card 2 ─ */}
             <div
               className="absolute rounded-[14px] overflow-hidden shadow-lg shadow-black/8"
-              style={{ left: 665, top: 8, width: 205, height: 365, zIndex: 3 }}
+              style={{ left: 710, top: 28, width: 220, height: 345, zIndex: 2 }}
             >
               <img
                 src={IMAGES[3]}
@@ -181,28 +180,15 @@ export function Hero() {
               />
             </div>
 
-            {/* ─ Card 6: EDITORIAL RIGHT — tall ─ */}
+            {/* ─ Card 5: FAR RIGHT — 205×385, mirrors Card 1, partially off right edge ─ */}
             <div
               className="absolute rounded-[14px] overflow-hidden shadow-lg shadow-black/8"
-              style={{ left: 858, top: 0, width: 195, height: 410, zIndex: 2 }}
+              style={{ left: 918, top: 5, width: 205, height: 385, zIndex: 1 }}
             >
               <img
                 src={IMAGES[4]}
                 alt=""
                 className="w-full h-full object-cover"
-                draggable={false}
-              />
-            </div>
-
-            {/* ─ Card 7: RIGHT PILLAR — partially off right edge ─ */}
-            <div
-              className="absolute rounded-[14px] overflow-hidden shadow-lg shadow-black/8"
-              style={{ left: 1040, top: 12, width: 185, height: 390, zIndex: 1 }}
-            >
-              <img
-                src={IMAGES[4]}
-                alt=""
-                className="w-full h-full object-cover object-right"
                 draggable={false}
               />
             </div>
@@ -246,11 +232,9 @@ export function Hero() {
         </Link>
       </div>
 
-      {/* ─── Description ─── */}
-      <p className="text-[18px] text-neutral-600 text-center mb-10 sm:mb-12 max-w-md leading-relaxed px-4">
-        Storelib lets you turn big ideas into real products.
-        <br />
-        Create, sell, and grow with your audience.
+      {/* ─── Description — 2 rows, ~9-10 words per row ─── */}
+      <p className="text-[18px] text-neutral-600 text-center mb-10 sm:mb-12 max-w-lg leading-relaxed px-4">
+        Storelib lets you turn big ideas into real products. Create, sell, and grow with your audience.
       </p>
 
       {/* ─── Scrolling logo marquee with edge fades ─── */}
@@ -266,7 +250,7 @@ export function Hero() {
                 key={i}
                 src={src}
                 alt="Partner logo"
-                className="h-5 sm:h-6 md:h-7 w-auto mx-6 sm:mx-8 md:mx-10 opacity-95 grayscale select-none"
+                className="h-[17px] sm:h-5 md:h-6 w-auto mx-6 sm:mx-8 md:mx-10 opacity-95 grayscale select-none"
                 draggable={false}
               />
             ))}

@@ -842,19 +842,19 @@ export function PlatformHeaderClient() {
 
                 {/* Center - Nav Links (show for all users) */}
                 <nav className="flex items-center gap-2">
-                  <Link href="/explore" className="px-4 py-2 rounded-full text-[14px] font-medium text-gray-600 hover:text-gray-900 border border-gray-200 hover:border-gray-300 transition-colors">
+                  <Link href="/explore" className="px-4 py-2 rounded-full text-[15px] font-medium text-gray-900 hover:text-black border border-gray-200 hover:border-gray-300 transition-colors">
                     Discover
                   </Link>
-                  <Link href="/blog" className="px-4 py-2 rounded-full text-[14px] font-medium text-gray-600 hover:text-gray-900 border border-gray-200 hover:border-gray-300 transition-colors">
+                  <Link href="/blog" className="px-4 py-2 rounded-full text-[15px] font-medium text-gray-900 hover:text-black border border-gray-200 hover:border-gray-300 transition-colors">
                     Blog
                   </Link>
-                  <Link href="/pricing" className="px-4 py-2 rounded-full text-[14px] font-medium text-gray-600 hover:text-gray-900 border border-gray-200 hover:border-gray-300 transition-colors">
+                  <Link href="/pricing" className="px-4 py-2 rounded-full text-[15px] font-medium text-gray-900 hover:text-black border border-gray-200 hover:border-gray-300 transition-colors">
                     Pricing
                   </Link>
-                  <Link href="/features" className="px-4 py-2 rounded-full text-[14px] font-medium text-gray-600 hover:text-gray-900 border border-gray-200 hover:border-gray-300 transition-colors">
+                  <Link href="/features" className="px-4 py-2 rounded-full text-[15px] font-medium text-gray-900 hover:text-black border border-gray-200 hover:border-gray-300 transition-colors">
                     Features
                   </Link>
-                  <Link href="/about" className="px-4 py-2 rounded-full text-[14px] font-medium text-gray-600 hover:text-gray-900 border border-gray-200 hover:border-gray-300 transition-colors">
+                  <Link href="/about" className="px-4 py-2 rounded-full text-[15px] font-medium text-gray-900 hover:text-black border border-gray-200 hover:border-gray-300 transition-colors">
                     About
                   </Link>
                 </nav>
