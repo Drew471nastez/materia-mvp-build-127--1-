@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
 import { ArrowRight } from "lucide-react"
 
@@ -68,33 +68,74 @@ interface CardDef {
   height: number
   zIndex: number
   opacity?: number
+  scale?: number
 }
 
 const DESKTOP_CARDS: CardDef[] = [
-  { left: -120, top: 60, width: 238, height: 294, zIndex: 1 },
-  { left: 106, top: 30, width: 289, height: 357, zIndex: 2 },
-  { left: 380, top: 0, width: 340, height: 420, zIndex: 3 },
-  { left: 705, top: 30, width: 289, height: 357, zIndex: 2 },
-  { left: 982, top: 60, width: 238, height: 294, zIndex: 1 },
+  { left: -120, top: 60, width: 238, height: 294, zIndex: 1, opacity: 0.82, scale: 0.95 },
+  { left: 106, top: 30, width: 289, height: 357, zIndex: 2, opacity: 0.92, scale: 0.98 },
+  { left: 380, top: 0, width: 340, height: 420, zIndex: 3, opacity: 1, scale: 1 },
+  { left: 705, top: 30, width: 289, height: 357, zIndex: 2, opacity: 0.92, scale: 0.98 },
+  { left: 982, top: 60, width: 238, height: 294, zIndex: 1, opacity: 0.82, scale: 0.95 },
 ]
 
 const MOBILE_CARDS: CardDef[] = [
-  { left: -188, top: 58, width: 160, height: 212, zIndex: 1, opacity: 0 },
-  { left: 28, top: 34, width: 196, height: 256, zIndex: 2 },
-  { left: 176, top: 0, width: 244, height: 320, zIndex: 3 },
-  { left: 372, top: 34, width: 196, height: 256, zIndex: 2 },
-  { left: 594, top: 58, width: 160, height: 212, zIndex: 1, opacity: 0 },
+  { left: -210, top: 70, width: 210, height: 278, zIndex: 1, opacity: 0, scale: 0.92 },
+  { left: -22, top: 48, width: 248, height: 328, zIndex: 2, opacity: 0.85, scale: 0.92 },
+  { left: 198, top: 8, width: 340, height: 442, zIndex: 3, opacity: 1, scale: 1 },
+  { left: 510, top: 48, width: 248, height: 328, zIndex: 2, opacity: 0.85, scale: 0.92 },
+  { left: 762, top: 70, width: 210, height: 278, zIndex: 1, opacity: 0, scale: 0.92 },
 ]
 
 const CANVAS_W = 1100
-const CANVAS_H = 440
+const CANVAS_H = 460
 const AUTOPLAY_INTERVAL = 5000
+const MOBILE_DRAG_THRESHOLD = 88
+const MOBILE_DRAG_SNAP = 190
 
 export function Hero() {
   const typedText = useTypingEffect(TYPING_PHRASES)
   const [cardOrder, setCardOrder] = useState([0, 1, 2, 3, 4])
   const [isMobile, setIsMobile] = useState(false)
+  const [dragX, setDragX] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+  const [isSettling, setIsSettling] = useState(false)
+
   const autoplayRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const touchRef = useRef<{ active: boolean; startX: number }>({ active: false, startX: 0 })
+  const settleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const rotateForward = useCallback(() => {
+    setCardOrder((prev) => {
+      const next = [...prev]
+      const first = next.shift()!
+      next.push(first)
+      return next
+    })
+  }, [])
+
+  const rotateBackward = useCallback(() => {
+    setCardOrder((prev) => {
+      const next = [...prev]
+      const last = next.pop()!
+      next.unshift(last)
+      return next
+    })
+  }, [])
+
+  const stopAutoplay = useCallback(() => {
+    if (autoplayRef.current) clearInterval(autoplayRef.current)
+    autoplayRef.current = null
+  }, [])
+
+  const startAutoplay = useCallback(() => {
+    stopAutoplay()
+    autoplayRef.current = setInterval(() => {
+      if (!touchRef.current.active && !isSettling) {
+        rotateForward()
+      }
+    }, AUTOPLAY_INTERVAL)
+  }, [isSettling, rotateForward, stopAutoplay])
 
   useEffect(() => {
     const update = () => setIsMobile(window.innerWidth < 640)
@@ -104,19 +145,40 @@ export function Hero() {
   }, [])
 
   useEffect(() => {
-    autoplayRef.current = setInterval(() => {
-      setCardOrder((prev) => {
-        const next = [...prev]
-        const first = next.shift()!
-        next.push(first)
-        return next
-      })
-    }, AUTOPLAY_INTERVAL)
-
+    startAutoplay()
     return () => {
-      if (autoplayRef.current) clearInterval(autoplayRef.current)
+      stopAutoplay()
+      if (settleTimeoutRef.current) clearTimeout(settleTimeoutRef.current)
     }
-  }, [])
+  }, [startAutoplay, stopAutoplay])
+
+  const finishDrag = useCallback(() => {
+    if (!isMobile || !touchRef.current.active) return
+    touchRef.current.active = false
+    setIsDragging(false)
+
+    const direction = dragX <= -MOBILE_DRAG_THRESHOLD ? 1 : dragX >= MOBILE_DRAG_THRESHOLD ? -1 : 0
+
+    if (direction === 0) {
+      setIsSettling(true)
+      setDragX(0)
+      settleTimeoutRef.current = setTimeout(() => {
+        setIsSettling(false)
+        startAutoplay()
+      }, 300)
+      return
+    }
+
+    setIsSettling(true)
+    setDragX(direction === 1 ? -MOBILE_DRAG_SNAP : MOBILE_DRAG_SNAP)
+    settleTimeoutRef.current = setTimeout(() => {
+      if (direction === 1) rotateForward()
+      else rotateBackward()
+      setDragX(0)
+      setIsSettling(false)
+      startAutoplay()
+    }, 240)
+  }, [dragX, isMobile, rotateBackward, rotateForward, startAutoplay])
 
   const activeCards = isMobile ? MOBILE_CARDS : DESKTOP_CARDS
 
@@ -124,7 +186,7 @@ export function Hero() {
     <section className="flex flex-col items-center bg-white pt-6 sm:pt-10 pb-12 sm:pb-[67px] overflow-hidden">
       <style dangerouslySetInnerHTML={{ __html: `
         .hero-collage-inner {
-          transform: scale(0.43);
+          transform: scale(0.52);
         }
         @media (min-width: 640px) {
           .hero-collage-inner { transform: scale(0.51); }
@@ -146,28 +208,48 @@ export function Hero() {
           animation: logo-scroll 25s linear infinite;
         }
         .collage-card {
-          transition: left 0.78s cubic-bezier(0.22, 1, 0.36, 1),
-                      top 0.78s cubic-bezier(0.22, 1, 0.36, 1),
-                      width 0.78s cubic-bezier(0.22, 1, 0.36, 1),
-                      height 0.78s cubic-bezier(0.22, 1, 0.36, 1),
-                      opacity 0.78s ease,
-                      transform 0.78s cubic-bezier(0.22, 1, 0.36, 1);
-          will-change: left, top, width, height, opacity;
+          transition: left 0.84s cubic-bezier(0.22, 1, 0.36, 1),
+                      top 0.84s cubic-bezier(0.22, 1, 0.36, 1),
+                      width 0.84s cubic-bezier(0.22, 1, 0.36, 1),
+                      height 0.84s cubic-bezier(0.22, 1, 0.36, 1),
+                      opacity 0.84s cubic-bezier(0.22, 1, 0.36, 1),
+                      transform 0.84s cubic-bezier(0.22, 1, 0.36, 1);
+          will-change: left, top, width, height, opacity, transform;
+        }
+        .collage-card.dragging {
+          transition-duration: 0ms;
         }
       `}} />
 
       <div className="relative w-full mb-6 sm:mb-8">
-        <div className="relative w-full h-[172px] sm:h-[224px] md:h-[277px] lg:h-[352px] xl:h-[409px]">
+        <div className="relative w-full h-[206px] sm:h-[224px] md:h-[277px] lg:h-[352px] xl:h-[409px]">
           <div
             className="hero-collage-inner absolute left-1/2 -translate-x-1/2 origin-top select-none"
             style={{ width: CANVAS_W, height: CANVAS_H }}
+            onTouchStart={(e) => {
+              if (!isMobile) return
+              touchRef.current = { active: true, startX: e.touches[0].clientX }
+              setIsDragging(true)
+              setIsSettling(false)
+              if (settleTimeoutRef.current) clearTimeout(settleTimeoutRef.current)
+              stopAutoplay()
+            }}
+            onTouchMove={(e) => {
+              if (!isMobile || !touchRef.current.active) return
+              const raw = e.touches[0].clientX - touchRef.current.startX
+              setDragX(Math.max(-220, Math.min(220, raw)))
+            }}
+            onTouchEnd={finishDrag}
+            onTouchCancel={finishDrag}
           >
             {cardOrder.map((imageIdx, posIdx) => {
               const card = activeCards[posIdx]
+              const parallax = posIdx === 2 ? 1 : posIdx === 1 || posIdx === 3 ? 0.62 : 0.36
+
               return (
                 <div
-                  key={imageIdx}
-                  className="collage-card absolute rounded-[14px] overflow-hidden shadow-lg shadow-black/10"
+                  key={`${imageIdx}-${posIdx}`}
+                  className={`collage-card absolute rounded-[14px] overflow-hidden shadow-sm shadow-black/10 ${isDragging ? "dragging" : ""}`}
                   style={{
                     left: card.left,
                     top: card.top,
@@ -175,6 +257,7 @@ export function Hero() {
                     height: card.height,
                     zIndex: card.zIndex,
                     opacity: card.opacity ?? 1,
+                    transform: `translateX(${isMobile ? dragX * parallax : 0}px) scale(${card.scale ?? 1})`,
                   }}
                 >
                   <img
