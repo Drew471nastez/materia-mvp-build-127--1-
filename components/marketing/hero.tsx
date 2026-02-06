@@ -4,8 +4,6 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
 import { ArrowRight } from "lucide-react"
 
-// ── Typing animation ──────────────────────────────────────────────
-
 const TYPING_PHRASES = [
   "Start monetizing your passion...",
   "Build link in bio pages...",
@@ -37,23 +35,18 @@ function useTypingEffect(
       const t = setTimeout(() => setPhase("deleting"), pauseDuration)
       return () => clearTimeout(t)
     }
-    if (phase === "deleting") {
-      if (displayText.length > 0) {
-        const t = setTimeout(
-          () => setDisplayText(displayText.slice(0, -1)),
-          deletingSpeed,
-        )
-        return () => clearTimeout(t)
-      }
-      setPhraseIndex((p) => (p + 1) % phrases.length)
-      setPhase("typing")
+
+    if (displayText.length > 0) {
+      const t = setTimeout(() => setDisplayText(displayText.slice(0, -1)), deletingSpeed)
+      return () => clearTimeout(t)
     }
+
+    setPhraseIndex((p) => (p + 1) % phrases.length)
+    setPhase("typing")
   }, [displayText, phraseIndex, phase, phrases, typingSpeed, deletingSpeed, pauseDuration])
 
   return displayText
 }
-
-// ── Partner logos (SVG images) ────────────────────────────────────
 
 const PARTNER_LOGOS = [
   "https://cdn.sanity.io/images/599r6htc/regionalized/a9bfb23cca986ee16b0547274bcd7461ffd373aa-67x18.svg?q=75&fit=max&auto=format",
@@ -63,8 +56,6 @@ const PARTNER_LOGOS = [
   "https://cdn.sanity.io/images/599r6htc/regionalized/5e789db505180ee41e0612d7d53e2ec48c9c5837-153x20.svg?q=75&fit=max&auto=format",
 ]
 
-// ── Collage images (Supabase) ────────────────────────────────────
-
 const IMAGES = [
   "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/1351351.png",
   "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/2423.png",
@@ -73,43 +64,49 @@ const IMAGES = [
   "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/51351.png",
 ]
 
-// ── Card layout positions ────────────────────────────────────────
-
 interface CardDef {
   left: number
   top: number
   width: number
   height: number
   zIndex: number
+  opacity?: number
 }
 
-const BASE_CARDS: CardDef[] = [
-  { left: -120, top: 60, width: 238, height: 294, zIndex: 1 },  // far left
-  { left: 106,  top: 30, width: 289, height: 357, zIndex: 2 },  // inner left
-  { left: 380,  top: 0,  width: 340, height: 420, zIndex: 3 },  // center
-  { left: 705,  top: 30, width: 289, height: 357, zIndex: 2 },  // inner right
-  { left: 982,  top: 60, width: 238, height: 294, zIndex: 1 },  // far right
+const DESKTOP_CARDS: CardDef[] = [
+  { left: -120, top: 60, width: 238, height: 294, zIndex: 1 },
+  { left: 106, top: 30, width: 289, height: 357, zIndex: 2 },
+  { left: 380, top: 0, width: 340, height: 420, zIndex: 3 },
+  { left: 705, top: 30, width: 289, height: 357, zIndex: 2 },
+  { left: 982, top: 60, width: 238, height: 294, zIndex: 1 },
+]
+
+const MOBILE_CARDS: CardDef[] = [
+  { left: -176, top: 54, width: 164, height: 214, zIndex: 1, opacity: 0 },
+  { left: 26, top: 26, width: 188, height: 246, zIndex: 2 },
+  { left: 176, top: 0, width: 220, height: 286, zIndex: 3 },
+  { left: 356, top: 26, width: 188, height: 246, zIndex: 2 },
+  { left: 566, top: 54, width: 164, height: 214, zIndex: 1, opacity: 0 },
 ]
 
 const CANVAS_W = 1100
 const CANVAS_H = 440
 const AUTOPLAY_INTERVAL = 5000
-const DRAG_THRESHOLD = 40
-
-// ── Hero ──────────────────────────────────────────────────────────
+const DESKTOP_ROTATE_STEP = 196
+const MOBILE_ROTATE_STEP = 160
 
 export function Hero() {
   const typedText = useTypingEffect(TYPING_PHRASES)
-
-  // Card order: indices into IMAGES array
   const [cardOrder, setCardOrder] = useState([0, 1, 2, 3, 4])
+  const [isMobile, setIsMobile] = useState(false)
+  const [dragOffset, setDragOffset] = useState(0)
+  const [isReady, setIsReady] = useState(false)
 
-  // Drag ref tracks start position — resets on each rotation
-  const dragRef = useRef<{ startX: number; active: boolean } | null>(null)
+  const dragRef = useRef<{ startX: number; active: boolean }>({ startX: 0, active: false })
+  const autoplayRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Rotate helpers
   const rotateForward = useCallback(() => {
-    setCardOrder(prev => {
+    setCardOrder((prev) => {
       const next = [...prev]
       const first = next.shift()!
       next.push(first)
@@ -118,7 +115,7 @@ export function Hero() {
   }, [])
 
   const rotateBackward = useCallback(() => {
-    setCardOrder(prev => {
+    setCardOrder((prev) => {
       const next = [...prev]
       const last = next.pop()!
       next.unshift(last)
@@ -126,13 +123,12 @@ export function Hero() {
     })
   }, [])
 
-  // ── Autoplay every 5s ──
-  const autoplayRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const getStep = useCallback(() => (isMobile ? MOBILE_ROTATE_STEP : DESKTOP_ROTATE_STEP), [isMobile])
 
   const startAutoplay = useCallback(() => {
     if (autoplayRef.current) clearInterval(autoplayRef.current)
     autoplayRef.current = setInterval(() => {
-      rotateForward()
+      if (!dragRef.current.active) rotateForward()
     }, AUTOPLAY_INTERVAL)
   }, [rotateForward])
 
@@ -143,81 +139,85 @@ export function Hero() {
     }
   }, [startAutoplay])
 
-  // ── Real-time drag: rotate WHILE dragging, not on release ──
-  const handleDragStart = useCallback((clientX: number) => {
-    dragRef.current = { startX: clientX, active: true }
-    // Pause autoplay while dragging
+  useEffect(() => {
+    const update = () => setIsMobile(window.innerWidth < 640)
+    update()
+    window.addEventListener("resize", update)
+    return () => window.removeEventListener("resize", update)
+  }, [])
+
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setIsReady(true))
+    return () => cancelAnimationFrame(raf)
+  }, [])
+
+  const stopAutoplay = useCallback(() => {
     if (autoplayRef.current) clearInterval(autoplayRef.current)
   }, [])
 
-  const handleDragMove = useCallback((clientX: number) => {
-    if (!dragRef.current?.active) return
-    const diff = clientX - dragRef.current.startX
+  const handleDragStart = useCallback((clientX: number) => {
+    dragRef.current = { startX: clientX, active: true }
+    setDragOffset(0)
+    stopAutoplay()
+  }, [stopAutoplay])
 
-    // When threshold is crossed, rotate immediately and reset start position
-    if (diff < -DRAG_THRESHOLD) {
+  const handleDragMove = useCallback((clientX: number) => {
+    if (!dragRef.current.active) return
+
+    const step = getStep()
+    const diff = clientX - dragRef.current.startX
+    setDragOffset(diff)
+
+    if (diff <= -step) {
       rotateForward()
-      dragRef.current.startX = clientX // reset so continuous drag triggers more rotations
-    } else if (diff > DRAG_THRESHOLD) {
+      dragRef.current.startX -= step
+      setDragOffset(clientX - dragRef.current.startX)
+    } else if (diff >= step) {
       rotateBackward()
-      dragRef.current.startX = clientX
+      dragRef.current.startX += step
+      setDragOffset(clientX - dragRef.current.startX)
     }
-  }, [rotateForward, rotateBackward])
+  }, [getStep, rotateBackward, rotateForward])
 
   const handleDragEnd = useCallback(() => {
-    if (!dragRef.current?.active) return
-    dragRef.current = null
-    startAutoplay() // resume autoplay
+    if (!dragRef.current.active) return
+    dragRef.current.active = false
+    setDragOffset(0)
+    startAutoplay()
   }, [startAutoplay])
 
-  // Mouse events
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault()
-    handleDragStart(e.clientX)
-  }, [handleDragStart])
+  useEffect(() => {
+    const onMouseMove = (event: MouseEvent) => handleDragMove(event.clientX)
+    const onMouseUp = () => handleDragEnd()
 
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    handleDragMove(e.clientX)
-  }, [handleDragMove])
+    window.addEventListener("mousemove", onMouseMove)
+    window.addEventListener("mouseup", onMouseUp)
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove)
+      window.removeEventListener("mouseup", onMouseUp)
+    }
+  }, [handleDragEnd, handleDragMove])
 
-  const handleMouseUp = useCallback(() => {
-    handleDragEnd()
-  }, [handleDragEnd])
-
-  const handleMouseLeave = useCallback(() => {
-    if (dragRef.current?.active) handleDragEnd()
-  }, [handleDragEnd])
-
-  // Touch events
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    handleDragStart(e.touches[0].clientX)
-  }, [handleDragStart])
-
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    handleDragMove(e.touches[0].clientX)
-  }, [handleDragMove])
-
-  const handleTouchEnd = useCallback(() => {
-    handleDragEnd()
-  }, [handleDragEnd])
+  const activeCards = isMobile ? MOBILE_CARDS : DESKTOP_CARDS
 
   return (
-    <section className="flex flex-col items-center bg-white pt-6 sm:pt-10 pb-12 sm:pb-[67px] overflow-hidden">
+    <section className={`flex flex-col items-center bg-white pt-6 sm:pt-10 pb-12 sm:pb-[67px] overflow-hidden transition-all duration-700 ease-out ${isReady ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}>
       <style dangerouslySetInnerHTML={{ __html: `
         .hero-collage-inner {
-          transform: scale(0.35);
+          transform: translateX(var(--drag-x, 0px)) scale(0.41);
+          transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
         }
         @media (min-width: 640px) {
-          .hero-collage-inner { transform: scale(0.51); }
+          .hero-collage-inner { transform: translateX(var(--drag-x, 0px)) scale(0.51); }
         }
         @media (min-width: 768px) {
-          .hero-collage-inner { transform: scale(0.63); }
+          .hero-collage-inner { transform: translateX(var(--drag-x, 0px)) scale(0.63); }
         }
         @media (min-width: 1024px) {
-          .hero-collage-inner { transform: scale(0.80); }
+          .hero-collage-inner { transform: translateX(var(--drag-x, 0px)) scale(0.80); }
         }
         @media (min-width: 1280px) {
-          .hero-collage-inner { transform: scale(0.93); }
+          .hero-collage-inner { transform: translateX(var(--drag-x, 0px)) scale(0.93); }
         }
         @keyframes logo-scroll {
           0% { transform: translateX(0); }
@@ -227,33 +227,35 @@ export function Hero() {
           animation: logo-scroll 25s linear infinite;
         }
         .collage-card {
-          transition: left 0.7s cubic-bezier(0.25, 0.1, 0.25, 1),
-                      top 0.7s cubic-bezier(0.25, 0.1, 0.25, 1),
-                      width 0.7s cubic-bezier(0.25, 0.1, 0.25, 1),
-                      height 0.7s cubic-bezier(0.25, 0.1, 0.25, 1),
-                      z-index 0s,
-                      opacity 0.7s ease;
+          transition: left 0.74s cubic-bezier(0.22, 1, 0.36, 1),
+                      top 0.74s cubic-bezier(0.22, 1, 0.36, 1),
+                      width 0.74s cubic-bezier(0.22, 1, 0.36, 1),
+                      height 0.74s cubic-bezier(0.22, 1, 0.36, 1),
+                      opacity 0.74s ease;
+          will-change: left, top, width, height, opacity;
         }
       `}} />
 
-      {/* ─── Collage + floating bubble ─── */}
       <div className="relative w-full mb-6 sm:mb-8">
         <div className="relative w-full h-[154px] sm:h-[224px] md:h-[277px] lg:h-[352px] xl:h-[409px]">
-
-          {/* Collage canvas — real-time drag rotates cards while holding */}
           <div
             className="hero-collage-inner absolute left-1/2 -translate-x-1/2 origin-top select-none cursor-grab active:cursor-grabbing"
-            style={{ width: CANVAS_W, height: CANVAS_H }}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseLeave}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
+            style={{
+              width: CANVAS_W,
+              height: CANVAS_H,
+              ["--drag-x" as string]: `${dragOffset}px`,
+              transition: dragRef.current.active ? "none" : "transform 420ms cubic-bezier(0.22, 1, 0.36, 1)",
+            }}
+            onMouseDown={(e) => {
+              e.preventDefault()
+              handleDragStart(e.clientX)
+            }}
+            onTouchStart={(e) => handleDragStart(e.touches[0].clientX)}
+            onTouchMove={(e) => handleDragMove(e.touches[0].clientX)}
+            onTouchEnd={handleDragEnd}
           >
             {cardOrder.map((imageIdx, posIdx) => {
-              const card = BASE_CARDS[posIdx]
+              const card = activeCards[posIdx]
 
               return (
                 <div
@@ -265,6 +267,7 @@ export function Hero() {
                     width: card.width,
                     height: card.height,
                     zIndex: card.zIndex,
+                    opacity: card.opacity ?? 1,
                   }}
                 >
                   <img
@@ -278,17 +281,17 @@ export function Hero() {
             })}
           </div>
 
-          {/* ── White bubble — centered, overlapping collage, NOT scaled ── */}
           <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
             <div className="relative bg-white rounded-[24px] sm:rounded-[28px] shadow-lg shadow-neutral-200/50 border border-neutral-100/80 px-5 pt-10 pb-7 sm:px-10 sm:pt-12 sm:pb-10 md:px-14 md:pt-14 md:pb-12 w-[82%] max-w-[480px] text-center pointer-events-auto">
-              {/* Badge — pill on top edge of bubble */}
               <div className="absolute left-1/2 -translate-x-1/2 -top-3.5 sm:-top-4">
-                <div className="flex items-center gap-1.5 bg-gray-100/95 backdrop-blur-sm text-gray-700 text-[10px] sm:text-[11px] font-medium px-3 sm:px-3.5 py-1.5 rounded-full whitespace-nowrap shadow-sm border border-gray-200/50">
-                  <img
-                    src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib_pixian_ai.png"
-                    alt="Storelib"
-                    className="w-3.5 h-3.5 sm:w-4 sm:h-4 object-contain"
-                  />
+                <div className="flex items-center gap-2 bg-gray-100/95 backdrop-blur-sm text-gray-700 text-[10px] sm:text-[11px] font-medium px-3 sm:px-3.5 py-1.5 rounded-full whitespace-nowrap shadow-sm border border-gray-200/50">
+                  <span className="w-4 h-4 sm:w-[18px] sm:h-[18px] rounded-full bg-black inline-flex items-center justify-center overflow-hidden">
+                    <img
+                      src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib_pixian_ai.png"
+                      alt="Storelib logo"
+                      className="w-[165%] h-[165%] object-cover object-left"
+                    />
+                  </span>
                   Built for Creators
                 </div>
               </div>
@@ -303,7 +306,6 @@ export function Hero() {
         </div>
       </div>
 
-      {/* ─── CTA buttons ─── */}
       <div className="flex flex-row items-center gap-3 mb-5">
         <Link
           href="/explore"
@@ -320,16 +322,12 @@ export function Hero() {
         </Link>
       </div>
 
-      {/* ─── Description — 2 rows, ~9-10 words per row ─── */}
-      <p className="text-[18px] text-neutral-600 text-center mb-[74px] sm:mb-[92px] max-w-lg leading-relaxed px-4">
+      <p className="text-[16px] sm:text-[18px] text-neutral-600 text-center mb-[74px] sm:mb-[92px] max-w-lg leading-relaxed px-4">
         Storelib lets you turn big ideas into real products. Create, sell, and grow with your audience.
       </p>
 
-      {/* ─── Scrolling logo marquee with edge fades ─── */}
       <div className="relative w-full">
-        {/* Left fade */}
         <div className="absolute left-0 top-0 bottom-0 w-20 sm:w-32 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none" />
-        {/* Right fade */}
         <div className="absolute right-0 top-0 bottom-0 w-20 sm:w-32 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none" />
         <div className="overflow-hidden">
           <div className="logo-marquee flex items-center w-max">
