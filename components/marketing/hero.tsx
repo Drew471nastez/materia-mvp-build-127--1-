@@ -74,11 +74,11 @@ const IMAGES = [
 ]
 
 // ── Hero ──────────────────────────────────────────────────────────
-// 5 image cards with proper aspect ratios:
-//   Center: 350×263 (4:3 landscape, full size)
-//   Inner:  298×298 (1:1 square, 85% of center = 15% reduction)
-//   Outer:  245×184 (4:3 landscape, 70% of center = 30% reduction)
-// Canvas: 1100×320, scaled responsively.
+// 5 portrait cards, center tallest/biggest. ~4:5 portrait ratio.
+//   Center: 340×420 (100%, tallest, top:0)
+//   Inner:  289×357 (85%, top:30)
+//   Outer:  238×294 (70%, top:60)
+// Canvas: 1100×440, scaled responsively.
 
 export function Hero() {
   const typedText = useTypingEffect(TYPING_PHRASES)
@@ -112,17 +112,17 @@ export function Hero() {
 
       {/* ─── Collage + floating bubble ─── */}
       <div className="relative w-full mb-6 sm:mb-8">
-        <div className="relative w-full h-[102px] sm:h-[160px] md:h-[208px] lg:h-[272px] xl:h-[320px]">
+        <div className="relative w-full h-[141px] sm:h-[220px] md:h-[286px] lg:h-[374px] xl:h-[440px]">
 
-          {/* Collage canvas: 1100×320, 5 cards, scaled */}
+          {/* Collage canvas: 1100×440, 5 portrait cards, scaled */}
           <div
             className="hero-collage-inner absolute left-1/2 -translate-x-1/2 origin-top"
-            style={{ width: 1100, height: 320 }}
+            style={{ width: 1100, height: 440 }}
           >
-            {/* ─ Card 1: FAR LEFT — 245×184 (4:3), 30% smaller, partially off edge ─ */}
+            {/* ─ Card 1: FAR LEFT — 238×294, portrait, 30% smaller, partially off edge ─ */}
             <div
               className="absolute rounded-[14px] overflow-hidden shadow-lg shadow-black/8"
-              style={{ left: -141, top: 62, width: 245, height: 184, zIndex: 1 }}
+              style={{ left: -120, top: 60, width: 238, height: 294, zIndex: 1 }}
             >
               <img
                 src={IMAGES[0]}
@@ -132,10 +132,10 @@ export function Hero() {
               />
             </div>
 
-            {/* ─ Card 2: LEFT-CENTER — 298×298 (1:1 square), 15% smaller ─ */}
+            {/* ─ Card 2: LEFT-CENTER — 289×357, portrait, 15% smaller ─ */}
             <div
               className="absolute rounded-[14px] overflow-hidden shadow-lg shadow-black/8"
-              style={{ left: 92, top: 5, width: 298, height: 298, zIndex: 2 }}
+              style={{ left: 106, top: 30, width: 289, height: 357, zIndex: 2 }}
             >
               <img
                 src={IMAGES[1]}
@@ -145,14 +145,14 @@ export function Hero() {
               />
             </div>
 
-            {/* ─ Card 3: CENTER — 350×263 (4:3), full size, raised, badge at bottom ─ */}
+            {/* ─ Card 3: CENTER — 340×420, tallest & biggest, badge at bottom ─ */}
             <div
               className="absolute"
-              style={{ left: 375, top: 10, width: 350, height: 275, zIndex: 3 }}
+              style={{ left: 380, top: 0, width: 340, height: 432, zIndex: 3 }}
             >
               <div
                 className="absolute inset-x-0 top-0 rounded-[14px] overflow-hidden shadow-xl shadow-black/12"
-                style={{ height: 263 }}
+                style={{ height: 420 }}
               >
                 <img
                   src={IMAGES[2]}
@@ -162,7 +162,7 @@ export function Hero() {
                 />
               </div>
               {/* Badge — half inside, half outside the card's bottom edge */}
-              <div className="absolute left-1/2 -translate-x-1/2" style={{ top: 251 }}>
+              <div className="absolute left-1/2 -translate-x-1/2" style={{ top: 408 }}>
                 <div className="flex items-center gap-1.5 bg-gray-100/95 backdrop-blur-sm text-gray-700 text-[11px] font-medium px-3.5 py-1.5 rounded-full whitespace-nowrap shadow-sm border border-gray-200/50">
                   <Lock className="w-3.5 h-3.5" />
                   Powering 1,550+ Shopify Brands
@@ -170,10 +170,10 @@ export function Hero() {
               </div>
             </div>
 
-            {/* ─ Card 4: RIGHT-CENTER — 298×298 (1:1 square), 15% smaller ─ */}
+            {/* ─ Card 4: RIGHT-CENTER — 289×357, portrait, 15% smaller ─ */}
             <div
               className="absolute rounded-[14px] overflow-hidden shadow-lg shadow-black/8"
-              style={{ left: 710, top: 5, width: 298, height: 298, zIndex: 2 }}
+              style={{ left: 705, top: 30, width: 289, height: 357, zIndex: 2 }}
             >
               <img
                 src={IMAGES[3]}
@@ -183,10 +183,10 @@ export function Hero() {
               />
             </div>
 
-            {/* ─ Card 5: FAR RIGHT — 245×184 (4:3), 30% smaller, partially off edge ─ */}
+            {/* ─ Card 5: FAR RIGHT — 238×294, portrait, 30% smaller, partially off edge ─ */}
             <div
               className="absolute rounded-[14px] overflow-hidden shadow-lg shadow-black/8"
-              style={{ left: 996, top: 62, width: 245, height: 184, zIndex: 1 }}
+              style={{ left: 982, top: 60, width: 238, height: 294, zIndex: 1 }}
             >
               <img
                 src={IMAGES[4]}
