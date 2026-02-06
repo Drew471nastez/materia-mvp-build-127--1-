@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback, type WheelEvent } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
 import { ArrowRight } from "lucide-react"
 
@@ -85,36 +85,38 @@ const DESKTOP_CARDS: CardDef[] = [
 ]
 
 const MOBILE_CARDS: CardDef[] = [
-  { left: -190, top: 56, width: 174, height: 226, zIndex: 1, opacity: 0 },
-  { left: 18, top: 26, width: 194, height: 254, zIndex: 2 },
-  { left: 174, top: 0, width: 212, height: 286, zIndex: 3 },
-  { left: 348, top: 26, width: 194, height: 254, zIndex: 2 },
-  { left: 560, top: 56, width: 174, height: 226, zIndex: 1, opacity: 0 },
-]
-
-const ROW_CARDS: CardDef[] = [
-  { left: 0, top: 80, width: 184, height: 248, zIndex: 2 },
-  { left: 196, top: 80, width: 184, height: 248, zIndex: 2 },
-  { left: 392, top: 80, width: 184, height: 248, zIndex: 2 },
-  { left: 588, top: 80, width: 184, height: 248, zIndex: 2 },
-  { left: 784, top: 80, width: 184, height: 248, zIndex: 2 },
+  { left: 80, top: 56, width: 174, height: 226, zIndex: 1, opacity: 0 },
+  { left: 288, top: 26, width: 194, height: 254, zIndex: 2 },
+  { left: 444, top: 0, width: 212, height: 286, zIndex: 3 },
+  { left: 618, top: 26, width: 194, height: 254, zIndex: 2 },
+  { left: 830, top: 56, width: 174, height: 226, zIndex: 1, opacity: 0 },
 ]
 
 const CANVAS_W = 1100
 const CANVAS_H = 440
-const AUTOPLAY_INTERVAL = 5200
+const AUTOPLAY_INTERVAL = 5000
 const ROTATE_STEP = 196
+
+const BADGE_LOGO_URL =
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib_pixian_ai.png"
 
 export function Hero() {
   const typedText = useTypingEffect(TYPING_PHRASES)
   const [cardOrder, setCardOrder] = useState([0, 1, 2, 3, 4])
   const [isMobile, setIsMobile] = useState(false)
   const [dragOffset, setDragOffset] = useState(0)
-  const [isMouseHolding, setIsMouseHolding] = useState(false)
+  const [heroVisible, setHeroVisible] = useState(false)
 
   const dragRef = useRef<{ startX: number; active: boolean }>({ startX: 0, active: false })
   const autoplayRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const wheelBufferRef = useRef(0)
+
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setHeroVisible(true)
+      })
+    })
+  }, [])
 
   const rotateForward = useCallback(() => {
     setCardOrder((prev) => {
@@ -163,12 +165,9 @@ export function Hero() {
     if (autoplayRef.current) clearInterval(autoplayRef.current)
   }, [])
 
-  const handleDragStart = useCallback((clientX: number, fromMouse: boolean) => {
+  const handleDragStart = useCallback((clientX: number) => {
     dragRef.current = { startX: clientX, active: true }
     setDragOffset(0)
-    if (fromMouse) {
-      setIsMouseHolding(true)
-    }
     stopAutoplay()
   }, [stopAutoplay])
 
@@ -193,7 +192,6 @@ export function Hero() {
   const handleDragEnd = useCallback(() => {
     if (!dragRef.current.active) return
     dragRef.current.active = false
-    setIsMouseHolding(false)
     setDragOffset(0)
     startAutoplay()
   }, [startAutoplay])
@@ -204,25 +202,17 @@ export function Hero() {
     return () => window.removeEventListener("mouseup", onMouseUp)
   }, [handleDragEnd])
 
-  const handleWheel = useCallback((e: WheelEvent<HTMLDivElement>) => {
-    const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY
-    wheelBufferRef.current += delta
-
-    if (Math.abs(wheelBufferRef.current) < 120) return
-
-    if (wheelBufferRef.current > 0) {
-      rotateForward()
-    } else {
-      rotateBackward()
-    }
-
-    wheelBufferRef.current *= 0.2
-  }, [rotateBackward, rotateForward])
-
-  const activeCards = isMouseHolding ? ROW_CARDS : isMobile ? MOBILE_CARDS : DESKTOP_CARDS
+  const activeCards = isMobile ? MOBILE_CARDS : DESKTOP_CARDS
 
   return (
-    <section className="flex flex-col items-center bg-white pt-6 sm:pt-10 pb-12 sm:pb-[67px] overflow-hidden">
+    <section
+      className="flex flex-col items-center bg-white pt-6 sm:pt-10 pb-12 sm:pb-[67px] overflow-hidden"
+      style={{
+        opacity: heroVisible ? 1 : 0,
+        transform: heroVisible ? "translateY(0)" : "translateY(12px)",
+        transition: "opacity 0.9s cubic-bezier(0.22, 1, 0.36, 1), transform 0.9s cubic-bezier(0.22, 1, 0.36, 1)",
+      }}
+    >
       <style dangerouslySetInnerHTML={{ __html: `
         .hero-collage-inner {
           transform: translateX(var(--drag-x, 0px)) scale(0.41);
@@ -270,13 +260,12 @@ export function Hero() {
             }}
             onMouseDown={(e) => {
               e.preventDefault()
-              handleDragStart(e.clientX, true)
+              handleDragStart(e.clientX)
             }}
             onMouseMove={(e) => handleDragMove(e.clientX)}
-            onTouchStart={(e) => handleDragStart(e.touches[0].clientX, false)}
+            onTouchStart={(e) => handleDragStart(e.touches[0].clientX)}
             onTouchMove={(e) => handleDragMove(e.touches[0].clientX)}
             onTouchEnd={handleDragEnd}
-            onWheel={handleWheel}
           >
             {cardOrder.map((imageIdx, posIdx) => {
               const card = activeCards[posIdx]
@@ -292,7 +281,7 @@ export function Hero() {
                     height: card.height,
                     zIndex: card.zIndex,
                     opacity: card.opacity ?? 1,
-                    filter: card.zIndex === 3 && !isMouseHolding ? "none" : "saturate(0.96)",
+                    filter: card.zIndex === 3 ? "none" : "saturate(0.96)",
                   }}
                 >
                   <img
@@ -310,8 +299,13 @@ export function Hero() {
             <div className="relative bg-white rounded-[24px] sm:rounded-[28px] shadow-lg shadow-neutral-200/50 border border-neutral-100/80 px-5 pt-10 pb-7 sm:px-10 sm:pt-12 sm:pb-10 md:px-14 md:pt-14 md:pb-12 w-[82%] max-w-[480px] text-center pointer-events-auto">
               <div className="absolute left-1/2 -translate-x-1/2 -top-3.5 sm:-top-4">
                 <div className="flex items-center gap-2 bg-gray-100/95 backdrop-blur-sm text-gray-700 text-[10px] sm:text-[11px] font-medium px-3 sm:px-3.5 py-1.5 rounded-full whitespace-nowrap shadow-sm border border-gray-200/50">
-                  <span className="w-4 h-4 sm:w-[18px] sm:h-[18px] rounded-full bg-black text-white inline-flex items-center justify-center text-[9px] sm:text-[10px] font-semibold leading-none">
-                    S
+                  <span className="w-4 h-4 sm:w-[18px] sm:h-[18px] rounded-full bg-black inline-flex items-center justify-center overflow-hidden shrink-0">
+                    <img
+                      src={BADGE_LOGO_URL}
+                      alt="S"
+                      className="w-full h-full object-cover"
+                      draggable={false}
+                    />
                   </span>
                   Built for Creators
                 </div>
