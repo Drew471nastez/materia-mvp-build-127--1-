@@ -149,13 +149,14 @@ export function Hero() {
           animation: logo-scroll 25s linear infinite;
         }
         .collage-card {
-          transition: left 0.9s cubic-bezier(0.22, 1, 0.36, 1),
-                      top 0.9s cubic-bezier(0.22, 1, 0.36, 1),
-                      width 0.9s cubic-bezier(0.22, 1, 0.36, 1),
-                      height 0.9s cubic-bezier(0.22, 1, 0.36, 1),
-                      opacity 0.9s cubic-bezier(0.22, 1, 0.36, 1),
-                      transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
-          will-change: left, top, width, height, opacity, transform;
+          transition: left 1.05s cubic-bezier(0.2, 0.85, 0.22, 1),
+                      top 1.05s cubic-bezier(0.2, 0.85, 0.22, 1),
+                      width 1.05s cubic-bezier(0.2, 0.85, 0.22, 1),
+                      height 1.05s cubic-bezier(0.2, 0.85, 0.22, 1),
+                      opacity 0.95s ease,
+                      transform 1.05s cubic-bezier(0.2, 0.85, 0.22, 1),
+                      filter 0.95s ease;
+          will-change: left, top, width, height, opacity, transform, filter;
         }
       `}} />
 
@@ -170,7 +171,7 @@ export function Hero() {
 
               return (
                 <div
-                  key={`${imageIdx}-${posIdx}`}
+                  key={imageIdx}
                   className="collage-card absolute rounded-[14px] overflow-hidden shadow-sm shadow-black/10"
                   style={{
                     left: card.left,
@@ -180,6 +181,7 @@ export function Hero() {
                     zIndex: card.zIndex,
                     opacity: card.opacity ?? 1,
                     transform: `scale(${card.scale ?? 1})`,
+                    filter: card.zIndex === 3 ? "saturate(1)" : "saturate(0.96)",
                   }}
                 >
                   <img
