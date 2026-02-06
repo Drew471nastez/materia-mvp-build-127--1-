@@ -245,7 +245,7 @@ export function Hero() {
       <div className="relative w-full mb-10 sm:mb-8">
         <div className="relative w-full h-[296px] sm:h-[224px] md:h-[277px] lg:h-[352px] xl:h-[409px]">
           <div
-            className="hero-collage-inner absolute left-1/2 -translate-x-1/2 origin-top select-none"
+            className="hero-collage-inner absolute left-1/2 -translate-x-1/2 origin-top select-none sm:cursor-grab sm:active:cursor-grabbing"
             style={{ width: CANVAS_W, height: CANVAS_H }}
             onTouchStart={(e) => {
               clearAutoplay()
@@ -285,13 +285,13 @@ export function Hero() {
             }}
             onMouseMove={(e) => {
               if (!dragRef.current.active || animatingRef.current) return
-              updateDragTransition(e.clientX - dragRef.current.startX)
+              dragRef.current.rawDelta = e.clientX - dragRef.current.startX
             }}
             onMouseUp={(e) => {
               if (!dragRef.current.active) return
 
               const rawDelta = dragRef.current.rawDelta || e.clientX - dragRef.current.startX
-              const progress = transition?.progress ?? Math.min(0.95, Math.abs(rawDelta * DRAG_SLOWDOWN) / SWIPE_COMMIT_DISTANCE)
+              const progress = 0
               dragRef.current.active = false
               dragRef.current.delta = 0
               dragRef.current.rawDelta = 0
@@ -366,7 +366,7 @@ export function Hero() {
                       className="w-full h-full object-contain p-[1px]"
                     />
                   </span>
-                  Built for Creators
+                  Beta relase
                 </div>
               </div>
               <h1 className="text-[22px] sm:text-3xl md:text-[38px] md:leading-[1.2] font-bold text-neutral-900 leading-tight min-h-[2.5em] sm:min-h-[2.4em] flex items-center justify-center">
