@@ -237,26 +237,28 @@ export function Hero() {
             onTouchMove={(e) => {
               if (!dragRef.current.active || animatingRef.current) return
 
-              const delta = e.touches[0].clientX - dragRef.current.startX
-              dragRef.current.delta = delta
+              const rawDelta = e.touches[0].clientX - dragRef.current.startX
+              const smoothedDelta = lerp(dragRef.current.delta, rawDelta, 0.32)
+              dragRef.current.delta = smoothedDelta
 
-              const distance = Math.abs(delta)
+              const distance = Math.abs(smoothedDelta)
               if (distance < 1) {
                 setTransition(null)
                 return
               }
 
-              const direction = delta < 0 ? 1 : -1
+              const direction = smoothedDelta < 0 ? 1 : -1
               const progress = Math.min(0.95, distance / SWIPE_COMMIT_DISTANCE)
               const from = orderRef.current
               const to = rotateOrder(from, direction)
-              setTransition({ from, to, progress })
+              setTransition({ from, to, progress: ease(progress) })
             }}
             onTouchEnd={(e) => {
               if (!dragRef.current.active) return
               const delta = dragRef.current.delta || e.changedTouches[0].clientX - dragRef.current.startX
-              const progress = Math.min(0.95, Math.abs(delta) / SWIPE_COMMIT_DISTANCE)
+              const progress = ease(Math.min(0.95, Math.abs(delta) / SWIPE_COMMIT_DISTANCE))
               dragRef.current.active = false
+              dragRef.current.delta = 0
 
               if (Math.abs(delta) >= SWIPE_THRESHOLD) {
                 startRotation(delta < 0 ? 1 : -1, progress)
@@ -328,7 +330,7 @@ export function Hero() {
           </div>
 
           <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none -translate-y-[2%] sm:translate-y-0">
-            <div className="relative bg-white rounded-[24px] sm:rounded-[28px] shadow-lg shadow-neutral-200/50 border border-neutral-100/80 px-5 pt-10 pb-7 sm:px-10 sm:pt-12 sm:pb-10 md:px-14 md:pt-14 md:pb-12 w-[82%] max-w-[480px] text-center pointer-events-auto scale-y-[0.99] sm:scale-y-100 origin-top">
+            <div className="relative bg-white rounded-[24px] sm:rounded-[28px] shadow-lg shadow-neutral-200/50 border border-neutral-100/80 px-5 sm:px-10 md:px-14 md:pt-14 md:pb-12 w-[82%] max-w-[480px] text-center pointer-events-auto scale-y-[0.99] sm:scale-y-100 origin-top pt-9 pb-9 sm:pt-12 sm:pb-10">
               <div className="absolute left-1/2 -translate-x-1/2 -top-3.5 sm:-top-4">
                 <div className="flex items-center gap-2 bg-gray-100/95 backdrop-blur-sm text-gray-700 text-[10px] sm:text-[11px] font-medium px-3 sm:px-3.5 py-1.5 rounded-full whitespace-nowrap shadow-sm border border-gray-200/50">
                   <span className="w-4 h-4 sm:w-[18px] sm:h-[18px] rounded-full bg-black inline-flex items-center justify-center overflow-hidden">
@@ -341,7 +343,7 @@ export function Hero() {
                   Built for Creators
                 </div>
               </div>
-              <h1 className="text-[22px] sm:text-3xl md:text-[38px] md:leading-[1.2] font-bold text-neutral-900 leading-tight min-h-[2.4em] flex items-center justify-center">
+              <h1 className="text-[22px] sm:text-3xl md:text-[38px] md:leading-[1.2] font-bold text-neutral-900 leading-tight min-h-[2.5em] sm:min-h-[2.4em] flex items-center justify-center">
                 <span>
                   {typedText}
                   <span className="inline-block w-[3px] h-[0.85em] bg-violet-500 ml-0.5 animate-pulse align-middle rounded-full" />
