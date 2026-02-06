@@ -246,7 +246,7 @@ export function Hero() {
             })}
           </div>
 
-          <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none translate-y-[5%] sm:translate-y-0">
+          <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none -translate-y-[5%] sm:translate-y-0">
             <div className="relative bg-white rounded-[24px] sm:rounded-[28px] shadow-lg shadow-neutral-200/50 border border-neutral-100/80 px-5 pt-10 pb-7 sm:px-10 sm:pt-12 sm:pb-10 md:px-14 md:pt-14 md:pb-12 w-[82%] max-w-[480px] text-center pointer-events-auto">
               <div className="absolute left-1/2 -translate-x-1/2 -top-3.5 sm:-top-4">
                 <div className="flex items-center gap-2 bg-gray-100/95 backdrop-blur-sm text-gray-700 text-[10px] sm:text-[11px] font-medium px-3 sm:px-3.5 py-1.5 rounded-full whitespace-nowrap shadow-sm border border-gray-200/50">
