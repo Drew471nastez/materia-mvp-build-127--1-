@@ -292,7 +292,7 @@ const SORT_OPTIONS = [
 ] as const
 
 const PRODUCTS_PER_PAGE = 15
-const MAX_VISIBLE_PILLS = 8
+const MAX_VISIBLE_PILLS = 7
 
 type ViewMode = "grid" | "compact"
 
@@ -956,157 +956,167 @@ export function CategoryPageClient({
       {/* Subtle divider between header info and subcategories/content */}
       <div className="border-t border-neutral-100" />
 
-      {/* Subcategory Pills */}
+      {/* Desktop Subcategory Pills — hidden on mobile */}
       {availableSubcategories.length > 0 && (
-        <div className="flex flex-col gap-3">
+        <div className="hidden md:flex flex-col gap-3">
           <h3 className="text-sm font-semibold text-neutral-700">Browse Subcategories</h3>
-
-          {/* Desktop: show max pills with fade + "Show all" */}
-          <div className="hidden md:block">
-            <div className="relative">
-              <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={handleSelectAll}
+              className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap cursor-pointer select-none transition-all duration-150 ease-out active:scale-[0.98] ${
+                selectedSubcategories.length === 0
+                  ? "bg-neutral-900 text-white shadow-sm"
+                  : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+              }`}
+            >
+              All {categoryLabel}
+            </button>
+            {visibleSubcategories.map((sub) => {
+              const isSelected = selectedSubcategories.includes(sub.id)
+              return (
                 <button
-                  onClick={handleSelectAll}
+                  key={sub.id}
+                  onClick={() => handleSubcategorySelect(sub.id)}
                   className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap cursor-pointer select-none transition-all duration-150 ease-out active:scale-[0.98] ${
-                    selectedSubcategories.length === 0
-                      ? "bg-neutral-900 text-white shadow-sm"
+                    isSelected
+                      ? "bg-violet-600 text-white shadow-sm"
                       : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
                   }`}
                 >
-                  All {categoryLabel}
+                  {isSelected && <Check className="w-3.5 h-3.5" />}
+                  {sub.label}
                 </button>
-                {visibleSubcategories.map((sub) => {
-                  const isSelected = selectedSubcategories.includes(sub.id)
-                  return (
-                    <button
-                      key={sub.id}
-                      onClick={() => handleSubcategorySelect(sub.id)}
-                      className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap cursor-pointer select-none transition-all duration-150 ease-out active:scale-[0.98] ${
-                        isSelected
-                          ? "bg-violet-600 text-white shadow-sm"
-                          : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
-                      }`}
-                    >
-                      {isSelected && <Check className="w-3.5 h-3.5" />}
-                      {sub.label}
-                    </button>
-                  )
-                })}
-                {hasOverflow && (
-                  <button
-                    onClick={() => setSubcategorySelectorOpen(true)}
-                    className="inline-flex items-center gap-1 px-4 py-2 rounded-full text-sm font-medium text-violet-600 bg-violet-50 hover:bg-violet-100 cursor-pointer select-none transition-all duration-150 whitespace-nowrap"
-                  >
-                    Show all
-                    <ChevronDown className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Mobile: scrollable row + "Show all" triggers bottom sheet */}
-          <div className="md:hidden">
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
+              )
+            })}
+            {hasOverflow && (
               <button
-                onClick={handleSelectAll}
-                className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap cursor-pointer select-none transition-all duration-150 ease-out active:scale-[0.98] ${
-                  selectedSubcategories.length === 0
-                    ? "bg-neutral-900 text-white shadow-sm"
-                    : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
-                }`}
+                onClick={() => setSubcategorySelectorOpen(true)}
+                className="inline-flex items-center gap-1 px-4 py-2 rounded-full text-sm font-medium text-violet-600 bg-violet-50 hover:bg-violet-100 cursor-pointer select-none transition-all duration-150 whitespace-nowrap"
               >
-                All {categoryLabel}
+                Show all
+                <ChevronDown className="w-3.5 h-3.5" />
               </button>
-              {availableSubcategories.slice(0, 4).map((sub) => {
-                const isSelected = selectedSubcategories.includes(sub.id)
-                return (
-                  <button
-                    key={sub.id}
-                    onClick={() => handleSubcategorySelect(sub.id)}
-                    className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap cursor-pointer select-none transition-all duration-150 ease-out active:scale-[0.98] ${
-                      isSelected
-                        ? "bg-violet-600 text-white shadow-sm"
-                        : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
-                    }`}
-                  >
-                    {isSelected && <Check className="w-3.5 h-3.5" />}
-                    {sub.label}
-                  </button>
-                )
-              })}
-              {availableSubcategories.length > 4 && (
-                <button
-                  onClick={() => setSubcategorySelectorOpen(true)}
-                  className="inline-flex items-center gap-1 px-4 py-2 rounded-full text-sm font-medium text-violet-600 bg-violet-50 hover:bg-violet-100 cursor-pointer select-none transition-all duration-150 whitespace-nowrap shrink-0"
-                >
-                  Show all
-                  <ChevronDown className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
+            )}
           </div>
         </div>
       )}
 
       {/* Controls Row */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative">
-        {searchOpen ? (
-          <div className="flex-1 animate-in fade-in slide-in-from-top-2 duration-200">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400 pointer-events-none" />
-              <Input
-                autoFocus
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={`Search in ${currentSubcategoryLabel || categoryLabel}...`}
-                className="h-11 w-full pl-10 pr-10 bg-neutral-100 border-neutral-200 text-neutral-900 placeholder:text-neutral-500 rounded-full text-sm"
-              />
-              <button
-                onClick={() => { setSearchQuery(""); setSearchOpen(false) }}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
+      <div className="flex items-center justify-between gap-4 relative">
+        {/* Desktop controls (left side) */}
+        <div className="hidden md:flex items-center gap-2">
+          {searchOpen ? (
+            <div className="flex-1 min-w-[300px] animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400 pointer-events-none" />
+                <Input
+                  autoFocus
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={`Search in ${currentSubcategoryLabel || categoryLabel}...`}
+                  className="h-11 w-full pl-10 pr-10 bg-neutral-100 border-neutral-200 text-neutral-900 placeholder:text-neutral-500 rounded-full text-sm"
+                />
+                <button
+                  onClick={() => { setSearchQuery(""); setSearchOpen(false) }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setSearchOpen(true)}
-              className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-neutral-100 text-neutral-700 hover:bg-neutral-200 transition-all duration-150 cursor-pointer"
-            >
-              <Search className="w-4 h-4" />
-            </button>
+          ) : (
+            <>
+              <button
+                onClick={() => setSearchOpen(true)}
+                className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-neutral-100 text-neutral-700 hover:bg-neutral-200 transition-all duration-150 cursor-pointer"
+              >
+                <Search className="w-4 h-4" />
+              </button>
 
-            {/* View Mode Toggle - Desktop only (grid + compact only) */}
-            <div className="hidden md:flex items-center gap-1 bg-neutral-100 rounded-full p-1">
-              <button
-                onClick={() => setViewMode("grid")}
-                className={`p-2 rounded-full transition-colors cursor-pointer ${
-                  viewMode === "grid" ? "bg-white shadow-sm text-neutral-900" : "text-neutral-500 hover:text-neutral-700"
-                }`}
-              >
-                <LayoutGrid className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setViewMode("compact")}
-                className={`p-2 rounded-full transition-colors cursor-pointer ${
-                  viewMode === "compact" ? "bg-white shadow-sm text-neutral-900" : "text-neutral-500 hover:text-neutral-700"
-                }`}
-              >
-                <Grid3X3 className="w-4 h-4" />
-              </button>
+              {/* View Mode Toggle - Desktop only */}
+              <div className="flex items-center gap-1 bg-neutral-100 rounded-full p-1">
+                <button
+                  onClick={() => setViewMode("grid")}
+                  className={`p-2 rounded-full transition-colors cursor-pointer ${
+                    viewMode === "grid" ? "bg-white shadow-sm text-neutral-900" : "text-neutral-500 hover:text-neutral-700"
+                  }`}
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setViewMode("compact")}
+                  className={`p-2 rounded-full transition-colors cursor-pointer ${
+                    viewMode === "compact" ? "bg-white shadow-sm text-neutral-900" : "text-neutral-500 hover:text-neutral-700"
+                  }`}
+                >
+                  <Grid3X3 className="w-4 h-4" />
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Mobile controls (right-aligned): subcategories icon + search icon + filters */}
+        <div className="md:hidden flex items-center gap-2 ml-auto">
+          {searchOpen ? (
+            <div className="flex-1 min-w-0 w-full animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400 pointer-events-none" />
+                <Input
+                  autoFocus
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={`Search in ${currentSubcategoryLabel || categoryLabel}...`}
+                  className="h-10 w-full pl-10 pr-10 bg-neutral-100 border-neutral-200 text-neutral-900 placeholder:text-neutral-500 rounded-full text-sm"
+                />
+                <button
+                  onClick={() => { setSearchQuery(""); setSearchOpen(false) }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
-          </div>
-        )}
-
-        <div className="flex items-center gap-2">
+          ) : (
+            <>
+              {availableSubcategories.length > 0 && (
+                <button
+                  onClick={() => setSubcategorySelectorOpen(true)}
+                  className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-neutral-100 text-neutral-700 hover:bg-neutral-200 transition-all duration-150 cursor-pointer"
+                >
+                  <Layers className="w-4 h-4" />
+                </button>
+              )}
+              <button
+                onClick={() => setSearchOpen(true)}
+                className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-neutral-100 text-neutral-700 hover:bg-neutral-200 transition-all duration-150 cursor-pointer"
+              >
+                <Search className="w-4 h-4" />
+              </button>
+            </>
+          )}
           <button
-            onClick={() => {
-              if (window.innerWidth >= 768) setFiltersOpen(!filtersOpen)
-              else setMobileFiltersOpen(true)
-            }}
+            onClick={() => setMobileFiltersOpen(true)}
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-150 cursor-pointer select-none ${
+              activeFilterCount > 0
+                ? "bg-neutral-900 text-white"
+                : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
+            }`}
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+            <span>Filters</span>
+            {activeFilterCount > 0 && (
+              <span className="flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-white text-neutral-900 text-[11px] font-bold">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* Desktop filters (right side) */}
+        <div className="hidden md:flex items-center gap-2">
+          <button
+            onClick={() => setFiltersOpen(!filtersOpen)}
             className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-150 cursor-pointer select-none ${
               filtersOpen || activeFilterCount > 0
                 ? "bg-neutral-900 text-white"

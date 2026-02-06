@@ -23,22 +23,22 @@ const LOGO_URL =
 
 // Desktop category bar with icons
 const DEFAULT_CATEGORIES = [
-  { id: "all", label: "All", icon: LayoutGrid },
-  { id: "audio-music", label: "Audio & Music", icon: Music },
-  { id: "business", label: "Business & Money", icon: Briefcase },
-  { id: "other", label: "Other", icon: MoreHorizontal },
-  { id: "freebies", label: "Freebies", icon: Gift },
-  { id: "development", label: "Software Development", icon: Code },
+  { id: "all", label: "All", icon: LayoutGrid, badge: null },
+  { id: "audio-music", label: "Audio & Music", icon: Music, badge: null },
+  { id: "business", label: "Business & Money", icon: Briefcase, badge: null },
+  { id: "other", label: "Other", icon: MoreHorizontal, badge: null },
+  { id: "freebies", label: "Freebies", icon: Gift, badge: null },
+  { id: "ai", label: "AI", icon: Bot, badge: "HOT" },
 ]
 
 // Mobile category pills - 6 categories as pill buttons with icons
 const MOBILE_CATEGORIES = [
-  { id: "all", label: "All", icon: LayoutGrid },
-  { id: "design", label: "Design", icon: Sparkles },
-  { id: "development", label: "Development", icon: Code },
-  { id: "marketing", label: "Marketing", icon: Megaphone },
-  { id: "business", label: "Business", icon: Briefcase },
-  { id: "ai", label: "AI", icon: Bot },
+  { id: "all", label: "All", icon: LayoutGrid, badge: null },
+  { id: "audio-music", label: "Audio & Music", icon: Music, badge: null },
+  { id: "business", label: "Business & Money", icon: Briefcase, badge: null },
+  { id: "other", label: "Other", icon: MoreHorizontal, badge: null },
+  { id: "freebies", label: "Freebies", icon: Gift, badge: null },
+  { id: "ai", label: "AI", icon: Bot, badge: "HOT" },
 ]
 
 // Categories with subcategories for the dropdown
@@ -782,6 +782,15 @@ export function PlatformHeaderClient() {
   }
 
   const showCategories = pathname === "/explore" || pathname.startsWith("/explore")
+
+  // Detect active category from URL
+  const activeCategoryId = useMemo(() => {
+    if (pathname.startsWith("/explore/")) {
+      const seg = pathname.split("/explore/")[1]?.split("/")[0]?.split("?")[0]
+      return seg || "all"
+    }
+    return searchParams.get("category") || "all"
+  }, [pathname, searchParams])
 
   // Get selected category data for subcategory view
   const selectedCategoryData = selectedCategoryForSubs
@@ -1557,15 +1566,27 @@ export function PlatformHeaderClient() {
             <div className="flex items-center gap-2 whitespace-nowrap">
               {MOBILE_CATEGORIES.map((cat) => {
                 const Icon = cat.icon
+                const isActive = activeCategoryId === cat.id
                 return (
                   <button
                     key={cat.id}
                     type="button"
                     onClick={() => onCategoryClick(cat.id)}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 transition-colors cursor-pointer border border-gray-200"
+                    className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-colors cursor-pointer border ${
+                      isActive
+                        ? "bg-gray-900 text-white border-gray-900"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 border-gray-200"
+                    }`}
                   >
                     <Icon className="w-3.5 h-3.5" />
                     {cat.label}
+                    {cat.badge && (
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold leading-none ${
+                        isActive ? "bg-orange-400 text-white" : "bg-orange-500 text-white"
+                      }`}>
+                        {cat.badge}
+                      </span>
+                    )}
                   </button>
                 )
               })}
@@ -1581,15 +1602,25 @@ export function PlatformHeaderClient() {
                 {DEFAULT_CATEGORIES.map((cat) => {
                   const Icon = cat.icon
                   const isAll = cat.id === "all"
+                  const isActive = activeCategoryId === cat.id
                   return (
                     <button
                       key={cat.id}
                       type="button"
                       onClick={() => onCategoryClick(cat.id)}
-                      className="inline-flex items-center gap-1.5 text-gray-500 hover:text-gray-900 transition-colors cursor-pointer font-medium"
+                      className={`inline-flex items-center gap-1.5 transition-colors cursor-pointer font-medium ${
+                        isActive
+                          ? "text-gray-900"
+                          : "text-gray-500 hover:text-gray-900"
+                      }`}
                     >
                       {isAll && <Icon className="w-[18px] h-[18px]" />}
                       {cat.label}
+                      {cat.badge && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-orange-500 text-white leading-none">
+                          {cat.badge}
+                        </span>
+                      )}
                     </button>
                   )
                 })}
