@@ -97,11 +97,17 @@ const CANVAS_W = 1100
 const CANVAS_H = 460
 const AUTOPLAY_INTERVAL = 5000
 const CARD_TRANSITION_MS = 1200
+const SWIPE_THRESHOLD = 40
 
-const rotateForward = (order: number[]) => {
+const rotateOrder = (order: number[], direction: 1 | -1) => {
   const next = [...order]
-  const first = next.shift()!
-  next.push(first)
+  if (direction === 1) {
+    const first = next.shift()!
+    next.push(first)
+  } else {
+    const last = next.pop()!
+    next.unshift(last)
+  }
   return next
 }
 
@@ -118,12 +124,13 @@ export function Hero() {
   const orderRef = useRef(cardOrder)
   const animatingRef = useRef(false)
   const rafRef = useRef<number | null>(null)
+  const dragRef = useRef({ active: false, startX: 0 })
 
-  const startRotation = useCallback(() => {
+  const startRotation = useCallback((direction: 1 | -1 = 1) => {
     if (animatingRef.current) return
 
     const from = orderRef.current
-    const to = rotateForward(from)
+    const to = rotateOrder(from, direction)
     const start = performance.now()
 
     animatingRef.current = true
@@ -156,12 +163,17 @@ export function Hero() {
   }, [])
 
   useEffect(() => {
-    autoplayRef.current = setInterval(() => startRotation(), AUTOPLAY_INTERVAL)
+    autoplayRef.current = setInterval(() => startRotation(1), AUTOPLAY_INTERVAL)
 
     return () => {
       if (autoplayRef.current) clearInterval(autoplayRef.current)
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
     }
+  }, [startRotation])
+
+  const triggerSwipe = useCallback((delta: number) => {
+    if (Math.abs(delta) < SWIPE_THRESHOLD) return
+    startRotation(delta < 0 ? 1 : -1)
   }, [startRotation])
 
   const activeCards = isMobile ? MOBILE_CARDS : DESKTOP_CARDS
@@ -203,6 +215,27 @@ export function Hero() {
           <div
             className="hero-collage-inner absolute left-1/2 -translate-x-1/2 origin-top select-none"
             style={{ width: CANVAS_W, height: CANVAS_H }}
+            onTouchStart={(e) => {
+              dragRef.current = { active: true, startX: e.touches[0].clientX }
+            }}
+            onTouchEnd={(e) => {
+              if (!dragRef.current.active) return
+              const delta = e.changedTouches[0].clientX - dragRef.current.startX
+              dragRef.current.active = false
+              triggerSwipe(delta)
+            }}
+            onMouseDown={(e) => {
+              dragRef.current = { active: true, startX: e.clientX }
+            }}
+            onMouseUp={(e) => {
+              if (!dragRef.current.active) return
+              const delta = e.clientX - dragRef.current.startX
+              dragRef.current.active = false
+              triggerSwipe(delta)
+            }}
+            onMouseLeave={() => {
+              dragRef.current.active = false
+            }}
           >
             {IMAGES.map((src, imageIdx) => {
               const fromPos = transition ? transition.from.indexOf(imageIdx) : cardOrder.indexOf(imageIdx)
@@ -246,7 +279,7 @@ export function Hero() {
             })}
           </div>
 
-          <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none -translate-y-[5%] sm:translate-y-0">
+          <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none -translate-y-[3%] sm:translate-y-0">
             <div className="relative bg-white rounded-[24px] sm:rounded-[28px] shadow-lg shadow-neutral-200/50 border border-neutral-100/80 px-5 pt-10 pb-7 sm:px-10 sm:pt-12 sm:pb-10 md:px-14 md:pt-14 md:pb-12 w-[82%] max-w-[480px] text-center pointer-events-auto">
               <div className="absolute left-1/2 -translate-x-1/2 -top-3.5 sm:-top-4">
                 <div className="flex items-center gap-2 bg-gray-100/95 backdrop-blur-sm text-gray-700 text-[10px] sm:text-[11px] font-medium px-3 sm:px-3.5 py-1.5 rounded-full whitespace-nowrap shadow-sm border border-gray-200/50">
