@@ -1,9 +1,187 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { motion } from "framer-motion"
 import { ArrowRight, Play, Check, Menu, X } from "lucide-react"
+
+const COLLAGE_CARDS = [
+  { id: 1, title: "Design System Kit", gradient: "from-blue-400 via-purple-400 to-pink-500", aspectClass: "aspect-[3/4]" },
+  { id: 2, title: "Music Player", gradient: "from-orange-300 via-rose-300 to-pink-400", aspectClass: "aspect-[4/3]" },
+  { id: 3, title: "Course Platform", gradient: "from-emerald-300 via-teal-300 to-cyan-400", aspectClass: "aspect-[3/4]" },
+  { id: 4, title: "Photo Gallery", gradient: "from-amber-200 via-yellow-300 to-orange-400", aspectClass: "aspect-[4/3]" },
+  { id: 5, title: "Brand Identity", gradient: "from-indigo-400 via-violet-400 to-purple-500", aspectClass: "aspect-[3/4]" },
+  { id: 6, title: "Portfolio Site", gradient: "from-pink-300 via-fuchsia-300 to-purple-400", aspectClass: "aspect-[4/3]" },
+  { id: 7, title: "E-book Store", gradient: "from-sky-300 via-blue-400 to-indigo-500", aspectClass: "aspect-[3/4]" },
+  { id: 8, title: "Newsletter", gradient: "from-rose-300 via-pink-400 to-fuchsia-500", aspectClass: "aspect-[4/3]" },
+]
+
+function CollageCarousel() {
+  const trackRef = useRef<HTMLDivElement>(null)
+  const isDraggingRef = useRef(false)
+  const startXRef = useRef(0)
+  const scrollLeftRef = useRef(0)
+  const animFrameRef = useRef<number>(0)
+  const lastTimeRef = useRef(0)
+  const pausedRef = useRef(false)
+  const pauseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [dragCursor, setDragCursor] = useState(false)
+
+  const animate = useCallback((time: number) => {
+    if (!pausedRef.current && trackRef.current) {
+      const el = trackRef.current
+      const maxScroll = el.scrollWidth - el.clientWidth
+      const delta = (time - lastTimeRef.current) * 0.04
+      if (el.scrollLeft >= maxScroll - 2) {
+        el.scrollLeft = 0
+      } else {
+        el.scrollLeft += delta
+      }
+    }
+    lastTimeRef.current = time
+    animFrameRef.current = requestAnimationFrame(animate)
+  }, [])
+
+  const pauseAutoplay = useCallback(() => {
+    pausedRef.current = true
+    if (pauseTimeoutRef.current) clearTimeout(pauseTimeoutRef.current)
+    pauseTimeoutRef.current = setTimeout(() => {
+      pausedRef.current = false
+    }, 3000)
+  }, [])
+
+  useEffect(() => {
+    lastTimeRef.current = performance.now()
+    animFrameRef.current = requestAnimationFrame(animate)
+    return () => {
+      cancelAnimationFrame(animFrameRef.current)
+      if (pauseTimeoutRef.current) clearTimeout(pauseTimeoutRef.current)
+    }
+  }, [animate])
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (!trackRef.current) return
+    isDraggingRef.current = true
+    setDragCursor(true)
+    startXRef.current = e.clientX
+    scrollLeftRef.current = trackRef.current.scrollLeft
+    trackRef.current.setPointerCapture(e.pointerId)
+    pausedRef.current = true
+    if (pauseTimeoutRef.current) clearTimeout(pauseTimeoutRef.current)
+  }
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!isDraggingRef.current || !trackRef.current) return
+    e.preventDefault()
+    const dx = e.clientX - startXRef.current
+    trackRef.current.scrollLeft = scrollLeftRef.current - dx
+  }
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    isDraggingRef.current = false
+    setDragCursor(false)
+    if (trackRef.current) trackRef.current.releasePointerCapture(e.pointerId)
+    pauseAutoplay()
+  }
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (!trackRef.current) return
+    isDraggingRef.current = true
+    startXRef.current = e.touches[0].clientX
+    scrollLeftRef.current = trackRef.current.scrollLeft
+    pausedRef.current = true
+    if (pauseTimeoutRef.current) clearTimeout(pauseTimeoutRef.current)
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDraggingRef.current || !trackRef.current) return
+    const dx = e.touches[0].clientX - startXRef.current
+    trackRef.current.scrollLeft = scrollLeftRef.current - dx
+  }
+
+  const handleTouchEnd = () => {
+    isDraggingRef.current = false
+    pauseAutoplay()
+  }
+
+  const duplicatedCards = [...COLLAGE_CARDS, ...COLLAGE_CARDS, ...COLLAGE_CARDS]
+
+  return (
+    <>
+      {/* Desktop collage carousel */}
+      <div className="hidden md:block absolute inset-0 pointer-events-auto">
+        <div
+          ref={trackRef}
+          className="absolute inset-0 overflow-x-auto overflow-y-hidden scrollbar-hide"
+          style={{ cursor: dragCursor ? "grabbing" : "grab", scrollbarWidth: "none", msOverflowStyle: "none" }}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
+          <div className="flex gap-5 px-8 pt-20 pb-8 items-start" style={{ width: "max-content" }}>
+            {duplicatedCards.map((card, i) => {
+              const isEven = i % 2 === 0
+              return (
+                <motion.div
+                  key={`${card.id}-${i}`}
+                  className="flex-shrink-0 select-none pointer-events-none"
+                  style={{ marginTop: isEven ? "0px" : "60px" }}
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: Math.min(i * 0.05, 0.5), duration: 0.6, ease: "easeOut" }}
+                >
+                  <div
+                    className={`w-[200px] lg:w-[240px] rounded-2xl overflow-hidden shadow-lg border border-white/20`}
+                    style={{ aspectRatio: card.aspectClass === "aspect-[3/4]" ? "3/4" : "4/3" }}
+                  >
+                    <div className={`w-full h-full bg-gradient-to-br ${card.gradient} flex flex-col justify-end p-4`}>
+                      <div className="bg-white/90 backdrop-blur-sm rounded-xl px-3 py-2 shadow-sm">
+                        <div className="text-[11px] text-[#999]">Product</div>
+                        <div className="text-[13px] font-semibold text-[#1a1a1a] truncate">{card.title}</div>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile collage - 3 centered larger cards */}
+      <div className="md:hidden relative w-full px-4 pb-6">
+        <div className="flex justify-center gap-3">
+          {COLLAGE_CARDS.slice(0, 3).map((card, i) => (
+            <motion.div
+              key={card.id}
+              className="flex-shrink-0"
+              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ delay: 0.2 + i * 0.1, duration: 0.5, ease: "easeOut" }}
+            >
+              <div
+                className="w-[105px] sm:w-[120px] rounded-2xl overflow-hidden shadow-lg border border-white/20"
+                style={{ aspectRatio: "3/4" }}
+              >
+                <div className={`w-full h-full bg-gradient-to-br ${card.gradient} flex flex-col justify-end p-2.5`}>
+                  <div className="bg-white/90 backdrop-blur-sm rounded-lg px-2 py-1.5 shadow-sm">
+                    <div className="text-[9px] text-[#999]">Product</div>
+                    <div className="text-[11px] font-semibold text-[#1a1a1a] truncate">{card.title}</div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </>
+  )
+}
 
 export default function StorelibLanding() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -21,139 +199,79 @@ export default function StorelibLanding() {
             </svg>
             <span className="text-[15px] font-semibold text-[#1a1a1a]">Storelib</span>
           </Link>
-          
+
           <div className="hidden md:flex items-center gap-6">
             {["Solutions", "Pricing", "Community", "Discover"].map((item) => (
               <Link key={item} href="#" className="text-[13px] text-[#666] hover:text-[#1a1a1a] transition-colors">{item}</Link>
             ))}
           </div>
-          
+
           <div className="hidden md:flex items-center gap-3">
             <Link href="/login" className="text-[13px] text-[#666] hover:text-[#1a1a1a] transition-colors">Log in</Link>
             <Link href="/signup" className="px-4 py-2 text-[13px] font-medium bg-[#1a1a1a] text-white rounded-lg hover:bg-[#333] transition-colors">Open Storelib</Link>
           </div>
-          
+
           <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="md:hidden p-2">
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
       </nav>
 
-      {/* HERO - Lovable style */}
+      {/* HERO with Collage */}
       <section className="relative min-h-screen pt-20 overflow-hidden">
-        {/* Floating elements with dashed borders */}
-        <div className="absolute inset-0 pointer-events-none">
-          {/* Top left - Pink/blue gradient */}
-          <motion.div 
-            className="absolute top-24 left-8 lg:left-16"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2, duration: 0.6 }}
-          >
-            <div className="w-40 h-48 rounded-2xl overflow-hidden shadow-lg">
-              <div className="w-full h-full bg-gradient-to-br from-blue-400 via-purple-400 to-pink-500"></div>
-            </div>
-          </motion.div>
+        {/* Desktop: Collage carousel behind hero text */}
+        <CollageCarousel />
 
-          {/* Top center left - Empty dashed box */}
-          <motion.div 
-            className="absolute top-16 left-1/4 hidden lg:block"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.6 }}
-          >
-            <div className="w-32 h-16 rounded-xl border-2 border-dashed border-[#ccc]"></div>
-          </motion.div>
-
-          {/* Color dots */}
-          <motion.div 
-            className="absolute top-48 left-1/3 hidden lg:block"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.4, duration: 0.6 }}
-          >
-            <div className="flex flex-col gap-2">
-              <div className="flex gap-2">
-                <div className="w-8 h-8 rounded-full bg-[#1a1a1a]"></div>
-                <div className="w-8 h-8 rounded-full bg-[#e8d5f0]"></div>
-              </div>
-              <div className="flex gap-2">
-                <div className="w-8 h-8 rounded-full bg-[#f0b8d0]"></div>
-                <div className="w-8 h-8 rounded-full bg-[#f5d860]"></div>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Top right - Aa typography */}
-          <motion.div 
-            className="absolute top-20 right-1/4 hidden lg:block"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.35, duration: 0.6 }}
-          >
-            <div className="w-28 h-24 rounded-xl border-2 border-dashed border-[#ccc] flex items-center justify-center">
-              <span className="text-4xl font-serif text-[#1a1a1a]">Aa</span>
-            </div>
-          </motion.div>
-
-          {/* Right side - Avatar group */}
-          <motion.div 
-            className="absolute top-36 right-16 hidden lg:block"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4, duration: 0.6 }}
-          >
-            <div className="w-32 h-20 rounded-xl border-2 border-dashed border-[#ccc] flex items-center justify-center">
-              <div className="flex -space-x-2">
-                <div className="w-10 h-10 rounded-full bg-amber-200 border-2 border-white"></div>
-                <div className="w-10 h-10 rounded-full bg-rose-200 border-2 border-white"></div>
-                <div className="w-10 h-10 rounded-full bg-blue-200 border-2 border-white"></div>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Far right - Pink gradient */}
-          <motion.div 
-            className="absolute top-32 right-8 hidden md:block"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.45, duration: 0.6 }}
-          >
-            <div className="w-36 h-32 rounded-2xl border-2 border-dashed border-[#ccc] overflow-hidden p-1">
-              <div className="w-full h-full rounded-xl bg-gradient-to-br from-pink-300 via-purple-300 to-blue-400"></div>
-            </div>
-          </motion.div>
-        </div>
-
-        {/* Main content */}
-        <div className="relative z-10 max-w-[800px] mx-auto px-6 pt-32 pb-20 text-center">
+        {/* Hero content overlay */}
+        <div className="relative z-10 max-w-[800px] mx-auto px-6 pt-24 md:pt-32 pb-8 md:pb-20 text-center">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
+            className="md:bg-[#faf8f5]/80 md:backdrop-blur-md md:rounded-3xl md:py-12 md:px-8"
           >
-            <p className="text-[13px] text-[#666] mb-6">Storelib for creators</p>
-            
+            {/* Badge with Storelib S logo in black circle */}
+            <div className="flex items-center justify-center gap-2 mb-6">
+              <div className="w-7 h-7 rounded-full bg-[#1a1a1a] flex items-center justify-center flex-shrink-0 overflow-hidden">
+                <Image
+                  src="/images/design-mode/storelib.png"
+                  alt="S"
+                  width={28}
+                  height={28}
+                  className="brightness-0 invert object-contain"
+                  style={{ objectPosition: "0% center", transform: "scale(2.8)", transformOrigin: "12% 50%" }}
+                />
+              </div>
+              <span className="text-[13px] text-[#666]">Storelib for creators</span>
+            </div>
+
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-normal text-[#1a1a1a] leading-[1.1] tracking-tight mb-6" style={{ fontFamily: 'Georgia, serif' }}>
-              Your best products,
+              Start monetizing
               <br />
-              <span className="italic">in production</span>
+              <span className="italic">your passion...</span>
             </h1>
-            
+
             <p className="text-[15px] text-[#666] mb-8 max-w-md mx-auto leading-relaxed">
-              Bring your vision to life.
+              Storelib lets you turn big ideas into real products.
               <br />
-              Create Storelib experiences.
+              Create, design, and sell with your store.
             </p>
-            
-            <Link href="/signup" className="inline-flex items-center gap-2 px-6 py-3 bg-[#1a1a1a] text-white text-[14px] font-medium rounded-lg hover:bg-[#333] transition-colors">
-              Get started
-            </Link>
+
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Link href="/signup" className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-[#4f46e5] text-white text-[14px] font-medium rounded-full hover:bg-[#4338ca] transition-colors">
+                Try free
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+              <Link href="/signup" className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-[#4f46e5] text-white text-[14px] font-medium rounded-full hover:bg-[#4338ca] transition-colors">
+                Try free
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
           </motion.div>
         </div>
 
         {/* Logo cloud */}
-        <motion.div 
+        <motion.div
           className="relative z-10 py-12 border-t border-black/5"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
