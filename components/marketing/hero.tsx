@@ -87,9 +87,9 @@ const DESKTOP_CARDS: CardDef[] = [
 
 const MOBILE_CARDS: CardDef[] = [
   { left: -150, top: 86, width: 206, height: 268, zIndex: 1, opacity: 0, scale: 0.92 },
-  { left: 136, top: 56, width: 238, height: 310, zIndex: 2, opacity: 0.85, scale: 0.92 },
+  { left: 162, top: 48, width: 262, height: 341, zIndex: 2, opacity: 0.85, scale: 0.92 },
   { left: 380, top: 0, width: 340, height: 442, zIndex: 3, opacity: 1, scale: 1 },
-  { left: 726, top: 56, width: 238, height: 310, zIndex: 2, opacity: 0.85, scale: 0.92 },
+  { left: 676, top: 48, width: 262, height: 341, zIndex: 2, opacity: 0.85, scale: 0.92 },
   { left: 1044, top: 86, width: 206, height: 268, zIndex: 1, opacity: 0, scale: 0.92 },
 ]
 
@@ -170,7 +170,7 @@ export function Hero() {
     <section className="flex flex-col items-center bg-white pt-6 sm:pt-10 pb-12 sm:pb-[67px] overflow-hidden">
       <style dangerouslySetInnerHTML={{ __html: `
         .hero-collage-inner {
-          transform: scale(0.74);
+          transform: scale(0.70);
         }
         @media (min-width: 640px) {
           .hero-collage-inner { transform: scale(0.51); }
@@ -198,8 +198,8 @@ export function Hero() {
         }
       `}} />
 
-      <div className="relative w-full mb-6 sm:mb-8">
-        <div className="relative w-full h-[258px] sm:h-[224px] md:h-[277px] lg:h-[352px] xl:h-[409px]">
+      <div className="relative w-full mb-10 sm:mb-8">
+        <div className="relative w-full h-[296px] sm:h-[224px] md:h-[277px] lg:h-[352px] xl:h-[409px]">
           <div
             className="hero-collage-inner absolute left-1/2 -translate-x-1/2 origin-top select-none"
             style={{ width: CANVAS_W, height: CANVAS_H }}
@@ -246,7 +246,7 @@ export function Hero() {
             })}
           </div>
 
-          <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
+          <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none translate-y-[5%] sm:translate-y-0">
             <div className="relative bg-white rounded-[24px] sm:rounded-[28px] shadow-lg shadow-neutral-200/50 border border-neutral-100/80 px-5 pt-10 pb-7 sm:px-10 sm:pt-12 sm:pb-10 md:px-14 md:pt-14 md:pb-12 w-[82%] max-w-[480px] text-center pointer-events-auto">
               <div className="absolute left-1/2 -translate-x-1/2 -top-3.5 sm:-top-4">
                 <div className="flex items-center gap-2 bg-gray-100/95 backdrop-blur-sm text-gray-700 text-[10px] sm:text-[11px] font-medium px-3 sm:px-3.5 py-1.5 rounded-full whitespace-nowrap shadow-sm border border-gray-200/50">
