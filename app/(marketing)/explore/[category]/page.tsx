@@ -74,7 +74,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const description = CATEGORY_DESCRIPTIONS[category] || `Browse ${label} products on Storelib`
 
   return {
-    title: `${label} | Storelib`,
+    title: label,
     description,
     openGraph: {
       title: `${label} | Storelib`,

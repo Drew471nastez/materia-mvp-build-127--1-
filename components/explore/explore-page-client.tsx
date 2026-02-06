@@ -1085,7 +1085,8 @@ export function ExplorePageClient({
         break
     }
 
-    // Apply sort
+    // Apply sort override — only override recommendation sort for explicit sort picks
+    // When sort is "newest" (default), the recommendation filter controls the order
     switch (sortBy) {
       case "popular":
         products = products.sort((a, b) => (b.sales_count || 0) - (a.sales_count || 0))
@@ -1097,7 +1098,8 @@ export function ExplorePageClient({
         products = products.sort((a, b) => (b.price_cents || 0) - (a.price_cents || 0))
         break
       case "newest":
-        products = products.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      default:
+        // Don't override — let the recommendation filter sorting stand
         break
     }
 

@@ -276,13 +276,6 @@ function normalizeCategoryToId(dbCategory: string): string {
   return DB_CATEGORY_TO_ID[lower] || lower
 }
 
-// Recommendation filter types
-const RECOMMENDATION_FILTERS = [
-  { id: "curated", label: "Curated" },
-  { id: "trending", label: "Trending" },
-  { id: "hot-new", label: "Hot & New" },
-] as const
-
 const PRICE_FILTERS = [
   { id: "all", label: "All Prices" },
   { id: "free", label: "Free" },
@@ -759,7 +752,6 @@ export function CategoryPageClient({
   const [selectedSubcategories, setSelectedSubcategories] = useState<string[]>(
     initialSubcategory ? [initialSubcategory] : []
   )
-  const [recommendationFilter, setRecommendationFilter] = useState<"curated" | "trending" | "hot-new">("curated")
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const [subcategorySelectorOpen, setSubcategorySelectorOpen] = useState(false)
@@ -791,7 +783,7 @@ export function CategoryPageClient({
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1)
-  }, [priceFilter, sortBy, selectedSubcategories, searchQuery, recommendationFilter])
+  }, [priceFilter, sortBy, selectedSubcategories, searchQuery])
 
   // Handle subcategory selection
   const handleSubcategorySelect = useCallback((subId: string) => {
@@ -872,68 +864,7 @@ export function CategoryPageClient({
         break
     }
 
-    // Save category-filtered set for backfill
-    const categoryFilteredProducts = [...products]
-
-    // Apply recommendation filter sorting
-    switch (recommendationFilter) {
-      case "trending": {
-        const fourteenDaysAgo = Date.now() - 14 * 24 * 60 * 60 * 1000
-        products = products.sort((a, b) => {
-          const aBoost = new Date(a.created_at).getTime() > fourteenDaysAgo ? 1.5 : 1
-          const bBoost = new Date(b.created_at).getTime() > fourteenDaysAgo ? 1.5 : 1
-          const scoreA = ((a.sales_count || 0) * 3 + (a.reviews_count || 0) * 2 + (a.view_count || 0) * 0.1) * aBoost
-          const scoreB = ((b.sales_count || 0) * 3 + (b.reviews_count || 0) * 2 + (b.view_count || 0) * 0.1) * bBoost
-          return scoreB - scoreA
-        })
-        break
-      }
-      case "hot-new": {
-        const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000
-        const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
-        products = products
-          .filter(p => new Date(p.created_at).getTime() > thirtyDaysAgo)
-          .sort((a, b) => {
-            const aNewBoost = new Date(a.created_at).getTime() > sevenDaysAgo ? 2 : 1
-            const bNewBoost = new Date(b.created_at).getTime() > sevenDaysAgo ? 2 : 1
-            const scoreA = ((a.sales_count || 0) * 5 + (a.reviews_count || 0) * 3 + (a.reviews_average || 0) * 2) * aNewBoost
-            const scoreB = ((b.sales_count || 0) * 5 + (b.reviews_count || 0) * 3 + (b.reviews_average || 0) * 2) * bNewBoost
-            if (Math.abs(scoreA - scoreB) < 5) {
-              return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-            }
-            return scoreB - scoreA
-          })
-        // Backfill from SAME category only
-        if (products.length < 15) {
-          const olderProducts = categoryFilteredProducts
-            .filter(p => !products.find(rp => rp.id === p.id))
-            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-            .slice(0, 15 - products.length)
-          products = [...products, ...olderProducts]
-        }
-        break
-      }
-      case "curated":
-      default: {
-        products = products.sort((a, b) => {
-          const aReviewScore = (a.reviews_average || 0) * Math.min(a.reviews_count || 0, 20) * 0.5
-          const bReviewScore = (b.reviews_average || 0) * Math.min(b.reviews_count || 0, 20) * 0.5
-          const aSalesScore = Math.min(a.sales_count || 0, 100) * 2
-          const bSalesScore = Math.min(b.sales_count || 0, 100) * 2
-          const aCompleteBonus = (a.thumbnail_url ? 5 : 0) + ((a.description?.length || 0) > 100 ? 5 : 0)
-          const bCompleteBonus = (b.thumbnail_url ? 5 : 0) + ((b.description?.length || 0) > 100 ? 5 : 0)
-          const sixtyDaysAgo = Date.now() - 60 * 24 * 60 * 60 * 1000
-          const aFreshBonus = new Date(a.created_at).getTime() > sixtyDaysAgo ? 10 : 0
-          const bFreshBonus = new Date(b.created_at).getTime() > sixtyDaysAgo ? 10 : 0
-          const scoreA = aReviewScore + aSalesScore + aCompleteBonus + aFreshBonus
-          const scoreB = bReviewScore + bSalesScore + bCompleteBonus + bFreshBonus
-          return scoreB - scoreA
-        })
-        break
-      }
-    }
-
-    // Apply additional sort override (only if user explicitly picks a sort)
+    // Apply sort
     switch (sortBy) {
       case "popular":
         products = products.sort((a, b) => (b.sales_count || 0) - (a.sales_count || 0))
@@ -946,13 +877,12 @@ export function CategoryPageClient({
         break
       case "newest":
       default:
-        // Only override recommendation sort if user explicitly selected "newest"
-        // Default: let recommendation filter handle it
+        products = products.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
         break
     }
 
     return products
-  }, [initialProducts, category, priceFilter, sortBy, selectedSubcategories, searchQuery, recommendationFilter])
+  }, [initialProducts, category, priceFilter, sortBy, selectedSubcategories, searchQuery])
 
   // Paginated products
   const paginatedProducts = useMemo(() => {
@@ -1014,34 +944,17 @@ export function CategoryPageClient({
           <span>Back to Explore</span>
         </Link>
 
-        <div className="flex items-center gap-3 mb-1">
-          <h1 className="text-2xl sm:text-3xl font-bold text-neutral-900">
+        <div className="text-center">
+          <h1 className="text-2xl sm:text-3xl font-bold text-neutral-900 mb-1">
             {currentSubcategoryLabel || categoryLabel}
           </h1>
+          <p className="text-neutral-500 text-sm sm:text-base">{categoryDescription}</p>
+          <p className="text-neutral-400 text-sm mt-1">{filteredProducts.length} products available</p>
         </div>
-        <p className="text-neutral-500 text-sm sm:text-base">{categoryDescription}</p>
-        <p className="text-neutral-400 text-sm mt-1">{filteredProducts.length} products available</p>
       </div>
 
-      {/* Recommendation Filter Pills */}
-      <div className="flex items-center gap-2">
-        {RECOMMENDATION_FILTERS.map((filter) => {
-          const isSelected = recommendationFilter === filter.id
-          return (
-            <button
-              key={filter.id}
-              onClick={() => setRecommendationFilter(filter.id as typeof recommendationFilter)}
-              className={`px-4 py-2 rounded-full text-sm font-medium cursor-pointer select-none whitespace-nowrap transition-all duration-150 ease-out active:scale-[0.98] ${
-                isSelected
-                  ? "bg-neutral-900 text-white shadow-sm"
-                  : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200 hover:text-neutral-900"
-              }`}
-            >
-              {filter.label}
-            </button>
-          )
-        })}
-      </div>
+      {/* Subtle divider between header info and subcategories/content */}
+      <div className="border-t border-neutral-100" />
 
       {/* Subcategory Pills */}
       {availableSubcategories.length > 0 && (
@@ -1310,7 +1223,7 @@ export function CategoryPageClient({
       {paginatedProducts.length > 0 ? (
         <>
           <div
-            key={`products-${category}-${selectedSubcategories.join("-")}-${priceFilter}-${sortBy}-${recommendationFilter}-${currentPage}-${viewMode}`}
+            key={`products-${category}-${selectedSubcategories.join("-")}-${priceFilter}-${sortBy}-${currentPage}-${viewMode}`}
             className={`${gridClass} animate-in fade-in-0 slide-in-from-bottom-2 duration-300`}
           >
             {paginatedProducts.map((product, index) => (

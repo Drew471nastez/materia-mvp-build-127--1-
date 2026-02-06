@@ -4,22 +4,22 @@ import { ExplorePageClient } from "@/components/explore/explore-page-client"
 import { FeaturedCategoriesSection } from "@/components/explore/featured-categories-section"
 import { MostPopularSection } from "@/components/explore/most-popular-section"
 
-// SEO-optimized metadata with enhanced tags for Google
+// SEO-optimized metadata
 export const metadata: Metadata = {
-  title: "Discover | Storelib",
-  description: "Explore thousands of digital products from independent creators. Browse design templates, productivity tools, AI prompts, social media kits, development resources and more on the Storelib marketplace.",
+  title: { absolute: "Storelib | Discover" },
+  description: "Discover premium digital products from independent creators. Design templates, AI prompts, productivity tools, development resources and more.",
   keywords: ["digital products", "productivity tools", "design assets", "social media templates", "AI tools", "digital downloads", "creator marketplace", "online store"],
   openGraph: {
-    title: "Discover | Storelib",
-    description: "Explore thousands of digital products from independent creators. Browse design templates, productivity tools, AI prompts, social media kits, development resources and more on the Storelib marketplace.",
+    title: "Storelib | Discover",
+    description: "Discover premium digital products from independent creators. Design templates, AI prompts, productivity tools, development resources and more.",
     type: "website",
     url: "/explore",
     siteName: "Storelib",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Discover | Storelib",
-    description: "Explore thousands of digital products from independent creators. Browse design templates, productivity tools, AI prompts, social media kits, development resources and more on the Storelib marketplace.",
+    title: "Storelib | Discover",
+    description: "Discover premium digital products from independent creators. Design templates, AI prompts, productivity tools, development resources and more.",
   },
   alternates: {
     canonical: "/explore",
