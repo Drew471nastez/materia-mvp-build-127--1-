@@ -80,11 +80,11 @@ const DESKTOP_CARDS: CardDef[] = [
 ]
 
 const MOBILE_CARDS: CardDef[] = [
-  { left: -120, top: 84, width: 220, height: 286, zIndex: 1, opacity: 0, scale: 0.92 },
-  { left: 118, top: 52, width: 252, height: 328, zIndex: 2, opacity: 0.85, scale: 0.92 },
+  { left: -140, top: 82, width: 208, height: 272, zIndex: 1, opacity: 0, scale: 0.92 },
+  { left: 108, top: 50, width: 242, height: 316, zIndex: 2, opacity: 0.85, scale: 0.92 },
   { left: 380, top: 0, width: 340, height: 442, zIndex: 3, opacity: 1, scale: 1 },
-  { left: 730, top: 52, width: 252, height: 328, zIndex: 2, opacity: 0.85, scale: 0.92 },
-  { left: 1000, top: 84, width: 220, height: 286, zIndex: 1, opacity: 0, scale: 0.92 },
+  { left: 750, top: 50, width: 242, height: 316, zIndex: 2, opacity: 0.85, scale: 0.92 },
+  { left: 1038, top: 82, width: 208, height: 272, zIndex: 1, opacity: 0, scale: 0.92 },
 ]
 
 const CANVAS_W = 1100
@@ -127,7 +127,7 @@ export function Hero() {
     <section className="flex flex-col items-center bg-white pt-6 sm:pt-10 pb-12 sm:pb-[67px] overflow-hidden">
       <style dangerouslySetInnerHTML={{ __html: `
         .hero-collage-inner {
-          transform: scale(0.90);
+          transform: scale(0.78);
         }
         @media (min-width: 640px) {
           .hero-collage-inner { transform: scale(0.51); }
@@ -161,7 +161,7 @@ export function Hero() {
       `}} />
 
       <div className="relative w-full mb-6 sm:mb-8">
-        <div className="relative w-full h-[206px] sm:h-[224px] md:h-[277px] lg:h-[352px] xl:h-[409px]">
+        <div className="relative w-full h-[236px] sm:h-[224px] md:h-[277px] lg:h-[352px] xl:h-[409px]">
           <div
             className="hero-collage-inner absolute left-1/2 -translate-x-1/2 origin-top select-none"
             style={{ width: CANVAS_W, height: CANVAS_H }}
