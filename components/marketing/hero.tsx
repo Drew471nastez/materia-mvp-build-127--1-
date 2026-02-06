@@ -58,18 +58,20 @@ function useTypingEffect(
 const LOGOS = ["Pentagram", "Slack", "Stripe", "Zoom", "Airbnb", "Atlassian", "Dropbox", "Duolingo"]
 
 // ── Hero ──────────────────────────────────────────────────────────
-// Collage designed at 1100×450 fixed canvas, scaled responsively.
-// 7 visible cards + 1 peek card = 8 total in a curated layered strip.
+// Collage: exactly 5 cards in a single tight horizontal strip,
+// designed at 920×350 fixed canvas, scaled responsively.
+// Center Geo Garden is widest + raised. Edge cards are tall pillars.
+// White bubble overlaps the middle of the strip.
 
 export function Hero() {
   const typedText = useTypingEffect(TYPING_PHRASES)
 
   return (
     <section className="flex flex-col items-center bg-white pt-6 sm:pt-10 pb-10 sm:pb-14 overflow-hidden">
-      {/* Responsive scaling — 1100px design → viewport fit */}
+      {/* Responsive scaling — 920px design → viewport fit */}
       <style dangerouslySetInnerHTML={{ __html: `
         .hero-collage-inner {
-          transform: scale(0.33);
+          transform: scale(0.35);
         }
         @media (min-width: 640px) {
           .hero-collage-inner { transform: scale(0.50); }
@@ -88,20 +90,20 @@ export function Hero() {
       {/* ─── Collage + floating bubble ─── */}
       <div className="relative w-full mb-6 sm:mb-8">
         {/* Height container — matches scaled height at each breakpoint */}
-        <div className="relative w-full h-[150px] sm:h-[225px] md:h-[293px] lg:h-[383px] xl:h-[450px]">
+        <div className="relative w-full h-[123px] sm:h-[175px] md:h-[228px] lg:h-[298px] xl:h-[350px]">
 
-          {/* Collage canvas: 1100×450, absolute cards, scaled */}
+          {/* Collage canvas: 920×350, absolute cards, scaled */}
           <div
             className="hero-collage-inner absolute left-1/2 -translate-x-1/2 origin-top"
-            style={{ width: 1100, height: 450 }}
+            style={{ width: 920, height: 350 }}
           >
-            {/* ─ Card 1: Yellow "OD WORKS" — LEFT PILLAR, very tall ─ */}
+            {/* ─ Card 1: Yellow "OD WORKS" — LEFT PILLAR, tall narrow ─ */}
             <div
-              className="absolute rounded-[18px] overflow-hidden bg-gradient-to-br from-yellow-300 to-amber-400"
-              style={{ left: 20, top: 15, width: 185, height: 355, zIndex: 2 }}
+              className="absolute rounded-[16px] overflow-hidden bg-gradient-to-br from-yellow-300 to-amber-400"
+              style={{ left: 0, top: 5, width: 160, height: 340, zIndex: 2 }}
             >
               <div className="p-5 h-full flex flex-col justify-between">
-                <div className="text-blue-700 font-black text-[28px] leading-[0.9] tracking-tight">
+                <div className="text-blue-700 font-black text-[26px] leading-[0.9] tracking-tight">
                   OD<br />MENU<br />WORKS
                 </div>
                 <div className="space-y-3">
@@ -111,45 +113,28 @@ export function Hero() {
                     <div className="w-8 h-8 rounded bg-blue-400" />
                   </div>
                   <div className="flex gap-1">
-                    <div className="h-8 w-16 rounded bg-pink-300/50" />
-                    <div className="h-8 w-16 rounded bg-green-300/50" />
+                    <div className="h-8 w-14 rounded bg-pink-300/50" />
+                    <div className="h-8 w-14 rounded bg-green-300/50" />
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* ─ Card 2: Small beige/texture — accent, tucked between ─ */}
+            {/* ─ Card 2: Dark "collectiv" — left-center, large vertical ─ */}
             <div
-              className="absolute rounded-[18px] overflow-hidden bg-gradient-to-br from-stone-200 to-amber-100"
-              style={{ left: 185, top: 3, width: 120, height: 180, zIndex: 2 }}
-            >
-              <div className="p-3 h-full flex flex-col">
-                <div className="text-stone-500 text-[9px] tracking-widest mb-2">TEXTURE</div>
-                <div className="flex-1 rounded-lg bg-gradient-to-br from-stone-300/60 to-stone-200/40" />
-                <div className="mt-2 space-y-1">
-                  <div className="h-1 bg-stone-300/60 rounded-full w-3/4" />
-                  <div className="h-1 bg-stone-300/40 rounded-full w-1/2" />
-                </div>
-              </div>
-            </div>
-
-            {/* ─ Card 3: Dark "collectiv" — center-left, tall + wide ─ */}
-            <div
-              className="absolute rounded-[18px] overflow-hidden bg-gradient-to-b from-gray-900 to-gray-800"
-              style={{ left: 255, top: 6, width: 210, height: 290, zIndex: 3 }}
+              className="absolute rounded-[16px] overflow-hidden bg-gradient-to-b from-gray-900 to-gray-800"
+              style={{ left: 148, top: 30, width: 200, height: 305, zIndex: 2 }}
             >
               <div className="p-5 h-full flex flex-col">
-                <div className="text-gray-400 text-xs tracking-[0.15em] mb-4">collectiv</div>
+                <div className="text-gray-400 text-xs tracking-[0.15em] mb-3">collectiv</div>
                 <div className="flex gap-1 mb-3">
                   {[0, 1, 2, 3, 4].map((i) => (
                     <div key={i} className="w-2 h-2 rounded-full bg-yellow-400/60" />
                   ))}
                 </div>
                 <div className="flex-1 rounded-lg bg-gradient-to-b from-gray-800 to-gray-700/50 mb-3" />
-                <div className="text-[9px] text-gray-500 mb-1">• Archaeol</div>
-                <div className="text-[8px] text-gray-600">Classical Landscape Engraving</div>
-                <div className="mt-3 space-y-1.5">
-                  <div className="h-1 bg-gray-700 rounded-full w-full" />
+                <div className="text-[9px] text-gray-500 mb-1">Classical Landscape Engraving</div>
+                <div className="mt-2 space-y-1.5">
                   <div className="h-1 bg-gray-700 rounded-full w-full" />
                   <div className="h-1 bg-gray-700 rounded-full w-full" />
                   <div className="h-1 bg-gray-700 rounded-full w-3/4" />
@@ -157,15 +142,15 @@ export function Hero() {
               </div>
             </div>
 
-            {/* ─ Card 4: Blue "Geo Garden" — CROWN + badge wrapper ─ */}
+            {/* ─ Card 3: Blue "Geo Garden" — CENTER, widest, raised, landscape ─ */}
             <div
               className="absolute"
-              style={{ left: 385, top: 0, width: 320, height: 230, zIndex: 5 }}
+              style={{ left: 330, top: 0, width: 270, height: 240, zIndex: 3 }}
             >
               {/* The card itself */}
               <div
-                className="absolute inset-x-0 top-0 rounded-[18px] overflow-hidden bg-gradient-to-br from-sky-400 to-blue-600"
-                style={{ height: 205 }}
+                className="absolute inset-x-0 top-0 rounded-[16px] overflow-hidden bg-gradient-to-br from-sky-400 to-blue-600"
+                style={{ height: 215 }}
               >
                 <div className="p-5 h-full flex flex-col justify-between relative overflow-hidden">
                   <div className="absolute inset-0 opacity-20">
@@ -173,7 +158,7 @@ export function Hero() {
                     <div className="absolute bottom-14 left-6 w-12 h-12 bg-teal-300/40 rounded-lg -rotate-6" />
                     <div className="absolute top-1/2 left-1/2 w-10 h-10 bg-cyan-200/30 rounded-full" />
                   </div>
-                  <div className="relative text-white/80 font-light italic text-[32px] leading-[0.95] tracking-wide" style={{ fontFamily: "serif" }}>
+                  <div className="relative text-white/80 font-light italic text-[30px] leading-[0.95] tracking-wide" style={{ fontFamily: "serif" }}>
                     Geo<br />Garden
                   </div>
                   <div className="relative flex items-center gap-2">
@@ -183,7 +168,7 @@ export function Hero() {
                 </div>
               </div>
               {/* Badge — half inside, half outside the card's bottom edge */}
-              <div className="absolute left-1/2 -translate-x-1/2" style={{ top: 193 }}>
+              <div className="absolute left-1/2 -translate-x-1/2" style={{ top: 203 }}>
                 <div className="flex items-center gap-1.5 bg-gray-100/95 backdrop-blur-sm text-gray-700 text-[11px] font-medium px-3.5 py-1.5 rounded-full whitespace-nowrap shadow-sm">
                   <Lock className="w-3.5 h-3.5" />
                   Powering 1,550+ Shopify Brands
@@ -191,52 +176,10 @@ export function Hero() {
               </div>
             </div>
 
-            {/* ─ Card 5: Blue nature — PEEK from below, bottom layer ─ */}
+            {/* ─ Card 4: Purple "Editorial" — right-center, large vertical ─ */}
             <div
-              className="absolute rounded-[18px] overflow-hidden bg-gradient-to-br from-sky-500 to-blue-700"
-              style={{ left: 345, top: 245, width: 290, height: 185, zIndex: 1 }}
-            >
-              <div className="p-5 relative h-full overflow-hidden">
-                <div className="absolute top-4 right-5 w-10 h-10 bg-white/15 rounded rotate-12" />
-                <div className="absolute bottom-8 left-5 w-8 h-8 bg-teal-300/20 rounded -rotate-6" />
-                <div className="absolute top-1/3 right-1/4 w-14 h-14 bg-blue-300/10 rounded-xl rotate-45" />
-                <div className="text-white/50 text-[10px] tracking-widest">NATURE</div>
-                <div className="mt-2 text-white/60 font-light text-sm">Crystal formations</div>
-              </div>
-            </div>
-
-            {/* ─ Card 6: White "A/REPS" — center-right ─ */}
-            <div
-              className="absolute rounded-[18px] overflow-hidden bg-gradient-to-br from-gray-50 to-white border border-gray-100"
-              style={{ left: 645, top: 3, width: 175, height: 250, zIndex: 3 }}
-            >
-              <div className="p-4 h-full">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="text-gray-900 font-bold text-[11px] tracking-wide">A / REPS</div>
-                  <div className="flex gap-2 text-gray-400 text-[8px]">
-                    <span>Artists</span>
-                    <span>Categories</span>
-                    <span>Contact</span>
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-1.5">
-                  <div className="aspect-square bg-gray-100 rounded-sm" />
-                  <div className="aspect-square bg-gray-200 rounded-sm" />
-                  <div className="aspect-square bg-gray-100 rounded-sm" />
-                  <div className="aspect-square bg-gray-200 rounded-sm" />
-                  <div className="aspect-square bg-gray-100 rounded-sm" />
-                  <div className="aspect-square bg-gray-200 rounded-sm" />
-                  <div className="aspect-square bg-gray-100 rounded-sm" />
-                  <div className="aspect-square bg-gray-200 rounded-sm" />
-                  <div className="aspect-square bg-gray-100 rounded-sm" />
-                </div>
-              </div>
-            </div>
-
-            {/* ─ Card 7: Purple "Editorial" — right side, tall ─ */}
-            <div
-              className="absolute rounded-[18px] overflow-hidden bg-gradient-to-br from-violet-200 to-purple-300"
-              style={{ left: 790, top: 10, width: 185, height: 355, zIndex: 2 }}
+              className="absolute rounded-[16px] overflow-hidden bg-gradient-to-br from-violet-200 to-purple-300"
+              style={{ left: 580, top: 30, width: 200, height: 305, zIndex: 2 }}
             >
               <div className="p-4 h-full flex flex-col">
                 <div className="text-[8px] text-purple-500/60 mb-1">©Alex Carter</div>
@@ -265,10 +208,10 @@ export function Hero() {
               </div>
             </div>
 
-            {/* ─ Card 8: Right pillar — tall, light purple collage ─ */}
+            {/* ─ Card 5: Light purple — RIGHT PILLAR, tall narrow ─ */}
             <div
-              className="absolute rounded-[18px] overflow-hidden bg-gradient-to-br from-purple-400 to-violet-500"
-              style={{ left: 940, top: 15, width: 170, height: 355, zIndex: 2 }}
+              className="absolute rounded-[16px] overflow-hidden bg-gradient-to-br from-purple-400 to-violet-500"
+              style={{ left: 765, top: 5, width: 160, height: 340, zIndex: 2 }}
             >
               <div className="p-3 h-full flex flex-col gap-1.5">
                 <div className="flex-1 rounded-lg bg-purple-300/30" />
@@ -285,7 +228,7 @@ export function Hero() {
             </div>
           </div>
 
-          {/* ── White bubble — centered, overlapping collage, NOT scaled ── */}
+          {/* ── White bubble — centered, overlapping collage middle, NOT scaled ── */}
           <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
             <div className="bg-white rounded-[24px] sm:rounded-[28px] shadow-lg shadow-neutral-200/50 border border-neutral-100/80 px-5 py-7 sm:px-10 sm:py-10 md:px-14 md:py-12 w-[82%] max-w-[480px] text-center pointer-events-auto">
               <h1 className="text-[22px] sm:text-3xl md:text-[38px] md:leading-[1.2] font-bold text-neutral-900 leading-tight min-h-[2.4em] flex items-center justify-center">
