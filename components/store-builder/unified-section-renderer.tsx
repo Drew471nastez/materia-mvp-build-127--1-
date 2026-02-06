@@ -42,6 +42,8 @@ import {
 import Image from "next/image"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
+import useEmblaCarousel from "embla-carousel-react"
+import Autoplay from "embla-carousel-autoplay"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { ProductGallery } from "@/components/product/product-gallery"
 import { RefundPolicyDisplay } from "@/components/product/refund-policy-display"
@@ -457,35 +459,47 @@ function UnifiedAboutSection({
   const contentRef = useRef<HTMLDivElement>(null)
   const [hoveredField, setHoveredField] = useState<"headline" | "content" | null>(null)
   const [currentMediaIndex, setCurrentMediaIndex] = useState(0)
-  const [isTransitioning, setIsTransitioning] = useState(false)
   const [mediaLoading, setMediaLoading] = useState<Record<string, boolean>>({})
 
   // Media carousel navigation handlers
   const mediaItems = settings.mediaItems || []
   const hasMultipleMedia = mediaItems.length > 1
 
-  // Smooth transition handler
-  const handleMediaTransition = (newIndex: number) => {
-    if (isTransitioning || newIndex === currentMediaIndex) return
-    setIsTransitioning(true)
-    setCurrentMediaIndex(newIndex)
-    // Reset transition state after animation completes
-    setTimeout(() => setIsTransitioning(false), 400)
-  }
+  // Embla carousel with autoplay - smooth, seamless, manual swipe enabled
+  const autoplayPlugin = useMemo(() => Autoplay({
+    delay: 4000,
+    stopOnInteraction: false,
+    stopOnMouseEnter: true,
+  }), [])
 
-  const goToPrevMedia = () => {
-    const newIndex = currentMediaIndex === 0 ? mediaItems.length - 1 : currentMediaIndex - 1
-    handleMediaTransition(newIndex)
-  }
+  const [emblaRef, emblaApi] = useEmblaCarousel(
+    {
+      loop: true,
+      align: "start",
+      skipSnaps: false,
+      duration: 30,
+      dragFree: false,
+    },
+    hasMultipleMedia ? [autoplayPlugin] : []
+  )
 
-  const goToNextMedia = () => {
-    const newIndex = currentMediaIndex === mediaItems.length - 1 ? 0 : currentMediaIndex + 1
-    handleMediaTransition(newIndex)
-  }
+  // Sync currentMediaIndex with embla
+  const onSelect = useCallback(() => {
+    if (!emblaApi) return
+    setCurrentMediaIndex(emblaApi.selectedScrollSnap())
+  }, [emblaApi])
 
-  const goToMediaIndex = (index: number) => {
-    handleMediaTransition(index)
-  }
+  useEffect(() => {
+    if (!emblaApi) return
+    emblaApi.on("select", onSelect)
+    onSelect()
+    return () => { emblaApi.off("select", onSelect) }
+  }, [emblaApi, onSelect])
+
+  const goToMediaIndex = useCallback((index: number) => {
+    if (!emblaApi) return
+    emblaApi.scrollTo(index)
+  }, [emblaApi])
 
   // Track media loading state
   const handleMediaLoad = (id: string) => {
@@ -647,45 +661,45 @@ function UnifiedAboutSection({
 
           {/* Right Column - About Content */}
           <div className="flex-1 min-w-0">
-            {/* Media Carousel - displayed above headline and content */}
+            {/* Media Collage/Carousel - displayed above headline and content */}
             {mediaItems.length > 0 && (
               <div className="mb-6">
-                {/* Carousel Container */}
-                <div className="relative group">
-                  {/* Carousel Track with smooth sliding animation */}
-                  <div className="relative aspect-video rounded-lg overflow-hidden bg-muted">
-                    <div
-                      className="flex h-full transition-transform duration-400 ease-out"
-                      style={{
-                        transform: `translateX(-${currentMediaIndex * 100}%)`,
-                        transitionDuration: '400ms',
-                        transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)'
-                      }}
-                    >
-                      {mediaItems.map((item, index) => (
+                {/* Mobile: Collage layout with 3 centered images */}
+                {isMobile ? (
+                  <div className="relative w-full" style={{ height: '280px' }}>
+                    {/* Show up to 3 images in a stacked collage layout */}
+                    {mediaItems.slice(0, 3).map((item, index) => {
+                      // Layout positions for 3 cards - centered, overlapping, varied sizes
+                      const layouts = [
+                        // First image: large, left-center
+                        { width: '55%', height: '75%', top: '0%', left: '2%', zIndex: 3, rotate: '-3deg' },
+                        // Second image: medium, top-right
+                        { width: '50%', height: '60%', top: '5%', left: '45%', zIndex: 2, rotate: '2deg' },
+                        // Third image: medium, bottom-center
+                        { width: '48%', height: '55%', top: '42%', left: '25%', zIndex: 4, rotate: '-1deg' },
+                      ]
+                      const layout = layouts[index]
+                      if (!layout) return null
+
+                      return (
                         <div
                           key={item.id}
-                          className="relative w-full h-full flex-shrink-0"
-                          style={{ minWidth: '100%' }}
+                          className="absolute rounded-xl overflow-hidden shadow-lg transition-transform duration-500 ease-out"
+                          style={{
+                            width: layout.width,
+                            height: layout.height,
+                            top: layout.top,
+                            left: layout.left,
+                            zIndex: layout.zIndex,
+                            transform: `rotate(${layout.rotate})`,
+                          }}
                         >
-                          {/* Skeleton loader shown while media loads */}
-                          {mediaLoading[item.id] !== false && item.type === "image" && (
-                            <div className="absolute inset-0 z-10">
-                              <MediaSkeleton className="w-full h-full rounded-lg" />
-                            </div>
-                          )}
-
                           {item.type === "image" ? (
                             <Image
                               src={item.url}
                               alt={item.caption || ""}
                               fill
-                              className={cn(
-                                "object-cover transition-opacity duration-300",
-                                mediaLoading[item.id] !== false ? "opacity-0" : "opacity-100"
-                              )}
-                              onLoadStart={() => handleMediaLoadStart(item.id)}
-                              onLoad={() => handleMediaLoad(item.id)}
+                              className="object-cover"
                             />
                           ) : (
                             <iframe
@@ -696,36 +710,66 @@ function UnifiedAboutSection({
                             />
                           )}
                         </div>
-                      ))}
+                      )
+                    })}
+                  </div>
+                ) : (
+                  /* Desktop: Embla carousel with smooth autoplay and manual swipe */
+                  <div className="relative group">
+                    <div className="rounded-lg overflow-hidden bg-muted" ref={emblaRef}>
+                      <div className="flex">
+                        {mediaItems.map((item) => (
+                          <div
+                            key={item.id}
+                            className="relative flex-[0_0_100%] min-w-0 aspect-video"
+                          >
+                            {/* Skeleton loader shown while media loads */}
+                            {mediaLoading[item.id] !== false && item.type === "image" && (
+                              <div className="absolute inset-0 z-10">
+                                <MediaSkeleton className="w-full h-full rounded-lg" />
+                              </div>
+                            )}
+
+                            {item.type === "image" ? (
+                              <Image
+                                src={item.url}
+                                alt={item.caption || ""}
+                                fill
+                                className={cn(
+                                  "object-cover transition-opacity duration-300",
+                                  mediaLoading[item.id] !== false ? "opacity-0" : "opacity-100"
+                                )}
+                                onLoadStart={() => handleMediaLoadStart(item.id)}
+                                onLoad={() => handleMediaLoad(item.id)}
+                              />
+                            ) : (
+                              <iframe
+                                src={`https://www.youtube.com/embed/${extractYouTubeId(item.url)}`}
+                                className="w-full h-full"
+                                allowFullScreen
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                              />
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     </div>
 
-                    {/* Navigation Arrows - always visible on mobile, hover on desktop */}
+                    {/* Navigation Arrows - hover on desktop */}
                     {hasMultipleMedia && (
                       <>
-                        {/* Left Arrow */}
                         <button
-                          onClick={goToPrevMedia}
-                          disabled={isTransitioning}
-                          className={cn(
-                            "absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center transition-all duration-200 z-20",
-                            isMobile ? "opacity-100" : "opacity-0 group-hover:opacity-100",
-                            isTransitioning && "cursor-not-allowed opacity-50"
-                          )}
+                          onClick={() => emblaApi?.scrollPrev()}
+                          className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center transition-all duration-200 z-20 opacity-0 group-hover:opacity-100"
                           aria-label="Previous media"
                         >
                           <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                           </svg>
                         </button>
-                        {/* Right Arrow */}
                         <button
-                          onClick={goToNextMedia}
-                          disabled={isTransitioning}
-                          className={cn(
-                            "absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center transition-all duration-200 z-20",
-                            isMobile ? "opacity-100" : "opacity-0 group-hover:opacity-100",
-                            isTransitioning && "cursor-not-allowed opacity-50"
-                          )}
+                          onClick={() => emblaApi?.scrollNext()}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center transition-all duration-200 z-20 opacity-0 group-hover:opacity-100"
                           aria-label="Next media"
                         >
                           <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -734,38 +778,33 @@ function UnifiedAboutSection({
                         </button>
                       </>
                     )}
-                  </div>
 
-                  {/* Navigation Dots */}
-                  {hasMultipleMedia && (
-                    <div className="flex justify-center gap-1.5 mt-3">
-                      {mediaItems.map((_, index) => (
-                        <button
-                          key={index}
-                          onClick={() => goToMediaIndex(index)}
-                          disabled={isTransitioning}
-                          className={cn(
-                            "w-2 h-2 rounded-full transition-all duration-300",
-                            index === currentMediaIndex
-                              ? "bg-current w-4"
-                              : "bg-current opacity-40 hover:opacity-60",
-                            isTransitioning && "cursor-not-allowed"
-                          )}
-                          style={{ color: textColor || "#374151" }}
-                          aria-label={`Go to media ${index + 1}`}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Caption for current media */}
-                {mediaItems[currentMediaIndex]?.caption && (
-                  <p
-                    className={cn(
-                      "mt-2 text-center text-xs md:text-sm",
-                      isMobile && "!text-xs"
+                    {/* Navigation Dots */}
+                    {hasMultipleMedia && (
+                      <div className="flex justify-center gap-1.5 mt-3">
+                        {mediaItems.map((_, index) => (
+                          <button
+                            key={index}
+                            onClick={() => goToMediaIndex(index)}
+                            className={cn(
+                              "w-2 h-2 rounded-full transition-all duration-300",
+                              index === currentMediaIndex
+                                ? "bg-current w-4"
+                                : "bg-current opacity-40 hover:opacity-60"
+                            )}
+                            style={{ color: textColor || "#374151" }}
+                            aria-label={`Go to media ${index + 1}`}
+                          />
+                        ))}
+                      </div>
                     )}
+                  </div>
+                )}
+
+                {/* Caption for current media (desktop only) */}
+                {!isMobile && mediaItems[currentMediaIndex]?.caption && (
+                  <p
+                    className="mt-2 text-center text-sm"
                     style={{ color: textColor ? `${textColor}90` : "#6b7280" }}
                   >
                     {mediaItems[currentMediaIndex].caption}
