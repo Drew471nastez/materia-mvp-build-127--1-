@@ -525,6 +525,10 @@ export function PlatformHeaderClient() {
   const profileDropdownRef = useRef<HTMLDivElement>(null)
   const [desktopProfileOpen, setDesktopProfileOpen] = useState(false)
 
+  // Sticky header scroll detection
+  const [isHeaderVisible, setIsHeaderVisible] = useState(true)
+  const lastScrollY = useRef(0)
+
   useEffect(() => {
     setQuery(searchParams.get("q") ?? "")
   }, [searchParams])
@@ -662,6 +666,40 @@ export function PlatformHeaderClient() {
     window.addEventListener("wishlist-updated", handleWishlistUpdate as EventListener)
     return () => window.removeEventListener("wishlist-updated", handleWishlistUpdate as EventListener)
   }, [fetchWishlistCount])
+
+  // Scroll detection for sticky header behavior
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY
+      const isScrollingUp = currentScrollY < lastScrollY.current
+      const isDesktop = window.innerWidth >= 1024 // lg breakpoint
+      const isExplorePage = pathname.startsWith("/explore")
+
+      // On desktop /explore page: always keep header visible (no sticky hide behavior)
+      if (isDesktop && isExplorePage) {
+        setIsHeaderVisible(true)
+        lastScrollY.current = currentScrollY
+        return
+      }
+
+      // For other pages: hide on scroll down, show on scroll up
+      if (currentScrollY <= 50) {
+        // Near top of page
+        setIsHeaderVisible(true)
+      } else if (isScrollingUp) {
+        // Scrolling up
+        setIsHeaderVisible(true)
+      } else if (currentScrollY > lastScrollY.current + 10) {
+        // Scrolling down with some threshold
+        setIsHeaderVisible(false)
+      }
+
+      lastScrollY.current = currentScrollY
+    }
+
+    window.addEventListener("scroll", handleScroll, { passive: true })
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [pathname])
 
   useEffect(() => {
     mountedRef.current = true
@@ -819,7 +857,9 @@ export function PlatformHeaderClient() {
           </div>
         </div>
       )}
-    <header className="sticky top-0 z-50 w-full bg-white border-b border-gray-200 rounded-t-[14px] md:rounded-none">
+    <header className={`sticky top-0 z-50 w-full bg-white border-b border-gray-200 rounded-t-[14px] md:rounded-none transition-transform duration-300 ease-in-out ${
+      isHeaderVisible ? "translate-y-0" : "-translate-y-full"
+    }`}>
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
         <div className="flex h-[68px] md:h-[81px] items-center justify-between gap-4 md:py-[3px]">
           {/* Desktop Homepage Layout - same style for /, /features, /pricing, /about, /blog */}
