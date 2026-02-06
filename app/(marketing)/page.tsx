@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { motion } from "framer-motion"
 import { ArrowRight, Check, Sparkles, Zap, Shield, BarChart3, Globe, CreditCard, Download, Star, Users, Play } from "lucide-react"
+import { Hero } from "@/components/marketing/hero"
 
 const STATS = [
   { value: "50K+", label: "Creators" },
@@ -69,77 +70,7 @@ export default function StorelibLanding() {
   return (
     <div className="bg-white overflow-x-hidden">
       {/* HERO SECTION */}
-      <section className="relative pt-16 pb-24 overflow-hidden">
-        {/* Background gradient */}
-        <div className="absolute inset-0 bg-gradient-to-b from-gray-50 to-white" />
-
-        {/* Decorative elements */}
-        <div className="absolute top-20 left-10 w-72 h-72 bg-violet-100/50 rounded-full blur-3xl" />
-        <div className="absolute bottom-20 right-10 w-96 h-96 bg-violet-100/30 rounded-full blur-3xl" />
-
-        <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="text-center max-w-4xl mx-auto"
-          >
-            {/* Badge */}
-            <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium bg-violet-100 text-violet-700 mb-8">
-              <Sparkles className="w-4 h-4" />
-              The platform for digital creators
-            </span>
-
-            {/* Main headline */}
-            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-neutral-900 tracking-tight mb-6 leading-[1.1]">
-              Sell your digital
-              <br />
-              <span className="bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
-                products online
-              </span>
-            </h1>
-
-            <p className="text-lg sm:text-xl text-neutral-600 mb-10 max-w-2xl mx-auto">
-              The easiest way to sell templates, courses, downloads, and more.
-              No coding required. Start selling in minutes.
-            </p>
-
-            {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
-              <Link
-                href="/signup"
-                className="inline-flex items-center gap-2 px-8 py-4 rounded-full text-base font-semibold bg-neutral-900 text-white hover:bg-neutral-800 transition-colors shadow-lg shadow-neutral-900/20"
-              >
-                Start Selling Free
-                <ArrowRight className="w-4 h-4" />
-              </Link>
-              <Link
-                href="/explore"
-                className="inline-flex items-center gap-2 px-8 py-4 rounded-full text-base font-semibold text-neutral-700 hover:bg-neutral-100 transition-colors"
-              >
-                <Play className="w-4 h-4" />
-                Explore Products
-              </Link>
-            </div>
-
-            {/* Trust indicators */}
-            <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-neutral-500">
-              <span className="flex items-center gap-2">
-                <Check className="w-4 h-4 text-violet-600" />
-                No credit card required
-              </span>
-              <span className="flex items-center gap-2">
-                <Check className="w-4 h-4 text-violet-600" />
-                Free forever plan
-              </span>
-              <span className="flex items-center gap-2">
-                <Check className="w-4 h-4 text-violet-600" />
-                Cancel anytime
-              </span>
-            </div>
-          </motion.div>
-        </div>
-      </section>
+      <Hero />
 
       {/* STATS SECTION */}
       <section className="py-16 border-y border-neutral-100 bg-neutral-50">

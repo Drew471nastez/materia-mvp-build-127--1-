@@ -1300,9 +1300,6 @@ export function CategoryPageClient({
         </>
       ) : (
         <div className="rounded-2xl border border-dashed border-neutral-300 p-12 text-center">
-          <div className="w-16 h-16 rounded-full bg-neutral-100 mx-auto mb-4 flex items-center justify-center">
-            <CategoryIcon className="w-8 h-8 text-neutral-400" />
-          </div>
           <p className="text-neutral-500 text-lg font-medium mb-2">
             {searchQuery
               ? `No products found for "${searchQuery}"`
