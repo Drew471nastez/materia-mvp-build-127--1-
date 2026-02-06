@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
 import { ArrowRight, Lock } from "lucide-react"
 
@@ -68,38 +68,160 @@ const PARTNER_LOGOS = [
 const IMAGES = [
   "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/1351351.png",
   "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/2423.png",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/1351.png",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitle1411241d%20design.png",
   "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/1212.png",
   "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/51351.png",
 ]
 
+// ── Card definitions for the collage ─────────────────────────────
+// 5 portrait cards, center tallest. ~4:5 portrait ratio.
+//   Center: 340×420 (tallest, top:0)
+//   Inner:  289×357 (top:30)
+//   Outer:  238×294 (top:60)
+// Canvas: 1100×440
+
+interface CardDef {
+  left: number
+  top: number
+  width: number
+  height: number
+  zIndex: number
+}
+
+const BASE_CARDS: CardDef[] = [
+  { left: -120, top: 60, width: 238, height: 294, zIndex: 1 },  // far left
+  { left: 106,  top: 30, width: 289, height: 357, zIndex: 2 },  // inner left
+  { left: 380,  top: 0,  width: 340, height: 420, zIndex: 3 },  // center
+  { left: 705,  top: 30, width: 289, height: 357, zIndex: 2 },  // inner right
+  { left: 982,  top: 60, width: 238, height: 294, zIndex: 1 },  // far right
+]
+
+const CANVAS_W = 1100
+const CANVAS_H = 440
+
 // ── Hero ──────────────────────────────────────────────────────────
-// 5 portrait cards, center tallest/biggest. ~4:5 portrait ratio.
-//   Center: 340×420 (100%, tallest, top:0)
-//   Inner:  289×357 (85%, top:30)
-//   Outer:  238×294 (70%, top:60)
-// Canvas: 1100×440, scaled responsively.
 
 export function Hero() {
   const typedText = useTypingEffect(TYPING_PHRASES)
+
+  // Card order state: indices into IMAGES array. Default: [0,1,2,3,4]
+  const [cardOrder, setCardOrder] = useState([0, 1, 2, 3, 4])
+
+  // Drag state
+  const dragRef = useRef<{
+    active: boolean
+    startX: number
+    currentX: number
+    cardIdx: number // which position in the layout was grabbed
+  } | null>(null)
+  const [dragOffset, setDragOffset] = useState(0)
+  const [draggingPos, setDraggingPos] = useState(-1)
+  const [isTransitioning, setIsTransitioning] = useState(false)
+  const collageRef = useRef<HTMLDivElement>(null)
+
+  const handleMouseDown = useCallback((e: React.MouseEvent, positionIdx: number) => {
+    e.preventDefault()
+    dragRef.current = {
+      active: true,
+      startX: e.clientX,
+      currentX: e.clientX,
+      cardIdx: positionIdx,
+    }
+    setDraggingPos(positionIdx)
+    setDragOffset(0)
+  }, [])
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!dragRef.current?.active) return
+    dragRef.current.currentX = e.clientX
+    const diff = e.clientX - dragRef.current.startX
+    setDragOffset(diff)
+  }, [])
+
+  const handleMouseUp = useCallback(() => {
+    if (!dragRef.current?.active) return
+    const diff = dragRef.current.currentX - dragRef.current.startX
+
+    // Threshold: need to drag at least 60px to trigger a swap
+    const threshold = 60
+
+    if (Math.abs(diff) > threshold) {
+      const direction = diff > 0 ? -1 : 1 // drag right = shift cards left (move to next), drag left = shift right
+      setCardOrder(prev => {
+        const newOrder = [...prev]
+        if (direction > 0) {
+          // Shift left: first element goes to end
+          const first = newOrder.shift()!
+          newOrder.push(first)
+        } else {
+          // Shift right: last element goes to front
+          const last = newOrder.pop()!
+          newOrder.unshift(last)
+        }
+        return newOrder
+      })
+      setIsTransitioning(true)
+      setTimeout(() => setIsTransitioning(false), 400)
+    }
+
+    dragRef.current = null
+    setDraggingPos(-1)
+    setDragOffset(0)
+  }, [])
+
+  // Also handle mouse leaving the collage area
+  const handleMouseLeave = useCallback(() => {
+    if (dragRef.current?.active) {
+      handleMouseUp()
+    }
+  }, [handleMouseUp])
+
+  // Touch support
+  const touchRef = useRef<{ startX: number; posIdx: number } | null>(null)
+
+  const handleTouchStart = useCallback((e: React.TouchEvent, positionIdx: number) => {
+    const touch = e.touches[0]
+    touchRef.current = { startX: touch.clientX, posIdx: positionIdx }
+    dragRef.current = {
+      active: true,
+      startX: touch.clientX,
+      currentX: touch.clientX,
+      cardIdx: positionIdx,
+    }
+    setDraggingPos(positionIdx)
+    setDragOffset(0)
+  }, [])
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!dragRef.current?.active) return
+    const touch = e.touches[0]
+    dragRef.current.currentX = touch.clientX
+    const diff = touch.clientX - dragRef.current.startX
+    setDragOffset(diff)
+  }, [])
+
+  const handleTouchEnd = useCallback(() => {
+    handleMouseUp()
+    touchRef.current = null
+  }, [handleMouseUp])
 
   return (
     <section className="flex flex-col items-center bg-white pt-6 sm:pt-10 pb-10 sm:pb-14 overflow-hidden">
       <style dangerouslySetInnerHTML={{ __html: `
         .hero-collage-inner {
-          transform: scale(0.32);
+          transform: scale(0.27);
         }
         @media (min-width: 640px) {
-          .hero-collage-inner { transform: scale(0.50); }
+          .hero-collage-inner { transform: scale(0.43); }
         }
         @media (min-width: 768px) {
-          .hero-collage-inner { transform: scale(0.65); }
+          .hero-collage-inner { transform: scale(0.55); }
         }
         @media (min-width: 1024px) {
-          .hero-collage-inner { transform: scale(0.85); }
+          .hero-collage-inner { transform: scale(0.72); }
         }
         @media (min-width: 1280px) {
-          .hero-collage-inner { transform: scale(1); }
+          .hero-collage-inner { transform: scale(0.85); }
         }
         @keyframes logo-scroll {
           0% { transform: translateX(0); }
@@ -108,93 +230,66 @@ export function Hero() {
         .logo-marquee {
           animation: logo-scroll 25s linear infinite;
         }
+        .collage-card {
+          transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                      top 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                      width 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                      height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                      opacity 0.4s ease;
+        }
+        .collage-card:hover {
+          cursor: grab;
+        }
+        .collage-card:active {
+          cursor: grabbing;
+        }
       `}} />
 
       {/* ─── Collage + floating bubble ─── */}
       <div className="relative w-full mb-6 sm:mb-8">
-        <div className="relative w-full h-[141px] sm:h-[220px] md:h-[286px] lg:h-[374px] xl:h-[440px]">
+        <div className="relative w-full h-[120px] sm:h-[190px] md:h-[242px] lg:h-[317px] xl:h-[374px]">
 
-          {/* Collage canvas: 1100×440, 5 portrait cards, scaled */}
+          {/* Collage canvas: 1100×440, 5 portrait cards, scaled down 15% */}
           <div
-            className="hero-collage-inner absolute left-1/2 -translate-x-1/2 origin-top"
-            style={{ width: 1100, height: 440 }}
+            ref={collageRef}
+            className="hero-collage-inner absolute left-1/2 -translate-x-1/2 origin-top select-none"
+            style={{ width: CANVAS_W, height: CANVAS_H }}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseLeave}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
           >
-            {/* ─ Card 1: FAR LEFT — 238×294, portrait, 30% smaller, partially off edge ─ */}
-            <div
-              className="absolute rounded-[14px] overflow-hidden shadow-lg shadow-black/8"
-              style={{ left: -120, top: 60, width: 238, height: 294, zIndex: 1 }}
-            >
-              <img
-                src={IMAGES[0]}
-                alt=""
-                className="w-full h-full object-cover"
-                draggable={false}
-              />
-            </div>
+            {cardOrder.map((imageIdx, posIdx) => {
+              const card = BASE_CARDS[posIdx]
+              const isDragging = draggingPos === posIdx
+              const offset = isDragging ? dragOffset : 0
 
-            {/* ─ Card 2: LEFT-CENTER — 289×357, portrait, 15% smaller ─ */}
-            <div
-              className="absolute rounded-[14px] overflow-hidden shadow-lg shadow-black/8"
-              style={{ left: 106, top: 30, width: 289, height: 357, zIndex: 2 }}
-            >
-              <img
-                src={IMAGES[1]}
-                alt=""
-                className="w-full h-full object-cover"
-                draggable={false}
-              />
-            </div>
-
-            {/* ─ Card 3: CENTER — 340×420, tallest & biggest, badge at bottom ─ */}
-            <div
-              className="absolute"
-              style={{ left: 380, top: 0, width: 340, height: 432, zIndex: 3 }}
-            >
-              <div
-                className="absolute inset-x-0 top-0 rounded-[14px] overflow-hidden shadow-xl shadow-black/12"
-                style={{ height: 420 }}
-              >
-                <img
-                  src={IMAGES[2]}
-                  alt=""
-                  className="w-full h-full object-cover"
-                  draggable={false}
-                />
-              </div>
-              {/* Badge — half inside, half outside the card's bottom edge */}
-              <div className="absolute left-1/2 -translate-x-1/2" style={{ top: 408 }}>
-                <div className="flex items-center gap-1.5 bg-gray-100/95 backdrop-blur-sm text-gray-700 text-[11px] font-medium px-3.5 py-1.5 rounded-full whitespace-nowrap shadow-sm border border-gray-200/50">
-                  <Lock className="w-3.5 h-3.5" />
-                  Powering 1,550+ Shopify Brands
+              return (
+                <div
+                  key={imageIdx}
+                  className="collage-card absolute rounded-[14px] overflow-hidden shadow-lg shadow-black/8"
+                  style={{
+                    left: card.left + offset,
+                    top: card.top,
+                    width: card.width,
+                    height: card.height,
+                    zIndex: isDragging ? 10 : card.zIndex,
+                    opacity: isDragging ? 0.9 : 1,
+                    transition: isDragging ? 'none' : undefined,
+                  }}
+                  onMouseDown={(e) => handleMouseDown(e, posIdx)}
+                  onTouchStart={(e) => handleTouchStart(e, posIdx)}
+                >
+                  <img
+                    src={IMAGES[imageIdx]}
+                    alt=""
+                    className="w-full h-full object-cover pointer-events-none"
+                    draggable={false}
+                  />
                 </div>
-              </div>
-            </div>
-
-            {/* ─ Card 4: RIGHT-CENTER — 289×357, portrait, 15% smaller ─ */}
-            <div
-              className="absolute rounded-[14px] overflow-hidden shadow-lg shadow-black/8"
-              style={{ left: 705, top: 30, width: 289, height: 357, zIndex: 2 }}
-            >
-              <img
-                src={IMAGES[3]}
-                alt=""
-                className="w-full h-full object-cover"
-                draggable={false}
-              />
-            </div>
-
-            {/* ─ Card 5: FAR RIGHT — 238×294, portrait, 30% smaller, partially off edge ─ */}
-            <div
-              className="absolute rounded-[14px] overflow-hidden shadow-lg shadow-black/8"
-              style={{ left: 982, top: 60, width: 238, height: 294, zIndex: 1 }}
-            >
-              <img
-                src={IMAGES[4]}
-                alt=""
-                className="w-full h-full object-cover"
-                draggable={false}
-              />
-            </div>
+              )
+            })}
           </div>
 
           {/* ── White bubble — centered, overlapping collage, NOT scaled ── */}
