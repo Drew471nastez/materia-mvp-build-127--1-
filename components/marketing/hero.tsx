@@ -55,12 +55,22 @@ function useTypingEffect(
 
 // ── Partner logos ─────────────────────────────────────────────────
 
-const LOGOS = ["Pentagram", "Slack", "Stripe", "Zoom", "Airbnb", "Atlassian", "Dropbox", "Duolingo"]
+const LOGOS = ["kTimes", "Pentagram", "Slack", "Stripe", "Zoom", "Airbnb", "Atlassian", "Dropbox", "Duolingo"]
+
+// ── Collage images (Supabase) ────────────────────────────────────
+
+const IMAGES = [
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/1351351.png",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/2423.png",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/1351.png",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/1212.png",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/51351.png",
+]
 
 // ── Hero ──────────────────────────────────────────────────────────
-// Collage: exactly 5 cards in a single tight horizontal strip,
-// designed at 920×350 fixed canvas, scaled responsively.
-// Center Geo Garden is widest + raised. Edge cards are tall pillars.
+// 5 real image cards in a tight horizontal collage,
+// designed at 1100×400 fixed canvas, scaled responsively.
+// Center card is widest + raised. Edge cards partially cropped.
 // White bubble overlaps the middle of the strip.
 
 export function Hero() {
@@ -68,10 +78,10 @@ export function Hero() {
 
   return (
     <section className="flex flex-col items-center bg-white pt-6 sm:pt-10 pb-10 sm:pb-14 overflow-hidden">
-      {/* Responsive scaling — 920px design → viewport fit */}
+      {/* Responsive scaling — 1100px design → viewport fit */}
       <style dangerouslySetInnerHTML={{ __html: `
         .hero-collage-inner {
-          transform: scale(0.35);
+          transform: scale(0.32);
         }
         @media (min-width: 640px) {
           .hero-collage-inner { transform: scale(0.50); }
@@ -90,82 +100,55 @@ export function Hero() {
       {/* ─── Collage + floating bubble ─── */}
       <div className="relative w-full mb-6 sm:mb-8">
         {/* Height container — matches scaled height at each breakpoint */}
-        <div className="relative w-full h-[123px] sm:h-[175px] md:h-[228px] lg:h-[298px] xl:h-[350px]">
+        <div className="relative w-full h-[128px] sm:h-[200px] md:h-[260px] lg:h-[340px] xl:h-[400px]">
 
-          {/* Collage canvas: 920×350, absolute cards, scaled */}
+          {/* Collage canvas: 1100×400, absolute cards, scaled */}
           <div
             className="hero-collage-inner absolute left-1/2 -translate-x-1/2 origin-top"
-            style={{ width: 920, height: 350 }}
+            style={{ width: 1100, height: 400 }}
           >
-            {/* ─ Card 1: Yellow "OD WORKS" — LEFT PILLAR, tall narrow ─ */}
+            {/* ─ Card 1: LEFT PILLAR — tall, partially off left edge ─ */}
             <div
-              className="absolute rounded-[16px] overflow-hidden bg-gradient-to-br from-yellow-300 to-amber-400"
-              style={{ left: 0, top: 5, width: 160, height: 340, zIndex: 2 }}
+              className="absolute rounded-[16px] overflow-hidden shadow-lg shadow-black/10"
+              style={{ left: -25, top: 5, width: 205, height: 385, zIndex: 1 }}
             >
-              <div className="p-5 h-full flex flex-col justify-between">
-                <div className="text-blue-700 font-black text-[26px] leading-[0.9] tracking-tight">
-                  OD<br />MENU<br />WORKS
-                </div>
-                <div className="space-y-3">
-                  <div className="flex gap-2">
-                    <div className="w-8 h-8 rounded-full bg-pink-400" />
-                    <div className="w-8 h-8 rounded bg-green-500" />
-                    <div className="w-8 h-8 rounded bg-blue-400" />
-                  </div>
-                  <div className="flex gap-1">
-                    <div className="h-8 w-14 rounded bg-pink-300/50" />
-                    <div className="h-8 w-14 rounded bg-green-300/50" />
-                  </div>
-                </div>
-              </div>
+              <img
+                src={IMAGES[0]}
+                alt="Product showcase"
+                className="w-full h-full object-cover"
+                draggable={false}
+              />
             </div>
 
-            {/* ─ Card 2: Dark "collectiv" — left-center, large vertical ─ */}
+            {/* ─ Card 2: LEFT-CENTER — tall dark card ─ */}
             <div
-              className="absolute rounded-[16px] overflow-hidden bg-gradient-to-b from-gray-900 to-gray-800"
-              style={{ left: 148, top: 30, width: 200, height: 305, zIndex: 2 }}
+              className="absolute rounded-[16px] overflow-hidden shadow-lg shadow-black/10"
+              style={{ left: 168, top: 28, width: 220, height: 345, zIndex: 2 }}
             >
-              <div className="p-5 h-full flex flex-col">
-                <div className="text-gray-400 text-xs tracking-[0.15em] mb-3">collectiv</div>
-                <div className="flex gap-1 mb-3">
-                  {[0, 1, 2, 3, 4].map((i) => (
-                    <div key={i} className="w-2 h-2 rounded-full bg-yellow-400/60" />
-                  ))}
-                </div>
-                <div className="flex-1 rounded-lg bg-gradient-to-b from-gray-800 to-gray-700/50 mb-3" />
-                <div className="text-[9px] text-gray-500 mb-1">Classical Landscape Engraving</div>
-                <div className="mt-2 space-y-1.5">
-                  <div className="h-1 bg-gray-700 rounded-full w-full" />
-                  <div className="h-1 bg-gray-700 rounded-full w-full" />
-                  <div className="h-1 bg-gray-700 rounded-full w-3/4" />
-                </div>
-              </div>
+              <img
+                src={IMAGES[1]}
+                alt="Product showcase"
+                className="w-full h-full object-cover"
+                draggable={false}
+              />
             </div>
 
-            {/* ─ Card 3: Blue "Geo Garden" — CENTER, widest, raised, landscape ─ */}
+            {/* ─ Card 3: CENTER — widest, raised, landscape + badge ─ */}
             <div
               className="absolute"
-              style={{ left: 330, top: 0, width: 270, height: 240, zIndex: 3 }}
+              style={{ left: 370, top: 0, width: 350, height: 240, zIndex: 3 }}
             >
               {/* The card itself */}
               <div
-                className="absolute inset-x-0 top-0 rounded-[16px] overflow-hidden bg-gradient-to-br from-sky-400 to-blue-600"
+                className="absolute inset-x-0 top-0 rounded-[16px] overflow-hidden shadow-xl shadow-black/15"
                 style={{ height: 215 }}
               >
-                <div className="p-5 h-full flex flex-col justify-between relative overflow-hidden">
-                  <div className="absolute inset-0 opacity-20">
-                    <div className="absolute top-5 right-6 w-20 h-20 bg-white/30 rounded-xl rotate-12" />
-                    <div className="absolute bottom-14 left-6 w-12 h-12 bg-teal-300/40 rounded-lg -rotate-6" />
-                    <div className="absolute top-1/2 left-1/2 w-10 h-10 bg-cyan-200/30 rounded-full" />
-                  </div>
-                  <div className="relative text-white/80 font-light italic text-[30px] leading-[0.95] tracking-wide" style={{ fontFamily: "serif" }}>
-                    Geo<br />Garden
-                  </div>
-                  <div className="relative flex items-center gap-2">
-                    <div className="w-5 h-5 rounded-full bg-white/30 backdrop-blur-sm" />
-                    <div className="text-white/50 text-sm font-light">+</div>
-                  </div>
-                </div>
+                <img
+                  src={IMAGES[2]}
+                  alt="Featured product"
+                  className="w-full h-full object-cover"
+                  draggable={false}
+                />
               </div>
               {/* Badge — half inside, half outside the card's bottom edge */}
               <div className="absolute left-1/2 -translate-x-1/2" style={{ top: 203 }}>
@@ -176,55 +159,30 @@ export function Hero() {
               </div>
             </div>
 
-            {/* ─ Card 4: Purple "Editorial" — right-center, large vertical ─ */}
+            {/* ─ Card 4: RIGHT-CENTER — tall card ─ */}
             <div
-              className="absolute rounded-[16px] overflow-hidden bg-gradient-to-br from-violet-200 to-purple-300"
-              style={{ left: 580, top: 30, width: 200, height: 305, zIndex: 2 }}
+              className="absolute rounded-[16px] overflow-hidden shadow-lg shadow-black/10"
+              style={{ left: 702, top: 28, width: 220, height: 345, zIndex: 2 }}
             >
-              <div className="p-4 h-full flex flex-col">
-                <div className="text-[8px] text-purple-500/60 mb-1">©Alex Carter</div>
-                <div className="text-[8px] text-purple-400/60 mb-3 flex gap-3">
-                  <span>Work</span>
-                  <span>About</span>
-                </div>
-                <div className="space-y-2 mb-4">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-purple-800 font-bold text-base">Editorial</span>
-                    <span className="text-[9px] text-purple-500 bg-purple-100 px-1.5 py-0.5 rounded">24</span>
-                  </div>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-purple-800 font-bold text-base">Commercial</span>
-                    <span className="text-[9px] text-purple-500 bg-purple-100 px-1.5 py-0.5 rounded">12</span>
-                  </div>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-purple-800 font-bold text-base">Personal</span>
-                    <span className="text-[9px] text-purple-500 bg-purple-100 px-1.5 py-0.5 rounded">8</span>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-1.5 mt-auto">
-                  <div className="aspect-[3/4] bg-purple-400/20 rounded-lg" />
-                  <div className="aspect-[3/4] bg-purple-300/25 rounded-lg" />
-                </div>
-              </div>
+              <img
+                src={IMAGES[3]}
+                alt="Product showcase"
+                className="w-full h-full object-cover"
+                draggable={false}
+              />
             </div>
 
-            {/* ─ Card 5: Light purple — RIGHT PILLAR, tall narrow ─ */}
+            {/* ─ Card 5: RIGHT PILLAR — tall, partially off right edge ─ */}
             <div
-              className="absolute rounded-[16px] overflow-hidden bg-gradient-to-br from-purple-400 to-violet-500"
-              style={{ left: 765, top: 5, width: 160, height: 340, zIndex: 2 }}
+              className="absolute rounded-[16px] overflow-hidden shadow-lg shadow-black/10"
+              style={{ left: 910, top: 5, width: 205, height: 385, zIndex: 1 }}
             >
-              <div className="p-3 h-full flex flex-col gap-1.5">
-                <div className="flex-1 rounded-lg bg-purple-300/30" />
-                <div className="flex gap-1.5 h-[30%]">
-                  <div className="flex-1 rounded-lg bg-purple-200/25" />
-                  <div className="flex-1 rounded-lg bg-violet-300/30" />
-                </div>
-                <div className="flex-1 rounded-lg bg-purple-300/20" />
-                <div className="flex gap-1.5 h-[25%]">
-                  <div className="flex-1 rounded-lg bg-violet-200/25" />
-                  <div className="flex-1 rounded-lg bg-purple-400/20" />
-                </div>
-              </div>
+              <img
+                src={IMAGES[4]}
+                alt="Product showcase"
+                className="w-full h-full object-cover"
+                draggable={false}
+              />
             </div>
           </div>
 
