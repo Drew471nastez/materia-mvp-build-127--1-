@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef, useCallback, type WheelEvent } from "react"
 import Link from "next/link"
 import { ArrowRight } from "lucide-react"
 
@@ -82,11 +82,11 @@ const DESKTOP_CARDS: CardDef[] = [
 ]
 
 const MOBILE_CARDS: CardDef[] = [
-  { left: -176, top: 54, width: 164, height: 214, zIndex: 1, opacity: 0 },
-  { left: 26, top: 26, width: 188, height: 246, zIndex: 2 },
-  { left: 176, top: 0, width: 220, height: 286, zIndex: 3 },
-  { left: 356, top: 26, width: 188, height: 246, zIndex: 2 },
-  { left: 566, top: 54, width: 164, height: 214, zIndex: 1, opacity: 0 },
+  { left: -178, top: 58, width: 152, height: 198, zIndex: 1, opacity: 0 },
+  { left: 40, top: 38, width: 174, height: 228, zIndex: 2 },
+  { left: 184, top: 0, width: 232, height: 304, zIndex: 3 },
+  { left: 386, top: 38, width: 174, height: 228, zIndex: 2 },
+  { left: 596, top: 58, width: 152, height: 198, zIndex: 1, opacity: 0 },
 ]
 
 const CANVAS_W = 1100
@@ -94,6 +94,9 @@ const CANVAS_H = 440
 const AUTOPLAY_INTERVAL = 5000
 const DESKTOP_ROTATE_STEP = 196
 const MOBILE_ROTATE_STEP = 160
+
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value))
+const lerp = (from: number, to: number, t: number) => from + (to - from) * t
 
 export function Hero() {
   const typedText = useTypingEffect(TYPING_PHRASES)
@@ -104,6 +107,8 @@ export function Hero() {
 
   const dragRef = useRef<{ startX: number; active: boolean }>({ startX: 0, active: false })
   const autoplayRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const wheelBufferRef = useRef(0)
+  const autoplayResumeRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const rotateForward = useCallback(() => {
     setCardOrder((prev) => {
@@ -136,6 +141,7 @@ export function Hero() {
     startAutoplay()
     return () => {
       if (autoplayRef.current) clearInterval(autoplayRef.current)
+      if (autoplayResumeRef.current) clearTimeout(autoplayResumeRef.current)
     }
   }, [startAutoplay])
 
@@ -154,6 +160,13 @@ export function Hero() {
   const stopAutoplay = useCallback(() => {
     if (autoplayRef.current) clearInterval(autoplayRef.current)
   }, [])
+
+  const queueAutoplayResume = useCallback(() => {
+    if (autoplayResumeRef.current) clearTimeout(autoplayResumeRef.current)
+    autoplayResumeRef.current = setTimeout(() => {
+      if (!dragRef.current.active) startAutoplay()
+    }, 1100)
+  }, [startAutoplay])
 
   const handleDragStart = useCallback((clientX: number) => {
     dragRef.current = { startX: clientX, active: true }
@@ -199,25 +212,69 @@ export function Hero() {
   }, [handleDragEnd, handleDragMove])
 
   const activeCards = isMobile ? MOBILE_CARDS : DESKTOP_CARDS
+  const dragProgress = clamp(dragOffset / getStep(), -1, 1)
+
+  const getCardStyle = useCallback((positionIndex: number): CardDef => {
+    const current = activeCards[positionIndex]
+    if (!current) return activeCards[2]
+
+    if (dragProgress === 0) return current
+
+    const movingLeft = dragProgress < 0
+    const targetIndex = movingLeft
+      ? clamp(positionIndex + 1, 0, activeCards.length - 1)
+      : clamp(positionIndex - 1, 0, activeCards.length - 1)
+
+    const target = activeCards[targetIndex]
+    const t = Math.abs(dragProgress)
+
+    return {
+      left: lerp(current.left, target.left, t),
+      top: lerp(current.top, target.top, t),
+      width: lerp(current.width, target.width, t),
+      height: lerp(current.height, target.height, t),
+      zIndex: Math.round(lerp(current.zIndex, target.zIndex, t)),
+      opacity: lerp(current.opacity ?? 1, target.opacity ?? 1, t),
+    }
+  }, [activeCards, dragProgress])
+
+  const handleWheel = useCallback((event: WheelEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    stopAutoplay()
+
+    const dominantDelta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY
+    wheelBufferRef.current += dominantDelta
+
+    if (Math.abs(wheelBufferRef.current) >= 130) {
+      if (wheelBufferRef.current > 0) {
+        rotateForward()
+      } else {
+        rotateBackward()
+      }
+      wheelBufferRef.current = 0
+    }
+
+    queueAutoplayResume()
+  }, [queueAutoplayResume, rotateBackward, rotateForward, stopAutoplay])
 
   return (
     <section className={`flex flex-col items-center bg-white pt-6 sm:pt-10 pb-12 sm:pb-[67px] overflow-hidden transition-all duration-700 ease-out ${isReady ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}>
       <style dangerouslySetInnerHTML={{ __html: `
         .hero-collage-inner {
-          transform: translateX(var(--drag-x, 0px)) scale(0.41);
+          transform: scale(0.41);
           transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
         }
         @media (min-width: 640px) {
-          .hero-collage-inner { transform: translateX(var(--drag-x, 0px)) scale(0.51); }
+          .hero-collage-inner { transform: scale(0.51); }
         }
         @media (min-width: 768px) {
-          .hero-collage-inner { transform: translateX(var(--drag-x, 0px)) scale(0.63); }
+          .hero-collage-inner { transform: scale(0.63); }
         }
         @media (min-width: 1024px) {
-          .hero-collage-inner { transform: translateX(var(--drag-x, 0px)) scale(0.80); }
+          .hero-collage-inner { transform: scale(0.80); }
         }
         @media (min-width: 1280px) {
-          .hero-collage-inner { transform: translateX(var(--drag-x, 0px)) scale(0.93); }
+          .hero-collage-inner { transform: scale(0.93); }
         }
         @keyframes logo-scroll {
           0% { transform: translateX(0); }
@@ -227,11 +284,11 @@ export function Hero() {
           animation: logo-scroll 25s linear infinite;
         }
         .collage-card {
-          transition: left 0.74s cubic-bezier(0.22, 1, 0.36, 1),
-                      top 0.74s cubic-bezier(0.22, 1, 0.36, 1),
-                      width 0.74s cubic-bezier(0.22, 1, 0.36, 1),
-                      height 0.74s cubic-bezier(0.22, 1, 0.36, 1),
-                      opacity 0.74s ease;
+          transition: left 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+                      top 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+                      width 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+                      height 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+                      opacity 0.22s ease;
           will-change: left, top, width, height, opacity;
         }
       `}} />
@@ -243,8 +300,6 @@ export function Hero() {
             style={{
               width: CANVAS_W,
               height: CANVAS_H,
-              ["--drag-x" as string]: `${dragOffset}px`,
-              transition: dragRef.current.active ? "none" : "transform 420ms cubic-bezier(0.22, 1, 0.36, 1)",
             }}
             onMouseDown={(e) => {
               e.preventDefault()
@@ -253,9 +308,10 @@ export function Hero() {
             onTouchStart={(e) => handleDragStart(e.touches[0].clientX)}
             onTouchMove={(e) => handleDragMove(e.touches[0].clientX)}
             onTouchEnd={handleDragEnd}
+            onWheel={handleWheel}
           >
             {cardOrder.map((imageIdx, posIdx) => {
-              const card = activeCards[posIdx]
+              const card = getCardStyle(posIdx)
 
               return (
                 <div
