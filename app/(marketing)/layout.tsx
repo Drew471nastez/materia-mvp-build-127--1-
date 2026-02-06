@@ -10,11 +10,9 @@ export default function MarketingLayout({
 }) {
   return (
     <div className="flex min-h-svh flex-col">
-      <div className="sticky top-0 z-50 w-full">
-        <Suspense fallback={null}>
-          <ConditionalHeader />
-        </Suspense>
-      </div>
+      <Suspense fallback={null}>
+        <ConditionalHeader />
+      </Suspense>
 
       <main className="flex-1 page-scroll">{children}</main>
 

@@ -819,7 +819,7 @@ export function PlatformHeaderClient() {
           </div>
         </div>
       )}
-    <header className="w-full bg-white border-b border-gray-200 rounded-t-[14px] md:rounded-none">
+    <header className="sticky top-0 z-50 w-full bg-white border-b border-gray-200 rounded-t-[14px] md:rounded-none">
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
         <div className="flex h-[68px] md:h-[81px] items-center justify-between gap-4 md:py-[3px]">
           {/* Desktop Homepage Layout - same style for /, /features, /pricing, /about, /blog */}
