@@ -84,10 +84,6 @@ export function MarketingHeaderClient() {
   const [loading, setLoading] = useState(true)
   const [categoriesOpen, setCategoriesOpen] = useState(false)
 
-  // Sticky header scroll detection
-  const [isHeaderVisible, setIsHeaderVisible] = useState(true)
-  const lastScrollY = useRef(0)
-
   // Determine logo link - on /explore pages, link to /explore, otherwise link to home
   const logoLink = pathname?.startsWith('/explore') ? '/explore' : '/?src=platform'
 
@@ -132,52 +128,6 @@ export function MarketingHeaderClient() {
     }
   }, [])
 
-  // Scroll detection for sticky header behavior
-  useEffect(() => {
-    let ticking = false
-
-    const handleScroll = () => {
-      if (!ticking) {
-        window.requestAnimationFrame(() => {
-          const currentScrollY = window.scrollY
-          const isScrollingUp = currentScrollY < lastScrollY.current
-          const isDesktop = window.innerWidth >= 1024 // lg breakpoint
-          const isExplorePage = pathname.startsWith("/explore")
-
-          // On desktop /explore page: always keep header visible (no sticky hide behavior)
-          if (isDesktop && isExplorePage) {
-            setIsHeaderVisible(true)
-            lastScrollY.current = currentScrollY
-            ticking = false
-            return
-          }
-
-          // For other pages: hide on scroll down, show on scroll up
-          if (currentScrollY <= 50) {
-            // Near top of page
-            setIsHeaderVisible(true)
-          } else if (isScrollingUp && currentScrollY < lastScrollY.current - 5) {
-            // Scrolling up with threshold
-            setIsHeaderVisible(true)
-          } else if (!isScrollingUp && currentScrollY > lastScrollY.current + 10) {
-            // Scrolling down with threshold
-            setIsHeaderVisible(false)
-          }
-
-          lastScrollY.current = currentScrollY
-          ticking = false
-        })
-        ticking = true
-      }
-    }
-
-    // Initial check
-    handleScroll()
-
-    window.addEventListener("scroll", handleScroll, { passive: true })
-    return () => window.removeEventListener("scroll", handleScroll)
-  }, [pathname])
-
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -194,9 +144,7 @@ export function MarketingHeaderClient() {
   }, [categoriesOpen])
 
   return (
-    <div className={`sticky top-0 z-50 w-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 pt-[env(safe-area-inset-top)] transition-transform duration-300 ease-in-out ${
-      isHeaderVisible ? "translate-y-0" : "-translate-y-full"
-    }`}>
+    <div className="sticky top-0 z-50 w-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 pt-[env(safe-area-inset-top)]">
       {/* Main Header Row */}
       <header className="border-b border-border/40">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 gap-4">
