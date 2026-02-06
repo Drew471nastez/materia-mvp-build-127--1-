@@ -73,12 +73,8 @@ const IMAGES = [
   "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/51351.png",
 ]
 
-// ── Card definitions for the collage ─────────────────────────────
-// 5 portrait cards, center tallest. ~4:5 portrait ratio.
-//   Center: 340×420 (tallest, top:0)
-//   Inner:  289×357 (top:30)
-//   Outer:  238×294 (top:60)
-// Canvas: 1100×440
+// ── Card layout positions ────────────────────────────────────────
+// 5 portrait cards, center tallest, arc formation.
 
 interface CardDef {
   left: number
@@ -98,97 +94,111 @@ const BASE_CARDS: CardDef[] = [
 
 const CANVAS_W = 1100
 const CANVAS_H = 440
+const AUTOPLAY_INTERVAL = 5000
 
 // ── Hero ──────────────────────────────────────────────────────────
 
 export function Hero() {
   const typedText = useTypingEffect(TYPING_PHRASES)
 
-  // Card order state: indices into IMAGES array. Default: [0,1,2,3,4]
+  // Card order: indices into IMAGES array. [0,1,2,3,4] means image 0 at position 0, etc.
   const [cardOrder, setCardOrder] = useState([0, 1, 2, 3, 4])
 
-  // Drag state
+  // Whole-collage drag state
   const dragRef = useRef<{
     active: boolean
     startX: number
     currentX: number
-    cardIdx: number // which position in the layout was grabbed
   } | null>(null)
   const [dragOffset, setDragOffset] = useState(0)
-  const [draggingPos, setDraggingPos] = useState(-1)
-  const [isTransitioning, setIsTransitioning] = useState(false)
-  const collageRef = useRef<HTMLDivElement>(null)
+  const [isDragging, setIsDragging] = useState(false)
 
-  const handleMouseDown = useCallback((e: React.MouseEvent, positionIdx: number) => {
-    e.preventDefault()
-    dragRef.current = {
-      active: true,
-      startX: e.clientX,
-      currentX: e.clientX,
-      cardIdx: positionIdx,
+  // Rotate cards forward (next becomes center)
+  const rotateForward = useCallback(() => {
+    setCardOrder(prev => {
+      const newOrder = [...prev]
+      const first = newOrder.shift()!
+      newOrder.push(first)
+      return newOrder
+    })
+  }, [])
+
+  // Rotate cards backward (prev becomes center)
+  const rotateBackward = useCallback(() => {
+    setCardOrder(prev => {
+      const newOrder = [...prev]
+      const last = newOrder.pop()!
+      newOrder.unshift(last)
+      return newOrder
+    })
+  }, [])
+
+  // Autoplay: rotate every 5 seconds, pause while dragging
+  const autoplayRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  useEffect(() => {
+    autoplayRef.current = setInterval(() => {
+      if (!dragRef.current?.active) {
+        rotateForward()
+      }
+    }, AUTOPLAY_INTERVAL)
+    return () => {
+      if (autoplayRef.current) clearInterval(autoplayRef.current)
     }
-    setDraggingPos(positionIdx)
+  }, [rotateForward])
+
+  // Reset autoplay timer when user manually drags
+  const resetAutoplay = useCallback(() => {
+    if (autoplayRef.current) clearInterval(autoplayRef.current)
+    autoplayRef.current = setInterval(() => {
+      if (!dragRef.current?.active) {
+        rotateForward()
+      }
+    }, AUTOPLAY_INTERVAL)
+  }, [rotateForward])
+
+  // ── Mouse drag on entire collage ──
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    dragRef.current = { active: true, startX: e.clientX, currentX: e.clientX }
+    setIsDragging(true)
     setDragOffset(0)
   }, [])
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (!dragRef.current?.active) return
     dragRef.current.currentX = e.clientX
-    const diff = e.clientX - dragRef.current.startX
-    setDragOffset(diff)
+    setDragOffset(e.clientX - dragRef.current.startX)
   }, [])
 
   const handleMouseUp = useCallback(() => {
     if (!dragRef.current?.active) return
     const diff = dragRef.current.currentX - dragRef.current.startX
-
-    // Threshold: need to drag at least 60px to trigger a swap
-    const threshold = 60
+    const threshold = 50
 
     if (Math.abs(diff) > threshold) {
-      const direction = diff > 0 ? -1 : 1 // drag right = shift cards left (move to next), drag left = shift right
-      setCardOrder(prev => {
-        const newOrder = [...prev]
-        if (direction > 0) {
-          // Shift left: first element goes to end
-          const first = newOrder.shift()!
-          newOrder.push(first)
-        } else {
-          // Shift right: last element goes to front
-          const last = newOrder.pop()!
-          newOrder.unshift(last)
-        }
-        return newOrder
-      })
-      setIsTransitioning(true)
-      setTimeout(() => setIsTransitioning(false), 400)
+      if (diff < 0) {
+        rotateForward()  // drag left → next
+      } else {
+        rotateBackward() // drag right → prev
+      }
+      resetAutoplay()
     }
 
     dragRef.current = null
-    setDraggingPos(-1)
+    setIsDragging(false)
     setDragOffset(0)
-  }, [])
+  }, [rotateForward, rotateBackward, resetAutoplay])
 
-  // Also handle mouse leaving the collage area
   const handleMouseLeave = useCallback(() => {
-    if (dragRef.current?.active) {
-      handleMouseUp()
-    }
+    if (dragRef.current?.active) handleMouseUp()
   }, [handleMouseUp])
 
-  // Touch support
-  const touchRef = useRef<{ startX: number; posIdx: number } | null>(null)
-
-  const handleTouchStart = useCallback((e: React.TouchEvent, positionIdx: number) => {
+  // ── Touch drag on entire collage ──
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
     const touch = e.touches[0]
-    touchRef.current = { startX: touch.clientX, posIdx: positionIdx }
-    dragRef.current = {
-      active: true,
-      startX: touch.clientX,
-      currentX: touch.clientX,
-      cardIdx: positionIdx,
-    }
-    setDraggingPos(positionIdx)
+    dragRef.current = { active: true, startX: touch.clientX, currentX: touch.clientX }
+    setIsDragging(true)
     setDragOffset(0)
   }, [])
 
@@ -196,32 +206,30 @@ export function Hero() {
     if (!dragRef.current?.active) return
     const touch = e.touches[0]
     dragRef.current.currentX = touch.clientX
-    const diff = touch.clientX - dragRef.current.startX
-    setDragOffset(diff)
+    setDragOffset(touch.clientX - dragRef.current.startX)
   }, [])
 
   const handleTouchEnd = useCallback(() => {
     handleMouseUp()
-    touchRef.current = null
   }, [handleMouseUp])
 
   return (
     <section className="flex flex-col items-center bg-white pt-6 sm:pt-10 pb-10 sm:pb-14 overflow-hidden">
       <style dangerouslySetInnerHTML={{ __html: `
         .hero-collage-inner {
-          transform: scale(0.27);
+          transform: scale(0.34);
         }
         @media (min-width: 640px) {
-          .hero-collage-inner { transform: scale(0.43); }
+          .hero-collage-inner { transform: scale(0.50); }
         }
         @media (min-width: 768px) {
-          .hero-collage-inner { transform: scale(0.55); }
+          .hero-collage-inner { transform: scale(0.62); }
         }
         @media (min-width: 1024px) {
-          .hero-collage-inner { transform: scale(0.72); }
+          .hero-collage-inner { transform: scale(0.79); }
         }
         @media (min-width: 1280px) {
-          .hero-collage-inner { transform: scale(0.85); }
+          .hero-collage-inner { transform: scale(0.92); }
         }
         @keyframes logo-scroll {
           0% { transform: translateX(0); }
@@ -231,55 +239,51 @@ export function Hero() {
           animation: logo-scroll 25s linear infinite;
         }
         .collage-card {
-          transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-                      top 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-                      width 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-                      height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-                      opacity 0.4s ease;
-        }
-        .collage-card:hover {
-          cursor: grab;
-        }
-        .collage-card:active {
-          cursor: grabbing;
+          transition: left 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                      top 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                      width 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                      height 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                      opacity 0.5s ease;
         }
       `}} />
 
       {/* ─── Collage + floating bubble ─── */}
       <div className="relative w-full mb-6 sm:mb-8">
-        <div className="relative w-full h-[120px] sm:h-[190px] md:h-[242px] lg:h-[317px] xl:h-[374px]">
+        <div className="relative w-full h-[150px] sm:h-[220px] md:h-[273px] lg:h-[348px] xl:h-[405px]">
 
-          {/* Collage canvas: 1100×440, 5 portrait cards, scaled down 15% */}
+          {/* Collage canvas — entire thing is draggable */}
           <div
-            ref={collageRef}
             className="hero-collage-inner absolute left-1/2 -translate-x-1/2 origin-top select-none"
-            style={{ width: CANVAS_W, height: CANVAS_H }}
+            style={{
+              width: CANVAS_W,
+              height: CANVAS_H,
+              cursor: isDragging ? 'grabbing' : 'grab',
+            }}
+            onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseLeave}
+            onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
           >
             {cardOrder.map((imageIdx, posIdx) => {
               const card = BASE_CARDS[posIdx]
-              const isDragging = draggingPos === posIdx
-              const offset = isDragging ? dragOffset : 0
 
               return (
                 <div
                   key={imageIdx}
                   className="collage-card absolute rounded-[14px] overflow-hidden shadow-lg shadow-black/8"
                   style={{
-                    left: card.left + offset,
+                    left: card.left + dragOffset,
                     top: card.top,
                     width: card.width,
                     height: card.height,
-                    zIndex: isDragging ? 10 : card.zIndex,
-                    opacity: isDragging ? 0.9 : 1,
-                    transition: isDragging ? 'none' : undefined,
+                    zIndex: card.zIndex,
+                    transition: isDragging
+                      ? 'top 0.5s cubic-bezier(0.4,0,0.2,1), width 0.5s cubic-bezier(0.4,0,0.2,1), height 0.5s cubic-bezier(0.4,0,0.2,1), opacity 0.5s ease'
+                      : undefined,
                   }}
-                  onMouseDown={(e) => handleMouseDown(e, posIdx)}
-                  onTouchStart={(e) => handleTouchStart(e, posIdx)}
                 >
                   <img
                     src={IMAGES[imageIdx]}
