@@ -74,8 +74,11 @@ const IMAGES = [
 ]
 
 // ── Hero ──────────────────────────────────────────────────────────
-// Exactly 5 image cards in a symmetric collage.
-// Canvas: 1100×400, scaled responsively. White bubble overlaps center.
+// 5 image cards with proper aspect ratios:
+//   Center: 350×263 (4:3 landscape, full size)
+//   Inner:  298×298 (1:1 square, 85% of center = 15% reduction)
+//   Outer:  245×184 (4:3 landscape, 70% of center = 30% reduction)
+// Canvas: 1100×320, scaled responsively.
 
 export function Hero() {
   const typedText = useTypingEffect(TYPING_PHRASES)
@@ -109,17 +112,17 @@ export function Hero() {
 
       {/* ─── Collage + floating bubble ─── */}
       <div className="relative w-full mb-6 sm:mb-8">
-        <div className="relative w-full h-[128px] sm:h-[200px] md:h-[260px] lg:h-[340px] xl:h-[400px]">
+        <div className="relative w-full h-[102px] sm:h-[160px] md:h-[208px] lg:h-[272px] xl:h-[320px]">
 
-          {/* Collage canvas: 1100×400, exactly 5 cards, scaled */}
+          {/* Collage canvas: 1100×320, 5 cards, scaled */}
           <div
             className="hero-collage-inner absolute left-1/2 -translate-x-1/2 origin-top"
-            style={{ width: 1100, height: 400 }}
+            style={{ width: 1100, height: 320 }}
           >
-            {/* ─ Card 1: FAR LEFT — 205×385, tall pillar, partially off left edge ─ */}
+            {/* ─ Card 1: FAR LEFT — 245×184 (4:3), 30% smaller, partially off edge ─ */}
             <div
               className="absolute rounded-[14px] overflow-hidden shadow-lg shadow-black/8"
-              style={{ left: -23, top: 5, width: 205, height: 385, zIndex: 1 }}
+              style={{ left: -141, top: 62, width: 245, height: 184, zIndex: 1 }}
             >
               <img
                 src={IMAGES[0]}
@@ -129,10 +132,10 @@ export function Hero() {
               />
             </div>
 
-            {/* ─ Card 2: LEFT-CENTER — 220×345, overlaps Card 1 by ~12px ─ */}
+            {/* ─ Card 2: LEFT-CENTER — 298×298 (1:1 square), 15% smaller ─ */}
             <div
               className="absolute rounded-[14px] overflow-hidden shadow-lg shadow-black/8"
-              style={{ left: 170, top: 28, width: 220, height: 345, zIndex: 2 }}
+              style={{ left: 92, top: 5, width: 298, height: 298, zIndex: 2 }}
             >
               <img
                 src={IMAGES[1]}
@@ -142,14 +145,14 @@ export function Hero() {
               />
             </div>
 
-            {/* ─ Card 3: CENTER — 350×215, widest, raised highest, badge at bottom ─ */}
+            {/* ─ Card 3: CENTER — 350×263 (4:3), full size, raised, badge at bottom ─ */}
             <div
               className="absolute"
-              style={{ left: 375, top: 0, width: 350, height: 240, zIndex: 3 }}
+              style={{ left: 375, top: 10, width: 350, height: 275, zIndex: 3 }}
             >
               <div
                 className="absolute inset-x-0 top-0 rounded-[14px] overflow-hidden shadow-xl shadow-black/12"
-                style={{ height: 215 }}
+                style={{ height: 263 }}
               >
                 <img
                   src={IMAGES[2]}
@@ -159,7 +162,7 @@ export function Hero() {
                 />
               </div>
               {/* Badge — half inside, half outside the card's bottom edge */}
-              <div className="absolute left-1/2 -translate-x-1/2" style={{ top: 203 }}>
+              <div className="absolute left-1/2 -translate-x-1/2" style={{ top: 251 }}>
                 <div className="flex items-center gap-1.5 bg-gray-100/95 backdrop-blur-sm text-gray-700 text-[11px] font-medium px-3.5 py-1.5 rounded-full whitespace-nowrap shadow-sm border border-gray-200/50">
                   <Lock className="w-3.5 h-3.5" />
                   Powering 1,550+ Shopify Brands
@@ -167,10 +170,10 @@ export function Hero() {
               </div>
             </div>
 
-            {/* ─ Card 4: RIGHT-CENTER — 220×345, mirrors Card 2 ─ */}
+            {/* ─ Card 4: RIGHT-CENTER — 298×298 (1:1 square), 15% smaller ─ */}
             <div
               className="absolute rounded-[14px] overflow-hidden shadow-lg shadow-black/8"
-              style={{ left: 710, top: 28, width: 220, height: 345, zIndex: 2 }}
+              style={{ left: 710, top: 5, width: 298, height: 298, zIndex: 2 }}
             >
               <img
                 src={IMAGES[3]}
@@ -180,10 +183,10 @@ export function Hero() {
               />
             </div>
 
-            {/* ─ Card 5: FAR RIGHT — 205×385, mirrors Card 1, partially off right edge ─ */}
+            {/* ─ Card 5: FAR RIGHT — 245×184 (4:3), 30% smaller, partially off edge ─ */}
             <div
               className="absolute rounded-[14px] overflow-hidden shadow-lg shadow-black/8"
-              style={{ left: 918, top: 5, width: 205, height: 385, zIndex: 1 }}
+              style={{ left: 996, top: 62, width: 245, height: 184, zIndex: 1 }}
             >
               <img
                 src={IMAGES[4]}
@@ -233,7 +236,7 @@ export function Hero() {
       </div>
 
       {/* ─── Description — 2 rows, ~9-10 words per row ─── */}
-      <p className="text-[18px] text-neutral-600 text-center mb-10 sm:mb-12 max-w-lg leading-relaxed px-4">
+      <p className="text-[18px] text-neutral-600 text-center mb-16 sm:mb-20 max-w-lg leading-relaxed px-4">
         Storelib lets you turn big ideas into real products. Create, sell, and grow with your audience.
       </p>
 
