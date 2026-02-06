@@ -99,6 +99,8 @@ const AUTOPLAY_INTERVAL = 5000
 const CARD_TRANSITION_MS = 1200
 const SWIPE_THRESHOLD = 40
 const SWIPE_COMMIT_DISTANCE = 140
+const DRAG_SMOOTHING = 0.22
+const DRAG_SLOWDOWN = 0.64
 
 const rotateOrder = (order: number[], direction: 1 | -1) => {
   const next = [...order]
@@ -186,10 +188,23 @@ export function Hero() {
     }
   }, [clearAutoplay, restartAutoplay])
 
-  const triggerSwipe = useCallback((delta: number) => {
-    if (Math.abs(delta) < SWIPE_THRESHOLD) return
-    startRotation(delta < 0 ? 1 : -1)
-  }, [startRotation])
+  const updateDragTransition = useCallback((rawDelta: number) => {
+    const slowedDelta = rawDelta * DRAG_SLOWDOWN
+    const smoothedDelta = lerp(dragRef.current.delta, slowedDelta, DRAG_SMOOTHING)
+    dragRef.current.delta = smoothedDelta
+
+    const distance = Math.abs(smoothedDelta)
+    if (distance < 1) {
+      setTransition(null)
+      return
+    }
+
+    const direction = smoothedDelta < 0 ? 1 : -1
+    const progress = Math.min(0.95, distance / SWIPE_COMMIT_DISTANCE)
+    const from = orderRef.current
+    const to = rotateOrder(from, direction)
+    setTransition({ from, to, progress: ease(progress) })
+  }, [])
 
   const activeCards = isMobile ? MOBILE_CARDS : DESKTOP_CARDS
 
@@ -236,27 +251,12 @@ export function Hero() {
             }}
             onTouchMove={(e) => {
               if (!dragRef.current.active || animatingRef.current) return
-
-              const rawDelta = e.touches[0].clientX - dragRef.current.startX
-              const smoothedDelta = lerp(dragRef.current.delta, rawDelta, 0.32)
-              dragRef.current.delta = smoothedDelta
-
-              const distance = Math.abs(smoothedDelta)
-              if (distance < 1) {
-                setTransition(null)
-                return
-              }
-
-              const direction = smoothedDelta < 0 ? 1 : -1
-              const progress = Math.min(0.95, distance / SWIPE_COMMIT_DISTANCE)
-              const from = orderRef.current
-              const to = rotateOrder(from, direction)
-              setTransition({ from, to, progress: ease(progress) })
+              updateDragTransition(e.touches[0].clientX - dragRef.current.startX)
             }}
             onTouchEnd={(e) => {
               if (!dragRef.current.active) return
               const delta = dragRef.current.delta || e.changedTouches[0].clientX - dragRef.current.startX
-              const progress = ease(Math.min(0.95, Math.abs(delta) / SWIPE_COMMIT_DISTANCE))
+              const progress = Math.min(0.95, Math.abs(delta) / SWIPE_COMMIT_DISTANCE)
               dragRef.current.active = false
               dragRef.current.delta = 0
 
@@ -275,16 +275,34 @@ export function Hero() {
               restartAutoplay()
             }}
             onMouseDown={(e) => {
+              clearAutoplay()
               dragRef.current = { active: true, startX: e.clientX, delta: 0 }
+            }}
+            onMouseMove={(e) => {
+              if (!dragRef.current.active || animatingRef.current) return
+              updateDragTransition(e.clientX - dragRef.current.startX)
             }}
             onMouseUp={(e) => {
               if (!dragRef.current.active) return
-              const delta = e.clientX - dragRef.current.startX
+              const delta = dragRef.current.delta || e.clientX - dragRef.current.startX
+              const progress = Math.min(0.95, Math.abs(delta) / SWIPE_COMMIT_DISTANCE)
               dragRef.current.active = false
-              triggerSwipe(delta)
+              dragRef.current.delta = 0
+
+              if (Math.abs(delta) >= SWIPE_THRESHOLD) {
+                startRotation(delta < 0 ? 1 : -1, progress)
+              } else {
+                setTransition(null)
+              }
+
+              restartAutoplay()
             }}
             onMouseLeave={() => {
+              if (!dragRef.current.active) return
               dragRef.current.active = false
+              dragRef.current.delta = 0
+              setTransition(null)
+              restartAutoplay()
             }}
           >
             {IMAGES.map((src, imageIdx) => {
