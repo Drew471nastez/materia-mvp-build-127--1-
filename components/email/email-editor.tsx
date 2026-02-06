@@ -744,8 +744,8 @@ export function EmailEditor({
       </div>
 
       {/* Main Content */}
-      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Editor Panel */}
           <div className="space-y-5">
             {/* Subject Card */}
@@ -878,7 +878,7 @@ Tips:
 
                 {/* Inline Button Edit Menu - Modern UI Dialog */}
                 <Dialog open={showButtonMenu} onOpenChange={(open) => { if (!open) { setShowButtonMenu(false); setSelectedButton(null); } }}>
-                  <DialogContent className="sm:max-w-[380px] p-0 rounded-2xl overflow-hidden" showCloseButton={false} onClick={(e) => e.stopPropagation()} onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
+                  <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-[380px] p-0 rounded-2xl overflow-hidden" showCloseButton={false} onClick={(e) => e.stopPropagation()} onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
                     {/* Header */}
                     <div className="px-4 py-3 bg-gradient-to-r from-gray-50 to-gray-100/50 border-b border-gray-100">
                       <div className="flex items-center justify-between">
@@ -979,13 +979,13 @@ Tips:
           </div>
 
           {/* Preview Panel */}
-          <div className="lg:sticky lg:top-24 lg:h-fit">
+          <div className="md:sticky md:top-24 md:h-fit">
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
               <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
                 <Label className="text-sm font-medium text-gray-700">Live Preview</Label>
                 <div className="flex items-center gap-2">
                   <Select value={audienceType} onValueChange={onAudienceChange}>
-                    <SelectTrigger className="h-9 w-auto min-w-[180px] rounded-lg border-gray-200 text-sm cursor-pointer">
+                    <SelectTrigger className="h-9 w-auto min-w-[120px] sm:min-w-[180px] rounded-lg border-gray-200 text-sm cursor-pointer">
                       <SelectValue placeholder="Send to..." />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl">
@@ -999,7 +999,7 @@ Tips:
                 </div>
               </div>
 
-              <div className="p-5 bg-gray-50/50 flex justify-center min-h-[500px]">
+              <div className="p-3 sm:p-5 bg-gray-50/50 flex justify-center min-h-[400px] md:min-h-[500px]">
                 <div className="bg-white rounded-2xl shadow-lg overflow-hidden transition-all duration-300 border border-gray-100 w-full max-w-[480px]">
                   {/* Email Header Preview */}
                   <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/80">
@@ -1061,7 +1061,7 @@ Tips:
 
       {/* Schedule Dialog */}
       <Dialog open={showScheduleDialog} onOpenChange={setShowScheduleDialog}>
-        <DialogContent className="sm:max-w-md rounded-2xl">
+        <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md rounded-2xl">
           <DialogHeader>
             <DialogTitle>Schedule Email</DialogTitle>
             <DialogDescription>Choose when you want this email to be sent.</DialogDescription>
@@ -1081,7 +1081,7 @@ Tips:
 
       {/* Test Email Dialog */}
       <Dialog open={showTestDialog} onOpenChange={setShowTestDialog}>
-        <DialogContent className="sm:max-w-md rounded-2xl">
+        <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md rounded-2xl">
           <DialogHeader>
             <DialogTitle>Send Test Email</DialogTitle>
             <DialogDescription>Send a test email to preview how it will look.</DialogDescription>
@@ -1115,7 +1115,7 @@ Tips:
 
       {/* Link Dialog */}
       <Dialog open={showLinkDialog} onOpenChange={setShowLinkDialog}>
-        <DialogContent className="sm:max-w-md rounded-2xl">
+        <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md rounded-2xl">
           <DialogHeader>
             <DialogTitle>Insert Link</DialogTitle>
             <DialogDescription>Add a link to your email content.</DialogDescription>
@@ -1139,7 +1139,7 @@ Tips:
 
       {/* Button Dialog */}
       <Dialog open={showButtonDialog} onOpenChange={setShowButtonDialog}>
-        <DialogContent className="sm:max-w-md rounded-2xl">
+        <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md rounded-2xl">
           <DialogHeader>
             <DialogTitle>Insert Button</DialogTitle>
             <DialogDescription>Add a call-to-action button to your email.</DialogDescription>
@@ -1246,7 +1246,7 @@ Tips:
 
       {/* Product Selector Dialog */}
       <Dialog open={showProductDialog} onOpenChange={setShowProductDialog}>
-        <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col rounded-2xl">
+        <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg max-h-[85vh] flex flex-col rounded-2xl">
           <DialogHeader>
             <DialogTitle>Add Product Link</DialogTitle>
             <DialogDescription>Select a product to insert a link into your email.</DialogDescription>

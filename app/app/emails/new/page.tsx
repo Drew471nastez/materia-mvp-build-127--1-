@@ -288,7 +288,7 @@ export default function NewEmailPage() {
 
       {/* Unsaved Changes Dialog */}
       <Dialog open={showUnsavedDialog} onOpenChange={setShowUnsavedDialog}>
-        <DialogContent className="sm:max-w-[400px] rounded-2xl p-0 overflow-hidden">
+        <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-[400px] rounded-2xl p-0 overflow-hidden">
           <div className="p-6 text-center">
             <DialogTitle className="text-lg font-semibold text-gray-900 mb-2">Unsaved changes</DialogTitle>
             <DialogDescription className="text-sm text-gray-500">
