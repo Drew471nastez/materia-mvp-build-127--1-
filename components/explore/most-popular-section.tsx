@@ -8,12 +8,35 @@ interface MostPopularSectionProps {
 }
 
 export function MostPopularSection({ products }: MostPopularSectionProps) {
-  // Get most popular products based on sales count
+  // Get most popular products — prioritize recent activity (last 48 hours) with engagement scoring
   const popularProducts = useMemo(() => {
-    return [...products]
-      .filter(p => p.thumbnail_url) // Only products with thumbnails
-      .sort((a, b) => (b.sales_count || 0) - (a.sales_count || 0))
-      .slice(0, 6) // 6 products for 3x2 grid on desktop
+    const now = Date.now()
+    const fortyEightHoursAgo = now - 48 * 60 * 60 * 1000
+    const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000
+
+    const scored = [...products]
+      .filter(p => p.thumbnail_url)
+      .map(p => {
+        const createdAt = new Date(p.created_at).getTime()
+        const isRecent48h = createdAt > fortyEightHoursAgo
+        const isRecentWeek = createdAt > sevenDaysAgo
+
+        // Engagement score: purchases/downloads weighted heaviest, then reviews, then views
+        const salesScore = (p.sales_count || 0) * 5
+        const reviewScore = (p.reviews_count || 0) * 3
+        const ratingBonus = (p.reviews_average || 0) >= 4 ? (p.reviews_average || 0) * 2 : 0
+        const viewScore = (p.view_count || 0) * 0.1
+        const baseScore = salesScore + reviewScore + ratingBonus + viewScore
+
+        // Recency boost: 3x for last 48h, 1.5x for last week
+        const recencyMultiplier = isRecent48h ? 3 : isRecentWeek ? 1.5 : 1
+
+        return { ...p, _score: baseScore * recencyMultiplier }
+      })
+      .sort((a, b) => b._score - a._score)
+      .slice(0, 6)
+
+    return scored
   }, [products])
 
   // Mobile carousel state
@@ -105,7 +128,7 @@ export function MostPopularSection({ products }: MostPopularSectionProps) {
   }
 
   return (
-    <section className="mt-8 md:mt-12 pt-[15px] pb-[15px] border-t border-neutral-100">
+    <section className="mt-8 md:mt-12 pt-[24px] pb-[24px] border-t border-neutral-100">
       {/* Section header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">

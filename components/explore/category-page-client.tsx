@@ -675,18 +675,17 @@ function DesktopSubcategoryModal({
   if (!isVisible) return null
 
   return (
-    <div className="fixed inset-0 z-[100] hidden md:block">
+    <div className="fixed inset-0 z-[100] hidden md:flex items-center justify-center">
       <div
-        className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity ease-out ${isAnimating ? "opacity-100" : "opacity-0"}`}
+        className={`fixed inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity ease-out ${isAnimating ? "opacity-100" : "opacity-0"}`}
         style={{ transitionDuration: '300ms' }}
         onClick={handleClose}
       />
-      <div className="flex items-center justify-center h-full p-4">
-        <div
-          className={`bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transition-all duration-300 ${
-            isAnimating ? "opacity-100 scale-100" : "opacity-0 scale-95"
-          }`}
-        >
+      <div
+        className={`relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transition-all duration-300 ${
+          isAnimating ? "opacity-100 scale-100" : "opacity-0 scale-95"
+        }`}
+      >
           <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-100">
             <h3 className="text-lg font-semibold text-neutral-900">{categoryLabel} Subcategories</h3>
             <button onClick={handleClose} className="p-1.5 rounded-full hover:bg-neutral-100 transition-colors cursor-pointer">
@@ -725,7 +724,6 @@ function DesktopSubcategoryModal({
             </div>
           </div>
         </div>
-      </div>
     </div>
   )
 }
@@ -1056,45 +1054,8 @@ export function CategoryPageClient({
           )}
         </div>
 
-        {/* Mobile controls (right-aligned): subcategories icon + search icon + filters */}
-        <div className="md:hidden flex items-center gap-2 ml-auto">
-          {searchOpen ? (
-            <div className="flex-1 min-w-0 w-full animate-in fade-in slide-in-from-top-2 duration-200">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400 pointer-events-none" />
-                <Input
-                  autoFocus
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={`Search in ${currentSubcategoryLabel || categoryLabel}...`}
-                  className="h-10 w-full pl-10 pr-10 bg-neutral-100 border-neutral-200 text-neutral-900 placeholder:text-neutral-500 rounded-full text-sm"
-                />
-                <button
-                  onClick={() => { setSearchQuery(""); setSearchOpen(false) }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 cursor-pointer"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          ) : (
-            <>
-              {availableSubcategories.length > 0 && (
-                <button
-                  onClick={() => setSubcategorySelectorOpen(true)}
-                  className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-neutral-100 text-neutral-700 hover:bg-neutral-200 transition-all duration-150 cursor-pointer"
-                >
-                  <Layers className="w-4 h-4" />
-                </button>
-              )}
-              <button
-                onClick={() => setSearchOpen(true)}
-                className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-neutral-100 text-neutral-700 hover:bg-neutral-200 transition-all duration-150 cursor-pointer"
-              >
-                <Search className="w-4 h-4" />
-              </button>
-            </>
-          )}
+        {/* Mobile controls: Filters left, subcategory + search right */}
+        <div className="md:hidden flex items-center justify-between w-full">
           <button
             onClick={() => setMobileFiltersOpen(true)}
             className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-150 cursor-pointer select-none ${
@@ -1111,6 +1072,46 @@ export function CategoryPageClient({
               </span>
             )}
           </button>
+
+          <div className="flex items-center gap-2">
+            {searchOpen ? (
+              <div className="flex-1 min-w-[200px] animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400 pointer-events-none" />
+                  <Input
+                    autoFocus
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder={`Search in ${currentSubcategoryLabel || categoryLabel}...`}
+                    className="h-10 w-full pl-10 pr-10 bg-neutral-100 border-neutral-200 text-neutral-900 placeholder:text-neutral-500 rounded-full text-sm"
+                  />
+                  <button
+                    onClick={() => { setSearchQuery(""); setSearchOpen(false) }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {availableSubcategories.length > 0 && (
+                  <button
+                    onClick={() => setSubcategorySelectorOpen(true)}
+                    className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-neutral-100 text-neutral-700 hover:bg-neutral-200 transition-all duration-150 cursor-pointer"
+                  >
+                    <Layers className="w-4 h-4" />
+                  </button>
+                )}
+                <button
+                  onClick={() => setSearchOpen(true)}
+                  className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-neutral-100 text-neutral-700 hover:bg-neutral-200 transition-all duration-150 cursor-pointer"
+                >
+                  <Search className="w-4 h-4" />
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Desktop filters (right side) */}

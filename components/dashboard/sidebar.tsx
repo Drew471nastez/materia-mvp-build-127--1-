@@ -54,16 +54,16 @@ export function DashboardSidebar() {
 
   const SidebarContent = ({ onItemClick }: { onItemClick?: () => void }) => (
     <>
-      <div className="flex h-14 items-center border-b border-border px-4">
-        <Link href="/library" className="flex items-center gap-2" onClick={onItemClick}>
+      <div className="flex h-16 items-center border-b border-border px-4">
+        <Link href="/library" className="flex items-center gap-2.5" onClick={onItemClick}>
           <Image
             src={LOGO_URL}
             alt="Storelib"
-            width={32}
-            height={32}
-            className="h-8 w-8 shrink-0"
+            width={37}
+            height={37}
+            className="h-[37px] w-[37px] shrink-0"
           />
-          <span className="text-lg font-semibold tracking-tight truncate">Storelib</span>
+          <span className="text-xl font-semibold tracking-tight truncate">Storelib</span>
         </Link>
       </div>
 
@@ -112,10 +112,10 @@ export function DashboardSidebar() {
         <Link
           href="/explore"
           onClick={onItemClick}
-          className="mb-1 flex items-center gap-3 rounded-lg px-3 py-3 min-h-[44px] text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground active:scale-[0.98]"
+          className="mb-1 flex items-center gap-3 rounded-full px-4 py-2.5 min-h-[40px] text-sm font-medium bg-neutral-100 text-neutral-600 hover:bg-neutral-200 hover:text-neutral-900 active:scale-[0.98] transition-colors"
         >
-          <Compass className="h-5 w-5 shrink-0" />
-          <span className="truncate">Discover</span>
+          <Compass className="h-4 w-4 shrink-0" />
+          <span className="truncate">Explore Products</span>
         </Link>
         <Button
           variant="ghost"

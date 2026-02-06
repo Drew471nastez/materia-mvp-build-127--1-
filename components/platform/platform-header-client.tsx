@@ -1581,8 +1581,8 @@ export function PlatformHeaderClient() {
                     <Icon className="w-3.5 h-3.5" />
                     {cat.label}
                     {cat.badge && (
-                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold leading-none ${
-                        isActive ? "bg-orange-400 text-white" : "bg-orange-500 text-white"
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold leading-none ${
+                        isActive ? "bg-red-400/90 text-white" : "bg-red-500/80 backdrop-blur-sm text-white"
                       }`}>
                         {cat.badge}
                       </span>
@@ -1617,7 +1617,7 @@ export function PlatformHeaderClient() {
                       {isAll && <Icon className="w-[18px] h-[18px]" />}
                       {cat.label}
                       {cat.badge && (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-orange-500 text-white leading-none">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-500/80 backdrop-blur-sm text-white leading-none">
                           {cat.badge}
                         </span>
                       )}

@@ -3,9 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Heart, Trash2, Loader2, ShoppingBag, RefreshCw } from "lucide-react"
+import { Heart, Trash2, Loader2, ShoppingBag, ArrowRight } from "lucide-react"
 import { getStoreUrl, getProductUrl } from "@/lib/url-helpers"
 
 interface WishlistItem {
@@ -59,14 +57,9 @@ function saveGuestId(guestId: string): void {
 export function WishlistContent({ isLibrary = false }: WishlistContentProps) {
   const [items, setItems] = useState<WishlistItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [isRefreshing, setIsRefreshing] = useState(false)
   const [removingId, setRemovingId] = useState<string | null>(null)
 
-  const fetchWishlist = useCallback(async (showRefresh = false) => {
-    if (showRefresh) {
-      setIsRefreshing(true)
-    }
-
+  const fetchWishlist = useCallback(async () => {
     try {
       const res = await fetch("/api/wishlist", {
         credentials: "include",
@@ -74,25 +67,21 @@ export function WishlistContent({ isLibrary = false }: WishlistContentProps) {
       })
 
       const data = await res.json()
-      console.log("[WishlistContent] Response:", data)
 
       if (res.ok && data.items) {
         const validItems = data.items.filter((item: WishlistItem) => item.products !== null)
         setItems(validItems)
-        
+
         if (data.guestId) {
           saveGuestId(data.guestId)
         }
       } else {
-        console.error("[WishlistContent] Error:", data.error)
         setItems([])
       }
-    } catch (err) {
-      console.error("[WishlistContent] Fetch error:", err)
+    } catch {
       setItems([])
     } finally {
       setIsLoading(false)
-      setIsRefreshing(false)
     }
   }, [])
 
@@ -105,7 +94,7 @@ export function WishlistContent({ isLibrary = false }: WishlistContentProps) {
       if (event.detail?.guestId) {
         saveGuestId(event.detail.guestId)
       }
-      fetchWishlist(true)
+      fetchWishlist()
     }
 
     window.addEventListener("wishlist-updated", handleWishlistUpdate as EventListener)
@@ -141,10 +130,10 @@ export function WishlistContent({ isLibrary = false }: WishlistContentProps) {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-16">
+      <div className="flex items-center justify-center py-20">
         <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-          <p className="text-sm text-gray-500">Loading wishlist...</p>
+          <div className="w-10 h-10 rounded-full border-2 border-neutral-200 border-t-neutral-800 animate-spin" />
+          <p className="text-sm text-neutral-400">Loading your wishlist...</p>
         </div>
       </div>
     )
@@ -152,125 +141,119 @@ export function WishlistContent({ isLibrary = false }: WishlistContentProps) {
 
   if (items.length === 0) {
     return (
-      <div className="text-center py-16">
-        <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gray-100 mb-6">
-          <Heart className="h-10 w-10 text-gray-400" strokeWidth={1.5} />
+      <div className="flex flex-col items-center justify-center py-20 px-4">
+        <div className="w-20 h-20 rounded-full bg-neutral-50 flex items-center justify-center mb-6">
+          <Heart className="h-9 w-9 text-neutral-300" strokeWidth={1.5} />
         </div>
-        <h2 className="text-xl font-semibold mb-2 text-gray-900">Your wishlist is empty</h2>
-        <p className="text-gray-500 mb-8 max-w-sm mx-auto">
-          Browse products and add them to your wishlist to save them for later.
+        <h2 className="text-lg font-semibold text-neutral-900 mb-1">No saved items yet</h2>
+        <p className="text-neutral-500 text-sm text-center max-w-xs mb-8">
+          Products you save will appear here. Start exploring to find something you love.
         </p>
-        <Button asChild className="bg-blue-600 hover:bg-blue-700">
-          <Link href="/explore">
-            <ShoppingBag className="h-4 w-4 mr-2" />
-            Explore Products
-          </Link>
-        </Button>
+        <Link
+          href="/explore"
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-800 transition-colors"
+        >
+          Explore Products
+          <ArrowRight className="w-4 h-4" />
+        </Link>
       </div>
     )
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between mb-6">
-        <p className="text-sm text-gray-500">
+    <div>
+      <div className="flex items-center justify-between mb-5">
+        <p className="text-sm text-neutral-500">
           {items.length} {items.length === 1 ? "item" : "items"} saved
         </p>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => fetchWishlist(true)}
-          disabled={isRefreshing}
-          className="text-gray-500 hover:text-gray-700"
-        >
-          <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`} />
-          Refresh
-        </Button>
       </div>
 
-      <div className="grid gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {items.map((item) => {
           const product = item.products
           if (!product) return null
 
-          // Get creator info from the new structure
           const creatorName = product.creator_profile?.display_name || "Creator"
           const creatorUsername = product.creator_profile?.username || product.creators?.slug
-
           const productUrl = creatorUsername ? getProductUrl(creatorUsername, product.slug) : `/p/${product.slug}`
+          const isRemoving = removingId === product.id
 
           return (
-            <Card key={item.id} className="overflow-hidden border-gray-200 hover:shadow-md transition-shadow">
-              <CardContent className="p-0">
-                <div className="flex gap-4 p-4">
-                  <a href={productUrl} className="shrink-0">
-                    <div className="relative w-24 h-24 sm:w-32 sm:h-32 rounded-lg overflow-hidden bg-gray-100">
-                      {product.thumbnail_url ? (
-                        <Image
-                          src={product.thumbnail_url}
-                          alt={product.title}
-                          fill
-                          className="object-cover hover:scale-105 transition-transform duration-300"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <ShoppingBag className="h-8 w-8 text-gray-400" />
-                        </div>
-                      )}
+            <div
+              key={item.id}
+              className={`group relative rounded-2xl border border-neutral-100 bg-white overflow-hidden transition-all duration-200 hover:shadow-md hover:border-neutral-200 ${
+                isRemoving ? "opacity-50 pointer-events-none" : ""
+              }`}
+            >
+              {/* Thumbnail */}
+              <a href={productUrl} className="block">
+                <div className="relative aspect-[4/3] bg-neutral-50 overflow-hidden">
+                  {product.thumbnail_url ? (
+                    <Image
+                      src={product.thumbnail_url}
+                      alt={product.title}
+                      fill
+                      className="object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <ShoppingBag className="h-8 w-8 text-neutral-300" />
                     </div>
-                  </a>
-
-                  <div className="flex-1 min-w-0 flex flex-col">
-                    <a href={productUrl}>
-                      <h3 className="font-semibold text-gray-900 hover:text-blue-600 truncate transition-colors">
-                        {product.title}
-                      </h3>
-                    </a>
-
-                    {creatorUsername && (
-                      <a
-                        href={getStoreUrl(creatorUsername)}
-                        className="text-sm text-gray-500 hover:text-gray-700 transition-colors mt-0.5"
-                      >
-                        by {creatorName}
-                      </a>
-                    )}
-
-                    <div className="mt-2 flex items-center gap-2">
-                      <span className="font-semibold text-gray-900">
-                        {product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}
-                      </span>
-                      {product.compare_at_cents && product.compare_at_cents > product.price_cents && (
-                        <span className="text-sm text-gray-400 line-through">
-                          {formatPrice(product.compare_at_cents)}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="mt-auto pt-3 flex gap-2">
-                      <Button asChild size="sm" className="bg-blue-600 hover:bg-blue-700">
-                        <a href={productUrl}>
-                          View Product
-                        </a>
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => removeItem(product.id)}
-                        disabled={removingId === product.id}
-                        className="text-gray-500 hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-colors"
-                      >
-                        {removingId === product.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Trash2 className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </div>
-                  </div>
+                  )}
                 </div>
-              </CardContent>
-            </Card>
+              </a>
+
+              {/* Remove button — top right */}
+              <button
+                onClick={() => removeItem(product.id)}
+                disabled={isRemoving}
+                className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50 cursor-pointer"
+                aria-label="Remove from wishlist"
+              >
+                {isRemoving ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-neutral-400" />
+                ) : (
+                  <Trash2 className="h-3.5 w-3.5 text-neutral-500 hover:text-red-500" />
+                )}
+              </button>
+
+              {/* Info */}
+              <div className="p-3.5">
+                <a href={productUrl}>
+                  <h3 className="font-medium text-neutral-900 text-sm truncate hover:text-violet-600 transition-colors">
+                    {product.title}
+                  </h3>
+                </a>
+
+                {creatorUsername && (
+                  <a
+                    href={getStoreUrl(creatorUsername)}
+                    className="text-xs text-neutral-400 hover:text-neutral-600 transition-colors mt-0.5 block truncate"
+                  >
+                    {creatorName}
+                  </a>
+                )}
+
+                <div className="flex items-center justify-between mt-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-neutral-900 text-sm">
+                      {product.price_cents === 0 ? "Free" : formatPrice(product.price_cents)}
+                    </span>
+                    {product.compare_at_cents && product.compare_at_cents > product.price_cents && (
+                      <span className="text-xs text-neutral-400 line-through">
+                        {formatPrice(product.compare_at_cents)}
+                      </span>
+                    )}
+                  </div>
+                  <a
+                    href={productUrl}
+                    className="text-xs font-medium text-violet-600 hover:text-violet-700 transition-colors"
+                  >
+                    View
+                  </a>
+                </div>
+              </div>
+            </div>
           )
         })}
       </div>

@@ -107,7 +107,7 @@ export function FeaturedCategoriesSection({ products = [] }: FeaturedCategoriesS
   const smallCategories = categoriesWithImages.slice(3, 9)
 
   return (
-    <section className="mt-6 md:mt-10 pt-5 md:pt-6 border-t border-neutral-100">
+    <section className="mt-6 md:mt-10 pt-[26px] pb-[6px] border-t border-neutral-100">
       {/* Main grid layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-8">
         {/* Left side - Headline and CTA */}
