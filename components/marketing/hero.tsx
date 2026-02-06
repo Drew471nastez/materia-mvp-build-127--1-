@@ -71,6 +71,12 @@ interface CardDef {
   scale?: number
 }
 
+interface CardTransition {
+  from: number[]
+  to: number[]
+  progress: number
+}
+
 const DESKTOP_CARDS: CardDef[] = [
   { left: -120, top: 60, width: 238, height: 294, zIndex: 1, opacity: 0.82, scale: 0.95 },
   { left: 106, top: 30, width: 289, height: 357, zIndex: 2, opacity: 0.92, scale: 0.98 },
@@ -90,20 +96,56 @@ const MOBILE_CARDS: CardDef[] = [
 const CANVAS_W = 1100
 const CANVAS_H = 460
 const AUTOPLAY_INTERVAL = 5000
+const CARD_TRANSITION_MS = 1200
+
+const rotateForward = (order: number[]) => {
+  const next = [...order]
+  const first = next.shift()!
+  next.push(first)
+  return next
+}
+
+const lerp = (from: number, to: number, t: number) => from + (to - from) * t
+const ease = (t: number) => 1 - Math.pow(1 - t, 3)
 
 export function Hero() {
   const typedText = useTypingEffect(TYPING_PHRASES)
   const [cardOrder, setCardOrder] = useState([0, 1, 2, 3, 4])
+  const [transition, setTransition] = useState<CardTransition | null>(null)
   const [isMobile, setIsMobile] = useState(false)
-  const autoplayRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const rotateForward = useCallback(() => {
-    setCardOrder((prev) => {
-      const next = [...prev]
-      const first = next.shift()!
-      next.push(first)
-      return next
-    })
+  const autoplayRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const orderRef = useRef(cardOrder)
+  const animatingRef = useRef(false)
+  const rafRef = useRef<number | null>(null)
+
+  const startRotation = useCallback(() => {
+    if (animatingRef.current) return
+
+    const from = orderRef.current
+    const to = rotateForward(from)
+    const start = performance.now()
+
+    animatingRef.current = true
+
+    const tick = (now: number) => {
+      const raw = Math.min(1, (now - start) / CARD_TRANSITION_MS)
+      const progress = ease(raw)
+      setTransition({ from, to, progress })
+
+      if (raw < 1) {
+        rafRef.current = requestAnimationFrame(tick)
+        return
+      }
+
+      orderRef.current = to
+      setCardOrder(to)
+      setTransition(null)
+      animatingRef.current = false
+      rafRef.current = null
+    }
+
+    rafRef.current = requestAnimationFrame(tick)
   }, [])
 
   useEffect(() => {
@@ -114,12 +156,13 @@ export function Hero() {
   }, [])
 
   useEffect(() => {
-    autoplayRef.current = setInterval(() => rotateForward(), AUTOPLAY_INTERVAL)
+    autoplayRef.current = setInterval(() => startRotation(), AUTOPLAY_INTERVAL)
 
     return () => {
       if (autoplayRef.current) clearInterval(autoplayRef.current)
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
     }
-  }, [rotateForward])
+  }, [startRotation])
 
   const activeCards = isMobile ? MOBILE_CARDS : DESKTOP_CARDS
 
@@ -149,14 +192,9 @@ export function Hero() {
           animation: logo-scroll 25s linear infinite;
         }
         .collage-card {
-          transition: left 1.05s cubic-bezier(0.2, 0.85, 0.22, 1),
-                      top 1.05s cubic-bezier(0.2, 0.85, 0.22, 1),
-                      width 1.05s cubic-bezier(0.2, 0.85, 0.22, 1),
-                      height 1.05s cubic-bezier(0.2, 0.85, 0.22, 1),
-                      opacity 0.95s ease,
-                      transform 1.05s cubic-bezier(0.2, 0.85, 0.22, 1),
-                      filter 0.95s ease;
           will-change: left, top, width, height, opacity, transform, filter;
+          backface-visibility: hidden;
+          transform-style: preserve-3d;
         }
       `}} />
 
@@ -166,26 +204,39 @@ export function Hero() {
             className="hero-collage-inner absolute left-1/2 -translate-x-1/2 origin-top select-none"
             style={{ width: CANVAS_W, height: CANVAS_H }}
           >
-            {cardOrder.map((imageIdx, posIdx) => {
-              const card = activeCards[posIdx]
+            {IMAGES.map((src, imageIdx) => {
+              const fromPos = transition ? transition.from.indexOf(imageIdx) : cardOrder.indexOf(imageIdx)
+              const toPos = transition ? transition.to.indexOf(imageIdx) : fromPos
+              const fromCard = activeCards[fromPos]
+              const toCard = activeCards[toPos]
+              const t = transition?.progress ?? 1
+
+              const left = lerp(fromCard.left, toCard.left, t)
+              const top = lerp(fromCard.top, toCard.top, t)
+              const width = lerp(fromCard.width, toCard.width, t)
+              const height = lerp(fromCard.height, toCard.height, t)
+              const scale = lerp(fromCard.scale ?? 1, toCard.scale ?? 1, t)
+              const opacity = lerp(fromCard.opacity ?? 1, toCard.opacity ?? 1, t)
+              const zIndex = Math.round(lerp(fromCard.zIndex, toCard.zIndex, t))
+              const saturation = lerp(fromCard.zIndex === 3 ? 1 : 0.96, toCard.zIndex === 3 ? 1 : 0.96, t)
 
               return (
                 <div
                   key={imageIdx}
                   className="collage-card absolute rounded-[14px] overflow-hidden shadow-sm shadow-black/10"
                   style={{
-                    left: card.left,
-                    top: card.top,
-                    width: card.width,
-                    height: card.height,
-                    zIndex: card.zIndex,
-                    opacity: card.opacity ?? 1,
-                    transform: `scale(${card.scale ?? 1})`,
-                    filter: card.zIndex === 3 ? "saturate(1)" : "saturate(0.96)",
+                    left,
+                    top,
+                    width,
+                    height,
+                    zIndex,
+                    opacity,
+                    transform: `translateZ(0) scale(${scale})`,
+                    filter: `saturate(${saturation})`,
                   }}
                 >
                   <img
-                    src={IMAGES[imageIdx]}
+                    src={src}
                     alt=""
                     className="w-full h-full object-cover pointer-events-none"
                     draggable={false}
