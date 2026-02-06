@@ -203,6 +203,96 @@ const CATEGORIES = [
   },
 ] as const
 
+// Map from DB category display values to our code category IDs
+// Products in the DB may have values like "Digital Art", "Other", "Productivity" etc.
+// This normalizes them to our URL-safe IDs like "design", "other", "productivity"
+const DB_CATEGORY_TO_ID: Record<string, string> = {
+  // Exact ID matches (after SQL migration has been run)
+  "productivity": "productivity",
+  "design": "design",
+  "development": "development",
+  "marketing": "marketing",
+  "business": "business",
+  "ai": "ai",
+  "social-media": "social-media",
+  "photography": "photography",
+  "video": "video",
+  "audio-music": "audio-music",
+  "education": "education",
+  "ecommerce": "ecommerce",
+  "freebies": "freebies",
+  "other": "other",
+  // Common display-name variants from the DB
+  "digital art": "design",
+  "graphic design": "design",
+  "graphics": "design",
+  "ui/ux": "design",
+  "ui ux": "design",
+  "ui/ux design": "design",
+  "web design": "design",
+  "illustration": "design",
+  "branding": "design",
+  "typography": "design",
+  "web development": "development",
+  "software": "development",
+  "software development": "development",
+  "coding": "development",
+  "programming": "development",
+  "web templates": "development",
+  "social media": "social-media",
+  "social": "social-media",
+  "audio & music": "audio-music",
+  "audio": "audio-music",
+  "music": "audio-music",
+  "sound": "audio-music",
+  "e-commerce": "ecommerce",
+  "online store": "ecommerce",
+  "photo": "photography",
+  "photos": "photography",
+  "photo editing": "photography",
+  "lightroom": "photography",
+  "presets": "photography",
+  "lightroom presets": "photography",
+  "video editing": "video",
+  "motion graphics": "video",
+  "animation": "video",
+  "artificial intelligence": "ai",
+  "machine learning": "ai",
+  "prompts": "ai",
+  "ai prompts": "ai",
+  "chatgpt": "ai",
+  "gpt": "ai",
+  "templates": "productivity",
+  "notion": "productivity",
+  "notion templates": "productivity",
+  "planners": "productivity",
+  "planner": "productivity",
+  "spreadsheets": "business",
+  "spreadsheet": "business",
+  "presentations": "business",
+  "presentation": "business",
+  "finance": "business",
+  "courses": "education",
+  "online courses": "education",
+  "ebooks": "education",
+  "ebook": "education",
+  "e-book": "education",
+  "tutorials": "education",
+  "tutorial": "education",
+  "free": "freebies",
+  "freebie": "freebies",
+  "digital marketing": "marketing",
+  "seo": "marketing",
+  "email marketing": "marketing",
+}
+
+// Normalize a DB category value to our code category ID
+function normalizeCategoryToId(dbCategory: string): string {
+  const lower = (dbCategory || "").toLowerCase().trim()
+  if (!lower) return ""
+  return DB_CATEGORY_TO_ID[lower] || lower
+}
+
 // Filter types for Recommended section
 const RECOMMENDATION_FILTERS = [
   { id: "curated", label: "Curated" },
@@ -868,74 +958,19 @@ export function ExplorePageClient({
     if (mainCategory === "freebies") {
       products = products.filter(p => p.price_cents === 0)
     }
-    // Special handling for "other" category
-    else if (mainCategory === "other") {
-      // Show products that don't strongly match main categories
-      const mainCategoryKeywords = [
-        "design", "ui", "ux", "graphic", "template", "figma", "canva",
-        "development", "code", "web", "app", "react", "wordpress",
-        "marketing", "email", "ad", "seo", "funnel",
-        "business", "spreadsheet", "presentation", "invoice",
-        "ai", "chatgpt", "gpt", "prompt", "midjourney",
-        "social", "instagram", "tiktok", "youtube",
-        "productivity", "notion", "planner", "calendar",
-        "photo", "lightroom", "preset",
-        "video", "motion", "premiere",
-        "audio", "music", "sound",
-        "education", "course", "ebook",
-        "ecommerce", "store", "shop"
-      ]
-      products = products.filter(p => {
-        const productTitle = (p.title || "").toLowerCase()
-        const productDesc = (p.description || "").toLowerCase()
-        const allText = `${productTitle} ${productDesc}`
-        const matchCount = mainCategoryKeywords.filter(kw => allText.includes(kw)).length
-        return matchCount < 2 // Products with less than 2 keyword matches
-      })
-    }
-    // Regular category filtering - actually filter to show only matching products
+    // For all other categories (including "other"): strictly filter by normalized DB category
     else if (mainCategory !== "all") {
-      // Comprehensive keyword map for each category
-      const categoryKeywordMap: Record<string, string[]> = {
-        "design": ["design", "ui", "ux", "graphic", "figma", "canva", "photoshop", "illustrator", "mockup", "logo", "brand", "icon", "font", "typography", "creative", "visual", "layout", "sketch", "adobe", "art", "banner", "poster", "flyer", "kit", "illustration"],
-        "development": ["development", "code", "web", "app", "react", "nextjs", "next.js", "javascript", "typescript", "html", "css", "wordpress", "shopify", "plugin", "script", "api", "software", "developer", "coding", "programming", "tech", "website", "saas", "component", "framework"],
-        "marketing": ["marketing", "email", "newsletter", "landing page", "seo", "copywriting", "funnel", "campaign", "conversion", "growth", "leads", "advertising", "strategy"],
-        "business": ["business", "spreadsheet", "excel", "presentation", "powerpoint", "document", "contract", "invoice", "proposal", "finance", "startup", "entrepreneur", "corporate", "pitch", "deck", "report"],
-        "ai": ["ai ", "artificial intelligence", "chatgpt", "gpt", "prompt", "midjourney", "dall-e", "automation", "machine learning", "openai", "claude", "llm", "generative"],
-        "social-media": ["social media", "instagram", "tiktok", "youtube", "twitter", "linkedin", "pinterest", "reels", "shorts", "influencer", "viral", "engagement", "followers", "content creator"],
-        "productivity": ["productivity", "notion", "planner", "calendar", "checklist", "tracker", "dashboard", "airtable", "organization", "workflow", "todo", "task", "schedule", "habit", "journal", "organizer"],
-        "photography": ["photo", "photography", "lightroom", "preset", "overlay", "photoshop", "lut", "stock photo", "camera", "portrait", "landscape", "editing"],
-        "video": ["video", "motion graphic", "after effects", "premiere", "davinci", "transition", "animation", "film", "footage", "vfx", "intro", "outro"],
-        "audio-music": ["audio", "music", "sound", "sfx", "loop", "sample", "podcast", "royalty", "beat", "track", "voice", "recording"],
-        "education": ["education", "course", "ebook", "e-book", "tutorial", "worksheet", "guide", "learn", "training", "lesson", "teaching", "study"],
-        "ecommerce": ["ecommerce", "e-commerce", "shopify", "woocommerce", "store theme", "product mockup", "retail", "commerce"],
-      }
+      products = products.filter(p => {
+        // Primary: match via normalized DB category field
+        const normalizedCategory = normalizeCategoryToId(p.category || p.categoryName || "")
+        if (normalizedCategory === mainCategory) return true
 
-      const keywords = categoryKeywordMap[mainCategory] || [mainCategory]
-
-      const filtered = products.filter(p => {
-        const productCategory = (p.category || p.categoryName || "").toLowerCase()
-        const productTitle = (p.title || "").toLowerCase()
-        const productDesc = (p.description || "").toLowerCase()
-        const creatorTags = p.creator?.niche_tags?.map((t: string) => t.toLowerCase()) || []
-
-        // Direct category field match
-        if (productCategory === mainCategory || productCategory.includes(mainCategory)) return true
-
-        // Creator niche tags match
-        if (creatorTags.some((tag: string) => tag === mainCategory || tag.includes(mainCategory))) return true
-
-        // Keyword match in title or description
-        const allText = `${productTitle} ${productDesc}`
-        if (keywords.some(kw => allText.includes(kw))) return true
+        // Secondary: match via creator niche tags
+        const creatorTags = p.creator?.niche_tags?.map((t: string) => normalizeCategoryToId(t)) || []
+        if (creatorTags.includes(mainCategory)) return true
 
         return false
       })
-
-      // Use filtered results if we got matches, otherwise fall back to all products
-      if (filtered.length > 0) {
-        products = filtered
-      }
     }
 
     // Filter by selected subcategory from modal
@@ -1090,9 +1125,11 @@ export function ExplorePageClient({
 
     if (browseCategory !== "all") {
       products = products.filter(p => {
-        const productCategory = (p.category || p.categoryName || "").toLowerCase()
-        const creatorTags = p.creator?.niche_tags?.map((t: string) => t.toLowerCase()) || []
-        return productCategory === browseCategory || creatorTags.includes(browseCategory)
+        const normalizedCategory = normalizeCategoryToId(p.category || p.categoryName || "")
+        if (normalizedCategory === browseCategory) return true
+        const creatorTags = p.creator?.niche_tags?.map((t: string) => normalizeCategoryToId(t)) || []
+        if (creatorTags.includes(browseCategory)) return true
+        return false
       })
     }
 
