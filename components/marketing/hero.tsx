@@ -98,6 +98,7 @@ const CANVAS_H = 460
 const AUTOPLAY_INTERVAL = 5000
 const CARD_TRANSITION_MS = 1200
 const SWIPE_THRESHOLD = 40
+const SWIPE_COMMIT_DISTANCE = 140
 
 const rotateOrder = (order: number[], direction: 1 | -1) => {
   const next = [...order]
@@ -124,9 +125,16 @@ export function Hero() {
   const orderRef = useRef(cardOrder)
   const animatingRef = useRef(false)
   const rafRef = useRef<number | null>(null)
-  const dragRef = useRef({ active: false, startX: 0 })
+  const dragRef = useRef({ active: false, startX: 0, delta: 0 })
 
-  const startRotation = useCallback((direction: 1 | -1 = 1) => {
+  const clearAutoplay = useCallback(() => {
+    if (autoplayRef.current) {
+      clearInterval(autoplayRef.current)
+      autoplayRef.current = null
+    }
+  }, [])
+
+  const startRotation = useCallback((direction: 1 | -1 = 1, initialProgress = 0) => {
     if (animatingRef.current) return
 
     const from = orderRef.current
@@ -136,8 +144,10 @@ export function Hero() {
     animatingRef.current = true
 
     const tick = (now: number) => {
-      const raw = Math.min(1, (now - start) / CARD_TRANSITION_MS)
-      const progress = ease(raw)
+      const remaining = Math.max(0.001, 1 - initialProgress)
+      const duration = Math.max(180, CARD_TRANSITION_MS * remaining)
+      const raw = Math.min(1, (now - start) / duration)
+      const progress = initialProgress + (1 - initialProgress) * ease(raw)
       setTransition({ from, to, progress })
 
       if (raw < 1) {
@@ -155,6 +165,11 @@ export function Hero() {
     rafRef.current = requestAnimationFrame(tick)
   }, [])
 
+  const restartAutoplay = useCallback(() => {
+    clearAutoplay()
+    autoplayRef.current = setInterval(() => startRotation(1), AUTOPLAY_INTERVAL)
+  }, [clearAutoplay, startRotation])
+
   useEffect(() => {
     const update = () => setIsMobile(window.innerWidth < 640)
     update()
@@ -163,13 +178,13 @@ export function Hero() {
   }, [])
 
   useEffect(() => {
-    autoplayRef.current = setInterval(() => startRotation(1), AUTOPLAY_INTERVAL)
+    restartAutoplay()
 
     return () => {
-      if (autoplayRef.current) clearInterval(autoplayRef.current)
+      clearAutoplay()
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
     }
-  }, [startRotation])
+  }, [clearAutoplay, restartAutoplay])
 
   const triggerSwipe = useCallback((delta: number) => {
     if (Math.abs(delta) < SWIPE_THRESHOLD) return
@@ -216,16 +231,49 @@ export function Hero() {
             className="hero-collage-inner absolute left-1/2 -translate-x-1/2 origin-top select-none"
             style={{ width: CANVAS_W, height: CANVAS_H }}
             onTouchStart={(e) => {
-              dragRef.current = { active: true, startX: e.touches[0].clientX }
+              clearAutoplay()
+              dragRef.current = { active: true, startX: e.touches[0].clientX, delta: 0 }
+            }}
+            onTouchMove={(e) => {
+              if (!dragRef.current.active || animatingRef.current) return
+
+              const delta = e.touches[0].clientX - dragRef.current.startX
+              dragRef.current.delta = delta
+
+              const distance = Math.abs(delta)
+              if (distance < 1) {
+                setTransition(null)
+                return
+              }
+
+              const direction = delta < 0 ? 1 : -1
+              const progress = Math.min(0.95, distance / SWIPE_COMMIT_DISTANCE)
+              const from = orderRef.current
+              const to = rotateOrder(from, direction)
+              setTransition({ from, to, progress })
             }}
             onTouchEnd={(e) => {
               if (!dragRef.current.active) return
-              const delta = e.changedTouches[0].clientX - dragRef.current.startX
+              const delta = dragRef.current.delta || e.changedTouches[0].clientX - dragRef.current.startX
+              const progress = Math.min(0.95, Math.abs(delta) / SWIPE_COMMIT_DISTANCE)
               dragRef.current.active = false
-              triggerSwipe(delta)
+
+              if (Math.abs(delta) >= SWIPE_THRESHOLD) {
+                startRotation(delta < 0 ? 1 : -1, progress)
+              } else {
+                setTransition(null)
+              }
+
+              restartAutoplay()
+            }}
+            onTouchCancel={() => {
+              dragRef.current.active = false
+              dragRef.current.delta = 0
+              setTransition(null)
+              restartAutoplay()
             }}
             onMouseDown={(e) => {
-              dragRef.current = { active: true, startX: e.clientX }
+              dragRef.current = { active: true, startX: e.clientX, delta: 0 }
             }}
             onMouseUp={(e) => {
               if (!dragRef.current.active) return
@@ -279,8 +327,8 @@ export function Hero() {
             })}
           </div>
 
-          <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none -translate-y-[3%] sm:translate-y-0">
-            <div className="relative bg-white rounded-[24px] sm:rounded-[28px] shadow-lg shadow-neutral-200/50 border border-neutral-100/80 px-5 pt-10 pb-7 sm:px-10 sm:pt-12 sm:pb-10 md:px-14 md:pt-14 md:pb-12 w-[82%] max-w-[480px] text-center pointer-events-auto">
+          <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none -translate-y-[2%] sm:translate-y-0">
+            <div className="relative bg-white rounded-[24px] sm:rounded-[28px] shadow-lg shadow-neutral-200/50 border border-neutral-100/80 px-5 pt-10 pb-7 sm:px-10 sm:pt-12 sm:pb-10 md:px-14 md:pt-14 md:pb-12 w-[82%] max-w-[480px] text-center pointer-events-auto scale-y-[0.99] sm:scale-y-100 origin-top">
               <div className="absolute left-1/2 -translate-x-1/2 -top-3.5 sm:-top-4">
                 <div className="flex items-center gap-2 bg-gray-100/95 backdrop-blur-sm text-gray-700 text-[10px] sm:text-[11px] font-medium px-3 sm:px-3.5 py-1.5 rounded-full whitespace-nowrap shadow-sm border border-gray-200/50">
                   <span className="w-4 h-4 sm:w-[18px] sm:h-[18px] rounded-full bg-black inline-flex items-center justify-center overflow-hidden">
