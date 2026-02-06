@@ -344,13 +344,13 @@ export function Hero() {
             }}
             onMouseMove={(e) => {
               if (!dragRef.current.active || animatingRef.current) return
-              dragRef.current.rawDelta = e.clientX - dragRef.current.startX
+              updateDragTransition(e.clientX - dragRef.current.startX)
             }}
             onMouseUp={(e) => {
               if (!dragRef.current.active) return
 
               const rawDelta = dragRef.current.rawDelta || e.clientX - dragRef.current.startX
-              const progress = 0
+              const progress = transition?.progress ?? Math.min(0.95, Math.abs(rawDelta * DRAG_SLOWDOWN) / SWIPE_COMMIT_DISTANCE)
               dragRef.current.active = false
               dragRef.current.delta = 0
               dragRef.current.rawDelta = 0
@@ -365,10 +365,19 @@ export function Hero() {
             }}
             onMouseLeave={() => {
               if (!dragRef.current.active) return
+
+              const rawDelta = dragRef.current.rawDelta
+              const progress = transition?.progress ?? Math.min(0.95, Math.abs(rawDelta * DRAG_SLOWDOWN) / SWIPE_COMMIT_DISTANCE)
               dragRef.current.active = false
               dragRef.current.delta = 0
               dragRef.current.rawDelta = 0
-              setTransition(null)
+
+              if (Math.abs(rawDelta) >= SWIPE_THRESHOLD) {
+                startRotation(rawDelta < 0 ? 1 : -1, progress)
+              } else {
+                setTransition(null)
+              }
+
               restartAutoplay()
             }}
           >
@@ -441,7 +450,7 @@ export function Hero() {
                           className="w-full h-full object-contain p-[1px]"
                         />
                       </span>
-                      Beta relase
+                      All-in-one
                     </div>
                   </div>
                   <h1 className="text-[22px] sm:text-3xl md:text-[38px] md:leading-[1.2] font-bold text-neutral-900 leading-tight min-h-[2.5em] sm:min-h-[2.4em] flex items-center justify-center">
@@ -473,8 +482,8 @@ export function Hero() {
         </Link>
       </div>
 
-      <p className="text-[16px] sm:text-[18px] text-neutral-600 text-center mb-[74px] sm:mb-[92px] max-w-lg leading-relaxed px-4">
-        Storelib lets you turn big ideas into real products. Create, sell, and grow with your audience.
+      <p className="text-[16px] sm:text-[19.5px] text-neutral-600 text-center mb-[74px] sm:mb-[92px] max-w-lg leading-relaxed px-4">
+        The #1 E-commerce platform for creators & entrepreneurs. Create, sell, and grow with your audience.
       </p>
 
       <div className="relative w-full">
@@ -497,7 +506,7 @@ export function Hero() {
                     src={src}
                     alt="Partner logo"
                     className={`w-auto mx-6 sm:mx-8 md:mx-10 opacity-95 grayscale select-none ${
-                      isStripe ? "h-[22px] sm:h-[26px] md:h-[31px]" : "h-[17px] sm:h-5 md:h-6"
+                      isStripe ? "h-[29px] sm:h-[34px] md:h-[40px]" : "h-[17px] sm:h-5 md:h-6"
                     }`}
                     draggable={false}
                   />
