@@ -53,9 +53,15 @@ function useTypingEffect(
   return displayText
 }
 
-// ── Partner logos ─────────────────────────────────────────────────
+// ── Partner logos (SVG images) ────────────────────────────────────
 
-const LOGOS = ["kTimes", "Pentagram", "Slack", "Stripe", "Zoom", "Airbnb", "Atlassian", "Dropbox", "Duolingo"]
+const PARTNER_LOGOS = [
+  "https://cdn.sanity.io/images/599r6htc/regionalized/a9bfb23cca986ee16b0547274bcd7461ffd373aa-67x18.svg?q=75&fit=max&auto=format",
+  "https://cdn.sanity.io/images/599r6htc/regionalized/bbfcc0e04437442a9637cc58efde849dfadb313c-76x48.svg?q=75&fit=max&auto=format",
+  "https://cdn.sanity.io/images/599r6htc/regionalized/927f806a262abfc02a79d68fc83dd6f960a06ada-141x28.svg?q=75&fit=max&auto=format",
+  "https://cdn.sanity.io/images/599r6htc/regionalized/01d4ea19e824b3596f8f6c701d3b8319e49631b0-146x18.svg?q=75&fit=max&auto=format",
+  "https://cdn.sanity.io/images/599r6htc/regionalized/5e789db505180ee41e0612d7d53e2ec48c9c5837-153x20.svg?q=75&fit=max&auto=format",
+]
 
 // ── Collage images (Supabase) ────────────────────────────────────
 
@@ -94,6 +100,13 @@ export function Hero() {
         }
         @media (min-width: 1280px) {
           .hero-collage-inner { transform: scale(1); }
+        }
+        @keyframes logo-scroll {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        .logo-marquee {
+          animation: logo-scroll 25s linear infinite;
         }
       `}} />
 
@@ -224,16 +237,18 @@ export function Hero() {
         Create, sell, and grow with your audience.
       </p>
 
-      {/* ─── Logo row ─── */}
-      <div className="w-full max-w-4xl px-4">
-        <div className="flex items-center justify-center gap-4 sm:gap-6 md:gap-8 flex-wrap">
-          {LOGOS.map((name) => (
-            <span
-              key={name}
-              className="text-[11px] sm:text-xs font-bold text-neutral-800 tracking-wide select-none"
-            >
-              {name}
-            </span>
+      {/* ─── Scrolling logo marquee ─── */}
+      <div className="w-full overflow-hidden">
+        <div className="logo-marquee flex items-center w-max">
+          {/* Render logos twice for seamless loop */}
+          {[...PARTNER_LOGOS, ...PARTNER_LOGOS].map((src, i) => (
+            <img
+              key={i}
+              src={src}
+              alt="Partner logo"
+              className="h-5 sm:h-6 md:h-7 w-auto mx-6 sm:mx-8 md:mx-10 opacity-70 grayscale select-none"
+              draggable={false}
+            />
           ))}
         </div>
       </div>
