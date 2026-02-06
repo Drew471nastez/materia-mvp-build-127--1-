@@ -99,8 +99,8 @@ const AUTOPLAY_INTERVAL = 5000
 const CARD_TRANSITION_MS = 1200
 const SWIPE_THRESHOLD = 40
 const SWIPE_COMMIT_DISTANCE = 140
-const DRAG_SMOOTHING = 0.22
-const DRAG_SLOWDOWN = 0.64
+const DRAG_SMOOTHING = 0.26
+const DRAG_SLOWDOWN = 0.77
 
 const rotateOrder = (order: number[], direction: 1 | -1) => {
   const next = [...order]
