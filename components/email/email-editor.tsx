@@ -1064,7 +1064,7 @@ Tips:
           </div>
 
           {/* Preview Panel */}
-          <div className="md:sticky md:top-6 md:h-fit md:self-start">
+          <div className="md:sticky md:top-4 md:h-fit md:self-start">
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
               <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
                 <Label className="text-sm font-medium text-gray-700">Live Preview</Label>
@@ -1157,7 +1157,7 @@ Tips:
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowScheduleDialog(false)} className="rounded-xl">Cancel</Button>
-            <Button onClick={handleSchedule} disabled={!scheduledAt || isSaving} className="bg-violet-600 hover:bg-violet-700 rounded-[7px]">
+            <Button onClick={handleSchedule} disabled={!scheduledAt || isSaving} className="bg-violet-600 hover:bg-violet-700 rounded-[8px]">
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}Schedule
             </Button>
           </DialogFooter>
@@ -1189,7 +1189,7 @@ Tips:
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setShowTestDialog(false)} className="rounded-xl">Cancel</Button>
-                <Button onClick={handleSendTest} disabled={!testEmail || isSendingTest} className="bg-violet-600 hover:bg-violet-700 rounded-[7px]">
+                <Button onClick={handleSendTest} disabled={!testEmail || isSendingTest} className="bg-violet-600 hover:bg-violet-700 rounded-[8px]">
                   {isSendingTest ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}Send Test
                 </Button>
               </DialogFooter>
