@@ -135,7 +135,65 @@ const EXTENDED_CATEGORIES = [
   "Study Notes",
   "Travel",
   "Video Editing",
-  "Yoga"
+  "Yoga",
+  // 50 additional popular categories
+  "AI Tools",
+  "AI Prompts",
+  "Amazon KDP",
+  "Android Apps",
+  "Arduino",
+  "Astrology",
+  "Bookkeeping",
+  "Brand Strategy",
+  "Canva Templates",
+  "Career Coaching",
+  "Children's Education",
+  "Cinema LUTs",
+  "Coding Courses",
+  "Comic Art",
+  "Conversion Optimization",
+  "Cooking Classes",
+  "Customer Support",
+  "Cybersecurity",
+  "Data Science",
+  "Discord Communities",
+  "Dropshipping",
+  "Etsy Printables",
+  "Excel Dashboards",
+  "Game Assets",
+  "Gumroad Templates",
+  "HR & Recruiting",
+  "iOS Apps",
+  "Illustrator Brushes",
+  "Interview Prep",
+  "Kids Activities",
+  "Kotlin Development",
+  "Lead Magnets",
+  "LinkedIn Growth",
+  "Machine Learning",
+  "Meal Plans",
+  "Micro SaaS",
+  "No-Code Tools",
+  "Online Tutoring",
+  "Packaging Design",
+  "Paid Ads",
+  "Pitch Decks",
+  "Podcast Editing",
+  "Prayer & Faith",
+  "Procreate Brushes",
+  "Product Research",
+  "Public Speaking",
+  "React Templates",
+  "Sales Funnels",
+  "Script Writing",
+  "Shopify Apps",
+  "Startup Legal",
+  "Teaching Resources",
+  "UI Animation",
+  "Virtual Assistance",
+  "Wedding Templates",
+  "WordPress Themes",
+  "YouTube Growth"
 ]
 
 // Confetti animation component
@@ -262,6 +320,8 @@ interface CreatorOnboardingModalProps {
 export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModalProps) {
   const router = useRouter()
   const supabase = createClient()
+  const redirectFailureTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  void onClose
 
   // Step management
   const [currentStep, setCurrentStep] = useState(1)
@@ -305,6 +365,45 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
   const [setupPhase, setSetupPhase] = useState<"creating" | "applying" | "almost" | null>(null)
   const [setupComplete, setSetupComplete] = useState(false)
   const [showConfetti, setShowConfetti] = useState(false)
+  const [isRedirecting, setIsRedirecting] = useState(false)
+  const [redirectFailed, setRedirectFailed] = useState(false)
+
+  const startDashboardRedirect = () => {
+    setIsRedirecting(true)
+    setRedirectFailed(false)
+
+    if (redirectFailureTimerRef.current) {
+      clearTimeout(redirectFailureTimerRef.current)
+    }
+
+    redirectFailureTimerRef.current = setTimeout(() => {
+      setRedirectFailed(true)
+    }, 12000)
+
+    router.replace("/app")
+  }
+
+  useEffect(() => {
+    return () => {
+      if (redirectFailureTimerRef.current) {
+        clearTimeout(redirectFailureTimerRef.current)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!isRedirecting) return
+
+    const previousOverflow = document.body.style.overflow
+    const previousTouchAction = document.body.style.touchAction
+    document.body.style.overflow = "hidden"
+    document.body.style.touchAction = "none"
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+      document.body.style.touchAction = previousTouchAction
+    }
+  }, [isRedirecting])
 
   // Load existing avatar from Google login
   useEffect(() => {
@@ -779,14 +878,8 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
     setIsSettingUp(false)
     setSetupPhase(null)
     setSetupComplete(true)
-    setShowConfetti(true)
-
-    // Auto close after animation and navigate to /app
-    setTimeout(() => {
-      onClose()
-      // Full page reload to ensure server sees the new creator record
-      window.location.replace("/app")
-    }, 3500)
+    setShowConfetti(false)
+    startDashboardRedirect()
   }
 
   // Progress bar width
@@ -806,8 +899,8 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
             "p-0 gap-0 overflow-hidden border-0",
             // Desktop: centered modal with exact specs
             "sm:w-[930px] sm:max-w-[930px] sm:h-[540px] sm:rounded-[44px]",
-            // Mobile: auto height modal that fits content
-            "w-[calc(100%-24px)] max-w-none max-sm:rounded-[24px]",
+            // Mobile: true fullscreen experience
+            "w-[calc(100%-24px)] max-w-none max-sm:fixed max-sm:inset-0 max-sm:top-0 max-sm:left-0 max-sm:w-screen max-sm:h-[100dvh] max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none",
             // Shadow
             "shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)]",
             // Hide the close button
@@ -817,7 +910,7 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
           onEscapeKeyDown={(e) => e.preventDefault()}
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
-          <div className="flex flex-col h-full sm:max-h-[540px] max-sm:max-h-[calc(100dvh-24px)] bg-white">
+          <div className="flex flex-col h-full sm:max-h-[540px] max-sm:max-h-[100dvh] max-sm:pt-[env(safe-area-inset-top)] max-sm:pb-[env(safe-area-inset-bottom)] bg-white">
             {/* Progress bar */}
             <div className="flex justify-center pt-4 sm:pt-8 shrink-0">
               <div className="w-[160px] sm:w-[200px] h-[6px] sm:h-[8px] bg-gray-200 rounded-full overflow-hidden">
@@ -1422,6 +1515,35 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
           </div>
         </DialogContent>
       </Dialog>
+
+      {isRedirecting && (
+        <div
+          className="fixed inset-0 z-[2147483647] bg-white flex items-center justify-center px-6"
+          role="status"
+          aria-live="polite"
+        >
+          <div className="w-full max-w-sm text-center">
+            <div
+              className="mx-auto mb-5 h-12 w-12 rounded-full border-4 border-purple-200 border-t-purple-600 animate-spin"
+              aria-hidden="true"
+            />
+            <h2 className="text-xl font-semibold text-gray-900">Setting things up...</h2>
+            <p className="mt-2 text-sm text-gray-500">Redirecting to your dashboard.</p>
+
+            {redirectFailed && (
+              <div className="mt-6 rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                <p className="text-sm text-gray-700">This is taking longer than expected. You can continue manually.</p>
+                <button
+                  onClick={startDashboardRedirect}
+                  className="mt-3 inline-flex h-11 items-center justify-center rounded-xl bg-purple-600 px-4 text-sm font-medium text-white hover:bg-purple-700"
+                >
+                  Go to Dashboard
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Confetti */}
       <Confetti show={showConfetti} />

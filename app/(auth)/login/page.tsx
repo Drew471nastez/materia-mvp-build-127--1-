@@ -18,6 +18,8 @@ function LoginFormContent() {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
   const [showPasswordField, setShowPasswordField] = useState(false)
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
+  const [isBannerLoaded, setIsBannerLoaded] = useState(false)
+  const [googleOnlyEmail, setGoogleOnlyEmail] = useState<string | null>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -50,6 +52,18 @@ function LoginFormContent() {
   const pendingReview = searchParams.get("pendingReview")
   const autoBuyer = searchParams.get("autoBuyer") // Auto-select buyer account type (from receipt page)
 
+  const lookupAccountOrigin = async (rawEmail: string) => {
+    const emailToCheck = rawEmail.trim().toLowerCase()
+    const res = await fetch("/api/auth/account-origin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: emailToCheck }),
+    })
+
+    if (!res.ok) return null
+    return res.json()
+  }
+
   const handleContinue = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -58,6 +72,18 @@ function LoginFormContent() {
         setError("Please enter your email")
         return
       }
+
+      try {
+        const origin = await lookupAccountOrigin(email)
+        if (origin?.googleOnly) {
+          setGoogleOnlyEmail(email.trim().toLowerCase())
+          setShowPasswordField(false)
+          setError("This account was created with Google. Continue with Google to sign in.")
+          return
+        }
+      } catch {}
+
+      setGoogleOnlyEmail(null)
       setShowPasswordField(true)
       setError(null)
       return
@@ -71,6 +97,13 @@ function LoginFormContent() {
     const trimmedPassword = password
 
     try {
+      const origin = await lookupAccountOrigin(trimmedEmail)
+      if (origin?.googleOnly) {
+        setGoogleOnlyEmail(trimmedEmail)
+        setError("No password exists for this account. Continue with Google.")
+        setIsLoading(false)
+        return
+      }
       const { error, data } = await supabase.auth.signInWithPassword({
         email: trimmedEmail,
         password: trimmedPassword,
@@ -168,6 +201,7 @@ function LoginFormContent() {
     const supabase = createClient()
     setIsGoogleLoading(true)
     setError(null)
+    setGoogleOnlyEmail(null)
 
     try {
       // Store redirect URL in both localStorage and cookie for OAuth callback
@@ -236,9 +270,9 @@ function LoginFormContent() {
             <img
               src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
               alt="Storelib"
-              className="h-10 w-10 md:h-8 md:w-8"
+              className="h-12 w-12 md:h-10 md:w-10"
             />
-            <span className="text-2xl md:text-xl font-bold tracking-tight text-neutral-900">Storelib</span>
+            <span className="text-3xl md:text-2xl font-bold tracking-tight text-neutral-900">Storelib</span>
           </Link>
 
           <h1 className="mb-2 text-[32px] font-bold tracking-tight text-neutral-900">Welcome back</h1>
@@ -275,9 +309,15 @@ function LoginFormContent() {
 
             {error && <p className="text-sm text-red-500">{error}</p>}
 
+            {googleOnlyEmail && (
+              <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2">
+                <p className="text-xs text-blue-800">Use Google sign-in for <span className="font-medium">{googleOnlyEmail}</span>.</p>
+              </div>
+            )}
+
             <Button
               type="submit"
-              className="h-12 w-full rounded-full bg-neutral-900 text-[15px] font-semibold text-white hover:bg-neutral-800 disabled:opacity-50"
+              className="h-12 w-full rounded-full bg-neutral-900 text-[15px] font-semibold text-white hover:bg-neutral-800 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isLoading}
             >
               {isLoading ? "Logging in..." : "Continue"}
@@ -296,7 +336,7 @@ function LoginFormContent() {
               variant="outline"
               onClick={handleGoogleSignIn}
               disabled={isGoogleLoading}
-              className="h-12 w-full rounded-lg border-neutral-200 bg-white text-[15px] font-medium text-neutral-700 hover:bg-neutral-50"
+              className="h-12 w-full rounded-lg border-neutral-200 bg-white text-[15px] font-medium text-neutral-700 hover:bg-neutral-50 cursor-pointer disabled:cursor-not-allowed"
             >
               <svg className="mr-3 h-5 w-5" viewBox="0 0 24 24">
                 <path
@@ -336,11 +376,13 @@ function LoginFormContent() {
       </div>
 
       <div className="relative hidden lg:block lg:w-1/2">
+        {!isBannerLoaded && <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-neutral-100 via-neutral-200 to-neutral-100" />}
         <Image
           src="/images/design-mode/banner-login-desktop-D8selsDi.webp"
           alt="Login banner"
           fill
-          className="object-cover"
+          className="object-cover transition-opacity duration-500"
+          onLoad={() => setIsBannerLoaded(true)}
           priority
         />
       </div>

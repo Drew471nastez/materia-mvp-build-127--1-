@@ -497,7 +497,7 @@ function EditorLayout() {
 
   return (
     <div
-      className="flex flex-col bg-gray-50/50 fixed inset-0 md:left-64 top-[68px] md:top-0"
+      className="flex flex-col bg-gray-50/50 fixed left-0 right-0 bottom-0 top-[68px] md:inset-y-0 md:left-64 md:top-0"
       style={{ zIndex: 10 }}
     >
       {/* Header - ALWAYS visible with solid background */}
@@ -799,7 +799,7 @@ function EditorLayout() {
                 variant="outline"
                 size="sm"
                 onClick={copyLink}
-                className="shrink-0 h-9 px-3 rounded-lg text-xs sm:text-sm"
+                className="shrink-0 h-9 px-3 rounded-lg text-xs sm:text-sm cursor-pointer"
               >
                 {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                 <span className="ml-1.5">{copied ? "Copied!" : "Copy"}</span>
@@ -809,7 +809,7 @@ function EditorLayout() {
             {/* Open in new tab */}
             <Button
               variant="outline"
-              className="w-full justify-start h-11 rounded-xl text-sm"
+              className="w-full justify-start h-11 rounded-xl text-sm cursor-pointer"
               onClick={viewLive}
             >
               <ExternalLink className="h-4 w-4 mr-3" />

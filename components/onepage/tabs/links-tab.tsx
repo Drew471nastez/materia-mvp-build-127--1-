@@ -1557,7 +1557,7 @@ export function LinksTab() {
   return (
     <div className="space-y-6">
       {/* Profile Header with Real SVG Icons */}
-      <div className="flex items-center gap-4 pb-5 border-b">
+      <div className="flex items-center gap-4 pt-[14px] sm:pt-0 pb-5 border-b">
         <div className="relative group cursor-pointer" onClick={() => setShowAvatarEditModal(true)}>
           <Avatar className="h-14 w-14 border overflow-hidden">
             {onepage.avatar_video_url ? (
@@ -1587,7 +1587,7 @@ export function LinksTab() {
               setEditBio(onepage.bio || "")
               setShowNameBioModal(true)
             }}
-            className="text-left group flex items-center gap-1.5 hover:opacity-70 transition-opacity"
+            className="text-left group flex items-center gap-1.5 hover:opacity-70 transition-opacity cursor-pointer"
           >
             <h2 className="font-semibold">{title || "Your Name"}</h2>
             <Pencil className="h-3 w-3 text-gray-400 opacity-50 group-hover:opacity-100 transition-opacity" />
@@ -1599,7 +1599,7 @@ export function LinksTab() {
                 setEditBio(onepage.bio || "")
                 setShowNameBioModal(true)
               }}
-              className="text-left mt-0.5 hover:opacity-70 transition-opacity"
+              className="text-left mt-0.5 hover:opacity-70 transition-opacity cursor-pointer"
             >
               <p className="text-sm text-muted-foreground line-clamp-2">{onepage.bio}</p>
             </button>
@@ -1610,7 +1610,7 @@ export function LinksTab() {
                 setEditBio("")
                 setShowNameBioModal(true)
               }}
-              className="text-left mt-0.5 hover:opacity-70 transition-opacity"
+              className="text-left mt-0.5 hover:opacity-70 transition-opacity cursor-pointer"
             >
               <p className="text-sm text-gray-400 italic">Add your bio...</p>
             </button>
@@ -1639,7 +1639,7 @@ export function LinksTab() {
                       e.stopPropagation()
                       updateSocialLinks({ [platform]: null } as Partial<OnePageSocialLinks>)
                     }}
-                    className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-gray-800 text-white flex items-center justify-center opacity-0 group-hover/social:opacity-100 transition-opacity hover:bg-gray-900"
+                    className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-gray-800 text-white flex items-center justify-center opacity-0 group-hover/social:opacity-100 transition-opacity hover:bg-gray-900 cursor-pointer"
                   >
                     <X className="h-2.5 w-2.5" />
                   </button>
@@ -1648,7 +1648,7 @@ export function LinksTab() {
             })}
             <button
               onClick={() => setShowSocialModal(true)}
-              className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 hover:bg-gray-200 transition-colors"
+              className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 hover:bg-gray-200 transition-colors cursor-pointer"
             >
               <Plus className="h-3.5 w-3.5" />
             </button>
@@ -1680,7 +1680,7 @@ export function LinksTab() {
         <Button
           variant="outline"
           size="sm"
-          className="text-xs h-8"
+          className="text-xs h-8 cursor-pointer"
           onClick={() => {
             const newGroup = addBlock("group", undefined)
             if (newGroup) {
@@ -1695,7 +1695,7 @@ export function LinksTab() {
           variant={showArchiveView ? "default" : "outline"}
           size="sm"
           className={cn(
-            "text-xs h-8",
+            "text-xs h-8 cursor-pointer",
             showArchiveView && "bg-purple-600 hover:bg-purple-700 text-white"
           )}
           onClick={() => setShowArchiveView(!showArchiveView)}
@@ -1902,7 +1902,7 @@ export function LinksTab() {
                     <button
                       key={item.label}
                       onClick={() => handleAddBlock(item.type)}
-                      className="flex flex-col items-center justify-center gap-1 sm:gap-2 p-2.5 sm:p-4 border border-gray-200 rounded-xl hover:border-gray-300 hover:bg-gray-50 transition-colors aspect-square sm:aspect-auto"
+                      className="flex flex-col items-center justify-center gap-1 sm:gap-2 p-2.5 sm:p-4 border border-gray-200 rounded-xl hover:border-gray-300 hover:bg-gray-50 transition-colors aspect-square sm:aspect-auto cursor-pointer"
                     >
                       <Icon className="h-5 w-5 sm:h-6 sm:w-6 text-gray-700" />
                       <span className="text-[11px] sm:text-sm font-medium text-gray-900">{item.label}</span>
@@ -1924,7 +1924,7 @@ export function LinksTab() {
                     <button
                       key={item.label}
                       onClick={() => handleAddBlock(item.type)}
-                      className="flex flex-col items-center justify-center gap-1 sm:gap-2 p-2.5 sm:p-4 border border-gray-200 rounded-xl hover:border-gray-300 hover:bg-gray-50 transition-colors"
+                      className="flex flex-col items-center justify-center gap-1 sm:gap-2 p-2.5 sm:p-4 border border-gray-200 rounded-xl hover:border-gray-300 hover:bg-gray-50 transition-colors cursor-pointer"
                     >
                       <Icon className="h-5 w-5 sm:h-6 sm:w-6 text-gray-700" />
                       <span className="text-[11px] sm:text-sm font-medium text-gray-900">{item.label}</span>
@@ -1980,7 +1980,7 @@ export function LinksTab() {
                                   "w-full flex items-center gap-2.5 sm:gap-3 p-2.5 sm:p-3 rounded-xl transition-colors text-left group",
                                   (atLimit || isComingSoon)
                                     ? "opacity-50 cursor-not-allowed bg-gray-50"
-                                    : "hover:bg-gray-50 active:bg-gray-100"
+                                  : "hover:bg-gray-50 active:bg-gray-100 cursor-pointer"
                                 )}
                               >
                                 <div
@@ -2043,7 +2043,7 @@ export function LinksTab() {
                           "w-full flex items-center gap-2.5 sm:gap-3 p-2.5 sm:p-3 rounded-xl transition-colors text-left group",
                           (atLimit || isComingSoon)
                             ? "opacity-50 cursor-not-allowed bg-gray-50"
-                            : "hover:bg-gray-50 active:bg-gray-100"
+                            : "hover:bg-gray-50 active:bg-gray-100 cursor-pointer"
                         )}
                       >
                         <div

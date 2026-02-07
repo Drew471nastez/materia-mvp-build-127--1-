@@ -1497,7 +1497,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
             // Desktop: centered modal with exact specs - 948px width, 550px height
             "sm:w-[930px] sm:max-w-[930px] sm:h-[540px] sm:rounded-[44px]",
             // Mobile: auto height modal that fits content, max height to viewport
-            "w-[calc(100%-24px)] max-w-none max-sm:rounded-[24px]",
+            "w-[calc(100%-24px)] max-w-none max-sm:fixed max-sm:inset-0 max-sm:top-0 max-sm:left-0 max-sm:w-screen max-sm:h-[100dvh] max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none",
             // Shadow
             "shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)]",
             // Hide the close button
@@ -1511,7 +1511,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
           onEscapeKeyDown={(e) => e.preventDefault()}
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
-          <div className="flex flex-col h-full sm:max-h-[540px] max-sm:max-h-[calc(100dvh-24px)] bg-white">
+          <div className="flex flex-col h-full sm:max-h-[540px] max-sm:max-h-[100dvh] max-sm:pt-[env(safe-area-inset-top)] max-sm:pb-[env(safe-area-inset-bottom)] bg-white">
             {/* Progress bar - centered, 8px height, more border radius */}
             <div className="flex justify-center pt-4 sm:pt-8 shrink-0">
               <div className="w-[160px] sm:w-[200px] h-[6px] sm:h-[8px] bg-gray-200 rounded-full overflow-hidden">

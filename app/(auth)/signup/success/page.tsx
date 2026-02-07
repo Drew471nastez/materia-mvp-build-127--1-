@@ -218,7 +218,7 @@ export default function SignupSuccessPage() {
                   <button
                     disabled={isLoading}
                     className={cn(
-                      "px-5 py-2.5 rounded-full font-medium text-sm transition-all duration-300 ease-out active:scale-[0.98] shrink-0",
+                      "px-5 py-2.5 rounded-full font-medium text-sm transition-all duration-300 ease-out active:scale-[0.98] shrink-0 cursor-pointer disabled:cursor-not-allowed",
                       hoveredCard === "creator"
                         ? "bg-purple-600 text-white hover:bg-purple-700"
                         : "bg-gray-100 text-gray-700 hover:bg-gray-200",
@@ -260,7 +260,7 @@ export default function SignupSuccessPage() {
                   <button
                     disabled={isLoading}
                     className={cn(
-                      "px-5 py-2.5 rounded-full font-medium text-sm transition-all duration-300 ease-out active:scale-[0.98] shrink-0",
+                      "px-5 py-2.5 rounded-full font-medium text-sm transition-all duration-300 ease-out active:scale-[0.98] shrink-0 cursor-pointer disabled:cursor-not-allowed",
                       hoveredCard === "buyer"
                         ? "bg-purple-600 text-white hover:bg-purple-700"
                         : "bg-gray-100 text-gray-700 hover:bg-gray-200",

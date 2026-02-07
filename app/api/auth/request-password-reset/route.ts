@@ -5,6 +5,56 @@ import { nanoid } from "nanoid"
 
 export const runtime = "nodejs"
 
+async function findAuthUserByEmail(adminSupabase: ReturnType<typeof createAdminClient>, email: string) {
+  const cleanEmail = email.trim().toLowerCase()
+
+  // Fast path: lookup by profiles table first (works for email/password + OAuth users with profiles)
+  const { data: profile } = await adminSupabase
+    .from("profiles")
+    .select("id")
+    .eq("email", cleanEmail)
+    .maybeSingle()
+
+  if (profile?.id) {
+    const { data: authUserData, error: authUserError } = await adminSupabase.auth.admin.getUserById(profile.id)
+    if (!authUserError && authUserData?.user?.email?.toLowerCase() === cleanEmail) {
+      return authUserData.user
+    }
+  }
+
+  // Fallback: paginate through auth users (listUsers is paginated; first page alone misses many users)
+  const perPage = 200
+  for (let page = 1; page <= 50; page++) {
+    const { data, error } = await adminSupabase.auth.admin.listUsers({ page, perPage })
+    if (error) break
+
+    const users = data?.users || []
+    const matchedUser = users.find((u) => u.email?.toLowerCase() === cleanEmail)
+    if (matchedUser) return matchedUser
+
+    if (users.length < perPage) break
+  }
+
+  return null
+}
+
+function getProviders(user: any): Set<string> {
+  const providers = new Set<string>()
+
+  const appProviders = user?.app_metadata?.providers
+  if (Array.isArray(appProviders)) {
+    for (const p of appProviders) providers.add(String(p).toLowerCase())
+  }
+
+  if (Array.isArray(user?.identities)) {
+    for (const identity of user.identities) {
+      if (identity?.provider) providers.add(String(identity.provider).toLowerCase())
+    }
+  }
+
+  return providers
+}
+
 // POST - Send password reset email (public - no auth required)
 export async function POST(request: Request) {
   try {
@@ -18,9 +68,8 @@ export async function POST(request: Request) {
     const cleanEmail = email.trim().toLowerCase()
     const adminSupabase = createAdminClient()
 
-    // Find user by email
-    const { data: userData } = await adminSupabase.auth.admin.listUsers()
-    const user = userData?.users?.find((u) => u.email?.toLowerCase() === cleanEmail)
+    // Find user by email (supports paginated auth users and OAuth-created accounts)
+    const user = await findAuthUserByEmail(adminSupabase, cleanEmail)
 
     if (!user) {
       // For security, don't reveal if email exists or not
@@ -29,6 +78,17 @@ export async function POST(request: Request) {
         success: true,
         message: "If an account with that email exists, we sent a reset link.",
       })
+    }
+
+    const providers = getProviders(user)
+    const isGoogleOnly = providers.has("google") && !providers.has("email")
+
+    if (isGoogleOnly) {
+      return NextResponse.json({
+        success: false,
+        accountType: "google_only",
+        message: "This account was created with Google. Please continue with Google.",
+      }, { status: 409 })
     }
 
     // Rate limit: Check recent password reset attempts (max 3 per hour)

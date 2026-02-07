@@ -167,6 +167,131 @@ const tabs = [
   { id: "drafts" as const, label: "Drafts", icon: FileText },
 ]
 
+const statsTimeframeOptions = [
+  { value: "7d" as const, label: "Last 7 days" },
+  { value: "30d" as const, label: "Last 30 days" },
+  { value: "90d" as const, label: "Last 90 days" },
+  { value: "all" as const, label: "All time" },
+]
+
+function TimeframeBottomSheet({
+  isOpen,
+  onClose,
+  selectedValue,
+  onSelect,
+}: {
+  isOpen: boolean
+  onClose: () => void
+  selectedValue: "7d" | "30d" | "90d" | "all"
+  onSelect: (value: "7d" | "30d" | "90d" | "all") => void
+}) {
+  const [isVisible, setIsVisible] = useState(false)
+  const [isAnimating, setIsAnimating] = useState(false)
+  const [dragY, setDragY] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+  const startY = useRef(0)
+
+  useEffect(() => {
+    if (isOpen && !isVisible) {
+      setIsVisible(true)
+      document.body.style.overflow = "hidden"
+      requestAnimationFrame(() => requestAnimationFrame(() => setIsAnimating(true)))
+    } else if (!isOpen && isVisible) {
+      setIsAnimating(false)
+      document.body.style.overflow = ""
+      const timer = setTimeout(() => {
+        setIsVisible(false)
+        setDragY(0)
+      }, 400)
+      return () => clearTimeout(timer)
+    }
+
+    return () => {
+      document.body.style.overflow = ""
+    }
+  }, [isOpen, isVisible])
+
+  const handleClose = () => {
+    setIsAnimating(false)
+    setDragY(0)
+    setTimeout(onClose, 400)
+  }
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0]
+    startY.current = touch.clientY
+    setIsDragging(true)
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging) return
+    const diff = e.touches[0].clientY - startY.current
+    if (diff > 0) setDragY(diff * 0.9)
+  }
+
+  const handleTouchEnd = () => {
+    if (!isDragging) return
+    setIsDragging(false)
+    if (dragY > 90) {
+      handleClose()
+    } else {
+      setDragY(0)
+    }
+  }
+
+  if (!isVisible) return null
+
+  return (
+    <div className="fixed inset-0 z-[100] md:hidden">
+      <div
+        className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity duration-400 ease-out ${
+          isAnimating ? "opacity-100" : "opacity-0"
+        }`}
+        style={{ transitionDuration: "400ms" }}
+        onClick={handleClose}
+      />
+      <div
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
+        style={{
+          transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)",
+          transition: isDragging ? "none" : "transform 360ms cubic-bezier(0.22, 0.9, 0.24, 1)",
+        }}
+      >
+        <div className="pt-3 pb-2">
+          <button onClick={handleClose} className="w-full flex justify-center py-2 cursor-pointer touch-none">
+            <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
+          </button>
+        </div>
+        <div className="px-4 pb-4">
+          <h3 className="text-[16px] font-semibold text-[#1a1a2e] mb-4">Select time period</h3>
+          <div className="space-y-1 max-h-[50vh] overflow-y-auto overscroll-contain">
+            {statsTimeframeOptions.map((option) => (
+              <button
+                key={option.value}
+                onClick={() => {
+                  onSelect(option.value)
+                  handleClose()
+                }}
+                className={`w-full text-left px-4 py-3 rounded-xl text-[15px] font-medium transition-colors ${
+                  selectedValue === option.value
+                    ? "bg-[#f5f3ff] text-[#8b5cf6]"
+                    : "text-[#374151] hover:bg-[#f9fafb] active:bg-[#f3f4f6]"
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="h-[env(safe-area-inset-bottom)]" />
+      </div>
+    </div>
+  )
+}
+
 const FLOW_TRIGGERS = [
   {
     id: "purchase",
@@ -218,6 +343,15 @@ export default function EmailsPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [isSending, setIsSending] = useState(false)
 
+  const [showSuccessToast, setShowSuccessToast] = useState(false)
+
+  const triggerSuccessToast = useCallback(() => {
+    setShowSuccessToast(true)
+    window.setTimeout(() => {
+      setShowSuccessToast(false)
+    }, 6000)
+  }, [])
+
   // Analytics state
   const [selectedCampaignStats, setSelectedCampaignStats] = useState<CampaignStats | null>(null)
   const [selectedCampaignForStats, setSelectedCampaignForStats] = useState<EmailCampaign | null>(null)
@@ -243,6 +377,8 @@ export default function EmailsPage() {
     click_rate: number
   } | null>(null)
   const [statsTimeRange, setStatsTimeRange] = useState<"7d" | "30d" | "90d" | "all">("30d")
+  const [isStatsTimeframeSheetOpen, setIsStatsTimeframeSheetOpen] = useState(false)
+  const [isMobileTopToastVisible, setIsMobileTopToastVisible] = useState(false)
 
   // Flows state
   const [flows, setFlows] = useState<EmailFlow[]>([])
@@ -287,6 +423,50 @@ export default function EmailsPage() {
   // Dialog states
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<{ type: "campaign" | "subscriber" | "flow"; id: string } | null>(null)
+
+  useEffect(() => {
+    const path = window.location.pathname
+    const flowMatch = path.match(/^\/app\/emails\/flow\/([^/]+)$/)
+
+    if (flowMatch?.[1]) {
+      const flowId = flowMatch[1]
+      setView("flow-editor")
+      setActiveTab("flows")
+      ;(async () => {
+        const supabase = createClient()
+        const { data } = await supabase.from("email_flows").select("*").eq("id", flowId).maybeSingle()
+        if (data) {
+          setEditingFlow(data)
+          setInitialFlowState(JSON.stringify(data))
+        } else {
+          setView("list")
+          window.history.replaceState({}, "", "/app/emails")
+        }
+      })()
+      return
+    }
+
+    if (path === "/app/emails/new") {
+      setView("editor")
+    } else if (path.startsWith("/app/emails/edit/")) {
+      const campaignId = path.split("/app/emails/edit/")[1]
+      if (campaignId) {
+        ;(async () => {
+          const supabase = createClient()
+          const { data } = await supabase.from("email_campaigns").select("*").eq("id", campaignId).maybeSingle()
+          if (data) {
+            setEditingCampaign(data as EmailCampaign)
+            setSubject(data.subject || "")
+            setBody(data.body || "")
+            setPreviewText(data.preview_text || "")
+            setAudienceType(data.audience_type || "all")
+            setSelectedSegment(data.segment_id || "")
+            setView("editor")
+          }
+        })()
+      }
+    }
+  }, [])
 
   useEffect(() => {
     loadData()
@@ -709,6 +889,7 @@ export default function EmailsPage() {
           description: flowData.description,
           steps: flowData.steps,
           trigger_config: flowData.trigger_config,
+          status: "active",
           updated_at: new Date().toISOString(),
         })
         .eq("id", editingFlow.id)
@@ -716,16 +897,12 @@ export default function EmailsPage() {
       if (error) throw error
 
       // Reset unsaved changes state after successful save
-      const updatedFlow = { ...editingFlow, ...flowData }
+      const updatedFlow = { ...editingFlow, ...flowData, status: "active" as const }
       setInitialFlowState(JSON.stringify(updatedFlow))
       setFlowHasUnsavedChanges(false)
 
       // Show smooth notification at top of screen
-      if (editingFlow.status === "active") {
-        setFlowSaveNotificationMessage("Flow is active and running")
-      } else {
-        setFlowSaveNotificationMessage("Flow saved as draft")
-      }
+      setFlowSaveNotificationMessage("Flow is active and running")
       setShowFlowSaveNotification(true)
       setTimeout(() => setShowFlowSaveNotification(false), 5000)
 
@@ -1325,7 +1502,7 @@ export default function EmailsPage() {
         {/* Header - Matching email editor style */}
         <div className="bg-white/80 backdrop-blur-sm border-b border-gray-100 sticky top-0 z-20">
           <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-3">
-            <div className="flex items-center justify-between gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
               <div className="flex items-center gap-3">
                 <Button variant="ghost" size="icon" onClick={handleFlowBack} className="h-10 w-10 rounded-xl hover:bg-gray-100 cursor-pointer">
                   <ArrowLeft className="h-5 w-5 text-gray-600" />
@@ -1349,7 +1526,7 @@ export default function EmailsPage() {
                   <p className="text-xs text-gray-500 mt-0.5">{triggerInfo.description}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Button variant="ghost" onClick={openFlowSendTestModal} className="h-10 px-4 rounded-xl text-gray-600 hover:bg-gray-100 cursor-pointer">
                   <Mail className="h-4 w-4 mr-2" />
                   Send Test
@@ -1392,10 +1569,10 @@ export default function EmailsPage() {
         </div>
 
         {/* Main Content - Two Column Layout */}
-        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="max-w-[1600px] mx-auto px-3 sm:px-6 py-4 sm:py-6 overflow-x-hidden">
+          <div className="grid grid-cols-1 lg:grid-cols-2 items-start gap-4 sm:gap-6">
             {/* Editor Panel */}
-            <div className="space-y-5">
+            <div className="space-y-4 sm:space-y-5 overflow-x-hidden">
               {/* Timing Card */}
               <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
                 <div className="flex items-center gap-3 mb-4">
@@ -1664,7 +1841,7 @@ Tips:
             </div>
 
             {/* Preview Panel */}
-            <div className="lg:sticky lg:top-24 lg:h-fit">
+            <div className="lg:sticky lg:top-2 lg:h-fit lg:self-start">
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
                   <label className="text-sm font-medium text-gray-700">Live Preview</label>
@@ -1738,10 +1915,10 @@ Tips:
               </DialogDescription>
             </div>
             <div className="border-t border-gray-100 p-4 bg-gray-50/50 flex flex-col-reverse sm:flex-row gap-2">
-              <Button variant="outline" onClick={() => setShowFlowUnsavedDialog(false)} className="flex-1 rounded-xl h-11 cursor-pointer">
+              <Button variant="outline" onClick={() => setShowFlowUnsavedDialog(false)} className="flex-1 rounded-xl h-[52px] cursor-pointer">
                 Keep editing
               </Button>
-              <Button onClick={() => { setShowFlowUnsavedDialog(false); setView("list"); setEditingFlow(null); window.history.pushState({}, "", "/app/emails"); }} className="flex-1 rounded-xl h-11 bg-gray-900 hover:bg-gray-800 text-white cursor-pointer">
+              <Button onClick={() => { setShowFlowUnsavedDialog(false); setView("list"); setEditingFlow(null); window.history.pushState({}, "", "/app/emails"); }} className="flex-1 rounded-xl h-[52px] bg-gray-900 hover:bg-gray-800 text-white cursor-pointer">
                 Discard changes
               </Button>
             </div>
@@ -1830,7 +2007,7 @@ Tips:
               </div>
             </div>
             <div className="border-t border-gray-100 p-4 bg-gray-50/50 flex gap-2">
-              <Button variant="outline" onClick={() => { setFlowShowLinkDialog(false); setFlowLinkUrl(""); setFlowLinkText(""); }} className="flex-1 rounded-xl h-11 cursor-pointer">
+              <Button variant="outline" onClick={() => { setFlowShowLinkDialog(false); setFlowLinkUrl(""); setFlowLinkText(""); }} className="flex-1 rounded-xl h-[52px] cursor-pointer">
                 Cancel
               </Button>
               <Button onClick={flowConfirmInsertLink} disabled={!flowLinkUrl} className="flex-1 rounded-xl h-11 bg-blue-600 hover:bg-blue-700 text-white cursor-pointer">
@@ -1862,7 +2039,7 @@ Tips:
               </div>
             </div>
             <div className="border-t border-gray-100 p-4 bg-gray-50/50 flex gap-2">
-              <Button variant="outline" onClick={() => { setFlowShowSendTestModal(false); setFlowTestEmail(""); }} className="flex-1 rounded-xl h-11 cursor-pointer">
+              <Button variant="outline" onClick={() => { setFlowShowSendTestModal(false); setFlowTestEmail(""); }} className="flex-1 rounded-xl h-[52px] cursor-pointer">
                 Cancel
               </Button>
               <Button onClick={handleFlowSendTest} disabled={!flowTestEmail || isFlowSendingTest} className="flex-1 rounded-xl h-11 bg-violet-600 hover:bg-violet-700 text-white cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
@@ -2273,10 +2450,11 @@ Tips:
         console.log("[emails page] Refreshing Sent tab data...")
         await loadData("published")
 
-        toast({
-          title: "Email sent!",
-          description: `Successfully sent to ${responseData.sent} subscriber${responseData.sent !== 1 ? "s" : ""}.`,
-        })
+        triggerSuccessToast()
+        if (window.innerWidth < 640) {
+          setIsMobileTopToastVisible(true)
+          window.setTimeout(() => setIsMobileTopToastVisible(false), 2500)
+        }
       } catch (error) {
         console.error("[emails page] Send error:", error)
         toast({
@@ -2379,10 +2557,24 @@ Tips:
   // List View
   return (
     <div className="h-full overflow-y-auto page-scroll bg-[#fafafa]">
+      {showSuccessToast && (
+        <div className="hidden sm:block fixed left-1/2 -translate-x-1/2 z-[220] top-[calc(env(safe-area-inset-top)+12px)] w-[calc(100%-24px)] max-w-sm sm:w-auto animate-in fade-in slide-in-from-top-2 duration-300 px-1 pointer-events-none">
+          <div className="bg-black text-white px-4 py-3 rounded-xl shadow-2xl text-sm font-medium text-center whitespace-normal">
+            Email sent successfully
+          </div>
+        </div>
+      )}
+      {isMobileTopToastVisible && (
+        <div className="sm:hidden fixed left-1/2 -translate-x-1/2 z-[220] top-[calc(env(safe-area-inset-top)+10px)] w-[calc(100%-24px)] max-w-[360px] animate-in fade-in slide-in-from-top-2 duration-300 pointer-events-none">
+          <div className="rounded-xl border border-black/10 bg-black/95 px-4 py-2.5 text-center text-sm font-medium text-white shadow-xl backdrop-blur-sm">
+            Email sent successfully
+          </div>
+        </div>
+      )}
       {/* Global Save Notification - Shows across all views */}
       {showFlowSaveNotification && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[200] animate-in fade-in slide-in-from-top-2 duration-300">
-          <div className="bg-gray-900 text-white px-5 py-3 rounded-xl shadow-xl flex items-center gap-3">
+        <div className="fixed top-[calc(env(safe-area-inset-top)+10px)] left-1/2 transform -translate-x-1/2 z-[200] w-[calc(100%-24px)] max-w-[460px] animate-in fade-in slide-in-from-top-2 duration-300 pointer-events-none">
+          <div className="bg-gray-900 text-white px-4 py-3 rounded-xl shadow-xl flex items-center justify-center gap-2">
             <Check className="h-5 w-5 text-green-400" />
             <span className="text-sm font-medium">{flowSaveNotificationMessage}</span>
           </div>
@@ -2446,6 +2638,13 @@ Tips:
           </div>
         </div>
       </div>
+
+      <TimeframeBottomSheet
+        isOpen={isStatsTimeframeSheetOpen}
+        onClose={() => setIsStatsTimeframeSheetOpen(false)}
+        selectedValue={statsTimeRange}
+        onSelect={setStatsTimeRange}
+      />
 
       {/* Content */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
@@ -2539,30 +2738,30 @@ Tips:
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full">
+                  <table className="table-fixed sm:table-auto min-w-[130vw] sm:min-w-full">
                     <thead>
                       <tr className="bg-gray-50 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        <th className="px-4 py-3 text-left">Email</th>
+                        <th className="px-3 sm:px-4 py-3 text-left">Email</th>
                         <th className="px-4 py-3 text-left hidden sm:table-cell">Name</th>
-                        <th className="px-4 py-3 text-left">Source</th>
+                        <th className="px-2 sm:px-4 py-3 text-left">Source</th>
                         <th className="px-4 py-3 text-left hidden md:table-cell">Status</th>
                         <th className="px-4 py-3 text-left hidden lg:table-cell">Date</th>
-                        <th className="px-4 py-3 text-right"></th>
+                        <th className="px-2 sm:px-4 py-3 text-right w-[44px]"></th>
                       </tr>
                     </thead>
                     <tbody className="divide-y">
                       {filteredSubscribers.map((subscriber) => (
                         <tr key={subscriber.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
+                          <td className="px-3 sm:px-4 py-3">
+                            <div className="flex items-center gap-2 min-w-0">
                               <Mail className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                              <span className="text-sm text-gray-900 truncate max-w-[200px]">{subscriber.email}</span>
+                              <span className="text-sm text-gray-900 truncate max-w-[210px] sm:max-w-[260px]">{subscriber.email}</span>
                             </div>
                           </td>
                           <td className="px-4 py-3 hidden sm:table-cell">
                             <span className="text-sm text-gray-600">{subscriber.name || "-"}</span>
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-2 sm:px-4 py-3">
                             <span
                               className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[#f3f4f6] text-[#6b7280]"
                             >
@@ -2605,7 +2804,7 @@ Tips:
                           <td className="px-4 py-3 hidden lg:table-cell">
                             <span className="text-xs text-gray-500">{formatDate(subscriber.subscribed_at)}</span>
                           </td>
-                          <td className="px-4 py-3 text-right">
+                          <td className="px-2 sm:px-4 py-3 text-right">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -2656,7 +2855,7 @@ Tips:
               </div>
               <Button
                 onClick={() => setShowCreateFlowDialog(true)}
-                className="rounded-xl bg-violet-600 hover:bg-violet-700 cursor-pointer group"
+                className="rounded-[8px] bg-violet-600 hover:bg-violet-700 cursor-pointer group"
               >
                 <Plus className="h-4 w-4 mr-2 transition-transform duration-300 group-hover:rotate-90" />
                 Create Flow
@@ -2679,7 +2878,7 @@ Tips:
                 </p>
                 <Button
                   onClick={() => setShowCreateFlowDialog(true)}
-                  className="rounded-xl bg-violet-600 hover:bg-violet-700 cursor-pointer group"
+                  className="rounded-[8px] bg-violet-600 hover:bg-violet-700 cursor-pointer group"
                 >
                   <Plus className="h-4 w-4 mr-2 transition-transform duration-300 group-hover:rotate-90" />
                   Create your first flow
@@ -2789,31 +2988,43 @@ Tips:
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h2 className="text-sm font-medium text-gray-700">Overview</h2>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" className="h-9 px-3 rounded-lg text-sm font-medium gap-2 cursor-pointer">
-                        <Calendar className="h-4 w-4 text-gray-500" />
-                        {statsTimeRange === "7d" && "Last 7 days"}
-                        {statsTimeRange === "30d" && "Last 30 days"}
-                        {statsTimeRange === "90d" && "Last 90 days"}
-                        {statsTimeRange === "all" && "All time"}
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="rounded-xl min-w-[140px]">
-                      <DropdownMenuItem onClick={() => setStatsTimeRange("7d")} className={cn("cursor-pointer", statsTimeRange === "7d" && "bg-gray-100")}>
-                        Last 7 days
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setStatsTimeRange("30d")} className={cn("cursor-pointer", statsTimeRange === "30d" && "bg-gray-100")}>
-                        Last 30 days
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setStatsTimeRange("90d")} className={cn("cursor-pointer", statsTimeRange === "90d" && "bg-gray-100")}>
-                        Last 90 days
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setStatsTimeRange("all")} className={cn("cursor-pointer", statsTimeRange === "all" && "bg-gray-100")}>
-                        All time
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <>
+                    <div className="hidden md:block">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" className="h-9 px-3 rounded-lg text-sm font-medium gap-2 cursor-pointer">
+                            <Calendar className="h-4 w-4 text-gray-500" />
+                            {statsTimeRange === "7d" && "Last 7 days"}
+                            {statsTimeRange === "30d" && "Last 30 days"}
+                            {statsTimeRange === "90d" && "Last 90 days"}
+                            {statsTimeRange === "all" && "All time"}
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="rounded-xl min-w-[140px]">
+                          {statsTimeframeOptions.map((option) => (
+                            <DropdownMenuItem
+                              key={option.value}
+                              onClick={() => setStatsTimeRange(option.value)}
+                              className={cn("cursor-pointer", statsTimeRange === option.value && "bg-gray-100")}
+                            >
+                              {option.label}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsStatsTimeframeSheetOpen(true)}
+                      className="md:hidden h-9 px-3 rounded-lg text-sm font-medium gap-2 cursor-pointer"
+                    >
+                      <Calendar className="h-4 w-4 text-gray-500" />
+                      {statsTimeRange === "7d" && "Last 7 days"}
+                      {statsTimeRange === "30d" && "Last 30 days"}
+                      {statsTimeRange === "90d" && "Last 90 days"}
+                      {statsTimeRange === "all" && "All time"}
+                    </Button>
+                  </>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
                   <div className="bg-white rounded-xl border p-4">

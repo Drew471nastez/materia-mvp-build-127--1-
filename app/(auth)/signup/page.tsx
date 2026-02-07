@@ -20,6 +20,8 @@ function SignUpFormContent() {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
   const [showPasswordField, setShowPasswordField] = useState(false)
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
+  const [isBannerLoaded, setIsBannerLoaded] = useState(false)
+  const [googleOnlyEmail, setGoogleOnlyEmail] = useState<string | null>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
   const claim = searchParams.get("claim")
@@ -29,6 +31,17 @@ function SignUpFormContent() {
   const redirectUrl = searchParams.get("redirect")
   const pendingReview = searchParams.get("pendingReview")
   const autoBuyer = searchParams.get("autoBuyer") // Auto-select buyer account type (from receipt page)
+
+  const lookupAccountOrigin = async (rawEmail: string) => {
+    const emailToCheck = rawEmail.trim().toLowerCase()
+    const res = await fetch("/api/auth/account-origin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: emailToCheck }),
+    })
+    if (!res.ok) return null
+    return res.json()
+  }
 
   // Check if user is already authenticated - redirect to /explore if so
   useEffect(() => {
@@ -72,6 +85,21 @@ function SignUpFormContent() {
         setError("Please enter your email")
         return
       }
+
+      try {
+        const origin = await lookupAccountOrigin(email)
+        if (origin?.exists && origin?.googleOnly) {
+          setGoogleOnlyEmail(email.trim().toLowerCase())
+          setError("This email already exists via Google. Continue with Google instead.")
+          return
+        }
+        if (origin?.exists && origin?.passwordEnabled) {
+          setError("An account with this email already exists. Please log in.")
+          return
+        }
+      } catch {}
+
+      setGoogleOnlyEmail(null)
       setShowPasswordField(true)
       setError(null)
       return
@@ -166,7 +194,12 @@ function SignUpFormContent() {
         router.refresh()
       }
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "An error occurred")
+      const msg = error instanceof Error ? error.message : "An error occurred"
+      if (msg.toLowerCase().includes("already registered")) {
+        setError("This email is already registered. Please log in or continue with Google.")
+      } else {
+        setError(msg)
+      }
     } finally {
       setIsLoading(false)
     }
@@ -184,6 +217,7 @@ function SignUpFormContent() {
     const supabase = createClient()
     setIsGoogleLoading(true)
     setError(null)
+    setGoogleOnlyEmail(null)
 
     try {
       // Store redirect URL in both localStorage and cookie for OAuth callback
@@ -254,9 +288,9 @@ function SignUpFormContent() {
             <img
               src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
               alt="Storelib"
-              className="h-10 w-10 md:h-8 md:w-8"
+              className="h-12 w-12 md:h-10 md:w-10"
             />
-            <span className="text-2xl md:text-xl font-bold tracking-tight text-neutral-900">Storelib</span>
+            <span className="text-3xl md:text-2xl font-bold tracking-tight text-neutral-900">Storelib</span>
           </Link>
 
           <h1 className="mb-2 text-[32px] font-bold tracking-tight text-neutral-900">Join Storelib</h1>
@@ -306,9 +340,15 @@ function SignUpFormContent() {
 
             {error && <p className="text-sm text-red-500">{error}</p>}
 
+            {googleOnlyEmail && (
+              <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2">
+                <p className="text-xs text-blue-800">This email is linked to Google sign-in: <span className="font-medium">{googleOnlyEmail}</span>.</p>
+              </div>
+            )}
+
             <Button
               type="submit"
-              className="h-12 w-full rounded-full bg-neutral-200 text-[15px] font-semibold text-neutral-400 hover:bg-neutral-300 disabled:opacity-50"
+              className="h-12 w-full rounded-full bg-neutral-200 text-[15px] font-semibold text-neutral-400 hover:bg-neutral-300 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isLoading || !isFormValid}
               style={{
                 backgroundColor: isFormValid ? "#171717" : undefined,
@@ -343,7 +383,7 @@ function SignUpFormContent() {
               variant="outline"
               onClick={handleGoogleSignIn}
               disabled={isGoogleLoading}
-              className="h-12 w-full rounded-lg border-neutral-200 bg-white text-[15px] font-medium text-neutral-700 hover:bg-neutral-50"
+              className="h-12 w-full rounded-lg border-neutral-200 bg-white text-[15px] font-medium text-neutral-700 hover:bg-neutral-50 cursor-pointer disabled:cursor-not-allowed"
             >
               <svg className="mr-3 h-5 w-5" viewBox="0 0 24 24">
                 <path
@@ -377,11 +417,13 @@ function SignUpFormContent() {
       </div>
 
       <div className="relative hidden lg:block lg:w-1/2">
+        {!isBannerLoaded && <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-neutral-100 via-neutral-200 to-neutral-100" />}
         <Image
           src="/images/design-mode/banner-signup-desktop-Dq7usIXX.webp"
           alt="Signup banner"
           fill
-          className="object-cover"
+          className="object-cover transition-opacity duration-500"
+          onLoad={() => setIsBannerLoaded(true)}
           priority
         />
       </div>
