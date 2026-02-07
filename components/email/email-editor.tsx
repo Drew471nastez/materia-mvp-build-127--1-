@@ -162,7 +162,6 @@ export function EmailEditor({
   const [selectedButton, setSelectedButton] = useState<HTMLElement | null>(null)
   const [showButtonMenu, setShowButtonMenu] = useState(false)
   const [buttonMenuPosition, setButtonMenuPosition] = useState({ x: 0, y: 0 })
-  const [showMobileActionsSheet, setShowMobileActionsSheet] = useState(false)
   const [isUploadingImage, setIsUploadingImage] = useState(false)
   const [showImageMenu, setShowImageMenu] = useState(false)
   const [imageMenuPosition, setImageMenuPosition] = useState({ x: 0, y: 0 })
@@ -733,7 +732,7 @@ export function EmailEditor({
                 size="icon"
                 onClick={() => setShowTestDialog(true)}
                 disabled={!hasContent}
-                className="hidden sm:inline-flex h-10 sm:w-auto sm:px-4 rounded-xl text-gray-600 hover:bg-gray-100 cursor-pointer"
+                className="h-9 w-9 sm:h-10 sm:w-auto sm:px-4 rounded-xl text-gray-600 hover:bg-gray-100 cursor-pointer"
                 title="Send Test"
               >
                 <Mail className="h-4 w-4 sm:mr-2" />
@@ -746,7 +745,7 @@ export function EmailEditor({
                 size="icon"
                 onClick={() => setShowScheduleDialog(true)}
                 disabled={!hasContent}
-                className="hidden sm:inline-flex h-10 sm:w-auto sm:px-4 rounded-xl text-gray-600 hover:bg-gray-100 cursor-pointer"
+                className="h-9 w-9 sm:h-10 sm:w-auto sm:px-4 rounded-xl text-gray-600 hover:bg-gray-100 cursor-pointer"
                 title="Schedule"
               >
                 <Clock className="h-4 w-4 sm:mr-2" />
@@ -759,7 +758,7 @@ export function EmailEditor({
                 size="icon"
                 onClick={handleSave}
                 disabled={!subject.trim() || isSaving}
-                className="hidden sm:inline-flex h-10 sm:w-auto sm:px-4 rounded-xl text-gray-600 hover:bg-gray-100 cursor-pointer"
+                className="h-9 w-9 sm:h-10 sm:w-auto sm:px-4 rounded-xl text-gray-600 hover:bg-gray-100 cursor-pointer"
                 title="Save Draft"
               >
                 {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
@@ -768,14 +767,7 @@ export function EmailEditor({
 
               {/* Send Button */}
               <Button
-                onClick={() => {
-                  // On mobile, open actions sheet. On desktop, send directly
-                  if (window.innerWidth < 640) {
-                    setShowMobileActionsSheet(true)
-                  } else {
-                    handleSend()
-                  }
-                }}
+                onClick={handleSend}
                 disabled={!hasContent || isSending}
                 className="h-9 sm:h-10 px-3 sm:px-5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white shadow-sm cursor-pointer text-sm"
               >
@@ -1391,71 +1383,6 @@ Tips:
         }
       `}</style>
 
-      {/* Mobile Actions Bottom Sheet */}
-      {showMobileActionsSheet && (
-        <div className="fixed inset-0 z-50 sm:hidden">
-          <div
-            className="absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity duration-300"
-            onClick={() => setShowMobileActionsSheet(false)}
-          />
-          <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] px-4 pb-[calc(env(safe-area-inset-bottom)+16px)] pt-3 shadow-2xl animate-in slide-in-from-bottom duration-300">
-            <button
-              onClick={() => setShowMobileActionsSheet(false)}
-              className="w-full flex justify-center py-2"
-              aria-label="Close actions"
-            >
-              <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
-            </button>
-            <h3 className="text-[16px] font-semibold text-[#1a1a2e] mb-3">Email Actions</h3>
-            <div className="space-y-2">
-              <button
-                onClick={() => {
-                  setShowMobileActionsSheet(false)
-                  handleSend()
-                }}
-                disabled={!hasContent || isSending}
-                className="w-full min-h-[52px] flex items-center gap-3 px-4 py-3 bg-violet-600 hover:bg-violet-700 disabled:bg-gray-300 text-white rounded-xl transition-colors"
-              >
-                <Send className="h-5 w-5" />
-                <span className="font-medium">Send Now</span>
-              </button>
-              <button
-                onClick={() => {
-                  setShowMobileActionsSheet(false)
-                  setShowTestDialog(true)
-                }}
-                disabled={!hasContent}
-                className="w-full min-h-[52px] flex items-center gap-3 px-4 py-3 bg-[#f9fafb] hover:bg-[#f3f4f6] disabled:bg-gray-100 text-gray-900 rounded-xl transition-colors"
-              >
-                <Mail className="h-5 w-5" />
-                <span className="font-medium">Send Test</span>
-              </button>
-              <button
-                onClick={() => {
-                  setShowMobileActionsSheet(false)
-                  handleSave()
-                }}
-                disabled={!subject.trim() || isSaving}
-                className="w-full min-h-[52px] flex items-center gap-3 px-4 py-3 bg-[#f9fafb] hover:bg-[#f3f4f6] disabled:bg-gray-100 text-gray-900 rounded-xl transition-colors"
-              >
-                <FileText className="h-5 w-5" />
-                <span className="font-medium">Save Draft</span>
-              </button>
-              <button
-                onClick={() => {
-                  setShowMobileActionsSheet(false)
-                  setShowScheduleDialog(true)
-                }}
-                disabled={!hasContent}
-                className="w-full min-h-[52px] flex items-center gap-3 px-4 py-3 bg-[#f9fafb] hover:bg-[#f3f4f6] disabled:bg-gray-100 text-gray-900 rounded-xl transition-colors"
-              >
-                <Clock className="h-5 w-5" />
-                <span className="font-medium">Schedule</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

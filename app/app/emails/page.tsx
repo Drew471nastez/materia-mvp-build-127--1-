@@ -2386,8 +2386,8 @@ Tips:
   return (
     <div className="h-full overflow-y-auto page-scroll bg-[#fafafa]">
       {showSuccessToast && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[220] animate-in fade-in slide-in-from-top-2 duration-300">
-          <div className="bg-black text-white px-5 py-3 rounded-xl shadow-2xl text-sm font-medium">
+        <div className="fixed left-1/2 -translate-x-1/2 z-[220] top-[calc(env(safe-area-inset-top)+12px)] w-[calc(100%-24px)] max-w-sm sm:w-auto animate-in fade-in slide-in-from-top-2 duration-300 px-1">
+          <div className="bg-black text-white px-4 py-3 rounded-xl shadow-2xl text-sm font-medium text-center whitespace-normal">
             Email sent successfully
           </div>
         </div>
