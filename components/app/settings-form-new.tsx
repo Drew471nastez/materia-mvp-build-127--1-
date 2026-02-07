@@ -1326,8 +1326,8 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
         </div>
       </div>
 
-      <div className="h-full overflow-y-scroll page-scroll bg-[#fafafa]" style={{ scrollbarGutter: 'stable' }}>
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-52">
+      <div className="h-full overflow-y-scroll overflow-x-hidden page-scroll bg-[#fafafa]" style={{ scrollbarGutter: 'stable' }}>
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-52 overflow-x-hidden">
         {/* Header with Store URL */}
         <div className="mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div>
@@ -1361,7 +1361,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
         {/* Pill-shaped Tab Navigation - Hidden scrollbar, fixed height to prevent layout shift */}
         <div className="mb-6 sm:mb-8 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-          <div className="flex gap-1 p-1 w-fit min-w-max h-[44px] sm:h-[48px] items-center">
+          <div className="flex gap-1 p-1 w-fit h-[44px] sm:h-[48px] items-center">
             {TABS.map((tab) => {
               const Icon = tab.icon
               const tabLabel = tab.id === "general" ? t("settings.general") :
