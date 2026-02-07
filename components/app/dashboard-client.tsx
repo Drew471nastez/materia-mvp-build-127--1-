@@ -381,16 +381,16 @@ function TimeframeBottomSheet({
     const currentY = e.touches[0].clientY
     const diff = currentY - startY.current
     if (diff > 0) {
-      // Smooth resistance curve - more accurate tracking
-      setDragY(diff * 0.9)
+      // Soft resistance for smooth, controlled motion
+      setDragY(diff * 0.8)
     }
   }
 
   const handleTouchEnd = () => {
     if (!isDragging) return
     setIsDragging(false)
-    // Lower threshold and add velocity consideration for smoother UX
-    if (dragY > 60) {
+    // Consistent threshold matching hamburger menu behavior
+    if (dragY > 80) {
       handleClose()
     } else {
       setDragY(0)

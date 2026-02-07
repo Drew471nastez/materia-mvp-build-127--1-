@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button"
 import { ImageUpload } from "@/components/app/image-upload"
 import { CoverImageEditor } from "./cover-image-editor"
-import { SquareImageCropper } from "@/components/shared/square-image-cropper"
+import { OnepageAvatarPicker } from "@/components/shared/onepage-avatar-picker"
 import { CoverImageLibraryModal } from "./cover-image-library-modal"
 import {
   GripVertical,
@@ -1682,8 +1682,6 @@ function ShopHeaderSettingsForm({
   const [coverEditorOpen, setCoverEditorOpen] = useState(false)
   const [avatarCropperOpen, setAvatarCropperOpen] = useState(false)
   const [coverLibraryOpen, setCoverLibraryOpen] = useState(false)
-  const [avatarTempUrl, setAvatarTempUrl] = useState<string | null>(null)
-  const avatarInputRef = React.useRef<HTMLInputElement>(null)
 
   const handleCoverSave = (imageUrl: string, focalPoint: { x: number; y: number }) => {
     onChange({ coverImageUrl: imageUrl, coverFocalPoint: focalPoint })
@@ -1703,19 +1701,10 @@ function ShopHeaderSettingsForm({
 
   const handleAvatarSave = (avatarUrl: string) => {
     onChange({ avatarUrl })
-    if (avatarTempUrl) {
-      URL.revokeObjectURL(avatarTempUrl)
-      setAvatarTempUrl(null)
-    }
   }
 
-  const handleAvatarFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      const url = URL.createObjectURL(file)
-      setAvatarTempUrl(url)
-      setAvatarCropperOpen(true)
-    }
+  const handleAvatarFileSelect = () => {
+    setAvatarCropperOpen(true)
   }
 
   const handleAvatarSizeChoice = (choice: AvatarSizeChoice, isMobile: boolean) => {
@@ -1882,7 +1871,7 @@ function ShopHeaderSettingsForm({
         <div className="flex items-center gap-4">
           <div
             className="relative w-20 h-20 rounded-full overflow-hidden border-2 border-border cursor-pointer group shrink-0"
-            onClick={() => avatarInputRef.current?.click()}
+            onClick={handleAvatarFileSelect}
           >
             {settings.avatarUrl ? (
               <>
@@ -1909,7 +1898,7 @@ function ShopHeaderSettingsForm({
               variant="outline"
               size="sm"
               className="w-full bg-transparent"
-              onClick={() => avatarInputRef.current?.click()}
+              onClick={handleAvatarFileSelect}
             >
               {settings.avatarUrl ? "Change Photo" : "Upload Photo"}
             </Button>
@@ -2107,18 +2096,9 @@ function ShopHeaderSettingsForm({
         onSave={handleCoverSave}
       />
 
-      <input
-        ref={avatarInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={handleAvatarFileSelect}
-      />
-
-      <SquareImageCropper
+      <OnepageAvatarPicker
         open={avatarCropperOpen}
         onOpenChange={setAvatarCropperOpen}
-        tempImageUrl={avatarTempUrl}
         onSave={handleAvatarSave}
         bucket="store-builder-images"
         folder="store-builder"
