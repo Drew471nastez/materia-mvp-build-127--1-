@@ -119,6 +119,7 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
     setIsSavingFromDialog(true)
     try {
       await save()
+      await publish()
       setShowUnsavedDialog(false)
       if (pendingBrowserBack) {
         // Go back after saving
@@ -153,13 +154,6 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
   const handleSave = async () => {
     try {
       await save()
-    } catch {
-      // Error handled in context
-    }
-  }
-
-  const handlePublish = async () => {
-    try {
       await publish()
     } catch {
       // Error handled in context
@@ -224,12 +218,19 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
           <Button
             size="sm"
             className={cn(
-              "bg-purple-600 text-white hover:bg-purple-700 cursor-pointer",
-              isMobile ? "h-9 px-3" : "h-9"
+              "bg-purple-600 text-white hover:bg-purple-600 cursor-default pointer-events-none",
+              isMobile ? "h-9 w-9 p-0" : "h-9"
             )}
-            onClick={handlePublish}
+            disabled
           >
-            <span>Publish</span>
+            {isMobile ? (
+              <Check className="h-4 w-4" />
+            ) : (
+              <>
+                <Check className="mr-1.5 h-4 w-4" />
+                <span>Saved</span>
+              </>
+            )}
           </Button>
         )
       case "publishing":
@@ -247,7 +248,7 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
             ) : (
               <>
                 <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                <span>Publishing...</span>
+                <span>Saving...</span>
               </>
             )}
           </Button>
@@ -267,7 +268,7 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
             ) : (
               <>
                 <Check className="mr-1.5 h-4 w-4" />
-                <span>Published</span>
+                <span>Saved</span>
               </>
             )}
           </Button>

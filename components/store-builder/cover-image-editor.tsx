@@ -127,15 +127,15 @@ export function CoverImageEditor({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100vw-32px)] sm:w-full max-w-xl sm:max-w-2xl p-0 gap-0 overflow-hidden rounded-2xl max-h-[calc(100dvh-32px)] flex flex-col">
-        <DialogHeader className="px-5 py-3 border-b shrink-0">
+      <DialogContent className="w-[calc(100vw-24px)] sm:w-full max-w-xl sm:max-w-2xl p-0 gap-0 overflow-hidden rounded-2xl max-h-[calc(100dvh-24px)] flex flex-col max-sm:fixed max-sm:inset-3 max-sm:top-3 max-sm:left-3 max-sm:right-3 max-sm:bottom-3 max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0">
+        <DialogHeader className="px-4 sm:px-5 py-3 border-b shrink-0">
           <DialogTitle className="flex items-center gap-2 text-base">
             <Move className="h-4 w-4" />
             Adjust Cover Image
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto p-5 space-y-5">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 sm:space-y-5">
           <div
             ref={containerRef}
             className={cn(
@@ -260,7 +260,7 @@ export function CoverImageEditor({
           />
         </div>
 
-        <div className="shrink-0 flex items-center justify-end gap-2 px-5 py-3 border-t bg-muted/30">
+        <div className="shrink-0 flex items-center justify-end gap-2 px-4 sm:px-5 py-3 border-t bg-muted/30">
           <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
