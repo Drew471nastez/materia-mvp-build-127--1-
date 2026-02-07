@@ -427,7 +427,7 @@ function ShareButtonPreview({
               <div className="text-center">
                 <div
                   className={cn(
-                    "mx-auto mb-2 rounded-full overflow-hidden bg-white/20 flex items-center justify-center ring-2 ring-white/30 shadow-lg",
+                    "mx-auto mb-2 overflow-hidden bg-white/20 flex items-center justify-center shadow-lg",
                     scale === "small" ? "w-10 h-10" : "w-12 h-12",
                   )}
                 >

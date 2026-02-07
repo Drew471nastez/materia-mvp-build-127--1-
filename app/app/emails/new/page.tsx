@@ -186,8 +186,10 @@ export default function NewEmailPage() {
       setHasSavedOrSent(true)
       router.push("/app/emails?tab=published")
       toast({
-        title: "Email sent!",
-        description: `Successfully sent to ${responseData.sent} subscribers.`,
+        title: "Email sent successfully",
+        description: `Delivered to ${responseData.sent} subscribers`,
+        duration: 6000,
+        className: "bg-gray-900 text-white border-gray-800",
       })
     } catch (error) {
       console.error("[emails/new] Send error:", error)
