@@ -403,13 +403,13 @@ export default function EmailsPage() {
     return (
       <div className="min-h-screen bg-gray-50/50">
         <div className="bg-white border-b sticky top-0 z-10">
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4">
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="icon" onClick={() => setView("list")} className="h-9 w-9">
+          <div className="max-w-5xl mx-auto px-3 sm:px-6 py-3 sm:py-4">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <Button variant="ghost" size="icon" onClick={() => setView("list")} className="h-9 w-9 shrink-0">
                 <ArrowLeft className="h-4 w-4" />
               </Button>
               <div className="flex-1 min-w-0">
-                <h1 className="text-xl font-semibold text-gray-900 truncate">{selectedCampaignForStats.subject}</h1>
+                <h1 className="text-base sm:text-xl font-semibold text-gray-900 truncate">{selectedCampaignForStats.subject}</h1>
                 <p className="text-sm text-gray-500">
                   Sent {formatDateTime(selectedCampaignForStats.sent_at || selectedCampaignForStats.created_at)}
                 </p>
@@ -418,9 +418,9 @@ export default function EmailsPage() {
           </div>
         </div>
 
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
+        <div className="max-w-5xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
           {/* Stats Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
             <div className="bg-white rounded-xl border p-4">
               <div className="flex items-center gap-2 text-gray-500 mb-1">
                 <Send className="h-4 w-4" />
@@ -721,20 +721,20 @@ export default function EmailsPage() {
     <div className="min-h-screen bg-gray-50/50">
       {/* Header */}
       <div className="bg-white border-b sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-semibold text-gray-900">Emails</h1>
-              <p className="text-sm text-gray-500 mt-0.5">Send updates and manage your subscribers</p>
+        <div className="max-w-5xl mx-auto px-3 sm:px-6 py-3 sm:py-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl font-semibold text-gray-900">Emails</h1>
+              <p className="text-xs sm:text-sm text-gray-500 mt-0.5 hidden sm:block">Send updates and manage your subscribers</p>
             </div>
-            <Button onClick={handleNewEmail} className="bg-gray-900 hover:bg-gray-800 text-white h-9 px-4 rounded-lg">
-              <Plus className="h-4 w-4 mr-2" />
-              New email
+            <Button onClick={handleNewEmail} className="bg-gray-900 hover:bg-gray-800 text-white h-9 px-3 sm:px-4 rounded-lg shrink-0">
+              <Plus className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">New email</span>
             </Button>
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-1 mt-4 -mb-px overflow-x-auto">
+          <div className="flex gap-0.5 sm:gap-1 mt-3 sm:mt-4 -mb-px overflow-x-auto scrollbar-hide">
             {tabs.map((tab) => {
               const Icon = tab.icon
               return (
@@ -742,13 +742,13 @@ export default function EmailsPage() {
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
-                    "flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors border-b-2 whitespace-nowrap",
+                    "flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-medium rounded-t-lg transition-colors border-b-2 whitespace-nowrap",
                     activeTab === tab.id
                       ? "border-gray-900 text-gray-900 bg-gray-50"
                       : "border-transparent text-gray-500 hover:text-gray-700",
                   )}
                 >
-                  <Icon className="h-4 w-4" />
+                  <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   {tab.label}
                 </button>
               )
@@ -758,7 +758,7 @@ export default function EmailsPage() {
       </div>
 
       {/* Content */}
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
+      <div className="max-w-5xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
         {activeTab === "subscribers" && (
           <div className="space-y-4">
             {/* Stats Summary */}
@@ -790,7 +790,7 @@ export default function EmailsPage() {
             </div>
 
             {/* Search and Export */}
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
@@ -866,7 +866,7 @@ export default function EmailsPage() {
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
                               <Mail className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                              <span className="text-sm text-gray-900 truncate max-w-[200px]">{subscriber.email}</span>
+                              <span className="text-sm text-gray-900 truncate max-w-[140px] sm:max-w-[200px]">{subscriber.email}</span>
                             </div>
                           </td>
                           <td className="px-4 py-3 hidden sm:table-cell">
