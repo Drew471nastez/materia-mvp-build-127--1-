@@ -727,15 +727,46 @@ export function EmailEditor({
               </div>
             </div>
             <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-              <Button variant="ghost" onClick={() => setShowTestDialog(true)} disabled={!hasContent} className="hidden md:flex h-10 px-4 rounded-xl text-gray-600 hover:bg-gray-100 cursor-pointer">
-                <Mail className="h-4 w-4 mr-2" /><span className="hidden lg:inline">Send Test</span>
+              {/* Send Test - Icon only on mobile, with text on desktop */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowTestDialog(true)}
+                disabled={!hasContent}
+                className="h-9 w-9 sm:h-10 sm:w-auto sm:px-4 rounded-xl text-gray-600 hover:bg-gray-100 cursor-pointer"
+                title="Send Test"
+              >
+                <Mail className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Send Test</span>
               </Button>
-              <Button variant="ghost" onClick={handleSave} disabled={!subject.trim() || isSaving} className="hidden sm:flex h-9 sm:h-10 px-3 sm:px-4 rounded-xl text-gray-600 hover:bg-gray-100 cursor-pointer">
-                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}<span className="hidden lg:inline lg:ml-2">Save Draft</span>
+
+              {/* Schedule - Icon only on mobile, with text on desktop */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowScheduleDialog(true)}
+                disabled={!hasContent}
+                className="h-9 w-9 sm:h-10 sm:w-auto sm:px-4 rounded-xl text-gray-600 hover:bg-gray-100 cursor-pointer"
+                title="Schedule"
+              >
+                <Clock className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Schedule</span>
               </Button>
-              <Button variant="ghost" onClick={() => setShowScheduleDialog(true)} disabled={!hasContent} className="hidden md:flex h-10 px-4 rounded-xl text-gray-600 hover:bg-gray-100 cursor-pointer">
-                <Clock className="h-4 w-4" /><span className="hidden lg:inline lg:ml-2">Schedule</span>
+
+              {/* Save Draft - Icon only on mobile, with text on desktop */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleSave}
+                disabled={!subject.trim() || isSaving}
+                className="h-9 w-9 sm:h-10 sm:w-auto sm:px-4 rounded-xl text-gray-600 hover:bg-gray-100 cursor-pointer"
+                title="Save Draft"
+              >
+                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+                <span className="hidden sm:inline sm:ml-2">Save Draft</span>
               </Button>
+
+              {/* Send Button */}
               <Button
                 onClick={() => {
                   // On mobile, open actions sheet. On desktop, send directly
@@ -849,8 +880,8 @@ export function EmailEditor({
                 <div
                   ref={editorRef}
                   contentEditable
-                  className="min-h-[400px] p-6 focus:outline-none text-base leading-relaxed text-gray-700"
-                  style={{ wordBreak: "break-word" }}
+                  className="min-h-[300px] sm:min-h-[400px] p-4 sm:p-6 focus:outline-none text-sm sm:text-base leading-relaxed text-gray-700"
+                  style={{ wordBreak: "break-word", overflowWrap: "break-word" }}
                   onInput={handleEditorInput}
                   onClick={handleEditorClick}
                   data-placeholder="Start writing your email...
@@ -1011,8 +1042,8 @@ Tips:
                 </div>
               </div>
 
-              <div className="p-3 sm:p-5 bg-gray-50/50 flex justify-center min-h-[400px] md:min-h-[500px]">
-                <div className="bg-white rounded-2xl shadow-lg overflow-hidden transition-all duration-300 border border-gray-100 w-full max-w-[480px]">
+              <div className="p-3 sm:p-5 bg-gray-50/50 flex justify-center min-h-[300px] md:min-h-[500px]">
+                <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg overflow-hidden transition-all duration-300 border border-gray-100 w-full max-w-[480px]">
                   {/* Email Header Preview */}
                   <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/80">
                     <div className="flex items-center gap-3">
