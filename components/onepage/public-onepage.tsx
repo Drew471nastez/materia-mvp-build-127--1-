@@ -3276,9 +3276,10 @@ function PublicBlockRenderer({
       const data = (block.data || {}) as HeaderBlockData
       const headerLayout = (theme as any).header_layout || "classic"
       const hasVideo = !!profile.avatar_video_url
+      const heroAvatarUrl = profile.avatar_url || (profile as any).profile_image_url || null
 
       // Hero layout with SMOOTH fade using mask
-      if (headerLayout === "hero" && (profile.avatar_url || hasVideo)) {
+      if (headerLayout === "hero" && (heroAvatarUrl || hasVideo)) {
         // For gradient backgrounds, use mask-image for seamless fade
         const isGradientBg = theme.background_type === "gradient"
         const fadeColor = getGradientBottomColor()
@@ -3316,7 +3317,7 @@ function PublicBlockRenderer({
                 </div>
               ) : (
                 <img
-                  src={profile.avatar_url! || "/placeholder.svg"}
+                  src={heroAvatarUrl || "/placeholder.svg"}
                   alt=""
                   className="w-full h-full object-cover"
                   style={{

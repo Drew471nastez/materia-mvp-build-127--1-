@@ -11,7 +11,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button"
 import { ImageUpload } from "@/components/app/image-upload"
 import { CoverImageEditor } from "./cover-image-editor"
-import { SquareImageCropper } from "@/components/shared/square-image-cropper"
 import { CoverImageLibraryModal } from "./cover-image-library-modal"
 import {
   GripVertical,
@@ -115,8 +114,9 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Search, ChevronDown } from "lucide-react"
+import { Search, ChevronDown, Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { createClient } from "@/lib/supabase/client"
 import {
   Tooltip,
   TooltipContent,
@@ -1680,10 +1680,20 @@ function ShopHeaderSettingsForm({
   }
 }) {
   const [coverEditorOpen, setCoverEditorOpen] = useState(false)
+  const [avatarUploadModalOpen, setAvatarUploadModalOpen] = useState(false)
   const [avatarCropperOpen, setAvatarCropperOpen] = useState(false)
   const [coverLibraryOpen, setCoverLibraryOpen] = useState(false)
   const [avatarTempUrl, setAvatarTempUrl] = useState<string | null>(null)
+  const [cropBox, setCropBox] = useState({ x: 50, y: 50, size: 200 })
+  const [isDraggingCrop, setIsDraggingCrop] = useState(false)
+  const [isResizingCrop, setIsResizingCrop] = useState(false)
+  const [dragStartCrop, setDragStartCrop] = useState({ x: 0, y: 0 })
+  const [imageSizeCrop, setImageSizeCrop] = useState({ width: 0, height: 0 })
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const avatarInputRef = React.useRef<HTMLInputElement>(null)
+  const cropContainerRef = React.useRef<HTMLDivElement>(null)
+  const avatarCanvasRef = React.useRef<HTMLCanvasElement>(null)
+  const supabase = createClient()
 
   const handleCoverSave = (imageUrl: string, focalPoint: { x: number; y: number }) => {
     onChange({ coverImageUrl: imageUrl, coverFocalPoint: focalPoint })
@@ -1691,6 +1701,18 @@ function ShopHeaderSettingsForm({
 
   const handleLibrarySelect = (imageUrl: string) => {
     onChange({ coverImageUrl: imageUrl, coverFocalPoint: { x: 50, y: 50 } })
+  }
+
+  const resetAvatarCropState = () => {
+    if (avatarTempUrl) {
+      URL.revokeObjectURL(avatarTempUrl)
+    }
+    setAvatarTempUrl(null)
+    setCropBox({ x: 50, y: 50, size: 200 })
+    setImageSizeCrop({ width: 0, height: 0 })
+    setIsDraggingCrop(false)
+    setIsResizingCrop(false)
+    if (avatarInputRef.current) avatarInputRef.current.value = ""
   }
 
   const handleRemoveCover = () => {
@@ -1701,20 +1723,73 @@ function ShopHeaderSettingsForm({
     onChange({ avatarUrl: "" })
   }
 
-  const handleAvatarSave = (avatarUrl: string) => {
-    onChange({ avatarUrl })
-    if (avatarTempUrl) {
-      URL.revokeObjectURL(avatarTempUrl)
-      setAvatarTempUrl(null)
-    }
-  }
-
   const handleAvatarFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file) {
-      const url = URL.createObjectURL(file)
-      setAvatarTempUrl(url)
-      setAvatarCropperOpen(true)
+    if (!file) return
+
+    if (avatarTempUrl) URL.revokeObjectURL(avatarTempUrl)
+    const url = URL.createObjectURL(file)
+    setAvatarTempUrl(url)
+    setAvatarUploadModalOpen(false)
+    setAvatarCropperOpen(true)
+  }
+
+  const handleAvatarCropComplete = async () => {
+    if (!avatarTempUrl || !avatarCanvasRef.current) return
+
+    try {
+      setUploadingAvatar(true)
+      const canvas = avatarCanvasRef.current
+      const ctx = canvas.getContext("2d")
+      if (!ctx) throw new Error("No canvas context")
+
+      const outputSize = 512
+      canvas.width = outputSize
+      canvas.height = outputSize
+
+      const img = new Image()
+      img.crossOrigin = "anonymous"
+
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve()
+        img.onerror = () => reject(new Error("Failed to load image"))
+        img.src = avatarTempUrl
+      })
+
+      const scale = Math.min(300 / img.naturalWidth, 300 / img.naturalHeight)
+      const srcX = cropBox.x / scale
+      const srcY = cropBox.y / scale
+      const srcSize = cropBox.size / scale
+
+      ctx.clearRect(0, 0, outputSize, outputSize)
+      ctx.drawImage(img, srcX, srcY, srcSize, srcSize, 0, 0, outputSize, outputSize)
+
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Failed to create blob"))), "image/png", 0.95)
+      })
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!user) throw new Error("Not authenticated")
+
+      const fileName = `store-builder/store-builder-${user.id}-${Date.now()}.png`
+      const { error: uploadError } = await supabase.storage.from("store-builder-images").upload(fileName, blob, { upsert: true })
+      if (uploadError) throw uploadError
+
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("store-builder-images").getPublicUrl(fileName)
+
+      onChange({ avatarUrl: publicUrl })
+      setAvatarCropperOpen(false)
+      resetAvatarCropState()
+    } catch (error) {
+      console.error("Avatar upload failed", error)
+      alert("Failed to upload image")
+    } finally {
+      setUploadingAvatar(false)
     }
   }
 
@@ -1882,7 +1957,7 @@ function ShopHeaderSettingsForm({
         <div className="flex items-center gap-4">
           <div
             className="relative w-20 h-20 rounded-full overflow-hidden border-2 border-border cursor-pointer group shrink-0"
-            onClick={() => avatarInputRef.current?.click()}
+            onClick={() => setAvatarUploadModalOpen(true)}
           >
             {settings.avatarUrl ? (
               <>
@@ -1909,7 +1984,7 @@ function ShopHeaderSettingsForm({
               variant="outline"
               size="sm"
               className="w-full bg-transparent"
-              onClick={() => avatarInputRef.current?.click()}
+              onClick={() => setAvatarUploadModalOpen(true)}
             >
               {settings.avatarUrl ? "Change Photo" : "Upload Photo"}
             </Button>
@@ -2107,22 +2182,227 @@ function ShopHeaderSettingsForm({
         onSave={handleCoverSave}
       />
 
-      <input
-        ref={avatarInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={handleAvatarFileSelect}
-      />
+      <Dialog open={avatarUploadModalOpen} onOpenChange={setAvatarUploadModalOpen}>
+        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+          <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
+            <button onClick={() => setAvatarUploadModalOpen(false)} className="hover:bg-gray-100 p-1 rounded-lg transition-colors">
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <DialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Upload media</DialogTitle>
+          </DialogHeader>
+          <div className="p-5">
+            <div
+              onClick={() => avatarInputRef.current?.click()}
+              className="border-2 border-dashed border-gray-300 rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer hover:border-gray-400 transition-colors"
+            >
+              <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center mb-3">
+                <Upload className="h-6 w-6 text-gray-600" />
+              </div>
+              <p className="font-medium text-gray-900">Choose image from device</p>
+              <p className="text-sm text-gray-500 mt-1">PNG, JPG, GIF, WEBP</p>
+            </div>
+            <input ref={avatarInputRef} type="file" accept="image/*" onChange={handleAvatarFileSelect} className="hidden" />
+          </div>
+        </DialogContent>
+      </Dialog>
 
-      <SquareImageCropper
+      <Dialog
         open={avatarCropperOpen}
-        onOpenChange={setAvatarCropperOpen}
-        tempImageUrl={avatarTempUrl}
-        onSave={handleAvatarSave}
-        bucket="store-builder-images"
-        folder="store-builder"
-      />
+        onOpenChange={(open) => {
+          setAvatarCropperOpen(open)
+          if (!open) resetAvatarCropState()
+        }}
+      >
+        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+          <DialogHeader className="p-5 border-b flex flex-row items-center gap-3">
+            <button
+              onClick={() => {
+                setAvatarCropperOpen(false)
+                setAvatarUploadModalOpen(true)
+              }}
+              className="hover:bg-gray-100 p-1 rounded-lg transition-colors"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <DialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Crop Image</DialogTitle>
+          </DialogHeader>
+          <div className="p-5 space-y-4">
+            {avatarTempUrl && (
+              <>
+                <div
+                  ref={cropContainerRef}
+                  className="relative mx-auto bg-[repeating-conic-gradient(#e5e7eb_0_90deg,#fff_90deg_180deg)_0_0/20px_20px] rounded-xl overflow-hidden touch-none"
+                  style={{ width: "300px", height: "300px" }}
+                  onMouseMove={(e) => {
+                    if (!isDraggingCrop && !isResizingCrop) return
+                    const rect = cropContainerRef.current?.getBoundingClientRect()
+                    if (!rect) return
+
+                    if (isDraggingCrop) {
+                      const newX = e.clientX - rect.left - dragStartCrop.x
+                      const newY = e.clientY - rect.top - dragStartCrop.y
+                      const maxX = imageSizeCrop.width - cropBox.size
+                      const maxY = imageSizeCrop.height - cropBox.size
+                      const offsetX = (300 - imageSizeCrop.width) / 2
+                      const offsetY = (300 - imageSizeCrop.height) / 2
+                      setCropBox((prev) => ({
+                        ...prev,
+                        x: Math.max(0, Math.min(maxX, newX - offsetX)),
+                        y: Math.max(0, Math.min(maxY, newY - offsetY)),
+                      }))
+                    } else if (isResizingCrop) {
+                      const dx = e.clientX - dragStartCrop.x
+                      const dy = e.clientY - dragStartCrop.y
+                      const delta = Math.max(dx, dy)
+                      const newSize = Math.max(50, Math.min(300, cropBox.size + delta))
+                      const maxSize = Math.min(imageSizeCrop.width - cropBox.x, imageSizeCrop.height - cropBox.y)
+                      setCropBox((prev) => ({ ...prev, size: Math.min(newSize, maxSize) }))
+                      setDragStartCrop({ x: e.clientX, y: e.clientY })
+                    }
+                  }}
+                  onMouseUp={() => {
+                    setIsDraggingCrop(false)
+                    setIsResizingCrop(false)
+                  }}
+                  onMouseLeave={() => {
+                    setIsDraggingCrop(false)
+                    setIsResizingCrop(false)
+                  }}
+                  onTouchMove={(e) => {
+                    if (!isDraggingCrop && !isResizingCrop) return
+                    e.preventDefault()
+                    const touch = e.touches[0]
+                    const rect = cropContainerRef.current?.getBoundingClientRect()
+                    if (!rect || !touch) return
+
+                    if (isDraggingCrop) {
+                      const newX = touch.clientX - rect.left - dragStartCrop.x
+                      const newY = touch.clientY - rect.top - dragStartCrop.y
+                      const maxX = imageSizeCrop.width - cropBox.size
+                      const maxY = imageSizeCrop.height - cropBox.size
+                      const offsetX = (300 - imageSizeCrop.width) / 2
+                      const offsetY = (300 - imageSizeCrop.height) / 2
+                      setCropBox((prev) => ({
+                        ...prev,
+                        x: Math.max(0, Math.min(maxX, newX - offsetX)),
+                        y: Math.max(0, Math.min(maxY, newY - offsetY)),
+                      }))
+                    } else if (isResizingCrop) {
+                      const dx = touch.clientX - dragStartCrop.x
+                      const dy = touch.clientY - dragStartCrop.y
+                      const delta = Math.max(dx, dy)
+                      const newSize = Math.max(50, Math.min(300, cropBox.size + delta))
+                      const maxSize = Math.min(imageSizeCrop.width - cropBox.x, imageSizeCrop.height - cropBox.y)
+                      setCropBox((prev) => ({ ...prev, size: Math.min(newSize, maxSize) }))
+                      setDragStartCrop({ x: touch.clientX, y: touch.clientY })
+                    }
+                  }}
+                  onTouchEnd={() => {
+                    setIsDraggingCrop(false)
+                    setIsResizingCrop(false)
+                  }}
+                >
+                  <img
+                    src={avatarTempUrl}
+                    alt="Preview"
+                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 select-none pointer-events-none"
+                    style={{
+                      width: imageSizeCrop.width,
+                      height: imageSizeCrop.height,
+                      maxWidth: "300px",
+                      maxHeight: "300px",
+                      objectFit: "contain",
+                    }}
+                    draggable={false}
+                    onLoad={(e) => {
+                      const img = e.target as HTMLImageElement
+                      const scale = Math.min(300 / img.naturalWidth, 300 / img.naturalHeight)
+                      const displayW = img.naturalWidth * scale
+                      const displayH = img.naturalHeight * scale
+                      setImageSizeCrop({ width: displayW, height: displayH })
+                      const size = Math.min(displayW, displayH) * 0.8
+                      setCropBox({
+                        x: (displayW - size) / 2,
+                        y: (displayH - size) / 2,
+                        size,
+                      })
+                    }}
+                  />
+
+                  <div
+                    className="absolute cursor-move touch-none"
+                    style={{
+                      left: `${150 - imageSizeCrop.width / 2 + cropBox.x}px`,
+                      top: `${150 - imageSizeCrop.height / 2 + cropBox.y}px`,
+                      width: `${cropBox.size}px`,
+                      height: `${cropBox.size}px`,
+                      border: "2px solid #3b82f6",
+                      boxShadow: "0 0 0 9999px rgba(0,0,0,0.5)",
+                    }}
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setIsDraggingCrop(true)
+                      const rect = (e.target as HTMLElement).getBoundingClientRect()
+                      setDragStartCrop({ x: e.clientX - rect.left, y: e.clientY - rect.top })
+                    }}
+                    onTouchStart={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      const touch = e.touches[0]
+                      const rect = (e.target as HTMLElement).getBoundingClientRect()
+                      setIsDraggingCrop(true)
+                      setDragStartCrop({ x: touch.clientX - rect.left, y: touch.clientY - rect.top })
+                    }}
+                  >
+                    <div
+                      className="absolute bottom-0 right-0 w-8 h-8 cursor-nwse-resize"
+                      style={{ background: "#3b82f6", borderTopLeftRadius: "4px" }}
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setIsResizingCrop(true)
+                        setDragStartCrop({ x: e.clientX, y: e.clientY })
+                      }}
+                      onTouchStart={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        const touch = e.touches[0]
+                        setIsResizingCrop(true)
+                        setDragStartCrop({ x: touch.clientX, y: touch.clientY })
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <p className="text-sm text-gray-600 text-center">Drag to move, drag bottom-right corner to resize</p>
+
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setAvatarCropperOpen(false)
+                      setAvatarUploadModalOpen(true)
+                    }}
+                    className="flex-1 rounded-xl"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleAvatarCropComplete}
+                    disabled={uploadingAvatar}
+                    className="flex-1 rounded-xl bg-violet-600 hover:bg-violet-700 text-white"
+                  >
+                    {uploadingAvatar ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                    {uploadingAvatar ? "Saving..." : "Save"}
+                  </Button>
+                </div>
+              </>
+            )}
+            <canvas ref={avatarCanvasRef} className="hidden" />
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <CoverImageLibraryModal open={coverLibraryOpen} onOpenChange={setCoverLibraryOpen} onSelect={handleLibrarySelect} />
     </div>
