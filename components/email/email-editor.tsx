@@ -711,32 +711,32 @@ export function EmailEditor({
   const hasContent = subject.trim() && getEditorContent().trim()
 
   return (
-    <div className="min-h-screen bg-[#fafafa]">
+    <div className="min-h-screen bg-[#fafafa] overflow-x-hidden">
       {/* Header */}
       <div className="bg-white/80 backdrop-blur-sm border-b border-gray-100 sticky top-0 z-20">
-        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-3">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <Button variant="ghost" size="icon" onClick={handleBack} className="h-10 w-10 rounded-xl hover:bg-gray-100">
-                <ArrowLeft className="h-5 w-5 text-gray-600" />
+        <div className="max-w-[1600px] mx-auto px-3 sm:px-6 lg:px-8 py-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <Button variant="ghost" size="icon" onClick={handleBack} className="h-9 w-9 sm:h-10 sm:w-10 shrink-0 rounded-xl hover:bg-gray-100">
+                <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5 text-gray-600" />
               </Button>
-              <div>
-                <h1 className="text-lg font-semibold text-gray-900">New Email</h1>
-                <p className="text-xs text-gray-500">Create and send your email campaign</p>
+              <div className="min-w-0">
+                <h1 className="text-sm sm:text-lg font-semibold text-gray-900 truncate">New Email</h1>
+                <p className="hidden sm:block text-xs text-gray-500">Create and send your email campaign</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" onClick={() => setShowTestDialog(true)} disabled={!hasContent} className="h-10 px-4 rounded-xl text-gray-600 hover:bg-gray-100 cursor-pointer">
-                <Mail className="h-4 w-4 mr-2" />Send Test
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              <Button variant="ghost" onClick={() => setShowTestDialog(true)} disabled={!hasContent} className="hidden md:flex h-10 px-4 rounded-xl text-gray-600 hover:bg-gray-100 cursor-pointer">
+                <Mail className="h-4 w-4 mr-2" /><span className="hidden lg:inline">Send Test</span>
               </Button>
-              <Button variant="ghost" onClick={handleSave} disabled={!subject.trim() || isSaving} className="h-10 px-4 rounded-xl text-gray-600 hover:bg-gray-100 cursor-pointer">
-                {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <FileText className="h-4 w-4 mr-2" />}Save Draft
+              <Button variant="ghost" onClick={handleSave} disabled={!subject.trim() || isSaving} className="hidden sm:flex h-9 sm:h-10 px-3 sm:px-4 rounded-xl text-gray-600 hover:bg-gray-100 cursor-pointer">
+                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}<span className="hidden lg:inline lg:ml-2">Save Draft</span>
               </Button>
-              <Button variant="ghost" onClick={() => setShowScheduleDialog(true)} disabled={!hasContent} className="h-10 px-4 rounded-xl text-gray-600 hover:bg-gray-100 cursor-pointer">
-                <Clock className="h-4 w-4 mr-2" />Schedule
+              <Button variant="ghost" onClick={() => setShowScheduleDialog(true)} disabled={!hasContent} className="hidden md:flex h-10 px-4 rounded-xl text-gray-600 hover:bg-gray-100 cursor-pointer">
+                <Clock className="h-4 w-4" /><span className="hidden lg:inline lg:ml-2">Schedule</span>
               </Button>
-              <Button onClick={handleSend} disabled={!hasContent || isSending} className="h-10 px-5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white shadow-sm cursor-pointer">
-                {isSending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}Send Email
+              <Button onClick={handleSend} disabled={!hasContent || isSending} className="h-9 sm:h-10 px-3 sm:px-5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white shadow-sm cursor-pointer text-sm">
+                {isSending ? <Loader2 className="h-4 w-4 animate-spin sm:mr-2" /> : <Send className="h-4 w-4 sm:mr-2" />}<span className="hidden sm:inline">Send</span>
               </Button>
             </div>
           </div>
@@ -744,19 +744,19 @@ export function EmailEditor({
       </div>
 
       {/* Main Content */}
-      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="max-w-[1600px] mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 overflow-x-hidden">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
           {/* Editor Panel */}
-          <div className="space-y-5">
+          <div className="space-y-4 sm:space-y-5">
             {/* Subject Card */}
-            <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-              <Label className="text-sm font-medium text-gray-700 mb-3 block">Subject Line</Label>
+            <div className="bg-white rounded-2xl border border-gray-100 p-4 sm:p-5 shadow-sm">
+              <Label className="text-xs sm:text-sm font-medium text-gray-700 mb-2 sm:mb-3 block">Subject Line</Label>
               <Input
                 id="email-subject"
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
                 placeholder="What's your email about?"
-                className="h-12 text-base rounded-xl border-gray-200 focus:border-blue-400 focus:ring-blue-400/20"
+                className="h-11 sm:h-12 text-sm sm:text-base rounded-xl border-gray-200 focus:border-blue-400 focus:ring-blue-400/20"
               />
             </div>
 
@@ -767,7 +767,7 @@ export function EmailEditor({
               </div>
 
               {/* Rich Text Toolbar */}
-              <div className="flex flex-wrap items-center gap-1 px-4 py-2.5 border-b border-gray-100 bg-white">
+              <div className="flex md:flex-wrap items-center gap-1 px-3 sm:px-4 py-2.5 border-b border-gray-100 bg-white overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                 <div className="flex items-center gap-0.5 mr-2">
                   <Button variant="ghost" size="icon" onClick={undoAction} className="h-8 w-8 rounded-lg hover:bg-gray-100" title="Undo">
                     <Undo className="h-4 w-4 text-gray-500" />

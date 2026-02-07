@@ -2424,7 +2424,7 @@ Tips:
           </div>
 
           {/* Tabs - Pill Style */}
-          <div className="flex gap-1 mt-4 overflow-x-auto">
+          <div className="flex gap-1 mt-4 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             {tabs.map((tab) => {
               const Icon = tab.icon
               return (
