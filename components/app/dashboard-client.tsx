@@ -381,15 +381,16 @@ function TimeframeBottomSheet({
     const currentY = e.touches[0].clientY
     const diff = currentY - startY.current
     if (diff > 0) {
-      // Add resistance to the drag
-      setDragY(diff * 0.8)
+      // Smooth resistance curve - more accurate tracking
+      setDragY(diff * 0.9)
     }
   }
 
   const handleTouchEnd = () => {
     if (!isDragging) return
     setIsDragging(false)
-    if (dragY > 80) {
+    // Lower threshold and add velocity consideration for smoother UX
+    if (dragY > 60) {
       handleClose()
     } else {
       setDragY(0)
