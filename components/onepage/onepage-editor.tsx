@@ -497,7 +497,7 @@ function EditorLayout() {
 
   return (
     <div
-      className="flex flex-col bg-gray-50/50 fixed inset-0 md:left-64 md:top-0"
+      className="flex flex-col bg-gray-50/50 fixed left-0 right-0 bottom-0 top-[68px] md:inset-y-0 md:left-64 md:top-0"
       style={{ zIndex: 10 }}
     >
       {/* Header - ALWAYS visible with solid background */}
