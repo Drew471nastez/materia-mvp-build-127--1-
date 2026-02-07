@@ -1707,6 +1707,24 @@ function ShopHeaderSettingsForm({
       URL.revokeObjectURL(avatarTempUrl)
       setAvatarTempUrl(null)
     }
+    if (avatarInputRef.current) {
+      avatarInputRef.current.value = ""
+    }
+  }
+
+  const handleAvatarCropperOpenChange = (open: boolean) => {
+    setAvatarCropperOpen(open)
+
+    if (!open) {
+      if (avatarTempUrl) {
+        URL.revokeObjectURL(avatarTempUrl)
+        setAvatarTempUrl(null)
+      }
+
+      if (avatarInputRef.current) {
+        avatarInputRef.current.value = ""
+      }
+    }
   }
 
   const handleAvatarFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -2117,7 +2135,7 @@ function ShopHeaderSettingsForm({
 
       <SquareImageCropper
         open={avatarCropperOpen}
-        onOpenChange={setAvatarCropperOpen}
+        onOpenChange={handleAvatarCropperOpenChange}
         tempImageUrl={avatarTempUrl}
         onSave={handleAvatarSave}
         bucket="store-builder-images"
