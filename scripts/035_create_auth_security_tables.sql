@@ -51,23 +51,67 @@ CREATE INDEX IF NOT EXISTS idx_auth_recovery_requests_status ON auth_recovery_re
 ALTER TABLE email_change_codes ENABLE ROW LEVEL SECURITY;
 
 -- Users can only see their own codes (though typically accessed via admin client)
-CREATE POLICY "Users can view own email change codes" ON email_change_codes
-  FOR SELECT USING (auth.uid() = user_id);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'email_change_codes'
+      AND policyname = 'Users can view own email change codes'
+  ) THEN
+    CREATE POLICY "Users can view own email change codes" ON email_change_codes
+      FOR SELECT USING (auth.uid() = user_id);
+  END IF;
+END $$;
 
 -- Only service role can insert/update/delete (via admin client)
-CREATE POLICY "Service role can manage email change codes" ON email_change_codes
-  FOR ALL USING (auth.role() = 'service_role');
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'email_change_codes'
+      AND policyname = 'Service role can manage email change codes'
+  ) THEN
+    CREATE POLICY "Service role can manage email change codes" ON email_change_codes
+      FOR ALL USING (auth.role() = 'service_role');
+  END IF;
+END $$;
 
 -- RLS Policies for password_reset_requests
 ALTER TABLE password_reset_requests ENABLE ROW LEVEL SECURITY;
 
 -- Users can only see their own requests
-CREATE POLICY "Users can view own password reset requests" ON password_reset_requests
-  FOR SELECT USING (auth.uid() = user_id);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'password_reset_requests'
+      AND policyname = 'Users can view own password reset requests'
+  ) THEN
+    CREATE POLICY "Users can view own password reset requests" ON password_reset_requests
+      FOR SELECT USING (auth.uid() = user_id);
+  END IF;
+END $$;
 
 -- Only service role can insert/update/delete (via admin client)
-CREATE POLICY "Service role can manage password reset requests" ON password_reset_requests
-  FOR ALL USING (auth.role() = 'service_role');
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'password_reset_requests'
+      AND policyname = 'Service role can manage password reset requests'
+  ) THEN
+    CREATE POLICY "Service role can manage password reset requests" ON password_reset_requests
+      FOR ALL USING (auth.role() = 'service_role');
+  END IF;
+END $$;
 
 -- RLS Policies for auth_recovery_requests
 ALTER TABLE auth_recovery_requests ENABLE ROW LEVEL SECURITY;
