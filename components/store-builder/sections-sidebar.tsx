@@ -2100,8 +2100,8 @@ function ShopHeaderSettingsForm({
         open={avatarCropperOpen}
         onOpenChange={setAvatarCropperOpen}
         onSave={handleAvatarSave}
-        bucket="store-builder-images"
-        folder="store-builder"
+        bucket="onepage-assets"
+        folder="avatars"
       />
 
       <CoverImageLibraryModal open={coverLibraryOpen} onOpenChange={setCoverLibraryOpen} onSelect={handleLibrarySelect} />

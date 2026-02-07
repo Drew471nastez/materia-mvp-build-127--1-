@@ -218,6 +218,15 @@ export default function EmailsPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [isSending, setIsSending] = useState(false)
 
+  const [showSuccessToast, setShowSuccessToast] = useState(false)
+
+  const triggerSuccessToast = useCallback(() => {
+    setShowSuccessToast(true)
+    window.setTimeout(() => {
+      setShowSuccessToast(false)
+    }, 6000)
+  }, [])
+
   // Analytics state
   const [selectedCampaignStats, setSelectedCampaignStats] = useState<CampaignStats | null>(null)
   const [selectedCampaignForStats, setSelectedCampaignForStats] = useState<EmailCampaign | null>(null)
@@ -2273,10 +2282,7 @@ Tips:
         console.log("[emails page] Refreshing Sent tab data...")
         await loadData("published")
 
-        toast({
-          title: "Email sent!",
-          description: `Successfully sent to ${responseData.sent} subscriber${responseData.sent !== 1 ? "s" : ""}.`,
-        })
+        triggerSuccessToast()
       } catch (error) {
         console.error("[emails page] Send error:", error)
         toast({
@@ -2379,6 +2385,13 @@ Tips:
   // List View
   return (
     <div className="h-full overflow-y-auto page-scroll bg-[#fafafa]">
+      {showSuccessToast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[220] animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="bg-black text-white px-5 py-3 rounded-xl shadow-2xl text-sm font-medium">
+            Email sent successfully
+          </div>
+        </div>
+      )}
       {/* Global Save Notification - Shows across all views */}
       {showFlowSaveNotification && (
         <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[200] animate-in fade-in slide-in-from-top-2 duration-300">

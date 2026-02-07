@@ -296,14 +296,14 @@ function TimeframeBottomSheet({
     const diff = currentY - startY.current
     if (diff > 0) {
       // Add resistance to the drag
-      setDragY(diff * 0.8)
+      setDragY(diff * 0.9)
     }
   }
 
   const handleTouchEnd = () => {
     if (!isDragging) return
     setIsDragging(false)
-    if (dragY > 80) {
+    if (dragY > 90) {
       handleClose()
     } else {
       setDragY(0)
@@ -331,7 +331,7 @@ function TimeframeBottomSheet({
         className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
         style={{
           transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)",
-          transition: isDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
+          transition: isDragging ? 'none' : 'transform 360ms cubic-bezier(0.22, 0.9, 0.24, 1)',
         }}
       >
         {/* Handle bar area - this is the drag zone */}
@@ -363,12 +363,6 @@ function TimeframeBottomSheet({
               </button>
             ))}
           </div>
-          <button
-            onClick={handleClose}
-            className="w-full mt-4 py-3 text-[15px] font-medium text-[#6b7280] bg-[#f3f4f6] rounded-xl active:bg-[#e5e7eb] transition-colors"
-          >
-            Cancel
-          </button>
         </div>
         {/* Safe area padding for iOS */}
         <div className="h-[env(safe-area-inset-bottom)]" />
@@ -470,14 +464,14 @@ function OrderDetailsModal({
     const currentY = e.touches[0].clientY
     const diff = currentY - startY.current
     if (diff > 0) {
-      setDragY(diff * 0.8)
+      setDragY(diff * 0.9)
     }
   }
 
   const handleTouchEnd = () => {
     if (!isDragging) return
     setIsDragging(false)
-    if (dragY > 80) {
+    if (dragY > 90) {
       handleClose()
     } else {
       setDragY(0)
@@ -725,7 +719,7 @@ function OrderDetailsModal({
           className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
           style={{
             transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)",
-            transition: isDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
+            transition: isDragging ? 'none' : 'transform 360ms cubic-bezier(0.22, 0.9, 0.24, 1)',
             maxHeight: '76.5vh', // 15% reduced from 90vh
           }}
         >
