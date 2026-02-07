@@ -1811,8 +1811,8 @@ function UnifiedBenefitsSection({ settings, isMobile, isPreviewMode }: { setting
       style={{
         paddingTop: spacing.paddingTop,
         paddingBottom: spacing.paddingBottom,
-        paddingLeft: horizontalPadding,
-        paddingRight: horizontalPadding,
+        paddingLeft: spacing.paddingLeft,
+        paddingRight: spacing.paddingRight,
       }}
     >
       {/* Only show headline if it has content */}
