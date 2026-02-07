@@ -1064,7 +1064,7 @@ Tips:
           </div>
 
           {/* Preview Panel */}
-          <div className="md:sticky md:top-4 md:h-fit md:self-start">
+          <div className="md:sticky md:top-2 md:h-fit md:self-start">
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
               <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
                 <Label className="text-sm font-medium text-gray-700">Live Preview</Label>

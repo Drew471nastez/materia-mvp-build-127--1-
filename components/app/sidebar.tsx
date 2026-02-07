@@ -403,23 +403,23 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             <img
               src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
               alt="Storelib"
-              className="h-7 w-7"
+              className="h-8 w-8"
             />
-            <span className="text-[15px] font-semibold text-neutral-900">Storelib</span>
+            <span className="text-[17px] font-semibold text-neutral-900">Storelib</span>
           </Link>
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => setNotificationsOpen(true)}
               className="flex h-6 w-6 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 transition-colors relative cursor-pointer"
             >
-              <Bell className="h-4 w-4" strokeWidth={1.5} />
+              <Bell className="h-[19px] w-[19px]" strokeWidth={1.5} />
               <NotificationBadge count={notificationCount} />
             </button>
             <Link
               href="/app/settings"
-              className="flex h-6 w-6 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 transition-colors cursor-pointer"
+              className="flex h-7 w-7 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 transition-colors cursor-pointer"
             >
-              <Settings className="h-4 w-4" strokeWidth={1.5} />
+              <Settings className="h-[19px] w-[19px]" strokeWidth={1.5} />
             </Link>
           </div>
         </div>
@@ -504,24 +504,24 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             <img
               src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
               alt="Storelib"
-              className="h-7 w-7"
+              className="h-8 w-8"
             />
-            <span className="text-[15px] font-semibold text-neutral-900">Storelib</span>
+            <span className="text-[17px] font-semibold text-neutral-900">Storelib</span>
           </Link>
           <div className="flex items-center gap-1.5">
             <Link
               href="/explore"
               onClick={onItemClick}
-              className="flex h-6 w-6 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 transition-colors cursor-pointer"
+              className="flex h-7 w-7 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 transition-colors cursor-pointer"
             >
-              <Compass className="h-4 w-4" strokeWidth={1.5} />
+              <Compass className="h-[19px] w-[19px]" strokeWidth={1.5} />
             </Link>
             <Link
               href="/app/settings"
               onClick={onItemClick}
-              className="flex h-6 w-6 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 transition-colors cursor-pointer"
+              className="flex h-7 w-7 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 transition-colors cursor-pointer"
             >
-              <Settings className="h-4 w-4" strokeWidth={1.5} />
+              <Settings className="h-[19px] w-[19px]" strokeWidth={1.5} />
             </Link>
           </div>
         </div>

@@ -889,6 +889,7 @@ export default function EmailsPage() {
           description: flowData.description,
           steps: flowData.steps,
           trigger_config: flowData.trigger_config,
+          status: "active",
           updated_at: new Date().toISOString(),
         })
         .eq("id", editingFlow.id)
@@ -896,16 +897,12 @@ export default function EmailsPage() {
       if (error) throw error
 
       // Reset unsaved changes state after successful save
-      const updatedFlow = { ...editingFlow, ...flowData }
+      const updatedFlow = { ...editingFlow, ...flowData, status: "active" as const }
       setInitialFlowState(JSON.stringify(updatedFlow))
       setFlowHasUnsavedChanges(false)
 
       // Show smooth notification at top of screen
-      if (editingFlow.status === "active") {
-        setFlowSaveNotificationMessage("Flow is active and running")
-      } else {
-        setFlowSaveNotificationMessage("Flow saved as draft")
-      }
+      setFlowSaveNotificationMessage("Flow is active and running")
       setShowFlowSaveNotification(true)
       setTimeout(() => setShowFlowSaveNotification(false), 5000)
 
@@ -1844,7 +1841,7 @@ Tips:
             </div>
 
             {/* Preview Panel */}
-            <div className="lg:sticky lg:top-4 lg:h-fit lg:self-start">
+            <div className="lg:sticky lg:top-2 lg:h-fit lg:self-start">
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
                   <label className="text-sm font-medium text-gray-700">Live Preview</label>
@@ -1918,10 +1915,10 @@ Tips:
               </DialogDescription>
             </div>
             <div className="border-t border-gray-100 p-4 bg-gray-50/50 flex flex-col-reverse sm:flex-row gap-2">
-              <Button variant="outline" onClick={() => setShowFlowUnsavedDialog(false)} className="flex-1 rounded-xl h-11 cursor-pointer">
+              <Button variant="outline" onClick={() => setShowFlowUnsavedDialog(false)} className="flex-1 rounded-xl h-[52px] cursor-pointer">
                 Keep editing
               </Button>
-              <Button onClick={() => { setShowFlowUnsavedDialog(false); setView("list"); setEditingFlow(null); window.history.pushState({}, "", "/app/emails"); }} className="flex-1 rounded-xl h-11 bg-gray-900 hover:bg-gray-800 text-white cursor-pointer">
+              <Button onClick={() => { setShowFlowUnsavedDialog(false); setView("list"); setEditingFlow(null); window.history.pushState({}, "", "/app/emails"); }} className="flex-1 rounded-xl h-[52px] bg-gray-900 hover:bg-gray-800 text-white cursor-pointer">
                 Discard changes
               </Button>
             </div>
@@ -2010,7 +2007,7 @@ Tips:
               </div>
             </div>
             <div className="border-t border-gray-100 p-4 bg-gray-50/50 flex gap-2">
-              <Button variant="outline" onClick={() => { setFlowShowLinkDialog(false); setFlowLinkUrl(""); setFlowLinkText(""); }} className="flex-1 rounded-xl h-11 cursor-pointer">
+              <Button variant="outline" onClick={() => { setFlowShowLinkDialog(false); setFlowLinkUrl(""); setFlowLinkText(""); }} className="flex-1 rounded-xl h-[52px] cursor-pointer">
                 Cancel
               </Button>
               <Button onClick={flowConfirmInsertLink} disabled={!flowLinkUrl} className="flex-1 rounded-xl h-11 bg-blue-600 hover:bg-blue-700 text-white cursor-pointer">
@@ -2042,7 +2039,7 @@ Tips:
               </div>
             </div>
             <div className="border-t border-gray-100 p-4 bg-gray-50/50 flex gap-2">
-              <Button variant="outline" onClick={() => { setFlowShowSendTestModal(false); setFlowTestEmail(""); }} className="flex-1 rounded-xl h-11 cursor-pointer">
+              <Button variant="outline" onClick={() => { setFlowShowSendTestModal(false); setFlowTestEmail(""); }} className="flex-1 rounded-xl h-[52px] cursor-pointer">
                 Cancel
               </Button>
               <Button onClick={handleFlowSendTest} disabled={!flowTestEmail || isFlowSendingTest} className="flex-1 rounded-xl h-11 bg-violet-600 hover:bg-violet-700 text-white cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
@@ -2576,8 +2573,8 @@ Tips:
       )}
       {/* Global Save Notification - Shows across all views */}
       {showFlowSaveNotification && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[200] animate-in fade-in slide-in-from-top-2 duration-300">
-          <div className="bg-gray-900 text-white px-5 py-3 rounded-xl shadow-xl flex items-center gap-3">
+        <div className="fixed top-[calc(env(safe-area-inset-top)+10px)] left-1/2 transform -translate-x-1/2 z-[200] w-[calc(100%-24px)] max-w-[460px] animate-in fade-in slide-in-from-top-2 duration-300 pointer-events-none">
+          <div className="bg-gray-900 text-white px-4 py-3 rounded-xl shadow-xl flex items-center justify-center gap-2">
             <Check className="h-5 w-5 text-green-400" />
             <span className="text-sm font-medium">{flowSaveNotificationMessage}</span>
           </div>
@@ -2758,7 +2755,7 @@ Tips:
                           <td className="px-3 sm:px-4 py-3">
                             <div className="flex items-center gap-2 min-w-0">
                               <Mail className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                              <span className="text-sm text-gray-900 truncate max-w-[130px] sm:max-w-[220px]">{subscriber.email}</span>
+                              <span className="text-sm text-gray-900 truncate max-w-[210px] sm:max-w-[260px]">{subscriber.email}</span>
                             </div>
                           </td>
                           <td className="px-4 py-3 hidden sm:table-cell">
