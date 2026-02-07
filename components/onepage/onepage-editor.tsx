@@ -799,7 +799,7 @@ function EditorLayout() {
                 variant="outline"
                 size="sm"
                 onClick={copyLink}
-                className="shrink-0 h-9 px-3 rounded-lg text-xs sm:text-sm"
+                className="shrink-0 h-9 px-3 rounded-lg text-xs sm:text-sm cursor-pointer"
               >
                 {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                 <span className="ml-1.5">{copied ? "Copied!" : "Copy"}</span>
@@ -809,7 +809,7 @@ function EditorLayout() {
             {/* Open in new tab */}
             <Button
               variant="outline"
-              className="w-full justify-start h-11 rounded-xl text-sm"
+              className="w-full justify-start h-11 rounded-xl text-sm cursor-pointer"
               onClick={viewLive}
             >
               <ExternalLink className="h-4 w-4 mr-3" />

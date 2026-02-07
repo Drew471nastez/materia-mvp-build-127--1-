@@ -297,7 +297,7 @@ export function SettingsTab() {
       <button
         onClick={() => setActiveSection(section.id)}
         className={cn(
-          "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-left",
+          "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-left cursor-pointer",
           isActive
             ? "bg-white text-gray-900 shadow-sm border border-gray-200"
             : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
@@ -880,7 +880,7 @@ export function SettingsTab() {
                 key={section.id}
                 onClick={() => setActiveSection(section.id)}
                 className={cn(
-                  "flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap",
+                  "flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap cursor-pointer",
                   activeSection === section.id
                     ? "bg-gray-900 text-white"
                     : "bg-gray-100 text-gray-600 hover:bg-gray-200"

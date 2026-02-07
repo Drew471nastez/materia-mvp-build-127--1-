@@ -287,7 +287,7 @@ export function ProductsTab() {
       {/* Add Product Button */}
       <Button
         onClick={() => setShowAddModal(true)}
-        className="w-full h-12 bg-violet-600 hover:bg-violet-700 text-white"
+        className="w-full h-12 bg-violet-600 hover:bg-violet-700 text-white cursor-pointer"
         size="lg"
       >
         <Plus className="h-5 w-5 mr-2" />
