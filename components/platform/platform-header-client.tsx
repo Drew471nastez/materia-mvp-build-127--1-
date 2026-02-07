@@ -799,7 +799,7 @@ export function PlatformHeaderClient() {
 
   return (
     <>
-      <div className="sticky top-0 z-50 w-full bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/90">
+      <div className="relative z-40 w-full bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/90">
       {/* Homepage and Features Page Announcement Bar */}
       {(pathname === "/" || pathname === "/features") && (
         <div className="bg-violet-600 text-white">
