@@ -895,7 +895,7 @@ export function PlatformHeaderClient() {
                         </TooltipContent>
                       </Tooltip>
                       {/* Dashboard Button - redirects to /library for buyers, /app for sellers */}
-                      <Button asChild className="h-11 rounded-lg px-6 text-[15px] bg-violet-600 text-white hover:bg-violet-700">
+                      <Button asChild className="h-11 rounded-lg px-6 text-[15px] bg-violet-600 text-white hover:bg-violet-700 cursor-pointer">
                         <Link href={isCreator ? "/app" : "/library"}>
                           Dashboard
                         </Link>
@@ -905,12 +905,12 @@ export function PlatformHeaderClient() {
                     <>
                       {/* Log In */}
                       <Link href="/login">
-                        <Button variant="outline" className="h-11 px-5 rounded-lg text-[15px] font-medium text-gray-900 border-gray-900 hover:bg-gray-100">
+                        <Button variant="outline" className="h-11 px-5 rounded-lg text-[15px] font-medium text-gray-900 border-gray-900 hover:bg-gray-100 cursor-pointer">
                           Log In
                         </Button>
                       </Link>
                       {/* Start Selling */}
-                      <Button asChild className="h-11 rounded-lg px-6 text-[15px] bg-violet-600 text-white hover:bg-violet-700">
+                      <Button asChild className="h-11 rounded-lg px-6 text-[15px] bg-violet-600 text-white hover:bg-violet-700 cursor-pointer">
                         <Link href="/signup">
                           Start Selling
                         </Link>

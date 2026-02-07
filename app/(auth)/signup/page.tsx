@@ -20,6 +20,7 @@ function SignUpFormContent() {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
   const [showPasswordField, setShowPasswordField] = useState(false)
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
+  const [isBannerLoaded, setIsBannerLoaded] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
   const claim = searchParams.get("claim")
@@ -254,9 +255,9 @@ function SignUpFormContent() {
             <img
               src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
               alt="Storelib"
-              className="h-10 w-10 md:h-8 md:w-8"
+              className="h-12 w-12 md:h-10 md:w-10"
             />
-            <span className="text-2xl md:text-xl font-bold tracking-tight text-neutral-900">Storelib</span>
+            <span className="text-3xl md:text-2xl font-bold tracking-tight text-neutral-900">Storelib</span>
           </Link>
 
           <h1 className="mb-2 text-[32px] font-bold tracking-tight text-neutral-900">Join Storelib</h1>
@@ -308,7 +309,7 @@ function SignUpFormContent() {
 
             <Button
               type="submit"
-              className="h-12 w-full rounded-full bg-neutral-200 text-[15px] font-semibold text-neutral-400 hover:bg-neutral-300 disabled:opacity-50"
+              className="h-12 w-full rounded-full bg-neutral-200 text-[15px] font-semibold text-neutral-400 hover:bg-neutral-300 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isLoading || !isFormValid}
               style={{
                 backgroundColor: isFormValid ? "#171717" : undefined,
@@ -343,7 +344,7 @@ function SignUpFormContent() {
               variant="outline"
               onClick={handleGoogleSignIn}
               disabled={isGoogleLoading}
-              className="h-12 w-full rounded-lg border-neutral-200 bg-white text-[15px] font-medium text-neutral-700 hover:bg-neutral-50"
+              className="h-12 w-full rounded-lg border-neutral-200 bg-white text-[15px] font-medium text-neutral-700 hover:bg-neutral-50 cursor-pointer disabled:cursor-not-allowed"
             >
               <svg className="mr-3 h-5 w-5" viewBox="0 0 24 24">
                 <path
@@ -377,11 +378,13 @@ function SignUpFormContent() {
       </div>
 
       <div className="relative hidden lg:block lg:w-1/2">
+        {!isBannerLoaded && <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-neutral-100 via-neutral-200 to-neutral-100" />}
         <Image
           src="/images/design-mode/banner-signup-desktop-Dq7usIXX.webp"
           alt="Signup banner"
           fill
-          className="object-cover"
+          className="object-cover transition-opacity duration-500"
+          onLoad={() => setIsBannerLoaded(true)}
           priority
         />
       </div>

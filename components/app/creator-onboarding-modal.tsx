@@ -806,8 +806,8 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
             "p-0 gap-0 overflow-hidden border-0",
             // Desktop: centered modal with exact specs
             "sm:w-[930px] sm:max-w-[930px] sm:h-[540px] sm:rounded-[44px]",
-            // Mobile: auto height modal that fits content
-            "w-[calc(100%-24px)] max-w-none max-sm:rounded-[24px]",
+            // Mobile: true fullscreen experience
+            "w-[calc(100%-24px)] max-w-none max-sm:fixed max-sm:inset-0 max-sm:w-screen max-sm:h-[100dvh] max-sm:rounded-none",
             // Shadow
             "shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)]",
             // Hide the close button
@@ -817,7 +817,7 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
           onEscapeKeyDown={(e) => e.preventDefault()}
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
-          <div className="flex flex-col h-full sm:max-h-[540px] max-sm:max-h-[calc(100dvh-24px)] bg-white">
+          <div className="flex flex-col h-full sm:max-h-[540px] max-sm:max-h-[100dvh] max-sm:pt-[env(safe-area-inset-top)] max-sm:pb-[env(safe-area-inset-bottom)] bg-white">
             {/* Progress bar */}
             <div className="flex justify-center pt-4 sm:pt-8 shrink-0">
               <div className="w-[160px] sm:w-[200px] h-[6px] sm:h-[8px] bg-gray-200 rounded-full overflow-hidden">

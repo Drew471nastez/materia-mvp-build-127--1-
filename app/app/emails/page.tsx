@@ -2737,8 +2737,8 @@ Tips:
                   <p className="text-gray-400 text-xs mt-1">Subscribers from your OnePage and Store will appear here</p>
                 </div>
               ) : (
-                <div>
-                  <table className="w-full table-fixed sm:table-auto">
+                <div className="overflow-x-auto">
+                  <table className="table-fixed sm:table-auto min-w-[130vw] sm:min-w-full">
                     <thead>
                       <tr className="bg-gray-50 text-xs font-medium text-gray-500 uppercase tracking-wider">
                         <th className="px-3 sm:px-4 py-3 text-left">Email</th>

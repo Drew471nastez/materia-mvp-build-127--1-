@@ -16,6 +16,7 @@ export default function VerifyEmailContent() {
   const [resendLoading, setResendLoading] = useState(false)
   const [resendCountdown, setResendCountdown] = useState(0)
   const [initialSendStatus, setInitialSendStatus] = useState<"pending" | "sent" | "failed">("pending")
+  const [isBannerLoaded, setIsBannerLoaded] = useState(false)
 
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -189,9 +190,9 @@ export default function VerifyEmailContent() {
             <img
               src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
               alt="Storelib"
-              className="h-8 w-8"
+              className="h-10 w-10"
             />
-            <span className="text-xl font-bold tracking-tight text-neutral-900">Storelib</span>
+            <span className="text-2xl font-bold tracking-tight text-neutral-900">Storelib</span>
           </Link>
 
           {success ? (
@@ -304,11 +305,13 @@ export default function VerifyEmailContent() {
 
       {/* Right side - Same image as signup page */}
       <div className="relative hidden lg:block lg:w-1/2">
+        {!isBannerLoaded && <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-neutral-100 via-neutral-200 to-neutral-100" />}
         <Image
           src="/images/design-mode/banner-signup-desktop-Dq7usIXX.webp"
           alt="Verify email banner"
           fill
-          className="object-cover"
+          className="object-cover transition-opacity duration-500"
+          onLoad={() => setIsBannerLoaded(true)}
           priority
         />
       </div>
