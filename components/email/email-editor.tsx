@@ -162,6 +162,7 @@ export function EmailEditor({
   const [selectedButton, setSelectedButton] = useState<HTMLElement | null>(null)
   const [showButtonMenu, setShowButtonMenu] = useState(false)
   const [buttonMenuPosition, setButtonMenuPosition] = useState({ x: 0, y: 0 })
+  const [showMobileActionsSheet, setShowMobileActionsSheet] = useState(false)
   const [isUploadingImage, setIsUploadingImage] = useState(false)
   const [showImageMenu, setShowImageMenu] = useState(false)
   const [imageMenuPosition, setImageMenuPosition] = useState({ x: 0, y: 0 })
@@ -735,7 +736,18 @@ export function EmailEditor({
               <Button variant="ghost" onClick={() => setShowScheduleDialog(true)} disabled={!hasContent} className="hidden md:flex h-10 px-4 rounded-xl text-gray-600 hover:bg-gray-100 cursor-pointer">
                 <Clock className="h-4 w-4" /><span className="hidden lg:inline lg:ml-2">Schedule</span>
               </Button>
-              <Button onClick={handleSend} disabled={!hasContent || isSending} className="h-9 sm:h-10 px-3 sm:px-5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white shadow-sm cursor-pointer text-sm">
+              <Button
+                onClick={() => {
+                  // On mobile, open actions sheet. On desktop, send directly
+                  if (window.innerWidth < 640) {
+                    setShowMobileActionsSheet(true)
+                  } else {
+                    handleSend()
+                  }
+                }}
+                disabled={!hasContent || isSending}
+                className="h-9 sm:h-10 px-3 sm:px-5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white shadow-sm cursor-pointer text-sm"
+              >
                 {isSending ? <Loader2 className="h-4 w-4 animate-spin sm:mr-2" /> : <Send className="h-4 w-4 sm:mr-2" />}<span className="hidden sm:inline">Send</span>
               </Button>
             </div>
@@ -1347,6 +1359,66 @@ Tips:
           font-style: italic;
         }
       `}</style>
+
+      {/* Mobile Actions Bottom Sheet */}
+      {showMobileActionsSheet && (
+        <div className="fixed inset-0 z-50 sm:hidden">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowMobileActionsSheet(false)}
+          />
+          <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl p-6 pb-8 shadow-2xl animate-slide-up">
+            <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-6" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Email Actions</h3>
+            <div className="space-y-3">
+              <button
+                onClick={() => {
+                  setShowMobileActionsSheet(false)
+                  handleSend()
+                }}
+                disabled={!hasContent || isSending}
+                className="w-full flex items-center gap-3 px-4 py-4 bg-violet-600 hover:bg-violet-700 disabled:bg-gray-300 text-white rounded-xl transition-colors"
+              >
+                <Send className="h-5 w-5" />
+                <span className="font-medium">Send Now</span>
+              </button>
+              <button
+                onClick={() => {
+                  setShowMobileActionsSheet(false)
+                  setShowTestDialog(true)
+                }}
+                disabled={!hasContent}
+                className="w-full flex items-center gap-3 px-4 py-4 bg-gray-100 hover:bg-gray-200 disabled:bg-gray-50 text-gray-900 rounded-xl transition-colors"
+              >
+                <Mail className="h-5 w-5" />
+                <span className="font-medium">Send Test</span>
+              </button>
+              <button
+                onClick={() => {
+                  setShowMobileActionsSheet(false)
+                  if (subject.trim()) handleSave({ subject, body: editorContent, previewText })
+                }}
+                disabled={!subject.trim() || isSaving}
+                className="w-full flex items-center gap-3 px-4 py-4 bg-gray-100 hover:bg-gray-200 disabled:bg-gray-50 text-gray-900 rounded-xl transition-colors"
+              >
+                <FileText className="h-5 w-5" />
+                <span className="font-medium">Save Draft</span>
+              </button>
+              <button
+                onClick={() => {
+                  setShowMobileActionsSheet(false)
+                  setShowScheduleDialog(true)
+                }}
+                disabled={!hasContent}
+                className="w-full flex items-center gap-3 px-4 py-4 bg-gray-100 hover:bg-gray-200 disabled:bg-gray-50 text-gray-900 rounded-xl transition-colors"
+              >
+                <Clock className="h-5 w-5" />
+                <span className="font-medium">Schedule</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
