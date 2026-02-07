@@ -6,6 +6,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useMemo, useRef, useState, useCallback } from "react"
+import { createPortal } from "react-dom"
 import type { User } from "@supabase/supabase-js"
 import { createClient } from "@/lib/supabase/client"
 
@@ -219,6 +220,11 @@ function MobileTopSheet({
   const [isDragging, setIsDragging] = useState(false)
   const startY = useRef(0)
   const sheetRef = useRef<HTMLDivElement>(null)
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   useEffect(() => {
     if (isOpen && !isVisible) {
@@ -281,9 +287,9 @@ function MobileTopSheet({
     }
   }
 
-  if (!isVisible) return null
+  if (!isVisible || !isMounted) return null
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[100] md:hidden">
       {/* Backdrop */}
       <div
@@ -319,7 +325,8 @@ function MobileTopSheet({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
@@ -341,6 +348,11 @@ function MobileBottomSheet({
   const [isDragging, setIsDragging] = useState(false)
   const startY = useRef(0)
   const sheetRef = useRef<HTMLDivElement>(null)
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   useEffect(() => {
     if (isOpen && !isVisible) {
@@ -407,9 +419,9 @@ function MobileBottomSheet({
     }
   }
 
-  if (!isVisible) return null
+  if (!isVisible || !isMounted) return null
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[100] md:hidden">
       {/* Backdrop */}
       <div
@@ -450,7 +462,8 @@ function MobileBottomSheet({
           {children}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
@@ -799,7 +812,7 @@ export function PlatformHeaderClient() {
 
   return (
     <>
-      <div className="relative z-40 w-full bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/90">
+      <div className="relative z-40 w-full bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/90 pt-[env(safe-area-inset-top)]">
       {/* Homepage and Features Page Announcement Bar */}
       {(pathname === "/" || pathname === "/features") && (
         <div className="bg-violet-600 text-white">
@@ -820,7 +833,7 @@ export function PlatformHeaderClient() {
           </div>
         </div>
       )}
-    <header className="w-full bg-white border-b border-gray-200 rounded-t-[14px] md:rounded-none">
+    <header className="w-full bg-white border-b border-gray-200">
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
         <div className="flex h-[68px] md:h-[81px] items-center justify-between gap-4 md:py-[3px]">
           {/* Desktop Homepage Layout - same style for /, /features, /pricing, /about, /blog */}
