@@ -1557,7 +1557,7 @@ export function LinksTab() {
   return (
     <div className="space-y-6">
       {/* Profile Header with Real SVG Icons */}
-      <div className="flex items-center gap-4 pt-[10px] sm:pt-0 pb-5 border-b">
+      <div className="flex items-center gap-4 pt-[8px] sm:pt-0 pb-5 border-b">
         <div className="relative group cursor-pointer" onClick={() => setShowAvatarEditModal(true)}>
           <Avatar className="h-14 w-14 border overflow-hidden">
             {onepage.avatar_video_url ? (
