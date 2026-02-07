@@ -652,7 +652,7 @@ function EditorLayout() {
         >
   <div
   className={cn(
-    "p-4 md:p-6 md:pl-3 md:pr-8 pb-32 md:pb-6 w-full",
+    "p-4 md:p-6 md:pl-3 md:pr-8 pb-24 md:pb-6 w-full",
     // normal: keep it closer to the sidebar (no huge left padding)
     // wide screens / zoomed out: center it nicely
     "2xl:mx-auto 2xl:max-w-2xl",
