@@ -37,7 +37,7 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
           <img
             src="/images/design-mode/storelib.png"
             alt="Storelib"
-            className="h-[19px] w-auto"
+            className="h-[25px] w-auto"
           />
         </a>
       </div>
@@ -74,7 +74,7 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
           <img
             src="/images/design-mode/storelib.png"
             alt="Storelib"
-            className="h-[28px] w-auto translate-y-[1px]"
+            className="h-[36px] w-auto translate-y-[1px]"
           />
         </a>
       </div>
@@ -113,7 +113,7 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
           <img
             src="/images/design-mode/storelib.png"
             alt="Storelib"
-            className="h-[19px] sm:h-[28px] w-auto sm:translate-y-[1px]"
+            className="h-[25px] sm:h-[36px] w-auto sm:translate-y-[1px]"
           />
         </a>
       </div>

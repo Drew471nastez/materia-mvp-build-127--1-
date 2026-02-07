@@ -127,19 +127,19 @@ export function CoverImageEditor({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100vw-24px)] sm:w-full max-w-xl sm:max-w-2xl p-0 gap-0 overflow-hidden rounded-2xl max-h-[calc(100dvh-24px)] flex flex-col max-sm:fixed max-sm:inset-3 max-sm:top-3 max-sm:left-3 max-sm:right-3 max-sm:bottom-3 max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0">
-        <DialogHeader className="px-4 sm:px-5 py-3 border-b shrink-0">
+      <DialogContent className="w-[calc(100vw-20px)] sm:w-full max-w-xl sm:max-w-2xl p-0 gap-0 overflow-hidden rounded-2xl flex flex-col max-h-[min(680px,calc(100dvh-16px))] sm:max-h-[calc(100dvh-40px)] max-sm:top-[max(8px,env(safe-area-inset-top))] max-sm:left-2.5 max-sm:right-2.5 max-sm:translate-x-0 max-sm:translate-y-0">
+        <DialogHeader className="px-4 sm:px-5 py-3 border-b shrink-0 bg-white">
           <DialogTitle className="flex items-center gap-2 text-base">
             <Move className="h-4 w-4" />
             Adjust Cover Image
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 sm:space-y-5">
+        <div className="overflow-y-auto p-3.5 sm:p-5 space-y-4 sm:space-y-5">
           <div
             ref={containerRef}
             className={cn(
-              "relative w-full aspect-[3/1] rounded-xl overflow-hidden border-2 border-dashed transition-all",
+              "relative w-full aspect-[3/1] max-sm:aspect-[16/7] rounded-xl overflow-hidden border-2 border-dashed transition-all",
               imageUrl ? "border-transparent bg-black cursor-move" : "border-muted-foreground/30 bg-muted/50",
               isDragging && "ring-2 ring-primary ring-offset-2"
             )}
@@ -260,15 +260,15 @@ export function CoverImageEditor({
           />
         </div>
 
-        <div className="shrink-0 flex items-center justify-end gap-2 px-4 sm:px-5 py-3 border-t bg-muted/30">
-          <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
+        <div className="shrink-0 grid grid-cols-2 sm:flex items-center sm:justify-end gap-2 px-3.5 sm:px-5 py-3 border-t bg-muted/30">
+          <Button variant="ghost" size="sm" className="w-full sm:w-auto" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
           <Button
             size="sm"
             onClick={handleSave}
             disabled={!imageUrl}
-            className="bg-purple-600 hover:bg-purple-700 text-white"
+            className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white"
           >
             <Check className="h-3.5 w-3.5 mr-1.5" />
             Apply

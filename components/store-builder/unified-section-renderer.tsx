@@ -1811,8 +1811,8 @@ function UnifiedBenefitsSection({ settings, isMobile, isPreviewMode }: { setting
       style={{
         paddingTop: spacing.paddingTop,
         paddingBottom: spacing.paddingBottom,
-        paddingLeft: spacing.paddingLeft,
-        paddingRight: spacing.paddingRight,
+        paddingLeft: horizontalPadding,
+        paddingRight: horizontalPadding,
       }}
     >
       {/* Only show headline if it has content */}
@@ -2089,6 +2089,7 @@ function UnifiedFeaturedProductsSection({
   globalSettings?: GlobalStoreSettings
 }) {
   const spacing = isMobile && settings.mobileSpacing ? settings.mobileSpacing : settings.spacing
+  const horizontalPadding = 8
 
   // Get theme preset for mobile filter pills styling
   const themePreset = globalSettings?.themePreset || "default"
@@ -2263,8 +2264,8 @@ function UnifiedFeaturedProductsSection({
           style={{
             paddingTop: spacing.paddingTop,
             paddingBottom: spacing.paddingBottom,
-            paddingLeft: spacing.paddingLeft,
-            paddingRight: spacing.paddingRight,
+            paddingLeft: horizontalPadding,
+            paddingRight: horizontalPadding,
           }}
         >
           <h2
@@ -2297,8 +2298,8 @@ function UnifiedFeaturedProductsSection({
       style={{
         paddingTop: spacing.paddingTop,
         paddingBottom: spacing.paddingBottom,
-        paddingLeft: spacing.paddingLeft,
-        paddingRight: spacing.paddingRight,
+        paddingLeft: horizontalPadding,
+        paddingRight: horizontalPadding,
       }}
     >
       <div className={cn("flex", uiIsMobile ? "flex-col" : "flex-col md:flex-row md:gap-8")}>
