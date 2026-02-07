@@ -320,6 +320,8 @@ interface CreatorOnboardingModalProps {
 export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModalProps) {
   const router = useRouter()
   const supabase = createClient()
+  const redirectFailureTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  void onClose
 
   // Step management
   const [currentStep, setCurrentStep] = useState(1)
@@ -363,6 +365,45 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
   const [setupPhase, setSetupPhase] = useState<"creating" | "applying" | "almost" | null>(null)
   const [setupComplete, setSetupComplete] = useState(false)
   const [showConfetti, setShowConfetti] = useState(false)
+  const [isRedirecting, setIsRedirecting] = useState(false)
+  const [redirectFailed, setRedirectFailed] = useState(false)
+
+  const startDashboardRedirect = () => {
+    setIsRedirecting(true)
+    setRedirectFailed(false)
+
+    if (redirectFailureTimerRef.current) {
+      clearTimeout(redirectFailureTimerRef.current)
+    }
+
+    redirectFailureTimerRef.current = setTimeout(() => {
+      setRedirectFailed(true)
+    }, 12000)
+
+    router.replace("/app")
+  }
+
+  useEffect(() => {
+    return () => {
+      if (redirectFailureTimerRef.current) {
+        clearTimeout(redirectFailureTimerRef.current)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!isRedirecting) return
+
+    const previousOverflow = document.body.style.overflow
+    const previousTouchAction = document.body.style.touchAction
+    document.body.style.overflow = "hidden"
+    document.body.style.touchAction = "none"
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+      document.body.style.touchAction = previousTouchAction
+    }
+  }, [isRedirecting])
 
   // Load existing avatar from Google login
   useEffect(() => {
@@ -837,14 +878,8 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
     setIsSettingUp(false)
     setSetupPhase(null)
     setSetupComplete(true)
-    setShowConfetti(true)
-
-    // Auto close after animation and navigate to /app
-    setTimeout(() => {
-      onClose()
-      // Full page reload to ensure server sees the new creator record
-      window.location.replace("/app")
-    }, 3500)
+    setShowConfetti(false)
+    startDashboardRedirect()
   }
 
   // Progress bar width
@@ -1480,6 +1515,35 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
           </div>
         </DialogContent>
       </Dialog>
+
+      {isRedirecting && (
+        <div
+          className="fixed inset-0 z-[2147483647] bg-white flex items-center justify-center px-6"
+          role="status"
+          aria-live="polite"
+        >
+          <div className="w-full max-w-sm text-center">
+            <div
+              className="mx-auto mb-5 h-12 w-12 rounded-full border-4 border-purple-200 border-t-purple-600 animate-spin"
+              aria-hidden="true"
+            />
+            <h2 className="text-xl font-semibold text-gray-900">Setting things up...</h2>
+            <p className="mt-2 text-sm text-gray-500">Redirecting to your dashboard.</p>
+
+            {redirectFailed && (
+              <div className="mt-6 rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                <p className="text-sm text-gray-700">This is taking longer than expected. You can continue manually.</p>
+                <button
+                  onClick={startDashboardRedirect}
+                  className="mt-3 inline-flex h-11 items-center justify-center rounded-xl bg-purple-600 px-4 text-sm font-medium text-white hover:bg-purple-700"
+                >
+                  Go to Dashboard
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Confetti */}
       <Confetti show={showConfetti} />
