@@ -19,6 +19,7 @@ function LoginFormContent() {
   const [showPasswordField, setShowPasswordField] = useState(false)
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
   const [isBannerLoaded, setIsBannerLoaded] = useState(false)
+  const [googleOnlyEmail, setGoogleOnlyEmail] = useState<string | null>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -51,6 +52,18 @@ function LoginFormContent() {
   const pendingReview = searchParams.get("pendingReview")
   const autoBuyer = searchParams.get("autoBuyer") // Auto-select buyer account type (from receipt page)
 
+  const lookupAccountOrigin = async (rawEmail: string) => {
+    const emailToCheck = rawEmail.trim().toLowerCase()
+    const res = await fetch("/api/auth/account-origin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: emailToCheck }),
+    })
+
+    if (!res.ok) return null
+    return res.json()
+  }
+
   const handleContinue = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -59,6 +72,18 @@ function LoginFormContent() {
         setError("Please enter your email")
         return
       }
+
+      try {
+        const origin = await lookupAccountOrigin(email)
+        if (origin?.googleOnly) {
+          setGoogleOnlyEmail(email.trim().toLowerCase())
+          setShowPasswordField(false)
+          setError("This account was created with Google. Continue with Google to sign in.")
+          return
+        }
+      } catch {}
+
+      setGoogleOnlyEmail(null)
       setShowPasswordField(true)
       setError(null)
       return
@@ -72,6 +97,13 @@ function LoginFormContent() {
     const trimmedPassword = password
 
     try {
+      const origin = await lookupAccountOrigin(trimmedEmail)
+      if (origin?.googleOnly) {
+        setGoogleOnlyEmail(trimmedEmail)
+        setError("No password exists for this account. Continue with Google.")
+        setIsLoading(false)
+        return
+      }
       const { error, data } = await supabase.auth.signInWithPassword({
         email: trimmedEmail,
         password: trimmedPassword,
@@ -169,6 +201,7 @@ function LoginFormContent() {
     const supabase = createClient()
     setIsGoogleLoading(true)
     setError(null)
+    setGoogleOnlyEmail(null)
 
     try {
       // Store redirect URL in both localStorage and cookie for OAuth callback
@@ -275,6 +308,12 @@ function LoginFormContent() {
             )}
 
             {error && <p className="text-sm text-red-500">{error}</p>}
+
+            {googleOnlyEmail && (
+              <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2">
+                <p className="text-xs text-blue-800">Use Google sign-in for <span className="font-medium">{googleOnlyEmail}</span>.</p>
+              </div>
+            )}
 
             <Button
               type="submit"

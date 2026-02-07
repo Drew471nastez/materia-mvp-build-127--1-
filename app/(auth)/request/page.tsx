@@ -21,6 +21,7 @@ export default function RequestPasswordResetPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [maskedEmail, setMaskedEmail] = useState("")
+  const [googleOnlyHint, setGoogleOnlyHint] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -32,6 +33,7 @@ export default function RequestPasswordResetPage() {
 
     setIsLoading(true)
     setError(null)
+    setGoogleOnlyHint(false)
 
     try {
       const response = await fetch("/api/auth/request-password-reset", {
@@ -45,6 +47,9 @@ export default function RequestPasswordResetPage() {
       if (response.ok) {
         setMaskedEmail(maskEmail(email.trim().toLowerCase()))
         setSuccess(true)
+      } else if (response.status === 409 && data?.accountType === "google_only") {
+        setGoogleOnlyHint(true)
+        setError(data.message || "This account uses Google sign-in.")
       } else {
         setError(data.error || "Failed to send reset email")
       }
@@ -116,6 +121,20 @@ export default function RequestPasswordResetPage() {
           />
 
           {error && <p className="text-sm text-red-500">{error}</p>}
+
+          {googleOnlyHint && (
+            <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-left">
+              <p className="text-sm text-blue-900 mb-2">This account was created with Google. Use Google sign-in instead of password reset.</p>
+              <Link href="/login" className="inline-flex">
+                <Button type="button" variant="outline" className="h-9 text-sm border-blue-300 text-blue-700 hover:bg-blue-100 cursor-pointer">
+                  Continue with Google
+                </Button>
+              </Link>
+              <div className="mt-2">
+                <Link href="mailto:support@storelib.com" className="text-xs text-blue-700 underline">Can’t access Google?</Link>
+              </div>
+            </div>
+          )}
 
           <Button
             type="submit"

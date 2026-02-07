@@ -21,6 +21,7 @@ function SignUpFormContent() {
   const [showPasswordField, setShowPasswordField] = useState(false)
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
   const [isBannerLoaded, setIsBannerLoaded] = useState(false)
+  const [googleOnlyEmail, setGoogleOnlyEmail] = useState<string | null>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
   const claim = searchParams.get("claim")
@@ -30,6 +31,17 @@ function SignUpFormContent() {
   const redirectUrl = searchParams.get("redirect")
   const pendingReview = searchParams.get("pendingReview")
   const autoBuyer = searchParams.get("autoBuyer") // Auto-select buyer account type (from receipt page)
+
+  const lookupAccountOrigin = async (rawEmail: string) => {
+    const emailToCheck = rawEmail.trim().toLowerCase()
+    const res = await fetch("/api/auth/account-origin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: emailToCheck }),
+    })
+    if (!res.ok) return null
+    return res.json()
+  }
 
   // Check if user is already authenticated - redirect to /explore if so
   useEffect(() => {
@@ -73,6 +85,21 @@ function SignUpFormContent() {
         setError("Please enter your email")
         return
       }
+
+      try {
+        const origin = await lookupAccountOrigin(email)
+        if (origin?.exists && origin?.googleOnly) {
+          setGoogleOnlyEmail(email.trim().toLowerCase())
+          setError("This email already exists via Google. Continue with Google instead.")
+          return
+        }
+        if (origin?.exists && origin?.passwordEnabled) {
+          setError("An account with this email already exists. Please log in.")
+          return
+        }
+      } catch {}
+
+      setGoogleOnlyEmail(null)
       setShowPasswordField(true)
       setError(null)
       return
@@ -167,7 +194,12 @@ function SignUpFormContent() {
         router.refresh()
       }
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "An error occurred")
+      const msg = error instanceof Error ? error.message : "An error occurred"
+      if (msg.toLowerCase().includes("already registered")) {
+        setError("This email is already registered. Please log in or continue with Google.")
+      } else {
+        setError(msg)
+      }
     } finally {
       setIsLoading(false)
     }
@@ -185,6 +217,7 @@ function SignUpFormContent() {
     const supabase = createClient()
     setIsGoogleLoading(true)
     setError(null)
+    setGoogleOnlyEmail(null)
 
     try {
       // Store redirect URL in both localStorage and cookie for OAuth callback
@@ -306,6 +339,12 @@ function SignUpFormContent() {
             </div>
 
             {error && <p className="text-sm text-red-500">{error}</p>}
+
+            {googleOnlyEmail && (
+              <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2">
+                <p className="text-xs text-blue-800">This email is linked to Google sign-in: <span className="font-medium">{googleOnlyEmail}</span>.</p>
+              </div>
+            )}
 
             <Button
               type="submit"
