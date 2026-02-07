@@ -300,13 +300,13 @@ export function SettingsForm({ profile, creator }: SettingsFormProps) {
   }
 
   return (
-    <div className="min-h-screen bg-white p-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-foreground">Settings</h1>
-        <p className="text-muted-foreground">Manage your profile and storefront</p>
+    <div className="min-h-screen bg-white px-4 py-6 sm:px-6 sm:py-8 md:p-8">
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-xl sm:text-2xl font-semibold text-foreground">Settings</h1>
+        <p className="text-sm text-muted-foreground">Manage your profile and storefront</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="max-w-2xl space-y-6">
+      <form onSubmit={handleSubmit} className="max-w-2xl space-y-4 sm:space-y-6">
         {/* Brand Color - keeping this here for global theming */}
         <Card className="border-border">
           <CardHeader>
@@ -366,14 +366,14 @@ export function SettingsForm({ profile, creator }: SettingsFormProps) {
             </div>
             <div className="grid gap-2">
               <Label htmlFor="email">Email</Label>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                 <Input id="email" value={currentEmail} disabled className="bg-muted flex-1" />
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={() => setShowEmailChangeModal(true)}
-                  className="whitespace-nowrap"
+                  className="whitespace-nowrap w-full sm:w-auto"
                 >
                   <Mail className="h-4 w-4 mr-1" />
                   Change
@@ -407,11 +407,11 @@ export function SettingsForm({ profile, creator }: SettingsFormProps) {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center gap-2">
-              <Input value={storeUrlDisplay} readOnly className="bg-muted font-mono text-sm" />
-              <Button type="button" variant="outline" size="icon" onClick={copyStoreLink}>
+              <Input value={storeUrlDisplay} readOnly className="bg-muted font-mono text-xs sm:text-sm min-w-0" />
+              <Button type="button" variant="outline" size="icon" onClick={copyStoreLink} className="shrink-0">
                 {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
               </Button>
-              <Button type="button" variant="outline" size="icon" asChild>
+              <Button type="button" variant="outline" size="icon" asChild className="shrink-0">
                 <a href={storeUrl} target="_blank" rel="noopener noreferrer">
                   <ExternalLink className="h-4 w-4" />
                 </a>
@@ -478,7 +478,7 @@ export function SettingsForm({ profile, creator }: SettingsFormProps) {
             <CardDescription>Manage your password and account security</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
                 <p className="font-medium text-sm">Password</p>
                 <p className="text-xs text-muted-foreground">Reset your account password</p>
@@ -489,7 +489,7 @@ export function SettingsForm({ profile, creator }: SettingsFormProps) {
                 size="sm"
                 onClick={handlePasswordReset}
                 disabled={passwordResetLoading || passwordResetSent}
-                className="whitespace-nowrap"
+                className="whitespace-nowrap w-full sm:w-auto"
               >
                 {passwordResetLoading ? (
                   <>
@@ -640,7 +640,7 @@ export function SettingsForm({ profile, creator }: SettingsFormProps) {
                         value={digit}
                         onChange={(e) => handleCodeInput(index, e.target.value)}
                         onKeyDown={(e) => handleCodeKeyDown(index, e)}
-                        className="w-12 h-14 text-center text-2xl font-bold border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-10 h-12 sm:w-12 sm:h-14 text-center text-xl sm:text-2xl font-bold border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       />
                     ))}
                   </div>

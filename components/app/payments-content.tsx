@@ -188,13 +188,13 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
   const showWarning = !isConnected || hasRestrictions
 
   return (
-    <div className="min-h-screen bg-white p-4 sm:p-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-foreground">Payments & Store Settings</h1>
-        <p className="text-muted-foreground">Connect your payout method to start selling</p>
+    <div className="min-h-screen bg-white px-4 py-6 sm:px-6 sm:py-8 md:p-8">
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-xl sm:text-2xl font-semibold text-foreground">Payments & Store Settings</h1>
+        <p className="text-sm text-muted-foreground">Connect your payout method to start selling</p>
       </div>
 
-      <div className="max-w-2xl space-y-6">
+      <div className="max-w-2xl space-y-4 sm:space-y-6">
         {isTestMode && (
           <Alert>
             <AlertDescription className="flex items-center gap-2">
@@ -242,17 +242,17 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
             <CardDescription>Receive payments directly to your bank account</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
                 <p className="text-sm font-medium">Status</p>
-                <div className="mt-1 flex items-center gap-2">
+                <div className="mt-1 flex items-center gap-2 flex-wrap">
                   {connectionStatus?.status === "enabled" ? (
                     <>
                       <Badge variant="default" className="bg-green-600">
                         Fully Enabled
                       </Badge>
                       {connectionStatus?.accountId && (
-                        <span className="text-xs text-muted-foreground">{connectionStatus.accountId}</span>
+                        <span className="text-xs text-muted-foreground break-all">{connectionStatus.accountId}</span>
                       )}
                     </>
                   ) : connectionStatus?.status === "restricted" ? (
@@ -265,7 +265,7 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
                 </div>
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 {connectionStatus?.connected !== undefined && (
                   <Button
                     variant="outline"

@@ -774,15 +774,15 @@ export function EmailBuilder({
   if (showTemplates) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <div className="bg-white border-b sticky top-0 z-10">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4">
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="icon" onClick={onBack} className="h-9 w-9">
+        <div className="bg-white border-b sticky top-[68px] md:top-0 z-10">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 sm:py-4">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <Button variant="ghost" size="icon" onClick={onBack} className="h-9 w-9 shrink-0">
                 <ArrowLeft className="h-4 w-4" />
               </Button>
-              <div>
-                <h1 className="text-xl font-semibold text-gray-900">Choose a Template</h1>
-                <p className="text-sm text-gray-500">Select a template to start building your email</p>
+              <div className="min-w-0">
+                <h1 className="text-base sm:text-xl font-semibold text-gray-900">Choose a Template</h1>
+                <p className="text-xs sm:text-sm text-gray-500 hidden sm:block">Select a template to start building your email</p>
               </div>
             </div>
           </div>
@@ -814,7 +814,7 @@ export function EmailBuilder({
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
       {/* Header */}
-      <div className="bg-white border-b sticky top-0 z-20">
+      <div className="bg-white border-b sticky top-[68px] md:top-0 z-20">
         <div className="px-4 py-3">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3 flex-1 min-w-0">

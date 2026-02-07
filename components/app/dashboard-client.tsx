@@ -495,9 +495,9 @@ export function DashboardClient({
 
         {/* Main Content Grid - Store Setup + Quick Actions */}
         <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
-          {/* Left Column - Store Setup Checklist */}
+          {/* Left Column - Store Setup Checklist - hidden on mobile */}
           {!allCompleted && (
-            <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] h-fit">
+            <div className="hidden md:block bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] h-fit">
               <div className="flex items-center justify-between mb-5">
                 <h2 className="text-[15px] font-semibold text-[#1a1a2e]">Store setup</h2>
                 <span className="text-[13px] font-medium text-[#6b7280] bg-[#f3f4f6] px-2.5 py-1 rounded-full">
