@@ -65,7 +65,17 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
     updateSectionSettings,
   } = useStoreBuilder()
 
-  const isMobile = previewDevice === "mobile"
+  const [runtimeIsMobile, setRuntimeIsMobile] = useState(false)
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 768px)")
+    const update = () => setRuntimeIsMobile(mq.matches)
+    update()
+    mq.addEventListener?.("change", update)
+    return () => mq.removeEventListener?.("change", update)
+  }, [])
+
+  const isMobile = previewDevice === "mobile" || runtimeIsMobile
   const isEditorMode = !isPreviewMode
   // In editor, sections should render in preview mode to show placeholders
   const sectionsPreviewMode = isEditorMode ? true : isPreviewMode
