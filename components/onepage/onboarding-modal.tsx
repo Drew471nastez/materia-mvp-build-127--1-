@@ -1497,7 +1497,7 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
             // Desktop: centered modal with exact specs - 948px width, 550px height
             "sm:w-[930px] sm:max-w-[930px] sm:h-[540px] sm:rounded-[44px]",
             // Mobile: auto height modal that fits content, max height to viewport
-            "w-[calc(100%-24px)] max-w-none max-sm:fixed max-sm:inset-0 max-sm:w-screen max-sm:h-[100dvh] max-sm:rounded-none",
+            "w-[calc(100%-24px)] max-w-none max-sm:fixed max-sm:inset-0 max-sm:top-0 max-sm:left-0 max-sm:w-screen max-sm:h-[100dvh] max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none",
             // Shadow
             "shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)]",
             // Hide the close button
