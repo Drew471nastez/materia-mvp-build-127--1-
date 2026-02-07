@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -174,9 +174,35 @@ export function EmailEditor({
 
   // Timeframe filter state for segment creation
   const [selectedTimeframe, setSelectedTimeframe] = useState<string>("")
+  const [showExitConfirmDialog, setShowExitConfirmDialog] = useState(false)
+  const allowNavigationRef = useRef(false)
+  const hasUnsavedChangesRef = useRef(false)
+  const onBackRef = useRef(onBack)
 
-  // Parent page handles unsaved changes - just delegate to onBack
+  const normalizeEditorHtml = (value: string) => value.replace(/\s+/g, " ").replace(/> </g, "><").trim()
+
+  const hasUnsavedChanges = useMemo(() => {
+    const currentContent = normalizeEditorHtml(editorRef.current?.innerHTML || editorContent || "")
+    const initialContent = normalizeEditorHtml(initialBody || "")
+
+    return (
+      subject.trim() !== initialSubject.trim() ||
+      previewText.trim() !== initialPreviewText.trim() ||
+      currentContent !== initialContent
+    )
+  }, [subject, previewText, editorContent, initialSubject, initialPreviewText, initialBody])
+
+  useEffect(() => {
+    hasUnsavedChangesRef.current = hasUnsavedChanges
+    onBackRef.current = onBack
+  }, [hasUnsavedChanges, onBack])
+
   const handleBack = () => {
+    if (hasUnsavedChanges) {
+      setShowExitConfirmDialog(true)
+      return
+    }
+    allowNavigationRef.current = true
     onBack()
   }
 
@@ -206,6 +232,30 @@ export function EmailEditor({
       loadProducts()
     }
   }, [showProductDialog, creatorId])
+
+
+
+  useEffect(() => {
+    const handlePopState = () => {
+      if (allowNavigationRef.current) return
+
+      if (hasUnsavedChangesRef.current) {
+        window.history.pushState({ emailEditorGuard: true }, "", window.location.href)
+        setShowExitConfirmDialog(true)
+        return
+      }
+
+      allowNavigationRef.current = true
+      onBackRef.current()
+    }
+
+    window.history.pushState({ emailEditorGuard: true }, "", window.location.href)
+    window.addEventListener("popstate", handlePopState)
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState)
+    }
+  }, [])
 
   // Handle click outside image/button menu
   useEffect(() => {
@@ -780,7 +830,7 @@ export function EmailEditor({
 
       {/* Main Content */}
       <div className="max-w-[1600px] mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 overflow-x-hidden">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 items-start gap-4 sm:gap-6">
           {/* Editor Panel */}
           <div className="space-y-4 sm:space-y-5">
             {/* Subject Card */}
@@ -802,7 +852,7 @@ export function EmailEditor({
               </div>
 
               {/* Rich Text Toolbar */}
-              <div className="flex md:flex-wrap items-center gap-1 px-3 sm:px-4 py-2.5 border-b border-gray-100 bg-white overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+              <div className="flex flex-wrap items-center gap-1 px-3 sm:px-4 py-2.5 border-b border-gray-100 bg-white">
                 <div className="flex items-center gap-0.5 mr-2">
                   <Button variant="ghost" size="icon" onClick={undoAction} className="h-8 w-8 rounded-lg hover:bg-gray-100" title="Undo">
                     <Undo className="h-4 w-4 text-gray-500" />
@@ -811,7 +861,7 @@ export function EmailEditor({
                     <Redo className="h-4 w-4 text-gray-500" />
                   </Button>
                 </div>
-                <div className="w-px h-5 bg-gray-200 mx-1" />
+                <div className="hidden sm:block w-px h-5 bg-gray-200 mx-1" />
                 <Button variant="ghost" size="icon" onClick={insertHeading} className="h-8 w-8 rounded-lg hover:bg-gray-100" title="Heading">
                   <Type className="h-4 w-4 text-gray-500" />
                 </Button>
@@ -824,14 +874,14 @@ export function EmailEditor({
                 <Button variant="ghost" size="icon" onClick={insertStrikethrough} className="h-8 w-8 rounded-lg hover:bg-gray-100" title="Strikethrough">
                   <Strikethrough className="h-4 w-4 text-gray-500" />
                 </Button>
-                <div className="w-px h-5 bg-gray-200 mx-1" />
+                <div className="hidden sm:block w-px h-5 bg-gray-200 mx-1" />
                 <Button variant="ghost" size="icon" onClick={alignLeft} className="h-8 w-8 rounded-lg hover:bg-gray-100" title="Align Left">
                   <AlignLeft className="h-4 w-4 text-gray-500" />
                 </Button>
                 <Button variant="ghost" size="icon" onClick={alignCenter} className="h-8 w-8 rounded-lg hover:bg-gray-100" title="Align Center">
                   <AlignCenter className="h-4 w-4 text-gray-500" />
                 </Button>
-                <div className="w-px h-5 bg-gray-200 mx-1" />
+                <div className="hidden sm:block w-px h-5 bg-gray-200 mx-1" />
                 <Button variant="ghost" size="icon" onClick={insertList} className="h-8 w-8 rounded-lg hover:bg-gray-100" title="Bullet List">
                   <List className="h-4 w-4 text-gray-500" />
                 </Button>
@@ -841,7 +891,7 @@ export function EmailEditor({
                 <Button variant="ghost" size="icon" onClick={insertQuote} className="h-8 w-8 rounded-lg hover:bg-gray-100" title="Quote">
                   <Quote className="h-4 w-4 text-gray-500" />
                 </Button>
-                <div className="w-px h-5 bg-gray-200 mx-1" />
+                <div className="hidden sm:block w-px h-5 bg-gray-200 mx-1" />
                 <Button variant="ghost" size="icon" onClick={insertLink} className="h-8 w-8 rounded-lg hover:bg-gray-100" title="Insert Link">
                   <Link2 className="h-4 w-4 text-gray-500" />
                 </Button>
@@ -854,7 +904,7 @@ export function EmailEditor({
                 <Button variant="ghost" size="icon" onClick={insertDivider} className="h-8 w-8 rounded-lg hover:bg-gray-100" title="Insert Divider">
                   <Minus className="h-4 w-4 text-gray-500" />
                 </Button>
-                <div className="w-px h-5 bg-gray-200 mx-1" />
+                <div className="hidden sm:block w-px h-5 bg-gray-200 mx-1" />
                 <Button variant="outline" size="sm" onClick={() => {
                     // Save the current selection before opening dialog
                     const selection = window.getSelection()
@@ -862,7 +912,7 @@ export function EmailEditor({
                       setSavedSelection(selection.getRangeAt(0).cloneRange())
                     }
                     setShowProductDialog(true)
-                  }} className="h-8 px-3 rounded-lg border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300">
+                  }} className="h-8 px-3 rounded-lg border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300 mt-1 sm:mt-0">
                   <ShoppingBag className="h-3.5 w-3.5 mr-1.5" />Product Link
                 </Button>
               </div>
@@ -904,7 +954,7 @@ Tips:
                     <Button variant="ghost" size="sm" onClick={() => resizeImage('normal')} className="h-8 px-2 rounded-lg hover:bg-gray-100 text-xs">
                       Full
                     </Button>
-                    <div className="w-px h-5 bg-gray-200 mx-1" />
+                    <div className="hidden sm:block w-px h-5 bg-gray-200 mx-1" />
                     <Button variant="ghost" size="sm" onClick={deleteImage} className="h-8 px-2 rounded-lg hover:bg-red-50 text-red-500 text-xs">
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
@@ -1014,7 +1064,7 @@ Tips:
           </div>
 
           {/* Preview Panel */}
-          <div className="md:sticky md:top-24 md:h-fit">
+          <div className="md:sticky md:top-6 md:h-fit md:self-start">
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
               <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
                 <Label className="text-sm font-medium text-gray-700">Live Preview</Label>
@@ -1107,7 +1157,7 @@ Tips:
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowScheduleDialog(false)} className="rounded-xl">Cancel</Button>
-            <Button onClick={handleSchedule} disabled={!scheduledAt || isSaving} className="bg-blue-500 hover:bg-blue-600 rounded-xl">
+            <Button onClick={handleSchedule} disabled={!scheduledAt || isSaving} className="bg-violet-600 hover:bg-violet-700 rounded-[7px]">
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}Schedule
             </Button>
           </DialogFooter>
@@ -1139,7 +1189,7 @@ Tips:
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setShowTestDialog(false)} className="rounded-xl">Cancel</Button>
-                <Button onClick={handleSendTest} disabled={!testEmail || isSendingTest} className="bg-blue-500 hover:bg-blue-600 rounded-xl">
+                <Button onClick={handleSendTest} disabled={!testEmail || isSendingTest} className="bg-violet-600 hover:bg-violet-700 rounded-[7px]">
                   {isSendingTest ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}Send Test
                 </Button>
               </DialogFooter>
@@ -1167,7 +1217,7 @@ Tips:
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowLinkDialog(false)} className="rounded-xl">Cancel</Button>
-            <Button onClick={confirmInsertLink} disabled={!linkUrl} className="bg-blue-500 hover:bg-blue-600 rounded-xl">Insert Link</Button>
+            <Button onClick={confirmInsertLink} disabled={!linkUrl} className="bg-violet-600 hover:bg-violet-700 rounded-[7px]">Insert Link</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1274,7 +1324,7 @@ Tips:
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowButtonDialog(false)} className="rounded-xl">Cancel</Button>
-            <Button onClick={confirmInsertButton} disabled={!buttonUrl || !buttonText} className="bg-blue-500 hover:bg-blue-600 rounded-xl">Insert Button</Button>
+            <Button onClick={confirmInsertButton} disabled={!buttonUrl || !buttonText} className="bg-violet-600 hover:bg-violet-700 rounded-[7px]">Insert Button</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1289,7 +1339,7 @@ Tips:
           <div className="space-y-4 py-4 flex-1 overflow-hidden flex flex-col">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input value={productSearch} onChange={(e) => setProductSearch(e.target.value)} placeholder="Search products..." className="pl-10 h-11 rounded-xl" />
+              <Input value={productSearch} onChange={(e) => setProductSearch(e.target.value)} placeholder="Search products..." className="pl-10 pr-4 h-11 rounded-xl text-sm focus-visible:ring-2 focus-visible:ring-violet-500/20" />
             </div>
             <div className="flex-1 overflow-y-auto rounded-xl border border-gray-200 min-h-0">
               {loadingProducts ? (
@@ -1317,6 +1367,42 @@ Tips:
               )}
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showExitConfirmDialog} onOpenChange={setShowExitConfirmDialog}>
+        <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Unsaved changes</DialogTitle>
+            <DialogDescription>
+              You have unsaved email edits. Do you want to save this as a draft before leaving?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:justify-end">
+            <Button variant="outline" onClick={() => setShowExitConfirmDialog(false)} className="rounded-xl">Keep Editing</Button>
+            <Button
+              variant="outline"
+              className="rounded-xl"
+              onClick={() => {
+                setShowExitConfirmDialog(false)
+                allowNavigationRef.current = true
+                onBack()
+              }}
+            >
+              Leave Without Saving
+            </Button>
+            <Button
+              onClick={async () => {
+                await handleSave()
+                setShowExitConfirmDialog(false)
+              }}
+              disabled={isSaving || !subject.trim()}
+              className="bg-violet-600 hover:bg-violet-700 rounded-xl"
+            >
+              {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Save as Draft
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
