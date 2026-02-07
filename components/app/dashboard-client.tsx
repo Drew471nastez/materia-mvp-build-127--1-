@@ -449,12 +449,6 @@ function TimeframeBottomSheet({
               </button>
             ))}
           </div>
-          <button
-            onClick={handleClose}
-            className="w-full mt-4 py-3 text-[15px] font-medium text-[#6b7280] bg-[#f3f4f6] rounded-xl active:bg-[#e5e7eb] transition-colors"
-          >
-            {t("common.cancel")}
-          </button>
         </div>
         {/* Safe area padding for iOS */}
         <div className="h-[env(safe-area-inset-bottom)]" />
@@ -1243,7 +1237,7 @@ export function DashboardClient({
           {/* Mobile: Live Indicator + Timeframe Button */}
           <div className="md:hidden flex items-center gap-2">
             {/* Live Indicator Pill - Mobile */}
-            <div className="flex items-center gap-1.5 px-2.5 py-2 bg-[#f3f4f6] rounded-lg">
+            <div className="flex items-center gap-1.5 px-2.5 py-2 bg-[#f3f4f6] rounded-xl h-[38px]">
               <div
                 className={`w-2 h-2 rounded-full ${
                   liveVisitors > 0
@@ -1260,7 +1254,7 @@ export function DashboardClient({
             </div>
             <button
               onClick={() => setIsMobileSheetOpen(true)}
-              className="w-fit inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#e5e7eb] rounded-xl text-[13px] font-medium text-[#374151] shadow-sm"
+              className="w-fit inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#e5e7eb] rounded-xl text-[13px] font-medium text-[#374151] shadow-sm h-[38px]"
             >
               {selectedOption?.label || "Last 7 days"}
               <ChevronDown className="h-4 w-4 text-[#9ca3af]" />
