@@ -481,6 +481,7 @@ function ShareButton({
   pageUrl,
   pageTitle,
   avatarUrl,
+  avatarVideoUrl,
   style = "white",
   showSubscribe = true,
   accentColor,
@@ -491,6 +492,7 @@ function ShareButton({
   pageUrl: string
   pageTitle: string
   avatarUrl?: string | null
+  avatarVideoUrl?: string | null
   style?: "glass" | "white" | "black"
   showSubscribe?: boolean
   accentColor?: string
@@ -712,7 +714,7 @@ function ShareButton({
             }}
           >
             {/* Mobile: 18px (2px smaller than 20), Desktop: 17px (3px smaller than 20) */}
-            <Send className={cn("w-[18px] h-[18px] sm:w-[17px] sm:h-[17px]", s.iconColor)} />
+            <Send className={cn("w-[18px] h-[18px] sm:w-[17px] sm:h-[17px] transition-transform duration-300", isOpen ? "rotate-45 scale-90" : "", s.iconColor)} />
           </button>
         </div>
       </div>
@@ -722,13 +724,13 @@ function ShareButton({
         <>
           {/* Backdrop */}
           <div
-            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] animate-in fade-in duration-200"
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] animate-in fade-in duration-300"
             onClick={() => setIsOpen(false)}
           />
 
           {/* Modal - Modern Linktree-style design */}
           <div
-            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[65] w-[calc(100%-32px)] max-w-[380px] rounded-[28px] overflow-hidden animate-in zoom-in-95 fade-in duration-200"
+            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[65] w-[calc(100%-32px)] max-w-[380px] rounded-[28px] overflow-hidden animate-in zoom-in-90 fade-in slide-in-from-bottom-4 duration-300 ease-out"
             style={{
               background: "#ffffff",
               boxShadow: "0 25px 80px rgba(0, 0, 0, 0.2), 0 8px 24px rgba(0, 0, 0, 0.1)",
@@ -753,8 +755,10 @@ function ShareButton({
 
               <div className="text-center">
                 <div className="w-20 h-20 mx-auto mb-4 rounded-full overflow-hidden bg-white/20 flex items-center justify-center ring-4 ring-white/30 shadow-xl">
-                  {avatarUrl ? (
-                    <img src={avatarUrl || "/placeholder.svg"} alt={pageTitle} className="w-full h-full object-cover" />
+                  {avatarVideoUrl ? (
+                    <video src={avatarVideoUrl} className="w-full h-full object-cover" autoPlay loop muted playsInline />
+                  ) : avatarUrl ? (
+                    <img src={avatarUrl} alt={pageTitle} className="w-full h-full object-cover" />
                   ) : (
                     <span className="text-3xl font-bold text-white">{pageTitle.charAt(0).toUpperCase()}</span>
                   )}
@@ -1895,6 +1899,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           pageUrl={pageUrl}
           pageTitle={sellerName}
           avatarUrl={avatar_url}
+          avatarVideoUrl={avatar_video_url}
           style={safeSettings.share_style || "white"}
           showSubscribe={safeSettings.subscribe_enabled !== false}
           accentColor={safeTheme.button_color}
@@ -3336,7 +3341,16 @@ function PublicBlockRenderer({
                     ref={videoRef}
                     src={profile.avatar_video_url!}
                     className="w-full h-full object-cover"
-                    style={{ objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%` }}
+                    style={{
+                      opacity: 0,
+                      filter: 'blur(6px)',
+                      transition: 'opacity 0.5s ease-out, filter 0.5s ease-out',
+                      objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%`,
+                    }}
+                    onLoadedData={(e) => {
+                      e.currentTarget.style.opacity = '1';
+                      e.currentTarget.style.filter = 'none';
+                    }}
                     autoPlay
                     loop
                     muted
@@ -3350,6 +3364,13 @@ function PublicBlockRenderer({
                   style={{
                     imageRendering: "auto",
                     objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%`,
+                    opacity: 0,
+                    filter: 'blur(6px)',
+                    transition: 'opacity 0.5s ease-out, filter 0.5s ease-out',
+                  }}
+                  onLoad={(e) => {
+                    e.currentTarget.style.opacity = '1';
+                    e.currentTarget.style.filter = 'none';
                   }}
                   loading="eager"
                 />
@@ -3466,7 +3487,7 @@ function PublicBlockRenderer({
       const glowSpread = laserGlowIntensity === "low" ? 4 : laserGlowIntensity === "hard" ? 8 : 6
       const glowOpacity = laserGlowIntensity === "low" ? 0.7 : laserGlowIntensity === "hard" ? 1 : 0.85
       // Avatar size increased by 3px
-      const avatarSize = isDesktop ? 110 : 103
+      const avatarSize = isDesktop ? 121 : 134
 
       return (
         <div className={cn("flex flex-col items-center gap-3 sm:gap-4 w-full text-center")}>
@@ -3525,14 +3546,21 @@ function PublicBlockRenderer({
                       ref={videoRef}
                       src={profile.avatar_video_url!}
                       className="w-full h-full object-cover"
-                      style={
-                        profile.avatar_video_crop
+                      style={{
+                        opacity: 0,
+                        filter: 'blur(6px)',
+                        transition: 'opacity 0.5s ease-out, filter 0.5s ease-out',
+                        ...(profile.avatar_video_crop
                           ? {
                               transformOrigin: '0 0',
                               transform: `scale(${100 / profile.avatar_video_crop.width}) translate(-${profile.avatar_video_crop.x}%, -${profile.avatar_video_crop.y}%)`,
                             }
-                          : undefined
-                      }
+                          : {}),
+                      }}
+                      onLoadedData={(e) => {
+                        e.currentTarget.style.opacity = '1';
+                        e.currentTarget.style.filter = 'none';
+                      }}
                       autoPlay
                       loop
                       muted
@@ -3549,7 +3577,7 @@ function PublicBlockRenderer({
                   >
                     <AvatarImage
                       src={profile.avatar_url || undefined}
-                      className="object-cover"
+                      className="object-cover animate-in fade-in duration-500"
                       style={{
                         imageRendering: "auto",
                         transform: `translateY(${(theme as any).avatar_offset_y || 0}px)`,
@@ -3574,15 +3602,15 @@ function PublicBlockRenderer({
                 className="mx-auto w-auto my-2"
                 style={{
                   maxHeight:
-                    (theme as any).title_size === "large" ? (isDesktop ? "70px" : "60px") : isDesktop ? "60px" : "52px",
+                    (theme as any).title_size === "large" ? (isDesktop ? "84px" : "72px") : isDesktop ? "72px" : "62px",
                   maxWidth:
                     (theme as any).title_size === "large"
                       ? isDesktop
-                        ? "260px"
-                        : "230px"
+                        ? "312px"
+                        : "276px"
                       : isDesktop
-                        ? "230px"
-                        : "200px",
+                        ? "276px"
+                        : "240px",
                   objectFit: "contain",
                   marginTop: (theme as any).logo_position === "more_up" ? "-5px" : undefined,
                 }}
@@ -3594,11 +3622,11 @@ function PublicBlockRenderer({
                     "font-bold text-center inline-flex items-center justify-center",
                     (theme as any).title_size === "large"
                       ? isDesktop
-                        ? "text-[36px]"
-                        : "text-[33px] sm:text-[37px]"
+                        ? "text-[43px]"
+                        : "text-[40px] sm:text-[44px]"
                       : isDesktop
-                        ? "text-[31px]"
-                        : "text-[27px] sm:text-[31px]",
+                        ? "text-[37px]"
+                        : "text-[32px] sm:text-[37px]",
                   )}
                   style={{
                     color: (theme as any).title_color || theme.text_color,

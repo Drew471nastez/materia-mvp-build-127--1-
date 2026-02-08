@@ -647,7 +647,7 @@ export function LinksTab() {
   // Crop state for images - square style like design tab
   const [cropBox, setCropBox] = useState({ x: 50, y: 50, size: 200 })
   const [isDraggingCrop, setIsDraggingCrop] = useState(false)
-  const [isResizingCrop, setIsResizingCrop] = useState(false)
+  const [isResizingCrop, setIsResizingCrop] = useState<string | null>(null)
   const [dragStartCrop, setDragStartCrop] = useState({ x: 0, y: 0 })
   const [imageSizeCrop, setImageSizeCrop] = useState({ width: 0, height: 0 })
   const cropContainerRef = useRef<HTMLDivElement>(null)
@@ -3123,16 +3123,33 @@ export function LinksTab() {
                     } else if (isResizingCrop) {
                       const dx = e.clientX - dragStartCrop.x
                       const dy = e.clientY - dragStartCrop.y
-                      const delta = Math.max(dx, dy)
-                      const newSize = Math.max(50, Math.min(300, cropBox.size + delta))
-                      // Constrain to not exceed image bounds
-                      const maxSize = Math.min(imageSizeCrop.width - cropBox.x, imageSizeCrop.height - cropBox.y)
-                      setCropBox(prev => ({ ...prev, size: Math.min(newSize, maxSize) }))
+                      let delta: number, newSize: number
+                      if (isResizingCrop === 'top-left') {
+                        delta = Math.max(-dx, -dy)
+                        newSize = Math.max(50, cropBox.size + delta)
+                        const sizeChange = newSize - cropBox.size
+                        setCropBox(prev => ({ ...prev, size: newSize, x: Math.max(0, prev.x - sizeChange), y: Math.max(0, prev.y - sizeChange) }))
+                      } else if (isResizingCrop === 'top-right') {
+                        delta = Math.max(dx, -dy)
+                        newSize = Math.max(50, Math.min(imageSizeCrop.width - cropBox.x, cropBox.size + delta))
+                        const sizeChange = newSize - cropBox.size
+                        setCropBox(prev => ({ ...prev, size: newSize, y: Math.max(0, prev.y - sizeChange) }))
+                      } else if (isResizingCrop === 'bottom-left') {
+                        delta = Math.max(-dx, dy)
+                        newSize = Math.max(50, Math.min(imageSizeCrop.height - cropBox.y, cropBox.size + delta))
+                        const sizeChange = newSize - cropBox.size
+                        setCropBox(prev => ({ ...prev, size: newSize, x: Math.max(0, prev.x - sizeChange) }))
+                      } else {
+                        delta = Math.max(dx, dy)
+                        newSize = Math.max(50, Math.min(300, cropBox.size + delta))
+                        const maxSize = Math.min(imageSizeCrop.width - cropBox.x, imageSizeCrop.height - cropBox.y)
+                        setCropBox(prev => ({ ...prev, size: Math.min(newSize, maxSize) }))
+                      }
                       setDragStartCrop({ x: e.clientX, y: e.clientY })
                     }
                   }}
-                  onMouseUp={() => { setIsDraggingCrop(false); setIsResizingCrop(false) }}
-                  onMouseLeave={() => { setIsDraggingCrop(false); setIsResizingCrop(false) }}
+                  onMouseUp={() => { setIsDraggingCrop(false); setIsResizingCrop(null) }}
+                  onMouseLeave={() => { setIsDraggingCrop(false); setIsResizingCrop(null) }}
                   onTouchMove={(e) => {
                     if (!isDraggingCrop && !isResizingCrop) return
                     e.preventDefault()
@@ -3155,14 +3172,32 @@ export function LinksTab() {
                     } else if (isResizingCrop) {
                       const dx = touch.clientX - dragStartCrop.x
                       const dy = touch.clientY - dragStartCrop.y
-                      const delta = Math.max(dx, dy)
-                      const newSize = Math.max(50, Math.min(300, cropBox.size + delta))
-                      const maxSize = Math.min(imageSizeCrop.width - cropBox.x, imageSizeCrop.height - cropBox.y)
-                      setCropBox(prev => ({ ...prev, size: Math.min(newSize, maxSize) }))
+                      let delta: number, newSize: number
+                      if (isResizingCrop === 'top-left') {
+                        delta = Math.max(-dx, -dy)
+                        newSize = Math.max(50, cropBox.size + delta)
+                        const sizeChange = newSize - cropBox.size
+                        setCropBox(prev => ({ ...prev, size: newSize, x: Math.max(0, prev.x - sizeChange), y: Math.max(0, prev.y - sizeChange) }))
+                      } else if (isResizingCrop === 'top-right') {
+                        delta = Math.max(dx, -dy)
+                        newSize = Math.max(50, Math.min(imageSizeCrop.width - cropBox.x, cropBox.size + delta))
+                        const sizeChange = newSize - cropBox.size
+                        setCropBox(prev => ({ ...prev, size: newSize, y: Math.max(0, prev.y - sizeChange) }))
+                      } else if (isResizingCrop === 'bottom-left') {
+                        delta = Math.max(-dx, dy)
+                        newSize = Math.max(50, Math.min(imageSizeCrop.height - cropBox.y, cropBox.size + delta))
+                        const sizeChange = newSize - cropBox.size
+                        setCropBox(prev => ({ ...prev, size: newSize, x: Math.max(0, prev.x - sizeChange) }))
+                      } else {
+                        delta = Math.max(dx, dy)
+                        newSize = Math.max(50, Math.min(300, cropBox.size + delta))
+                        const maxSize = Math.min(imageSizeCrop.width - cropBox.x, imageSizeCrop.height - cropBox.y)
+                        setCropBox(prev => ({ ...prev, size: Math.min(newSize, maxSize) }))
+                      }
                       setDragStartCrop({ x: touch.clientX, y: touch.clientY })
                     }
                   }}
-                  onTouchEnd={() => { setIsDraggingCrop(false); setIsResizingCrop(false) }}
+                  onTouchEnd={() => { setIsDraggingCrop(false); setIsResizingCrop(null) }}
                 >
                   {/* Image */}
                   <img
@@ -3230,31 +3265,43 @@ export function LinksTab() {
                       ))}
                     </div>
 
-                    {/* Corner handles - larger for mobile touch */}
-                    <div className="absolute -top-2 -left-2 w-5 h-5 bg-white border-2 border-blue-500 rounded-sm" />
-                    <div className="absolute -top-2 -right-2 w-5 h-5 bg-white border-2 border-blue-500 rounded-sm" />
-                    <div className="absolute -bottom-2 -left-2 w-5 h-5 bg-white border-2 border-blue-500 rounded-sm" />
-                    <div
-                      className="absolute -bottom-2 -right-2 w-6 h-6 bg-blue-500 border-2 border-blue-500 rounded-sm cursor-se-resize touch-none"
-                      onMouseDown={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        setIsResizingCrop(true)
-                        setDragStartCrop({ x: e.clientX, y: e.clientY })
-                      }}
-                      onTouchStart={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        const touch = e.touches[0]
-                        setIsResizingCrop(true)
-                        setDragStartCrop({ x: touch.clientX, y: touch.clientY })
-                      }}
-                    />
+                    {/* Corner handles - all corners resizable */}
+                    {(['top-left', 'top-right', 'bottom-left', 'bottom-right'] as const).map((corner) => {
+                      const pos = {
+                        'top-left': '-top-2.5 -left-2.5 cursor-nw-resize',
+                        'top-right': '-top-2.5 -right-2.5 cursor-ne-resize',
+                        'bottom-left': '-bottom-2.5 -left-2.5 cursor-sw-resize',
+                        'bottom-right': '-bottom-2.5 -right-2.5 cursor-se-resize',
+                      }[corner]
+                      const isBR = corner === 'bottom-right'
+                      return (
+                        <div key={corner} className={`absolute ${pos}`}>
+                          <div className={`w-5 h-5 ${isBR ? 'bg-blue-500' : 'bg-white'} border-[3px] border-blue-500 rounded-sm`} />
+                          <div
+                            className="absolute -inset-[25px] w-[70px] h-[70px]"
+                            style={{ touchAction: 'none' }}
+                            onMouseDown={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              setIsResizingCrop(corner)
+                              setDragStartCrop({ x: e.clientX, y: e.clientY })
+                            }}
+                            onTouchStart={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              const touch = e.touches[0]
+                              setIsResizingCrop(corner)
+                              setDragStartCrop({ x: touch.clientX, y: touch.clientY })
+                            }}
+                          />
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
 
                 <p className="text-xs text-center text-muted-foreground">
-                  Drag to move, drag bottom-right corner to resize
+                  Drag to move, drag any corner to resize
                 </p>
 
                 <canvas ref={canvasRef} className="hidden" />
@@ -3468,43 +3515,38 @@ export function LinksTab() {
                       ))}
                     </div>
 
-                    {/* Corner handles - large touch targets */}
-                    <div className="absolute -top-2.5 -left-2.5 w-5 h-5 bg-white border-[3px] border-blue-500 rounded-sm" />
-                    <div className="absolute -top-2.5 -right-2.5 w-5 h-5 bg-white border-[3px] border-blue-500 rounded-sm" />
-                    <div className="absolute -bottom-2.5 -left-2.5 w-5 h-5 bg-white border-[3px] border-blue-500 rounded-sm" />
-                    <div
-                      className="absolute -bottom-2.5 -right-2.5 w-5 h-5 bg-blue-500 border-[3px] border-blue-500 rounded-sm cursor-se-resize"
-                      onMouseDown={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        setIsResizingVideoCrop('bottom-right')
-                        setVideoDragStart({ x: e.clientX, y: e.clientY, boxX: videoCropBox.x, boxY: videoCropBox.y, boxW: videoCropBox.width, boxH: videoCropBox.height })
-                      }}
-                      onTouchStart={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        const touch = e.touches[0]
-                        setIsResizingVideoCrop('bottom-right')
-                        setVideoDragStart({ x: touch.clientX, y: touch.clientY, boxX: videoCropBox.x, boxY: videoCropBox.y, boxW: videoCropBox.width, boxH: videoCropBox.height })
-                      }}
-                    />
-                    {/* Invisible larger touch target for bottom-right resize */}
-                    <div
-                      className="absolute -bottom-5 -right-5 w-10 h-10 cursor-se-resize"
-                      onMouseDown={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        setIsResizingVideoCrop('bottom-right')
-                        setVideoDragStart({ x: e.clientX, y: e.clientY, boxX: videoCropBox.x, boxY: videoCropBox.y, boxW: videoCropBox.width, boxH: videoCropBox.height })
-                      }}
-                      onTouchStart={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        const touch = e.touches[0]
-                        setIsResizingVideoCrop('bottom-right')
-                        setVideoDragStart({ x: touch.clientX, y: touch.clientY, boxX: videoCropBox.x, boxY: videoCropBox.y, boxW: videoCropBox.width, boxH: videoCropBox.height })
-                      }}
-                    />
+                    {/* Corner handles - all corners resizable with 70px touch targets */}
+                    {(['top-left', 'top-right', 'bottom-left', 'bottom-right'] as const).map((corner) => {
+                      const pos = {
+                        'top-left': '-top-2.5 -left-2.5 cursor-nw-resize',
+                        'top-right': '-top-2.5 -right-2.5 cursor-ne-resize',
+                        'bottom-left': '-bottom-2.5 -left-2.5 cursor-sw-resize',
+                        'bottom-right': '-bottom-2.5 -right-2.5 cursor-se-resize',
+                      }[corner]
+                      const isBR = corner === 'bottom-right'
+                      return (
+                        <div key={corner} className={`absolute ${pos}`}>
+                          <div className={`w-5 h-5 ${isBR ? 'bg-blue-500' : 'bg-white'} border-[3px] border-blue-500 rounded-sm`} />
+                          <div
+                            className="absolute -inset-[25px] w-[70px] h-[70px]"
+                            style={{ touchAction: 'none' }}
+                            onMouseDown={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              setIsResizingVideoCrop(corner)
+                              setVideoDragStart({ x: e.clientX, y: e.clientY, boxX: videoCropBox.x, boxY: videoCropBox.y, boxW: videoCropBox.width, boxH: videoCropBox.height })
+                            }}
+                            onTouchStart={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              const touch = e.touches[0]
+                              setIsResizingVideoCrop(corner)
+                              setVideoDragStart({ x: touch.clientX, y: touch.clientY, boxX: videoCropBox.x, boxY: videoCropBox.y, boxW: videoCropBox.width, boxH: videoCropBox.height })
+                            }}
+                          />
+                        </div>
+                      )
+                    })}
                   </div>
 
                   {/* Global mouse and touch handlers */}
@@ -3525,9 +3567,29 @@ export function LinksTab() {
                           newX = Math.max(0, Math.min(100 - videoCropBox.width, newX))
                           newY = Math.max(0, Math.min(100 - videoCropBox.width, newY))
                           setVideoCropBox(prev => ({ ...prev, x: newX, y: newY }))
-                        } else if (isResizingVideoCrop === 'bottom-right') {
-                          const newSize = Math.max(20, Math.min(100 - Math.max(videoDragStart.boxX, videoDragStart.boxY), videoDragStart.boxW + Math.max(deltaX, deltaY)))
-                          setVideoCropBox(prev => ({ ...prev, width: newSize, height: newSize }))
+                        } else if (isResizingVideoCrop) {
+                          const { boxX, boxY, boxW } = videoDragStart
+                          let newSize: number, newX: number, newY: number
+                          if (isResizingVideoCrop === 'top-left') {
+                            const d = Math.max(-deltaX, -deltaY)
+                            newSize = Math.max(20, boxW + d)
+                            newX = Math.max(0, boxX - (newSize - boxW))
+                            newY = Math.max(0, boxY - (newSize - boxW))
+                            setVideoCropBox({ x: newX, y: newY, width: newSize, height: newSize })
+                          } else if (isResizingVideoCrop === 'top-right') {
+                            const d = Math.max(deltaX, -deltaY)
+                            newSize = Math.max(20, Math.min(100 - boxX, boxW + d))
+                            newY = Math.max(0, boxY - (newSize - boxW))
+                            setVideoCropBox(prev => ({ ...prev, y: newY, width: newSize, height: newSize }))
+                          } else if (isResizingVideoCrop === 'bottom-left') {
+                            const d = Math.max(-deltaX, deltaY)
+                            newSize = Math.max(20, Math.min(100 - boxY, boxW + d))
+                            newX = Math.max(0, boxX - (newSize - boxW))
+                            setVideoCropBox(prev => ({ ...prev, x: newX, width: newSize, height: newSize }))
+                          } else {
+                            newSize = Math.max(20, Math.min(100 - Math.max(boxX, boxY), boxW + Math.max(deltaX, deltaY)))
+                            setVideoCropBox(prev => ({ ...prev, width: newSize, height: newSize }))
+                          }
                         }
                       }}
                       onMouseUp={() => {
@@ -3549,9 +3611,29 @@ export function LinksTab() {
                           newX = Math.max(0, Math.min(100 - videoCropBox.width, newX))
                           newY = Math.max(0, Math.min(100 - videoCropBox.width, newY))
                           setVideoCropBox(prev => ({ ...prev, x: newX, y: newY }))
-                        } else if (isResizingVideoCrop === 'bottom-right') {
-                          const newSize = Math.max(20, Math.min(100 - Math.max(videoDragStart.boxX, videoDragStart.boxY), videoDragStart.boxW + Math.max(deltaX, deltaY)))
-                          setVideoCropBox(prev => ({ ...prev, width: newSize, height: newSize }))
+                        } else if (isResizingVideoCrop) {
+                          const { boxX, boxY, boxW } = videoDragStart
+                          let newSize: number, newX: number, newY: number
+                          if (isResizingVideoCrop === 'top-left') {
+                            const d = Math.max(-deltaX, -deltaY)
+                            newSize = Math.max(20, boxW + d)
+                            newX = Math.max(0, boxX - (newSize - boxW))
+                            newY = Math.max(0, boxY - (newSize - boxW))
+                            setVideoCropBox({ x: newX, y: newY, width: newSize, height: newSize })
+                          } else if (isResizingVideoCrop === 'top-right') {
+                            const d = Math.max(deltaX, -deltaY)
+                            newSize = Math.max(20, Math.min(100 - boxX, boxW + d))
+                            newY = Math.max(0, boxY - (newSize - boxW))
+                            setVideoCropBox(prev => ({ ...prev, y: newY, width: newSize, height: newSize }))
+                          } else if (isResizingVideoCrop === 'bottom-left') {
+                            const d = Math.max(-deltaX, deltaY)
+                            newSize = Math.max(20, Math.min(100 - boxY, boxW + d))
+                            newX = Math.max(0, boxX - (newSize - boxW))
+                            setVideoCropBox(prev => ({ ...prev, x: newX, width: newSize, height: newSize }))
+                          } else {
+                            newSize = Math.max(20, Math.min(100 - Math.max(boxX, boxY), boxW + Math.max(deltaX, deltaY)))
+                            setVideoCropBox(prev => ({ ...prev, width: newSize, height: newSize }))
+                          }
                         }
                       }}
                       onTouchEnd={() => {
@@ -3563,7 +3645,7 @@ export function LinksTab() {
                 </div>
 
                 <p className="text-xs text-center text-muted-foreground">
-                  Drag to move, drag bottom-right corner to resize
+                  Drag to move, drag any corner to resize
                 </p>
 
                 <div className="flex gap-2">

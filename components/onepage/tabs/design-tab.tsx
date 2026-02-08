@@ -1754,21 +1754,27 @@ function HeaderSection() {
                       ))}
                     </div>
 
-                    {/* Corner handles - large touch targets */}
-                    <div className="absolute -top-2.5 -left-2.5 w-5 h-5 bg-white border-[3px] border-blue-500 rounded-sm" />
-                    <div className="absolute -top-2.5 -right-2.5 w-5 h-5 bg-white border-[3px] border-blue-500 rounded-sm" />
-                    <div className="absolute -bottom-2.5 -left-2.5 w-5 h-5 bg-white border-[3px] border-blue-500 rounded-sm" />
-                    <div
-                      className="absolute -bottom-2.5 -right-2.5 w-5 h-5 bg-blue-500 border-[3px] border-blue-500 rounded-sm cursor-se-resize"
-                      onMouseDown={(e) => { e.stopPropagation(); handleVideoCropMouseDown(e, 'resize', 'bottom-right') }}
-                      onTouchStart={(e) => { e.stopPropagation(); handleVideoCropTouchStart(e, 'resize', 'bottom-right') }}
-                    />
-                    {/* Invisible larger touch target for bottom-right resize */}
-                    <div
-                      className="absolute -bottom-5 -right-5 w-10 h-10 cursor-se-resize"
-                      onMouseDown={(e) => { e.stopPropagation(); handleVideoCropMouseDown(e, 'resize', 'bottom-right') }}
-                      onTouchStart={(e) => { e.stopPropagation(); handleVideoCropTouchStart(e, 'resize', 'bottom-right') }}
-                    />
+                    {/* Corner handles - all corners resizable with 70px touch targets */}
+                    {(['top-left', 'top-right', 'bottom-left', 'bottom-right'] as const).map((corner) => {
+                      const pos = {
+                        'top-left': '-top-2.5 -left-2.5 cursor-nw-resize',
+                        'top-right': '-top-2.5 -right-2.5 cursor-ne-resize',
+                        'bottom-left': '-bottom-2.5 -left-2.5 cursor-sw-resize',
+                        'bottom-right': '-bottom-2.5 -right-2.5 cursor-se-resize',
+                      }[corner]
+                      const isBR = corner === 'bottom-right'
+                      return (
+                        <div key={corner} className={`absolute ${pos}`}>
+                          <div className={`w-5 h-5 ${isBR ? 'bg-blue-500' : 'bg-white'} border-[3px] border-blue-500 rounded-sm`} />
+                          <div
+                            className="absolute -inset-[25px] w-[70px] h-[70px]"
+                            style={{ touchAction: 'none' }}
+                            onMouseDown={(e) => { e.stopPropagation(); handleVideoCropMouseDown(e, 'resize', corner) }}
+                            onTouchStart={(e) => { e.stopPropagation(); handleVideoCropTouchStart(e, 'resize', corner) }}
+                          />
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
 

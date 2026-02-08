@@ -288,6 +288,7 @@ function NotificationBell({
 function ShareButtonPreview({
   sellerName,
   avatarUrl,
+  avatarVideoUrl,
   pageUrl,
   scale = "small",
   style = "white",
@@ -300,6 +301,7 @@ function ShareButtonPreview({
 }: {
   sellerName: string
   avatarUrl?: string | null
+  avatarVideoUrl?: string | null
   pageUrl: string
   scale?: "small" | "normal"
   style?: "glass" | "white" | "black"
@@ -398,7 +400,7 @@ function ShareButtonPreview({
             boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
           }}
         >
-          <Send size={size.icon} className={s.iconColor} />
+          <Send size={size.icon} className={cn(s.iconColor, "transition-transform duration-300", isOpen ? "rotate-45 scale-90" : "")} />
         </button>
       </div>
 
@@ -407,13 +409,13 @@ function ShareButtonPreview({
         <>
           {/* Backdrop - covers phone preview only */}
           <div
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm z-40 animate-in fade-in duration-200"
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm z-40 animate-in fade-in duration-300"
             onClick={() => setIsOpen(false)}
           />
 
           {/* Modal - centered within phone preview */}
           <div
-            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 rounded-2xl overflow-hidden animate-in zoom-in-95 fade-in duration-200"
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 rounded-2xl overflow-hidden animate-in zoom-in-90 fade-in slide-in-from-bottom-2 duration-300 ease-out"
             style={{
               width: scale === "small" ? 200 : 260,
               background: "#ffffff",
@@ -440,13 +442,15 @@ function ShareButtonPreview({
               <div className="text-center">
                 <div
                   className={cn(
-                    "mx-auto mb-2 overflow-hidden bg-white/20 flex items-center justify-center shadow-lg",
+                    "mx-auto mb-2 rounded-full overflow-hidden bg-white/20 flex items-center justify-center shadow-lg ring-2 ring-white/30",
                     scale === "small" ? "w-10 h-10" : "w-12 h-12",
                   )}
                 >
-                  {avatarUrl ? (
+                  {avatarVideoUrl ? (
+                    <video src={avatarVideoUrl} className="w-full h-full object-cover" autoPlay loop muted playsInline />
+                  ) : avatarUrl ? (
                     <img
-                      src={avatarUrl || "/placeholder.svg"}
+                      src={avatarUrl}
                       alt={sellerName}
                       className="w-full h-full object-cover"
                     />
@@ -1415,6 +1419,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
               <ShareButtonPreview
                 sellerName={sellerName}
                 avatarUrl={avatar_url}
+                avatarVideoUrl={avatar_video_url}
                 pageUrl={getLinksUrl((onepage as any).slug || "preview")}
                 scale="small"
                 style={(settings as any)?.share_style || "white"}
@@ -2179,6 +2184,7 @@ export function MobilePreviewContent() {
           <ShareButtonPreview
             sellerName={sellerName}
             avatarUrl={avatar_url}
+            avatarVideoUrl={avatar_video_url}
             pageUrl={getLinksUrl((onepage as any).slug || "preview")}
             scale="normal"
             style={(settings as any)?.share_style || "white"}
@@ -3169,7 +3175,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
   const s =
     scale === "small"
       ? {
-          avatar: "h-[56px] w-[56px]",
+          avatar: "h-[73px] w-[73px]",
           avatarFallback: "text-[16px]",
           title: "text-[16px]",
           bio: "text-[11px] max-w-[180px]",
@@ -3189,7 +3195,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
           socialMarginBottom: "mb-[8px]",
         }
       : {
-          avatar: "h-20 w-20",
+          avatar: "h-[104px] w-[104px]",
           avatarFallback: "text-2xl",
           title: "text-xl",
           bio: "text-sm max-w-xs",
@@ -3280,7 +3286,16 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                 <video
                   src={profile.avatar_video_url!}
                   className="w-full h-full object-cover"
-                  style={{ objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%` }}
+                  style={{
+                    opacity: 0,
+                    filter: 'blur(6px)',
+                    transition: 'opacity 0.5s ease-out, filter 0.5s ease-out',
+                    objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%`,
+                  }}
+                  onLoadedData={(e) => {
+                    e.currentTarget.style.opacity = '1';
+                    e.currentTarget.style.filter = 'none';
+                  }}
                   autoPlay
                   loop
                   muted
@@ -3291,7 +3306,17 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                   src={profile.avatar_url! || "/placeholder.svg"}
                   alt=""
                   className="w-full h-full object-cover"
-                  style={{ imageRendering: "auto", objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%` }}
+                  style={{
+                    imageRendering: "auto",
+                    objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%`,
+                    opacity: 0,
+                    filter: 'blur(6px)',
+                    transition: 'opacity 0.5s ease-out, filter 0.5s ease-out',
+                  }}
+                  onLoad={(e) => {
+                    e.currentTarget.style.opacity = '1';
+                    e.currentTarget.style.filter = 'none';
+                  }}
                 />
               )}
               {/* Smooth gradient fade overlay using CSS mask for gradient backgrounds */}
@@ -3332,19 +3357,19 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                       maxHeight:
                         (theme as any).title_size === "large"
                           ? scale === "small"
-                            ? "54px"
-                            : "62px"
+                            ? "65px"
+                            : "74px"
                           : scale === "small"
-                            ? "46px"
-                            : "54px",
+                            ? "55px"
+                            : "65px",
                       maxWidth:
                         (theme as any).title_size === "large"
                           ? scale === "small"
-                            ? "180px"
-                            : "220px"
+                            ? "216px"
+                            : "264px"
                           : scale === "small"
-                            ? "160px"
-                            : "200px",
+                            ? "192px"
+                            : "240px",
                       objectFit: "contain",
                       filter: "drop-shadow(0 1px 4px rgba(0,0,0,0.3))",
                       marginTop: (theme as any).logo_position === "more_up" ? "-10px" : undefined,
@@ -3356,7 +3381,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                       className={cn(
                         s.title,
                         "font-bold inline-flex items-center justify-center",
-                        (theme as any).title_size === "large" && (scale === "small" ? "text-[19px]" : "text-2xl"),
+                        (theme as any).title_size === "large" && (scale === "small" ? "text-[23px]" : "text-[29px]"),
                       )}
                       style={{
                         color: (theme as any).title_color || theme.text_color,
@@ -3454,14 +3479,21 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                     <video
                       src={profile.avatar_video_url!}
                       className="w-full h-full object-cover"
-                      style={
-                        profile.avatar_video_crop
+                      style={{
+                        opacity: 0,
+                        filter: 'blur(6px)',
+                        transition: 'opacity 0.5s ease-out, filter 0.5s ease-out',
+                        ...(profile.avatar_video_crop
                           ? {
                               transformOrigin: '0 0',
                               transform: `scale(${100 / profile.avatar_video_crop.width}) translate(-${profile.avatar_video_crop.x}%, -${profile.avatar_video_crop.y}%)`,
                             }
-                          : undefined
-                      }
+                          : {}),
+                      }}
+                      onLoadedData={(e) => {
+                        e.currentTarget.style.opacity = '1';
+                        e.currentTarget.style.filter = 'none';
+                      }}
                       autoPlay
                       loop
                       muted
@@ -3478,7 +3510,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                   >
                     <AvatarImage
                       src={profile.avatar_url || undefined}
-                      className="object-cover"
+                      className="object-cover animate-in fade-in duration-500"
                       style={{
                         imageRendering: "auto",
                         transform: `translateY(${(theme as any).avatar_offset_y || 0}px)`,
@@ -3505,19 +3537,19 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                   maxHeight:
                     (theme as any).title_size === "large"
                       ? scale === "small"
-                        ? "54px"
-                        : "62px"
+                        ? "65px"
+                        : "74px"
                       : scale === "small"
-                        ? "46px"
-                        : "54px",
+                        ? "55px"
+                        : "65px",
                   maxWidth:
                     (theme as any).title_size === "large"
                       ? scale === "small"
-                        ? "180px"
-                        : "220px"
+                        ? "216px"
+                        : "264px"
                       : scale === "small"
-                        ? "160px"
-                        : "200px",
+                        ? "192px"
+                        : "240px",
                   objectFit: "contain",
                   marginTop: (theme as any).logo_position === "more_up" ? "-5px" : undefined,
                 }}
@@ -3528,7 +3560,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                   className={cn(
                     s.title,
                     "font-bold text-center inline-flex items-center justify-center",
-                    (theme as any).title_size === "large" && (scale === "small" ? "text-[19px]" : "text-2xl"),
+                    (theme as any).title_size === "large" && (scale === "small" ? "text-[23px]" : "text-[29px]"),
                   )}
                   style={{
                     color: (theme as any).title_color || theme.text_color,
