@@ -55,7 +55,8 @@ export function ProductCard({ product, srcParam = "", priority = false }: Produc
   const creatorName = product.creator?.profile?.display_name || "Creator"
   const creatorUsername = product.creator?.profile?.username || product.creator?.slug || ""
   const creatorAvatarUrl = product.creator?.profile?.avatar_url
-  const productUrl = getProductUrl(creatorUsername, product.slug || "")
+  const baseProductUrl = getProductUrl(creatorUsername, product.slug || "")
+  const productUrl = `${baseProductUrl}${baseProductUrl.includes("?") ? "&" : "?"}layout=discover&recommended=1`
   const storeUrl = getStoreUrl(creatorUsername)
 
   const hasReviews = (product.reviews_count ?? 0) > 0

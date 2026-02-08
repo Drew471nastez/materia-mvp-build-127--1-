@@ -157,7 +157,8 @@ export function FeaturedBannerCarousel({ products, overlay }: FeaturedBannerCaro
   const creatorUsername = currentProduct?.creator?.profile?.username || currentProduct?.creator?.slug || ""
   const creatorName = currentProduct?.creator?.profile?.display_name || "Creator"
   const creatorAvatar = currentProduct?.creator?.profile?.avatar_url
-  const productUrl = getProductUrl(creatorUsername, currentProduct?.slug || "")
+  const baseProductUrl = getProductUrl(creatorUsername, currentProduct?.slug || "")
+  const productUrl = `${baseProductUrl}${baseProductUrl.includes("?") ? "&" : "?"}layout=discover&recommended=1`
   const creatorStoreUrl = getStoreUrl(creatorUsername)
   const productPrice = currentProduct?.price_cents
 

@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowLeft, Download, ExternalLink, CheckCircle, Calendar } from "lucide-react"
@@ -12,17 +13,10 @@ interface ProductAccessPageProps {
   params: Promise<{ id: string }>
 }
 
-function formatFileSize(bytes: number) {
-  if (!bytes || bytes === 0) return "Unknown size"
-  const k = 1024
-  const sizes = ["Bytes", "KB", "MB", "GB"]
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i]
-}
-
 export default async function ProductAccessPage({ params }: ProductAccessPageProps) {
   const { id } = await params
   const supabase = await createClient()
+  const admin = createAdminClient()
 
   const {
     data: { user },
@@ -30,7 +24,7 @@ export default async function ProductAccessPage({ params }: ProductAccessPagePro
 
   if (!user) redirect("/login")
 
-  const { data: entitlement } = await supabase
+  let { data: entitlement } = await supabase
     .from("entitlements")
     .select(`
       *,
@@ -39,9 +33,36 @@ export default async function ProductAccessPage({ params }: ProductAccessPagePro
     `)
     .eq("buyer_id", user.id)
     .eq("product_id", id)
-    .single()
+    .maybeSingle()
 
-  if (!entitlement) notFound()
+  if (!entitlement) {
+    const { data: order } = await admin
+      .from("orders")
+      .select("id, created_at, product:products(*)")
+      .eq("buyer_id", user.id)
+      .eq("product_id", id)
+      .eq("status", "completed")
+      .maybeSingle()
+
+    if (!order?.product) notFound()
+
+    let creator = null
+    if ((order.product as any)?.creator_id) {
+      const { data: creatorRow } = await admin
+        .from("creators")
+        .select("*, profile:profiles!creators_user_id_fkey(*)")
+        .eq("id", (order.product as any).creator_id)
+        .maybeSingle()
+      creator = creatorRow
+    }
+
+    entitlement = {
+      id: order.id,
+      created_at: order.created_at,
+      product: order.product,
+      creator,
+    } as any
+  }
 
   const { data: assets } = await supabase.from("digital_assets").select("*").eq("product_id", id)
 
@@ -56,12 +77,9 @@ export default async function ProductAccessPage({ params }: ProductAccessPagePro
   return (
     <div className="p-8">
       <div className="mb-8">
-        <Link
-          href="/library/products"
-          className="mb-4 inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
-        >
+        <Link href="/library/my-downloads" className="mb-4 inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to products
+          Back to downloads
         </Link>
       </div>
 
@@ -69,12 +87,7 @@ export default async function ProductAccessPage({ params }: ProductAccessPagePro
         <div className="lg:col-span-2">
           <div className="relative aspect-video overflow-hidden rounded-lg bg-muted">
             {entitlement.product?.thumbnail_url ? (
-              <Image
-                src={entitlement.product.thumbnail_url || "/placeholder.svg"}
-                alt={entitlement.product.title}
-                fill
-                className="object-cover"
-              />
+              <Image src={entitlement.product.thumbnail_url || "/placeholder.svg"} alt={entitlement.product.title} fill className="object-cover" />
             ) : (
               <div className="flex h-full items-center justify-center">
                 <Download className="h-12 w-12 text-muted-foreground/50" />
@@ -88,10 +101,7 @@ export default async function ProductAccessPage({ params }: ProductAccessPagePro
               <span className="text-sm text-green-600 dark:text-green-400">You own this product</span>
             </div>
             <h1 className="mt-2 text-2xl font-semibold">{entitlement.product?.title}</h1>
-            <a
-              href={getStoreUrl(creatorUsername)}
-              className="mt-1 inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
-            >
+            <a href={getStoreUrl(creatorUsername)} className="mt-1 inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
               by {(entitlement.creator?.profile as { display_name?: string })?.display_name || "Creator"}
               <ExternalLink className="ml-1 h-3 w-3" />
             </a>
@@ -99,11 +109,6 @@ export default async function ProductAccessPage({ params }: ProductAccessPagePro
               <Calendar className="h-4 w-4" />
               <span>Purchased on {purchaseDate}</span>
             </div>
-            {entitlement.product?.description && (
-              <p className="mt-4 whitespace-pre-wrap text-muted-foreground">
-                {entitlement.product.description.replace(/\*\*/g, "").replace(/\n\n\*\*What you'll get:\*\*\n/g, "")}
-              </p>
-            )}
           </div>
         </div>
 
@@ -119,12 +124,7 @@ export default async function ProductAccessPage({ params }: ProductAccessPagePro
               {assets && assets.length > 0 ? (
                 <div className="space-y-3">
                   {assets.map((asset: any, index: number) => (
-                    <DownloadButton
-                      key={asset.id}
-                      assetId={asset.id}
-                      variant={index === 0 ? "default" : "outline"}
-                      className="w-full"
-                    >
+                    <DownloadButton key={asset.id} assetId={asset.id} variant="default" className="w-full cursor-pointer bg-neutral-900 text-white hover:bg-black">
                       {index === 0 ? "Download File" : asset.file_name || `File ${index + 1}`}
                     </DownloadButton>
                   ))}

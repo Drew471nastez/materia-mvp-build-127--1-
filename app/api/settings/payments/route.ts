@@ -31,7 +31,8 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { defaultCurrency, allowPaypal, paypalEmail } = body
 
-    const payoutCurrency = ["USD", "EUR", "GBP"].includes((defaultCurrency || "USD").toUpperCase())
+    const SUPPORTED_PAYOUT_CURRENCIES = ["USD", "EUR", "GBP", "CAD", "AUD", "JPY", "CHF", "SEK", "NOK", "NZD"]
+    const payoutCurrency = SUPPORTED_PAYOUT_CURRENCIES.includes((defaultCurrency || "USD").toUpperCase())
       ? (defaultCurrency || "USD").toUpperCase()
       : "USD"
 

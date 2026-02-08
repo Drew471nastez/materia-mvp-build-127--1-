@@ -7,7 +7,7 @@ alter table if exists creators
 
 alter table if exists creators
   add constraint creators_payout_currency_check
-  check (payout_currency in ('USD','EUR','GBP'));
+  check (payout_currency in ('USD','EUR','GBP','CAD','AUD','JPY','CHF','SEK','NOK','NZD'));
 
 update creators
 set default_currency = 'USD'
@@ -15,10 +15,10 @@ where default_currency is distinct from 'USD';
 
 update creators
 set payout_currency = case
-  when upper(coalesce(default_currency, 'USD')) in ('USD','EUR','GBP') then upper(default_currency)
+  when upper(coalesce(default_currency, 'USD')) in ('USD','EUR','GBP','CAD','AUD','JPY','CHF','SEK','NOK','NZD') then upper(default_currency)
   else 'USD'
 end
-where payout_currency is null or payout_currency not in ('USD','EUR','GBP');
+where payout_currency is null or payout_currency not in ('USD','EUR','GBP','CAD','AUD','JPY','CHF','SEK','NOK','NZD');
 
 update creators
 set statement_descriptor = 'STORELIB*'

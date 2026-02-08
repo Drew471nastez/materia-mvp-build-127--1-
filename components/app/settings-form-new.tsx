@@ -1002,7 +1002,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     router.replace(targetPath)
     setTimeout(() => {
       setIsTabLoading(false)
-    }, 500)
+    }, 220)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -2088,7 +2088,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl overflow-hidden shrink-0">
+                    <div className="w-10 h-10 sm:w-[46px] sm:h-[46px] rounded-xl overflow-hidden shrink-0">
                       <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" fill="none" className="w-full h-full">
                         <circle cx="512" cy="512" r="512" style={{ fill: "#635bff" }} />
                         <path d="M781.67 515.75c0-38.35-18.58-68.62-54.08-68.62s-57.23 30.26-57.23 68.32c0 45.09 25.47 67.87 62 67.87 17.83 0 31.31-4 41.5-9.74v-30c-10.19 5.09-21.87 8.24-36.7 8.24-14.53 0-27.42-5.09-29.06-22.77h73.26c.01-1.92.31-9.71.31-13.3zm-74-14.23c0-16.93 10.34-24 19.78-24 9.14 0 18.88 7 18.88 24zm-95.14-54.39a42.32 42.32 0 0 0-29.36 11.69l-1.95-9.29h-33v174.68l37.45-7.94.15-42.4c5.39 3.9 13.33 9.44 26.52 9.44 26.82 0 51.24-21.57 51.24-69.06-.12-43.45-24.84-67.12-51.05-67.12zm-9 103.22c-8.84 0-14.08-3.15-17.68-7l-.15-55.58c3.9-4.34 9.29-7.34 17.83-7.34 13.63 0 23.07 15.28 23.07 34.91.01 20.03-9.28 35.01-23.06 35.01zM496.72 438.29l37.6-8.09v-30.41l-37.6 7.94v30.56zm0 11.39h37.6v131.09h-37.6zm-40.3 11.08L454 449.68h-32.34v131.08h37.45v-88.84c8.84-11.54 23.82-9.44 28.46-7.79v-34.45c-4.78-1.8-22.31-5.1-31.15 11.08zm-74.91-43.59L345 425l-.15 120c0 22.17 16.63 38.5 38.8 38.5 12.28 0 21.27-2.25 26.22-4.94v-30.45c-4.79 1.95-28.46 8.84-28.46-13.33v-53.19h28.46v-31.91h-28.51zm-101.27 70.56c0-5.84 4.79-8.09 12.73-8.09a83.56 83.56 0 0 1 37.15 9.59V454a98.8 98.8 0 0 0-37.12-6.87c-30.41 0-50.64 15.88-50.64 42.4 0 41.35 56.93 34.76 56.93 52.58 0 6.89-6 9.14-14.38 9.14-12.43 0-28.32-5.09-40.9-12v35.66a103.85 103.85 0 0 0 40.9 8.54c31.16 0 52.58-15.43 52.58-42.25-.17-44.63-57.25-36.69-57.25-53.47z" style={{ fill: "#fff" }} />
@@ -2104,7 +2104,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                       <p className="text-[13px] sm:text-[14px] text-[#6b7280] mt-0.5">Connect to accept payments from Credit/Debit cards</p>
                     </div>
                   </div>
-                  <button type="button" className="px-4 sm:px-5 h-9 sm:h-10 text-[13px] sm:text-[14px] font-medium border border-[#e5e7eb] hover:bg-[#f9fafb] text-[#374151] rounded-lg transition-colors cursor-pointer shrink-0">Manage</button>
+                  <button type="button" onClick={() => router.push("/app/settings/payments/stripe")} className="px-4 sm:px-5 h-9 sm:h-10 text-[13px] sm:text-[14px] font-medium border border-[#e5e7eb] hover:bg-[#f9fafb] text-[#374151] rounded-lg transition-colors cursor-pointer shrink-0">Manage</button>
                 </div>
               </div>
 
@@ -2112,7 +2112,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl overflow-hidden shrink-0">
+                    <div className="w-10 h-10 sm:w-[46px] sm:h-[46px] rounded-xl overflow-hidden shrink-0">
                       <svg viewBox="-23 0 302 302" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
                         <path d="M217.168476 23.5070146C203.234077 7.62479651 178.045612 0.815753338 145.823355 0.815753338L52.3030619 0.815753338C45.7104431 0.815753338 40.1083819 5.6103852 39.0762042 12.1114399L0.136468302 259.076601C-0.637664968 263.946149 3.13311322 268.357876 8.06925331 268.357876H65.804612L80.3050438 176.385849L79.8555471 179.265958C80.8877248 172.764903 86.4481659 167.970272 93.0324607 167.970272H120.46841C174.366398 167.970272 216.569147 146.078116 228.897012 82.7490197C229.263268 80.8761167 229.579581 79.0531577 229.854273 77.2718188C233.525163 53.8646924 229.829301 37.9325302 217.168476 23.5070146" fill="#27346A" />
                         <path d="M228.897012 82.7490197C216.569147 146.069792 174.366398 167.970272 120.46841 167.970272H93.0241367C86.4398419 167.970272 80.8794007 172.764903 79.8555471 179.265958L61.8174095 293.621258C61.1431644 297.883153 64.4394738 301.745495 68.7513129 301.745495H117.421821C123.182038 301.745495 128.084882 297.550192 128.983876 291.864891L138.631407 231.249423C140.121406 222.351053 145.02425 218.15575 150.784467 218.15575H158.067979C205.215193 218.15575 242.132193 199.002194 252.920115 143.605884C257.423406 120.456802 255.092683 101.128442 243.181019 87.5519756C239.568397 83.4399129 235.081754 80.0437153 229.854273 77.2718188C229.571257 79.0614817 229.263268 80.8761167 228.897012 82.7490197" fill="#2790C3" />
@@ -2157,10 +2157,11 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
               {showCurrencyPicker && !isMobileViewport && (
                 <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-4" onClick={() => setShowCurrencyPicker(false)}>
-                  <div className="w-full max-w-sm rounded-2xl bg-white border border-[#e5e7eb] p-4" onClick={(e) => e.stopPropagation()}>
-                    <h4 className="text-[15px] font-semibold text-[#1a1a2e] mb-3">Select payout currency</h4>
+                  <div className="w-full max-w-sm rounded-2xl bg-white border border-[#e5e7eb] p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                    <h4 className="text-[16px] font-semibold text-[#1a1a2e] mb-1">Select payout currency</h4>
+                    <p className="text-[12px] text-[#6b7280] mb-3">Choose your payout settlement currency.</p>
                     <div className="space-y-2">
-                      {(["USD", "EUR", "GBP"] as const).map((currency) => (
+                      {(["USD", "EUR", "GBP", "CAD", "AUD", "JPY", "CHF", "SEK", "NOK", "NZD"] as const).map((currency) => (
                         <button key={currency} type="button" onClick={() => { setPayoutCurrency(currency); setShowCurrencyPicker(false) }} className={`w-full h-10 rounded-lg border text-sm font-medium flex items-center justify-between px-3 ${payoutCurrency === currency ? "border-[#8b5cf6] bg-[#f5f3ff] text-[#6d28d9]" : "border-[#e5e7eb] text-[#374151]"}`}>
                           {currency}
                           {payoutCurrency === currency && <Check className="h-4 w-4" />}
@@ -2177,7 +2178,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 title="Select payout currency"
               >
                 <div className="space-y-2 pb-2">
-                  {(["USD", "EUR", "GBP"] as const).map((currency) => (
+                  {(["USD", "EUR", "GBP", "CAD", "AUD", "JPY", "CHF", "SEK", "NOK", "NZD"] as const).map((currency) => (
                     <button key={currency} type="button" onClick={() => { setPayoutCurrency(currency); setShowCurrencyPicker(false) }} className={`w-full h-11 rounded-xl border text-sm font-medium flex items-center justify-between px-3 ${payoutCurrency === currency ? "border-[#8b5cf6] bg-[#f5f3ff] text-[#6d28d9]" : "border-[#e5e7eb] text-[#374151]"}`}>
                       {currency}
                       {payoutCurrency === currency && <Check className="h-4 w-4" />}

@@ -34,13 +34,13 @@ export default async function MyDownloadsPage() {
 
   return (
     <div className="space-y-5 px-2 sm:px-0">
-      <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm sm:p-6">
+      <div className="p-1 sm:p-0">
         <Link href="/library" className="mb-4 inline-flex items-center text-sm text-neutral-500 hover:text-neutral-900">
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to library
         </Link>
-        <h1 className="text-2xl font-semibold tracking-tight text-neutral-900">My Downloads</h1>
-        <p className="mt-1 text-sm text-neutral-500">
+        <h1 className="text-2xl font-bold tracking-tight text-[#1a1a2e]">My Downloads</h1>
+        <p className="mt-1 text-sm text-[#6b7280]">
           {downloads.length} {downloads.length === 1 ? "product" : "products"} purchased
         </p>
       </div>
@@ -51,7 +51,7 @@ export default async function MyDownloadsPage() {
         <div className="rounded-2xl border border-dashed border-neutral-300 bg-white p-12 text-center">
           <Download className="mx-auto h-12 w-12 text-neutral-400" />
           <h3 className="mt-4 text-lg font-semibold text-neutral-900">No downloads yet</h3>
-          <p className="mt-1 text-sm text-neutral-500">Digital products you purchase will appear here for instant download.</p>
+          <p className="mt-1 text-sm text-[#6b7280]">Digital products you purchase will appear here for instant download.</p>
           <Button asChild className="mt-4">
             <Link href="/explore">
               Explore products <ArrowRight className="ml-2 h-4 w-4" />

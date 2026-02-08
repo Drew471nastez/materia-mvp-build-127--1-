@@ -1388,7 +1388,7 @@ export function PlatformHeaderClient() {
                         <Link
                           href={dashboardHref}
                           onClick={() => setDesktopProfileOpen(false)}
-                          className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
+                          className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 cursor-pointer"
                         >
                           <LayoutDashboard className="h-4 w-4 shrink-0" />
                           <span>Dashboard</span>
@@ -1396,7 +1396,7 @@ export function PlatformHeaderClient() {
                         <Link
                           href="/library"
                           onClick={() => setDesktopProfileOpen(false)}
-                          className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
+                          className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 cursor-pointer"
                         >
                           <Library className="h-4 w-4 shrink-0" />
                           <span>My Library</span>
@@ -1404,7 +1404,7 @@ export function PlatformHeaderClient() {
                         <Link
                           href="/app/settings"
                           onClick={() => setDesktopProfileOpen(false)}
-                          className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
+                          className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 cursor-pointer"
                         >
                           <Settings className="h-4 w-4 shrink-0" />
                           <span>Settings</span>
@@ -1414,7 +1414,7 @@ export function PlatformHeaderClient() {
 
                         <button
                           onClick={handleLogout}
-                          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-red-50 hover:text-red-600"
+                          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-red-50 hover:text-red-600 cursor-pointer"
                         >
                           <LogOut className="h-4 w-4 shrink-0" />
                           <span>Log out</span>
