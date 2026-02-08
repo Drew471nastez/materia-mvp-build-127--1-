@@ -32,7 +32,7 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("display_name, username")
+    .select("id, display_name, username, avatar_url")
     .eq("username", username)
     .maybeSingle()
 
@@ -44,19 +44,62 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
   const { data: creator } = await supabase
     .from("creators")
     .select("id")
-    .eq("user_id", (await supabase.from("profiles").select("id").eq("username", username).single()).data?.id)
+    .eq("user_id", profile.id)
     .maybeSingle()
 
   let faviconUrl: string | undefined
+  let socialPreviewImage: string | undefined
   if (creator) {
     const publishedConfig = await getPublishedConfig(creator.id, "shop")
     const headerSettings = publishedConfig?.headerSettings as ShopHeaderSettings | undefined
     faviconUrl = headerSettings?.faviconUrl || undefined
+
+    const globalSettings = publishedConfig?.globalSettings as GlobalStoreSettings | undefined
+    const avatarFromHeader =
+      headerSettings?.avatarUrl && headerSettings.avatarUrl !== "" ? headerSettings.avatarUrl : undefined
+
+    // Source-of-truth order for social image:
+    // 1) Explicit Social Image in SEO settings
+    // 2) Store Builder header/profile avatar
+    // 3) Profile avatar
+    socialPreviewImage =
+      (globalSettings?.socialImageUrl && globalSettings.socialImageUrl !== "" ? globalSettings.socialImageUrl : undefined) ||
+      avatarFromHeader ||
+      profile.avatar_url ||
+      undefined
+  } else {
+    socialPreviewImage = profile.avatar_url || undefined
   }
 
+  const siteUrl = `https://${username}.storelib.com`
+  const title = `${profile.display_name || profile.username || "Creator"} | Storelib`
+  const description = `Check out ${profile.display_name || profile.username}'s products on Storelib`
+
   return {
-    title: `${profile.display_name || profile.username || "Creator"} | Storelib`,
-    description: `Check out ${profile.display_name || profile.username}'s products on Storelib`,
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      type: "website",
+      url: siteUrl,
+      images: socialPreviewImage
+        ? [
+            {
+              url: socialPreviewImage,
+              width: 1200,
+              height: 630,
+              alt: `${profile.display_name || profile.username || "Store"} social preview`,
+            },
+          ]
+        : undefined,
+    },
+    twitter: {
+      card: socialPreviewImage ? "summary_large_image" : "summary",
+      title,
+      description,
+      images: socialPreviewImage ? [socialPreviewImage] : undefined,
+    },
     ...(faviconUrl && {
       icons: {
         icon: faviconUrl,
