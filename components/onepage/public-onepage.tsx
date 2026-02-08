@@ -3342,13 +3342,11 @@ function PublicBlockRenderer({
                     src={profile.avatar_video_url!}
                     className="w-full h-full object-cover"
                     style={{
-                      opacity: 0,
-                      filter: 'blur(6px)',
-                      transition: 'opacity 0.5s ease-out, filter 0.5s ease-out',
+                      filter: 'blur(4px)',
+                      transition: 'filter 0.4s ease-out',
                       objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%`,
                     }}
                     onLoadedData={(e) => {
-                      e.currentTarget.style.opacity = '1';
                       e.currentTarget.style.filter = 'none';
                     }}
                     autoPlay
@@ -3364,12 +3362,10 @@ function PublicBlockRenderer({
                   style={{
                     imageRendering: "auto",
                     objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%`,
-                    opacity: 0,
-                    filter: 'blur(6px)',
-                    transition: 'opacity 0.5s ease-out, filter 0.5s ease-out',
+                    filter: 'blur(4px)',
+                    transition: 'filter 0.4s ease-out',
                   }}
                   onLoad={(e) => {
-                    e.currentTarget.style.opacity = '1';
                     e.currentTarget.style.filter = 'none';
                   }}
                   loading="eager"
@@ -3487,7 +3483,7 @@ function PublicBlockRenderer({
       const glowSpread = laserGlowIntensity === "low" ? 4 : laserGlowIntensity === "hard" ? 8 : 6
       const glowOpacity = laserGlowIntensity === "low" ? 0.7 : laserGlowIntensity === "hard" ? 1 : 0.85
       // Avatar size increased by 3px
-      const avatarSize = isDesktop ? 121 : 134
+      const avatarSize = isDesktop ? 115 : 114
 
       return (
         <div className={cn("flex flex-col items-center gap-3 sm:gap-4 w-full text-center")}>
@@ -3547,9 +3543,8 @@ function PublicBlockRenderer({
                       src={profile.avatar_video_url!}
                       className="w-full h-full object-cover"
                       style={{
-                        opacity: 0,
-                        filter: 'blur(6px)',
-                        transition: 'opacity 0.5s ease-out, filter 0.5s ease-out',
+                        filter: 'blur(4px)',
+                        transition: 'filter 0.4s ease-out',
                         ...(profile.avatar_video_crop
                           ? {
                               transformOrigin: '0 0',
@@ -3558,7 +3553,6 @@ function PublicBlockRenderer({
                           : {}),
                       }}
                       onLoadedData={(e) => {
-                        e.currentTarget.style.opacity = '1';
                         e.currentTarget.style.filter = 'none';
                       }}
                       autoPlay
@@ -3577,10 +3571,15 @@ function PublicBlockRenderer({
                   >
                     <AvatarImage
                       src={profile.avatar_url || undefined}
-                      className="object-cover animate-in fade-in duration-500"
+                      className="object-cover"
                       style={{
                         imageRendering: "auto",
                         transform: `translateY(${(theme as any).avatar_offset_y || 0}px)`,
+                        filter: 'blur(4px)',
+                        transition: 'filter 0.4s ease-out',
+                      }}
+                      onLoad={(e: React.SyntheticEvent<HTMLImageElement>) => {
+                        e.currentTarget.style.filter = 'none';
                       }}
                     />
                     <AvatarFallback
@@ -3602,15 +3601,15 @@ function PublicBlockRenderer({
                 className="mx-auto w-auto my-2"
                 style={{
                   maxHeight:
-                    (theme as any).title_size === "large" ? (isDesktop ? "84px" : "72px") : isDesktop ? "72px" : "62px",
+                    (theme as any).title_size === "large" ? (isDesktop ? "76px" : "65px") : isDesktop ? "65px" : "56px",
                   maxWidth:
                     (theme as any).title_size === "large"
                       ? isDesktop
-                        ? "312px"
-                        : "276px"
+                        ? "281px"
+                        : "248px"
                       : isDesktop
-                        ? "276px"
-                        : "240px",
+                        ? "248px"
+                        : "216px",
                   objectFit: "contain",
                   marginTop: (theme as any).logo_position === "more_up" ? "-5px" : undefined,
                 }}
@@ -3622,11 +3621,11 @@ function PublicBlockRenderer({
                     "font-bold text-center inline-flex items-center justify-center",
                     (theme as any).title_size === "large"
                       ? isDesktop
-                        ? "text-[43px]"
-                        : "text-[40px] sm:text-[44px]"
+                        ? "text-[39px]"
+                        : "text-[36px] sm:text-[40px]"
                       : isDesktop
-                        ? "text-[37px]"
-                        : "text-[32px] sm:text-[37px]",
+                        ? "text-[33px]"
+                        : "text-[29px] sm:text-[33px]",
                   )}
                   style={{
                     color: (theme as any).title_color || theme.text_color,

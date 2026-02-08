@@ -3175,7 +3175,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
   const s =
     scale === "small"
       ? {
-          avatar: "h-[73px] w-[73px]",
+          avatar: "h-[62px] w-[62px]",
           avatarFallback: "text-[16px]",
           title: "text-[16px]",
           bio: "text-[11px] max-w-[180px]",
@@ -3195,7 +3195,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
           socialMarginBottom: "mb-[8px]",
         }
       : {
-          avatar: "h-[104px] w-[104px]",
+          avatar: "h-[88px] w-[88px]",
           avatarFallback: "text-2xl",
           title: "text-xl",
           bio: "text-sm max-w-xs",
@@ -3287,13 +3287,11 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                   src={profile.avatar_video_url!}
                   className="w-full h-full object-cover"
                   style={{
-                    opacity: 0,
-                    filter: 'blur(6px)',
-                    transition: 'opacity 0.5s ease-out, filter 0.5s ease-out',
+                    filter: 'blur(4px)',
+                    transition: 'filter 0.4s ease-out',
                     objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%`,
                   }}
                   onLoadedData={(e) => {
-                    e.currentTarget.style.opacity = '1';
                     e.currentTarget.style.filter = 'none';
                   }}
                   autoPlay
@@ -3309,12 +3307,10 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                   style={{
                     imageRendering: "auto",
                     objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%`,
-                    opacity: 0,
-                    filter: 'blur(6px)',
-                    transition: 'opacity 0.5s ease-out, filter 0.5s ease-out',
+                    filter: 'blur(4px)',
+                    transition: 'filter 0.4s ease-out',
                   }}
                   onLoad={(e) => {
-                    e.currentTarget.style.opacity = '1';
                     e.currentTarget.style.filter = 'none';
                   }}
                 />
@@ -3357,19 +3353,19 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                       maxHeight:
                         (theme as any).title_size === "large"
                           ? scale === "small"
-                            ? "65px"
-                            : "74px"
+                            ? "59px"
+                            : "67px"
                           : scale === "small"
-                            ? "55px"
-                            : "65px",
+                            ? "50px"
+                            : "59px",
                       maxWidth:
                         (theme as any).title_size === "large"
                           ? scale === "small"
-                            ? "216px"
-                            : "264px"
+                            ? "194px"
+                            : "238px"
                           : scale === "small"
-                            ? "192px"
-                            : "240px",
+                            ? "173px"
+                            : "216px",
                       objectFit: "contain",
                       filter: "drop-shadow(0 1px 4px rgba(0,0,0,0.3))",
                       marginTop: (theme as any).logo_position === "more_up" ? "-10px" : undefined,
@@ -3381,7 +3377,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                       className={cn(
                         s.title,
                         "font-bold inline-flex items-center justify-center",
-                        (theme as any).title_size === "large" && (scale === "small" ? "text-[23px]" : "text-[29px]"),
+                        (theme as any).title_size === "large" && (scale === "small" ? "text-[21px]" : "text-[26px]"),
                       )}
                       style={{
                         color: (theme as any).title_color || theme.text_color,
@@ -3480,9 +3476,8 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                       src={profile.avatar_video_url!}
                       className="w-full h-full object-cover"
                       style={{
-                        opacity: 0,
-                        filter: 'blur(6px)',
-                        transition: 'opacity 0.5s ease-out, filter 0.5s ease-out',
+                        filter: 'blur(4px)',
+                        transition: 'filter 0.4s ease-out',
                         ...(profile.avatar_video_crop
                           ? {
                               transformOrigin: '0 0',
@@ -3491,7 +3486,6 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                           : {}),
                       }}
                       onLoadedData={(e) => {
-                        e.currentTarget.style.opacity = '1';
                         e.currentTarget.style.filter = 'none';
                       }}
                       autoPlay
@@ -3510,10 +3504,15 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                   >
                     <AvatarImage
                       src={profile.avatar_url || undefined}
-                      className="object-cover animate-in fade-in duration-500"
+                      className="object-cover"
                       style={{
                         imageRendering: "auto",
                         transform: `translateY(${(theme as any).avatar_offset_y || 0}px)`,
+                        filter: 'blur(4px)',
+                        transition: 'filter 0.4s ease-out',
+                      }}
+                      onLoad={(e: React.SyntheticEvent<HTMLImageElement>) => {
+                        e.currentTarget.style.filter = 'none';
                       }}
                     />
                     <AvatarFallback
@@ -3537,19 +3536,19 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                   maxHeight:
                     (theme as any).title_size === "large"
                       ? scale === "small"
-                        ? "65px"
-                        : "74px"
+                        ? "59px"
+                        : "67px"
                       : scale === "small"
-                        ? "55px"
-                        : "65px",
+                        ? "50px"
+                        : "59px",
                   maxWidth:
                     (theme as any).title_size === "large"
                       ? scale === "small"
-                        ? "216px"
-                        : "264px"
+                        ? "194px"
+                        : "238px"
                       : scale === "small"
-                        ? "192px"
-                        : "240px",
+                        ? "173px"
+                        : "216px",
                   objectFit: "contain",
                   marginTop: (theme as any).logo_position === "more_up" ? "-5px" : undefined,
                 }}
@@ -3560,7 +3559,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                   className={cn(
                     s.title,
                     "font-bold text-center inline-flex items-center justify-center",
-                    (theme as any).title_size === "large" && (scale === "small" ? "text-[23px]" : "text-[29px]"),
+                    (theme as any).title_size === "large" && (scale === "small" ? "text-[21px]" : "text-[26px]"),
                   )}
                   style={{
                     color: (theme as any).title_color || theme.text_color,
