@@ -13,9 +13,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { LayoutDashboard, Settings, LogOut, ShoppingBag, Store } from "lucide-react"
+import { LayoutDashboard, Settings, LogOut, Library, Sparkles } from "lucide-react"
 import type { User } from "@supabase/supabase-js"
-import { getStoreUrl } from "@/lib/url-helpers"
 
 interface UserNavProps {
   user: User
@@ -29,7 +28,7 @@ interface UserNavProps {
   creatorSlug: string | null
 }
 
-export function UserNav({ user, profile, isCreator, creatorSlug }: UserNavProps) {
+export function UserNav({ user, profile, isCreator }: UserNavProps) {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
 
@@ -50,8 +49,6 @@ export function UserNav({ user, profile, isCreator, creatorSlug }: UserNavProps)
     router.refresh()
   }
 
-  const storeUsername = creatorSlug || profile.username
-
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -71,50 +68,32 @@ export function UserNav({ user, profile, isCreator, creatorSlug }: UserNavProps)
         </div>
         <DropdownMenuSeparator />
         {isCreator ? (
-          <>
-            <DropdownMenuItem asChild>
-              <Link href="/app" className="cursor-pointer">
-                <LayoutDashboard className="mr-2 h-4 w-4" />
-                Creator Dashboard
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/dashboard" className="cursor-pointer">
-                <ShoppingBag className="mr-2 h-4 w-4" />
-                My Purchases
-              </Link>
-            </DropdownMenuItem>
-            {storeUsername && (
-              <DropdownMenuItem asChild>
-                <a href={getStoreUrl(storeUsername)} className="cursor-pointer">
-                  <Store className="mr-2 h-4 w-4" />
-                  View My Store
-                </a>
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuItem asChild>
-              <Link href="/app/settings" className="cursor-pointer">
-                <Settings className="mr-2 h-4 w-4" />
-                Settings
-              </Link>
-            </DropdownMenuItem>
-          </>
+          <DropdownMenuItem asChild>
+            <Link href="/app" className="cursor-pointer">
+              <LayoutDashboard className="mr-2 h-4 w-4" />
+              Dashboard
+            </Link>
+          </DropdownMenuItem>
         ) : (
-          <>
-            <DropdownMenuItem asChild>
-              <Link href="/dashboard" className="cursor-pointer">
-                <ShoppingBag className="mr-2 h-4 w-4" />
-                My Purchases
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/onboarding" className="cursor-pointer">
-                <Store className="mr-2 h-4 w-4" />
-                Become a Creator
-              </Link>
-            </DropdownMenuItem>
-          </>
+          <DropdownMenuItem asChild>
+            <Link href="/onboarding" className="cursor-pointer">
+              <Sparkles className="mr-2 h-4 w-4" />
+              Become a Seller
+            </Link>
+          </DropdownMenuItem>
         )}
+        <DropdownMenuItem asChild>
+          <Link href="/library" className="cursor-pointer">
+            <Library className="mr-2 h-4 w-4" />
+            My Library
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href="/app/settings" className="cursor-pointer">
+            <Settings className="mr-2 h-4 w-4" />
+            Settings
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
           className="cursor-pointer text-destructive focus:text-destructive"
@@ -122,7 +101,7 @@ export function UserNav({ user, profile, isCreator, creatorSlug }: UserNavProps)
           disabled={isLoading}
         >
           <LogOut className="mr-2 h-4 w-4" />
-          {isLoading ? "Signing out..." : "Sign out"}
+          {isLoading ? "Signing out..." : "Log out"}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

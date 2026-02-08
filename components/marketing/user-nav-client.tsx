@@ -1,7 +1,6 @@
 "use client"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,12 +10,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { Settings, Store, LogOut, Package, Library, LayoutDashboard } from "lucide-react"
+import { Settings, LogOut, Library, LayoutDashboard, Sparkles } from "lucide-react"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import type { User as SupabaseUser } from "@supabase/supabase-js"
-import { getStoreUrl } from "@/lib/url-helpers"
 
 interface UserNavClientProps {
   user: SupabaseUser
@@ -30,7 +28,7 @@ interface UserNavClientProps {
   creatorSlug: string | null
 }
 
-export function UserNavClient({ user, profile, isCreator, creatorSlug }: UserNavClientProps) {
+export function UserNavClient({ user, profile, isCreator }: UserNavClientProps) {
   const router = useRouter()
 
   const handleSignOut = async () => {
@@ -46,8 +44,6 @@ export function UserNavClient({ user, profile, isCreator, creatorSlug }: UserNav
     .join("")
     .toUpperCase()
 
-  const storeUsername = creatorSlug || profile?.username
-
   return (
     <DropdownMenu>
       <Tooltip>
@@ -57,7 +53,7 @@ export function UserNavClient({ user, profile, isCreator, creatorSlug }: UserNav
               className="relative h-10 w-10 rounded-full cursor-pointer transition-all duration-150 ease-out hover:ring-2 hover:ring-violet-200 hover:ring-offset-2 hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-violet-300 focus:ring-offset-2"
               type="button"
             >
-              <Avatar className="h-10 w-10 transition-opacity duration-150 hover:opacity-90">
+              <Avatar className="h-10 w-10">
                 <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.display_name || ""} />
                 <AvatarFallback className="bg-neutral-200 text-neutral-700 font-medium">{initials || "?"}</AvatarFallback>
               </Avatar>
@@ -76,39 +72,25 @@ export function UserNavClient({ user, profile, isCreator, creatorSlug }: UserNav
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {isCreator && storeUsername && (
-          <>
-            <DropdownMenuItem asChild>
-              <a href={getStoreUrl(storeUsername)} className="cursor-pointer">
-                <Store className="mr-2 h-4 w-4" />
-                <span>My Store</span>
-              </a>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/store-builder" className="cursor-pointer">
-                <LayoutDashboard className="mr-2 h-4 w-4" />
-                <span>Store Builder</span>
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/app/products" className="cursor-pointer">
-                <Package className="mr-2 h-4 w-4" />
-                <span>Products</span>
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/app" className="cursor-pointer">
-                <LayoutDashboard className="mr-2 h-4 w-4" />
-                <span>Creator Dashboard</span>
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-          </>
+        {isCreator ? (
+          <DropdownMenuItem asChild>
+            <Link href="/app" className="cursor-pointer">
+              <LayoutDashboard className="mr-2 h-4 w-4" />
+              <span>Dashboard</span>
+            </Link>
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem asChild>
+            <Link href="/onboarding" className="cursor-pointer">
+              <Sparkles className="mr-2 h-4 w-4" />
+              <span>Become a Seller</span>
+            </Link>
+          </DropdownMenuItem>
         )}
         <DropdownMenuItem asChild>
           <Link href="/library" className="cursor-pointer">
             <Library className="mr-2 h-4 w-4" />
-            <span>Library</span>
+            <span>My Library</span>
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
@@ -120,7 +102,7 @@ export function UserNavClient({ user, profile, isCreator, creatorSlug }: UserNav
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
           <LogOut className="mr-2 h-4 w-4" />
-          <span>Sign out</span>
+          <span>Log out</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

@@ -524,7 +524,7 @@ export function PlatformHeaderClient() {
   const [hasCompletedSellerOnboarding, setHasCompletedSellerOnboarding] = useState(false)
   const [storeBuilderAvatarUrl, setStoreBuilderAvatarUrl] = useState<string | null>(null)
   const [storeBuilderAvatarUpdatedAt, setStoreBuilderAvatarUpdatedAt] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [initialLoadDone, setInitialLoadDone] = useState(false)
   const [wishlistCount, setWishlistCount] = useState(0)
 
@@ -732,12 +732,12 @@ export function PlatformHeaderClient() {
 
         let nextStoreBuilderAvatarUrl: string | null = null
         let nextStoreBuilderUpdatedAt: string | null = null
-        if (creatorData?.id) {
+        if (user) {
           const { data: storeConfigData } = await supabase
-            .from("store_configs")
+            .from("store_builder_configs")
             .select("published_config, updated_at")
-            .eq("creator_id", creatorData.id)
-            .eq("published", true)
+            .eq("creator_id", user.id)
+            .eq("page_type", "shop")
             .maybeSingle()
 
           const headerSettings = (storeConfigData?.published_config as Record<string, unknown> | null)?.headerSettings as Record<string, unknown> | undefined
@@ -753,8 +753,7 @@ export function PlatformHeaderClient() {
           setHasCompletedSellerOnboarding(false)
         } else {
           setProfile((profileData as Profile) ?? null)
-          const hasWelcomeCompleted = !!profileData?.welcome_completed
-          const isSellerByState = !!creatorData?.onboarding_completed && hasWelcomeCompleted
+          const isSellerByState = !!creatorData?.onboarding_completed
           setIsCreator(isSellerByState)
           setHasCompletedSellerOnboarding(isSellerByState)
         }
@@ -782,16 +781,9 @@ export function PlatformHeaderClient() {
       fetchWishlistCount()
     })
 
-    const onWindowFocus = () => {
-      loadUser(false)
-    }
-
-    window.addEventListener("focus", onWindowFocus)
-
     return () => {
       mountedRef.current = false
       window.clearTimeout(failSafe)
-      window.removeEventListener("focus", onWindowFocus)
       data?.subscription?.unsubscribe()
     }
   }, [fetchWishlistCount, initialLoadDone])
@@ -817,12 +809,15 @@ export function PlatformHeaderClient() {
     return `${url}${sep}v=${encodeURIComponent(version)}`
   }, [])
 
+  const googleAvatarUrl = (user?.user_metadata as any)?.avatar_url || (user?.user_metadata as any)?.picture || null
+
   const avatarUrl =
     withAvatarVersion(storeBuilderAvatarUrl, storeBuilderAvatarUpdatedAt || null) ||
     withAvatarVersion(profile?.avatar_url, profile?.updated_at || null) ||
+    googleAvatarUrl ||
     undefined
 
-  const avatarUrlWithRefresh = avatarUrl || "/placeholder.svg"
+  const avatarUrlWithRefresh = avatarUrl || undefined
 
   const displayName =
     profile?.display_name ||
@@ -935,8 +930,8 @@ export function PlatformHeaderClient() {
             <>
               {/* Homepage Desktop Header */}
               <div className="hidden md:flex items-center justify-between w-full">
-                {/* Left - Logo */}
-                <Link href="/" className="shrink-0 flex items-center gap-2">
+                {/* Left - Logo - always links to storelib.com/explore */}
+                <Link href="/explore" onClick={(e) => onCanonicalNav(e, "/explore")} className="shrink-0 flex items-center gap-2">
                   <Image
                     src={LOGO_URL || "/placeholder.svg"}
                     alt="Storelib"
@@ -1018,7 +1013,7 @@ export function PlatformHeaderClient() {
               <div className="md:hidden flex items-center justify-between w-full">
                 {/* Left - Logo */}
                 <div className="flex items-center gap-0">
-                  <Link href="/" onClick={(e) => onCanonicalNav(e, "/explore")} className="shrink-0 flex items-center gap-1.5">
+                  <Link href="/explore" onClick={(e) => onCanonicalNav(e, "/explore")} className="shrink-0 flex items-center gap-1.5">
                     <Image
                       src={LOGO_URL || "/placeholder.svg"}
                       alt="Storelib"
@@ -1047,8 +1042,8 @@ export function PlatformHeaderClient() {
               {/* Non-Homepage Desktop Header - Original Layout */}
               {/* Left side - Logo and Categories Button */}
               <div className="flex items-center gap-3 shrink-0">
-                {/* Logo with Storelib text - logo height 46px (10% larger) - redirect to /explore if on explore pages */}
-                <Link href={isDiscoverProductContext ? "/explore" : pathname.startsWith("/explore") ? "/explore" : "/"} onClick={(e) => onCanonicalNav(e, isDiscoverProductContext ? "/explore" : pathname.startsWith("/explore") ? "/explore" : "/")} className="shrink-0 hidden md:flex items-center gap-2">
+                {/* Logo with Storelib text - always links to storelib.com/explore */}
+                <Link href="/explore" onClick={(e) => onCanonicalNav(e, "/explore")} className="shrink-0 hidden md:flex items-center gap-2">
                   <Image
                     src={LOGO_URL || "/placeholder.svg"}
                     alt="Storelib"
@@ -1318,8 +1313,8 @@ export function PlatformHeaderClient() {
                 <AnimatedHamburger isOpen={mobileMenuOpen} />
               </button>
 
-              {/* Logo next to hamburger - redirect to /explore if on explore pages */}
-              <Link href={pathname.startsWith("/explore") ? "/explore" : "/"} className="shrink-0 flex items-center gap-1.5">
+              {/* Logo next to hamburger - always links to storelib.com/explore */}
+              <Link href="/explore" onClick={(e) => onCanonicalNav(e, "/explore")} className="shrink-0 flex items-center gap-1.5">
                 <Image
                   src={LOGO_URL || "/placeholder.svg"}
                   alt="Storelib"

@@ -83,9 +83,10 @@ export function MarketingHeaderClient() {
   const [creatorSlug, setCreatorSlug] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [categoriesOpen, setCategoriesOpen] = useState(false)
+  const [resolvedAvatarUrl, setResolvedAvatarUrl] = useState<string | null>(null)
 
-  // Determine logo link - on /explore pages, link to /explore, otherwise link to home
-  const logoLink = pathname?.startsWith('/explore') ? '/explore' : '/?src=platform'
+  // Logo always links to /explore
+  const logoLink = '/explore'
 
   useEffect(() => {
     const supabase = createClient()
@@ -104,13 +105,37 @@ export function MarketingHeaderClient() {
           .eq("id", user.id)
           .single()
 
-        setProfile(profileData)
-        setIsCreator(profileData?.is_creator ?? false)
+        // Check creator record for onboarding_completed (source of truth for seller status)
+        const { data: creatorData } = await supabase
+          .from("creators")
+          .select("slug, onboarding_completed")
+          .eq("user_id", user.id)
+          .maybeSingle()
 
-        if (profileData?.is_creator) {
-          const { data: creatorData } = await supabase.from("creators").select("slug").eq("user_id", user.id).single()
-          setCreatorSlug(creatorData?.slug || profileData?.username || null)
+        const isSeller = !!creatorData?.onboarding_completed
+
+        // Fetch store builder avatar (source of truth for avatar)
+        let storeBuilderAvatarUrl: string | null = null
+        const { data: storeConfig } = await supabase
+          .from("store_builder_configs")
+          .select("published_config")
+          .eq("creator_id", user.id)
+          .eq("page_type", "shop")
+          .maybeSingle()
+
+        if (storeConfig?.published_config) {
+          const headerSettings = (storeConfig.published_config as Record<string, unknown>)?.headerSettings as Record<string, unknown> | undefined
+          const avatarFromStore = typeof headerSettings?.avatarUrl === "string" ? headerSettings.avatarUrl : null
+          storeBuilderAvatarUrl = avatarFromStore && avatarFromStore !== "" ? avatarFromStore : null
         }
+
+        const googleAvatar = user.user_metadata?.avatar_url || user.user_metadata?.picture || null
+        const finalAvatar = storeBuilderAvatarUrl || profileData?.avatar_url || googleAvatar || null
+
+        setProfile(profileData)
+        setIsCreator(isSeller)
+        setResolvedAvatarUrl(finalAvatar)
+        setCreatorSlug(creatorData?.slug || profileData?.username || null)
       }
       setLoading(false)
     }
@@ -297,15 +322,19 @@ export function MarketingHeaderClient() {
                   </Link>
                 )}
 
-                {/* Dashboard button for creators */}
-                {user && isCreator && (
+                {/* Dashboard button for sellers, Start Selling for buyers */}
+                {user && isCreator ? (
                   <Button size="sm" asChild className="bg-violet-600 hover:bg-violet-700">
                     <Link href="/app">Dashboard</Link>
                   </Button>
-                )}
+                ) : user ? (
+                  <Button size="sm" asChild className="bg-violet-600 hover:bg-violet-700">
+                    <Link href="/onboarding">Start Selling</Link>
+                  </Button>
+                ) : null}
 
                 {user && profile ? (
-                  <UserNavClient user={user} profile={profile} isCreator={isCreator} creatorSlug={creatorSlug} />
+                  <UserNavClient user={user} profile={{...profile, avatar_url: resolvedAvatarUrl || profile?.avatar_url}} isCreator={isCreator} creatorSlug={creatorSlug} />
                 ) : (
                   <>
                     <Button variant="ghost" size="sm" asChild>

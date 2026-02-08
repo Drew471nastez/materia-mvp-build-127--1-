@@ -65,13 +65,38 @@ export async function MarketingHeader() {
       .eq("id", user.id)
       .single()
 
-    profile = profileData
-    isCreator = profileData?.is_creator ?? false
+    // Check creator record for onboarding_completed (source of truth for seller status)
+    const { data: creatorData } = await supabase
+      .from("creators")
+      .select("slug, onboarding_completed")
+      .eq("user_id", user.id)
+      .maybeSingle()
 
-    if (isCreator) {
-      const { data: creatorData } = await supabase.from("creators").select("slug").eq("user_id", user.id).single()
-      creatorSlug = creatorData?.slug || profileData?.username || null
+    isCreator = !!creatorData?.onboarding_completed
+
+    // Fetch store builder avatar (source of truth for avatar)
+    let resolvedAvatarUrl = profileData?.avatar_url || null
+    const { data: storeConfig } = await supabase
+      .from("store_builder_configs")
+      .select("published_config")
+      .eq("creator_id", user.id)
+      .eq("page_type", "shop")
+      .maybeSingle()
+
+    if (storeConfig?.published_config) {
+      const headerSettings = (storeConfig.published_config as Record<string, unknown>)?.headerSettings as Record<string, unknown> | undefined
+      const avatarFromStore = typeof headerSettings?.avatarUrl === "string" ? headerSettings.avatarUrl : null
+      if (avatarFromStore && avatarFromStore !== "") {
+        resolvedAvatarUrl = avatarFromStore
+      }
     }
+
+    if (!resolvedAvatarUrl) {
+      resolvedAvatarUrl = user.user_metadata?.avatar_url || user.user_metadata?.picture || null
+    }
+
+    profile = profileData ? { ...profileData, avatar_url: resolvedAvatarUrl } : profileData
+    creatorSlug = creatorData?.slug || profileData?.username || null
   }
 
   return (
@@ -79,7 +104,7 @@ export async function MarketingHeader() {
       {/* Main Header Row */}
       <header className="border-b border-border/40">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-          <Link href="/?src=platform" className="flex items-center gap-2 shrink-0">
+          <Link href="/explore" className="flex items-center gap-2 shrink-0">
             <span className="text-[2rem] font-bold tracking-tight leading-none">Storelib</span>
           </Link>
           <nav className="hidden items-center gap-6 sm:flex">
