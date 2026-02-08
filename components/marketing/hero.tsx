@@ -49,9 +49,8 @@ function useTypingEffect(
 const PARTNER_LOGOS = [
   "https://cdn.sanity.io/images/599r6htc/regionalized/a9bfb23cca986ee16b0547274bcd7461ffd373aa-67x18.svg?q=75&fit=max&auto=format",
   "https://cdn.sanity.io/images/599r6htc/regionalized/bbfcc0e04437442a9637cc58efde849dfadb313c-76x48.svg?q=75&fit=max&auto=format",
-  "https://cdn.sanity.io/images/599r6htc/regionalized/927f806a262abfc02a79d68fc83dd6f960a06ada-141x28.svg?q=75&fit=max&auto=format",
   "https://cdn.sanity.io/images/599r6htc/regionalized/01d4ea19e824b3596f8f6c701d3b8319e49631b0-146x18.svg?q=75&fit=max&auto=format",
-  "https://cdn.sanity.io/images/599r6htc/regionalized/5e789db505180ee41e0612d7d53e2ec48c9c5837-153x20.svg?q=75&fit=max&auto=format",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/popj.svg",
 ]
 
 const IMAGES = [
@@ -464,11 +463,11 @@ export function Hero() {
                 <>
                   <div className="absolute left-1/2 -translate-x-1/2 -top-3.5 sm:-top-4">
                     <div className="flex items-center gap-2 bg-gray-100/95 backdrop-blur-sm text-gray-700 text-[10px] sm:text-[11px] font-medium px-3 sm:px-3.5 py-1.5 rounded-full whitespace-nowrap shadow-sm border border-gray-200/50">
-                      <span className="w-4 h-4 sm:w-[18px] sm:h-[18px] rounded-full bg-black inline-flex items-center justify-center overflow-hidden">
+                      <span className="w-4 h-4 sm:w-[18px] sm:h-[18px] rounded-full bg-gray-400 inline-flex items-center justify-center overflow-hidden">
                         <img
-                          src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib_pixian_ai.png"
+                          src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/image2vector.svg"
                           alt="Storelib logo"
-                          className="w-full h-full object-contain p-[1px]"
+                          className="w-full h-full object-contain p-[2px]"
                         />
                       </span>
                       All-in-one
@@ -513,7 +512,7 @@ export function Hero() {
         <div className="overflow-hidden">
           {!logosLoaded ? (
             <div className="flex items-center justify-center gap-6 sm:gap-8 md:gap-10 py-2">
-              {[...Array(5)].map((_, i) => (
+              {[...Array(4)].map((_, i) => (
                 <Skeleton key={i} className="h-[17px] sm:h-5 md:h-6 w-[60px] sm:w-[80px] md:w-[100px]" />
               ))}
             </div>
