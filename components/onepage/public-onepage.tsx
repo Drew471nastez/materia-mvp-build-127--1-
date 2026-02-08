@@ -3332,27 +3332,16 @@ function PublicBlockRenderer({
           <div className={cn(heroWidth, "relative mb-2 md:mb-1", heroMargin)}>
             <div className="relative w-full" style={{ aspectRatio }}>
               {hasVideo ? (
-                <div className="w-full h-full overflow-hidden">
-                  <video
+                <video
                     ref={videoRef}
                     src={profile.avatar_video_url!}
                     className="w-full h-full object-cover"
-                    style={
-                      profile.avatar_video_crop
-                        ? {
-                            width: `${100 / (profile.avatar_video_crop.width / 100)}%`,
-                            height: `${100 / (profile.avatar_video_crop.height / 100)}%`,
-                            marginLeft: `-${profile.avatar_video_crop.x / (profile.avatar_video_crop.width / 100)}%`,
-                            marginTop: `-${profile.avatar_video_crop.y / (profile.avatar_video_crop.height / 100)}%`,
-                          }
-                        : { objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%` }
-                    }
+                    style={{ objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%` }}
                     autoPlay
                     loop
                     muted
                     playsInline
                   />
-                </div>
               ) : (
                 <img
                   src={profile.avatar_url! || "/placeholder.svg"}
@@ -3535,21 +3524,14 @@ function PublicBlockRenderer({
                     <video
                       ref={videoRef}
                       src={profile.avatar_video_url!}
-                      className="object-cover"
+                      className="w-full h-full object-cover"
                       style={
                         profile.avatar_video_crop
                           ? {
-                              width: `${100 / (profile.avatar_video_crop.width / 100)}%`,
-                              height: `${100 / (profile.avatar_video_crop.height / 100)}%`,
-                              marginLeft: `-${profile.avatar_video_crop.x / (profile.avatar_video_crop.width / 100)}%`,
-                              marginTop: `-${profile.avatar_video_crop.y / (profile.avatar_video_crop.height / 100)}%`,
-                              transform: `translateY(${(theme as any).avatar_offset_y || 0}px)`,
+                              transformOrigin: '0 0',
+                              transform: `scale(${100 / profile.avatar_video_crop.width}) translate(-${profile.avatar_video_crop.x}%, -${profile.avatar_video_crop.y}%)`,
                             }
-                          : {
-                              width: "100%",
-                              height: "100%",
-                              transform: `translateY(${(theme as any).avatar_offset_y || 0}px)`,
-                            }
+                          : undefined
                       }
                       autoPlay
                       loop

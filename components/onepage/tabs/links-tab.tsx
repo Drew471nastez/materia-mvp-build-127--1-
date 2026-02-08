@@ -3468,12 +3468,29 @@ export function LinksTab() {
                       ))}
                     </div>
 
-                    {/* Corner handles */}
-                    <div className="absolute -top-1 -left-1 w-3 h-3 bg-white border-2 border-blue-500 rounded-sm" />
-                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-white border-2 border-blue-500 rounded-sm" />
-                    <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-white border-2 border-blue-500 rounded-sm" />
+                    {/* Corner handles - large touch targets */}
+                    <div className="absolute -top-2.5 -left-2.5 w-5 h-5 bg-white border-[3px] border-blue-500 rounded-sm" />
+                    <div className="absolute -top-2.5 -right-2.5 w-5 h-5 bg-white border-[3px] border-blue-500 rounded-sm" />
+                    <div className="absolute -bottom-2.5 -left-2.5 w-5 h-5 bg-white border-[3px] border-blue-500 rounded-sm" />
                     <div
-                      className="absolute -bottom-1 -right-1 w-3 h-3 bg-blue-500 border-2 border-blue-500 rounded-sm cursor-se-resize"
+                      className="absolute -bottom-2.5 -right-2.5 w-5 h-5 bg-blue-500 border-[3px] border-blue-500 rounded-sm cursor-se-resize"
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setIsResizingVideoCrop('bottom-right')
+                        setVideoDragStart({ x: e.clientX, y: e.clientY, boxX: videoCropBox.x, boxY: videoCropBox.y, boxW: videoCropBox.width, boxH: videoCropBox.height })
+                      }}
+                      onTouchStart={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        const touch = e.touches[0]
+                        setIsResizingVideoCrop('bottom-right')
+                        setVideoDragStart({ x: touch.clientX, y: touch.clientY, boxX: videoCropBox.x, boxY: videoCropBox.y, boxW: videoCropBox.width, boxH: videoCropBox.height })
+                      }}
+                    />
+                    {/* Invisible larger touch target for bottom-right resize */}
+                    <div
+                      className="absolute -bottom-5 -right-5 w-10 h-10 cursor-se-resize"
                       onMouseDown={(e) => {
                         e.preventDefault()
                         e.stopPropagation()

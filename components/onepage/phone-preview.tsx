@@ -3453,21 +3453,14 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                   >
                     <video
                       src={profile.avatar_video_url!}
-                      className="object-cover"
+                      className="w-full h-full object-cover"
                       style={
                         profile.avatar_video_crop
                           ? {
-                              width: `${100 / (profile.avatar_video_crop.width / 100)}%`,
-                              height: `${100 / (profile.avatar_video_crop.height / 100)}%`,
-                              marginLeft: `-${profile.avatar_video_crop.x / (profile.avatar_video_crop.width / 100)}%`,
-                              marginTop: `-${profile.avatar_video_crop.y / (profile.avatar_video_crop.height / 100)}%`,
-                              transform: `translateY(${(theme as any).avatar_offset_y || 0}px)`,
+                              transformOrigin: '0 0',
+                              transform: `scale(${100 / profile.avatar_video_crop.width}) translate(-${profile.avatar_video_crop.x}%, -${profile.avatar_video_crop.y}%)`,
                             }
-                          : {
-                              width: "100%",
-                              height: "100%",
-                              transform: `translateY(${(theme as any).avatar_offset_y || 0}px)`,
-                            }
+                          : undefined
                       }
                       autoPlay
                       loop
