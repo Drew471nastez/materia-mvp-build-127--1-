@@ -405,23 +405,27 @@ function ShareButtonPreview({
       </div>
 
       {/* Share Modal - positioned within phone preview */}
-      {isOpen && (
-        <>
-          {/* Backdrop - covers phone preview only */}
-          <div
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm z-40 animate-in fade-in duration-300"
-            onClick={() => setIsOpen(false)}
-          />
+      {/* Backdrop - covers phone preview only */}
+      <div
+        className={cn(
+          "absolute inset-0 bg-black/40 backdrop-blur-sm z-40 transition-opacity duration-300",
+          isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none",
+        )}
+        onClick={() => setIsOpen(false)}
+      />
 
-          {/* Modal - centered within phone preview */}
-          <div
-            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 rounded-2xl overflow-hidden animate-in zoom-in-90 fade-in slide-in-from-bottom-2 duration-300 ease-out"
-            style={{
-              width: scale === "small" ? 200 : 260,
-              background: "#ffffff",
-              boxShadow: "0 20px 60px rgba(0, 0, 0, 0.2)",
-            }}
-          >
+      {/* Modal - centered within phone preview */}
+      <div
+        className={cn(
+          "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 rounded-2xl overflow-hidden transition-all duration-300 ease-out",
+          isOpen ? "opacity-100 scale-100 translate-y-0 pointer-events-auto" : "opacity-0 scale-95 translate-y-2 pointer-events-none",
+        )}
+        style={{
+          width: scale === "small" ? 200 : 260,
+          background: "#ffffff",
+          boxShadow: isOpen ? "0 20px 60px rgba(0, 0, 0, 0.2)" : "none",
+        }}
+      >
             {/* Profile preview card with background adapted to OnePage theme */}
             <div
               className="relative px-3 pt-4 pb-5"
@@ -434,7 +438,7 @@ function ShareButtonPreview({
               {/* Close button */}
               <button
                 onClick={() => setIsOpen(false)}
-                className="absolute top-2 right-2 p-1 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-all"
+                className="absolute top-2 right-2 p-1 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-all cursor-pointer z-10"
               >
                 <X size={scale === "small" ? 8 : 10} className="text-white" />
               </button>
@@ -481,7 +485,7 @@ function ShareButtonPreview({
                   <button
                     key={option.name}
                     onClick={option.action}
-                    className="flex flex-col items-center gap-1 p-1.5 rounded-lg opacity-90 hover:opacity-100 transition-opacity duration-200"
+                    className="flex flex-col items-center gap-1 p-1.5 rounded-lg opacity-90 hover:opacity-100 transition-all duration-200 cursor-pointer hover:scale-105 active:scale-95"
                   >
                     <div
                       className={cn(
@@ -555,7 +559,7 @@ function ShareButtonPreview({
                   </div>
                   <button
                     className={cn(
-                      "bg-black text-white font-semibold rounded-lg hover:bg-gray-800 transition-all",
+                      "bg-black text-white font-semibold rounded-lg hover:bg-gray-800 transition-all cursor-pointer",
                       scale === "small" ? "px-2 py-1 text-[6px]" : "px-2.5 py-1.5 text-[7px]",
                     )}
                   >
@@ -565,8 +569,6 @@ function ShareButtonPreview({
               </div>
             </div>
           </div>
-        </>
-      )}
     </>
   )
 }

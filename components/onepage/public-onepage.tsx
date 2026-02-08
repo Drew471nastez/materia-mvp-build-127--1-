@@ -719,128 +719,122 @@ function ShareButton({
         </div>
       </div>
 
-      {/* Share Modal */}
-      {isOpen && (
-        <>
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] animate-in fade-in duration-300"
+      {/* Share Modal - backdrop */}
+      <div
+        className={cn(
+          "fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] transition-opacity duration-300",
+          isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none",
+        )}
+        onClick={() => setIsOpen(false)}
+      />
+
+      {/* Share Modal - content */}
+      <div
+        className={cn(
+          "fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[65] w-[calc(100%-32px)] max-w-[380px] rounded-[28px] overflow-hidden transition-all duration-300 ease-out",
+          isOpen ? "opacity-100 scale-100 translate-y-0 pointer-events-auto" : "opacity-0 scale-95 translate-y-4 pointer-events-none",
+        )}
+        style={{
+          background: "#ffffff",
+          boxShadow: isOpen ? "0 25px 80px rgba(0, 0, 0, 0.2), 0 8px 24px rgba(0, 0, 0, 0.1)" : "none",
+        }}
+      >
+        {/* Profile preview card with background adapted to OnePage theme */}
+        <div
+          className="relative px-6 pt-8 pb-10"
+          style={{
+            background: popupHeaderBackground.includes('gradient') || popupHeaderBackground.includes('linear')
+              ? popupHeaderBackground
+              : `linear-gradient(135deg, ${popupHeaderBackground} 0%, ${popupHeaderBackground} 100%)`,
+          }}
+        >
+          {/* Close button */}
+          <button
             onClick={() => setIsOpen(false)}
-          />
-
-          {/* Modal - Modern Linktree-style design */}
-          <div
-            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[65] w-[calc(100%-32px)] max-w-[380px] rounded-[28px] overflow-hidden animate-in zoom-in-90 fade-in slide-in-from-bottom-4 duration-300 ease-out"
-            style={{
-              background: "#ffffff",
-              boxShadow: "0 25px 80px rgba(0, 0, 0, 0.2), 0 8px 24px rgba(0, 0, 0, 0.1)",
-            }}
+            className="absolute top-4 right-4 p-2 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-all cursor-pointer z-10"
           >
-            {/* Profile preview card with background adapted to OnePage theme */}
-            <div
-              className="relative px-6 pt-8 pb-10"
-              style={{
-                background: popupHeaderBackground.includes('gradient') || popupHeaderBackground.includes('linear')
-                  ? popupHeaderBackground
-                  : `linear-gradient(135deg, ${popupHeaderBackground} 0%, ${popupHeaderBackground} 100%)`,
-              }}
-            >
-              {/* Close button */}
-              <button
-                onClick={() => setIsOpen(false)}
-                className="absolute top-4 right-4 p-2 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-all"
-              >
-                <X className="w-4 h-4 text-white" />
-              </button>
+            <X className="w-4 h-4 text-white" />
+          </button>
 
-              <div className="text-center">
-                <div className="w-20 h-20 mx-auto mb-4 rounded-full overflow-hidden bg-white/20 flex items-center justify-center ring-4 ring-white/30 shadow-xl">
-                  {avatarVideoUrl ? (
-                    <video src={avatarVideoUrl} className="w-full h-full object-cover" autoPlay loop muted playsInline />
-                  ) : avatarUrl ? (
-                    <img src={avatarUrl} alt={pageTitle} className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-3xl font-bold text-white">{pageTitle.charAt(0).toUpperCase()}</span>
-                  )}
-                </div>
-                <h3 className="text-xl font-bold text-white mb-1">{pageTitle}</h3>
-                <p className="text-white/80 text-sm truncate max-w-[200px] mx-auto">
-                  {pageUrl.replace(/^https?:\/\//, "")}
-                </p>
-              </div>
-            </div>
-
-            {!isShareContentReady ? (
-              <div className="px-5 pb-6 pt-2 animate-pulse">
-                <div className="h-12 rounded-xl bg-gray-100 mb-4" />
-                <div className="grid grid-cols-4 gap-3">
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} className="flex flex-col items-center gap-2">
-                      <div className="w-[46px] h-[46px] rounded-full bg-gray-100" />
-                      <div className="w-10 h-2.5 rounded bg-gray-100" />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-            <>
-            {/* Share options - centered and well-aligned */}
-            <div className="flex justify-center items-center gap-4 px-3">
-              {shareOptions.map(
-                (
-                  option,
-                  index, // Added key prop and index
-                ) => (
-                  <button
-                    key={option.name} // Added key prop using option.name
-                    onClick={option.action}
-                    className={cn(
-                      "flex flex-col items-center gap-1.5 p-2 rounded-xl transition-opacity duration-200",
-                      "opacity-100 hover:opacity-70",
-                    )}
-                    style={{ animationDelay: `${index * 50}ms` }} // Removed index, replaced with option.name or similar for unique delay if needed
-                  >
-                    <div
-                      className="w-[46px] h-[46px] rounded-full flex items-center justify-center transition-transform"
-                      style={{ backgroundColor: `${option.color}15` }}
-                    >
-                      <span style={{ color: option.color }}>{renderIcon(option.iconType, option.color)}</span>
-                    </div>
-                    <span className="text-[10px] font-medium text-gray-600">{option.name}</span>
-                  </button>
-                ),
+          <div className="text-center">
+            <div className="w-20 h-20 mx-auto mb-4 rounded-full overflow-hidden bg-white/20 flex items-center justify-center ring-4 ring-white/30 shadow-xl">
+              {avatarVideoUrl ? (
+                <video src={avatarVideoUrl} className="w-full h-full object-cover" autoPlay loop muted playsInline />
+              ) : avatarUrl ? (
+                <img src={avatarUrl} alt={pageTitle} className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-3xl font-bold text-white">{pageTitle.charAt(0).toUpperCase()}</span>
               )}
             </div>
+            <h3 className="text-xl font-bold text-white mb-1">{pageTitle}</h3>
+            <p className="text-white/80 text-sm truncate max-w-[200px] mx-auto">
+              {pageUrl.replace(/^https?:\/\//, "")}
+            </p>
+          </div>
+        </div>
 
-            {/* Storelib CTA Section */}
-            </>
-            )}
-            <div className="px-5 pb-6">
-              <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shrink-0 overflow-hidden">
-                    <img
-                      src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib.svg"
-                      alt="Storelib"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-900">Create your own page</p>
-                    <p className="text-xs text-gray-500 truncate">Build your store with Storelib</p>
-                  </div>
-                  <button
-                    onClick={() => window.open("https://storelib.com", "_blank")}
-                    className="px-4 py-2 bg-black text-white text-sm font-semibold rounded-xl hover:bg-gray-800 transition-all shadow-sm hover:shadow-md active:scale-95"
-                  >
-                    Join
-                  </button>
+        {!isShareContentReady ? (
+          <div className="px-5 pb-6 pt-2 animate-pulse">
+            <div className="h-12 rounded-xl bg-gray-100 mb-4" />
+            <div className="grid grid-cols-4 gap-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex flex-col items-center gap-2">
+                  <div className="w-[46px] h-[46px] rounded-full bg-gray-100" />
+                  <div className="w-10 h-2.5 rounded bg-gray-100" />
                 </div>
-              </div>
+              ))}
             </div>
           </div>
+        ) : (
+        <>
+        {/* Share options - centered and well-aligned */}
+        <div className="flex justify-center items-center gap-4 px-3 pt-[7px] relative z-10">
+          {shareOptions.map(
+            (option, index) => (
+              <button
+                key={option.name}
+                onClick={option.action}
+                className="flex flex-col items-center gap-1.5 p-2 rounded-xl transition-all duration-200 cursor-pointer hover:opacity-70 hover:scale-105 active:scale-95"
+              >
+                <div
+                  className="w-[46px] h-[46px] rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: `${option.color}15` }}
+                >
+                  <span style={{ color: option.color }}>{renderIcon(option.iconType, option.color)}</span>
+                </div>
+                <span className="text-[10px] font-medium text-gray-600">{option.name}</span>
+              </button>
+            ),
+          )}
+        </div>
+
+        {/* Storelib CTA Section */}
         </>
-      )}
+        )}
+        <div className="px-5 pb-6 relative z-10">
+          <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shrink-0 overflow-hidden">
+                <img
+                  src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib.svg"
+                  alt="Storelib"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-gray-900">Create your own page</p>
+                <p className="text-xs text-gray-500 truncate">Build your store with Storelib</p>
+              </div>
+              <button
+                onClick={() => window.open("https://storelib.com", "_blank")}
+                className="px-4 py-2 bg-black text-white text-sm font-semibold rounded-xl hover:bg-gray-800 transition-all shadow-sm hover:shadow-md active:scale-95 cursor-pointer"
+              >
+                Join
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     </>
   )
 }

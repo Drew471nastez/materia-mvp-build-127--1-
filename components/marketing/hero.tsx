@@ -522,14 +522,26 @@ export function Hero() {
               {[...PARTNER_LOGOS, ...PARTNER_LOGOS, ...PARTNER_LOGOS].map((src, i) => {
                 const isStripe = src.includes("bbfcc0e04437442a9637cc58efde849dfadb313c")
                 const isAnthropic = src.includes("a9bfb23cca986ee16b0547274bcd7461ffd373aa")
+                const isAtlassian = src.includes("01d4ea19e824b3596f8f6c701d3b8319e49631b0")
+                const isPopj = src.includes("popj.svg")
+                const isNewLogo = src.includes("eyJidWNrZXQiOiJwYXJ0bmVycGFnZS5wcm9k")
+                const heightClass = isStripe
+                  ? "h-[36px] sm:h-[43px] md:h-[51px]"
+                  : isAnthropic
+                    ? "h-[18px] sm:h-[21px] md:h-[26px]"
+                    : isAtlassian
+                      ? "h-[15px] sm:h-[18px] md:h-[22px]"
+                      : isPopj
+                        ? "h-[23px] sm:h-[27px] md:h-[32px]"
+                        : isNewLogo
+                          ? "h-[22px] sm:h-[26px] md:h-[31px]"
+                          : "h-[17px] sm:h-5 md:h-6"
                 return (
                   <img
                     key={i}
                     src={src}
                     alt="Partner logo"
-                    className={`w-auto mx-6 sm:mx-8 md:mx-10 opacity-95 grayscale select-none ${
-                      isStripe ? "h-[36px] sm:h-[43px] md:h-[51px]" : isAnthropic ? "h-[21px] sm:h-[25px] md:h-[30px]" : "h-[17px] sm:h-5 md:h-6"
-                    }`}
+                    className={`w-auto mx-6 sm:mx-8 md:mx-10 opacity-95 grayscale select-none ${heightClass}`}
                     draggable={false}
                   />
                 )

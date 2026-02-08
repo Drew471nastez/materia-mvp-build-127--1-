@@ -908,11 +908,11 @@ export function SettingsTab() {
 
       {/* OG Image Upload Modal */}
       <Dialog open={showOgImageModal} onOpenChange={setShowOgImageModal}>
-        <DialogContent className="w-[calc(100%-24px)] max-w-sm p-0 gap-0 overflow-hidden rounded-xl mx-auto">
-          <DialogHeader className="p-3 border-b">
-            <DialogTitle className="text-sm font-semibold">Upload Social Image</DialogTitle>
+        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+          <DialogHeader className="p-5 border-b">
+            <DialogTitle className="text-lg font-semibold text-center">Upload Social Image</DialogTitle>
           </DialogHeader>
-          <div className="p-3 space-y-3">
+          <div className="p-5">
             <input
               ref={fileInputRef}
               type="file"
@@ -920,33 +920,24 @@ export function SettingsTab() {
               onChange={handleImageUpload}
               className="hidden"
             />
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isUploading}
-              className="w-full aspect-[16/9] rounded-lg border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-1.5 bg-gray-50 cursor-pointer hover:bg-gray-100 hover:border-blue-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            <div
+              onClick={() => !isUploading && fileInputRef.current?.click()}
+              className="border-2 border-dashed border-gray-300 rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer hover:border-gray-400 hover:bg-gray-50 transition-colors"
             >
               {isUploading ? (
                 <>
-                  <Loader2 className="h-5 w-5 text-blue-500 animate-spin" />
-                  <span className="text-xs text-gray-500">Uploading...</span>
+                  <Loader2 className="h-12 w-12 text-violet-500 animate-spin mb-4" />
+                  <p className="font-medium text-gray-600">Uploading...</p>
                 </>
               ) : (
                 <>
-                  <Upload className="h-5 w-5 text-gray-400" />
-                  <span className="text-xs text-gray-500">Click to upload</span>
-                  <span className="text-[10px] text-gray-400">PNG, JPG up to 5MB</span>
+                  <Upload className="h-12 w-12 text-gray-300 mb-4" />
+                  <p className="font-medium text-gray-600">Select file to upload,</p>
+                  <p className="font-medium text-gray-600">or drag-and-drop file</p>
+                  <p className="text-sm text-gray-400 mt-2">1200×630px recommended · PNG, JPG up to 5MB</p>
                 </>
               )}
-            </button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full rounded-lg h-8 text-xs"
-              onClick={() => setShowOgImageModal(false)}
-              disabled={isUploading}
-            >
-              Cancel
-            </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

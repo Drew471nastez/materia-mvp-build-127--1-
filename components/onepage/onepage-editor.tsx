@@ -763,7 +763,18 @@ function EditorLayout() {
                     })(),
               }}
             >
-              {onepage.avatar_url ? (
+              {onepage.avatar_video_url ? (
+                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full mx-auto mb-2 overflow-hidden">
+                  <video
+                    src={onepage.avatar_video_url}
+                    className="w-full h-full object-cover"
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                  />
+                </div>
+              ) : onepage.avatar_url ? (
                 <img
                   src={onepage.avatar_url}
                   alt={onepage.title}
