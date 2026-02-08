@@ -364,26 +364,30 @@ function EditorLayout() {
     }
   }, [])
 
-  // Handle link clicks when dirty
+  // Handle link clicks when dirty - intercept ALL navigation including Next.js client-side routing
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
+      if (!isDirtyRef.current) return
+
       const target = e.target as HTMLElement
       const anchor = target.closest('a')
-      
-      if (anchor && isDirty) {
+
+      if (anchor) {
         const href = anchor.getAttribute('href')
-        // Only intercept internal navigation links (not external or modal triggers)
-        if (href && !href.startsWith('http') && !href.startsWith('#') && !anchor.getAttribute('target')) {
+        // Intercept internal navigation links (not external links opened in new tab or hash links)
+        if (href && !href.startsWith('#') && !anchor.getAttribute('target')) {
           e.preventDefault()
+          e.stopPropagation()
+          e.stopImmediatePropagation()
           setShowUnsavedDialog(true)
-          setPendingNavigation(href)
+          setPendingNavigation(href.startsWith('http') ? href : href)
         }
       }
     }
 
     document.addEventListener('click', handleClick, true)
     return () => document.removeEventListener('click', handleClick, true)
-  }, [isDirty])
+  }, [])
 
   const handleSaveAndNavigate = useCallback(async () => {
     // TODO: Replace this with actual Pro plan check from user's subscription

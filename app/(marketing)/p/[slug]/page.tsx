@@ -69,7 +69,7 @@ export async function generateMetadata({ params }: ProductPageProps) {
   // First, try to find product by current slug
   let { data: product } = await supabase
     .from("products")
-    .select("title, description, creator_id, slug")
+    .select("title, description, creator_id, slug, thumbnail_url, gallery_urls")
     .eq("slug", slug)
     .eq("status", "published")
     .maybeSingle()
@@ -85,7 +85,9 @@ export async function generateMetadata({ params }: ProductPageProps) {
           description,
           creator_id,
           slug,
-          status
+          status,
+          thumbnail_url,
+          gallery_urls
         )
       `)
       .eq("old_slug", slug)
@@ -100,18 +102,63 @@ export async function generateMetadata({ params }: ProductPageProps) {
     return { title: "Product Not Found | Storelib" }
   }
 
-  // Fetch creator's published config for favicon
+  // Fetch creator's display name and published config for favicon
+  let sellerName: string | undefined
   let faviconUrl: string | undefined
   if (product.creator_id) {
+    // Fetch seller name: creators → profiles.display_name / full_name
+    const { data: creator } = await supabase
+      .from("creators")
+      .select("user_id, display_name")
+      .eq("id", product.creator_id)
+      .maybeSingle()
+
+    if (creator) {
+      sellerName = creator.display_name || undefined
+      if (!sellerName && creator.user_id) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("display_name, full_name")
+          .eq("id", creator.user_id)
+          .maybeSingle()
+        sellerName = profile?.display_name || profile?.full_name || undefined
+      }
+    }
+
     const { getPublishedConfig } = await import("@/lib/store-builder/get-published-config")
     const publishedConfig = await getPublishedConfig(product.creator_id, "shop")
     const headerSettings = publishedConfig?.headerSettings as ShopHeaderSettings | undefined
     faviconUrl = headerSettings?.faviconUrl || undefined
   }
 
+  // Determine the social preview image: first gallery image → thumbnail
+  const galleryUrls = product.gallery_urls as string[] | null
+  const socialImage = galleryUrls?.[0] || product.thumbnail_url || undefined
+
+  // Title: "Product Name | Seller Name" or "Product Name | Storelib"
+  const titleSuffix = sellerName || "Storelib"
+  const pageTitle = `${product.title} | ${titleSuffix}`
+  const pageDescription = product.description || "Check out this product on Storelib"
+
   return {
-    title: `${product.title} | Storelib`,
-    description: product.description || "Check out this product on Storelib",
+    title: pageTitle,
+    description: pageDescription,
+    openGraph: {
+      title: pageTitle,
+      description: pageDescription,
+      type: "website",
+      ...(socialImage && {
+        images: [{ url: socialImage }],
+      }),
+    },
+    twitter: {
+      card: socialImage ? "summary_large_image" : "summary",
+      title: pageTitle,
+      description: pageDescription,
+      ...(socialImage && {
+        images: [socialImage],
+      }),
+    },
     ...(faviconUrl && {
       icons: {
         icon: faviconUrl,
