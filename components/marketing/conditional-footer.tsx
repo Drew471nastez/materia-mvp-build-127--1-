@@ -14,9 +14,7 @@ export function ConditionalFooter() {
   const discoverLayout = searchParams.get("layout") === "discover" || searchParams.has("recommended")
   const isSellerPath = pathname.startsWith("/u/") || pathname.startsWith("/p/") || pathname.startsWith("/l/")
 
-  if ((isSubdomain || isSellerPath) && discoverLayout) {
-    return <MarketingFooter />
-  }
+  if ((isSubdomain || isSellerPath) && discoverLayout) return null
 
   const isSellerPage = isSubdomain || isSellerPath
 

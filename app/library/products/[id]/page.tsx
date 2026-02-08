@@ -42,6 +42,8 @@ export default async function ProductAccessPage({ params }: ProductAccessPagePro
       .eq("buyer_id", user.id)
       .eq("product_id", id)
       .eq("status", "completed")
+      .order("created_at", { ascending: false })
+      .limit(1)
       .maybeSingle()
 
     if (!order?.product) notFound()
@@ -124,7 +126,7 @@ export default async function ProductAccessPage({ params }: ProductAccessPagePro
               {assets && assets.length > 0 ? (
                 <div className="space-y-3">
                   {assets.map((asset: any, index: number) => (
-                    <DownloadButton key={asset.id} assetId={asset.id} variant="default" className="w-full cursor-pointer bg-neutral-900 text-white hover:bg-black">
+                    <DownloadButton key={asset.id} assetId={asset.id} variant="default" className="w-full h-12 cursor-pointer bg-neutral-900 text-white hover:bg-black">
                       {index === 0 ? "Download File" : asset.file_name || `File ${index + 1}`}
                     </DownloadButton>
                   ))}

@@ -9,6 +9,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from "react"
 import { createPortal } from "react-dom"
 import type { User } from "@supabase/supabase-js"
 import { createClient } from "@/lib/supabase/client"
+import { extractUsernameFromHost, getCanonicalSiteUrl } from "@/lib/url-helpers"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -791,10 +792,50 @@ export function PlatformHeaderClient() {
   }
 
   const onCategoryClick = (cat: string) => {
+    if (shouldForceCanonicalNav) {
+      navigateToCanonical(`/explore?category=${encodeURIComponent(cat)}`)
+      return
+    }
     router.push(`/explore?category=${encodeURIComponent(cat)}`)
   }
 
   const showCategories = pathname === "/explore" || pathname.startsWith("/explore")
+
+  const canonicalBaseUrl = useMemo(() => getCanonicalSiteUrl(), [])
+
+  const toCanonicalUrl = useCallback(
+    (targetPath: string) => {
+      const normalizedPath = targetPath.startsWith("/") ? targetPath : `/${targetPath}`
+      try {
+        return new URL(normalizedPath, canonicalBaseUrl).toString()
+      } catch {
+        return `${canonicalBaseUrl}${normalizedPath}`
+      }
+    },
+    [canonicalBaseUrl],
+  )
+
+  const shouldForceCanonicalNav = useMemo(() => {
+    if (typeof window === "undefined") return false
+    return Boolean(extractUsernameFromHost(window.location.host))
+  }, [pathname])
+
+  const navigateToCanonical = useCallback(
+    (targetPath: string) => {
+      if (typeof window === "undefined") return
+      window.location.assign(toCanonicalUrl(targetPath))
+    },
+    [toCanonicalUrl],
+  )
+
+  const onCanonicalNav = useCallback(
+    (e: React.MouseEvent<HTMLElement>, targetPath: string) => {
+      if (!shouldForceCanonicalNav) return
+      e.preventDefault()
+      navigateToCanonical(targetPath)
+    },
+    [navigateToCanonical, shouldForceCanonicalNav],
+  )
 
   // Detect active category from URL
   const activeCategoryId = useMemo(() => {
@@ -823,7 +864,7 @@ export function PlatformHeaderClient() {
                 <span className="hidden md:inline"> — Join thousands of creators earning on Storelib</span>
               </span>
               <Link
-                href="/signup"
+                href="/signup" onClick={(e) => onCanonicalNav(e, "/signup")}
                 className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1 md:px-4 md:py-1.5 text-[11px] md:text-[12px] font-semibold bg-white text-gray-900 hover:bg-white/90 transition-colors"
               >
                 <span>Get Started</span>
@@ -856,7 +897,7 @@ export function PlatformHeaderClient() {
 
                 {/* Center - Nav Links (show for all users) */}
                 <nav className="flex items-center gap-2">
-                  <Link href="/explore" className="px-4 py-2 rounded-full text-[15px] font-medium text-gray-900 hover:text-black border border-gray-200 hover:border-gray-300 transition-colors">
+                  <Link href="/explore" onClick={(e) => onCanonicalNav(e, "/explore")} className="px-4 py-2 rounded-full text-[15px] font-medium text-gray-900 hover:text-black border border-gray-200 hover:border-gray-300 transition-colors">
                     Discover
                   </Link>
                   <Link href="/blog" className="px-4 py-2 rounded-full text-[15px] font-medium text-gray-900 hover:text-black border border-gray-200 hover:border-gray-300 transition-colors">
@@ -883,7 +924,7 @@ export function PlatformHeaderClient() {
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Link
-                            href="/explore"
+                            href="/explore" onClick={(e) => onCanonicalNav(e, "/explore")}
                             className="flex h-11 w-11 items-center justify-center rounded-full text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition cursor-pointer"
                             aria-label="Discover"
                           >
@@ -911,7 +952,7 @@ export function PlatformHeaderClient() {
                       </Link>
                       {/* Start Selling */}
                       <Button asChild className="h-11 rounded-lg px-6 text-[15px] bg-violet-600 text-white hover:bg-violet-700 cursor-pointer">
-                        <Link href="/signup">
+                        <Link href="/signup" onClick={(e) => onCanonicalNav(e, "/signup")}>
                           Start Selling
                         </Link>
                       </Button>
@@ -924,7 +965,7 @@ export function PlatformHeaderClient() {
               <div className="md:hidden flex items-center justify-between w-full">
                 {/* Left - Logo */}
                 <div className="flex items-center gap-0">
-                  <Link href="/" className="shrink-0 flex items-center gap-1.5">
+                  <Link href="/" onClick={(e) => onCanonicalNav(e, "/explore")} className="shrink-0 flex items-center gap-1.5">
                     <Image
                       src={LOGO_URL || "/placeholder.svg"}
                       alt="Storelib"
@@ -1052,7 +1093,7 @@ export function PlatformHeaderClient() {
                                   if (hasSubcats) {
                                     setSelectedCategoryForSubs(cat.label)
                                   } else {
-                                    router.push(cat.href)
+                                    shouldForceCanonicalNav ? navigateToCanonical(cat.href) : router.push(cat.href)
                                     setCategoriesDropdownOpen(false)
                                   }
                                 }}
@@ -1093,7 +1134,7 @@ export function PlatformHeaderClient() {
                 onChange={(e) => handleSearchChange(e.target.value)}
                 onFocus={() => setSearchModalOpen(true)}
                 placeholder={t("search_placeholder")}
-                className="h-11 w-full rounded-full pl-11 pr-4 bg-gray-100 border-gray-200 text-gray-900 text-[15px] placeholder:text-gray-500 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0 focus-visible:border-blue-500"
+                className={`h-11 w-full pl-11 pr-4 bg-gray-100 border-gray-200 text-gray-900 text-[15px] placeholder:text-gray-500 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0 focus-visible:border-blue-500 ${pathname.startsWith("/p/") && searchParams.get("layout") === "discover" && searchParams.get("recommended") === "1" ? "rounded-[8px]" : "rounded-full"}`}
               />
               {query && (
                 <button
@@ -1197,7 +1238,7 @@ export function PlatformHeaderClient() {
                       <button
                         type="button"
                         onClick={() => {
-                          router.push(`/explore?q=${encodeURIComponent(query)}`)
+                          shouldForceCanonicalNav ? navigateToCanonical(`/explore?q=${encodeURIComponent(query)}`) : router.push(`/explore?q=${encodeURIComponent(query)}`)
                           setSearchModalOpen(false)
                         }}
                         className="w-full py-2.5 rounded-lg text-sm font-medium text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
@@ -1243,7 +1284,7 @@ export function PlatformHeaderClient() {
               {/* Library - only show when logged in */}
               {user && (
                 <Link
-                  href="/library"
+                  href="/library" onClick={(e) => onCanonicalNav(e, "/library")}
                   className="flex h-9 w-9 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 transition cursor-pointer"
                   aria-label="Library"
                 >
@@ -1253,7 +1294,7 @@ export function PlatformHeaderClient() {
 
               {/* Wishlist */}
               <Link
-                href={wishlistHref}
+                href={wishlistHref} onClick={(e) => onCanonicalNav(e, wishlistHref)}
                 className="relative flex h-9 w-9 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 transition cursor-pointer"
                 aria-label="Wishlist"
               >
@@ -1299,7 +1340,7 @@ export function PlatformHeaderClient() {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Link
-                      href={wishlistHref}
+                      href={wishlistHref} onClick={(e) => onCanonicalNav(e, wishlistHref)}
                       className="relative flex h-11 w-11 items-center justify-center rounded-full text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition cursor-pointer"
                       aria-label={t("wishlist")}
                     >
@@ -1320,7 +1361,7 @@ export function PlatformHeaderClient() {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Link
-                      href="/library"
+                      href="/library" onClick={(e) => onCanonicalNav(e, "/library")}
                       className="hidden sm:flex h-11 w-11 items-center justify-center rounded-full text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition cursor-pointer"
                       aria-label={t("library")}
                     >
@@ -1386,7 +1427,7 @@ export function PlatformHeaderClient() {
                         </div>
 
                         <Link
-                          href={dashboardHref}
+                          href={dashboardHref} onClick={(e) => onCanonicalNav(e, dashboardHref)}
                           onClick={() => setDesktopProfileOpen(false)}
                           className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 cursor-pointer"
                         >
@@ -1394,7 +1435,7 @@ export function PlatformHeaderClient() {
                           <span>Dashboard</span>
                         </Link>
                         <Link
-                          href="/library"
+                          href="/library" onClick={(e) => onCanonicalNav(e, "/library")}
                           onClick={() => setDesktopProfileOpen(false)}
                           className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 cursor-pointer"
                         >
@@ -1437,7 +1478,7 @@ export function PlatformHeaderClient() {
             <button
               type="button"
               onClick={() => setSearchModalOpen(true)}
-              className="w-full h-10 flex items-center gap-2 px-4 bg-gray-100 border border-gray-200 text-gray-500 rounded-full text-sm cursor-pointer overflow-hidden"
+              className={`w-full h-10 flex items-center gap-2 px-4 bg-gray-100 border border-gray-200 text-gray-500 text-sm cursor-pointer overflow-hidden ${pathname.startsWith("/p/") && searchParams.get("layout") === "discover" && searchParams.get("recommended") === "1" ? "rounded-[8px]" : "rounded-full"}`}
             >
               <Search className="h-4 w-4 text-gray-400 shrink-0" />
               <span className="truncate">{t("search_placeholder")}</span>
@@ -1458,7 +1499,7 @@ export function PlatformHeaderClient() {
                 value={query}
                 onChange={(e) => handleSearchChange(e.target.value)}
                 placeholder={t("search_placeholder")}
-                className="h-11 w-full pl-10 pr-10 bg-gray-100 border-gray-200 text-gray-900 placeholder:text-gray-500 rounded-full text-sm"
+                className={`h-11 w-full pl-10 pr-10 bg-gray-100 border-gray-200 text-gray-900 placeholder:text-gray-500 text-sm ${pathname.startsWith("/p/") && searchParams.get("layout") === "discover" && searchParams.get("recommended") === "1" ? "rounded-[8px]" : "rounded-full"}`}
                 autoFocus
               />
               {query && (
@@ -1562,7 +1603,7 @@ export function PlatformHeaderClient() {
                 <button
                   type="button"
                   onClick={() => {
-                    router.push(`/explore?q=${encodeURIComponent(query)}`)
+                    shouldForceCanonicalNav ? navigateToCanonical(`/explore?q=${encodeURIComponent(query)}`) : router.push(`/explore?q=${encodeURIComponent(query)}`)
                     setSearchModalOpen(false)
                   }}
                   className="w-full py-3 rounded-xl text-sm font-medium text-white bg-violet-600 hover:bg-violet-700 transition-colors cursor-pointer"
@@ -1664,7 +1705,7 @@ export function PlatformHeaderClient() {
                 </Button>
               </Link>
               {/* Discover button - black with icon */}
-              <Link href="/explore" onClick={() => setMobileMenuOpen(false)} className="block">
+              <Link href="/explore" onClick={(e) => { onCanonicalNav(e, "/explore"); setMobileMenuOpen(false) }} className="block">
                 <Button className="w-full h-11 rounded-lg text-sm font-medium bg-gray-900 text-white hover:bg-gray-800 gap-2">
                   <Compass className="h-4 w-4" />
                   Discover
@@ -1688,7 +1729,7 @@ export function PlatformHeaderClient() {
                 </div>
               </div>
               {/* Dashboard button - below profile */}
-              <Link href={dashboardHref} onClick={() => setMobileMenuOpen(false)} className="block mb-2">
+              <Link href={dashboardHref} onClick={(e) => { onCanonicalNav(e, dashboardHref); setMobileMenuOpen(false) }} className="block mb-2">
                 <Button className="w-full h-11 rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700 gap-2">
                   <LayoutDashboard className="h-4 w-4" />
                   Dashboard
@@ -1703,7 +1744,7 @@ export function PlatformHeaderClient() {
                 </Link>
               )}
               {/* Discover button - black with icon */}
-              <Link href="/explore" onClick={() => setMobileMenuOpen(false)} className="block">
+              <Link href="/explore" onClick={(e) => { onCanonicalNav(e, "/explore"); setMobileMenuOpen(false) }} className="block">
                 <Button className="w-full h-11 rounded-lg text-sm font-medium bg-gray-900 text-white hover:bg-gray-800 gap-2">
                   <Compass className="h-4 w-4" />
                   Discover
@@ -1719,7 +1760,7 @@ export function PlatformHeaderClient() {
               <div className="space-y-0.5">
                 <Link
                   href="/explore"
-                  onClick={() => setMobileMenuOpen(false)}
+                  onClick={(e) => { onCanonicalNav(e, "/explore"); setMobileMenuOpen(false) }}
                   className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
                 >
                   <span>Discover</span>
@@ -1832,7 +1873,7 @@ export function PlatformHeaderClient() {
                     if (hasSubcats) {
                       setExpandedCategory(cat.label)
                     } else {
-                      router.push(cat.href)
+                      shouldForceCanonicalNav ? navigateToCanonical(cat.href) : router.push(cat.href)
                       setMobileMenuOpen(false)
                     }
                   }
@@ -1866,7 +1907,7 @@ export function PlatformHeaderClient() {
               <div className="mt-4 pt-4 border-t border-gray-200">
                 <Link
                   href="/library"
-                  onClick={() => setMobileMenuOpen(false)}
+                  onClick={(e) => { onCanonicalNav(e, "/library"); setMobileMenuOpen(false) }}
                   className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
                 >
                   <div className="flex items-center gap-3">
@@ -1878,7 +1919,7 @@ export function PlatformHeaderClient() {
                 {user && (
                   <Link
                     href={dashboardHref}
-                    onClick={() => setMobileMenuOpen(false)}
+                    onClick={(e) => { onCanonicalNav(e, dashboardHref); setMobileMenuOpen(false) }}
                     className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
                   >
                     <div className="flex items-center gap-3">
@@ -1916,7 +1957,7 @@ export function PlatformHeaderClient() {
           <div className="space-y-0.5">
             <Link
               href={dashboardHref}
-              onClick={() => setMobileProfileOpen(false)}
+              onClick={(e) => { onCanonicalNav(e, dashboardHref); setMobileProfileOpen(false) }}
               className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-3">
@@ -1927,7 +1968,7 @@ export function PlatformHeaderClient() {
             </Link>
             <Link
               href="/library"
-              onClick={() => setMobileProfileOpen(false)}
+              onClick={(e) => { onCanonicalNav(e, "/library"); setMobileProfileOpen(false) }}
               className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-3">

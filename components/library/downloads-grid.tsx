@@ -91,7 +91,7 @@ export function DownloadsGrid({ items }: { items: DownloadItem[] }) {
             <div className="border-t border-neutral-200 p-3">
               {item.files.length === 1 ? (
                 <Button
-                  className="w-full cursor-pointer bg-neutral-900 text-white hover:bg-black"
+                  className="w-full h-12 cursor-pointer bg-neutral-900 text-white hover:bg-black"
                   onClick={() => handleDownload(item.files[0].id)}
                   disabled={downloadingFileId === item.files[0].id}
                 >
@@ -108,7 +108,7 @@ export function DownloadsGrid({ items }: { items: DownloadItem[] }) {
                   )}
                 </Button>
               ) : item.files.length > 1 ? (
-                <Button className="w-full cursor-pointer" variant="outline" onClick={() => setActiveItem(item)}>
+                <Button className="w-full h-12 cursor-pointer" variant="outline" onClick={() => setActiveItem(item)}>
                   <FileText className="mr-2 h-4 w-4" />
                   Choose file ({item.files.length})
                 </Button>
