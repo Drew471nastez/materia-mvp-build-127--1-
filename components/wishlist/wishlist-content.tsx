@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { Heart, Trash2, Loader2, ShoppingBag, ArrowRight } from "lucide-react"
+import { Heart, X, Loader2, ShoppingBag, ArrowRight } from "lucide-react"
 import { getStoreUrl, getProductUrl } from "@/lib/url-helpers"
 
 interface WishlistItem {
@@ -207,13 +207,13 @@ export function WishlistContent({ isLibrary = false }: WishlistContentProps) {
               <button
                 onClick={() => removeItem(product.id)}
                 disabled={isRemoving}
-                className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50 cursor-pointer"
+                className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-red-50 cursor-pointer"
                 aria-label="Remove from wishlist"
               >
                 {isRemoving ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin text-neutral-400" />
                 ) : (
-                  <Trash2 className="h-3.5 w-3.5 text-neutral-500 hover:text-red-500" />
+                  <X className="h-3.5 w-3.5 text-neutral-500 hover:text-red-500" />
                 )}
               </button>
 

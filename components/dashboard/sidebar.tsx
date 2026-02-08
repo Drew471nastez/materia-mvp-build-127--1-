@@ -136,9 +136,9 @@ export function DashboardSidebar() {
           <Image
             src={LOGO_URL}
             alt="Storelib"
-            width={32}
-            height={32}
-            className="h-8 w-8 shrink-0"
+            width={37}
+            height={37}
+            className="h-[37px] w-[37px] shrink-0"
           />
           <span className="text-lg font-semibold tracking-tight">Storelib</span>
         </Link>
