@@ -203,6 +203,7 @@ type Profile = {
   avatar_url?: string | null
   username?: string | null
   is_creator?: boolean | null
+  updated_at?: string | null
 }
 
 // Mobile Top Sheet Component for Search - slides down from top
@@ -712,7 +713,7 @@ export function PlatformHeaderClient() {
 
         const { data: profileData, error: profileErr } = await supabase
           .from("profiles")
-          .select("display_name, avatar_url, username, is_creator")
+          .select("display_name, avatar_url, username, is_creator, updated_at")
           .eq("id", user.id)
           .single()
 
@@ -764,10 +765,17 @@ export function PlatformHeaderClient() {
     return user ? "/library/wishlist" : "/wishlist"
   }, [user])
 
+  const withAvatarVersion = useCallback((url?: string | null, version?: string | null) => {
+    if (!url) return undefined
+    if (!version) return url
+    const sep = url.includes("?") ? "&" : "?"
+    return `${url}${sep}v=${encodeURIComponent(version)}`
+  }, [])
+
   const avatarUrl =
-    profile?.avatar_url ||
-    ((user?.user_metadata as any)?.avatar_url as string | undefined) ||
-    ((user?.user_metadata as any)?.picture as string | undefined)
+    withAvatarVersion(profile?.avatar_url, profile?.updated_at || null) ||
+    withAvatarVersion(((user?.user_metadata as any)?.avatar_url as string | undefined), (user as any)?.updated_at || null) ||
+    withAvatarVersion(((user?.user_metadata as any)?.picture as string | undefined), (user as any)?.updated_at || null)
 
   const displayName =
     profile?.display_name ||
@@ -1478,7 +1486,7 @@ export function PlatformHeaderClient() {
         </div>
 
         {/* Mobile Search Bar Trigger - hidden on homepage, shown on /explore and other pages */}
-        {pathname !== "/" && (
+        {pathname !== "/" && !isDiscoverProductContext && (
           <div className="md:hidden pt-2 pb-1.5 border-t border-gray-100">
             <button
               type="button"
@@ -1529,7 +1537,7 @@ export function PlatformHeaderClient() {
                   {SEARCH_CATEGORIES.map((cat) => (
                     <Link
                       key={cat.label}
-                      href={cat.href}
+                      href={getCanonicalOrRelativePath(cat.href)}
                       onClick={() => setSearchModalOpen(false)}
                       className="px-3 py-2 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 transition-colors cursor-pointer"
                     >
@@ -1804,6 +1812,22 @@ export function PlatformHeaderClient() {
                   <ChevronRight className="h-5 w-5 text-gray-400" />
                 </Link>
               </div>
+            </div>
+          )}
+
+          {isDiscoverProductContext && pathname !== "/" && pathname !== "/features" && pathname !== "/pricing" && pathname !== "/about" && pathname !== "/blog" && (
+            <div className="mb-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false)
+                  setSearchModalOpen(true)
+                }}
+                className="w-full h-11 flex items-center gap-2 px-3 bg-gray-100 border border-gray-200 text-gray-600 rounded-xl text-sm cursor-pointer overflow-hidden"
+              >
+                <Search className="h-4 w-4 text-gray-400 shrink-0" />
+                <span className="truncate">{t("search_placeholder")}</span>
+              </button>
             </div>
           )}
 

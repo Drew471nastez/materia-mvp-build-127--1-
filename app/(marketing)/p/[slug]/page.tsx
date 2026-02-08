@@ -330,6 +330,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   let hasPurchased = false
   let firstAssetId: string | null = null
   let purchasedVariantIds: string[] = [] // Array of all purchased variant IDs
+  let productDownloadFiles: Array<{ id: string; file_name: string }> = []
   let user: any = null
 
   try {
@@ -411,9 +412,15 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   }
 
   if (hasPurchased && product.type === "digital") {
-    const { data: assets } = await supabase.from("digital_assets").select("id").eq("product_id", product.id).limit(1)
+    const { data: assets } = await supabase
+      .from("digital_assets")
+      .select("id, file_name")
+      .eq("product_id", product.id)
+      .order("created_at", { ascending: true })
+
     if (assets && assets.length > 0) {
       firstAssetId = assets[0].id
+      productDownloadFiles = assets.map((asset) => ({ id: asset.id, file_name: asset.file_name || "File" }))
     }
   }
 
@@ -930,6 +937,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                 serverHasPurchased={hasPurchased}
                 serverAssetId={firstAssetId}
                 serverPurchasedVariantIds={purchasedVariantIds}
+            serverProductFiles={productDownloadFiles}
                 variants={variants}
                 callToAction={product.call_to_action}
                 buyButtonBgColor={buyButtonColor}
@@ -1218,6 +1226,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             serverHasPurchased={hasPurchased}
             serverAssetId={firstAssetId}
             serverPurchasedVariantIds={purchasedVariantIds}
+            serverProductFiles={productDownloadFiles}
             variants={variants}
             callToAction={product.call_to_action}
             buyButtonBgColor={buyButtonColor}
@@ -1372,6 +1381,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             }}
             creatorId={product.creator_id}
             isPurchased={hasPurchased && product.type === "digital"}
+            downloadFiles={productDownloadFiles}
           />
         )}
 

@@ -1467,7 +1467,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                     <div className="h-3 bg-gray-200 rounded w-20" />
                     <div className="h-11 bg-gray-200 rounded-xl" />
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
                     <div className="h-3 bg-gray-200 rounded w-24" />
                     <div className="h-11 bg-gray-200 rounded-xl" />
                   </div>
@@ -2194,7 +2194,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 <button
                   type="button"
                   onClick={() => setShowCurrencyPicker(true)}
-                  className="w-full max-w-[260px] h-11 rounded-xl text-[14px] border border-[#e5e7eb] px-3 bg-white hover:bg-[#f9fafb] transition-colors flex items-center justify-between"
+                  className="w-full max-w-[220px] h-10 rounded-xl text-[13px] border border-[#e5e7eb] px-3 bg-white hover:bg-[#f9fafb] transition-colors flex items-center justify-between"
                 >
                   <span>{payoutCurrency}</span>
                   <ChevronDown className="h-4 w-4 text-[#6b7280]" />
@@ -2205,7 +2205,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
               {showCurrencyPicker && !isMobileViewport && (
                 <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-4" onClick={() => setShowCurrencyPicker(false)}>
-                  <div className="w-full max-w-[680px] rounded-2xl bg-white border border-[#e5e7eb] p-5 sm:p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                  <div className="w-full max-w-[520px] rounded-2xl bg-white border border-[#e5e7eb] p-4 sm:p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
                     <h4 className="text-[16px] font-semibold text-[#1a1a2e] mb-1">Select payout currency</h4>
                     <p className="text-[12px] text-[#6b7280] mb-3">Choose your payout settlement currency.</p>
                     <div className="space-y-2">
