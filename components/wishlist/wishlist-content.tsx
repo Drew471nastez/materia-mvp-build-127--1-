@@ -34,6 +34,7 @@ interface WishlistItem {
 
 interface WishlistContentProps {
   isLibrary?: boolean
+  showDiscoverMoreCta?: boolean
 }
 
 // Helper to get guest ID from cookie
@@ -54,7 +55,7 @@ function saveGuestId(guestId: string): void {
   }
 }
 
-export function WishlistContent({ isLibrary = false }: WishlistContentProps) {
+export function WishlistContent({ isLibrary = false, showDiscoverMoreCta = false }: WishlistContentProps) {
   const [items, setItems] = useState<WishlistItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [removingId, setRemovingId] = useState<string | null>(null)
@@ -257,6 +258,17 @@ export function WishlistContent({ isLibrary = false }: WishlistContentProps) {
           )
         })}
       </div>
+      {showDiscoverMoreCta && items.length > 0 && (
+        <div className="mt-6 flex justify-center">
+          <Link
+            href="/explore"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-800 transition-colors"
+          >
+            Discover More
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+      )}
     </div>
   )
 }

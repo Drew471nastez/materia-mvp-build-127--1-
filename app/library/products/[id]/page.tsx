@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowLeft, Download, ExternalLink, CheckCircle, Calendar } from "lucide-react"
+import { DownloadButton } from "@/components/download-button"
 import { getStoreUrl } from "@/lib/url-helpers"
 
 interface ProductAccessPageProps {
@@ -117,17 +118,16 @@ export default async function ProductAccessPage({ params }: ProductAccessPagePro
             <CardContent>
               {assets && assets.length > 0 ? (
                 <div className="space-y-3">
-                  <Button className="w-full" asChild>
-                    <a href={`/api/download/${assets[0].id}`}>
-                      <Download className="mr-2 h-4 w-4" />
-                      Download File
-                    </a>
-                  </Button>
-                  {assets.length > 1 && (
-                    <p className="text-center text-xs text-muted-foreground">
-                      +{assets.length - 1} more file{assets.length > 2 ? "s" : ""} included
-                    </p>
-                  )}
+                  {assets.map((asset: any, index: number) => (
+                    <DownloadButton
+                      key={asset.id}
+                      assetId={asset.id}
+                      variant={index === 0 ? "default" : "outline"}
+                      className="w-full"
+                    >
+                      {index === 0 ? "Download File" : asset.file_name || `File ${index + 1}`}
+                    </DownloadButton>
+                  ))}
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">No files available yet.</p>
