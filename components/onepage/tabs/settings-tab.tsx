@@ -432,14 +432,32 @@ export function SettingsTab() {
             </button>
           </div>
         ) : (
-          <button
-            onClick={() => setShowOgImageModal(true)}
-            className="w-full aspect-video rounded-lg border border-dashed border-gray-300 hover:border-violet-400 transition-colors flex flex-col items-center justify-center gap-2 bg-gray-50 hover:bg-violet-50/50"
-          >
-            <ImageIcon className="h-6 w-6 text-gray-400" />
-            <span className="text-sm text-gray-500">Upload image</span>
-            <span className="text-xs text-gray-400">1200x630px recommended</span>
-          </button>
+          <div className="space-y-2">
+            {onepage?.avatar_url && (
+              <div className="relative aspect-video rounded-lg overflow-hidden border border-gray-200 bg-gray-100">
+                <img src={onepage.avatar_url} alt="Default social preview" className="w-full h-full object-cover" />
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2">
+                  <span className="text-xs text-white/90">Using profile image as default</span>
+                </div>
+                <button
+                  onClick={() => setShowOgImageModal(true)}
+                  className="absolute top-2 right-2 px-3 py-1.5 bg-white/90 hover:bg-white rounded-lg text-sm font-medium transition-colors"
+                >
+                  Upload custom
+                </button>
+              </div>
+            )}
+            {!onepage?.avatar_url && (
+              <button
+                onClick={() => setShowOgImageModal(true)}
+                className="w-full aspect-video rounded-lg border border-dashed border-gray-300 hover:border-violet-400 transition-colors flex flex-col items-center justify-center gap-2 bg-gray-50 hover:bg-violet-50/50"
+              >
+                <ImageIcon className="h-6 w-6 text-gray-400" />
+                <span className="text-sm text-gray-500">Upload image</span>
+                <span className="text-xs text-gray-400">1200x630px recommended</span>
+              </button>
+            )}
+          </div>
         )}
       </div>
 

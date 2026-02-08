@@ -2019,6 +2019,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         className="md:hidden min-h-screen w-full relative"
         style={{
           overflowX: 'clip',
+          overscrollBehaviorY: 'none',
           background: getBackgroundStyle(),
           fontFamily: safeTheme.font_family || "Inter",
           backgroundSize: isAnimatedGradient ? "200% 200%" : undefined,
@@ -2637,17 +2638,37 @@ function GroupBlockRenderer({
   }
 
   // Touch handlers for mobile swipe
+  const touchStartYRef = useRef(0)
+  const isHorizontalSwipeRef = useRef(false)
+
   const handleTouchStart = (e: React.TouchEvent) => {
     if (!scrollContainerRef.current) return
     setStartX(e.touches[0].pageX)
+    touchStartYRef.current = e.touches[0].pageY
     setScrollStart(scrollContainerRef.current.scrollLeft)
+    isHorizontalSwipeRef.current = false
   }
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!scrollContainerRef.current) return
-    const diff = e.touches[0].pageX - startX
-    scrollContainerRef.current.scrollLeft = scrollStart - diff
-  }
+  // Attach native touchmove listener with { passive: false } so preventDefault works on iOS Safari
+  useEffect(() => {
+    const el = scrollContainerRef.current
+    if (!el) return
+    const onTouchMove = (e: TouchEvent) => {
+      const diffX = e.touches[0].pageX - startX
+      const diffY = e.touches[0].pageY - touchStartYRef.current
+
+      if (!isHorizontalSwipeRef.current && Math.abs(diffX) > 5) {
+        isHorizontalSwipeRef.current = Math.abs(diffX) > Math.abs(diffY)
+      }
+
+      if (isHorizontalSwipeRef.current) {
+        e.preventDefault()
+        el.scrollLeft = scrollStart - diffX
+      }
+    }
+    el.addEventListener('touchmove', onTouchMove, { passive: false })
+    return () => el.removeEventListener('touchmove', onTouchMove)
+  }, [startX, scrollStart])
 
   // Render carousel layout
   const renderCarousel = () => {
@@ -2699,17 +2720,19 @@ function GroupBlockRenderer({
             scrollbarWidth: 'none',
             msOverflowStyle: 'none',
             overflowX: 'auto',
+            overflowY: 'hidden',
             marginTop: '-8px',
             marginBottom: '-8px',
             paddingTop: '8px',
             paddingBottom: '8px',
+            touchAction: 'pan-x',
+            overscrollBehavior: 'contain',
           }}
           onScroll={handleScroll}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
         >
           <div
             className="flex"
@@ -2913,6 +2936,9 @@ function PublicImageCarousel({
     }
   }, [images.length, currentIndex])
 
+  // Track whether swipe is horizontal to prevent iOS pull-to-refresh
+  const isHorizontalSwipeRef = useRef(false)
+
   // Touch event handlers for smooth swipe
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     touchStartRef.current = {
@@ -2920,7 +2946,29 @@ function PublicImageCarousel({
       y: e.touches[0].clientY,
       time: Date.now()
     }
+    isHorizontalSwipeRef.current = false
     autoplayPausedRef.current = true
+  }, [])
+
+  // Attach native touchmove listener with { passive: false } so preventDefault works on iOS Safari
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const onTouchMove = (e: TouchEvent) => {
+      if (!touchStartRef.current) return
+      const diffX = e.touches[0].clientX - touchStartRef.current.x
+      const diffY = e.touches[0].clientY - touchStartRef.current.y
+
+      if (!isHorizontalSwipeRef.current && Math.abs(diffX) > 5) {
+        isHorizontalSwipeRef.current = Math.abs(diffX) > Math.abs(diffY)
+      }
+
+      if (isHorizontalSwipeRef.current) {
+        e.preventDefault()
+      }
+    }
+    el.addEventListener('touchmove', onTouchMove, { passive: false })
+    return () => el.removeEventListener('touchmove', onTouchMove)
   }, [])
 
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
@@ -3015,7 +3063,10 @@ function PublicImageCarousel({
         style={{
           scrollSnapType: 'x mandatory',
           WebkitOverflowScrolling: 'touch',
-          scrollBehavior: 'smooth'
+          scrollBehavior: 'smooth',
+          overflowY: 'hidden',
+          touchAction: 'pan-x',
+          overscrollBehavior: 'contain',
         }}
       >
         <div className="flex" style={{ width: `${images.length * 100}%` }}>

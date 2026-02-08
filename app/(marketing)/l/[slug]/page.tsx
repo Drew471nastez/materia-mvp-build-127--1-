@@ -87,7 +87,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const pageTitle = seoTitle || `${displayName} | Storelib`
 
   // Favicon
-  let faviconUrl = profile?.avatar_url || onepage.avatar_url
+  let faviconUrl = profile?.avatar_url?.trim() || onepage.avatar_url?.trim() || null
   const effectiveSellerId = onepage.seller_id || onepage.creator_id || null
 
   if (!faviconUrl && effectiveSellerId) {
@@ -110,8 +110,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     }
   }
 
-  // Social image fallback: social_image_url > avatar_url > profile avatar
-  const socialImageUrl = settings?.social_image_url || profile?.avatar_url || onepage.avatar_url || faviconUrl || undefined
+  // Social image fallback: social_image_url > profile avatar > onepage avatar > store builder avatar
+  // Ensure empty strings are treated as unset
+  const customSocialImage = settings?.social_image_url?.trim() || null
+  const profileAvatar = profile?.avatar_url?.trim() || null
+  const onepageAvatar = onepage.avatar_url?.trim() || null
+  const socialImageUrl = customSocialImage || profileAvatar || onepageAvatar || faviconUrl || undefined
 
   return {
     title: pageTitle,
