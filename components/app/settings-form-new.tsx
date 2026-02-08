@@ -893,6 +893,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
   const storeUrl = getStoreUrl(username)
   const storeUrlDisplay = getStoreUrlDisplay(username)
+  const fullNameForUsernameInput = [firstName, lastName].filter(Boolean).join(" ").trim()
 
   const validateUsername = (value: string) => {
     const cleanValue = value.toLowerCase().replace(/[^a-z0-9-]/g, "")
@@ -1490,8 +1491,13 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                     </Label>
                     <Input
                       id="firstName"
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
+                      value={fullNameForUsernameInput}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        const [first = "", ...rest] = value.trimStart().split(/\s+/)
+                        setFirstName(first)
+                        setLastName(rest.join(" "))
+                      }}
                       placeholder="Enter your display name"
                       className="h-11 border-[#e5e7eb] rounded-xl text-[14px] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
                     />

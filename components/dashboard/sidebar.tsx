@@ -68,6 +68,15 @@ export function DashboardSidebar() {
       </div>
 
       <nav className="flex-1 space-y-1 overflow-y-auto p-3">
+        <Link
+          href="/explore"
+          onClick={onItemClick}
+          className="mb-2 flex items-center gap-3 rounded-full px-4 py-2.5 min-h-[40px] text-sm font-medium bg-neutral-100 text-neutral-600 hover:bg-neutral-200 hover:text-neutral-900 active:scale-[0.98] transition-colors"
+        >
+          <Compass className="h-4 w-4 shrink-0" />
+          <span className="truncate">Explore Products</span>
+        </Link>
+
         {navItems.map((item) => {
           const Icon = item.icon
           const isActive = pathname === item.href || (item.href !== "/library" && pathname.startsWith(item.href))
@@ -109,14 +118,6 @@ export function DashboardSidebar() {
             <span>Dashboard</span>
           </Link>
         )}
-        <Link
-          href="/explore"
-          onClick={onItemClick}
-          className="mb-1 flex items-center gap-3 rounded-full px-4 py-2.5 min-h-[40px] text-sm font-medium bg-neutral-100 text-neutral-600 hover:bg-neutral-200 hover:text-neutral-900 active:scale-[0.98] transition-colors"
-        >
-          <Compass className="h-4 w-4 shrink-0" />
-          <span className="truncate">Explore Products</span>
-        </Link>
         <Button
           variant="ghost"
           className="w-full justify-start min-h-[44px] text-muted-foreground hover:bg-muted/50 hover:text-foreground active:scale-[0.98]"

@@ -1,6 +1,7 @@
 import Link from "next/link"
 import Image from "next/image"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Package, ArrowRight, CheckCircle, Download, Calendar, Heart } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -16,6 +17,7 @@ interface LibraryPageProps {
 export default async function LibraryPage({ searchParams }: LibraryPageProps) {
   const { purchase, already_owned, highlight } = await searchParams
   const supabase = await createClient()
+  const admin = createAdminClient()
 
   const {
     data: { user },
@@ -50,7 +52,34 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
     console.error("[v0] Error fetching entitlements:", entitlementsError)
   }
 
-  const productIds = entitlements?.filter((e) => e.product?.type === "digital").map((e) => e.product_id) || []
+  // Also fetch completed orders as fallback for accounts missing entitlement rows
+  const { data: orders } = await admin
+    .from("orders")
+    .select(`*, product:products(*)`)
+    .eq("buyer_id", user.id)
+    .eq("status", "completed")
+    .order("created_at", { ascending: false })
+
+  const productMap = new Map<string, any>()
+
+  entitlements?.forEach((e) => {
+    if (e.product?.type === "digital") {
+      productMap.set(e.product_id, e)
+    }
+  })
+
+  orders?.forEach((o) => {
+    if (o.product?.type === "digital" && !productMap.has(o.product_id)) {
+      productMap.set(o.product_id, {
+        ...o,
+        product_id: o.product_id,
+        product: o.product,
+      })
+    }
+  })
+
+  const products = Array.from(productMap.values())
+  const productIds = products.map((e) => e.product_id)
 
   const assetsMap: Record<string, string> = {}
   if (productIds.length > 0) {
@@ -65,7 +94,10 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
     }
   }
 
-  const products = entitlements?.filter((e) => e.product?.type === "digital") || []
+  const { count: wishlistCount } = await supabase
+    .from("wishlist_items")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id)
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
@@ -112,14 +144,14 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
               <Heart className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-semibold">View</div>
+              <div className="text-2xl font-semibold">{wishlistCount || 0}</div>
               <p className="text-xs text-muted-foreground">Products you saved</p>
             </CardContent>
           </Card>
         </Link>
       </div>
 
-      {entitlements && entitlements.length > 0 ? (
+      {products.length > 0 ? (
         <div className="space-y-8">
           {products.length > 0 && (
             <div>
@@ -195,7 +227,7 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
           <Package className="mx-auto h-12 w-12 text-muted-foreground/50" />
           <h3 className="mt-4 font-medium">No purchases yet</h3>
           <p className="mt-1 text-sm text-muted-foreground">Explore creators and find something to learn.</p>
-          <Button asChild className="mt-4">
+          <Button asChild className="mt-4 bg-purple-600 hover:bg-purple-700 text-white">
             <Link href="/explore">
               Explore products <ArrowRight className="ml-2 h-4 w-4" />
             </Link>
