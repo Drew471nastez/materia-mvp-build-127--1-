@@ -3342,12 +3342,7 @@ function PublicBlockRenderer({
                     src={profile.avatar_video_url!}
                     className="w-full h-full object-cover"
                     style={{
-                      filter: 'blur(4px)',
-                      transition: 'filter 0.4s ease-out',
                       objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%`,
-                    }}
-                    onLoadedData={(e) => {
-                      e.currentTarget.style.filter = 'none';
                     }}
                     autoPlay
                     loop
@@ -3362,11 +3357,6 @@ function PublicBlockRenderer({
                   style={{
                     imageRendering: "auto",
                     objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%`,
-                    filter: 'blur(4px)',
-                    transition: 'filter 0.4s ease-out',
-                  }}
-                  onLoad={(e) => {
-                    e.currentTarget.style.filter = 'none';
                   }}
                   loading="eager"
                 />
@@ -3483,7 +3473,7 @@ function PublicBlockRenderer({
       const glowSpread = laserGlowIntensity === "low" ? 4 : laserGlowIntensity === "hard" ? 8 : 6
       const glowOpacity = laserGlowIntensity === "low" ? 0.7 : laserGlowIntensity === "hard" ? 1 : 0.85
       // Avatar size increased by 3px
-      const avatarSize = isDesktop ? 115 : 114
+      const avatarSize = isDesktop ? 121 : 114
 
       return (
         <div className={cn("flex flex-col items-center gap-3 sm:gap-4 w-full text-center")}>
@@ -3542,19 +3532,14 @@ function PublicBlockRenderer({
                       ref={videoRef}
                       src={profile.avatar_video_url!}
                       className="w-full h-full object-cover"
-                      style={{
-                        filter: 'blur(4px)',
-                        transition: 'filter 0.4s ease-out',
-                        ...(profile.avatar_video_crop
+                      style={
+                        profile.avatar_video_crop
                           ? {
                               transformOrigin: '0 0',
                               transform: `scale(${100 / profile.avatar_video_crop.width}) translate(-${profile.avatar_video_crop.x}%, -${profile.avatar_video_crop.y}%)`,
                             }
-                          : {}),
-                      }}
-                      onLoadedData={(e) => {
-                        e.currentTarget.style.filter = 'none';
-                      }}
+                          : undefined
+                      }
                       autoPlay
                       loop
                       muted
@@ -3575,11 +3560,6 @@ function PublicBlockRenderer({
                       style={{
                         imageRendering: "auto",
                         transform: `translateY(${(theme as any).avatar_offset_y || 0}px)`,
-                        filter: 'blur(4px)',
-                        transition: 'filter 0.4s ease-out',
-                      }}
-                      onLoad={(e: React.SyntheticEvent<HTMLImageElement>) => {
-                        e.currentTarget.style.filter = 'none';
                       }}
                     />
                     <AvatarFallback

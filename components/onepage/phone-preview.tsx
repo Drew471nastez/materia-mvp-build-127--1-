@@ -3286,14 +3286,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                 <video
                   src={profile.avatar_video_url!}
                   className="w-full h-full object-cover"
-                  style={{
-                    filter: 'blur(4px)',
-                    transition: 'filter 0.4s ease-out',
-                    objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%`,
-                  }}
-                  onLoadedData={(e) => {
-                    e.currentTarget.style.filter = 'none';
-                  }}
+                  style={{ objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%` }}
                   autoPlay
                   loop
                   muted
@@ -3304,15 +3297,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                   src={profile.avatar_url! || "/placeholder.svg"}
                   alt=""
                   className="w-full h-full object-cover"
-                  style={{
-                    imageRendering: "auto",
-                    objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%`,
-                    filter: 'blur(4px)',
-                    transition: 'filter 0.4s ease-out',
-                  }}
-                  onLoad={(e) => {
-                    e.currentTarget.style.filter = 'none';
-                  }}
+                  style={{ imageRendering: "auto", objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%` }}
                 />
               )}
               {/* Smooth gradient fade overlay using CSS mask for gradient backgrounds */}
@@ -3475,19 +3460,14 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                     <video
                       src={profile.avatar_video_url!}
                       className="w-full h-full object-cover"
-                      style={{
-                        filter: 'blur(4px)',
-                        transition: 'filter 0.4s ease-out',
-                        ...(profile.avatar_video_crop
+                      style={
+                        profile.avatar_video_crop
                           ? {
                               transformOrigin: '0 0',
                               transform: `scale(${100 / profile.avatar_video_crop.width}) translate(-${profile.avatar_video_crop.x}%, -${profile.avatar_video_crop.y}%)`,
                             }
-                          : {}),
-                      }}
-                      onLoadedData={(e) => {
-                        e.currentTarget.style.filter = 'none';
-                      }}
+                          : undefined
+                      }
                       autoPlay
                       loop
                       muted
@@ -3508,11 +3488,6 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                       style={{
                         imageRendering: "auto",
                         transform: `translateY(${(theme as any).avatar_offset_y || 0}px)`,
-                        filter: 'blur(4px)',
-                        transition: 'filter 0.4s ease-out',
-                      }}
-                      onLoad={(e: React.SyntheticEvent<HTMLImageElement>) => {
-                        e.currentTarget.style.filter = 'none';
                       }}
                     />
                     <AvatarFallback

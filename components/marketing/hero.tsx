@@ -51,6 +51,7 @@ const PARTNER_LOGOS = [
   "https://cdn.sanity.io/images/599r6htc/regionalized/bbfcc0e04437442a9637cc58efde849dfadb313c-76x48.svg?q=75&fit=max&auto=format",
   "https://cdn.sanity.io/images/599r6htc/regionalized/01d4ea19e824b3596f8f6c701d3b8319e49631b0-146x18.svg?q=75&fit=max&auto=format",
   "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/popj.svg",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/eyJidWNrZXQiOiJwYXJ0bmVycGFnZS5wcm9kIiwia2V5IjoibWVkaWEvY29udGFjdF9pbWFnZXMvOWQ0MDVmYmMtNGJkMS00NzEz.svg",
 ]
 
 const IMAGES = [
@@ -310,10 +311,10 @@ export function Hero() {
         }
         @keyframes logo-scroll {
           0% { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
+          100% { transform: translateX(-33.333%); }
         }
         .logo-marquee {
-          animation: logo-scroll 25s linear infinite;
+          animation: logo-scroll 30s linear infinite;
         }
         .collage-card {
           will-change: left, top, width, height, opacity, transform, filter;
@@ -463,7 +464,7 @@ export function Hero() {
                 <>
                   <div className="absolute left-1/2 -translate-x-1/2 -top-3.5 sm:-top-4">
                     <div className="flex items-center gap-2 bg-gray-100/95 backdrop-blur-sm text-gray-700 text-[10px] sm:text-[11px] font-medium px-3 sm:px-3.5 py-1.5 rounded-full whitespace-nowrap shadow-sm border border-gray-200/50">
-                      <span className="w-4 h-4 sm:w-[18px] sm:h-[18px] rounded-full bg-gray-400 inline-flex items-center justify-center overflow-hidden">
+                      <span className="w-4 h-4 sm:w-[18px] sm:h-[18px] rounded-full bg-gray-900 inline-flex items-center justify-center overflow-hidden">
                         <img
                           src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/image2vector.svg"
                           alt="Storelib logo"
@@ -512,21 +513,22 @@ export function Hero() {
         <div className="overflow-hidden">
           {!logosLoaded ? (
             <div className="flex items-center justify-center gap-6 sm:gap-8 md:gap-10 py-2">
-              {[...Array(4)].map((_, i) => (
+              {[...Array(5)].map((_, i) => (
                 <Skeleton key={i} className="h-[17px] sm:h-5 md:h-6 w-[60px] sm:w-[80px] md:w-[100px]" />
               ))}
             </div>
           ) : (
             <div className="logo-marquee flex items-center w-max">
-              {[...PARTNER_LOGOS, ...PARTNER_LOGOS].map((src, i) => {
+              {[...PARTNER_LOGOS, ...PARTNER_LOGOS, ...PARTNER_LOGOS].map((src, i) => {
                 const isStripe = src.includes("bbfcc0e04437442a9637cc58efde849dfadb313c")
+                const isAnthropic = src.includes("a9bfb23cca986ee16b0547274bcd7461ffd373aa")
                 return (
                   <img
                     key={i}
                     src={src}
                     alt="Partner logo"
                     className={`w-auto mx-6 sm:mx-8 md:mx-10 opacity-95 grayscale select-none ${
-                      isStripe ? "h-[36px] sm:h-[43px] md:h-[51px]" : "h-[17px] sm:h-5 md:h-6"
+                      isStripe ? "h-[36px] sm:h-[43px] md:h-[51px]" : isAnthropic ? "h-[21px] sm:h-[25px] md:h-[30px]" : "h-[17px] sm:h-5 md:h-6"
                     }`}
                     draggable={false}
                   />
