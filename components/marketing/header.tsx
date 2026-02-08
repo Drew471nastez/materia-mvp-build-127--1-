@@ -59,6 +59,8 @@ export async function MarketingHeader() {
   let creatorSlug: string | null = null
 
   if (user) {
+    // profiles.avatar_url is the single source of truth for avatar.
+    // Both /app/settings and Store Builder sync avatar changes to this field.
     const { data: profileData } = await supabase
       .from("profiles")
       .select("display_name, avatar_url, username, is_creator")
@@ -74,23 +76,8 @@ export async function MarketingHeader() {
 
     isCreator = !!creatorData?.onboarding_completed
 
-    // Fetch store builder avatar (source of truth for avatar)
+    // Use profiles.avatar_url, fall back to Google OAuth avatar
     let resolvedAvatarUrl = profileData?.avatar_url || null
-    const { data: storeConfig } = await supabase
-      .from("store_builder_configs")
-      .select("published_config")
-      .eq("creator_id", user.id)
-      .eq("page_type", "shop")
-      .maybeSingle()
-
-    if (storeConfig?.published_config) {
-      const headerSettings = (storeConfig.published_config as Record<string, unknown>)?.headerSettings as Record<string, unknown> | undefined
-      const avatarFromStore = typeof headerSettings?.avatarUrl === "string" ? headerSettings.avatarUrl : null
-      if (avatarFromStore && avatarFromStore !== "") {
-        resolvedAvatarUrl = avatarFromStore
-      }
-    }
-
     if (!resolvedAvatarUrl) {
       resolvedAvatarUrl = user.user_metadata?.avatar_url || user.user_metadata?.picture || null
     }

@@ -203,8 +203,6 @@ type Profile = {
   avatar_url?: string | null
   username?: string | null
   is_creator?: boolean | null
-  welcome_completed?: boolean | null
-  updated_at?: string | null
 }
 
 // Mobile Top Sheet Component for Search - slides down from top
@@ -522,8 +520,6 @@ export function PlatformHeaderClient() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [isCreator, setIsCreator] = useState(false)
   const [hasCompletedSellerOnboarding, setHasCompletedSellerOnboarding] = useState(false)
-  const [storeBuilderAvatarUrl, setStoreBuilderAvatarUrl] = useState<string | null>(null)
-  const [storeBuilderAvatarUpdatedAt, setStoreBuilderAvatarUpdatedAt] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [initialLoadDone, setInitialLoadDone] = useState(false)
   const [wishlistCount, setWishlistCount] = useState(0)
@@ -695,7 +691,7 @@ export function PlatformHeaderClient() {
     const loadUser = async (isInitial = false) => {
       try {
         if (!mountedRef.current) return
-        if (isInitial && !initialLoadDone) {
+        if (isInitial) {
           setLoading(true)
         }
 
@@ -710,17 +706,18 @@ export function PlatformHeaderClient() {
           setProfile(null)
           setIsCreator(false)
           setHasCompletedSellerOnboarding(false)
-          setStoreBuilderAvatarUrl(null)
-          setStoreBuilderAvatarUpdatedAt(null)
           return
         }
 
         if (!mountedRef.current) return
         setUser(user)
 
+        // profiles.avatar_url is the single source of truth for avatar.
+        // Both /app/settings and Store Builder sync avatar changes to this field.
+        // Do NOT query store_builder_configs separately — it causes split-source flicker.
         const { data: profileData, error: profileErr } = await supabase
           .from("profiles")
-          .select("display_name, avatar_url, username, is_creator, welcome_completed, updated_at")
+          .select("display_name, avatar_url, username, is_creator")
           .eq("id", user.id)
           .single()
 
@@ -729,22 +726,6 @@ export function PlatformHeaderClient() {
           .select("id, onboarding_completed")
           .eq("user_id", user.id)
           .maybeSingle()
-
-        let nextStoreBuilderAvatarUrl: string | null = null
-        let nextStoreBuilderUpdatedAt: string | null = null
-        if (user) {
-          const { data: storeConfigData } = await supabase
-            .from("store_builder_configs")
-            .select("published_config, updated_at")
-            .eq("creator_id", user.id)
-            .eq("page_type", "shop")
-            .maybeSingle()
-
-          const headerSettings = (storeConfigData?.published_config as Record<string, unknown> | null)?.headerSettings as Record<string, unknown> | undefined
-          const avatarFromStoreBuilder = typeof headerSettings?.avatarUrl === "string" ? headerSettings.avatarUrl : null
-          nextStoreBuilderAvatarUrl = avatarFromStoreBuilder && avatarFromStoreBuilder !== "" ? avatarFromStoreBuilder : null
-          nextStoreBuilderUpdatedAt = (storeConfigData?.updated_at as string | null) || null
-        }
 
         if (!mountedRef.current) return
         if (profileErr) {
@@ -757,16 +738,12 @@ export function PlatformHeaderClient() {
           setIsCreator(isSellerByState)
           setHasCompletedSellerOnboarding(isSellerByState)
         }
-        setStoreBuilderAvatarUrl(nextStoreBuilderAvatarUrl)
-        setStoreBuilderAvatarUpdatedAt(nextStoreBuilderUpdatedAt)
       } catch {
         if (!mountedRef.current) return
         setUser(null)
         setProfile(null)
         setIsCreator(false)
         setHasCompletedSellerOnboarding(false)
-        setStoreBuilderAvatarUrl(null)
-        setStoreBuilderAvatarUpdatedAt(null)
       } finally {
         if (!mountedRef.current) return
         setLoading(false)
@@ -786,7 +763,8 @@ export function PlatformHeaderClient() {
       window.clearTimeout(failSafe)
       data?.subscription?.unsubscribe()
     }
-  }, [fetchWishlistCount, initialLoadDone])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchWishlistCount])
 
   const startSellingHref = useMemo(() => {
     if (!user) return "/signup"
@@ -802,22 +780,11 @@ export function PlatformHeaderClient() {
     return user ? "/library/wishlist" : "/wishlist"
   }, [user])
 
-  const withAvatarVersion = useCallback((url?: string | null, version?: string | null) => {
-    if (!url) return undefined
-    if (!version) return url
-    const sep = url.includes("?") ? "&" : "?"
-    return `${url}${sep}v=${encodeURIComponent(version)}`
-  }, [])
-
+  // profiles.avatar_url is the single source of truth.
+  // Both /app/settings and Store Builder sync to it. No cache-busting params needed.
   const googleAvatarUrl = (user?.user_metadata as any)?.avatar_url || (user?.user_metadata as any)?.picture || null
 
-  const avatarUrl =
-    withAvatarVersion(storeBuilderAvatarUrl, storeBuilderAvatarUpdatedAt || null) ||
-    withAvatarVersion(profile?.avatar_url, profile?.updated_at || null) ||
-    googleAvatarUrl ||
-    undefined
-
-  const avatarUrlWithRefresh = avatarUrl || undefined
+  const avatarUrl = profile?.avatar_url || googleAvatarUrl || undefined
 
   const displayName =
     profile?.display_name ||
@@ -1363,7 +1330,7 @@ export function PlatformHeaderClient() {
                   aria-label="Open profile menu"
                 >
                   <Avatar className="h-8 w-8 border border-gray-200">
-                    <AvatarImage src={avatarUrlWithRefresh} alt={displayName} />
+                    <AvatarImage src={avatarUrl} alt={displayName} />
                     <AvatarFallback className="bg-gray-100 text-gray-400"><UserIcon className="h-4 w-4" /></AvatarFallback>
                   </Avatar>
                 </button>
@@ -1440,7 +1407,7 @@ export function PlatformHeaderClient() {
                           aria-label="Open profile menu"
                         >
                           <Avatar className="h-11 w-11 border border-gray-200 transition-opacity duration-150">
-                            <AvatarImage src={avatarUrlWithRefresh} alt={displayName} />
+                            <AvatarImage src={avatarUrl} alt={displayName} />
                             <AvatarFallback className="bg-gray-100 text-gray-400"><UserIcon className="h-5 w-5" /></AvatarFallback>
                           </Avatar>
                         </button>
@@ -1464,7 +1431,7 @@ export function PlatformHeaderClient() {
                         <div className="px-3 py-2.5 border-b border-gray-100 mb-1">
                           <div className="flex items-center gap-3">
                             <Avatar className="h-10 w-10 border border-gray-200">
-                              <AvatarImage src={avatarUrlWithRefresh} alt={displayName} />
+                              <AvatarImage src={avatarUrl} alt={displayName} />
                               <AvatarFallback className="bg-gray-100 text-gray-400"><UserIcon className="h-4 w-4" /></AvatarFallback>
                             </Avatar>
                             <div className="flex-1 min-w-0">
@@ -1788,7 +1755,7 @@ export function PlatformHeaderClient() {
               {/* Profile Info */}
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl mb-3">
                 <Avatar className="h-11 w-11 border border-gray-200">
-                  <AvatarImage src={avatarUrlWithRefresh} alt={displayName} />
+                  <AvatarImage src={avatarUrl} alt={displayName} />
                   <AvatarFallback className="bg-gray-100 text-gray-400"><UserIcon className="h-5 w-5" /></AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
@@ -2042,7 +2009,7 @@ export function PlatformHeaderClient() {
           {/* User Info */}
           <div className="flex items-center gap-3 p-3 mb-4 bg-gray-50 rounded-xl">
             <Avatar className="h-12 w-12 border border-gray-200">
-              <AvatarImage src={avatarUrlWithRefresh} alt={displayName} />
+              <AvatarImage src={avatarUrl} alt={displayName} />
               <AvatarFallback className="bg-gray-100 text-gray-400"><UserIcon className="h-5 w-5" /></AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
