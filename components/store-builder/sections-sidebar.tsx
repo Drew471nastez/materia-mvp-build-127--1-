@@ -2426,7 +2426,19 @@ function SectionSettingsForm({
 
       {section.type === "about" && <AboutSettingsForm settings={settings as AboutSettings} onChange={onChange} />}
 
-      <SpacingSettings spacing={settings.spacing} onChange={(spacing) => onChange({ spacing })} />
+      {section.type === "featured-products" ? (
+        <ProductSpacingSettings
+          spacing={{ ...settings.spacing, paddingLeft: 8, paddingRight: 8 }}
+          onChange={(spacing) => onChange({ spacing: { ...spacing, paddingLeft: 8, paddingRight: 8 } })}
+        />
+      ) : section.type === "reviews" ? (
+        <ProductSpacingSettings
+          spacing={{ ...settings.spacing, paddingLeft: 7, paddingRight: 7 }}
+          onChange={(spacing) => onChange({ spacing: { ...spacing, paddingLeft: 7, paddingRight: 7 } })}
+        />
+      ) : (
+        <SpacingSettings spacing={settings.spacing} onChange={(spacing) => onChange({ spacing })} />
+      )}
       <ColorSettings colors={settings.colors} onChange={(colors) => onChange({ colors })} />
     </div>
   )
@@ -3904,7 +3916,10 @@ function ReviewsSettingsForm({
 }) {
   return (
     <div className="space-y-4">
-      <SpacingSettings spacing={settings.spacing} onChange={(spacing) => onChange({ spacing })} />
+      <ProductSpacingSettings
+        spacing={{ ...settings.spacing, paddingLeft: 7, paddingRight: 7 }}
+        onChange={(spacing) => onChange({ spacing: { ...spacing, paddingLeft: 7, paddingRight: 7 } })}
+      />
       <ColorSettings colors={settings.colors} onChange={(colors) => onChange({ colors })} />
     </div>
   )

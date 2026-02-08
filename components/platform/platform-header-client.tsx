@@ -9,6 +9,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from "react"
 import { createPortal } from "react-dom"
 import type { User } from "@supabase/supabase-js"
 import { createClient } from "@/lib/supabase/client"
+import { extractUsernameFromHost, getCanonicalSiteUrl } from "@/lib/url-helpers"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -202,6 +203,8 @@ type Profile = {
   avatar_url?: string | null
   username?: string | null
   is_creator?: boolean | null
+  welcome_completed?: boolean | null
+  updated_at?: string | null
 }
 
 // Mobile Top Sheet Component for Search - slides down from top
@@ -517,7 +520,9 @@ export function PlatformHeaderClient() {
 
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
-  const [isCreator, setIsCreator] = useState(false)
+  const [hasCompletedSellerOnboarding, setHasCompletedSellerOnboarding] = useState(false)
+  const creatorOnboardingCompletedRef = useRef(false)
+  const welcomeCompletedRef = useRef(false)
   const [loading, setLoading] = useState(false)
   const [initialLoadDone, setInitialLoadDone] = useState(false)
   const [wishlistCount, setWishlistCount] = useState(0)
@@ -702,7 +707,9 @@ export function PlatformHeaderClient() {
           if (!mountedRef.current) return
           setUser(null)
           setProfile(null)
-          setIsCreator(false)
+          setHasCompletedSellerOnboarding(false)
+          creatorOnboardingCompletedRef.current = false
+          welcomeCompletedRef.current = false
           return
         }
 
@@ -711,23 +718,39 @@ export function PlatformHeaderClient() {
 
         const { data: profileData, error: profileErr } = await supabase
           .from("profiles")
-          .select("display_name, avatar_url, username, is_creator")
+          .select("display_name, avatar_url, username, is_creator, welcome_completed, updated_at")
           .eq("id", user.id)
           .single()
+
+        const { data: creatorData } = await supabase
+          .from("creators")
+          .select("id, onboarding_completed")
+          .eq("user_id", user.id)
+          .maybeSingle()
 
         if (!mountedRef.current) return
         if (profileErr) {
           setProfile(null)
-          setIsCreator(false)
+          setHasCompletedSellerOnboarding(false)
+          creatorOnboardingCompletedRef.current = false
+          welcomeCompletedRef.current = false
         } else {
           setProfile((profileData as Profile) ?? null)
-          setIsCreator(!!profileData?.is_creator)
+          const hasAppAccess = !!creatorData?.id
+          const creatorOnboardingCompleted = !!creatorData?.onboarding_completed
+          const hasWelcomeCompleted = !!profileData?.welcome_completed
+          const isSellerByState = hasAppAccess && creatorOnboardingCompleted && hasWelcomeCompleted
+          creatorOnboardingCompletedRef.current = creatorOnboardingCompleted
+          welcomeCompletedRef.current = hasWelcomeCompleted
+          setHasCompletedSellerOnboarding(isSellerByState)
         }
       } catch {
         if (!mountedRef.current) return
         setUser(null)
         setProfile(null)
-        setIsCreator(false)
+        setHasCompletedSellerOnboarding(false)
+        creatorOnboardingCompletedRef.current = false
+        welcomeCompletedRef.current = false
       } finally {
         if (!mountedRef.current) return
         setLoading(false)
@@ -742,44 +765,94 @@ export function PlatformHeaderClient() {
       fetchWishlistCount()
     })
 
+    const onWindowFocus = () => {
+      loadUser(false)
+    }
+
+    window.addEventListener("focus", onWindowFocus)
+
     return () => {
       mountedRef.current = false
       window.clearTimeout(failSafe)
+      window.removeEventListener("focus", onWindowFocus)
       data?.subscription?.unsubscribe()
     }
   }, [fetchWishlistCount, initialLoadDone])
 
+  useEffect(() => {
+    if (!user?.id) return
+
+    const supabase = createClient()
+    const profileChannel = supabase
+      .channel(`platform-header-profile-${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${user.id}` },
+        (payload) => {
+          const next = payload.new as Record<string, unknown>
+          const nextWelcomeCompleted = !!next.welcome_completed
+          welcomeCompletedRef.current = nextWelcomeCompleted
+          setProfile((prev) => ({
+            ...(prev || {}),
+            display_name: (next.display_name as string | null | undefined) ?? prev?.display_name ?? null,
+            avatar_url: (next.avatar_url as string | null | undefined) ?? prev?.avatar_url ?? null,
+            username: (next.username as string | null | undefined) ?? prev?.username ?? null,
+            welcome_completed: (next.welcome_completed as boolean | null | undefined) ?? prev?.welcome_completed ?? null,
+            updated_at: (next.updated_at as string | null | undefined) ?? prev?.updated_at ?? null,
+          }))
+          setHasCompletedSellerOnboarding(creatorOnboardingCompletedRef.current && nextWelcomeCompleted)
+        },
+      )
+      .subscribe()
+
+    const creatorChannel = supabase
+      .channel(`platform-header-creator-${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "creators", filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          const next = payload.new as Record<string, unknown>
+          const nextOnboardingCompleted = !!next.onboarding_completed
+          creatorOnboardingCompletedRef.current = nextOnboardingCompleted
+          setHasCompletedSellerOnboarding(nextOnboardingCompleted && welcomeCompletedRef.current)
+        },
+      )
+      .subscribe()
+
+    return () => {
+      void supabase.removeChannel(profileChannel)
+      void supabase.removeChannel(creatorChannel)
+    }
+  }, [user?.id])
+
   const startSellingHref = useMemo(() => {
     if (!user) return "/signup"
-    return isCreator ? "/app" : "/onboarding"
-  }, [user, isCreator])
+    return hasCompletedSellerOnboarding ? "/app" : "/onboarding"
+  }, [user, hasCompletedSellerOnboarding])
 
   const dashboardHref = useMemo(() => {
     if (!user) return "/signup"
-    return isCreator ? "/app" : "/dashboard"
-  }, [user, isCreator])
+    return hasCompletedSellerOnboarding ? "/app" : "/onboarding"
+  }, [user, hasCompletedSellerOnboarding])
 
   const wishlistHref = useMemo(() => {
     return user ? "/library/wishlist" : "/wishlist"
   }, [user])
 
-  const avatarUrl =
-    profile?.avatar_url ||
-    ((user?.user_metadata as any)?.avatar_url as string | undefined) ||
-    ((user?.user_metadata as any)?.picture as string | undefined)
+  const withAvatarVersion = useCallback((url?: string | null, version?: string | null) => {
+    if (!url) return undefined
+    if (!version) return url
+    const sep = url.includes("?") ? "&" : "?"
+    return `${url}${sep}v=${encodeURIComponent(version)}`
+  }, [])
+
+  const avatarUrl = withAvatarVersion(profile?.avatar_url, profile?.updated_at || null) || undefined
 
   const displayName =
     profile?.display_name ||
     profile?.username ||
     ((user?.user_metadata as any)?.full_name as string | undefined) ||
     (user?.email ? user.email.split("@")[0] : "User")
-
-  const initials = (displayName || "U")
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((s) => s[0]?.toUpperCase())
-    .join("")
 
   async function handleLogout() {
     const supabase = createClient()
@@ -791,10 +864,55 @@ export function PlatformHeaderClient() {
   }
 
   const onCategoryClick = (cat: string) => {
+    if (shouldForceCanonicalNav) {
+      navigateToCanonical(`/explore?category=${encodeURIComponent(cat)}`)
+      return
+    }
     router.push(`/explore?category=${encodeURIComponent(cat)}`)
   }
 
   const showCategories = pathname === "/explore" || pathname.startsWith("/explore")
+  const isDiscoverProductContext = pathname.startsWith("/p/") && searchParams.get("layout") === "discover" && searchParams.get("recommended") === "1"
+
+  const canonicalBaseUrl = useMemo(() => getCanonicalSiteUrl(), [])
+
+  const toCanonicalUrl = useCallback(
+    (targetPath: string) => {
+      const normalizedPath = targetPath.startsWith("/") ? targetPath : `/${targetPath}`
+      try {
+        return new URL(normalizedPath, canonicalBaseUrl).toString()
+      } catch {
+        return `${canonicalBaseUrl}${normalizedPath}`
+      }
+    },
+    [canonicalBaseUrl],
+  )
+
+  const shouldForceCanonicalNav = useMemo(() => {
+    if (typeof window === "undefined") return false
+    return Boolean(extractUsernameFromHost(window.location.host))
+  }, [pathname])
+
+  const navigateToCanonical = useCallback(
+    (targetPath: string) => {
+      if (typeof window === "undefined") return
+      window.location.assign(toCanonicalUrl(targetPath))
+    },
+    [toCanonicalUrl],
+  )
+
+  const onCanonicalNav = useCallback(
+    (e: React.MouseEvent<HTMLElement>, targetPath: string) => {
+      if (!shouldForceCanonicalNav) return
+      e.preventDefault()
+      navigateToCanonical(targetPath)
+    },
+    [navigateToCanonical, shouldForceCanonicalNav],
+  )
+
+  const getCanonicalOrRelativePath = useCallback((targetPath: string) => {
+    return shouldForceCanonicalNav ? toCanonicalUrl(targetPath) : targetPath
+  }, [shouldForceCanonicalNav, toCanonicalUrl])
 
   // Detect active category from URL
   const activeCategoryId = useMemo(() => {
@@ -823,7 +941,7 @@ export function PlatformHeaderClient() {
                 <span className="hidden md:inline"> — Join thousands of creators earning on Storelib</span>
               </span>
               <Link
-                href="/signup"
+                href="/signup" onClick={(e) => onCanonicalNav(e, "/signup")}
                 className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1 md:px-4 md:py-1.5 text-[11px] md:text-[12px] font-semibold bg-white text-gray-900 hover:bg-white/90 transition-colors"
               >
                 <span>Get Started</span>
@@ -842,7 +960,7 @@ export function PlatformHeaderClient() {
               {/* Homepage Desktop Header */}
               <div className="hidden md:flex items-center justify-between w-full">
                 {/* Left - Logo */}
-                <Link href="/" className="shrink-0 flex items-center gap-2">
+                <Link href={getCanonicalOrRelativePath("/explore")} onClick={(e) => onCanonicalNav(e, "/explore")} className="shrink-0 flex items-center gap-2">
                   <Image
                     src={LOGO_URL || "/placeholder.svg"}
                     alt="Storelib"
@@ -856,7 +974,7 @@ export function PlatformHeaderClient() {
 
                 {/* Center - Nav Links (show for all users) */}
                 <nav className="flex items-center gap-2">
-                  <Link href="/explore" className="px-4 py-2 rounded-full text-[15px] font-medium text-gray-900 hover:text-black border border-gray-200 hover:border-gray-300 transition-colors">
+                  <Link href="/explore" onClick={(e) => onCanonicalNav(e, "/explore")} className="px-4 py-2 rounded-full text-[15px] font-medium text-gray-900 hover:text-black border border-gray-200 hover:border-gray-300 transition-colors">
                     Discover
                   </Link>
                   <Link href="/blog" className="px-4 py-2 rounded-full text-[15px] font-medium text-gray-900 hover:text-black border border-gray-200 hover:border-gray-300 transition-colors">
@@ -883,7 +1001,7 @@ export function PlatformHeaderClient() {
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Link
-                            href="/explore"
+                            href="/explore" onClick={(e) => onCanonicalNav(e, "/explore")}
                             className="flex h-11 w-11 items-center justify-center rounded-full text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition cursor-pointer"
                             aria-label="Discover"
                           >
@@ -894,10 +1012,10 @@ export function PlatformHeaderClient() {
                           Discover
                         </TooltipContent>
                       </Tooltip>
-                      {/* Dashboard Button - redirects to /library for buyers, /app for sellers */}
+                      {/* Primary CTA */}
                       <Button asChild className="h-11 rounded-lg px-6 text-[15px] bg-violet-600 text-white hover:bg-violet-700 cursor-pointer">
-                        <Link href={isCreator ? "/app" : "/library"}>
-                          Dashboard
+                        <Link href={getCanonicalOrRelativePath(hasCompletedSellerOnboarding ? "/app" : "/onboarding")} onClick={(e) => onCanonicalNav(e, hasCompletedSellerOnboarding ? "/app" : "/onboarding")}>
+                          {hasCompletedSellerOnboarding ? "Dashboard" : "Start Selling"}
                         </Link>
                       </Button>
                     </>
@@ -911,7 +1029,7 @@ export function PlatformHeaderClient() {
                       </Link>
                       {/* Start Selling */}
                       <Button asChild className="h-11 rounded-lg px-6 text-[15px] bg-violet-600 text-white hover:bg-violet-700 cursor-pointer">
-                        <Link href="/signup">
+                        <Link href="/signup" onClick={(e) => onCanonicalNav(e, "/signup")}>
                           Start Selling
                         </Link>
                       </Button>
@@ -924,7 +1042,7 @@ export function PlatformHeaderClient() {
               <div className="md:hidden flex items-center justify-between w-full">
                 {/* Left - Logo */}
                 <div className="flex items-center gap-0">
-                  <Link href="/" className="shrink-0 flex items-center gap-1.5">
+                  <Link href={getCanonicalOrRelativePath("/explore")} onClick={(e) => onCanonicalNav(e, "/explore")} className="shrink-0 flex items-center gap-1.5">
                     <Image
                       src={LOGO_URL || "/placeholder.svg"}
                       alt="Storelib"
@@ -954,7 +1072,7 @@ export function PlatformHeaderClient() {
               {/* Left side - Logo and Categories Button */}
               <div className="flex items-center gap-3 shrink-0">
                 {/* Logo with Storelib text - logo height 46px (10% larger) - redirect to /explore if on explore pages */}
-                <Link href={pathname.startsWith("/explore") ? "/explore" : "/"} className="shrink-0 hidden md:flex items-center gap-2">
+                <Link href={getCanonicalOrRelativePath("/explore")} onClick={(e) => onCanonicalNav(e, "/explore")} className="shrink-0 hidden md:flex items-center gap-2">
                   <Image
                     src={LOGO_URL || "/placeholder.svg"}
                     alt="Storelib"
@@ -1016,7 +1134,7 @@ export function PlatformHeaderClient() {
                           )}
                         </div>
                         <Link
-                          href={selectedCategoryData.href}
+                          href={getCanonicalOrRelativePath(selectedCategoryData.href)}
                           onClick={() => setCategoriesDropdownOpen(false)}
                           className="flex items-center justify-between px-3 py-2.5 mb-1 rounded-lg text-sm font-medium text-gray-800 bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
                         >
@@ -1027,7 +1145,7 @@ export function PlatformHeaderClient() {
                           {selectedCategoryData.subcategories.map((sub) => (
                             <Link
                               key={sub.label}
-                              href={sub.href}
+                              href={getCanonicalOrRelativePath(sub.href)}
                               onClick={() => setCategoriesDropdownOpen(false)}
                               className="block px-3 py-2.5 rounded-lg text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors cursor-pointer"
                             >
@@ -1052,7 +1170,7 @@ export function PlatformHeaderClient() {
                                   if (hasSubcats) {
                                     setSelectedCategoryForSubs(cat.label)
                                   } else {
-                                    router.push(cat.href)
+                                    shouldForceCanonicalNav ? navigateToCanonical(cat.href) : router.push(cat.href)
                                     setCategoriesDropdownOpen(false)
                                   }
                                 }}
@@ -1093,7 +1211,7 @@ export function PlatformHeaderClient() {
                 onChange={(e) => handleSearchChange(e.target.value)}
                 onFocus={() => setSearchModalOpen(true)}
                 placeholder={t("search_placeholder")}
-                className="h-11 w-full rounded-full pl-11 pr-4 bg-gray-100 border-gray-200 text-gray-900 text-[15px] placeholder:text-gray-500 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0 focus-visible:border-blue-500"
+                className={`h-11 w-full pl-11 pr-4 bg-gray-100 border-gray-200 text-gray-900 text-[15px] placeholder:text-gray-500 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0 focus-visible:border-blue-500 ${isDiscoverProductContext ? "rounded-[8px]" : "rounded-full"}`}
               />
               {query && (
                 <button
@@ -1125,7 +1243,7 @@ export function PlatformHeaderClient() {
                         {SEARCH_CATEGORIES.map((cat) => (
                           <Link
                             key={cat.label}
-                            href={cat.href}
+                            href={getCanonicalOrRelativePath(cat.href)}
                             onClick={() => setSearchModalOpen(false)}
                             className="px-3 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 transition-colors cursor-pointer"
                           >
@@ -1149,7 +1267,7 @@ export function PlatformHeaderClient() {
                       {searchResults.map((product) => (
                         <Link
                           key={product.id}
-                          href={`/p/${product.slug}`}
+                          href={getCanonicalOrRelativePath(`/p/${product.slug}`)}
                           onClick={() => setSearchModalOpen(false)}
                           className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer group"
                         >
@@ -1197,7 +1315,7 @@ export function PlatformHeaderClient() {
                       <button
                         type="button"
                         onClick={() => {
-                          router.push(`/explore?q=${encodeURIComponent(query)}`)
+                          shouldForceCanonicalNav ? navigateToCanonical(`/explore?q=${encodeURIComponent(query)}`) : router.push(`/explore?q=${encodeURIComponent(query)}`)
                           setSearchModalOpen(false)
                         }}
                         className="w-full py-2.5 rounded-lg text-sm font-medium text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
@@ -1225,7 +1343,7 @@ export function PlatformHeaderClient() {
               </button>
 
               {/* Logo next to hamburger - redirect to /explore if on explore pages */}
-              <Link href={pathname.startsWith("/explore") ? "/explore" : "/"} className="shrink-0 flex items-center gap-1.5">
+              <Link href={getCanonicalOrRelativePath("/explore")} onClick={(e) => onCanonicalNav(e, "/explore")} className="shrink-0 flex items-center gap-1.5">
                 <Image
                   src={LOGO_URL || "/placeholder.svg"}
                   alt="Storelib"
@@ -1243,7 +1361,7 @@ export function PlatformHeaderClient() {
               {/* Library - only show when logged in */}
               {user && (
                 <Link
-                  href="/library"
+                  href={getCanonicalOrRelativePath("/library")} onClick={(e) => onCanonicalNav(e, "/library")}
                   className="flex h-9 w-9 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 transition cursor-pointer"
                   aria-label="Library"
                 >
@@ -1253,7 +1371,7 @@ export function PlatformHeaderClient() {
 
               {/* Wishlist */}
               <Link
-                href={wishlistHref}
+                href={getCanonicalOrRelativePath(wishlistHref)} onClick={(e) => onCanonicalNav(e, wishlistHref)}
                 className="relative flex h-9 w-9 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 transition cursor-pointer"
                 aria-label="Wishlist"
               >
@@ -1274,8 +1392,8 @@ export function PlatformHeaderClient() {
                   aria-label="Open profile menu"
                 >
                   <Avatar className="h-8 w-8 border border-gray-200">
-                    <AvatarImage src={avatarUrl || "/placeholder.svg"} alt={displayName} />
-                    <AvatarFallback className="text-[10px] bg-gray-100 text-gray-700">{initials}</AvatarFallback>
+                    <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
+                    <AvatarFallback className="bg-gray-100 text-gray-400"><UserIcon className="h-4 w-4" /></AvatarFallback>
                   </Avatar>
                 </button>
               ) : (
@@ -1299,7 +1417,7 @@ export function PlatformHeaderClient() {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Link
-                      href={wishlistHref}
+                      href={getCanonicalOrRelativePath(wishlistHref)} onClick={(e) => onCanonicalNav(e, wishlistHref)}
                       className="relative flex h-11 w-11 items-center justify-center rounded-full text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition cursor-pointer"
                       aria-label={t("wishlist")}
                     >
@@ -1320,7 +1438,7 @@ export function PlatformHeaderClient() {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Link
-                      href="/library"
+                      href={getCanonicalOrRelativePath("/library")} onClick={(e) => onCanonicalNav(e, "/library")}
                       className="hidden sm:flex h-11 w-11 items-center justify-center rounded-full text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition cursor-pointer"
                       aria-label={t("library")}
                     >
@@ -1334,8 +1452,8 @@ export function PlatformHeaderClient() {
 
                 {/* Start Selling or Dashboard */}
                 <Button asChild className="h-11 rounded-full px-6 text-[15px] bg-violet-600 text-white hover:bg-violet-700">
-                  <Link href={user && isCreator ? "/app" : startSellingHref}>
-                    {user && isCreator ? t("dashboard") : t("start_selling")}
+                  <Link href={getCanonicalOrRelativePath(user && hasCompletedSellerOnboarding ? "/app" : startSellingHref)} onClick={(e) => onCanonicalNav(e, user && hasCompletedSellerOnboarding ? "/app" : startSellingHref)}>
+                    {user && hasCompletedSellerOnboarding ? t("dashboard") : t("start_selling")}
                   </Link>
                 </Button>
 
@@ -1351,8 +1469,8 @@ export function PlatformHeaderClient() {
                           aria-label="Open profile menu"
                         >
                           <Avatar className="h-11 w-11 border border-gray-200 transition-opacity duration-150">
-                            <AvatarImage src={avatarUrl || "/placeholder.svg"} alt={displayName} />
-                            <AvatarFallback className="text-sm bg-gray-100 text-gray-700">{initials}</AvatarFallback>
+                            <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
+                            <AvatarFallback className="bg-gray-100 text-gray-400"><UserIcon className="h-5 w-5" /></AvatarFallback>
                           </Avatar>
                         </button>
                       </TooltipTrigger>
@@ -1375,8 +1493,8 @@ export function PlatformHeaderClient() {
                         <div className="px-3 py-2.5 border-b border-gray-100 mb-1">
                           <div className="flex items-center gap-3">
                             <Avatar className="h-10 w-10 border border-gray-200">
-                              <AvatarImage src={avatarUrl || "/placeholder.svg"} alt={displayName} />
-                              <AvatarFallback className="text-xs bg-gray-100 text-gray-700">{initials}</AvatarFallback>
+                              <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
+                              <AvatarFallback className="bg-gray-100 text-gray-400"><UserIcon className="h-4 w-4" /></AvatarFallback>
                             </Avatar>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium text-gray-900 truncate">{displayName}</p>
@@ -1385,26 +1503,46 @@ export function PlatformHeaderClient() {
                           </div>
                         </div>
 
+                        {hasCompletedSellerOnboarding ? (
                         <Link
-                          href={dashboardHref}
-                          onClick={() => setDesktopProfileOpen(false)}
-                          className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
+                          href={getCanonicalOrRelativePath(dashboardHref)}
+                          onClick={(e) => {
+                            onCanonicalNav(e, dashboardHref)
+                            setDesktopProfileOpen(false)
+                          }}
+                          className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 cursor-pointer"
                         >
                           <LayoutDashboard className="h-4 w-4 shrink-0" />
                           <span>Dashboard</span>
                         </Link>
+                        ) : (
                         <Link
-                          href="/library"
-                          onClick={() => setDesktopProfileOpen(false)}
-                          className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
+                          href={getCanonicalOrRelativePath('/onboarding')}
+                          onClick={(e) => {
+                            onCanonicalNav(e, '/onboarding')
+                            setDesktopProfileOpen(false)
+                          }}
+                          className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 cursor-pointer"
+                        >
+                          <Sparkles className="h-4 w-4 shrink-0" />
+                          <span>Become a Seller</span>
+                        </Link>
+                        )}
+                        <Link
+                          href={getCanonicalOrRelativePath("/library")}
+                          onClick={(e) => {
+                            onCanonicalNav(e, "/library")
+                            setDesktopProfileOpen(false)
+                          }}
+                          className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 cursor-pointer"
                         >
                           <Library className="h-4 w-4 shrink-0" />
                           <span>My Library</span>
                         </Link>
                         <Link
-                          href="/app/settings"
-                          onClick={() => setDesktopProfileOpen(false)}
-                          className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
+                          href={getCanonicalOrRelativePath("/app/settings")}
+                          onClick={(e) => { onCanonicalNav(e, "/app/settings"); setDesktopProfileOpen(false) }}
+                          className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 cursor-pointer"
                         >
                           <Settings className="h-4 w-4 shrink-0" />
                           <span>Settings</span>
@@ -1414,7 +1552,7 @@ export function PlatformHeaderClient() {
 
                         <button
                           onClick={handleLogout}
-                          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-red-50 hover:text-red-600"
+                          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-red-50 hover:text-red-600 cursor-pointer"
                         >
                           <LogOut className="h-4 w-4 shrink-0" />
                           <span>Log out</span>
@@ -1437,7 +1575,7 @@ export function PlatformHeaderClient() {
             <button
               type="button"
               onClick={() => setSearchModalOpen(true)}
-              className="w-full h-10 flex items-center gap-2 px-4 bg-gray-100 border border-gray-200 text-gray-500 rounded-full text-sm cursor-pointer overflow-hidden"
+              className={`w-full h-10 flex items-center gap-2 px-4 bg-gray-100 border border-gray-200 text-gray-500 text-sm cursor-pointer overflow-hidden ${isDiscoverProductContext ? "rounded-[8px]" : "rounded-full"}`}
             >
               <Search className="h-4 w-4 text-gray-400 shrink-0" />
               <span className="truncate">{t("search_placeholder")}</span>
@@ -1458,7 +1596,7 @@ export function PlatformHeaderClient() {
                 value={query}
                 onChange={(e) => handleSearchChange(e.target.value)}
                 placeholder={t("search_placeholder")}
-                className="h-11 w-full pl-10 pr-10 bg-gray-100 border-gray-200 text-gray-900 placeholder:text-gray-500 rounded-full text-sm"
+                className={`h-11 w-full pl-10 pr-10 bg-gray-100 border-gray-200 text-gray-900 placeholder:text-gray-500 text-sm ${isDiscoverProductContext ? "rounded-[8px]" : "rounded-full"}`}
                 autoFocus
               />
               {query && (
@@ -1483,7 +1621,7 @@ export function PlatformHeaderClient() {
                   {SEARCH_CATEGORIES.map((cat) => (
                     <Link
                       key={cat.label}
-                      href={cat.href}
+                      href={getCanonicalOrRelativePath(cat.href)}
                       onClick={() => setSearchModalOpen(false)}
                       className="px-3 py-2 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 transition-colors cursor-pointer"
                     >
@@ -1510,7 +1648,7 @@ export function PlatformHeaderClient() {
                   {searchResults.map((product) => (
                     <Link
                       key={product.id}
-                      href={`/p/${product.slug}`}
+                      href={getCanonicalOrRelativePath(`/p/${product.slug}`)}
                       onClick={() => setSearchModalOpen(false)}
                       className="flex items-center gap-3 px-2 py-2.5 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer"
                     >
@@ -1562,7 +1700,7 @@ export function PlatformHeaderClient() {
                 <button
                   type="button"
                   onClick={() => {
-                    router.push(`/explore?q=${encodeURIComponent(query)}`)
+                    shouldForceCanonicalNav ? navigateToCanonical(`/explore?q=${encodeURIComponent(query)}`) : router.push(`/explore?q=${encodeURIComponent(query)}`)
                     setSearchModalOpen(false)
                   }}
                   className="w-full py-3 rounded-xl text-sm font-medium text-white bg-violet-600 hover:bg-violet-700 transition-colors cursor-pointer"
@@ -1664,7 +1802,7 @@ export function PlatformHeaderClient() {
                 </Button>
               </Link>
               {/* Discover button - black with icon */}
-              <Link href="/explore" onClick={() => setMobileMenuOpen(false)} className="block">
+              <Link href="/explore" onClick={(e) => { onCanonicalNav(e, "/explore"); setMobileMenuOpen(false) }} className="block">
                 <Button className="w-full h-11 rounded-lg text-sm font-medium bg-gray-900 text-white hover:bg-gray-800 gap-2">
                   <Compass className="h-4 w-4" />
                   Discover
@@ -1679,31 +1817,32 @@ export function PlatformHeaderClient() {
               {/* Profile Info */}
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl mb-3">
                 <Avatar className="h-11 w-11 border border-gray-200">
-                  <AvatarImage src={avatarUrl || "/placeholder.svg"} alt={displayName} />
-                  <AvatarFallback className="text-sm bg-gray-100 text-gray-700">{initials}</AvatarFallback>
+                  <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
+                  <AvatarFallback className="bg-gray-100 text-gray-400"><UserIcon className="h-5 w-5" /></AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900 truncate">{displayName}</p>
                   {user.email && <p className="text-xs text-gray-500 truncate">{user.email}</p>}
                 </div>
               </div>
-              {/* Dashboard button - below profile */}
-              <Link href={dashboardHref} onClick={() => setMobileMenuOpen(false)} className="block mb-2">
-                <Button className="w-full h-11 rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700 gap-2">
-                  <LayoutDashboard className="h-4 w-4" />
-                  Dashboard
-                </Button>
-              </Link>
-              {/* Start Selling button for logged-in users who are not creators */}
-              {!isCreator && (
-                <Link href="/onboarding" onClick={() => setMobileMenuOpen(false)} className="block mb-2">
-                  <Button className="w-full h-11 rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700">
-                    Start Selling
+              {/* Dashboard / Become Seller button - below profile */}
+              {hasCompletedSellerOnboarding ? (
+                <Link href={getCanonicalOrRelativePath(dashboardHref)} onClick={(e) => { onCanonicalNav(e, dashboardHref); setMobileMenuOpen(false) }} className="block mb-2">
+                  <Button className="w-full h-11 rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700 gap-2">
+                    <LayoutDashboard className="h-4 w-4" />
+                    Dashboard
+                  </Button>
+                </Link>
+              ) : (
+                <Link href={getCanonicalOrRelativePath("/onboarding")} onClick={(e) => { onCanonicalNav(e, "/onboarding"); setMobileMenuOpen(false) }} className="block mb-2">
+                  <Button className="w-full h-11 rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700 gap-2">
+                    <Sparkles className="h-4 w-4" />
+                    Become a Seller
                   </Button>
                 </Link>
               )}
               {/* Discover button - black with icon */}
-              <Link href="/explore" onClick={() => setMobileMenuOpen(false)} className="block">
+              <Link href="/explore" onClick={(e) => { onCanonicalNav(e, "/explore"); setMobileMenuOpen(false) }} className="block">
                 <Button className="w-full h-11 rounded-lg text-sm font-medium bg-gray-900 text-white hover:bg-gray-800 gap-2">
                   <Compass className="h-4 w-4" />
                   Discover
@@ -1719,7 +1858,7 @@ export function PlatformHeaderClient() {
               <div className="space-y-0.5">
                 <Link
                   href="/explore"
-                  onClick={() => setMobileMenuOpen(false)}
+                  onClick={(e) => { onCanonicalNav(e, "/explore"); setMobileMenuOpen(false) }}
                   className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
                 >
                   <span>Discover</span>
@@ -1761,6 +1900,22 @@ export function PlatformHeaderClient() {
             </div>
           )}
 
+          {isDiscoverProductContext && pathname !== "/" && pathname !== "/features" && pathname !== "/pricing" && pathname !== "/about" && pathname !== "/blog" && (
+            <div className="mb-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false)
+                  setSearchModalOpen(true)
+                }}
+                className="w-full h-11 flex items-center gap-2 px-3 bg-gray-100 border border-gray-200 text-gray-600 rounded-xl text-sm cursor-pointer overflow-hidden"
+              >
+                <Search className="h-4 w-4 text-gray-400 shrink-0" />
+                <span className="truncate">{t("search_placeholder")}</span>
+              </button>
+            </div>
+          )}
+
           {/* Subcategory View with animation - Only show Browse Categories on non-homepage pages */}
           {pathname !== "/" && pathname !== "/features" && pathname !== "/pricing" && pathname !== "/about" && pathname !== "/blog" && expandedCategory ? (
             <div className="animate-in slide-in-from-right-4 fade-in duration-300 ease-out">
@@ -1789,7 +1944,7 @@ export function PlatformHeaderClient() {
                       )}
                     </div>
                     <Link
-                      href={cat.href}
+                      href={getCanonicalOrRelativePath(cat.href)}
                       onClick={() => {
                         setExpandedCategory(null)
                         setMobileMenuOpen(false)
@@ -1803,7 +1958,7 @@ export function PlatformHeaderClient() {
                       {cat.subcategories.map((sub, index) => (
                         <Link
                           key={sub.label}
-                          href={sub.href}
+                          href={getCanonicalOrRelativePath(sub.href)}
                           onClick={() => {
                             setExpandedCategory(null)
                             setMobileMenuOpen(false)
@@ -1832,7 +1987,7 @@ export function PlatformHeaderClient() {
                     if (hasSubcats) {
                       setExpandedCategory(cat.label)
                     } else {
-                      router.push(cat.href)
+                      shouldForceCanonicalNav ? navigateToCanonical(cat.href) : router.push(cat.href)
                       setMobileMenuOpen(false)
                     }
                   }
@@ -1865,8 +2020,8 @@ export function PlatformHeaderClient() {
               {/* Quick Links section */}
               <div className="mt-4 pt-4 border-t border-gray-200">
                 <Link
-                  href="/library"
-                  onClick={() => setMobileMenuOpen(false)}
+                  href={getCanonicalOrRelativePath("/library")}
+                  onClick={(e) => { onCanonicalNav(e, "/library"); setMobileMenuOpen(false) }}
                   className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
                 >
                   <div className="flex items-center gap-3">
@@ -1875,15 +2030,28 @@ export function PlatformHeaderClient() {
                   </div>
                   <ChevronRight className="h-5 w-5 text-gray-400" />
                 </Link>
-                {user && (
+                {user && hasCompletedSellerOnboarding && (
                   <Link
-                    href={dashboardHref}
-                    onClick={() => setMobileMenuOpen(false)}
+                    href={getCanonicalOrRelativePath(dashboardHref)}
+                    onClick={(e) => { onCanonicalNav(e, dashboardHref); setMobileMenuOpen(false) }}
                     className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
                   >
                     <div className="flex items-center gap-3">
                       <LayoutDashboard className="h-5 w-5" />
                       <span>Dashboard</span>
+                    </div>
+                    <ChevronRight className="h-5 w-5 text-gray-400" />
+                  </Link>
+                )}
+                {user && !hasCompletedSellerOnboarding && (
+                  <Link
+                    href={getCanonicalOrRelativePath('/onboarding')}
+                    onClick={(e) => { onCanonicalNav(e, '/onboarding'); setMobileMenuOpen(false) }}
+                    className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Sparkles className="h-5 w-5" />
+                      <span>Become a Seller</span>
                     </div>
                     <ChevronRight className="h-5 w-5 text-gray-400" />
                   </Link>
@@ -1903,8 +2071,8 @@ export function PlatformHeaderClient() {
           {/* User Info */}
           <div className="flex items-center gap-3 p-3 mb-4 bg-gray-50 rounded-xl">
             <Avatar className="h-12 w-12 border border-gray-200">
-              <AvatarImage src={avatarUrl || "/placeholder.svg"} alt={displayName} />
-              <AvatarFallback className="text-sm bg-gray-100 text-gray-700">{initials}</AvatarFallback>
+              <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
+              <AvatarFallback className="bg-gray-100 text-gray-400"><UserIcon className="h-5 w-5" /></AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
               <p className="text-base font-medium text-gray-900 truncate">{displayName}</p>
@@ -1914,9 +2082,10 @@ export function PlatformHeaderClient() {
 
           {/* Menu Items */}
           <div className="space-y-0.5">
+            {hasCompletedSellerOnboarding ? (
             <Link
-              href={dashboardHref}
-              onClick={() => setMobileProfileOpen(false)}
+              href={getCanonicalOrRelativePath(dashboardHref)}
+              onClick={(e) => { onCanonicalNav(e, dashboardHref); setMobileProfileOpen(false) }}
               className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-3">
@@ -1925,9 +2094,22 @@ export function PlatformHeaderClient() {
               </div>
               <ChevronRight className="h-5 w-5 text-gray-400" />
             </Link>
+            ) : (
             <Link
-              href="/library"
-              onClick={() => setMobileProfileOpen(false)}
+              href={getCanonicalOrRelativePath('/onboarding')}
+              onClick={(e) => { onCanonicalNav(e, '/onboarding'); setMobileProfileOpen(false) }}
+              className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <Sparkles className="h-5 w-5 text-gray-400" />
+                <span>Become a Seller</span>
+              </div>
+              <ChevronRight className="h-5 w-5 text-gray-400" />
+            </Link>
+            )}
+            <Link
+              href={getCanonicalOrRelativePath("/library")}
+              onClick={(e) => { onCanonicalNav(e, "/library"); setMobileProfileOpen(false) }}
               className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-3">
@@ -1937,8 +2119,8 @@ export function PlatformHeaderClient() {
               <ChevronRight className="h-5 w-5 text-gray-400" />
             </Link>
             <Link
-              href="/app/settings"
-              onClick={() => setMobileProfileOpen(false)}
+              href={getCanonicalOrRelativePath("/app/settings")}
+              onClick={(e) => { onCanonicalNav(e, "/app/settings"); setMobileProfileOpen(false) }}
               className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-3">

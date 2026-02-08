@@ -318,6 +318,8 @@ export function SettingsTab() {
   }
 
   const isSaving = localSaveState === "saving" || saveState === "saving"
+  const fallbackSocialImage = onepage.avatar_url || ""
+  const effectiveSocialImage = ogImage || fallbackSocialImage
 
   const renderBasicInfo = () => (
     <div className="space-y-6">
@@ -415,20 +417,22 @@ export function SettingsTab() {
       {/* Social Share Image */}
       <div className="space-y-2">
         <Label className="text-sm font-medium text-gray-700">Social Image</Label>
-        {ogImage ? (
+        {effectiveSocialImage ? (
           <div className="relative aspect-video rounded-lg overflow-hidden border border-gray-200">
-            <img src={ogImage} alt="Social preview" className="w-full h-full object-cover" />
-            <button
-              onClick={removeOgImage}
-              className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/70 rounded-full transition-colors"
-            >
-              <X className="h-4 w-4 text-white" />
-            </button>
+            <img src={effectiveSocialImage} alt="Social preview" className="w-full h-full object-cover" />
+            {ogImage && (
+              <button
+                onClick={removeOgImage}
+                className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/70 rounded-full transition-colors"
+              >
+                <X className="h-4 w-4 text-white" />
+              </button>
+            )}
             <button
               onClick={() => setShowOgImageModal(true)}
               className="absolute bottom-2 right-2 px-3 py-1.5 bg-white/90 hover:bg-white rounded-lg text-sm font-medium transition-colors"
             >
-              Change
+              {ogImage ? "Change" : "Upload custom"}
             </button>
           </div>
         ) : (
@@ -441,6 +445,9 @@ export function SettingsTab() {
             <span className="text-xs text-gray-400">1200x630px recommended</span>
           </button>
         )}
+        {!ogImage && fallbackSocialImage && (
+          <p className="text-xs text-gray-500">Using your OnePage profile image by default until you upload a custom social image.</p>
+        )}
       </div>
 
       {/* Preview */}
@@ -448,10 +455,8 @@ export function SettingsTab() {
         <Label className="text-sm font-medium text-gray-700">Preview</Label>
         <div className="border border-gray-200 rounded-lg overflow-hidden">
           <div className="aspect-video bg-gray-100 flex items-center justify-center">
-            {ogImage ? (
-              <img src={ogImage} alt="Preview" className="w-full h-full object-cover" />
-            ) : onepage?.avatar_url ? (
-              <img src={onepage.avatar_url} alt="Avatar preview" className="w-full h-full object-cover" />
+            {effectiveSocialImage ? (
+              <img src={effectiveSocialImage} alt="Preview" className="w-full h-full object-cover" />
             ) : (
               <ImageIcon className="h-8 w-8 text-gray-300" />
             )}

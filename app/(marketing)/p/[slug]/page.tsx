@@ -330,6 +330,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   let hasPurchased = false
   let firstAssetId: string | null = null
   let purchasedVariantIds: string[] = [] // Array of all purchased variant IDs
+  let productDownloadFiles: Array<{ id: string; file_name: string }> = []
   let user: any = null
 
   try {
@@ -411,9 +412,15 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   }
 
   if (hasPurchased && product.type === "digital") {
-    const { data: assets } = await supabase.from("digital_assets").select("id").eq("product_id", product.id).limit(1)
+    const { data: assets } = await supabase
+      .from("digital_assets")
+      .select("id, file_name")
+      .eq("product_id", product.id)
+      .order("created_at", { ascending: true })
+
     if (assets && assets.length > 0) {
       firstAssetId = assets[0].id
+      productDownloadFiles = assets.map((asset) => ({ id: asset.id, file_name: asset.file_name || "File" }))
     }
   }
 
@@ -852,7 +859,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
               <div className="flex items-center gap-3 p-2 -ml-2">
                 <a
                   href={getStoreUrl(creatorUsername)}
-                  className="inline-flex items-center gap-3 rounded-lg transition-colors hover:bg-muted/50 min-h-[44px]"
+                  className="inline-flex items-center gap-3 rounded-lg transition-colors hover:bg-muted/50 min-h-[44px]" target="_blank" rel="noopener noreferrer"
                 >
                   <Avatar className="h-10 w-10 shrink-0">
                     <AvatarImage src={creatorAvatarUrl || undefined} />
@@ -930,6 +937,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                 serverHasPurchased={hasPurchased}
                 serverAssetId={firstAssetId}
                 serverPurchasedVariantIds={purchasedVariantIds}
+            serverProductFiles={productDownloadFiles}
                 variants={variants}
                 callToAction={product.call_to_action}
                 buyButtonBgColor={buyButtonColor}
@@ -1040,7 +1048,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                 }}
               >
                 <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <a href={getStoreUrl(creatorUsername)} className="flex items-center gap-3">
+                  <a href={getStoreUrl(creatorUsername)} className="flex items-center gap-3" target="_blank" rel="noopener noreferrer">
                     <Avatar className="h-8 w-8 shrink-0">
                       <AvatarImage src={creatorAvatarUrl || undefined} />
                       <AvatarFallback>{creatorInitials || "?"}</AvatarFallback>
@@ -1218,6 +1226,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             serverHasPurchased={hasPurchased}
             serverAssetId={firstAssetId}
             serverPurchasedVariantIds={purchasedVariantIds}
+            serverProductFiles={productDownloadFiles}
             variants={variants}
             callToAction={product.call_to_action}
             buyButtonBgColor={buyButtonColor}
@@ -1371,6 +1380,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
               reviews_average: reviewsAverage,
             }}
             creatorId={product.creator_id}
+            isPurchased={hasPurchased && product.type === "digital"}
+            downloadFiles={productDownloadFiles}
           />
         )}
 

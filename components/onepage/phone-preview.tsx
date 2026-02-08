@@ -25,6 +25,19 @@ import { Globe, Bell, X, Send, Check, Link2, ExternalLink, Calendar } from "luci
 import { useState, useRef, useEffect, useCallback, createContext, useContext } from "react"
 import { getLinksUrl } from "@/lib/url-helpers"
 
+const stripHtmlToPlainText = (value?: string | null) => {
+  if (!value) return ""
+  const raw = value.trim()
+  if (!raw) return ""
+  if (typeof window === "undefined") {
+    return raw.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()
+  }
+  const parser = new DOMParser()
+  const doc = parser.parseFromString(raw, "text/html")
+  const text = doc.body.textContent || ""
+  return text.replace(/\s+/g, " ").trim()
+}
+
 // Spotify Modal Context - allows modals to render at root level instead of inside blocks
 interface SpotifyModalContextType {
   openSpotifyModal: (data: {
@@ -1428,7 +1441,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
               style={{
                 position: "relative",
                 zIndex: 1,
-                paddingTop: "45px",
+                paddingTop: (theme as any).header_layout === "hero" ? "0px" : "45px",
                 paddingBottom: "12px",
                 paddingLeft: "16px",
                 paddingRight: "16px",
@@ -1478,7 +1491,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
                 {/* Footer Links */}
                 <div className="flex items-center justify-center gap-2 text-[8px]">
                   <a
-                    href="https://materiathemes.com/cookies"
+                    href="https://storelib.com/legal/privacy#cookies"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="hover:underline"
@@ -1487,7 +1500,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
                     Cookies
                   </a>
                   <a
-                    href="https://materiathemes.com/privacy"
+                    href="https://storelib.com/legal/privacy"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="hover:underline"
@@ -1496,7 +1509,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
                     Privacy
                   </a>
                   <a
-                    href="https://materiathemes.com/report"
+                    href="https://storelib.com/legal/terms"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="hover:underline"
@@ -2229,7 +2242,7 @@ export function MobilePreviewContent() {
             {/* Footer Links */}
             <div className="flex items-center justify-center gap-4 text-xs">
               <a
-                href="https://materiathemes.com/cookies"
+                href="https://storelib.com/legal/privacy#cookies"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:underline"
@@ -2238,7 +2251,7 @@ export function MobilePreviewContent() {
                 Cookies
               </a>
               <a
-                href="https://materiathemes.com/privacy"
+                href="https://storelib.com/legal/privacy"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:underline"
@@ -2247,7 +2260,7 @@ export function MobilePreviewContent() {
                 Privacy
               </a>
               <a
-                href="https://materiathemes.com/report"
+                href="https://storelib.com/legal/terms"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="hover:underline"
@@ -4792,12 +4805,12 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               >
                 {data.product_title || 'Product'}
               </p>
-              {data.show_description !== false && data.product_description && (
+              {data.show_description !== false && stripHtmlToPlainText(data.product_description) && (
                 <p
                   className="text-[10px] opacity-75"
                   style={{ color: textColor }}
                 >
-                  {data.product_description}
+                  {stripHtmlToPlainText(data.product_description)}
                 </p>
               )}
               {data.show_price !== false && (
@@ -4858,12 +4871,12 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               >
                 {data.product_title || 'Product'}
               </p>
-              {data.show_description !== false && data.product_description && (
+              {data.show_description !== false && stripHtmlToPlainText(data.product_description) && (
                 <p
                   className="text-[10px] opacity-75 line-clamp-1"
                   style={{ color: textColor }}
                 >
-                  {data.product_description}
+                  {stripHtmlToPlainText(data.product_description)}
                 </p>
               )}
               {data.show_price !== false && (

@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button"
 import { ArrowRight } from "lucide-react"
+import { getCanonicalSiteUrl } from "@/lib/url-helpers"
 
 interface ViewInLibraryButtonProps {
   backgroundColor?: string
@@ -21,7 +22,8 @@ export function ViewInLibraryButton({
   className = "w-full min-h-[44px]",
 }: ViewInLibraryButtonProps) {
   const handleClick = () => {
-    window.location.href = "/library/my-downloads"
+    const canonical = getCanonicalSiteUrl()
+    window.location.assign(new URL("/library/my-downloads", canonical).toString())
   }
 
   return (

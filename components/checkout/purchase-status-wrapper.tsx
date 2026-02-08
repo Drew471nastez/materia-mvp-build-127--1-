@@ -1,14 +1,16 @@
 "use client"
 
-import { ReactNode, useState, useCallback, useEffect } from "react"
+import { ReactNode, useState, useCallback, useEffect, useMemo } from "react"
 import { usePurchaseStatus } from "./use-purchase-status"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Loader2 } from "lucide-react"
+import { Loader2, Download, FileText, X } from "lucide-react"
 import { DownloadButton } from "@/components/download-button"
 import { BuyButton } from "@/components/checkout/buy-button"
 import { VariantSelector, type ProductVariant } from "@/components/product/variant-selector"
 import { Badge } from "@/components/ui/badge"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { downloadEntitledFile } from "@/components/download-button"
 
 interface PurchaseStatusWrapperProps {
   productId: string
@@ -19,6 +21,7 @@ interface PurchaseStatusWrapperProps {
   serverHasPurchased?: boolean
   serverAssetId?: string | null
   serverPurchasedVariantIds?: string[] // Array of purchased variant IDs
+  serverProductFiles?: Array<{ id: string; file_name?: string }>
   // Variants
   variants?: ProductVariant[]
   // Call to action text for buy button
@@ -73,6 +76,7 @@ export function PurchaseStatusWrapper({
   serverHasPurchased = false,
   serverAssetId = null,
   serverPurchasedVariantIds = [],
+  serverProductFiles = [],
   variants = [],
   callToAction,
   buyButtonBgColor,
@@ -135,6 +139,18 @@ export function PurchaseStatusWrapper({
   const [pwywInputValue, setPwywInputValue] = useState("")
   const [pwywError, setPwywError] = useState<string | null>(null)
 
+  const [showDownloadFilesModal, setShowDownloadFilesModal] = useState(false)
+  const [downloadingFileId, setDownloadingFileId] = useState<string | null>(null)
+  const [isMobileViewport, setIsMobileViewport] = useState(false)
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 768px)")
+    const update = () => setIsMobileViewport(mq.matches)
+    update()
+    mq.addEventListener?.("change", update)
+    return () => mq.removeEventListener?.("change", update)
+  }, [])
+
   // Determine if PWYW is active (product-level or variant-level)
   // Only active if user does NOT own the current variant
   const isPwywActiveForVariant = selectedVariant?.pay_what_you_want || false
@@ -160,17 +176,17 @@ export function PurchaseStatusWrapper({
 
   const pwywSettings = getEffectivePwywSettings()
 
-  // Get effective asset ID - use variant's files if available, otherwise product-level
-  const getEffectiveAssetId = (): string | null => {
-    // If variant has assigned files, use the first one
-    if (selectedVariant?.files && selectedVariant.files.length > 0) {
-      return selectedVariant.files[0].id
-    }
-    // Fall back to hook's asset ID (product-level or from localStorage)
-    return hookAssetId
-  }
+  const downloadFiles = useMemo(() => {
+    const variantFiles = (selectedVariant?.files || []).filter((f) => !!f.id)
+    if (variantFiles.length > 0) return variantFiles
 
-  const effectiveAssetId = getEffectiveAssetId()
+    const productFiles = (serverProductFiles || []).filter((f) => !!f.id)
+    if (productFiles.length > 0) return productFiles
+
+    return hookAssetId ? [{ id: hookAssetId, file_name: "File" }] : []
+  }, [selectedVariant, serverProductFiles, hookAssetId])
+
+  const effectiveAssetId = downloadFiles[0]?.id || null
 
   const handleVariantChange = useCallback((variant: ProductVariant | null, finalPrice: number) => {
     setSelectedVariant(variant)
@@ -214,7 +230,7 @@ export function PurchaseStatusWrapper({
   const effectiveCompareAtPrice = variants.length === 0 ? compareAtCents : null
 
   // User owns this variant (can download if there are files)
-  const hasFiles = !!effectiveAssetId && productType === "digital"
+  const hasFiles = downloadFiles.length > 0 && productType === "digital"
   const canDownload = currentVariantHasAccess && hasFiles
 
   // Show owned state even if no files - this hides buy button and shows View in Library
@@ -226,7 +242,7 @@ export function PurchaseStatusWrapper({
       <div className="space-y-3">
         <Button
           disabled
-          className="w-full min-h-[48px]"
+          className="w-full min-h-[48px] cursor-pointer"
           style={{
             backgroundColor: buyButtonBgColor || undefined,
             color: buyButtonTextColor || undefined,
@@ -238,6 +254,78 @@ export function PurchaseStatusWrapper({
       </div>
     )
   }
+
+  const handleDownloadFile = async (assetId: string) => {
+    setDownloadingFileId(assetId)
+    await downloadEntitledFile(assetId, { receiptToken: receiptToken || undefined })
+    setDownloadingFileId(null)
+  }
+
+  const downloadFilesModal = canDownload && downloadFiles.length > 1 && (
+    <>
+      {!isMobileViewport && (
+        <Dialog open={showDownloadFilesModal} onOpenChange={setShowDownloadFilesModal}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>{selectedVariant?.name || "Download files"}</DialogTitle>
+              <DialogDescription className="sr-only">Choose and download included files.</DialogDescription>
+            </DialogHeader>
+            <div className="max-h-[60vh] space-y-2 overflow-auto pr-1">
+              {downloadFiles.map((file) => (
+                <div key={file.id} className="flex items-center justify-between rounded-xl border border-neutral-200 px-3 py-2.5">
+                  <p className="truncate pr-3 text-sm text-neutral-700">{file.file_name || "File"}</p>
+                  <Button
+                    size="sm"
+                    onClick={() => handleDownloadFile(file.id)}
+                    disabled={downloadingFileId === file.id}
+                    className="shrink-0 cursor-pointer bg-neutral-900 text-white hover:bg-black"
+                  >
+                    {downloadingFileId === file.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {isMobileViewport && showDownloadFilesModal && (
+        <div className="fixed inset-0 z-[80] bg-black/45" onClick={() => setShowDownloadFilesModal(false)}>
+          <div
+            className="absolute bottom-0 left-0 right-0 rounded-t-3xl bg-white p-4 pt-3 shadow-2xl animate-in slide-in-from-bottom duration-300"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mx-auto mb-3 h-1.5 w-14 rounded-full bg-neutral-200" />
+            <div className="mb-3 flex items-center justify-between">
+              <h4 className="text-[16px] font-semibold text-neutral-900 truncate pr-2">{selectedVariant?.name || "Download files"}</h4>
+              <button
+                type="button"
+                className="h-8 w-8 rounded-full border border-neutral-200 text-neutral-500 flex items-center justify-center cursor-pointer"
+                onClick={() => setShowDownloadFilesModal(false)}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="max-h-[60vh] space-y-2 overflow-auto pr-1 pb-2">
+              {downloadFiles.map((file) => (
+                <div key={file.id} className="flex items-center justify-between rounded-xl border border-neutral-200 px-3 py-2.5">
+                  <p className="truncate pr-3 text-sm text-neutral-700">{file.file_name || "File"}</p>
+                  <Button
+                    size="sm"
+                    onClick={() => handleDownloadFile(file.id)}
+                    disabled={downloadingFileId === file.id}
+                    className="shrink-0 cursor-pointer bg-neutral-900 text-white hover:bg-black"
+                  >
+                    {downloadingFileId === file.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  )
 
   // Render the component with unified variant selector
   // Button changes based on whether user can download the CURRENT selected variant
@@ -322,18 +410,33 @@ export function PurchaseStatusWrapper({
       {showOwnedState ? (
         <>
           {canDownload ? (
-            <DownloadButton
-              assetId={effectiveAssetId}
-              receiptToken={receiptToken}
-              className="w-full min-h-[48px]"
-              size="default"
-              style={{
-                backgroundColor: downloadButtonBgColor || undefined,
-                color: downloadButtonTextColor || undefined,
-              }}
-            >
-              Download File
-            </DownloadButton>
+            downloadFiles.length > 1 ? (
+              <Button
+                type="button"
+                onClick={() => setShowDownloadFilesModal(true)}
+                className="w-full min-h-[48px] cursor-pointer"
+                style={{
+                  backgroundColor: downloadButtonBgColor || undefined,
+                  color: downloadButtonTextColor || undefined,
+                }}
+              >
+                <FileText className="mr-2 h-4 w-4" />
+                Download Files ({downloadFiles.length})
+              </Button>
+            ) : (
+              <DownloadButton
+                assetId={effectiveAssetId}
+                receiptToken={receiptToken}
+                className="w-full min-h-[48px]"
+                size="default"
+                style={{
+                  backgroundColor: downloadButtonBgColor || undefined,
+                  color: downloadButtonTextColor || undefined,
+                }}
+              >
+                Download File
+              </DownloadButton>
+            )
           ) : (
             // Owned but no files - show a placeholder or the files aren't ready
             <Button
@@ -367,6 +470,8 @@ export function PurchaseStatusWrapper({
           {notPurchasedExtraContent}
         </>
       )}
+
+      {downloadFilesModal}
 
       {/* Variant selector - ALWAYS visible, allows switching between variants */}
       {variants.length > 0 && (

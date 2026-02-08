@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { stripe } from "@/lib/stripe"
+import { getValidatedPlatformStatementDescriptor } from "@/lib/payments/platform-descriptor"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { nanoid } from "nanoid"
@@ -160,6 +161,9 @@ export async function POST(request: Request) {
   const sessionConfig: Parameters<typeof stripe.checkout.sessions.create>[0] = {
     mode: "payment",
     payment_method_types: ["card"],
+    payment_intent_data: {
+      statement_descriptor_suffix: getValidatedPlatformStatementDescriptor(),
+    },
     line_items: [
       {
         price_data: {
@@ -197,6 +201,21 @@ export async function POST(request: Request) {
     return NextResponse.redirect(session.url!, { status: 303 })
   } catch (error) {
     console.error("[v0] Stripe session creation error:", error)
+
+    // Fail safe if provider rejects descriptor
+    const message = error instanceof Error ? error.message : String(error)
+    if (message.toLowerCase().includes("statement_descriptor")) {
+      console.error("[v0] Descriptor rejected by provider, retrying without descriptor")
+      try {
+        const fallbackConfig = { ...sessionConfig }
+        delete (fallbackConfig as any).payment_intent_data
+        const fallbackSession = await stripe.checkout.sessions.create(fallbackConfig)
+        return NextResponse.redirect(fallbackSession.url!, { status: 303 })
+      } catch (fallbackError) {
+        console.error("[v0] Fallback session creation failed:", fallbackError)
+      }
+    }
+
     return NextResponse.json({ error: "Failed to create checkout session" }, { status: 500 })
   }
 }

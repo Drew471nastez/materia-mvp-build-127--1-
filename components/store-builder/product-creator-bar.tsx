@@ -579,6 +579,7 @@ export function LiveProductCreatorBar({
   const [pulse, setPulse] = useState(false)
   const [loading, setLoading] = useState(false)
   const [isHydrated, setIsHydrated] = useState(false)
+  const [hideOnMobileDiscover, setHideOnMobileDiscover] = useState(false)
 
   const isDarkBackground = useMemo(() => isDarkHex(settings.backgroundColor), [settings.backgroundColor])
   const adaptiveInputClass = useMemo(() => getAdaptiveInputClass(isDarkBackground, settings.backgroundColor), [isDarkBackground, settings.backgroundColor])
@@ -603,6 +604,16 @@ export function LiveProductCreatorBar({
       setSubscribed(normalizeEmail(savedEmail || "") === savedSubEmail)
     }
   }, [creatorId, creatorName])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const checkDiscoverContext = () => {
+      const params = new URLSearchParams(window.location.search)
+      const isDiscoverLayout = params.get("layout") === "discover" && params.get("recommended") === "1"
+      setHideOnMobileDiscover(isDiscoverLayout)
+    }
+    checkDiscoverContext()
+  }, [])
 
   useEffect(() => {
     if (typeof window === "undefined" || !isHydrated) return
@@ -680,7 +691,7 @@ export function LiveProductCreatorBar({
 
   return (
     <div
-      className="w-full overflow-hidden"
+      className={cn("w-full overflow-hidden", hideOnMobileDiscover && "max-sm:hidden")}
       style={{
         backgroundColor: settings.backgroundColor || "#1a1a1a",
         color: settings.textColor || "#ffffff",

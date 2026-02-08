@@ -65,7 +65,17 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
     updateSectionSettings,
   } = useStoreBuilder()
 
-  const isMobile = previewDevice === "mobile"
+  const [runtimeIsMobile, setRuntimeIsMobile] = useState(false)
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 768px)")
+    const update = () => setRuntimeIsMobile(mq.matches)
+    update()
+    mq.addEventListener?.("change", update)
+    return () => mq.removeEventListener?.("change", update)
+  }, [])
+
+  const isMobile = previewDevice === "mobile" || runtimeIsMobile
   const isEditorMode = !isPreviewMode
   // In editor, sections should render in preview mode to show placeholders
   const sectionsPreviewMode = isEditorMode ? true : isPreviewMode
@@ -84,6 +94,17 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
   const memberSince = profile?.created_at || creator?.created_at
 
   const [coverEditorOpen, setCoverEditorOpen] = useState(false)
+  const [isNavigatingAway, setIsNavigatingAway] = useState(false)
+
+  useEffect(() => {
+    const handleNavigationLoading = (event: Event) => {
+      const customEvent = event as CustomEvent<{ isNavigating?: boolean }>
+      setIsNavigatingAway(!!customEvent.detail?.isNavigating)
+    }
+
+    window.addEventListener("storebuilder-navigation-loading", handleNavigationLoading as EventListener)
+    return () => window.removeEventListener("storebuilder-navigation-loading", handleNavigationLoading as EventListener)
+  }, [])
 
   const handleAvatarEdit = () => {
     setSelectedSectionId("header")
@@ -356,7 +377,7 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
 
   // Don't render sticky add-to-cart when mobile sidebar is open (to avoid overlap)
   const shouldRenderSticky =
-    currentPageType === "product" && selectedProduct && stickySettings && stickySettings.visible && canvasRect && !isMobileSidebarOpen
+    currentPageType === "product" && selectedProduct && stickySettings && stickySettings.visible && canvasRect && !isMobileSidebarOpen && !isNavigatingAway
 
   // Get theme preset for skeleton loading colors
   const themePreset = draftConfig.globalSettings?.themePreset || "default"

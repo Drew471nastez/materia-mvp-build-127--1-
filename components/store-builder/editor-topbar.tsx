@@ -67,6 +67,13 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
 
   const hasUnsavedChanges = saveState === "unsaved"
 
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("storebuilder-navigation-loading", { detail: { isNavigating } }))
+    return () => {
+      window.dispatchEvent(new CustomEvent("storebuilder-navigation-loading", { detail: { isNavigating: false } }))
+    }
+  }, [isNavigating])
+
   // Get the live store URL based on current page type (uses subdomain format)
   const getLiveStoreUrl = () => {
     if (currentPageType === "product" && selectedProductId) {

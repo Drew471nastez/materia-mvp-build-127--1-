@@ -12,7 +12,7 @@ import {
   CreditCard, Store, Shield, Settings, Wallet,
   Camera, ExternalLink, ChevronRight, Globe,
   User, Palette, Link2, FileText, Search, ChevronLeft, Upload, Copy, Pencil,
-  ToggleLeft, LogOut, Trash2, Languages, Info
+  ToggleLeft, LogOut, Trash2, Languages, Info, ChevronDown
 } from "lucide-react"
 import type { Profile, Creator } from "@/lib/types"
 import { isValidUsername } from "@/lib/reserved-words"
@@ -172,6 +172,7 @@ const TABS = [
 ] as const
 
 type TabId = typeof TABS[number]["id"]
+const TAB_IDS: TabId[] = ["general", "security", "privacy", "billing", "payments", "stores"]
 
 interface SettingsFormProps {
   profile: Profile & {
@@ -197,6 +198,7 @@ interface SettingsFormProps {
   storeBuilderAvatarUrl?: string | null
   onepageAvatarUrl?: string | null
   googleAvatarUrl?: string | null
+  initialTab?: TabId
 }
 
 // Mobile Bottom Sheet Component
@@ -731,7 +733,7 @@ function ImageUploadModal({
   )
 }
 
-export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepageAvatarUrl, googleAvatarUrl }: SettingsFormProps) {
+export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepageAvatarUrl, googleAvatarUrl, initialTab = "general" }: SettingsFormProps) {
   const router = useRouter()
   const { language: currentLanguage, setLanguage, t } = useLanguage()
   const [selectedLanguage, setSelectedLanguage] = useState(currentLanguage)
@@ -764,7 +766,16 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   const [supportEmail, setSupportEmail] = useState(creator?.support_email || "")
   const initialSupportEmail = useRef(supportEmail)
 
-  const [activeTab, setActiveTab] = useState<TabId>("general")
+  const [payoutCurrency, setPayoutCurrency] = useState((creator as any)?.payout_currency || "USD")
+  const [showCurrencyPicker, setShowCurrencyPicker] = useState(false)
+  const [isMobileViewport, setIsMobileViewport] = useState(false)
+
+  const [stripeStatus, setStripeStatus] = useState<{ connected: boolean; status: string; chargesEnabled?: boolean; payoutsEnabled?: boolean; accountId?: string | null }>({ connected: false, status: "not_connected" })
+  const [stripeStatusLoading, setStripeStatusLoading] = useState(false)
+  const [stripeBusy, setStripeBusy] = useState<"connect" | "disconnect" | null>(null)
+  const [showStripeManage, setShowStripeManage] = useState(false)
+
+  const [activeTab, setActiveTab] = useState<TabId>(initialTab)
   const [isTabLoading, setIsTabLoading] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -843,6 +854,51 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     selectedTimezone !== initialTimezone.current ||
     supportEmail !== initialSupportEmail.current
 
+
+  const loadStripeStatus = useCallback(async () => {
+    setStripeStatusLoading(true)
+    try {
+      const res = await fetch("/api/stripe/connect/status")
+      const data = await res.json()
+      if (res.ok) setStripeStatus(data)
+    } finally {
+      setStripeStatusLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (activeTab === "payments") loadStripeStatus()
+  }, [activeTab, loadStripeStatus])
+
+  const connectStripe = async () => {
+    setStripeBusy("connect")
+    try {
+      const res = await fetch("/api/stripe/connect/start", { method: "POST" })
+      const data = await res.json()
+      if (data?.url) window.location.href = data.url
+    } finally {
+      setStripeBusy(null)
+    }
+  }
+
+  const disconnectStripe = async () => {
+    setStripeBusy("disconnect")
+    try {
+      await fetch("/api/stripe/connect/disconnect", { method: "POST" })
+      await loadStripeStatus()
+    } finally {
+      setStripeBusy(null)
+    }
+  }
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 768px)")
+    const update = () => setIsMobileViewport(mq.matches)
+    update()
+    mq.addEventListener?.("change", update)
+    return () => mq.removeEventListener?.("change", update)
+  }, [])
+
   // Warn user before leaving with unsaved changes
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -893,6 +949,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
   const storeUrl = getStoreUrl(username)
   const storeUrlDisplay = getStoreUrlDisplay(username)
+  const fullNameForUsernameInput = [firstName, lastName].filter(Boolean).join(" ").trim()
 
   const validateUsername = (value: string) => {
     const cleanValue = value.toLowerCase().replace(/[^a-z0-9-]/g, "")
@@ -975,10 +1032,9 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     if (newTab === activeTab) return
     setIsTabLoading(true)
     setActiveTab(newTab)
-    // Show skeleton for 1.5 seconds
     setTimeout(() => {
       setIsTabLoading(false)
-    }, 500)
+    }, 160)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1327,7 +1383,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
       </div>
 
       <div className="h-full overflow-y-scroll overflow-x-hidden page-scroll bg-[#fafafa]" style={{ scrollbarGutter: 'stable' }}>
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-52 overflow-x-hidden">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-28 sm:pb-52 overflow-x-hidden">
         {/* Header with Store URL */}
         <div className="mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div>
@@ -1407,11 +1463,11 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
                 <div className="h-5 bg-gray-200 rounded w-40 mb-4" />
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div className="h-3 bg-gray-200 rounded w-20" />
                     <div className="h-11 bg-gray-200 rounded-xl" />
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
                     <div className="h-3 bg-gray-200 rounded w-24" />
                     <div className="h-11 bg-gray-200 rounded-xl" />
                   </div>
@@ -1490,8 +1546,13 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                     </Label>
                     <Input
                       id="firstName"
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
+                      value={fullNameForUsernameInput}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        const [first = "", ...rest] = value.trimStart().split(/\s+/)
+                        setFirstName(first)
+                        setLastName(rest.join(" "))
+                      }}
                       placeholder="Enter your display name"
                       className="h-11 border-[#e5e7eb] rounded-xl text-[14px] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
                     />
@@ -2055,118 +2116,124 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
           {/* Payments Tab */}
           {!isTabLoading && activeTab === "payments" && (
             <div className="space-y-4 sm:space-y-6">
-              {/* PayPal Card */}
-              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    {/* PayPal Logo */}
-                    <div className="w-14 h-14 flex items-center justify-center shrink-0">
-                      <svg className="w-12 h-12" viewBox="0 0 124 33" fill="none">
-                        <path d="M46.211 6.749h-6.839a.95.95 0 0 0-.939.802l-2.766 17.537a.57.57 0 0 0 .564.658h3.265a.95.95 0 0 0 .939-.803l.746-4.73a.95.95 0 0 1 .938-.803h2.165c4.505 0 7.105-2.18 7.784-6.5.306-1.89.013-3.375-.872-4.415-.972-1.142-2.696-1.746-4.985-1.746zM47.02 13.154c-.374 2.454-2.249 2.454-4.062 2.454h-1.032l.724-4.583a.57.57 0 0 1 .563-.481h.473c1.235 0 2.4 0 3.002.704.359.42.469 1.044.332 1.906z" fill="#253B80"/>
-                        <path d="M66.654 13.075h-3.275a.57.57 0 0 0-.563.481l-.145.916-.229-.332c-.709-1.029-2.29-1.373-3.868-1.373-3.619 0-6.71 2.741-7.312 6.586-.313 1.918.132 3.752 1.22 5.031.998 1.176 2.426 1.666 4.125 1.666 2.916 0 4.533-1.875 4.533-1.875l-.146.91a.57.57 0 0 0 .562.66h2.95a.95.95 0 0 0 .939-.803l1.77-11.209a.568.568 0 0 0-.561-.658zm-4.565 6.374c-.316 1.871-1.801 3.127-3.695 3.127-.951 0-1.711-.305-2.199-.883-.484-.574-.668-1.391-.514-2.301.295-1.855 1.805-3.152 3.67-3.152.93 0 1.686.309 2.184.892.499.589.697 1.411.554 2.317z" fill="#253B80"/>
-                        <path d="M84.096 13.075h-3.291a.954.954 0 0 0-.787.417l-4.539 6.686-1.924-6.425a.953.953 0 0 0-.912-.678h-3.234a.57.57 0 0 0-.541.754l3.625 10.638-3.408 4.811a.57.57 0 0 0 .465.9h3.287a.949.949 0 0 0 .781-.408l10.946-15.8a.57.57 0 0 0-.468-.895z" fill="#253B80"/>
-                        <path d="M94.992 6.749h-6.84a.95.95 0 0 0-.938.802l-2.766 17.537a.569.569 0 0 0 .562.658h3.51a.665.665 0 0 0 .656-.562l.785-4.971a.95.95 0 0 1 .938-.803h2.164c4.506 0 7.105-2.18 7.785-6.5.307-1.89.012-3.375-.873-4.415-.971-1.142-2.694-1.746-4.983-1.746zm.789 6.405c-.373 2.454-2.248 2.454-4.062 2.454h-1.031l.725-4.583a.568.568 0 0 1 .562-.481h.473c1.234 0 2.4 0 3.002.704.359.42.468 1.044.331 1.906z" fill="#179BD7"/>
-                        <path d="M115.434 13.075h-3.273a.567.567 0 0 0-.562.481l-.145.916-.23-.332c-.709-1.029-2.289-1.373-3.867-1.373-3.619 0-6.709 2.741-7.311 6.586-.312 1.918.131 3.752 1.219 5.031 1 1.176 2.426 1.666 4.125 1.666 2.916 0 4.533-1.875 4.533-1.875l-.146.91a.57.57 0 0 0 .564.66h2.949a.95.95 0 0 0 .938-.803l1.771-11.209a.571.571 0 0 0-.565-.658zm-4.565 6.374c-.314 1.871-1.801 3.127-3.695 3.127-.949 0-1.711-.305-2.199-.883-.484-.574-.666-1.391-.514-2.301.297-1.855 1.805-3.152 3.67-3.152.93 0 1.686.309 2.184.892.501.589.699 1.411.554 2.317z" fill="#179BD7"/>
-                        <path d="M119.295 7.23l-2.807 17.858a.569.569 0 0 0 .562.658h2.822c.469 0 .867-.34.939-.803l2.768-17.536a.57.57 0 0 0-.562-.659h-3.16a.571.571 0 0 0-.562.482z" fill="#179BD7"/>
-                        <path d="M7.266 29.154l.523-3.322-1.165-.027H1.061L4.927 1.292a.316.316 0 0 1 .314-.268h9.38c3.114 0 5.263.648 6.385 1.927.526.6.861 1.227 1.023 1.917.17.724.173 1.589.007 2.644l-.012.077v.676l.526.298a3.69 3.69 0 0 1 1.065.812c.45.513.741 1.165.864 1.938.127.795.085 1.741-.123 2.812-.24 1.232-.628 2.305-1.152 3.183a6.547 6.547 0 0 1-1.825 2c-.696.494-1.523.869-2.458 1.109-.906.236-1.939.355-3.072.355h-.73c-.522 0-1.029.188-1.427.525a2.21 2.21 0 0 0-.744 1.328l-.055.299-.924 5.855-.042.215c-.011.068-.03.102-.058.125a.155.155 0 0 1-.096.035H7.266z" fill="#253B80"/>
-                        <path d="M23.048 7.667c-.028.179-.06.362-.096.55-1.237 6.351-5.469 8.545-10.874 8.545H9.326c-.661 0-1.218.48-1.321 1.132L6.596 26.83l-.399 2.533a.704.704 0 0 0 .695.814h4.881c.578 0 1.069-.42 1.16-.99l.048-.248.919-5.832.059-.32c.09-.572.582-.992 1.16-.992h.73c4.729 0 8.431-1.92 9.513-7.476.452-2.321.218-4.259-.978-5.622a4.667 4.667 0 0 0-1.336-1.03z" fill="#179BD7"/>
-                        <path d="M21.754 7.151a9.757 9.757 0 0 0-1.203-.267 15.284 15.284 0 0 0-2.426-.177H11.12a1.172 1.172 0 0 0-1.159.992L8.553 17.504l-.05.31a1.336 1.336 0 0 1 1.321-1.132h2.752c5.405 0 9.637-2.195 10.874-8.545.037-.188.068-.371.096-.55a6.594 6.594 0 0 0-1.017-.354 9.04 9.04 0 0 0-.775-.082z" fill="#222D65"/>
-                        <path d="M9.961 8.699a1.17 1.17 0 0 1 1.159-.991h7.005c.83 0 1.605.054 2.426.177a9.757 9.757 0 0 1 1.203.267c.329.093.628.202.896.327.314-2.001-.003-3.362-1.086-4.596C20.273 2.48 17.857 1.8 14.621 1.8H5.241a1.34 1.34 0 0 0-1.324 1.132L.063 25.573a.806.806 0 0 0 .795.932h5.791l1.454-9.225 1.858-8.581z" fill="#253B80"/>
-                      </svg>
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-[16px] font-semibold text-[#1a1a2e]">PayPal</h3>
-                        <span className="px-2.5 py-0.5 text-[12px] font-medium bg-emerald-500 text-white rounded-full flex items-center gap-1">
-                          <Check className="h-3 w-3" />
-                          Connected
-                        </span>
-                      </div>
-                      <p className="text-[14px] text-[#6b7280] mt-0.5">Connect to accept payments from PayPal and Credit/Debit cards</p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    className="px-5 h-10 text-[14px] font-medium border border-[#e5e7eb] hover:bg-[#f9fafb] text-[#374151] rounded-lg transition-colors cursor-pointer shrink-0"
-                  >
-                    Manage
-                  </button>
-                </div>
-              </div>
-
               {/* Stripe Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    {/* Stripe Logo */}
-                    <div className="w-14 h-14 bg-[#635bff] rounded-xl flex items-center justify-center shrink-0">
-                      <span className="text-[24px] font-bold text-white">S</span>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                    <div className="w-9 h-9 sm:w-[44px] sm:h-[44px] rounded-xl overflow-hidden shrink-0">
+                      <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" fill="none" className="w-full h-full">
+                        <circle cx="512" cy="512" r="512" style={{ fill: "#635bff" }} />
+                        <path d="M781.67 515.75c0-38.35-18.58-68.62-54.08-68.62s-57.23 30.26-57.23 68.32c0 45.09 25.47 67.87 62 67.87 17.83 0 31.31-4 41.5-9.74v-30c-10.19 5.09-21.87 8.24-36.7 8.24-14.53 0-27.42-5.09-29.06-22.77h73.26c.01-1.92.31-9.71.31-13.3zm-74-14.23c0-16.93 10.34-24 19.78-24 9.14 0 18.88 7 18.88 24zm-95.14-54.39a42.32 42.32 0 0 0-29.36 11.69l-1.95-9.29h-33v174.68l37.45-7.94.15-42.4c5.39 3.9 13.33 9.44 26.52 9.44 26.82 0 51.24-21.57 51.24-69.06-.12-43.45-24.84-67.12-51.05-67.12zm-9 103.22c-8.84 0-14.08-3.15-17.68-7l-.15-55.58c3.9-4.34 9.29-7.34 17.83-7.34 13.63 0 23.07 15.28 23.07 34.91.01 20.03-9.28 35.01-23.06 35.01zM496.72 438.29l37.6-8.09v-30.41l-37.6 7.94v30.56zm0 11.39h37.6v131.09h-37.6zm-40.3 11.08L454 449.68h-32.34v131.08h37.45v-88.84c8.84-11.54 23.82-9.44 28.46-7.79v-34.45c-4.78-1.8-22.31-5.1-31.15 11.08zm-74.91-43.59L345 425l-.15 120c0 22.17 16.63 38.5 38.8 38.5 12.28 0 21.27-2.25 26.22-4.94v-30.45c-4.79 1.95-28.46 8.84-28.46-13.33v-53.19h28.46v-31.91h-28.51zm-101.27 70.56c0-5.84 4.79-8.09 12.73-8.09a83.56 83.56 0 0 1 37.15 9.59V454a98.8 98.8 0 0 0-37.12-6.87c-30.41 0-50.64 15.88-50.64 42.4 0 41.35 56.93 34.76 56.93 52.58 0 6.89-6 9.14-14.38 9.14-12.43 0-28.32-5.09-40.9-12v35.66a103.85 103.85 0 0 0 40.9 8.54c31.16 0 52.58-15.43 52.58-42.25-.17-44.63-57.25-36.69-57.25-53.47z" style={{ fill: "#fff" }} />
+                      </svg>
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-[16px] font-semibold text-[#1a1a2e]">Stripe</h3>
-                        <span className="px-2.5 py-0.5 text-[12px] font-medium bg-emerald-500 text-white rounded-full flex items-center gap-1">
-                          <Check className="h-3 w-3" />
-                          Connected
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-[15px] sm:text-[16px] font-semibold text-[#1a1a2e]">Stripe</h3>
+                        <span className={`px-1.5 py-0.5 font-medium rounded-full flex items-center gap-1 ${isMobileViewport ? "text-[8px]" : "text-[10px]"} ${stripeStatus.connected ? "bg-emerald-500 text-white" : "bg-amber-100 text-amber-700 border border-amber-200"}`}>
+                          <Check className="h-3 w-3" /> {stripeStatus.connected ? "Connected" : stripeStatusLoading ? "Checking" : "Not connected"}
                         </span>
                       </div>
-                      <p className="text-[14px] text-[#6b7280] mt-0.5">Connect to accept payments from Credit/Debit cards</p>
+                      <p className="text-[13px] sm:text-[14px] text-[#6b7280] mt-0.5">Connect to accept payments from Credit/Debit cards</p>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    className="px-5 h-10 text-[14px] font-medium border border-[#e5e7eb] hover:bg-[#f9fafb] text-[#374151] rounded-lg transition-colors cursor-pointer shrink-0"
-                  >
-                    Manage
-                  </button>
+                  <button type="button" onClick={() => setShowStripeManage((v) => !v)} className="px-4 sm:px-5 h-9 sm:h-10 text-[13px] sm:text-[14px] font-medium border border-[#e5e7eb] hover:bg-[#f9fafb] text-[#374151] rounded-lg transition-colors cursor-pointer shrink-0">{showStripeManage ? "Hide" : "Manage"}</button>
                 </div>
               </div>
 
-              {/* See all payment options link */}
-              <a
-                href="#"
-                className="inline-flex items-center gap-1 text-[14px] font-medium text-[#0891b2] hover:text-[#0e7490] transition-colors cursor-pointer"
-              >
-                See all payment options
-                <ChevronRight className="h-4 w-4" />
-              </a>
-
-              {/* Your default currency */}
-              <div className="pt-2">
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-3">Your default currency</h3>
-                <div className="max-w-[200px]">
-                  <select className="w-full h-11 rounded-xl text-[14px] border border-[#e5e7eb] px-3 bg-white hover:bg-[#f9fafb] focus:ring-[#8b5cf6] focus:border-[#8b5cf6] cursor-pointer transition-colors">
-                    <option value="EUR">EUR</option>
-                    <option value="USD">USD</option>
-                    <option value="GBP">GBP</option>
-                    <option value="CAD">CAD</option>
-                    <option value="AUD">AUD</option>
-                    <option value="JPY">JPY</option>
-                    <option value="CHF">CHF</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Statement description */}
-              <div className="pt-4">
-                <p className="text-[14px] text-[#374151] mb-3">
-                  <span className="font-semibold">Statement description</span>
-                  <span className="text-[#6b7280]"> - will appear on your customers bank statement, they should recognise it&apos;s you</span>
-                  <br />
-                  <span className="text-[13px] text-[#9ca3af]">(maximum 11 characters)</span>
-                </p>
-                <div className="flex items-center max-w-md">
-                  <div className="px-4 h-11 bg-[#f3f4f6] border border-r-0 border-[#e5e7eb] rounded-l-xl flex items-center">
-                    <span className="text-[14px] text-[#6b7280] font-medium">STORELIB*</span>
+              <div className={`grid transition-all duration-300 ease-in-out ${showStripeManage ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+                <div className="overflow-hidden">
+                  <div className="-mt-2 rounded-2xl border border-[#e5e7eb] bg-[#fafafa] p-4 sm:p-5">
+                    <p className="text-[13px] text-[#6b7280] mb-3">Manage Stripe account connection and capabilities.</p>
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      <span className="px-2 py-1 rounded-full border text-[11px] bg-white">Charges: {stripeStatus.chargesEnabled ? "Enabled" : "Pending"}</span>
+                      <span className="px-2 py-1 rounded-full border text-[11px] bg-white">Payouts: {stripeStatus.payoutsEnabled ? "Enabled" : "Pending"}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" onClick={connectStripe} disabled={stripeBusy !== null} className="h-9 px-3 rounded-lg bg-[#8b5cf6] text-white text-[13px] hover:bg-[#7c3aed] disabled:opacity-60 cursor-pointer">{stripeBusy === "connect" ? "Connecting..." : stripeStatus.connected ? "Reconnect Stripe" : "Connect Stripe"}</button>
+                      <button type="button" onClick={disconnectStripe} disabled={stripeBusy !== null || !stripeStatus.connected} className="h-9 px-3 rounded-lg border border-[#e5e7eb] text-[13px] text-[#374151] hover:bg-[#f3f4f6] disabled:opacity-60 cursor-pointer">{stripeBusy === "disconnect" ? "Disconnecting..." : "Disconnect"}</button>
+                    </div>
                   </div>
-                  <Input
-                    type="text"
-                    placeholder="YOURSTORE"
-                    maxLength={11}
-                    className="h-11 rounded-l-none rounded-r-xl text-[14px] border-[#e5e7eb] focus:ring-[#8b5cf6] focus:border-[#8b5cf6] uppercase flex-1"
-                  />
                 </div>
               </div>
+
+              {/* PayPal Card */}
+              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                    <div className="w-9 h-9 sm:w-[38px] sm:h-[38px] rounded-xl overflow-hidden shrink-0">
+                      <svg viewBox="-23 0 302 302" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+                        <path d="M217.168476 23.5070146C203.234077 7.62479651 178.045612 0.815753338 145.823355 0.815753338L52.3030619 0.815753338C45.7104431 0.815753338 40.1083819 5.6103852 39.0762042 12.1114399L0.136468302 259.076601C-0.637664968 263.946149 3.13311322 268.357876 8.06925331 268.357876H65.804612L80.3050438 176.385849L79.8555471 179.265958C80.8877248 172.764903 86.4481659 167.970272 93.0324607 167.970272H120.46841C174.366398 167.970272 216.569147 146.078116 228.897012 82.7490197C229.263268 80.8761167 229.579581 79.0531577 229.854273 77.2718188C233.525163 53.8646924 229.829301 37.9325302 217.168476 23.5070146" fill="#27346A" />
+                        <path d="M228.897012 82.7490197C216.569147 146.069792 174.366398 167.970272 120.46841 167.970272H93.0241367C86.4398419 167.970272 80.8794007 172.764903 79.8555471 179.265958L61.8174095 293.621258C61.1431644 297.883153 64.4394738 301.745495 68.7513129 301.745495H117.421821C123.182038 301.745495 128.084882 297.550192 128.983876 291.864891L138.631407 231.249423C140.121406 222.351053 145.02425 218.15575 150.784467 218.15575H158.067979C205.215193 218.15575 242.132193 199.002194 252.920115 143.605884C257.423406 120.456802 255.092683 101.128442 243.181019 87.5519756C239.568397 83.4399129 235.081754 80.0437153 229.854273 77.2718188C229.571257 79.0614817 229.263268 80.8761167 228.897012 82.7490197" fill="#2790C3" />
+                      </svg>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-[15px] sm:text-[16px] font-semibold text-[#1a1a2e]">PayPal</h3>
+                        <span className={`px-1.5 py-0.5 font-medium bg-[#eef2ff] text-[#635bff] rounded-full border border-[#dbe4ff] ${isMobileViewport ? "text-[8px]" : "text-[10px]"}`}>Coming soon</span>
+                      </div>
+                      <p className="text-[13px] sm:text-[14px] text-[#6b7280] mt-0.5">PayPal payouts and card-backed options will be available soon.</p>
+                    </div>
+                  </div>
+                  <button type="button" disabled className="px-4 sm:px-5 h-9 sm:h-10 text-[13px] sm:text-[14px] font-medium border border-[#e5e7eb] text-[#9ca3af] rounded-lg cursor-not-allowed shrink-0">Soon</button>
+                </div>
+              </div>
+
+              <div className="relative inline-flex group">
+                <a href="#" className="inline-flex items-center gap-1 text-[14px] font-medium text-[#0891b2] hover:text-[#0e7490] transition-colors cursor-pointer">
+                  See all payment options
+                  <ChevronRight className="h-4 w-4" />
+                </a>
+                <div className="absolute left-0 top-full mt-2 hidden group-hover:flex items-center gap-1.5 rounded-lg bg-[#111827] text-white text-xs px-3 py-2 shadow-lg z-20 whitespace-nowrap">
+                  <Info className="h-3.5 w-3.5 text-[#93c5fd]" />
+                  More payment options coming soon.
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-2">Your default currency</h3>
+                <button
+                  type="button"
+                  onClick={() => setShowCurrencyPicker(true)}
+                  className="w-full max-w-[210px] h-9 rounded-xl text-[13px] border border-[#e5e7eb] px-3 bg-white hover:bg-[#f9fafb] transition-colors flex items-center justify-between cursor-pointer"
+                >
+                  <span>{payoutCurrency}</span>
+                  <ChevronDown className="h-4 w-4 text-[#6b7280]" />
+                </button>
+                <p className="text-[12px] text-[#9ca3af] mt-2">Prices are shown in USD. Payouts are settled in your selected currency.</p>
+                <p className="text-[12px] text-[#9ca3af] mt-1">Lock all buyer-facing prices to USD only.</p>
+              </div>
+
+              {showCurrencyPicker && !isMobileViewport && (
+                <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-4" onClick={() => setShowCurrencyPicker(false)}>
+                  <div className="w-full max-w-[420px] rounded-2xl bg-white border border-[#e5e7eb] p-4 sm:p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                    <h4 className="text-[16px] font-semibold text-[#1a1a2e] mb-1">Select payout currency</h4>
+                    <p className="text-[12px] text-[#6b7280] mb-3">Choose your payout settlement currency.</p>
+                    <div className="space-y-2 max-h-[52vh] overflow-y-auto pr-1">
+                      {(["USD", "EUR", "GBP", "CAD", "AUD", "JPY", "CHF", "SEK", "NOK", "NZD"] as const).map((currency) => (
+                        <button key={currency} type="button" onClick={() => { setPayoutCurrency(currency); setShowCurrencyPicker(false) }} className={`w-full text-left px-3 py-3 rounded-xl text-[14px] font-medium transition-colors flex items-center justify-between cursor-pointer ${payoutCurrency === currency ? "bg-[#f5f3ff] text-[#8b5cf6]" : "text-[#374151] hover:bg-[#f3f4f6]"}`}>
+                          {currency}
+                          {payoutCurrency === currency && <Check className="h-4 w-4" />}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <MobileBottomSheet
+                isOpen={showCurrencyPicker && isMobileViewport}
+                onClose={() => setShowCurrencyPicker(false)}
+                title="Select payout currency"
+              >
+                <div className="space-y-2 pb-2">
+                  {(["USD", "EUR", "GBP", "CAD", "AUD", "JPY", "CHF", "SEK", "NOK", "NZD"] as const).map((currency) => (
+                    <button key={currency} type="button" onClick={() => { setPayoutCurrency(currency); setShowCurrencyPicker(false) }} className={`w-full text-left px-3 py-3 rounded-xl text-[14px] font-medium transition-colors flex items-center justify-between cursor-pointer ${payoutCurrency === currency ? "bg-[#f5f3ff] text-[#8b5cf6]" : "text-[#374151] hover:bg-[#f3f4f6]"}`}>
+                      {currency}
+                      {payoutCurrency === currency && <Check className="h-4 w-4" />}
+                    </button>
+                  ))}
+                </div>
+              </MobileBottomSheet>
             </div>
           )}
 

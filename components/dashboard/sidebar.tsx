@@ -90,6 +90,14 @@ export function DashboardSidebar() {
       </nav>
 
       <div className="border-t border-border p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <Link
+          href="/explore"
+          onClick={onItemClick}
+          className="mb-2 flex items-center justify-center gap-2 rounded-lg px-3 py-3 min-h-[44px] text-sm font-medium bg-neutral-100 text-neutral-700 hover:bg-neutral-200 hover:text-neutral-900 active:scale-[0.98] transition-colors cursor-pointer"
+        >
+          <Compass className="h-4 w-4 shrink-0" />
+          <span className="truncate">Explore</span>
+        </Link>
         {!isCreator && (
           <Link
             href="/signup/success?action=become-creator"
@@ -109,17 +117,9 @@ export function DashboardSidebar() {
             <span>Dashboard</span>
           </Link>
         )}
-        <Link
-          href="/explore"
-          onClick={onItemClick}
-          className="mb-1 flex items-center gap-3 rounded-full px-4 py-2.5 min-h-[40px] text-sm font-medium bg-neutral-100 text-neutral-600 hover:bg-neutral-200 hover:text-neutral-900 active:scale-[0.98] transition-colors"
-        >
-          <Compass className="h-4 w-4 shrink-0" />
-          <span className="truncate">Explore Products</span>
-        </Link>
         <Button
           variant="ghost"
-          className="w-full justify-start min-h-[44px] text-muted-foreground hover:bg-muted/50 hover:text-foreground active:scale-[0.98]"
+          className="w-full justify-start min-h-[44px] text-muted-foreground hover:bg-muted/50 hover:text-foreground active:scale-[0.98] cursor-pointer"
           onClick={handleSignOut}
         >
           <LogOut className="mr-3 h-5 w-5 shrink-0" />
@@ -136,9 +136,9 @@ export function DashboardSidebar() {
           <Image
             src={LOGO_URL}
             alt="Storelib"
-            width={32}
-            height={32}
-            className="h-8 w-8 shrink-0"
+            width={37}
+            height={37}
+            className="h-[37px] w-[37px] shrink-0"
           />
           <span className="text-lg font-semibold tracking-tight">Storelib</span>
         </Link>

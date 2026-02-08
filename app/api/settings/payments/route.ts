@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { getValidatedPlatformStatementDescriptor } from "@/lib/payments/platform-descriptor"
 
 export async function POST(request: Request) {
   try {
@@ -28,12 +29,12 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { defaultCurrency, statementDescriptor, allowPaypal, paypalEmail } = body
+    const { defaultCurrency, allowPaypal, paypalEmail } = body
 
-    // Validate statement descriptor (max 22 chars, Stripe requirement)
-    if (statementDescriptor && statementDescriptor.length > 22) {
-      return NextResponse.json({ error: "Statement descriptor must be 22 characters or less" }, { status: 400 })
-    }
+    const SUPPORTED_PAYOUT_CURRENCIES = ["USD", "EUR", "GBP", "CAD", "AUD", "JPY", "CHF", "SEK", "NOK", "NZD"]
+    const payoutCurrency = SUPPORTED_PAYOUT_CURRENCIES.includes((defaultCurrency || "USD").toUpperCase())
+      ? (defaultCurrency || "USD").toUpperCase()
+      : "USD"
 
     if (paypalEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(paypalEmail)) {
       return NextResponse.json({ error: "Invalid PayPal email format" }, { status: 400 })
@@ -43,8 +44,9 @@ export async function POST(request: Request) {
     await adminSupabase
       .from("creators")
       .update({
-        default_currency: defaultCurrency || "USD",
-        statement_descriptor: statementDescriptor || null,
+        default_currency: "USD",
+        payout_currency: payoutCurrency,
+        statement_descriptor: getValidatedPlatformStatementDescriptor(),
         allow_paypal: allowPaypal || false,
         paypal_merchant_id: paypalEmail || null,
       })

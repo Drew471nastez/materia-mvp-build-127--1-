@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { Heart, Trash2, Loader2, ShoppingBag, ArrowRight } from "lucide-react"
+import { Heart, X, Loader2, ShoppingBag, ArrowRight } from "lucide-react"
 import { getStoreUrl, getProductUrl } from "@/lib/url-helpers"
 
 interface WishlistItem {
@@ -34,6 +34,7 @@ interface WishlistItem {
 
 interface WishlistContentProps {
   isLibrary?: boolean
+  showDiscoverMoreCta?: boolean
 }
 
 // Helper to get guest ID from cookie
@@ -54,7 +55,7 @@ function saveGuestId(guestId: string): void {
   }
 }
 
-export function WishlistContent({ isLibrary = false }: WishlistContentProps) {
+export function WishlistContent({ isLibrary = false, showDiscoverMoreCta = false }: WishlistContentProps) {
   const [items, setItems] = useState<WishlistItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [removingId, setRemovingId] = useState<string | null>(null)
@@ -207,13 +208,13 @@ export function WishlistContent({ isLibrary = false }: WishlistContentProps) {
               <button
                 onClick={() => removeItem(product.id)}
                 disabled={isRemoving}
-                className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50 cursor-pointer"
+                className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity hover:bg-red-50 cursor-pointer"
                 aria-label="Remove from wishlist"
               >
                 {isRemoving ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin text-neutral-400" />
                 ) : (
-                  <Trash2 className="h-3.5 w-3.5 text-neutral-500 hover:text-red-500" />
+                  <X className="h-3.5 w-3.5 text-neutral-500 hover:text-red-500" />
                 )}
               </button>
 
@@ -257,6 +258,17 @@ export function WishlistContent({ isLibrary = false }: WishlistContentProps) {
           )
         })}
       </div>
+      {showDiscoverMoreCta && items.length > 0 && (
+        <div className="mt-6 flex justify-center">
+          <Link
+            href="/explore"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-800 transition-colors"
+          >
+            Discover More
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+      )}
     </div>
   )
 }

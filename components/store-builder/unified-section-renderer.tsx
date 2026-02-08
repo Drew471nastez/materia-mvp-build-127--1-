@@ -287,8 +287,8 @@ function UnifiedReviewsSection({
     <div
       className={cn(
         "mx-auto w-full",
-        // Mobile: tighter padding (px-2)
-        isMobile && "px-2",
+        // Mobile: fixed 7px horizontal spacing
+        isMobile && "px-[7px]",
         // Desktop: max width 1150px with standard padding
         !isMobile && "max-w-[1150px] px-4 sm:px-6",
       )}
@@ -2089,6 +2089,7 @@ function UnifiedFeaturedProductsSection({
   globalSettings?: GlobalStoreSettings
 }) {
   const spacing = isMobile && settings.mobileSpacing ? settings.mobileSpacing : settings.spacing
+  const horizontalPadding = 8
 
   // Get theme preset for mobile filter pills styling
   const themePreset = globalSettings?.themePreset || "default"
@@ -2263,8 +2264,8 @@ function UnifiedFeaturedProductsSection({
           style={{
             paddingTop: spacing.paddingTop,
             paddingBottom: spacing.paddingBottom,
-            paddingLeft: spacing.paddingLeft,
-            paddingRight: spacing.paddingRight,
+            paddingLeft: horizontalPadding,
+            paddingRight: horizontalPadding,
           }}
         >
           <h2
@@ -2297,8 +2298,8 @@ function UnifiedFeaturedProductsSection({
       style={{
         paddingTop: spacing.paddingTop,
         paddingBottom: spacing.paddingBottom,
-        paddingLeft: spacing.paddingLeft,
-        paddingRight: spacing.paddingRight,
+        paddingLeft: horizontalPadding,
+        paddingRight: horizontalPadding,
       }}
     >
       <div className={cn("flex", uiIsMobile ? "flex-col" : "flex-col md:flex-row md:gap-8")}>
@@ -3244,24 +3245,19 @@ export function UnifiedProductPage({
                         {profile?.display_name || "Creator"}
                       </p>
                       {(settings.showRatingNextToSeller ?? true) && reviewsCount > 0 && (
-                        <div className="flex items-center gap-1 shrink-0">
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <Star
-                              key={star}
-                              className={cn(
-                                "h-4 w-4",
-                                star <= Math.round(reviewsAverage)
-                                  ? themeTextColor ? "fill-current" : "fill-current text-black"
-                                  : isDarkTheme ? "text-gray-500" : "text-gray-300",
-                              )}
-                              style={star <= Math.round(reviewsAverage) && themeTextColor ? { color: themeTextColor } : undefined}
-                            />
-                          ))}
+                        <div className="flex items-center gap-1.5 shrink-0 whitespace-nowrap">
+                          <Star
+                            className={cn(
+                              "h-4 w-4",
+                              themeTextColor ? "fill-current" : "fill-current text-black"
+                            )}
+                            style={themeTextColor ? { color: themeTextColor } : undefined}
+                          />
                           <span
-                            className={cn("text-sm ml-1", !themeMutedColor && "text-muted-foreground")}
+                            className={cn("text-sm", !themeMutedColor && "text-muted-foreground")}
                             style={{ color: themeMutedColor }}
                           >
-                            ({reviewsCount})
+                            {reviewsAverage > 0 ? reviewsAverage.toFixed(1) : "5.0"}
                           </span>
                         </div>
                       )}
@@ -3503,7 +3499,7 @@ export function UnifiedProductPage({
                           <AvatarImage src={profile?.avatar_url || undefined} />
                           <AvatarFallback>{initials || "?"}</AvatarFallback>
                         </Avatar>
-                        <div className="min-w-0 flex items-center gap-2">
+                        <div className="min-w-0 flex items-center gap-2 flex-1">
                           <p
                             className={cn("font-medium truncate text-sm", !themeTextColor && "text-foreground")}
                             style={{ color: themeTextColor }}
@@ -3511,24 +3507,19 @@ export function UnifiedProductPage({
                             {profile?.display_name || "Creator"}
                           </p>
                           {(settings.showRatingNextToSeller ?? true) && reviewsCount > 0 && (
-                            <div className="flex items-center gap-0.5 shrink-0">
-                              {[1, 2, 3, 4, 5].map((star) => (
-                                <Star
-                                  key={star}
-                                  className={cn(
-                                    "h-3 w-3",
-                                    star <= Math.round(reviewsAverage)
-                                      ? themeTextColor ? "fill-current" : "fill-current text-black"
-                                      : isDarkTheme ? "text-gray-500" : "text-gray-300",
-                                  )}
-                                  style={star <= Math.round(reviewsAverage) && themeTextColor ? { color: themeTextColor } : undefined}
-                                />
-                              ))}
+                            <div className="flex items-center gap-1 shrink-0 whitespace-nowrap">
+                              <Star
+                                className={cn(
+                                  "h-3.5 w-3.5",
+                                  themeTextColor ? "fill-current" : "fill-current text-black"
+                                )}
+                                style={themeTextColor ? { color: themeTextColor } : undefined}
+                              />
                               <span
-                                className={cn("text-xs ml-1", !themeMutedColor && "text-muted-foreground")}
+                                className={cn("text-sm", !themeMutedColor && "text-muted-foreground")}
                                 style={{ color: themeMutedColor }}
                               >
-                                ({reviewsCount})
+                                {reviewsAverage > 0 ? reviewsAverage.toFixed(1) : "5.0"}
                               </span>
                             </div>
                           )}

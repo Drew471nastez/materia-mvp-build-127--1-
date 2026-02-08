@@ -157,9 +157,9 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 
   const mainNavItems = [
     { href: "/app", label: t("nav.dashboard"), icon: LayoutDashboard },
-    { href: "/app/sales", label: t("nav.sales"), icon: ShoppingCart },
     { href: "/app/products", label: t("nav.products"), icon: Package },
     { href: "/app/analytics", label: t("nav.analytics"), icon: BarChart3 },
+    { href: "/app/sales", label: t("nav.sales"), icon: ShoppingCart },
     { href: "/app/onepage", label: t("nav.onepage"), icon: Link2, forceNavigation: true },
     { href: "/store-builder", label: t("nav.storeBuilder"), icon: StoreBuilderIcon, forceNavigation: true },
     { href: "/app/emails", label: t("nav.emails"), icon: Mail },
@@ -403,23 +403,23 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             <img
               src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
               alt="Storelib"
-              className="h-8 w-8"
+              className="h-8 w-8 xl:h-[30px] xl:w-[30px]"
             />
-            <span className="text-[17px] font-semibold text-neutral-900">Storelib</span>
+            <span className="text-[17px] xl:text-[15px] font-semibold text-neutral-900">Storelib</span>
           </Link>
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => setNotificationsOpen(true)}
-              className="flex h-6 w-6 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 transition-colors relative cursor-pointer"
+              className="flex h-6 w-6 xl:h-[22px] xl:w-[22px] items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 transition-colors relative cursor-pointer"
             >
-              <Bell className="h-[19px] w-[19px]" strokeWidth={1.5} />
+              <Bell className="h-[19px] w-[19px] xl:h-[17px] xl:w-[17px]" strokeWidth={1.5} />
               <NotificationBadge count={notificationCount} />
             </button>
             <Link
               href="/app/settings"
-              className="flex h-7 w-7 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 transition-colors cursor-pointer"
+              className="flex h-7 w-7 xl:h-[26px] xl:w-[26px] items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 transition-colors cursor-pointer"
             >
-              <Settings className="h-[19px] w-[19px]" strokeWidth={1.5} />
+              <Settings className="h-[19px] w-[19px] xl:h-[17px] xl:w-[17px]" strokeWidth={1.5} />
             </Link>
           </div>
         </div>

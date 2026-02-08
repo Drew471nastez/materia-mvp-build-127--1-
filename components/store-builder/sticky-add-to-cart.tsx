@@ -4,8 +4,11 @@ import type React from "react"
 import { useEffect, useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { Star } from "lucide-react"
+import { Star, Download, Loader2, X } from "lucide-react"
 import { stickyAddToCartButtonPresets } from "@/lib/store-builder/defaults"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { downloadEntitledFile } from "@/components/download-button"
+import { getCanonicalSiteUrl } from "@/lib/url-helpers"
 
 export interface StickyAddToCartSettings {
   visible: boolean
@@ -30,6 +33,9 @@ interface ProductData {
 }
 
 interface StickyAddToCartProps {
+  isPurchased?: boolean
+  downloadFiles?: Array<{ id: string; file_name?: string }>
+
   settings: StickyAddToCartSettings
   product: ProductData
   creatorId?: string
@@ -52,6 +58,8 @@ function getButtonText(style: StickyAddToCartSettings["buttonStyle"]): string {
 export function EditorStickyAddToCart({
   settings,
   product,
+  isPurchased = false,
+  downloadFiles = [],
   isEditorPreview,
   isMobile,
   isSelected,
@@ -66,7 +74,15 @@ export function EditorStickyAddToCart({
   // This fixes the issue where the bar wasn't showing in the editor preview
   const shouldShow = true
 
-  const buttonText = getButtonText(settings.buttonStyle)
+  const buttonText = isPurchased ? "Download" : getButtonText(settings.buttonStyle)
+  const [showFilesModal, setShowFilesModal] = useState(false)
+  const [downloadingId, setDownloadingId] = useState<string | null>(null)
+
+  const handleDownloadFile = async (assetId: string) => {
+    setDownloadingId(assetId)
+    await downloadEntitledFile(assetId)
+    setDownloadingId(null)
+  }
   const reviewsCount = product.reviews_count || 0
   const reviewsAverage = product.reviews_average || 0
   const hasReviews = reviewsCount > 0
@@ -78,6 +94,9 @@ export function EditorStickyAddToCart({
   const handleButtonClick = (e: React.MouseEvent) => {
     e.stopPropagation()
     if (isEditorPreview) return
+    if (isPurchased) {
+      return
+    }
     let checkoutUrl = `/checkout?productId=${product.id}`
     if (product.selectedVariantId) {
       checkoutUrl += `&variantId=${product.selectedVariantId}`
@@ -141,7 +160,8 @@ export function EditorStickyAddToCart({
   }
 
   return (
-    <div
+    <>
+      <div
       onClick={handleWrapperClick}
       className={cn(
         "sticky bottom-0 w-full z-30 border-t shadow-[0_-4px_12px_rgba(0,0,0,0.08)] transition-all duration-300",
@@ -194,7 +214,55 @@ export function EditorStickyAddToCart({
           </Button>
         </div>
       </div>
-    </div>
+      </div>
+
+      {downloadFiles.length > 1 && (
+        <>
+          <Dialog open={showFilesModal} onOpenChange={setShowFilesModal}>
+            <DialogContent className="sm:max-w-lg">
+              <DialogHeader>
+                <DialogTitle>{product.title}</DialogTitle>
+                <DialogDescription className="sr-only">Choose and download included files.</DialogDescription>
+              </DialogHeader>
+              <div className="max-h-[60vh] space-y-2 overflow-auto pr-1">
+                {downloadFiles.map((file) => (
+                  <div key={file.id} className="flex items-center justify-between rounded-xl border border-neutral-200 px-3 py-2.5">
+                    <p className="truncate pr-3 text-sm text-neutral-700">{file.file_name || "File"}</p>
+                    <Button size="sm" onClick={() => handleDownloadFile(file.id)} disabled={downloadingId === file.id} className="shrink-0 cursor-pointer bg-neutral-900 text-white hover:bg-black">
+                      {downloadingId === file.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {showFilesModal && (
+            <div className="sm:hidden fixed inset-0 z-[80] bg-black/45" onClick={() => setShowFilesModal(false)}>
+              <div className="absolute bottom-0 left-0 right-0 rounded-t-3xl bg-white p-4 pt-3 shadow-2xl animate-in slide-in-from-bottom duration-300" onClick={(e) => e.stopPropagation()}>
+                <div className="mx-auto mb-3 h-1.5 w-14 rounded-full bg-neutral-200" />
+                <div className="mb-3 flex items-center justify-between">
+                  <h4 className="text-[16px] font-semibold text-neutral-900 truncate pr-2">{product.title}</h4>
+                  <button type="button" className="h-8 w-8 rounded-full border border-neutral-200 text-neutral-500 flex items-center justify-center cursor-pointer" onClick={() => setShowFilesModal(false)}>
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="max-h-[60vh] space-y-2 overflow-auto pr-1 pb-2">
+                  {downloadFiles.map((file) => (
+                    <div key={file.id} className="flex items-center justify-between rounded-xl border border-neutral-200 px-3 py-2.5">
+                      <p className="truncate pr-3 text-sm text-neutral-700">{file.file_name || "File"}</p>
+                      <Button size="sm" onClick={() => handleDownloadFile(file.id)} disabled={downloadingId === file.id} className="shrink-0 cursor-pointer bg-neutral-900 text-white hover:bg-black">
+                        {downloadingId === file.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </>
   )
 }
 
@@ -203,10 +271,14 @@ export function LiveStickyAddToCart({
   product,
   creatorId,
   onAddToCart,
+  isPurchased = false,
+  downloadFiles = [],
 }: StickyAddToCartProps & { onAddToCart?: () => void }) {
   // Start hidden - only show after scrolling past product content area
   const [isVisible, setIsVisible] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
+  const [showFilesModal, setShowFilesModal] = useState(false)
+  const [downloadingId, setDownloadingId] = useState<string | null>(null)
   const barRef = useRef<HTMLDivElement>(null)
 
   // Mount on client
@@ -298,12 +370,32 @@ export function LiveStickyAddToCart({
   // Don't render on server or if settings say not visible
   if (!isMounted || !settings.visible) return null
 
-  const buttonText = getButtonText(settings.buttonStyle)
+  const buttonText = isPurchased ? "Download" : getButtonText(settings.buttonStyle)
+
+  const handleDownloadFile = async (assetId: string) => {
+    setDownloadingId(assetId)
+    await downloadEntitledFile(assetId)
+    setDownloadingId(null)
+  }
   const reviewsCount = product.reviews_count || 0
   const reviewsAverage = product.reviews_average || 0
   const hasReviews = reviewsCount > 0
 
   const handleClick = () => {
+    if (isPurchased) {
+      if (downloadFiles.length > 1) {
+        setShowFilesModal(true)
+        return
+      }
+      if (downloadFiles.length === 1) {
+        handleDownloadFile(downloadFiles[0].id)
+        return
+      }
+      const canonical = getCanonicalSiteUrl()
+      window.location.assign(new URL("/library/my-downloads", canonical).toString())
+      return
+    }
+
     if (onAddToCart) {
       onAddToCart()
     } else {
@@ -367,6 +459,7 @@ export function LiveStickyAddToCart({
   }
 
   return (
+    <>
     <div
       ref={barRef}
       className={cn(
@@ -439,5 +532,53 @@ export function LiveStickyAddToCart({
         </div>
       </div>
     </div>
+
+      {downloadFiles.length > 1 && (
+        <>
+          <Dialog open={showFilesModal} onOpenChange={setShowFilesModal}>
+            <DialogContent className="sm:max-w-lg">
+              <DialogHeader>
+                <DialogTitle>{product.title}</DialogTitle>
+                <DialogDescription className="sr-only">Choose and download included files.</DialogDescription>
+              </DialogHeader>
+              <div className="max-h-[60vh] space-y-2 overflow-auto pr-1">
+                {downloadFiles.map((file) => (
+                  <div key={file.id} className="flex items-center justify-between rounded-xl border border-neutral-200 px-3 py-2.5">
+                    <p className="truncate pr-3 text-sm text-neutral-700">{file.file_name || "File"}</p>
+                    <Button size="sm" onClick={() => handleDownloadFile(file.id)} disabled={downloadingId === file.id} className="shrink-0 cursor-pointer bg-neutral-900 text-white hover:bg-black">
+                      {downloadingId === file.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {showFilesModal && (
+            <div className="sm:hidden fixed inset-0 z-[80] bg-black/45" onClick={() => setShowFilesModal(false)}>
+              <div className="absolute bottom-0 left-0 right-0 rounded-t-3xl bg-white p-4 pt-3 shadow-2xl animate-in slide-in-from-bottom duration-300" onClick={(e) => e.stopPropagation()}>
+                <div className="mx-auto mb-3 h-1.5 w-14 rounded-full bg-neutral-200" />
+                <div className="mb-3 flex items-center justify-between">
+                  <h4 className="text-[16px] font-semibold text-neutral-900 truncate pr-2">{product.title}</h4>
+                  <button type="button" className="h-8 w-8 rounded-full border border-neutral-200 text-neutral-500 flex items-center justify-center cursor-pointer" onClick={() => setShowFilesModal(false)}>
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="max-h-[60vh] space-y-2 overflow-auto pr-1 pb-2">
+                  {downloadFiles.map((file) => (
+                    <div key={file.id} className="flex items-center justify-between rounded-xl border border-neutral-200 px-3 py-2.5">
+                      <p className="truncate pr-3 text-sm text-neutral-700">{file.file_name || "File"}</p>
+                      <Button size="sm" onClick={() => handleDownloadFile(file.id)} disabled={downloadingId === file.id} className="shrink-0 cursor-pointer bg-neutral-900 text-white hover:bg-black">
+                        {downloadingId === file.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </>
   )
 }

@@ -1,7 +1,6 @@
 import { Metadata } from "next"
 import { Suspense } from "react"
 import { WishlistContent } from "@/components/wishlist/wishlist-content"
-import { PlatformHeaderClient } from "@/components/platform/platform-header-client"
 
 export const metadata: Metadata = {
   title: "My Wishlist | Storelib",
@@ -29,20 +28,16 @@ function WishlistSkeleton() {
 
 export default function WishlistPage() {
   return (
-    <div className="min-h-screen bg-white">
-      <Suspense fallback={<div className="h-16 border-b border-gray-200 bg-white" />}>
-        <PlatformHeaderClient />
-      </Suspense>
-
-      <main className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8">
+    <main className="min-h-screen bg-white">
+      <div className="mx-auto max-w-6xl lg:max-w-[1270px] px-4 sm:px-6 lg:px-8 pt-4 pb-8">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-neutral-900">My Wishlist</h1>
+          <h1 className="text-2xl font-bold text-neutral-900">Wishlist</h1>
           <p className="text-sm text-neutral-500 mt-1">Products you&apos;ve saved for later</p>
         </div>
         <Suspense fallback={<WishlistSkeleton />}>
-          <WishlistContent />
+          <WishlistContent showDiscoverMoreCta />
         </Suspense>
-      </main>
-    </div>
+      </div>
+    </main>
   )
 }

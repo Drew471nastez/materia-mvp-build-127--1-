@@ -1,12 +1,13 @@
 "use client"
 
-import { usePathname } from "next/navigation"
+import { usePathname, useSearchParams } from "next/navigation"
 import { useEffect, useState } from "react"
 import { PlatformHeaderClient } from "@/components/platform/platform-header-client"
 import { extractUsernameFromHost } from "@/lib/url-helpers"
 
 export function ConditionalHeader() {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const [showPlatformHeader, setShowPlatformHeader] = useState(false)
   const [isHydrated, setIsHydrated] = useState(false)
 
@@ -17,19 +18,24 @@ export function ConditionalHeader() {
   useEffect(() => {
     if (!isHydrated) return
 
-    // Check if we're on a seller subdomain (e.g., username.storelib.com)
     const host = typeof window !== "undefined" ? window.location.host : ""
     const isSubdomain = extractUsernameFromHost(host) !== null
 
-    // 🚫 Never show platform header on seller storefront pages (no exceptions)
-    // This includes /u/, /p/, and /l/ paths, as well as subdomain access
-    const isSellerPage = isSubdomain || pathname.startsWith("/u/") || pathname.startsWith("/p/") || pathname.startsWith("/l/")
+    const discoverLayout = searchParams.get("layout") === "discover" || searchParams.has("recommended")
+    const isSellerPath = pathname.startsWith("/u/") || pathname.startsWith("/p/") || pathname.startsWith("/l/")
+
+    // allow platform header on discover-style product page layouts
+    if ((isSubdomain || isSellerPath) && discoverLayout) {
+      setShowPlatformHeader(true)
+      return
+    }
+
+    const isSellerPage = isSubdomain || isSellerPath
     if (isSellerPage) {
       setShowPlatformHeader(false)
       return
     }
 
-    // ✅ Show platform header only on actual platform pages
     const isPlatformPage =
       pathname === "/" ||
       pathname.startsWith("/feed") ||
@@ -42,7 +48,7 @@ export function ConditionalHeader() {
       pathname.startsWith("/marketplace")
 
     setShowPlatformHeader(isPlatformPage)
-  }, [pathname, isHydrated])
+  }, [pathname, searchParams, isHydrated])
 
   return showPlatformHeader ? <PlatformHeaderClient /> : null
 }
