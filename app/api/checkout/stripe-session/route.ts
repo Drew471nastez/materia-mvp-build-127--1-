@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { stripe } from "@/lib/stripe"
+import { getValidatedPlatformStatementDescriptor } from "@/lib/payments/platform-descriptor"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { nanoid } from "nanoid"
@@ -274,11 +275,27 @@ export async function POST(request: Request) {
         transfer_data: {
           destination: product.creator.stripe_account_id,
         },
+        statement_descriptor_suffix: getValidatedPlatformStatementDescriptor(),
       }
       console.log("[v0] Added destination charge to:", product.creator.stripe_account_id, "fee:", platformFee)
+    } else {
+      sessionConfig.payment_intent_data = {
+        statement_descriptor_suffix: getValidatedPlatformStatementDescriptor(),
+      }
     }
 
-    const session = await stripe.checkout.sessions.create(sessionConfig)
+    let session
+    try {
+      session = await stripe.checkout.sessions.create(sessionConfig)
+    } catch (descriptorError: any) {
+      if (String(descriptorError?.message || "").toLowerCase().includes("statement_descriptor")) {
+        console.error("[v0] Descriptor rejected by provider, retrying without descriptor")
+        const fallbackConfig = { ...sessionConfig, payment_intent_data: undefined }
+        session = await stripe.checkout.sessions.create(fallbackConfig)
+      } else {
+        throw descriptorError
+      }
+    }
 
     console.log("[v0] Stripe session created:", session.id)
     return NextResponse.json({ clientSecret: session.client_secret })

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import Stripe from "stripe"
 import { createClient } from "@/lib/supabase/server"
 import crypto from "crypto"
+import { getValidatedPlatformStatementDescriptor } from "@/lib/payments/platform-descriptor"
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2024-04-10",
@@ -48,15 +49,18 @@ export async function POST(req: Request) {
       )
     }
 
-    const currency = (product.currency || "usd").toLowerCase()
+    const currency = "usd"
 
     // Used for guest access email link (stored by webhook into orders.access_token)
     const accessToken = crypto.randomBytes(24).toString("hex")
 
-    const intent = await stripe.paymentIntents.create({
+    let intent
+    try {
+      intent = await stripe.paymentIntents.create({
       amount: product.price_cents,
       currency,
       receipt_email: email,
+      statement_descriptor_suffix: getValidatedPlatformStatementDescriptor(),
       automatic_payment_methods: { enabled: true },
 
       // IMPORTANT: metadata keys must match your webhook
@@ -68,6 +72,26 @@ export async function POST(req: Request) {
         access_token: accessToken,
       },
     })
+    } catch (descriptorError: any) {
+      if (String(descriptorError?.message || "").toLowerCase().includes("statement_descriptor")) {
+        console.error("[create-intent] descriptor rejected, retrying without descriptor")
+        intent = await stripe.paymentIntents.create({
+          amount: product.price_cents,
+          currency,
+          receipt_email: email,
+          automatic_payment_methods: { enabled: true },
+          metadata: {
+            product_id: product.id,
+            creator_id: product.creator_id,
+            buyer_id: user?.id || "",
+            email,
+            access_token: accessToken,
+          },
+        })
+      } else {
+        throw descriptorError
+      }
+    }
 
     return NextResponse.json({ clientSecret: intent.client_secret })
   } catch (err: any) {

@@ -1,19 +1,17 @@
-import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
-import { PaymentsContent } from "@/components/app/payments-content"
+import { SettingsFormNew } from "@/components/app/settings-form-new"
+import { loadSettingsData } from "../_server"
 
 export default async function PaymentsPage() {
-  const supabase = await createClient()
+  const data = await loadSettingsData()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) redirect("/login")
-
-  const { data: creator } = await supabase.from("creators").select("*").eq("user_id", user.id).maybeSingle()
-
-  if (!creator) redirect("/onboarding")
-
-  return <PaymentsContent creator={creator} />
+  return (
+    <SettingsFormNew
+      profile={data.profile}
+      creator={data.creator}
+      storeBuilderAvatarUrl={data.storeBuilderAvatarUrl}
+      onepageAvatarUrl={data.onepageAvatarUrl}
+      googleAvatarUrl={data.googleAvatarUrl}
+      initialTab="payments"
+    />
+  )
 }
