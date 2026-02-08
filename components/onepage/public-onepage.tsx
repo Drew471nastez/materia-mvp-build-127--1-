@@ -1873,6 +1873,17 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           50% { background-position: 100% 50%; }
           100% { background-position: 0% 50%; }
         }
+        @keyframes mediaDeblur {
+          0% { filter: blur(3px); }
+          100% { filter: blur(0px); }
+        }
+        .media-deblur {
+          animation: mediaDeblur 0.5s ease-out 0.1s both;
+        }
+        @keyframes laserGlowRotate {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
       `,
         }}
       />
@@ -3329,15 +3340,24 @@ function PublicBlockRenderer({
 
         return (
           <div className={cn(heroWidth, "relative mb-2 md:mb-1", heroMargin)}>
-            <div className="relative w-full" style={{ aspectRatio }}>
+            <div className="relative w-full" style={{ aspectRatio, backgroundColor: theme.background_color || '#e5e7eb' }}>
               {hasVideo ? (
                 <video
-                    ref={videoRef}
+                    ref={(el) => {
+                      if (videoRef) (videoRef as React.MutableRefObject<HTMLVideoElement | null>).current = el;
+                      if (el) {
+                        if (el.readyState >= 3) { el.style.filter = 'none'; el.style.animation = 'none'; }
+                        const clear = () => { el.style.filter = 'none'; el.style.animation = 'none'; };
+                        const timer = setTimeout(clear, 2500);
+                        el.addEventListener('canplay', () => { clear(); clearTimeout(timer); }, { once: true });
+                      }
+                    }}
                     src={profile.avatar_video_url!}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover media-deblur"
                     style={{
                       objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%`,
                     }}
+                    onLoadedData={(e) => { e.currentTarget.style.filter = 'none'; e.currentTarget.style.animation = 'none'; }}
                     autoPlay
                     loop
                     muted
@@ -3347,11 +3367,15 @@ function PublicBlockRenderer({
                 <img
                   src={profile.avatar_url! || "/placeholder.svg"}
                   alt=""
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover media-deblur"
+                  ref={(el) => {
+                    if (el && el.complete) { el.style.filter = 'none'; el.style.animation = 'none'; }
+                  }}
                   style={{
                     imageRendering: "auto",
                     objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%`,
                   }}
+                  onLoad={(e) => { e.currentTarget.style.filter = 'none'; e.currentTarget.style.animation = 'none'; }}
                   loading="eager"
                 />
               )}
@@ -3516,16 +3540,33 @@ function PublicBlockRenderer({
               <div className="absolute inset-0">
                 {hasVideo ? (
                   <div
-                    className="rounded-full overflow-hidden border-2 shadow-lg w-full h-full"
+                    className="rounded-full overflow-hidden border-2 shadow-lg w-full h-full relative"
                     style={{
                       borderColor: `${theme.text_color}20`,
                       transform: `scale(${((theme as any).avatar_scale || 100) / 100})`,
                     }}
                   >
+                    {/* Fallback initials visible behind video while it loads — circle is NEVER empty */}
+                    <div
+                      className="absolute inset-0 flex items-center justify-center rounded-full"
+                      style={{ backgroundColor: theme.button_color, color: theme.button_text_color }}
+                    >
+                      <span className="text-2xl sm:text-3xl font-semibold">
+                        {profile.title?.charAt(0)?.toUpperCase() || "?"}
+                      </span>
+                    </div>
                     <video
-                      ref={videoRef}
+                      ref={(el) => {
+                        if (videoRef) (videoRef as React.MutableRefObject<HTMLVideoElement | null>).current = el;
+                        if (el) {
+                          if (el.readyState >= 3) { el.style.filter = 'none'; el.style.animation = 'none'; }
+                          const clear = () => { el.style.filter = 'none'; el.style.animation = 'none'; };
+                          const timer = setTimeout(clear, 2500);
+                          el.addEventListener('canplay', () => { clear(); clearTimeout(timer); }, { once: true });
+                        }
+                      }}
                       src={profile.avatar_video_url!}
-                      className="w-full h-full object-cover"
+                      className="relative z-[1] w-full h-full object-cover media-deblur"
                       style={
                         profile.avatar_video_crop
                           ? {
@@ -3534,6 +3575,7 @@ function PublicBlockRenderer({
                             }
                           : undefined
                       }
+                      onLoadedData={(e) => { e.currentTarget.style.filter = 'none'; e.currentTarget.style.animation = 'none'; }}
                       autoPlay
                       loop
                       muted
@@ -3550,7 +3592,7 @@ function PublicBlockRenderer({
                   >
                     <AvatarImage
                       src={profile.avatar_url || undefined}
-                      className="object-cover"
+                      className="object-cover media-deblur"
                       style={{
                         imageRendering: "auto",
                         transform: `translateY(${(theme as any).avatar_offset_y || 0}px)`,
