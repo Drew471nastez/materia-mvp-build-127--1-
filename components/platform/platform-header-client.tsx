@@ -523,6 +523,7 @@ export function PlatformHeaderClient() {
   const [loading, setLoading] = useState(false)
   const [initialLoadDone, setInitialLoadDone] = useState(false)
   const [wishlistCount, setWishlistCount] = useState(0)
+  const [avatarRefreshKey, setAvatarRefreshKey] = useState(0)
 
   const mountedRef = useRef(true)
 
@@ -725,6 +726,7 @@ export function PlatformHeaderClient() {
           setProfile((profileData as Profile) ?? null)
           setIsCreator(!!profileData?.is_creator)
         }
+        setAvatarRefreshKey(Date.now())
       } catch {
         if (!mountedRef.current) return
         setUser(null)
@@ -744,9 +746,16 @@ export function PlatformHeaderClient() {
       fetchWishlistCount()
     })
 
+    const onWindowFocus = () => {
+      loadUser(false)
+    }
+
+    window.addEventListener("focus", onWindowFocus)
+
     return () => {
       mountedRef.current = false
       window.clearTimeout(failSafe)
+      window.removeEventListener("focus", onWindowFocus)
       data?.subscription?.unsubscribe()
     }
   }, [fetchWishlistCount, initialLoadDone])
@@ -758,7 +767,7 @@ export function PlatformHeaderClient() {
 
   const dashboardHref = useMemo(() => {
     if (!user) return "/signup"
-    return isCreator ? "/app" : "/dashboard"
+    return isCreator ? "/app" : "/onboarding"
   }, [user, isCreator])
 
   const wishlistHref = useMemo(() => {
@@ -776,6 +785,10 @@ export function PlatformHeaderClient() {
     withAvatarVersion(profile?.avatar_url, profile?.updated_at || null) ||
     withAvatarVersion(((user?.user_metadata as any)?.avatar_url as string | undefined), (user as any)?.updated_at || null) ||
     withAvatarVersion(((user?.user_metadata as any)?.picture as string | undefined), (user as any)?.updated_at || null)
+
+  const avatarUrlWithRefresh = avatarUrl
+    ? `${avatarUrl}${avatarUrl.includes("?") ? "&" : "?"}rk=${avatarRefreshKey}`
+    : "/placeholder.svg"
 
   const displayName =
     profile?.display_name ||
@@ -948,10 +961,10 @@ export function PlatformHeaderClient() {
                           Discover
                         </TooltipContent>
                       </Tooltip>
-                      {/* Dashboard Button - redirects to /library for buyers, /app for sellers */}
+                      {/* Primary CTA */}
                       <Button asChild className="h-11 rounded-lg px-6 text-[15px] bg-violet-600 text-white hover:bg-violet-700 cursor-pointer">
-                        <Link href={isCreator ? "/app" : "/library"}>
-                          Dashboard
+                        <Link href={getCanonicalOrRelativePath(isCreator ? "/app" : "/onboarding")} onClick={(e) => onCanonicalNav(e, isCreator ? "/app" : "/onboarding")}>
+                          {isCreator ? "Dashboard" : "Start Selling"}
                         </Link>
                       </Button>
                     </>
@@ -1297,7 +1310,7 @@ export function PlatformHeaderClient() {
               {/* Library - only show when logged in */}
               {user && (
                 <Link
-                  href="/library" onClick={(e) => onCanonicalNav(e, "/library")}
+                  href={getCanonicalOrRelativePath("/library")} onClick={(e) => onCanonicalNav(e, "/library")}
                   className="flex h-9 w-9 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 transition cursor-pointer"
                   aria-label="Library"
                 >
@@ -1307,7 +1320,7 @@ export function PlatformHeaderClient() {
 
               {/* Wishlist */}
               <Link
-                href={wishlistHref} onClick={(e) => onCanonicalNav(e, wishlistHref)}
+                href={getCanonicalOrRelativePath(wishlistHref)} onClick={(e) => onCanonicalNav(e, wishlistHref)}
                 className="relative flex h-9 w-9 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 transition cursor-pointer"
                 aria-label="Wishlist"
               >
@@ -1328,7 +1341,7 @@ export function PlatformHeaderClient() {
                   aria-label="Open profile menu"
                 >
                   <Avatar className="h-8 w-8 border border-gray-200">
-                    <AvatarImage src={avatarUrl || "/placeholder.svg"} alt={displayName} />
+                    <AvatarImage src={avatarUrlWithRefresh} alt={displayName} />
                     <AvatarFallback className="text-[10px] bg-gray-100 text-gray-700">{initials}</AvatarFallback>
                   </Avatar>
                 </button>
@@ -1353,7 +1366,7 @@ export function PlatformHeaderClient() {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Link
-                      href={wishlistHref} onClick={(e) => onCanonicalNav(e, wishlistHref)}
+                      href={getCanonicalOrRelativePath(wishlistHref)} onClick={(e) => onCanonicalNav(e, wishlistHref)}
                       className="relative flex h-11 w-11 items-center justify-center rounded-full text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition cursor-pointer"
                       aria-label={t("wishlist")}
                     >
@@ -1374,7 +1387,7 @@ export function PlatformHeaderClient() {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Link
-                      href="/library" onClick={(e) => onCanonicalNav(e, "/library")}
+                      href={getCanonicalOrRelativePath("/library")} onClick={(e) => onCanonicalNav(e, "/library")}
                       className="hidden sm:flex h-11 w-11 items-center justify-center rounded-full text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition cursor-pointer"
                       aria-label={t("library")}
                     >
@@ -1388,7 +1401,7 @@ export function PlatformHeaderClient() {
 
                 {/* Start Selling or Dashboard */}
                 <Button asChild className="h-11 rounded-full px-6 text-[15px] bg-violet-600 text-white hover:bg-violet-700">
-                  <Link href={user && isCreator ? "/app" : startSellingHref}>
+                  <Link href={getCanonicalOrRelativePath(user && isCreator ? "/app" : startSellingHref)} onClick={(e) => onCanonicalNav(e, user && isCreator ? "/app" : startSellingHref)}>
                     {user && isCreator ? t("dashboard") : t("start_selling")}
                   </Link>
                 </Button>
@@ -1405,7 +1418,7 @@ export function PlatformHeaderClient() {
                           aria-label="Open profile menu"
                         >
                           <Avatar className="h-11 w-11 border border-gray-200 transition-opacity duration-150">
-                            <AvatarImage src={avatarUrl || "/placeholder.svg"} alt={displayName} />
+                            <AvatarImage src={avatarUrlWithRefresh} alt={displayName} />
                             <AvatarFallback className="text-sm bg-gray-100 text-gray-700">{initials}</AvatarFallback>
                           </Avatar>
                         </button>
@@ -1429,7 +1442,7 @@ export function PlatformHeaderClient() {
                         <div className="px-3 py-2.5 border-b border-gray-100 mb-1">
                           <div className="flex items-center gap-3">
                             <Avatar className="h-10 w-10 border border-gray-200">
-                              <AvatarImage src={avatarUrl || "/placeholder.svg"} alt={displayName} />
+                              <AvatarImage src={avatarUrlWithRefresh} alt={displayName} />
                               <AvatarFallback className="text-xs bg-gray-100 text-gray-700">{initials}</AvatarFallback>
                             </Avatar>
                             <div className="flex-1 min-w-0">
@@ -1439,24 +1452,44 @@ export function PlatformHeaderClient() {
                           </div>
                         </div>
 
+                        {isCreator ? (
                         <Link
-                          href={dashboardHref} onClick={(e) => onCanonicalNav(e, dashboardHref)}
-                          onClick={() => setDesktopProfileOpen(false)}
+                          href={getCanonicalOrRelativePath(dashboardHref)}
+                          onClick={(e) => {
+                            onCanonicalNav(e, dashboardHref)
+                            setDesktopProfileOpen(false)
+                          }}
                           className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 cursor-pointer"
                         >
                           <LayoutDashboard className="h-4 w-4 shrink-0" />
                           <span>Dashboard</span>
                         </Link>
+                        ) : (
                         <Link
-                          href="/library" onClick={(e) => onCanonicalNav(e, "/library")}
-                          onClick={() => setDesktopProfileOpen(false)}
+                          href={getCanonicalOrRelativePath('/onboarding')}
+                          onClick={(e) => {
+                            onCanonicalNav(e, '/onboarding')
+                            setDesktopProfileOpen(false)
+                          }}
+                          className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 cursor-pointer"
+                        >
+                          <Sparkles className="h-4 w-4 shrink-0" />
+                          <span>Become a Seller</span>
+                        </Link>
+                        )}
+                        <Link
+                          href={getCanonicalOrRelativePath("/library")}
+                          onClick={(e) => {
+                            onCanonicalNav(e, "/library")
+                            setDesktopProfileOpen(false)
+                          }}
                           className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 cursor-pointer"
                         >
                           <Library className="h-4 w-4 shrink-0" />
                           <span>My Library</span>
                         </Link>
                         <Link
-                          href="/app/settings"
+                          href={getCanonicalOrRelativePath("/app/settings")}
                           onClick={(e) => { onCanonicalNav(e, "/app/settings"); setDesktopProfileOpen(false) }}
                           className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 cursor-pointer"
                         >
@@ -1486,7 +1519,7 @@ export function PlatformHeaderClient() {
         </div>
 
         {/* Mobile Search Bar Trigger - hidden on homepage, shown on /explore and other pages */}
-        {pathname !== "/" && !isDiscoverProductContext && (
+        {pathname !== "/" && (
           <div className="md:hidden pt-2 pb-1.5 border-t border-gray-100">
             <button
               type="button"
@@ -1733,7 +1766,7 @@ export function PlatformHeaderClient() {
               {/* Profile Info */}
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl mb-3">
                 <Avatar className="h-11 w-11 border border-gray-200">
-                  <AvatarImage src={avatarUrl || "/placeholder.svg"} alt={displayName} />
+                  <AvatarImage src={avatarUrlWithRefresh} alt={displayName} />
                   <AvatarFallback className="text-sm bg-gray-100 text-gray-700">{initials}</AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
@@ -1741,18 +1774,19 @@ export function PlatformHeaderClient() {
                   {user.email && <p className="text-xs text-gray-500 truncate">{user.email}</p>}
                 </div>
               </div>
-              {/* Dashboard button - below profile */}
-              <Link href={dashboardHref} onClick={(e) => { onCanonicalNav(e, dashboardHref); setMobileMenuOpen(false) }} className="block mb-2">
-                <Button className="w-full h-11 rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700 gap-2">
-                  <LayoutDashboard className="h-4 w-4" />
-                  Dashboard
-                </Button>
-              </Link>
-              {/* Start Selling button for logged-in users who are not creators */}
-              {!isCreator && (
-                <Link href="/onboarding" onClick={(e) => { onCanonicalNav(e, "/onboarding"); setMobileMenuOpen(false) }} className="block mb-2">
-                  <Button className="w-full h-11 rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700">
-                    Start Selling
+              {/* Dashboard / Become Seller button - below profile */}
+              {isCreator ? (
+                <Link href={getCanonicalOrRelativePath(dashboardHref)} onClick={(e) => { onCanonicalNav(e, dashboardHref); setMobileMenuOpen(false) }} className="block mb-2">
+                  <Button className="w-full h-11 rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700 gap-2">
+                    <LayoutDashboard className="h-4 w-4" />
+                    Dashboard
+                  </Button>
+                </Link>
+              ) : (
+                <Link href={getCanonicalOrRelativePath("/onboarding")} onClick={(e) => { onCanonicalNav(e, "/onboarding"); setMobileMenuOpen(false) }} className="block mb-2">
+                  <Button className="w-full h-11 rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700 gap-2">
+                    <Sparkles className="h-4 w-4" />
+                    Become a Seller
                   </Button>
                 </Link>
               )}
@@ -1935,7 +1969,7 @@ export function PlatformHeaderClient() {
               {/* Quick Links section */}
               <div className="mt-4 pt-4 border-t border-gray-200">
                 <Link
-                  href="/library"
+                  href={getCanonicalOrRelativePath("/library")}
                   onClick={(e) => { onCanonicalNav(e, "/library"); setMobileMenuOpen(false) }}
                   className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
                 >
@@ -1945,15 +1979,28 @@ export function PlatformHeaderClient() {
                   </div>
                   <ChevronRight className="h-5 w-5 text-gray-400" />
                 </Link>
-                {user && (
+                {user && isCreator && (
                   <Link
-                    href={dashboardHref}
+                    href={getCanonicalOrRelativePath(dashboardHref)}
                     onClick={(e) => { onCanonicalNav(e, dashboardHref); setMobileMenuOpen(false) }}
                     className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
                   >
                     <div className="flex items-center gap-3">
                       <LayoutDashboard className="h-5 w-5" />
                       <span>Dashboard</span>
+                    </div>
+                    <ChevronRight className="h-5 w-5 text-gray-400" />
+                  </Link>
+                )}
+                {user && !isCreator && (
+                  <Link
+                    href={getCanonicalOrRelativePath('/onboarding')}
+                    onClick={(e) => { onCanonicalNav(e, '/onboarding'); setMobileMenuOpen(false) }}
+                    className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Sparkles className="h-5 w-5" />
+                      <span>Become a Seller</span>
                     </div>
                     <ChevronRight className="h-5 w-5 text-gray-400" />
                   </Link>
@@ -1973,7 +2020,7 @@ export function PlatformHeaderClient() {
           {/* User Info */}
           <div className="flex items-center gap-3 p-3 mb-4 bg-gray-50 rounded-xl">
             <Avatar className="h-12 w-12 border border-gray-200">
-              <AvatarImage src={avatarUrl || "/placeholder.svg"} alt={displayName} />
+              <AvatarImage src={avatarUrlWithRefresh} alt={displayName} />
               <AvatarFallback className="text-sm bg-gray-100 text-gray-700">{initials}</AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
@@ -1984,8 +2031,9 @@ export function PlatformHeaderClient() {
 
           {/* Menu Items */}
           <div className="space-y-0.5">
+            {isCreator ? (
             <Link
-              href={dashboardHref}
+              href={getCanonicalOrRelativePath(dashboardHref)}
               onClick={(e) => { onCanonicalNav(e, dashboardHref); setMobileProfileOpen(false) }}
               className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
             >
@@ -1995,8 +2043,21 @@ export function PlatformHeaderClient() {
               </div>
               <ChevronRight className="h-5 w-5 text-gray-400" />
             </Link>
+            ) : (
             <Link
-              href="/library"
+              href={getCanonicalOrRelativePath('/onboarding')}
+              onClick={(e) => { onCanonicalNav(e, '/onboarding'); setMobileProfileOpen(false) }}
+              className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <Sparkles className="h-5 w-5 text-gray-400" />
+                <span>Become a Seller</span>
+              </div>
+              <ChevronRight className="h-5 w-5 text-gray-400" />
+            </Link>
+            )}
+            <Link
+              href={getCanonicalOrRelativePath("/library")}
               onClick={(e) => { onCanonicalNav(e, "/library"); setMobileProfileOpen(false) }}
               className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
             >
@@ -2007,7 +2068,7 @@ export function PlatformHeaderClient() {
               <ChevronRight className="h-5 w-5 text-gray-400" />
             </Link>
             <Link
-              href="/app/settings"
+              href={getCanonicalOrRelativePath("/app/settings")}
               onClick={(e) => { onCanonicalNav(e, "/app/settings"); setMobileProfileOpen(false) }}
               className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
             >

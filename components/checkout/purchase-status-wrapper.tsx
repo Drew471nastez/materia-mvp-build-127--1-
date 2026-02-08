@@ -242,7 +242,7 @@ export function PurchaseStatusWrapper({
       <div className="space-y-3">
         <Button
           disabled
-          className="w-full min-h-[48px]"
+          className="w-full min-h-[48px] cursor-pointer"
           style={{
             backgroundColor: buyButtonBgColor || undefined,
             color: buyButtonTextColor || undefined,
@@ -414,7 +414,7 @@ export function PurchaseStatusWrapper({
               <Button
                 type="button"
                 onClick={() => setShowDownloadFilesModal(true)}
-                className="w-full min-h-[48px]"
+                className="w-full min-h-[48px] cursor-pointer"
                 style={{
                   backgroundColor: downloadButtonBgColor || undefined,
                   color: downloadButtonTextColor || undefined,

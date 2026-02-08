@@ -2129,7 +2129,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="text-[15px] sm:text-[16px] font-semibold text-[#1a1a2e]">Stripe</h3>
-                        <span className={`px-1.5 py-0.5 font-medium rounded-full flex items-center gap-1 ${isMobileViewport ? "text-[9px]" : "text-[11px]"} ${stripeStatus.connected ? "bg-emerald-500 text-white" : "bg-amber-100 text-amber-700 border border-amber-200"}`}>
+                        <span className={`px-1.5 py-0.5 font-medium rounded-full flex items-center gap-1 ${isMobileViewport ? "text-[8px]" : "text-[10px]"} ${stripeStatus.connected ? "bg-emerald-500 text-white" : "bg-amber-100 text-amber-700 border border-amber-200"}`}>
                           <Check className="h-3 w-3" /> {stripeStatus.connected ? "Connected" : stripeStatusLoading ? "Checking" : "Not connected"}
                         </span>
                       </div>
@@ -2160,7 +2160,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                    <div className="w-9 h-9 sm:w-[40px] sm:h-[40px] rounded-xl overflow-hidden shrink-0">
+                    <div className="w-9 h-9 sm:w-[38px] sm:h-[38px] rounded-xl overflow-hidden shrink-0">
                       <svg viewBox="-23 0 302 302" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
                         <path d="M217.168476 23.5070146C203.234077 7.62479651 178.045612 0.815753338 145.823355 0.815753338L52.3030619 0.815753338C45.7104431 0.815753338 40.1083819 5.6103852 39.0762042 12.1114399L0.136468302 259.076601C-0.637664968 263.946149 3.13311322 268.357876 8.06925331 268.357876H65.804612L80.3050438 176.385849L79.8555471 179.265958C80.8877248 172.764903 86.4481659 167.970272 93.0324607 167.970272H120.46841C174.366398 167.970272 216.569147 146.078116 228.897012 82.7490197C229.263268 80.8761167 229.579581 79.0531577 229.854273 77.2718188C233.525163 53.8646924 229.829301 37.9325302 217.168476 23.5070146" fill="#27346A" />
                         <path d="M228.897012 82.7490197C216.569147 146.069792 174.366398 167.970272 120.46841 167.970272H93.0241367C86.4398419 167.970272 80.8794007 172.764903 79.8555471 179.265958L61.8174095 293.621258C61.1431644 297.883153 64.4394738 301.745495 68.7513129 301.745495H117.421821C123.182038 301.745495 128.084882 297.550192 128.983876 291.864891L138.631407 231.249423C140.121406 222.351053 145.02425 218.15575 150.784467 218.15575H158.067979C205.215193 218.15575 242.132193 199.002194 252.920115 143.605884C257.423406 120.456802 255.092683 101.128442 243.181019 87.5519756C239.568397 83.4399129 235.081754 80.0437153 229.854273 77.2718188C229.571257 79.0614817 229.263268 80.8761167 228.897012 82.7490197" fill="#2790C3" />
@@ -2169,7 +2169,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="text-[15px] sm:text-[16px] font-semibold text-[#1a1a2e]">PayPal</h3>
-                        <span className={`px-1.5 py-0.5 font-medium bg-[#eef2ff] text-[#635bff] rounded-full border border-[#dbe4ff] ${isMobileViewport ? "text-[9px]" : "text-[11px]"}`}>Coming soon</span>
+                        <span className={`px-1.5 py-0.5 font-medium bg-[#eef2ff] text-[#635bff] rounded-full border border-[#dbe4ff] ${isMobileViewport ? "text-[8px]" : "text-[10px]"}`}>Coming soon</span>
                       </div>
                       <p className="text-[13px] sm:text-[14px] text-[#6b7280] mt-0.5">PayPal payouts and card-backed options will be available soon.</p>
                     </div>
@@ -2194,7 +2194,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 <button
                   type="button"
                   onClick={() => setShowCurrencyPicker(true)}
-                  className="w-full max-w-[220px] h-10 rounded-xl text-[13px] border border-[#e5e7eb] px-3 bg-white hover:bg-[#f9fafb] transition-colors flex items-center justify-between"
+                  className="w-full max-w-[210px] h-9 rounded-xl text-[13px] border border-[#e5e7eb] px-3 bg-white hover:bg-[#f9fafb] transition-colors flex items-center justify-between cursor-pointer"
                 >
                   <span>{payoutCurrency}</span>
                   <ChevronDown className="h-4 w-4 text-[#6b7280]" />
@@ -2205,10 +2205,10 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
               {showCurrencyPicker && !isMobileViewport && (
                 <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-4" onClick={() => setShowCurrencyPicker(false)}>
-                  <div className="w-full max-w-[520px] rounded-2xl bg-white border border-[#e5e7eb] p-4 sm:p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                  <div className="w-full max-w-[420px] rounded-2xl bg-white border border-[#e5e7eb] p-4 sm:p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
                     <h4 className="text-[16px] font-semibold text-[#1a1a2e] mb-1">Select payout currency</h4>
                     <p className="text-[12px] text-[#6b7280] mb-3">Choose your payout settlement currency.</p>
-                    <div className="space-y-2">
+                    <div className="space-y-2 max-h-[52vh] overflow-y-auto pr-1">
                       {(["USD", "EUR", "GBP", "CAD", "AUD", "JPY", "CHF", "SEK", "NOK", "NZD"] as const).map((currency) => (
                         <button key={currency} type="button" onClick={() => { setPayoutCurrency(currency); setShowCurrencyPicker(false) }} className={`w-full text-left px-3 py-3 rounded-xl text-[14px] font-medium transition-colors flex items-center justify-between cursor-pointer ${payoutCurrency === currency ? "bg-[#f5f3ff] text-[#8b5cf6]" : "text-[#374151] hover:bg-[#f3f4f6]"}`}>
                           {currency}

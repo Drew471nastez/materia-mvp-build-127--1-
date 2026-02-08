@@ -93,7 +93,7 @@ export function DashboardSidebar() {
         <Link
           href="/explore"
           onClick={onItemClick}
-          className="mb-2 flex items-center gap-3 rounded-lg px-3 py-3 min-h-[44px] text-sm font-medium bg-neutral-100 text-neutral-700 hover:bg-neutral-200 hover:text-neutral-900 active:scale-[0.98] transition-colors cursor-pointer"
+          className="mb-2 flex items-center justify-center gap-2 rounded-lg px-3 py-3 min-h-[44px] text-sm font-medium bg-neutral-100 text-neutral-700 hover:bg-neutral-200 hover:text-neutral-900 active:scale-[0.98] transition-colors cursor-pointer"
         >
           <Compass className="h-4 w-4 shrink-0" />
           <span className="truncate">Explore</span>
