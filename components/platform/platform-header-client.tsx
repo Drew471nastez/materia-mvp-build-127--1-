@@ -800,6 +800,7 @@ export function PlatformHeaderClient() {
   }
 
   const showCategories = pathname === "/explore" || pathname.startsWith("/explore")
+  const isDiscoverProductContext = pathname.startsWith("/p/") && searchParams.get("layout") === "discover" && searchParams.get("recommended") === "1"
 
   const canonicalBaseUrl = useMemo(() => getCanonicalSiteUrl(), [])
 
@@ -836,6 +837,10 @@ export function PlatformHeaderClient() {
     },
     [navigateToCanonical, shouldForceCanonicalNav],
   )
+
+  const getCanonicalOrRelativePath = useCallback((targetPath: string) => {
+    return shouldForceCanonicalNav ? toCanonicalUrl(targetPath) : targetPath
+  }, [shouldForceCanonicalNav, toCanonicalUrl])
 
   // Detect active category from URL
   const activeCategoryId = useMemo(() => {
@@ -995,7 +1000,7 @@ export function PlatformHeaderClient() {
               {/* Left side - Logo and Categories Button */}
               <div className="flex items-center gap-3 shrink-0">
                 {/* Logo with Storelib text - logo height 46px (10% larger) - redirect to /explore if on explore pages */}
-                <Link href={pathname.startsWith("/explore") ? "/explore" : "/"} className="shrink-0 hidden md:flex items-center gap-2">
+                <Link href={isDiscoverProductContext ? "/explore" : pathname.startsWith("/explore") ? "/explore" : "/"} onClick={(e) => onCanonicalNav(e, isDiscoverProductContext ? "/explore" : pathname.startsWith("/explore") ? "/explore" : "/")} className="shrink-0 hidden md:flex items-center gap-2">
                   <Image
                     src={LOGO_URL || "/placeholder.svg"}
                     alt="Storelib"
@@ -1057,7 +1062,7 @@ export function PlatformHeaderClient() {
                           )}
                         </div>
                         <Link
-                          href={selectedCategoryData.href}
+                          href={getCanonicalOrRelativePath(selectedCategoryData.href)}
                           onClick={() => setCategoriesDropdownOpen(false)}
                           className="flex items-center justify-between px-3 py-2.5 mb-1 rounded-lg text-sm font-medium text-gray-800 bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
                         >
@@ -1068,7 +1073,7 @@ export function PlatformHeaderClient() {
                           {selectedCategoryData.subcategories.map((sub) => (
                             <Link
                               key={sub.label}
-                              href={sub.href}
+                              href={getCanonicalOrRelativePath(sub.href)}
                               onClick={() => setCategoriesDropdownOpen(false)}
                               className="block px-3 py-2.5 rounded-lg text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors cursor-pointer"
                             >
@@ -1134,7 +1139,7 @@ export function PlatformHeaderClient() {
                 onChange={(e) => handleSearchChange(e.target.value)}
                 onFocus={() => setSearchModalOpen(true)}
                 placeholder={t("search_placeholder")}
-                className={`h-11 w-full pl-11 pr-4 bg-gray-100 border-gray-200 text-gray-900 text-[15px] placeholder:text-gray-500 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0 focus-visible:border-blue-500 ${pathname.startsWith("/p/") && searchParams.get("layout") === "discover" && searchParams.get("recommended") === "1" ? "rounded-[8px]" : "rounded-full"}`}
+                className={`h-11 w-full pl-11 pr-4 bg-gray-100 border-gray-200 text-gray-900 text-[15px] placeholder:text-gray-500 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0 focus-visible:border-blue-500 ${isDiscoverProductContext ? "rounded-[8px]" : "rounded-full"}`}
               />
               {query && (
                 <button
@@ -1166,7 +1171,7 @@ export function PlatformHeaderClient() {
                         {SEARCH_CATEGORIES.map((cat) => (
                           <Link
                             key={cat.label}
-                            href={cat.href}
+                            href={getCanonicalOrRelativePath(cat.href)}
                             onClick={() => setSearchModalOpen(false)}
                             className="px-3 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 transition-colors cursor-pointer"
                           >
@@ -1190,7 +1195,7 @@ export function PlatformHeaderClient() {
                       {searchResults.map((product) => (
                         <Link
                           key={product.id}
-                          href={`/p/${product.slug}`}
+                          href={getCanonicalOrRelativePath(`/p/${product.slug}`)}
                           onClick={() => setSearchModalOpen(false)}
                           className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer group"
                         >
@@ -1444,7 +1449,7 @@ export function PlatformHeaderClient() {
                         </Link>
                         <Link
                           href="/app/settings"
-                          onClick={() => setDesktopProfileOpen(false)}
+                          onClick={(e) => { onCanonicalNav(e, "/app/settings"); setDesktopProfileOpen(false) }}
                           className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 cursor-pointer"
                         >
                           <Settings className="h-4 w-4 shrink-0" />
@@ -1478,7 +1483,7 @@ export function PlatformHeaderClient() {
             <button
               type="button"
               onClick={() => setSearchModalOpen(true)}
-              className={`w-full h-10 flex items-center gap-2 px-4 bg-gray-100 border border-gray-200 text-gray-500 text-sm cursor-pointer overflow-hidden ${pathname.startsWith("/p/") && searchParams.get("layout") === "discover" && searchParams.get("recommended") === "1" ? "rounded-[8px]" : "rounded-full"}`}
+              className={`w-full h-10 flex items-center gap-2 px-4 bg-gray-100 border border-gray-200 text-gray-500 text-sm cursor-pointer overflow-hidden ${isDiscoverProductContext ? "rounded-[8px]" : "rounded-full"}`}
             >
               <Search className="h-4 w-4 text-gray-400 shrink-0" />
               <span className="truncate">{t("search_placeholder")}</span>
@@ -1499,7 +1504,7 @@ export function PlatformHeaderClient() {
                 value={query}
                 onChange={(e) => handleSearchChange(e.target.value)}
                 placeholder={t("search_placeholder")}
-                className={`h-11 w-full pl-10 pr-10 bg-gray-100 border-gray-200 text-gray-900 placeholder:text-gray-500 text-sm ${pathname.startsWith("/p/") && searchParams.get("layout") === "discover" && searchParams.get("recommended") === "1" ? "rounded-[8px]" : "rounded-full"}`}
+                className={`h-11 w-full pl-10 pr-10 bg-gray-100 border-gray-200 text-gray-900 placeholder:text-gray-500 text-sm ${isDiscoverProductContext ? "rounded-[8px]" : "rounded-full"}`}
                 autoFocus
               />
               {query && (
@@ -1551,7 +1556,7 @@ export function PlatformHeaderClient() {
                   {searchResults.map((product) => (
                     <Link
                       key={product.id}
-                      href={`/p/${product.slug}`}
+                      href={getCanonicalOrRelativePath(`/p/${product.slug}`)}
                       onClick={() => setSearchModalOpen(false)}
                       className="flex items-center gap-3 px-2 py-2.5 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer"
                     >
@@ -1737,7 +1742,7 @@ export function PlatformHeaderClient() {
               </Link>
               {/* Start Selling button for logged-in users who are not creators */}
               {!isCreator && (
-                <Link href="/onboarding" onClick={() => setMobileMenuOpen(false)} className="block mb-2">
+                <Link href="/onboarding" onClick={(e) => { onCanonicalNav(e, "/onboarding"); setMobileMenuOpen(false) }} className="block mb-2">
                   <Button className="w-full h-11 rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700">
                     Start Selling
                   </Button>
@@ -1830,7 +1835,7 @@ export function PlatformHeaderClient() {
                       )}
                     </div>
                     <Link
-                      href={cat.href}
+                      href={getCanonicalOrRelativePath(cat.href)}
                       onClick={() => {
                         setExpandedCategory(null)
                         setMobileMenuOpen(false)
@@ -1844,7 +1849,7 @@ export function PlatformHeaderClient() {
                       {cat.subcategories.map((sub, index) => (
                         <Link
                           key={sub.label}
-                          href={sub.href}
+                          href={getCanonicalOrRelativePath(sub.href)}
                           onClick={() => {
                             setExpandedCategory(null)
                             setMobileMenuOpen(false)
@@ -1979,7 +1984,7 @@ export function PlatformHeaderClient() {
             </Link>
             <Link
               href="/app/settings"
-              onClick={() => setMobileProfileOpen(false)}
+              onClick={(e) => { onCanonicalNav(e, "/app/settings"); setMobileProfileOpen(false) }}
               className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-3">

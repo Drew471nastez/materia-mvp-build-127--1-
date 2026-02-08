@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { Star } from "lucide-react"
 import { stickyAddToCartButtonPresets } from "@/lib/store-builder/defaults"
+import { getCanonicalSiteUrl } from "@/lib/url-helpers"
 
 export interface StickyAddToCartSettings {
   visible: boolean
@@ -30,6 +31,8 @@ interface ProductData {
 }
 
 interface StickyAddToCartProps {
+  isPurchased?: boolean
+
   settings: StickyAddToCartSettings
   product: ProductData
   creatorId?: string
@@ -66,7 +69,7 @@ export function EditorStickyAddToCart({
   // This fixes the issue where the bar wasn't showing in the editor preview
   const shouldShow = true
 
-  const buttonText = getButtonText(settings.buttonStyle)
+  const buttonText = isPurchased ? "Download" : getButtonText(settings.buttonStyle)
   const reviewsCount = product.reviews_count || 0
   const reviewsAverage = product.reviews_average || 0
   const hasReviews = reviewsCount > 0
@@ -203,6 +206,7 @@ export function LiveStickyAddToCart({
   product,
   creatorId,
   onAddToCart,
+  isPurchased = false,
 }: StickyAddToCartProps & { onAddToCart?: () => void }) {
   // Start hidden - only show after scrolling past product content area
   const [isVisible, setIsVisible] = useState(false)
@@ -298,12 +302,18 @@ export function LiveStickyAddToCart({
   // Don't render on server or if settings say not visible
   if (!isMounted || !settings.visible) return null
 
-  const buttonText = getButtonText(settings.buttonStyle)
+  const buttonText = isPurchased ? "Download" : getButtonText(settings.buttonStyle)
   const reviewsCount = product.reviews_count || 0
   const reviewsAverage = product.reviews_average || 0
   const hasReviews = reviewsCount > 0
 
   const handleClick = () => {
+    if (isPurchased) {
+      const canonical = getCanonicalSiteUrl()
+      window.location.assign(new URL("/library/my-downloads", canonical).toString())
+      return
+    }
+
     if (onAddToCart) {
       onAddToCart()
     } else {
