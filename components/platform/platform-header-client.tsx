@@ -520,10 +520,9 @@ export function PlatformHeaderClient() {
 
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
-  const [isCreator, setIsCreator] = useState(false)
   const [hasCompletedSellerOnboarding, setHasCompletedSellerOnboarding] = useState(false)
-  const [storeBuilderAvatarUrl, setStoreBuilderAvatarUrl] = useState<string | null>(null)
-  const [storeBuilderAvatarUpdatedAt, setStoreBuilderAvatarUpdatedAt] = useState<string | null>(null)
+  const creatorOnboardingCompletedRef = useRef(false)
+  const welcomeCompletedRef = useRef(false)
   const [loading, setLoading] = useState(false)
   const [initialLoadDone, setInitialLoadDone] = useState(false)
   const [wishlistCount, setWishlistCount] = useState(0)
@@ -708,10 +707,9 @@ export function PlatformHeaderClient() {
           if (!mountedRef.current) return
           setUser(null)
           setProfile(null)
-          setIsCreator(false)
           setHasCompletedSellerOnboarding(false)
-          setStoreBuilderAvatarUrl(null)
-          setStoreBuilderAvatarUpdatedAt(null)
+          creatorOnboardingCompletedRef.current = false
+          welcomeCompletedRef.current = false
           return
         }
 
@@ -730,44 +728,29 @@ export function PlatformHeaderClient() {
           .eq("user_id", user.id)
           .maybeSingle()
 
-        let nextStoreBuilderAvatarUrl: string | null = null
-        let nextStoreBuilderUpdatedAt: string | null = null
-        if (creatorData?.id) {
-          const { data: storeConfigData } = await supabase
-            .from("store_configs")
-            .select("published_config, updated_at")
-            .eq("creator_id", creatorData.id)
-            .eq("published", true)
-            .maybeSingle()
-
-          const headerSettings = (storeConfigData?.published_config as Record<string, unknown> | null)?.headerSettings as Record<string, unknown> | undefined
-          const avatarFromStoreBuilder = typeof headerSettings?.avatarUrl === "string" ? headerSettings.avatarUrl : null
-          nextStoreBuilderAvatarUrl = avatarFromStoreBuilder && avatarFromStoreBuilder !== "" ? avatarFromStoreBuilder : null
-          nextStoreBuilderUpdatedAt = (storeConfigData?.updated_at as string | null) || null
-        }
-
         if (!mountedRef.current) return
         if (profileErr) {
           setProfile(null)
-          setIsCreator(false)
           setHasCompletedSellerOnboarding(false)
+          creatorOnboardingCompletedRef.current = false
+          welcomeCompletedRef.current = false
         } else {
           setProfile((profileData as Profile) ?? null)
+          const hasAppAccess = !!creatorData?.id
+          const creatorOnboardingCompleted = !!creatorData?.onboarding_completed
           const hasWelcomeCompleted = !!profileData?.welcome_completed
-          const isSellerByState = !!creatorData?.onboarding_completed && hasWelcomeCompleted
-          setIsCreator(isSellerByState)
+          const isSellerByState = hasAppAccess && creatorOnboardingCompleted && hasWelcomeCompleted
+          creatorOnboardingCompletedRef.current = creatorOnboardingCompleted
+          welcomeCompletedRef.current = hasWelcomeCompleted
           setHasCompletedSellerOnboarding(isSellerByState)
         }
-        setStoreBuilderAvatarUrl(nextStoreBuilderAvatarUrl)
-        setStoreBuilderAvatarUpdatedAt(nextStoreBuilderUpdatedAt)
       } catch {
         if (!mountedRef.current) return
         setUser(null)
         setProfile(null)
-        setIsCreator(false)
         setHasCompletedSellerOnboarding(false)
-        setStoreBuilderAvatarUrl(null)
-        setStoreBuilderAvatarUpdatedAt(null)
+        creatorOnboardingCompletedRef.current = false
+        welcomeCompletedRef.current = false
       } finally {
         if (!mountedRef.current) return
         setLoading(false)
@@ -796,6 +779,52 @@ export function PlatformHeaderClient() {
     }
   }, [fetchWishlistCount, initialLoadDone])
 
+  useEffect(() => {
+    if (!user?.id) return
+
+    const supabase = createClient()
+    const profileChannel = supabase
+      .channel(`platform-header-profile-${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${user.id}` },
+        (payload) => {
+          const next = payload.new as Record<string, unknown>
+          const nextWelcomeCompleted = !!next.welcome_completed
+          welcomeCompletedRef.current = nextWelcomeCompleted
+          setProfile((prev) => ({
+            ...(prev || {}),
+            display_name: (next.display_name as string | null | undefined) ?? prev?.display_name ?? null,
+            avatar_url: (next.avatar_url as string | null | undefined) ?? prev?.avatar_url ?? null,
+            username: (next.username as string | null | undefined) ?? prev?.username ?? null,
+            welcome_completed: (next.welcome_completed as boolean | null | undefined) ?? prev?.welcome_completed ?? null,
+            updated_at: (next.updated_at as string | null | undefined) ?? prev?.updated_at ?? null,
+          }))
+          setHasCompletedSellerOnboarding(creatorOnboardingCompletedRef.current && nextWelcomeCompleted)
+        },
+      )
+      .subscribe()
+
+    const creatorChannel = supabase
+      .channel(`platform-header-creator-${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "creators", filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          const next = payload.new as Record<string, unknown>
+          const nextOnboardingCompleted = !!next.onboarding_completed
+          creatorOnboardingCompletedRef.current = nextOnboardingCompleted
+          setHasCompletedSellerOnboarding(nextOnboardingCompleted && welcomeCompletedRef.current)
+        },
+      )
+      .subscribe()
+
+    return () => {
+      void supabase.removeChannel(profileChannel)
+      void supabase.removeChannel(creatorChannel)
+    }
+  }, [user?.id])
+
   const startSellingHref = useMemo(() => {
     if (!user) return "/signup"
     return hasCompletedSellerOnboarding ? "/app" : "/onboarding"
@@ -817,12 +846,7 @@ export function PlatformHeaderClient() {
     return `${url}${sep}v=${encodeURIComponent(version)}`
   }, [])
 
-  const avatarUrl =
-    withAvatarVersion(storeBuilderAvatarUrl, storeBuilderAvatarUpdatedAt || null) ||
-    withAvatarVersion(profile?.avatar_url, profile?.updated_at || null) ||
-    undefined
-
-  const avatarUrlWithRefresh = avatarUrl || "/placeholder.svg"
+  const avatarUrl = withAvatarVersion(profile?.avatar_url, profile?.updated_at || null) || undefined
 
   const displayName =
     profile?.display_name ||
@@ -936,7 +960,7 @@ export function PlatformHeaderClient() {
               {/* Homepage Desktop Header */}
               <div className="hidden md:flex items-center justify-between w-full">
                 {/* Left - Logo */}
-                <Link href="/" className="shrink-0 flex items-center gap-2">
+                <Link href={getCanonicalOrRelativePath("/explore")} onClick={(e) => onCanonicalNav(e, "/explore")} className="shrink-0 flex items-center gap-2">
                   <Image
                     src={LOGO_URL || "/placeholder.svg"}
                     alt="Storelib"
@@ -1018,7 +1042,7 @@ export function PlatformHeaderClient() {
               <div className="md:hidden flex items-center justify-between w-full">
                 {/* Left - Logo */}
                 <div className="flex items-center gap-0">
-                  <Link href="/" onClick={(e) => onCanonicalNav(e, "/explore")} className="shrink-0 flex items-center gap-1.5">
+                  <Link href={getCanonicalOrRelativePath("/explore")} onClick={(e) => onCanonicalNav(e, "/explore")} className="shrink-0 flex items-center gap-1.5">
                     <Image
                       src={LOGO_URL || "/placeholder.svg"}
                       alt="Storelib"
@@ -1048,7 +1072,7 @@ export function PlatformHeaderClient() {
               {/* Left side - Logo and Categories Button */}
               <div className="flex items-center gap-3 shrink-0">
                 {/* Logo with Storelib text - logo height 46px (10% larger) - redirect to /explore if on explore pages */}
-                <Link href={isDiscoverProductContext ? "/explore" : pathname.startsWith("/explore") ? "/explore" : "/"} onClick={(e) => onCanonicalNav(e, isDiscoverProductContext ? "/explore" : pathname.startsWith("/explore") ? "/explore" : "/")} className="shrink-0 hidden md:flex items-center gap-2">
+                <Link href={getCanonicalOrRelativePath("/explore")} onClick={(e) => onCanonicalNav(e, "/explore")} className="shrink-0 hidden md:flex items-center gap-2">
                   <Image
                     src={LOGO_URL || "/placeholder.svg"}
                     alt="Storelib"
@@ -1319,7 +1343,7 @@ export function PlatformHeaderClient() {
               </button>
 
               {/* Logo next to hamburger - redirect to /explore if on explore pages */}
-              <Link href={pathname.startsWith("/explore") ? "/explore" : "/"} className="shrink-0 flex items-center gap-1.5">
+              <Link href={getCanonicalOrRelativePath("/explore")} onClick={(e) => onCanonicalNav(e, "/explore")} className="shrink-0 flex items-center gap-1.5">
                 <Image
                   src={LOGO_URL || "/placeholder.svg"}
                   alt="Storelib"
@@ -1368,7 +1392,7 @@ export function PlatformHeaderClient() {
                   aria-label="Open profile menu"
                 >
                   <Avatar className="h-8 w-8 border border-gray-200">
-                    <AvatarImage src={avatarUrlWithRefresh} alt={displayName} />
+                    <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
                     <AvatarFallback className="bg-gray-100 text-gray-400"><UserIcon className="h-4 w-4" /></AvatarFallback>
                   </Avatar>
                 </button>
@@ -1445,7 +1469,7 @@ export function PlatformHeaderClient() {
                           aria-label="Open profile menu"
                         >
                           <Avatar className="h-11 w-11 border border-gray-200 transition-opacity duration-150">
-                            <AvatarImage src={avatarUrlWithRefresh} alt={displayName} />
+                            <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
                             <AvatarFallback className="bg-gray-100 text-gray-400"><UserIcon className="h-5 w-5" /></AvatarFallback>
                           </Avatar>
                         </button>
@@ -1469,7 +1493,7 @@ export function PlatformHeaderClient() {
                         <div className="px-3 py-2.5 border-b border-gray-100 mb-1">
                           <div className="flex items-center gap-3">
                             <Avatar className="h-10 w-10 border border-gray-200">
-                              <AvatarImage src={avatarUrlWithRefresh} alt={displayName} />
+                              <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
                               <AvatarFallback className="bg-gray-100 text-gray-400"><UserIcon className="h-4 w-4" /></AvatarFallback>
                             </Avatar>
                             <div className="flex-1 min-w-0">
@@ -1793,7 +1817,7 @@ export function PlatformHeaderClient() {
               {/* Profile Info */}
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl mb-3">
                 <Avatar className="h-11 w-11 border border-gray-200">
-                  <AvatarImage src={avatarUrlWithRefresh} alt={displayName} />
+                  <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
                   <AvatarFallback className="bg-gray-100 text-gray-400"><UserIcon className="h-5 w-5" /></AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
@@ -2047,7 +2071,7 @@ export function PlatformHeaderClient() {
           {/* User Info */}
           <div className="flex items-center gap-3 p-3 mb-4 bg-gray-50 rounded-xl">
             <Avatar className="h-12 w-12 border border-gray-200">
-              <AvatarImage src={avatarUrlWithRefresh} alt={displayName} />
+              <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
               <AvatarFallback className="bg-gray-100 text-gray-400"><UserIcon className="h-5 w-5" /></AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
