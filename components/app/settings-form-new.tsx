@@ -735,6 +735,7 @@ function ImageUploadModal({
 
 export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepageAvatarUrl, googleAvatarUrl, initialTab = "general" }: SettingsFormProps) {
   const router = useRouter()
+  const pathname = usePathname()
   const { language: currentLanguage, setLanguage, t } = useLanguage()
   const [selectedLanguage, setSelectedLanguage] = useState(currentLanguage)
   const [showLanguageModal, setShowLanguageModal] = useState(false)
