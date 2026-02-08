@@ -3545,7 +3545,6 @@ function PublicBlockRenderer({
                     style={{
                       borderColor: `${theme.text_color}20`,
                       transform: `scale(${((theme as any).avatar_scale || 100) / 100})`,
-                      backgroundColor: theme.button_color || '#e5e7eb',
                     }}
                   >
                     <video
