@@ -272,6 +272,25 @@ export function Hero() {
 
   const activeCards = isMobile ? MOBILE_CARDS : DESKTOP_CARDS
 
+  // Attach non-passive touchmove listener so we can call preventDefault()
+  // to stop iOS Safari pull-to-refresh / rubber-band bounce during horizontal swipe
+  const collageRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = collageRef.current
+    if (!el) return
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!dragRef.current.active || animatingRef.current) return
+      // Prevent the browser from triggering pull-to-refresh or overscroll bounce
+      e.preventDefault()
+      updateDragTransition(e.touches[0].clientX - dragRef.current.startX)
+    }
+    // { passive: false } is required to allow preventDefault() in touch handlers
+    el.addEventListener("touchmove", handleTouchMove, { passive: false })
+    return () => {
+      el.removeEventListener("touchmove", handleTouchMove)
+    }
+  }, [updateDragTransition])
+
   return (
     <section className="flex flex-col items-center bg-white pt-6 sm:pt-10 pb-12 sm:pb-[67px] overflow-hidden">
       <style dangerouslySetInnerHTML={{ __html: `
@@ -307,15 +326,12 @@ export function Hero() {
       <div className="relative w-full mb-10 sm:mb-8">
         <div className="relative w-full h-[296px] sm:h-[224px] md:h-[277px] lg:h-[352px] xl:h-[409px]">
           <div
+            ref={collageRef}
             className="hero-collage-inner absolute left-1/2 -translate-x-1/2 origin-top select-none cursor-pointer"
-            style={{ width: CANVAS_W, height: CANVAS_H }}
+            style={{ width: CANVAS_W, height: CANVAS_H, touchAction: "pan-y" }}
             onTouchStart={(e) => {
               clearAutoplay()
               dragRef.current = { active: true, startX: e.touches[0].clientX, delta: 0, rawDelta: 0 }
-            }}
-            onTouchMove={(e) => {
-              if (!dragRef.current.active || animatingRef.current) return
-              updateDragTransition(e.touches[0].clientX - dragRef.current.startX)
             }}
             onTouchEnd={(e) => {
               if (!dragRef.current.active) return

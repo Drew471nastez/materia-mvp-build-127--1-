@@ -90,6 +90,34 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   let faviconUrl = profile?.avatar_url || onepage.avatar_url
   const effectiveSellerId = onepage.seller_id || onepage.creator_id || null
 
+  // Also look up the user's profiles.avatar_url as fallback
+  // (profiles.avatar_url is the single source of truth — both Settings and Store Builder sync to it)
+  let userProfileAvatarUrl: string | null = null
+  const userId = onepage.owner_id
+  if (userId) {
+    const { data: userProfile } = await supabase
+      .from("profiles")
+      .select("avatar_url")
+      .eq("id", userId)
+      .maybeSingle()
+    userProfileAvatarUrl = userProfile?.avatar_url || null
+  } else if (effectiveSellerId) {
+    // If no owner_id, look up user_id from creators table
+    const { data: creatorRecord } = await supabase
+      .from("creators")
+      .select("user_id")
+      .eq("id", effectiveSellerId)
+      .maybeSingle()
+    if (creatorRecord?.user_id) {
+      const { data: userProfile } = await supabase
+        .from("profiles")
+        .select("avatar_url")
+        .eq("id", creatorRecord.user_id)
+        .maybeSingle()
+      userProfileAvatarUrl = userProfile?.avatar_url || null
+    }
+  }
+
   if (!faviconUrl && effectiveSellerId) {
     try {
       const { data: storeConfig } = await supabase
@@ -110,8 +138,18 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     }
   }
 
-  // Social image fallback: social_image_url > avatar_url > profile avatar
-  const socialImageUrl = settings?.social_image_url || profile?.avatar_url || onepage.avatar_url || faviconUrl || undefined
+  // Social image fallback chain:
+  // 1. Custom social image from SEO settings (manually set by user)
+  // 2. OnePage published profile avatar (set in OnePage editor)
+  // 3. OnePage draft avatar
+  // 4. User's profiles.avatar_url (single source of truth — synced by Settings & Store Builder)
+  // 5. Store builder favicon/avatar
+  const socialImageUrl = settings?.social_image_url || profile?.avatar_url || onepage.avatar_url || userProfileAvatarUrl || faviconUrl || undefined
+
+  // Use user profile avatar for favicon too if no other favicon
+  if (!faviconUrl && userProfileAvatarUrl) {
+    faviconUrl = userProfileAvatarUrl
+  }
 
   return {
     title: pageTitle,
