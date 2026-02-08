@@ -8,30 +8,6 @@ export default function ProductLoading() {
       className="min-h-screen"
       style={{ backgroundColor: "var(--skeleton-bg, #ffffff)" }}
     >
-      {/* Creator Bar Skeleton */}
-      <div
-        className="h-14 border-b flex items-center justify-between px-4"
-        style={{
-          backgroundColor: "var(--skeleton-card-bg, #ffffff)",
-          borderColor: "var(--skeleton-border, #e5e7eb)"
-        }}
-      >
-        <div className="flex items-center gap-3">
-          <div
-            className="h-8 w-8 rounded-full animate-pulse"
-            style={{ backgroundColor: "var(--skeleton-color, #e5e7eb)" }}
-          />
-          <div
-            className="h-4 w-24 rounded animate-pulse"
-            style={{ backgroundColor: "var(--skeleton-color, #e5e7eb)" }}
-          />
-        </div>
-        <div
-          className="h-8 w-24 rounded-lg animate-pulse"
-          style={{ backgroundColor: "var(--skeleton-color, #e5e7eb)" }}
-        />
-      </div>
-
       {/* Main Content */}
       <div className="mx-auto max-w-[1200px] px-3 sm:px-4 lg:px-6 py-6 sm:py-12">
         <div className="grid gap-8 lg:grid-cols-5 lg:gap-12 lg:items-start">

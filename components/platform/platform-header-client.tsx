@@ -203,6 +203,7 @@ type Profile = {
   avatar_url?: string | null
   username?: string | null
   is_creator?: boolean | null
+  welcome_completed?: boolean | null
   updated_at?: string | null
 }
 
@@ -520,10 +521,12 @@ export function PlatformHeaderClient() {
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [isCreator, setIsCreator] = useState(false)
+  const [hasCompletedSellerOnboarding, setHasCompletedSellerOnboarding] = useState(false)
+  const [storeBuilderAvatarUrl, setStoreBuilderAvatarUrl] = useState<string | null>(null)
+  const [storeBuilderAvatarUpdatedAt, setStoreBuilderAvatarUpdatedAt] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [initialLoadDone, setInitialLoadDone] = useState(false)
   const [wishlistCount, setWishlistCount] = useState(0)
-  const [avatarRefreshKey, setAvatarRefreshKey] = useState(0)
 
   const mountedRef = useRef(true)
 
@@ -706,6 +709,9 @@ export function PlatformHeaderClient() {
           setUser(null)
           setProfile(null)
           setIsCreator(false)
+          setHasCompletedSellerOnboarding(false)
+          setStoreBuilderAvatarUrl(null)
+          setStoreBuilderAvatarUpdatedAt(null)
           return
         }
 
@@ -714,24 +720,54 @@ export function PlatformHeaderClient() {
 
         const { data: profileData, error: profileErr } = await supabase
           .from("profiles")
-          .select("display_name, avatar_url, username, is_creator, updated_at")
+          .select("display_name, avatar_url, username, is_creator, welcome_completed, updated_at")
           .eq("id", user.id)
           .single()
+
+        const { data: creatorData } = await supabase
+          .from("creators")
+          .select("id, onboarding_completed")
+          .eq("user_id", user.id)
+          .maybeSingle()
+
+        let nextStoreBuilderAvatarUrl: string | null = null
+        let nextStoreBuilderUpdatedAt: string | null = null
+        if (creatorData?.id) {
+          const { data: storeConfigData } = await supabase
+            .from("store_configs")
+            .select("published_config, updated_at")
+            .eq("creator_id", creatorData.id)
+            .eq("published", true)
+            .maybeSingle()
+
+          const headerSettings = (storeConfigData?.published_config as Record<string, unknown> | null)?.headerSettings as Record<string, unknown> | undefined
+          const avatarFromStoreBuilder = typeof headerSettings?.avatarUrl === "string" ? headerSettings.avatarUrl : null
+          nextStoreBuilderAvatarUrl = avatarFromStoreBuilder && avatarFromStoreBuilder !== "" ? avatarFromStoreBuilder : null
+          nextStoreBuilderUpdatedAt = (storeConfigData?.updated_at as string | null) || null
+        }
 
         if (!mountedRef.current) return
         if (profileErr) {
           setProfile(null)
           setIsCreator(false)
+          setHasCompletedSellerOnboarding(false)
         } else {
           setProfile((profileData as Profile) ?? null)
-          setIsCreator(!!profileData?.is_creator)
+          const hasWelcomeCompleted = !!profileData?.welcome_completed
+          const isSellerByState = !!creatorData?.onboarding_completed && hasWelcomeCompleted
+          setIsCreator(isSellerByState)
+          setHasCompletedSellerOnboarding(isSellerByState)
         }
-        setAvatarRefreshKey(Date.now())
+        setStoreBuilderAvatarUrl(nextStoreBuilderAvatarUrl)
+        setStoreBuilderAvatarUpdatedAt(nextStoreBuilderUpdatedAt)
       } catch {
         if (!mountedRef.current) return
         setUser(null)
         setProfile(null)
         setIsCreator(false)
+        setHasCompletedSellerOnboarding(false)
+        setStoreBuilderAvatarUrl(null)
+        setStoreBuilderAvatarUpdatedAt(null)
       } finally {
         if (!mountedRef.current) return
         setLoading(false)
@@ -762,13 +798,13 @@ export function PlatformHeaderClient() {
 
   const startSellingHref = useMemo(() => {
     if (!user) return "/signup"
-    return isCreator ? "/app" : "/onboarding"
-  }, [user, isCreator])
+    return hasCompletedSellerOnboarding ? "/app" : "/onboarding"
+  }, [user, hasCompletedSellerOnboarding])
 
   const dashboardHref = useMemo(() => {
     if (!user) return "/signup"
-    return isCreator ? "/app" : "/onboarding"
-  }, [user, isCreator])
+    return hasCompletedSellerOnboarding ? "/app" : "/onboarding"
+  }, [user, hasCompletedSellerOnboarding])
 
   const wishlistHref = useMemo(() => {
     return user ? "/library/wishlist" : "/wishlist"
@@ -782,26 +818,17 @@ export function PlatformHeaderClient() {
   }, [])
 
   const avatarUrl =
+    withAvatarVersion(storeBuilderAvatarUrl, storeBuilderAvatarUpdatedAt || null) ||
     withAvatarVersion(profile?.avatar_url, profile?.updated_at || null) ||
-    withAvatarVersion(((user?.user_metadata as any)?.avatar_url as string | undefined), (user as any)?.updated_at || null) ||
-    withAvatarVersion(((user?.user_metadata as any)?.picture as string | undefined), (user as any)?.updated_at || null)
+    undefined
 
-  const avatarUrlWithRefresh = avatarUrl
-    ? `${avatarUrl}${avatarUrl.includes("?") ? "&" : "?"}rk=${avatarRefreshKey}`
-    : "/placeholder.svg"
+  const avatarUrlWithRefresh = avatarUrl || "/placeholder.svg"
 
   const displayName =
     profile?.display_name ||
     profile?.username ||
     ((user?.user_metadata as any)?.full_name as string | undefined) ||
     (user?.email ? user.email.split("@")[0] : "User")
-
-  const initials = (displayName || "U")
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((s) => s[0]?.toUpperCase())
-    .join("")
 
   async function handleLogout() {
     const supabase = createClient()
@@ -963,8 +990,8 @@ export function PlatformHeaderClient() {
                       </Tooltip>
                       {/* Primary CTA */}
                       <Button asChild className="h-11 rounded-lg px-6 text-[15px] bg-violet-600 text-white hover:bg-violet-700 cursor-pointer">
-                        <Link href={getCanonicalOrRelativePath(isCreator ? "/app" : "/onboarding")} onClick={(e) => onCanonicalNav(e, isCreator ? "/app" : "/onboarding")}>
-                          {isCreator ? "Dashboard" : "Start Selling"}
+                        <Link href={getCanonicalOrRelativePath(hasCompletedSellerOnboarding ? "/app" : "/onboarding")} onClick={(e) => onCanonicalNav(e, hasCompletedSellerOnboarding ? "/app" : "/onboarding")}>
+                          {hasCompletedSellerOnboarding ? "Dashboard" : "Start Selling"}
                         </Link>
                       </Button>
                     </>
@@ -1342,7 +1369,7 @@ export function PlatformHeaderClient() {
                 >
                   <Avatar className="h-8 w-8 border border-gray-200">
                     <AvatarImage src={avatarUrlWithRefresh} alt={displayName} />
-                    <AvatarFallback className="text-[10px] bg-gray-100 text-gray-700">{initials}</AvatarFallback>
+                    <AvatarFallback className="bg-gray-100 text-gray-400"><UserIcon className="h-4 w-4" /></AvatarFallback>
                   </Avatar>
                 </button>
               ) : (
@@ -1401,8 +1428,8 @@ export function PlatformHeaderClient() {
 
                 {/* Start Selling or Dashboard */}
                 <Button asChild className="h-11 rounded-full px-6 text-[15px] bg-violet-600 text-white hover:bg-violet-700">
-                  <Link href={getCanonicalOrRelativePath(user && isCreator ? "/app" : startSellingHref)} onClick={(e) => onCanonicalNav(e, user && isCreator ? "/app" : startSellingHref)}>
-                    {user && isCreator ? t("dashboard") : t("start_selling")}
+                  <Link href={getCanonicalOrRelativePath(user && hasCompletedSellerOnboarding ? "/app" : startSellingHref)} onClick={(e) => onCanonicalNav(e, user && hasCompletedSellerOnboarding ? "/app" : startSellingHref)}>
+                    {user && hasCompletedSellerOnboarding ? t("dashboard") : t("start_selling")}
                   </Link>
                 </Button>
 
@@ -1419,7 +1446,7 @@ export function PlatformHeaderClient() {
                         >
                           <Avatar className="h-11 w-11 border border-gray-200 transition-opacity duration-150">
                             <AvatarImage src={avatarUrlWithRefresh} alt={displayName} />
-                            <AvatarFallback className="text-sm bg-gray-100 text-gray-700">{initials}</AvatarFallback>
+                            <AvatarFallback className="bg-gray-100 text-gray-400"><UserIcon className="h-5 w-5" /></AvatarFallback>
                           </Avatar>
                         </button>
                       </TooltipTrigger>
@@ -1443,7 +1470,7 @@ export function PlatformHeaderClient() {
                           <div className="flex items-center gap-3">
                             <Avatar className="h-10 w-10 border border-gray-200">
                               <AvatarImage src={avatarUrlWithRefresh} alt={displayName} />
-                              <AvatarFallback className="text-xs bg-gray-100 text-gray-700">{initials}</AvatarFallback>
+                              <AvatarFallback className="bg-gray-100 text-gray-400"><UserIcon className="h-4 w-4" /></AvatarFallback>
                             </Avatar>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium text-gray-900 truncate">{displayName}</p>
@@ -1452,7 +1479,7 @@ export function PlatformHeaderClient() {
                           </div>
                         </div>
 
-                        {isCreator ? (
+                        {hasCompletedSellerOnboarding ? (
                         <Link
                           href={getCanonicalOrRelativePath(dashboardHref)}
                           onClick={(e) => {
@@ -1767,7 +1794,7 @@ export function PlatformHeaderClient() {
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl mb-3">
                 <Avatar className="h-11 w-11 border border-gray-200">
                   <AvatarImage src={avatarUrlWithRefresh} alt={displayName} />
-                  <AvatarFallback className="text-sm bg-gray-100 text-gray-700">{initials}</AvatarFallback>
+                  <AvatarFallback className="bg-gray-100 text-gray-400"><UserIcon className="h-5 w-5" /></AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900 truncate">{displayName}</p>
@@ -1775,7 +1802,7 @@ export function PlatformHeaderClient() {
                 </div>
               </div>
               {/* Dashboard / Become Seller button - below profile */}
-              {isCreator ? (
+              {hasCompletedSellerOnboarding ? (
                 <Link href={getCanonicalOrRelativePath(dashboardHref)} onClick={(e) => { onCanonicalNav(e, dashboardHref); setMobileMenuOpen(false) }} className="block mb-2">
                   <Button className="w-full h-11 rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700 gap-2">
                     <LayoutDashboard className="h-4 w-4" />
@@ -1979,7 +2006,7 @@ export function PlatformHeaderClient() {
                   </div>
                   <ChevronRight className="h-5 w-5 text-gray-400" />
                 </Link>
-                {user && isCreator && (
+                {user && hasCompletedSellerOnboarding && (
                   <Link
                     href={getCanonicalOrRelativePath(dashboardHref)}
                     onClick={(e) => { onCanonicalNav(e, dashboardHref); setMobileMenuOpen(false) }}
@@ -1992,7 +2019,7 @@ export function PlatformHeaderClient() {
                     <ChevronRight className="h-5 w-5 text-gray-400" />
                   </Link>
                 )}
-                {user && !isCreator && (
+                {user && !hasCompletedSellerOnboarding && (
                   <Link
                     href={getCanonicalOrRelativePath('/onboarding')}
                     onClick={(e) => { onCanonicalNav(e, '/onboarding'); setMobileMenuOpen(false) }}
@@ -2021,7 +2048,7 @@ export function PlatformHeaderClient() {
           <div className="flex items-center gap-3 p-3 mb-4 bg-gray-50 rounded-xl">
             <Avatar className="h-12 w-12 border border-gray-200">
               <AvatarImage src={avatarUrlWithRefresh} alt={displayName} />
-              <AvatarFallback className="text-sm bg-gray-100 text-gray-700">{initials}</AvatarFallback>
+              <AvatarFallback className="bg-gray-100 text-gray-400"><UserIcon className="h-5 w-5" /></AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
               <p className="text-base font-medium text-gray-900 truncate">{displayName}</p>
@@ -2031,7 +2058,7 @@ export function PlatformHeaderClient() {
 
           {/* Menu Items */}
           <div className="space-y-0.5">
-            {isCreator ? (
+            {hasCompletedSellerOnboarding ? (
             <Link
               href={getCanonicalOrRelativePath(dashboardHref)}
               onClick={(e) => { onCanonicalNav(e, dashboardHref); setMobileProfileOpen(false) }}
