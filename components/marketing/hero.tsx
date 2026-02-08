@@ -498,7 +498,7 @@ export function Hero() {
           href="/signup"
           className="inline-flex items-center gap-2 px-6 sm:px-7 py-2.5 sm:py-3 rounded-full text-sm font-semibold bg-violet-600 text-white hover:bg-violet-700 transition-colors"
         >
-          Start Selling
+          Sign Up
           <ArrowRight className="w-3.5 h-3.5" />
         </Link>
       </div>
@@ -532,7 +532,7 @@ export function Hero() {
                     : isAtlassian
                       ? "h-[15px] sm:h-[18px] md:h-[22px]"
                       : isPopj
-                        ? "h-[23px] sm:h-[27px] md:h-[32px]"
+                        ? "h-[26px] sm:h-[31px] md:h-[37px]"
                         : isNewLogo
                           ? "h-[22px] sm:h-[26px] md:h-[31px]"
                           : "h-[17px] sm:h-5 md:h-6"

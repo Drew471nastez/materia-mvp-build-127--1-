@@ -719,26 +719,26 @@ function ShareButton({
         </div>
       </div>
 
-      {/* Share Modal - backdrop */}
+      {/* Share Modal - backdrop + centered wrapper */}
       <div
         className={cn(
-          "fixed inset-0 bg-black/40 backdrop-blur-sm z-[60] transition-opacity duration-300",
+          "fixed inset-0 z-[60] flex items-center justify-center transition-opacity duration-300",
           isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none",
         )}
-        onClick={() => setIsOpen(false)}
-      />
-
-      {/* Share Modal - content */}
-      <div
-        className={cn(
-          "fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[65] w-[calc(100%-32px)] max-w-[380px] rounded-[28px] overflow-hidden transition-all duration-300 ease-out",
-          isOpen ? "opacity-100 scale-100 translate-y-0 pointer-events-auto" : "opacity-0 scale-95 translate-y-4 pointer-events-none",
-        )}
-        style={{
-          background: "#ffffff",
-          boxShadow: isOpen ? "0 25px 80px rgba(0, 0, 0, 0.2), 0 8px 24px rgba(0, 0, 0, 0.1)" : "none",
-        }}
       >
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsOpen(false)} />
+
+        {/* Share Modal - content */}
+        <div
+          className={cn(
+            "relative z-10 w-[calc(100%-32px)] max-w-[380px] max-h-[90vh] overflow-y-auto rounded-[28px] overflow-x-hidden transition-transform duration-300 ease-out",
+            isOpen ? "scale-100" : "scale-95",
+          )}
+          style={{
+            background: "#ffffff",
+            boxShadow: isOpen ? "0 25px 80px rgba(0, 0, 0, 0.2), 0 8px 24px rgba(0, 0, 0, 0.1)" : "none",
+          }}
+        >
         {/* Profile preview card with background adapted to OnePage theme */}
         <div
           className="relative px-6 pt-8 pb-10"
@@ -788,7 +788,7 @@ function ShareButton({
         ) : (
         <>
         {/* Share options - centered and well-aligned */}
-        <div className="flex justify-center items-center gap-4 px-3 pt-[7px] relative z-10">
+        <div className="flex justify-center items-center gap-4 px-3 pt-[6px] relative z-10">
           {shareOptions.map(
             (option, index) => (
               <button
@@ -834,6 +834,7 @@ function ShareButton({
             </div>
           </div>
         </div>
+      </div>
       </div>
     </>
   )
@@ -3544,17 +3545,9 @@ function PublicBlockRenderer({
                     style={{
                       borderColor: `${theme.text_color}20`,
                       transform: `scale(${((theme as any).avatar_scale || 100) / 100})`,
+                      backgroundColor: theme.button_color || '#e5e7eb',
                     }}
                   >
-                    {/* Fallback initials visible behind video while it loads — circle is NEVER empty */}
-                    <div
-                      className="absolute inset-0 flex items-center justify-center rounded-full"
-                      style={{ backgroundColor: theme.button_color, color: theme.button_text_color }}
-                    >
-                      <span className="text-2xl sm:text-3xl font-semibold">
-                        {profile.title?.charAt(0)?.toUpperCase() || "?"}
-                      </span>
-                    </div>
                     <video
                       ref={(el) => {
                         if (videoRef) (videoRef as React.MutableRefObject<HTMLVideoElement | null>).current = el;

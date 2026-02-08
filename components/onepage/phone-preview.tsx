@@ -405,27 +405,29 @@ function ShareButtonPreview({
       </div>
 
       {/* Share Modal - positioned within phone preview */}
-      {/* Backdrop - covers phone preview only */}
       <div
         className={cn(
-          "absolute inset-0 bg-black/40 backdrop-blur-sm z-40 transition-opacity duration-300",
+          "absolute inset-0 z-40 flex items-center justify-center transition-opacity duration-300",
           isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none",
         )}
-        onClick={() => setIsOpen(false)}
-      />
-
-      {/* Modal - centered within phone preview */}
-      <div
-        className={cn(
-          "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 rounded-2xl overflow-hidden transition-all duration-300 ease-out",
-          isOpen ? "opacity-100 scale-100 translate-y-0 pointer-events-auto" : "opacity-0 scale-95 translate-y-2 pointer-events-none",
-        )}
-        style={{
-          width: scale === "small" ? 200 : 260,
-          background: "#ffffff",
-          boxShadow: isOpen ? "0 20px 60px rgba(0, 0, 0, 0.2)" : "none",
-        }}
       >
+        {/* Backdrop */}
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsOpen(false)} />
+
+        {/* Modal - centered within phone preview */}
+        <div
+          className={cn(
+            "relative z-10 rounded-2xl overflow-hidden transition-transform duration-300 ease-out",
+            isOpen ? "scale-100" : "scale-95",
+          )}
+          style={{
+            width: scale === "small" ? 200 : 260,
+            maxHeight: "90%",
+            overflowY: "auto",
+            background: "#ffffff",
+            boxShadow: isOpen ? "0 20px 60px rgba(0, 0, 0, 0.2)" : "none",
+          }}
+        >
             {/* Profile preview card with background adapted to OnePage theme */}
             <div
               className="relative px-3 pt-4 pb-5"
@@ -569,6 +571,7 @@ function ShareButtonPreview({
               </div>
             </div>
           </div>
+        </div>
     </>
   )
 }
@@ -3479,17 +3482,9 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                     style={{
                       borderColor: `${theme.text_color}20`,
                       transform: `scale(${((theme as any).avatar_scale || 100) / 100})`,
+                      backgroundColor: theme.button_color || '#e5e7eb',
                     }}
                   >
-                    {/* Fallback initials visible behind video while it loads — circle is NEVER empty */}
-                    <div
-                      className="absolute inset-0 flex items-center justify-center rounded-full"
-                      style={{ backgroundColor: theme.button_color, color: theme.button_text_color }}
-                    >
-                      <span className={cn(s.avatarFallback, "font-semibold")}>
-                        {profile.title?.charAt(0)?.toUpperCase() || "?"}
-                      </span>
-                    </div>
                     <video
                       ref={(el) => {
                         if (el) {

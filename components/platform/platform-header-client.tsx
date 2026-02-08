@@ -510,6 +510,55 @@ function AnimatedHamburger({ isOpen }: { isOpen: boolean }) {
   )
 }
 
+// Beta launch countdown bar — counts down to March 10, 2026
+function LaunchCountdownBar({ onCanonicalNav }: { onCanonicalNav: (e: React.MouseEvent, href: string) => void }) {
+  const LAUNCH_DATE = new Date("2026-03-10T00:00:00").getTime()
+
+  const calcRemaining = () => {
+    const diff = Math.max(0, LAUNCH_DATE - Date.now())
+    const days = Math.floor(diff / 86400000)
+    const hours = Math.floor((diff % 86400000) / 3600000)
+    const minutes = Math.floor((diff % 3600000) / 60000)
+    const seconds = Math.floor((diff % 60000) / 1000)
+    return { days, hours, minutes, seconds }
+  }
+
+  const [time, setTime] = useState(calcRemaining)
+
+  useEffect(() => {
+    const id = setInterval(() => setTime(calcRemaining()), 1000)
+    return () => clearInterval(id)
+  }, [])
+
+  return (
+    <div className="bg-violet-600 text-white">
+      <div className="py-2 px-4 md:py-2.5">
+        <div className="max-w-[1400px] mx-auto flex items-center justify-center gap-2 md:gap-3 text-center">
+          <span className="text-[12px] md:text-[14px] text-white/90">
+            <span className="font-semibold text-white">Beta Release</span>
+            <span className="hidden md:inline"> — Official Launch In</span>
+            <span className="md:hidden"> —</span>
+            {" "}
+            <span className="font-mono font-bold text-white tabular-nums">
+              <span className="hidden md:inline">{time.days}d {String(time.hours).padStart(2, "0")}h {String(time.minutes).padStart(2, "0")}m {String(time.seconds).padStart(2, "0")}s</span>
+              <span className="md:hidden">{time.days}d {String(time.hours).padStart(2, "0")}:{String(time.minutes).padStart(2, "0")}:{String(time.seconds).padStart(2, "0")}</span>
+            </span>
+            <span className="hidden md:inline"> — 10 March</span>
+          </span>
+          <Link
+            href="/signup"
+            onClick={(e) => onCanonicalNav(e, "/signup")}
+            className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1 md:px-4 md:py-1.5 text-[11px] md:text-[12px] font-semibold bg-white text-gray-900 hover:bg-white/90 transition-colors"
+          >
+            <span>Early Sign Up</span>
+            <ArrowRight className="h-3 w-3 md:h-3.5 md:w-3.5" />
+          </Link>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function PlatformHeaderClient() {
   const router = useRouter()
   const pathname = usePathname()
@@ -869,25 +918,9 @@ export function PlatformHeaderClient() {
   return (
     <>
       <div className="relative z-40 w-full bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/90 pt-[env(safe-area-inset-top)]">
-      {/* Homepage and Features Page Announcement Bar */}
+      {/* Homepage and Features Page Announcement Bar — Beta Countdown */}
       {(pathname === "/" || pathname === "/features") && (
-        <div className="bg-violet-600 text-white">
-          <div className="py-2 px-4 md:py-2.5">
-            <div className="max-w-[1400px] mx-auto flex items-center justify-center gap-2 md:gap-3 text-center">
-              <span className="text-[12px] md:text-[14px] text-white/90">
-                <span className="font-semibold text-white">🎉 Start selling in minutes</span>
-                <span className="hidden md:inline"> — Join thousands of creators earning on Storelib</span>
-              </span>
-              <Link
-                href="/signup" onClick={(e) => onCanonicalNav(e, "/signup")}
-                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1 md:px-4 md:py-1.5 text-[11px] md:text-[12px] font-semibold bg-white text-gray-900 hover:bg-white/90 transition-colors"
-              >
-                <span>Get Started</span>
-                <ArrowRight className="h-3 w-3 md:h-3.5 md:w-3.5" />
-              </Link>
-            </div>
-          </div>
-        </div>
+        <LaunchCountdownBar onCanonicalNav={onCanonicalNav} />
       )}
     <header className="w-full bg-white border-b border-gray-200">
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
