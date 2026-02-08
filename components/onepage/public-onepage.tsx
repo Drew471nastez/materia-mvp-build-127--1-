@@ -26,6 +26,19 @@ import { useState, useRef, useEffect, useCallback, createContext, useContext } f
 import { Bell, X, Check, Send, Link2, ChevronLeft, ChevronRight, ExternalLink, Loader2, Download, ShoppingBag, Calendar } from "lucide-react"
 import { getLinksUrl } from "@/lib/url-helpers"
 
+const stripHtmlToPlainText = (value?: string | null) => {
+  if (!value) return ""
+  const raw = value.trim()
+  if (!raw) return ""
+  if (typeof window === "undefined") {
+    return raw.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()
+  }
+  const parser = new DOMParser()
+  const doc = parser.parseFromString(raw, "text/html")
+  const text = doc.body.textContent || ""
+  return text.replace(/\s+/g, " ").trim()
+}
+
 // Spotify Modal Context - allows modals to render at root level instead of inside blocks
 interface SpotifyModalContextType {
   openSpotifyModal: (data: {
@@ -488,6 +501,7 @@ function ShareButton({
   const [isOpen, setIsOpen] = useState(false)
   const [copied, setCopied] = useState(false)
   const [isShareVisible, setIsShareVisible] = useState(true)
+  const [isShareContentReady, setIsShareContentReady] = useState(false)
 
   useEffect(() => {
     let ticking = false
@@ -508,6 +522,15 @@ function ShareButton({
     window.addEventListener("scroll", handleScroll, { passive: true })
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
+
+  useEffect(() => {
+    if (!isOpen) {
+      setIsShareContentReady(false)
+      return
+    }
+    const timer = window.setTimeout(() => setIsShareContentReady(true), 140)
+    return () => window.clearTimeout(timer)
+  }, [isOpen])
 
   // Adapt popup header background to theme - prioritize gradient, then solid color, then accent
   const getPopupHeaderBackground = () => {
@@ -743,6 +766,20 @@ function ShareButton({
               </div>
             </div>
 
+            {!isShareContentReady ? (
+              <div className="px-5 pb-6 pt-2 animate-pulse">
+                <div className="h-12 rounded-xl bg-gray-100 mb-4" />
+                <div className="grid grid-cols-4 gap-3">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="flex flex-col items-center gap-2">
+                      <div className="w-[46px] h-[46px] rounded-full bg-gray-100" />
+                      <div className="w-10 h-2.5 rounded bg-gray-100" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+            <>
             {/* Share options - centered and well-aligned */}
             <div className="flex justify-center items-center gap-4 px-3">
               {shareOptions.map(
@@ -772,6 +809,8 @@ function ShareButton({
             </div>
 
             {/* Storelib CTA Section */}
+            </>
+            )}
             <div className="px-5 pb-6">
               <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
                 <div className="flex items-center gap-3">
@@ -787,7 +826,7 @@ function ShareButton({
                     <p className="text-xs text-gray-500 truncate">Build your store with Storelib</p>
                   </div>
                   <button
-                    onClick={() => window.open("https://storelib.co", "_blank")}
+                    onClick={() => window.open("https://storelib.com", "_blank")}
                     className="px-4 py-2 bg-black text-white text-sm font-semibold rounded-xl hover:bg-gray-800 transition-all shadow-sm hover:shadow-md active:scale-95"
                   >
                     Join
@@ -1734,7 +1773,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         paddingLeft: isDesktop ? "28px" : "20px",
         paddingRight: isDesktop ? "28px" : "20px",
         // More top padding on mobile to push avatar/content down
-        paddingTop: isDesktop ? "0" : "50px",
+        paddingTop: isDesktop ? "0" : ((safeTheme as any).header_layout === "hero" ? "0" : "50px"),
         paddingBottom: "20px",
         minHeight: isDesktop ? "100%" : "100vh",
       }}
@@ -1775,7 +1814,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         {safeSettings.show_branding && (
           <div className="text-center mb-4">
             <a
-              href="https://materia.so"
+              href="https://storelib.com"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center justify-center px-4 pt-2 pb-[10px] rounded-full text-sm font-medium bg-white text-gray-900 hover:bg-gray-100 transition-colors shadow-[0_2px_8px_rgba(0,0,0,0.12)]"
@@ -1787,7 +1826,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         {/* Footer Links */}
         <div className="flex items-center justify-center gap-4 text-xs">
           <a
-            href="https://materiathemes.com/cookies"
+            href="https://storelib.com/legal/privacy#cookies"
             target="_blank"
             rel="noopener noreferrer"
             className="hover:underline transition-colors"
@@ -1796,7 +1835,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
             Cookies
           </a>
           <a
-            href="https://materiathemes.com/privacy"
+            href="https://storelib.com/legal/privacy"
             target="_blank"
             rel="noopener noreferrer"
             className="hover:underline transition-colors"
@@ -1805,7 +1844,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
             Privacy
           </a>
           <a
-            href="https://materiathemes.com/report"
+            href="https://storelib.com/legal/terms"
             target="_blank"
             rel="noopener noreferrer"
             className="hover:underline transition-colors"
@@ -5264,12 +5303,12 @@ function PublicBlockRenderer({
               >
                 {data.product_title || 'Product'}
               </p>
-              {data.show_description !== false && data.product_description && (
+              {data.show_description !== false && stripHtmlToPlainText(data.product_description) && (
                 <p
                   className="text-sm opacity-75"
                   style={{ color: textColor }}
                 >
-                  {data.product_description}
+                  {stripHtmlToPlainText(data.product_description)}
                 </p>
               )}
               {data.show_price !== false && (
@@ -5356,12 +5395,12 @@ function PublicBlockRenderer({
               >
                 {data.product_title || 'Product'}
               </p>
-              {data.show_description !== false && data.product_description && (
+              {data.show_description !== false && stripHtmlToPlainText(data.product_description) && (
                 <p
                   className="text-sm opacity-75 line-clamp-1"
                   style={{ color: textColor }}
                 >
-                  {data.product_description}
+                  {stripHtmlToPlainText(data.product_description)}
                 </p>
               )}
               {data.show_price !== false && (
