@@ -4038,11 +4038,17 @@ function BlockItem({
   const [statsSheetDragY, setStatsSheetDragY] = useState(0)
   const [isStatsSheetDragging, setIsStatsSheetDragging] = useState(false)
   const statsSheetStartYRef = useRef(0)
+  const statsSheetLastYRef = useRef(0)
+  const statsSheetLastTimeRef = useRef(0)
+  const statsSheetVelocityRef = useRef(0)
   const statsSheetCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [isAnimationSheetPresented, setIsAnimationSheetPresented] = useState(false)
   const [animationSheetDragY, setAnimationSheetDragY] = useState(0)
   const [isAnimationSheetDragging, setIsAnimationSheetDragging] = useState(false)
   const animationSheetStartYRef = useRef(0)
+  const animationSheetLastYRef = useRef(0)
+  const animationSheetLastTimeRef = useRef(0)
+  const animationSheetVelocityRef = useRef(0)
   const animationSheetCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const animationMenuRef = useRef<HTMLDivElement>(null)
   const buttonTextMenuRef = useRef<HTMLDivElement>(null)
@@ -4500,21 +4506,32 @@ function BlockItem({
                 const bounds = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
                 if (touchY - bounds.top <= 72) {
                   animationSheetStartYRef.current = touchY
+                  animationSheetLastYRef.current = touchY
+                  animationSheetLastTimeRef.current = Date.now()
+                  animationSheetVelocityRef.current = 0
                   setIsAnimationSheetDragging(true)
                 }
               }}
               onTouchMove={(e) => {
                 if (!isMobileStatsViewport || !isAnimationSheetDragging) return
-                const diff = (e.touches[0]?.clientY ?? 0) - animationSheetStartYRef.current
+                const currentY = e.touches[0]?.clientY ?? 0
+                const diff = currentY - animationSheetStartYRef.current
                 if (diff > 0) {
                   e.preventDefault()
-                  setAnimationSheetDragY(diff * 0.85)
+                  const now = Date.now()
+                  const dt = Math.max(1, now - animationSheetLastTimeRef.current)
+                  animationSheetVelocityRef.current = (currentY - animationSheetLastYRef.current) / dt
+                  animationSheetLastYRef.current = currentY
+                  animationSheetLastTimeRef.current = now
+
+                  const resisted = diff <= 160 ? diff * 0.92 : 147 + (diff - 160) * 0.4
+                  setAnimationSheetDragY(resisted)
                 }
               }}
               onTouchEnd={() => {
                 if (!isMobileStatsViewport || !isAnimationSheetDragging) return
                 setIsAnimationSheetDragging(false)
-                if (animationSheetDragY > 88) {
+                if (animationSheetDragY > 92 || animationSheetVelocityRef.current > 0.55) {
                   closeAnimationSheet()
                   return
                 }
@@ -4538,7 +4555,7 @@ function BlockItem({
               } : undefined}
             >
               {isMobileStatsViewport && (
-                <div className="pt-3 pb-2 flex justify-center">
+                <div className="pt-3 pb-2 flex justify-center cursor-pointer">
                   <div className="h-1.5 w-10 rounded-full bg-gray-300" />
                 </div>
               )}
@@ -4618,21 +4635,32 @@ function BlockItem({
                   const bounds = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
                   if (touchY - bounds.top <= 72) {
                     statsSheetStartYRef.current = touchY
+                    statsSheetLastYRef.current = touchY
+                    statsSheetLastTimeRef.current = Date.now()
+                    statsSheetVelocityRef.current = 0
                     setIsStatsSheetDragging(true)
                   }
                 }}
                 onTouchMove={(e) => {
                   if (!isMobileStatsViewport || !isStatsSheetDragging) return
-                  const diff = (e.touches[0]?.clientY ?? 0) - statsSheetStartYRef.current
+                  const currentY = e.touches[0]?.clientY ?? 0
+                  const diff = currentY - statsSheetStartYRef.current
                   if (diff > 0) {
                     e.preventDefault()
-                    setStatsSheetDragY(diff * 0.85)
+                    const now = Date.now()
+                    const dt = Math.max(1, now - statsSheetLastTimeRef.current)
+                    statsSheetVelocityRef.current = (currentY - statsSheetLastYRef.current) / dt
+                    statsSheetLastYRef.current = currentY
+                    statsSheetLastTimeRef.current = now
+
+                    const resisted = diff <= 160 ? diff * 0.92 : 147 + (diff - 160) * 0.4
+                    setStatsSheetDragY(resisted)
                   }
                 }}
                 onTouchEnd={() => {
                   if (!isMobileStatsViewport || !isStatsSheetDragging) return
                   setIsStatsSheetDragging(false)
-                  if (statsSheetDragY > 88) {
+                  if (statsSheetDragY > 92 || statsSheetVelocityRef.current > 0.55) {
                     closeStatsSheet()
                     return
                   }
@@ -4656,7 +4684,7 @@ function BlockItem({
                 } : undefined}
               >
                 {isMobileStatsViewport && (
-                  <div className="pt-3 pb-2 flex justify-center">
+                  <div className="pt-3 pb-2 flex justify-center cursor-pointer">
                     <div className="h-1.5 w-10 rounded-full bg-gray-300" />
                   </div>
                 )}
