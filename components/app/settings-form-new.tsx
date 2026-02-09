@@ -374,14 +374,23 @@ function CountrySelectorModal({
   onSelect: (country: string) => void
 }) {
   const [searchQuery, setSearchQuery] = useState("")
+  const [isMobile, setIsMobile] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    // Check if mobile
+    setIsMobile(window.innerWidth < 768)
+  }, [])
 
   useEffect(() => {
     if (isOpen) {
       setSearchQuery("")
-      setTimeout(() => searchInputRef.current?.focus(), 100)
+      // Only auto-focus on desktop to prevent keyboard popup on mobile
+      if (!isMobile) {
+        setTimeout(() => searchInputRef.current?.focus(), 100)
+      }
     }
-  }, [isOpen])
+  }, [isOpen, isMobile])
 
   const filteredCountries = COUNTRIES.filter(
     (country) =>
@@ -406,6 +415,12 @@ function CountrySelectorModal({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search countries..."
+            readOnly={isMobile}
+            onFocus={(e) => {
+              if (isMobile) {
+                e.currentTarget.readOnly = false
+              }
+            }}
             className="w-full h-11 pl-10 pr-4 border border-[#e5e7eb] rounded-xl text-[14px] focus:outline-none focus:ring-2 focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
           />
         </div>

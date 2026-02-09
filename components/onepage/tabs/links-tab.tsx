@@ -2975,6 +2975,11 @@ export function LinksTab() {
           {/* Icon Library Full Page View */}
           {showIconLibraryInModal && (
             <>
+              {isMobileModalViewport && (
+                <div className="pt-3 pb-2 flex justify-center cursor-pointer">
+                  <div className="h-1.5 w-10 rounded-full bg-gray-300" />
+                </div>
+              )}
               <DialogHeader className="p-4 border-b">
                 <div className="flex items-center gap-3">
                   <button
@@ -3001,6 +3006,13 @@ export function LinksTab() {
                     value={iconSearchQuery}
                     onChange={(e) => setIconSearchQuery(e.target.value)}
                     className="pl-9 h-10 bg-white border-gray-200 rounded-lg text-sm"
+                    readOnly={isMobileModalViewport}
+                    onClick={(e) => {
+                      if (isMobileModalViewport) {
+                        e.currentTarget.readOnly = false
+                        e.currentTarget.focus()
+                      }
+                    }}
                   />
                   {iconSearchQuery && (
                     <button
@@ -3013,32 +3025,65 @@ export function LinksTab() {
                 </div>
               </div>
 
-              {/* Layout with sidebar and icons */}
-              <div className="flex h-[60vh] max-h-[500px]">
-                {/* Categories sidebar */}
-                <div className="w-40 border-r bg-gray-50 overflow-y-auto flex-shrink-0">
-                  <div className="p-2 space-y-1">
+              {/* Categories - Horizontal scroll on mobile, sidebar on desktop */}
+              {isMobileModalViewport ? (
+                <div className="border-b bg-white overflow-x-auto scrollbar-hide">
+                  <div className="flex gap-2 p-3">
                     {ICON_CATEGORIES.map((cat) => (
                       <button
                         key={cat.id}
                         onClick={() => setIconCategory(cat.id)}
                         className={cn(
-                          "w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                          "px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors flex-shrink-0",
                           iconCategory === cat.id
                             ? "bg-gray-900 text-white"
-                            : "text-gray-600 hover:bg-gray-200"
+                            : "bg-gray-100 text-gray-600"
                         )}
                       >
-                        {cat.label}
-                        <span className="ml-1 text-xs opacity-60">({cat.icons.length})</span>
+                        {cat.label} ({cat.icons.length})
                       </button>
                     ))}
                   </div>
                 </div>
+              ) : null}
+
+              {/* Layout with sidebar and icons */}
+              <div className={cn(
+                "flex overflow-hidden",
+                isMobileModalViewport ? "h-[50vh]" : "h-[60vh] max-h-[500px]"
+              )}>
+                {/* Categories sidebar - Desktop only */}
+                {!isMobileModalViewport && (
+                  <div className="w-40 border-r bg-gray-50 overflow-y-auto flex-shrink-0">
+                    <div className="p-2 space-y-1">
+                      {ICON_CATEGORIES.map((cat) => (
+                        <button
+                          key={cat.id}
+                          onClick={() => setIconCategory(cat.id)}
+                          className={cn(
+                            "w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                            iconCategory === cat.id
+                              ? "bg-gray-900 text-white"
+                              : "text-gray-600 hover:bg-gray-200"
+                          )}
+                        >
+                          {cat.label}
+                          <span className="ml-1 text-xs opacity-60">({cat.icons.length})</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Icon grid */}
-                <div className="flex-1 overflow-y-auto p-4">
-                  <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-8 gap-2">
+                <div className={cn(
+                  "flex-1 overflow-y-auto",
+                  isMobileModalViewport ? "p-3 pb-[max(16px,env(safe-area-inset-bottom))]" : "p-4"
+                )}>
+                  <div className={cn(
+                    "grid gap-2",
+                    isMobileModalViewport ? "grid-cols-4" : "grid-cols-5 sm:grid-cols-6 md:grid-cols-8"
+                  )}>
                     {(() => {
                       // Get icons for current category
                       const categoryIcons = ICON_CATEGORIES.find(c => c.id === iconCategory)?.icons || []
@@ -3077,13 +3122,14 @@ export function LinksTab() {
                                 })
                               }
                             }
-                            setShowThumbnailModal(false)
+                            closeThumbnailSheet()
                             setShowIconLibraryInModal(false)
                             setIconSearchQuery("")
                             setIconCategory("all")
                           }}
                           className={cn(
-                            "aspect-square rounded-lg flex flex-col items-center justify-center gap-1 transition-all hover:bg-gray-100 hover:shadow-sm p-2",
+                            "aspect-square rounded-lg flex flex-col items-center justify-center gap-1 transition-all hover:bg-gray-100 hover:shadow-sm",
+                            isMobileModalViewport ? "p-2" : "p-2",
                             (() => {
                               const blockData = getThumbnailBlockData()
                               if (getThumbnailBlockType() === 'link_button' && blockData) {
@@ -3095,8 +3141,8 @@ export function LinksTab() {
                           title={icon.name}
                         >
                           <svg
-                            width="24"
-                            height="24"
+                            width={isMobileModalViewport ? "20" : "24"}
+                            height={isMobileModalViewport ? "20" : "24"}
                             viewBox="0 0 24 24"
                             fill={icon.isFilled ? "currentColor" : "none"}
                             stroke={icon.isFilled ? "none" : "currentColor"}
@@ -3107,7 +3153,10 @@ export function LinksTab() {
                           >
                             <path d={icon.path} />
                           </svg>
-                          <span className="text-[9px] text-gray-500 truncate w-full text-center">{icon.name}</span>
+                          <span className={cn(
+                            "text-gray-500 truncate w-full text-center",
+                            isMobileModalViewport ? "text-[8px]" : "text-[9px]"
+                          )}>{icon.name}</span>
                         </button>
                       ))
                     })()}
