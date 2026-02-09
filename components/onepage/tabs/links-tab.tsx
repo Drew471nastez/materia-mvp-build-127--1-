@@ -330,6 +330,10 @@ const SocialIconsSVG: Record<string, React.FC<{ size?: number; color?: string; c
   ),
 }
 
+function getThumbnailIconViewBox(iconId?: string | null) {
+  return iconId === "threads" ? "0 0 16 16" : "0 0 24 24"
+}
+
 // Social platforms configuration with SVG icons
 const SOCIAL_PLATFORMS = [
   { id: "threads", label: "Threads", placeholder: "https://threads.net/@username", color: "#000000" },
@@ -903,8 +907,6 @@ export function LinksTab() {
     path,
     isFilled: FILLED_ICONS.has(id)
   }))
-
-  const getThumbnailIconViewBox = (iconId?: string | null) => (iconId === "threads" ? "0 0 16 16" : "0 0 24 24")
 
   // Auto-fetch thumbnail for social media links (Spotify, YouTube, etc.)
   const autoFetchThumbnail = useCallback(async (blockId: string, url: string) => {
