@@ -605,6 +605,10 @@ export function LinksTab() {
   const [socialSheetDragY, setSocialSheetDragY] = useState(0)
   const [isSocialSheetDragging, setIsSocialSheetDragging] = useState(false)
   const socialSheetStartYRef = useRef(0)
+  const [isAddSheetPresented, setIsAddSheetPresented] = useState(false)
+  const [isSocialSheetPresented, setIsSocialSheetPresented] = useState(false)
+  const addSheetCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const socialSheetCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Thumbnail modal state
   const [showThumbnailModal, setShowThumbnailModal] = useState(false)
@@ -626,6 +630,34 @@ export function LinksTab() {
     return () => window.removeEventListener('resize', checkViewport)
   }, [])
 
+  useEffect(() => {
+    if (!showAddModal || !isMobileModalViewport) return
+    const raf1 = requestAnimationFrame(() => {
+      const raf2 = requestAnimationFrame(() => {
+        setIsAddSheetPresented(true)
+      })
+      return () => cancelAnimationFrame(raf2)
+    })
+    return () => cancelAnimationFrame(raf1)
+  }, [showAddModal, isMobileModalViewport])
+
+  useEffect(() => {
+    if (!showSocialModal || !isMobileModalViewport) return
+    const raf1 = requestAnimationFrame(() => {
+      const raf2 = requestAnimationFrame(() => {
+        setIsSocialSheetPresented(true)
+      })
+      return () => cancelAnimationFrame(raf2)
+    })
+    return () => cancelAnimationFrame(raf1)
+  }, [showSocialModal, isMobileModalViewport])
+
+  useEffect(() => {
+    return () => {
+      if (addSheetCloseTimerRef.current) clearTimeout(addSheetCloseTimerRef.current)
+      if (socialSheetCloseTimerRef.current) clearTimeout(socialSheetCloseTimerRef.current)
+    }
+  }, [])
 
 
   // Streaming service URL modal state
@@ -1327,14 +1359,62 @@ export function LinksTab() {
     return false
   }
 
+  const closeAddSheet = () => {
+    if (!showAddModal) return
+
+    if (!isMobileModalViewport) {
+      setShowAddModal(false)
+      setSearchQuery("")
+      setInsertAfterId(null)
+      setAddToGroupId(null)
+      return
+    }
+
+    setIsAddSheetDragging(false)
+    setAddSheetDragY(0)
+    setIsAddSheetPresented(false)
+
+    if (addSheetCloseTimerRef.current) clearTimeout(addSheetCloseTimerRef.current)
+    addSheetCloseTimerRef.current = setTimeout(() => {
+      setShowAddModal(false)
+      setSearchQuery("")
+      setInsertAfterId(null)
+      setAddToGroupId(null)
+    }, 400)
+  }
+
+  const closeSocialSheet = () => {
+    if (!showSocialModal) return
+
+    if (!isMobileModalViewport) {
+      setShowSocialModal(false)
+      setSelectedSocial(null)
+      setSocialUrl("")
+      setSearchQuery("")
+      setSocialUrlError(null)
+      return
+    }
+
+    setIsSocialSheetDragging(false)
+    setSocialSheetDragY(0)
+    setIsSocialSheetPresented(false)
+
+    if (socialSheetCloseTimerRef.current) clearTimeout(socialSheetCloseTimerRef.current)
+    socialSheetCloseTimerRef.current = setTimeout(() => {
+      setShowSocialModal(false)
+      setSelectedSocial(null)
+      setSocialUrl("")
+      setSearchQuery("")
+      setSocialUrlError(null)
+    }, 400)
+  }
+
   const handleAddBlock = (type: OnePageBlockType, preset?: { label: string; url: string }) => {
     // If adding to a group, handle differently
     if (addToGroupId) {
       // Don't allow adding these types to a group
       if (type === "header" || type === "group" || type === "social_row" || type === "product" || type === "email_capture" || type === "text" || type === "divider") {
-        setShowAddModal(false)
-        setSearchQuery("")
-        setAddToGroupId(null)
+        closeAddSheet()
         return
       }
 
@@ -1377,9 +1457,7 @@ export function LinksTab() {
         const newChildren = [...(groupData.children || []), newBlock]
         updateBlock(addToGroupId, { data: { ...groupData, children: newChildren } })
       }
-      setShowAddModal(false)
-      setSearchQuery("")
-      setAddToGroupId(null)
+      closeAddSheet()
       return
     }
 
@@ -1415,9 +1493,7 @@ export function LinksTab() {
         }
       })
     }
-    setShowAddModal(false)
-    setSearchQuery("")
-    setInsertAfterId(null)
+    closeAddSheet()
   }
 
   // Handler to move a child block from a group back to the main blocks list
@@ -1461,7 +1537,7 @@ export function LinksTab() {
     setSelectedSocial(null)
     setSocialUrl("")
     setSocialUrlError(null)
-    setShowSocialModal(false)
+    closeSocialSheet()
   }
 
   const handleRemoveSocial = (platform: string) => {
@@ -1663,6 +1739,7 @@ export function LinksTab() {
                     onClick={() => {
                       setSelectedSocial(platform)
                       setSocialUrl(social_links?.[platform as keyof typeof social_links] || "")
+                      setIsSocialSheetPresented(false)
                       setShowSocialModal(true)
                     }}
                   >
@@ -1681,7 +1758,10 @@ export function LinksTab() {
               )
             })}
             <button
-              onClick={() => setShowSocialModal(true)}
+              onClick={() => {
+                setIsSocialSheetPresented(false)
+                setShowSocialModal(true)
+              }}
               className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 hover:bg-gray-200 transition-colors cursor-pointer"
             >
               <Plus className="h-3.5 w-3.5" />
@@ -1696,6 +1776,7 @@ export function LinksTab() {
           setInsertAfterId(null)
           setAddButtonClicked(true)
           setTimeout(() => setAddButtonClicked(false), 300)
+          setIsAddSheetPresented(false)
           setShowAddModal(true)
         }}
         className="w-full h-11 bg-violet-500 hover:bg-violet-600 text-white font-medium rounded-lg flex items-center justify-center gap-2 transition-all duration-200 ease-out group cursor-pointer select-none active:scale-[0.98]"
@@ -1823,7 +1904,10 @@ export function LinksTab() {
                 isLast={index === sortedBlocks.length - 1}
                 socialLinks={social_links}
                 onOpenImageLibrary={(blockId, fieldType) => { setImageBlockId(blockId); setImageFieldType(fieldType || null); setShowImageLibrary(true) }}
-                onOpenSocialModal={() => setShowSocialModal(true)}
+                onOpenSocialModal={() => {
+                  setIsSocialSheetPresented(false)
+                  setShowSocialModal(true)
+                }}
                 onOpenThumbnailModal={(blockId) => { setThumbnailBlockId(blockId); setShowThumbnailModal(true); setShowIconLibraryInModal(false) }}
                 iconPaths={THUMBNAIL_ICON_PATHS}
                 filledIcons={FILLED_ICONS}
@@ -1846,6 +1930,7 @@ export function LinksTab() {
                 onMoveChildToMainList={handleMoveChildToMainList}
                 onOpenAddBlockModal={(groupId) => {
                   setAddToGroupId(groupId)
+                  setIsAddSheetPresented(false)
                   setShowAddModal(true)
                 }}
               />
@@ -1857,6 +1942,7 @@ export function LinksTab() {
                   type="button"
                   onClick={() => {
                     setInsertAfterId(block.id)
+                    setIsAddSheetPresented(false)
                     setShowAddModal(true)
                   }}
                   className="absolute inset-x-0 -top-4 -bottom-4 flex items-center justify-center px-1 focus:outline-none"
@@ -1885,10 +1971,17 @@ export function LinksTab() {
       )}
 
       {/* Add Block Modal - Linktree style without sidebar */}
-      <Dialog open={showAddModal} onOpenChange={(open) => { setShowAddModal(open); if (!open) { setSearchQuery(""); setInsertAfterId(null); setAddToGroupId(null); } }}>
+      <Dialog open={showAddModal} onOpenChange={(open) => {
+        if (open) {
+          setIsAddSheetPresented(false)
+          setShowAddModal(true)
+          return
+        }
+        closeAddSheet()
+      }}>
         <DialogContent
           onOpenAutoFocus={(e) => e.preventDefault()}
-          showCloseButton={false}
+          showCloseButton={!isMobileModalViewport}
           disableDefaultAnimations={isMobileModalViewport}
           overlayClassName={isMobileModalViewport ? "data-[state=open]:animate-none data-[state=closed]:animate-none bg-black/40" : undefined}
           onTouchStart={(e) => {
@@ -1926,7 +2019,7 @@ export function LinksTab() {
           className={cn(
             "h-auto p-0 gap-0 overflow-hidden mx-auto flex flex-col border-[#ececf1]",
             isMobileModalViewport
-              ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh]"
+              ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh] !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0"
               : "w-[calc(100%-24px)] max-w-[520px] max-h-[85vh] sm:max-h-[min(680px,85vh)] rounded-2xl"
           )}
           style={isMobileModalViewport ? {
@@ -1935,7 +2028,7 @@ export function LinksTab() {
             left: 0,
             right: 0,
             bottom: 0,
-            transform: showAddModal ? `translateY(${addSheetDragY}px)` : "translateY(100%)",
+            transform: isAddSheetPresented ? `translateY(${addSheetDragY}px)` : "translateY(100%)",
             transition: isAddSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
             maxHeight: '75vh'
           } : undefined}
@@ -2184,10 +2277,17 @@ export function LinksTab() {
       </Dialog>
 
       {/* Social Links Modal - Modern Scrollable Vertical List */}
-      <Dialog open={showSocialModal} onOpenChange={(open) => { setShowSocialModal(open); if (!open) { setSelectedSocial(null); setSocialUrl(""); setSearchQuery(""); setSocialUrlError(null); } }}>
+      <Dialog open={showSocialModal} onOpenChange={(open) => {
+        if (open) {
+          setIsSocialSheetPresented(false)
+          setShowSocialModal(true)
+          return
+        }
+        closeSocialSheet()
+      }}>
         <DialogContent
           onOpenAutoFocus={(e) => e.preventDefault()}
-          showCloseButton={false}
+          showCloseButton={!isMobileModalViewport}
           disableDefaultAnimations={isMobileModalViewport}
           overlayClassName={isMobileModalViewport ? "data-[state=open]:animate-none data-[state=closed]:animate-none bg-black/40" : undefined}
           onTouchStart={(e) => {
@@ -2213,7 +2313,7 @@ export function LinksTab() {
             setIsSocialSheetDragging(false)
             // Consistent threshold for smooth close gesture
             if (socialSheetDragY > 80) {
-              setShowSocialModal(false)
+              closeSocialSheet()
               setSelectedSocial(null)
               setSocialUrl("")
               setSearchQuery("")
@@ -2226,7 +2326,7 @@ export function LinksTab() {
           className={cn(
             "p-0 gap-0 overflow-hidden mx-auto flex flex-col border-[#ececf1]",
             isMobileModalViewport
-              ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh]"
+              ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh] !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0"
               : "w-[calc(100%-32px)] max-w-md rounded-2xl max-h-[85vh]"
           )}
           style={isMobileModalViewport ? {
@@ -2235,7 +2335,7 @@ export function LinksTab() {
             left: 0,
             right: 0,
             bottom: 0,
-            transform: showSocialModal ? `translateY(${socialSheetDragY}px)` : "translateY(100%)",
+            transform: isSocialSheetPresented ? `translateY(${socialSheetDragY}px)` : "translateY(100%)",
             transition: isSocialSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
             maxHeight: '75vh'
           } : undefined}
