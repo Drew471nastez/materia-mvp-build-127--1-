@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { Check } from "lucide-react"
+import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
 
 interface SaveNotificationProps {
@@ -17,6 +18,12 @@ export function SaveNotification({
 }: SaveNotificationProps) {
   const [isVisible, setIsVisible] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+    return () => setIsMounted(false)
+  }, [])
 
   useEffect(() => {
     if (show && !isVisible) {
@@ -40,9 +47,9 @@ export function SaveNotification({
     }
   }, [show, isVisible, duration])
 
-  if (!isVisible) return null
+  if (!isVisible || !isMounted) return null
 
-  return (
+  return createPortal(
     <div className="fixed top-[76px] md:top-4 left-0 right-0 z-[2147483646] flex justify-center px-3 sm:px-4 pointer-events-none">
       <div
         className={cn(
@@ -59,5 +66,7 @@ export function SaveNotification({
         <span className="text-sm font-medium truncate">{message}</span>
       </div>
     </div>
+    ,
+    document.body
   )
 }
