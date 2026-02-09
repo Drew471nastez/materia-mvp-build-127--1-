@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
+import { createPortal } from "react-dom"
 import {
   Dialog,
   DialogContent,
@@ -92,6 +93,7 @@ export function ProductsTab() {
   const [addingProductId, setAddingProductId] = useState<string | null>(null)
   const [addedProductIds, setAddedProductIds] = useState<Set<string>>(new Set())
   const [notification, setNotification] = useState<{ message: string; visible: boolean }>({ message: "", visible: false })
+  const [isMounted, setIsMounted] = useState(false)
   const [isMobileViewport, setIsMobileViewport] = useState(false)
   const [addProductSheetDragY, setAddProductSheetDragY] = useState(0)
   const [isAddProductSheetDragging, setIsAddProductSheetDragging] = useState(false)
@@ -110,6 +112,12 @@ export function ProductsTab() {
       setNotification({ message: "", visible: false })
     }, 3000)
   }
+
+  // Set mounted state for portal rendering
+  useEffect(() => {
+    setIsMounted(true)
+    return () => setIsMounted(false)
+  }, [])
 
   // Check which products already have blocks on the page
   useEffect(() => {
@@ -318,17 +326,19 @@ export function ProductsTab() {
   if (!onepage) return null
 
   return (
-    <div className="space-y-6">
-      {/* Notification Toast */}
-      {notification.visible && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[2147483646] animate-in fade-in slide-in-from-top-2 duration-300 pointer-events-none">
+    <>
+      {/* Notification Toast - Rendered via Portal */}
+      {isMounted && notification.visible && createPortal(
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[2147483647] animate-in fade-in slide-in-from-top-2 duration-300 pointer-events-none">
           <div className="flex items-center gap-2 px-4 py-3 bg-gray-900 text-white rounded-lg shadow-xl">
             <Check className="h-4 w-4 text-green-400" />
             <span className="text-sm font-medium">{notification.message}</span>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
+      <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -670,6 +680,7 @@ export function ProductsTab() {
           )}
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </>
   )
 }

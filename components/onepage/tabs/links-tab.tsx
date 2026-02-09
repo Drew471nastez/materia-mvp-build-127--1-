@@ -627,6 +627,14 @@ export function LinksTab() {
   const [iconSearchQuery, setIconSearchQuery] = useState("")
   const [iconCategory, setIconCategory] = useState("all")
   const thumbnailInputRef = useRef<HTMLInputElement>(null)
+  const [isThumbnailSheetPresented, setIsThumbnailSheetPresented] = useState(false)
+  const [thumbnailSheetDragY, setThumbnailSheetDragY] = useState(0)
+  const [isThumbnailSheetDragging, setIsThumbnailSheetDragging] = useState(false)
+  const thumbnailSheetStartYRef = useRef(0)
+  const thumbnailSheetLastYRef = useRef(0)
+  const thumbnailSheetLastTimeRef = useRef(0)
+  const thumbnailSheetVelocityRef = useRef(0)
+  const thumbnailSheetCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     const checkViewport = () => {
@@ -662,9 +670,21 @@ export function LinksTab() {
   }, [showSocialModal, isMobileModalViewport])
 
   useEffect(() => {
+    if (!showThumbnailModal || !isMobileModalViewport) return
+    const raf1 = requestAnimationFrame(() => {
+      const raf2 = requestAnimationFrame(() => {
+        setIsThumbnailSheetPresented(true)
+      })
+      return () => cancelAnimationFrame(raf2)
+    })
+    return () => cancelAnimationFrame(raf1)
+  }, [showThumbnailModal, isMobileModalViewport])
+
+  useEffect(() => {
     return () => {
       if (addSheetCloseTimerRef.current) clearTimeout(addSheetCloseTimerRef.current)
       if (socialSheetCloseTimerRef.current) clearTimeout(socialSheetCloseTimerRef.current)
+      if (thumbnailSheetCloseTimerRef.current) clearTimeout(thumbnailSheetCloseTimerRef.current)
     }
   }, [])
 
@@ -1415,6 +1435,30 @@ export function LinksTab() {
       setSocialUrl("")
       setSearchQuery("")
       setSocialUrlError(null)
+    }, 400)
+  }
+
+  const closeThumbnailSheet = () => {
+    if (!showThumbnailModal) return
+
+    if (!isMobileModalViewport) {
+      setShowThumbnailModal(false)
+      setShowIconLibraryInModal(false)
+      setIconSearchQuery("")
+      setIconCategory("all")
+      return
+    }
+
+    setIsThumbnailSheetDragging(false)
+    setThumbnailSheetDragY(0)
+    setIsThumbnailSheetPresented(false)
+
+    if (thumbnailSheetCloseTimerRef.current) clearTimeout(thumbnailSheetCloseTimerRef.current)
+    thumbnailSheetCloseTimerRef.current = setTimeout(() => {
+      setShowThumbnailModal(false)
+      setShowIconLibraryInModal(false)
+      setIconSearchQuery("")
+      setIconCategory("all")
     }, 400)
   }
 
@@ -2732,28 +2776,80 @@ export function LinksTab() {
 
       {/* Thumbnail Edit Modal - Centered with overlay */}
       <Dialog open={showThumbnailModal} onOpenChange={(open) => {
-        setShowThumbnailModal(open)
-        if (!open) {
-          setShowIconLibraryInModal(false)
-          setIconSearchQuery("")
-          setIconCategory("all")
+        if (open) {
+          setIsThumbnailSheetPresented(false)
+          setShowThumbnailModal(true)
+          return
         }
+        closeThumbnailSheet()
       }}>
         <DialogContent
           disableDefaultAnimations={isMobileModalViewport}
-          overlayClassName={isMobileModalViewport ? cn("bg-black/40 transition-[backdrop-filter,opacity] duration-400", isAddSheetPresented ? "opacity-100 backdrop-blur-[2px]" : "opacity-0 backdrop-blur-0") : undefined}
+          overlayClassName={isMobileModalViewport ? cn("bg-black/40 transition-[backdrop-filter,opacity] duration-400", isThumbnailSheetPresented ? "opacity-100 backdrop-blur-[2px]" : "opacity-0 backdrop-blur-0") : undefined}
+          onTouchStart={(e) => {
+            if (!isMobileModalViewport) return
+            const touchY = e.touches[0]?.clientY ?? 0
+            const bounds = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
+            if (touchY - bounds.top <= 72) {
+              thumbnailSheetStartYRef.current = touchY
+              thumbnailSheetLastYRef.current = touchY
+              thumbnailSheetLastTimeRef.current = Date.now()
+              thumbnailSheetVelocityRef.current = 0
+              setIsThumbnailSheetDragging(true)
+            }
+          }}
+          onTouchMove={(e) => {
+            if (!isMobileModalViewport || !isThumbnailSheetDragging) return
+            const currentY = e.touches[0]?.clientY ?? 0
+            const diff = currentY - thumbnailSheetStartYRef.current
+            if (diff > 0) {
+              e.preventDefault()
+              const now = Date.now()
+              const dt = Math.max(1, now - thumbnailSheetLastTimeRef.current)
+              thumbnailSheetVelocityRef.current = (currentY - thumbnailSheetLastYRef.current) / dt
+              thumbnailSheetLastYRef.current = currentY
+              thumbnailSheetLastTimeRef.current = now
+
+              const resisted = diff <= 160 ? diff * 0.92 : 147 + (diff - 160) * 0.4
+              setThumbnailSheetDragY(resisted)
+            }
+          }}
+          onTouchEnd={() => {
+            if (!isMobileModalViewport || !isThumbnailSheetDragging) return
+            setIsThumbnailSheetDragging(false)
+            if (thumbnailSheetDragY > 92 || thumbnailSheetVelocityRef.current > 0.55) {
+              closeThumbnailSheet()
+              return
+            }
+            setThumbnailSheetDragY(0)
+          }}
           className={cn(
-            "p-0 gap-0 overflow-hidden mx-auto transition-all duration-200 flex flex-col",
+            "p-0 gap-0 overflow-hidden mx-auto transition-all duration-200 flex flex-col border-[#ececf1]",
             isMobileModalViewport
-              ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh] !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0 data-[state=open]:translate-y-0 data-[state=closed]:translate-y-full transition-transform duration-[400ms] ease-[cubic-bezier(0.32,0.72,0,1)]"
+              ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh] !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0"
               : showIconLibraryInModal
                 ? "rounded-2xl w-[calc(100%-32px)] sm:max-w-[572px] max-w-[650px]"
                 : "rounded-2xl w-[calc(100%-32px)] sm:max-w-[416px] max-w-[455px]"
           )}
+          style={isMobileModalViewport ? {
+            position: 'fixed',
+            top: 'auto',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            transform: isThumbnailSheetPresented ? `translateY(${thumbnailSheetDragY}px)` : 'translateY(100%)',
+            transition: isThumbnailSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
+            maxHeight: '75vh'
+          } : undefined}
         >
           {/* Main Options View */}
           {!showIconLibraryInModal && (
             <>
+              {isMobileModalViewport && (
+                <div className="pt-3 pb-2 flex justify-center cursor-pointer">
+                  <div className="h-1.5 w-10 rounded-full bg-gray-300" />
+                </div>
+              )}
               <DialogHeader className="p-4 border-b">
                 <DialogTitle className="text-base font-semibold">
                   {getThumbnailBlockType() === 'product' ? 'Edit Custom Thumbnail' : 'Edit Thumbnail'}
