@@ -1987,9 +1987,9 @@ export function LinksTab() {
       }}>
         <DialogContent
           onOpenAutoFocus={(e) => e.preventDefault()}
-          showCloseButton={!isMobileModalViewport}
+          showCloseButton
           disableDefaultAnimations={isMobileModalViewport}
-          overlayClassName={isMobileModalViewport ? "data-[state=open]:animate-none data-[state=closed]:animate-none bg-black/40 backdrop-blur-[2px]" : undefined}
+          overlayClassName={isMobileModalViewport ? "bg-black/40 data-[state=open]:opacity-100 data-[state=closed]:opacity-0 data-[state=open]:backdrop-blur-[2px] data-[state=closed]:backdrop-blur-0 transition-[backdrop-filter,opacity] duration-400" : undefined}
           onTouchStart={(e) => {
             if (!isMobileModalViewport) return
             const touchY = e.touches[0]?.clientY ?? 0
@@ -2298,9 +2298,9 @@ export function LinksTab() {
       }}>
         <DialogContent
           onOpenAutoFocus={(e) => e.preventDefault()}
-          showCloseButton={!isMobileModalViewport}
+          showCloseButton
           disableDefaultAnimations={isMobileModalViewport}
-          overlayClassName={isMobileModalViewport ? "data-[state=open]:animate-none data-[state=closed]:animate-none bg-black/40 backdrop-blur-[2px]" : undefined}
+          overlayClassName={isMobileModalViewport ? "bg-black/40 data-[state=open]:opacity-100 data-[state=closed]:opacity-0 data-[state=open]:backdrop-blur-[2px] data-[state=closed]:backdrop-blur-0 transition-[backdrop-filter,opacity] duration-400" : undefined}
           onTouchStart={(e) => {
             if (!isMobileModalViewport) return
             const touchY = e.touches[0]?.clientY ?? 0
@@ -2736,12 +2736,18 @@ export function LinksTab() {
           setIconCategory("all")
         }
       }}>
-        <DialogContent className={cn(
-          "p-0 gap-0 overflow-hidden rounded-2xl mx-auto transition-all duration-200",
-          showIconLibraryInModal
-            ? "w-[calc(100%-32px)] sm:max-w-[572px] max-w-[650px]"
-            : "w-[calc(100%-32px)] sm:max-w-[416px] max-w-[455px]"
-        )}>
+        <DialogContent
+          disableDefaultAnimations={isMobileModalViewport}
+          overlayClassName={isMobileModalViewport ? "bg-black/40 data-[state=open]:opacity-100 data-[state=closed]:opacity-0 data-[state=open]:backdrop-blur-[2px] data-[state=closed]:backdrop-blur-0 transition-[backdrop-filter,opacity] duration-400" : undefined}
+          className={cn(
+            "p-0 gap-0 overflow-hidden mx-auto transition-all duration-200 flex flex-col",
+            isMobileModalViewport
+              ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh] !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0 data-[state=open]:translate-y-0 data-[state=closed]:translate-y-full transition-transform duration-[400ms] ease-[cubic-bezier(0.32,0.72,0,1)]"
+              : showIconLibraryInModal
+                ? "rounded-2xl w-[calc(100%-32px)] sm:max-w-[572px] max-w-[650px]"
+                : "rounded-2xl w-[calc(100%-32px)] sm:max-w-[416px] max-w-[455px]"
+          )}
+        >
           {/* Main Options View */}
           {!showIconLibraryInModal && (
             <>

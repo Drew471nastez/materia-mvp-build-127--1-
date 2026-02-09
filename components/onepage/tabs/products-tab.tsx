@@ -521,9 +521,9 @@ export function ProductsTab() {
       }}>
         <DialogContent
           onOpenAutoFocus={(e) => e.preventDefault()}
-          showCloseButton={!isMobileViewport}
+          showCloseButton
           disableDefaultAnimations={isMobileViewport}
-          overlayClassName={isMobileViewport ? "data-[state=open]:animate-none data-[state=closed]:animate-none bg-black/40 backdrop-blur-[2px]" : undefined}
+          overlayClassName={isMobileViewport ? "bg-black/40 data-[state=open]:opacity-100 data-[state=closed]:opacity-0 data-[state=open]:backdrop-blur-[2px] data-[state=closed]:backdrop-blur-0 transition-[backdrop-filter,opacity] duration-400" : undefined}
           onTouchStart={(e) => {
             if (!isMobileViewport) return
             const touchY = e.touches[0]?.clientY ?? 0
