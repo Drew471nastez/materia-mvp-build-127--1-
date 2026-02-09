@@ -71,7 +71,7 @@ function SmoothAvatarVideo({
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsReady(true)
-    }, 1800)
+    }, 1200)
 
     return () => clearTimeout(timer)
   }, [videoUrl])
@@ -90,14 +90,14 @@ function SmoothAvatarVideo({
           style={imageStyle}
         />
       ) : (
-        <div className={cn("absolute inset-0 bg-white/20 animate-pulse transition-opacity duration-500", isReady ? "opacity-0" : "opacity-100")} />
+        <div className={cn("absolute inset-0 bg-gradient-to-br from-white/30 via-white/10 to-white/30 animate-pulse transition-opacity duration-500", isReady ? "opacity-0" : "opacity-100")} />
       )}
       {!hasError && (
         <video
           src={videoUrl}
           className={cn(
             "relative z-[1] w-full h-full object-cover transition-all duration-500",
-            isReady ? "opacity-100 blur-0 scale-100" : "opacity-0 blur-[1.5px] scale-[1.03]",
+            isReady ? "opacity-100 blur-0 scale-100" : "opacity-65 blur-[5px] scale-[1.05] saturate-125",
             videoClassName,
           )}
           style={videoStyle}

@@ -684,6 +684,8 @@ export function DashboardClient({
   const [timeframe, setTimeframe] = useState("last_7_days")
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [isProfileAccessOpen, setIsProfileAccessOpen] = useState(false)
+  const [isProfileAccessVisible, setIsProfileAccessVisible] = useState(false)
+  const [isProfileAccessAnimating, setIsProfileAccessAnimating] = useState(false)
   const [isQuickAccessMobileOpen, setIsQuickAccessMobileOpen] = useState(false)
   const profileAccessRef = useRef<HTMLDivElement | null>(null)
   const router = useRouter()
@@ -1254,6 +1256,18 @@ export function DashboardClient({
     }
   }
 
+
+  useEffect(() => {
+    if (isProfileAccessOpen) {
+      setIsProfileAccessVisible(true)
+      requestAnimationFrame(() => requestAnimationFrame(() => setIsProfileAccessAnimating(true)))
+    } else if (isProfileAccessVisible) {
+      setIsProfileAccessAnimating(false)
+      const timer = setTimeout(() => setIsProfileAccessVisible(false), 180)
+      return () => clearTimeout(timer)
+    }
+  }, [isProfileAccessOpen, isProfileAccessVisible])
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement
@@ -1466,8 +1480,8 @@ export function DashboardClient({
                       <ExternalLink className="h-3.5 w-3.5 text-[#9ca3af]" />
                     </span>
                   </button>
-                  {isProfileAccessOpen && (
-                    <div className="absolute left-0 top-full mt-2 w-[280px] sm:w-[320px] rounded-2xl border border-[#e5e7eb] bg-white shadow-xl p-2 z-50 origin-top-left animate-in fade-in zoom-in-95 duration-200">
+                  {isProfileAccessVisible && (
+                    <div className={`absolute left-0 top-full mt-2 w-[280px] sm:w-[320px] rounded-2xl border border-[#e5e7eb] bg-white shadow-xl p-2 z-50 origin-top-left transition-all duration-180 ease-out ${isProfileAccessAnimating ? "opacity-100 translate-y-0 scale-100" : "opacity-0 -translate-y-1 scale-[0.98]"}`}>
                       <p className="px-2 pt-1 pb-2 text-[11px] text-[#6b7280]">Quick access</p>
                       <div
                         role="button"
@@ -1492,7 +1506,7 @@ export function DashboardClient({
                         }}
                         className="w-full text-left rounded-xl p-3 hover:bg-[#f9fafb] transition-colors cursor-pointer group"
                       >
-                        <div className="flex items-center gap-2 text-[13px] font-semibold text-[#111827]"><span className="w-5 h-5 rounded-full bg-[#8b5cf6] flex items-center justify-center"><ChainLinkIcon className="w-3 h-3" stroke="#ffffff" /></span>OnePage</div>
+                        <div className="flex items-center gap-2 text-[13px] font-semibold text-[#111827]"><span className="w-5 h-5 rounded-full bg-[#8b5cf6] flex items-center justify-center"><ChainLinkIcon className="w-2.5 h-2.5" stroke="#ffffff" /></span>OnePage</div>
                         <div className="mt-1 flex items-center justify-between gap-2"><p className="text-[11px] text-[#6b7280] truncate">{hasOnePageSetup ? publicOnePageUrl : "Set up your OnePage to create a link"}</p><button type="button" onClick={(e) => { e.stopPropagation(); if (hasOnePageSetup) { copyQuickAccessUrl("onepage") } else { router.push("/app/onepage"); setIsProfileAccessOpen(false) } }} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] transition-all ${hasOnePageSetup ? (copiedTarget === "onepage" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-[#e5e7eb] text-[#6b7280] bg-white") : "border-[#ddd6fe] bg-[#f5f3ff] text-[#6d28d9]"}`}>{hasOnePageSetup ? (copiedTarget === "onepage" ? <Check className="h-3 w-3" /> : <CopyLinkIcon className="h-3 w-3" />) : <ArrowRight className="h-3 w-3" />}{hasOnePageSetup ? (copiedTarget === "onepage" ? "Copied" : "Copy") : "Set up"}</button></div>
                       </div>
                       <div
