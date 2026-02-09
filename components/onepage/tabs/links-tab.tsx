@@ -3774,6 +3774,7 @@ function BlockItem({
   const [statsTimeframe, setStatsTimeframe] = useState<'7' | '14' | '30' | 'custom'>('7')
   const [customStartDate, setCustomStartDate] = useState('')
   const [customEndDate, setCustomEndDate] = useState('')
+  const [isMobileStatsViewport, setIsMobileStatsViewport] = useState(false)
   const animationMenuRef = useRef<HTMLDivElement>(null)
   const buttonTextMenuRef = useRef<HTMLDivElement>(null)
 
@@ -3802,6 +3803,17 @@ function BlockItem({
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [showButtonTextMenu])
+
+  useEffect(() => {
+    const checkViewport = () => {
+      if (typeof window === 'undefined') return
+      setIsMobileStatsViewport(window.innerWidth < 640)
+    }
+
+    checkViewport()
+    window.addEventListener('resize', checkViewport)
+    return () => window.removeEventListener('resize', checkViewport)
+  }, [])
 
   // Fetch stats when modal is opened or timeframe changes
   const fetchStats = async (days?: number, startDate?: string, endDate?: string) => {
@@ -4149,12 +4161,24 @@ function BlockItem({
 
             {/* Stats Modal */}
             <Dialog open={showStatsModal} onOpenChange={setShowStatsModal}>
-              <DialogContent className="w-[calc(100%-32px)] max-w-[420px] p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+              <DialogContent
+                className={cn(
+                  "p-0 gap-0 overflow-hidden mx-auto border-[#ececf1]",
+                  isMobileStatsViewport
+                    ? "top-auto left-0 right-0 bottom-0 translate-x-0 translate-y-0 w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 data-[state=open]:slide-in-from-bottom-4 data-[state=closed]:slide-out-to-bottom-4"
+                    : "w-[calc(100%-32px)] max-w-[420px] rounded-2xl"
+                )}
+              >
+                {isMobileStatsViewport && (
+                  <div className="pt-2 pb-1 flex justify-center border-b border-[#f1f1f4]">
+                    <div className="h-1 w-10 rounded-full bg-[#d7d7df]" />
+                  </div>
+                )}
                 <DialogHeader className="p-4 border-b">
                   <DialogTitle className="text-base font-semibold">{isGroup ? "Group Stats" : isEmailCapture ? "Form Stats" : isPDFDocument ? "PDF Stats" : isImage ? "Image Stats" : "Link Stats"}</DialogTitle>
                 </DialogHeader>
 
-                <div className="p-4">
+                <div className={cn("p-4", isMobileStatsViewport && "max-h-[75vh] overflow-y-auto pb-[max(16px,env(safe-area-inset-bottom))]")}>
                   {/* Timeframe selector */}
                   <div className="flex gap-2 mb-4">
                     {[

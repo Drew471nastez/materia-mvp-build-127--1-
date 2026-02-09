@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useState, useEffect, Suspense } from "react"
+import { useState, useEffect, Suspense, useRef } from "react"
 import Image from "next/image"
 import { getCanonicalSiteUrl } from "@/lib/url-helpers"
 
@@ -24,6 +24,7 @@ function SignUpFormContent() {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
   const [isBannerLoaded, setIsBannerLoaded] = useState(false)
   const [googleOnlyEmail, setGoogleOnlyEmail] = useState<string | null>(null)
+  const redirectTimeoutRef = useRef<number | null>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
   const claim = searchParams.get("claim")
@@ -33,6 +34,19 @@ function SignUpFormContent() {
   const redirectUrl = searchParams.get("redirect")
   const pendingReview = searchParams.get("pendingReview")
   const autoBuyer = searchParams.get("autoBuyer") // Auto-select buyer account type (from receipt page)
+
+  const navigateWithFallback = (url: string) => {
+    setIsRedirecting(true)
+    router.push(url)
+    if (typeof window !== "undefined") {
+      if (redirectTimeoutRef.current) {
+        window.clearTimeout(redirectTimeoutRef.current)
+      }
+      redirectTimeoutRef.current = window.setTimeout(() => {
+        window.location.assign(url)
+      }, 1500)
+    }
+  }
 
   const lookupAccountOrigin = async (rawEmail: string) => {
     const emailToCheck = rawEmail.trim().toLowerCase()
@@ -67,6 +81,14 @@ function SignUpFormContent() {
 
     checkAuth()
   }, [router])
+
+  useEffect(() => {
+    return () => {
+      if (redirectTimeoutRef.current && typeof window !== "undefined") {
+        window.clearTimeout(redirectTimeoutRef.current)
+      }
+    }
+  }, [])
 
   useEffect(() => {
     if (prefilledEmail) {
@@ -182,8 +204,7 @@ function SignUpFormContent() {
           } catch (claimError) {
             console.error("Failed to claim purchase:", claimError)
           }
-          setIsRedirecting(true)
-          router.push(`/receipt/${receiptToken}`)
+          navigateWithFallback(`/receipt/${receiptToken}`)
           router.refresh()
           return
         }
@@ -197,8 +218,7 @@ function SignUpFormContent() {
         if (pendingReview === "true") {
           verifyUrl += `&pendingReview=true`
         }
-        setIsRedirecting(true)
-        router.push(verifyUrl)
+        navigateWithFallback(verifyUrl)
         router.refresh()
       }
     } catch (error: unknown) {
