@@ -196,7 +196,6 @@ function EditorLayout() {
   const [isSavingForNav, setIsSavingForNav] = useState(false)
   const [showProUpgradeDialog, setShowProUpgradeDialog] = useState(false)
   const [saveToastSequence, setSaveToastSequence] = useState(0)
-  const previousSaveStateRef = useRef(saveState)
 
   // =====================================================
   // ONBOARDING STATE - Fetch directly from database
@@ -205,18 +204,6 @@ function EditorLayout() {
   
   const [showOnboarding, setShowOnboarding] = useState(false) // Start with false, check DB
 
-  useEffect(() => {
-    const previousSaveState = previousSaveStateRef.current
-    const justFinishedSaving = saveState === "saved" && previousSaveState === "saving"
-
-    if (justFinishedSaving) {
-      setSaveToastSequence((prev) => prev + 1)
-      previousSaveStateRef.current = saveState
-      return
-    }
-
-    previousSaveStateRef.current = saveState
-  }, [saveState])
   const [onboardingChecked, setOnboardingChecked] = useState(false) // Track if we've checked
   const completedThisSessionRef = useRef(false)
   
@@ -302,6 +289,7 @@ function EditorLayout() {
 
     // No Pro features or user has Pro, proceed with save
     await save()
+    setSaveToastSequence((prev) => prev + 1)
   }, [hasProFeaturesEnabled, save])
 
   // Handle upgrading to Pro
