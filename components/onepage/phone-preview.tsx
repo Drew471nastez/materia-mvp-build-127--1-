@@ -38,6 +38,83 @@ const stripHtmlToPlainText = (value?: string | null) => {
   return text.replace(/\s+/g, " ").trim()
 }
 
+
+function SmoothAvatarVideo({
+  videoUrl,
+  imageUrl,
+  alt,
+  videoClassName,
+  imageClassName,
+  videoStyle,
+  imageStyle,
+}: {
+  videoUrl: string
+  imageUrl?: string | null
+  alt: string
+  videoClassName?: string
+  imageClassName?: string
+  videoStyle?: React.CSSProperties
+  imageStyle?: React.CSSProperties
+}) {
+  const [isReady, setIsReady] = useState(false)
+  const [hasError, setHasError] = useState(false)
+
+  const markReady = useCallback(() => {
+    setIsReady(true)
+  }, [])
+
+  useEffect(() => {
+    setIsReady(false)
+    setHasError(false)
+  }, [videoUrl])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsReady(true)
+    }, 1800)
+
+    return () => clearTimeout(timer)
+  }, [videoUrl])
+
+  return (
+    <>
+      {imageUrl ? (
+        <img
+          src={imageUrl}
+          alt={alt}
+          className={cn(
+            "absolute inset-0 w-full h-full object-cover scale-105 transition-all duration-500",
+            hasError ? "opacity-100 blur-0" : isReady ? "opacity-0 blur-0" : "opacity-100 blur-[2px]",
+            imageClassName,
+          )}
+          style={imageStyle}
+        />
+      ) : (
+        <div className={cn("absolute inset-0 bg-white/20 animate-pulse transition-opacity duration-500", isReady ? "opacity-0" : "opacity-100")} />
+      )}
+      {!hasError && (
+        <video
+          src={videoUrl}
+          className={cn(
+            "relative z-[1] w-full h-full object-cover transition-all duration-500",
+            isReady ? "opacity-100 blur-0 scale-100" : "opacity-0 blur-[1.5px] scale-[1.03]",
+            videoClassName,
+          )}
+          style={videoStyle}
+          onLoadedData={markReady}
+          onCanPlay={markReady}
+          onPlaying={markReady}
+          onError={() => setHasError(true)}
+          autoPlay
+          loop
+          muted
+          playsInline
+        />
+      )}
+    </>
+  )
+}
+
 // Spotify Modal Context - allows modals to render at root level instead of inside blocks
 interface SpotifyModalContextType {
   openSpotifyModal: (data: {
@@ -412,7 +489,13 @@ function ShareButtonPreview({
         )}
       >
         {/* Backdrop */}
-        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsOpen(false)} />
+        <div
+          className={cn(
+            "absolute inset-0 transition-[background-color,backdrop-filter] duration-300 ease-out",
+            isOpen ? "bg-black/40 backdrop-blur-sm" : "bg-black/0 backdrop-blur-0",
+          )}
+          onClick={() => setIsOpen(false)}
+        />
 
         {/* Modal - centered within phone preview */}
         <div
@@ -448,12 +531,12 @@ function ShareButtonPreview({
               <div className="text-center">
                 <div
                   className={cn(
-                    "mx-auto mb-2 rounded-full overflow-hidden bg-white/20 flex items-center justify-center shadow-lg ring-2 ring-white/30",
+                    "mx-auto mb-2 rounded-full overflow-hidden bg-white/20 flex items-center justify-center shadow-lg ring-2 ring-white/30 relative",
                     scale === "small" ? "w-10 h-10" : "w-12 h-12",
                   )}
                 >
                   {avatarVideoUrl ? (
-                    <video src={avatarVideoUrl} className="w-full h-full object-cover" autoPlay loop muted playsInline />
+                    <SmoothAvatarVideo videoUrl={avatarVideoUrl} imageUrl={avatarUrl} alt={sellerName} />
                   ) : avatarUrl ? (
                     <img
                       src={avatarUrl}
@@ -3299,23 +3382,13 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
           <div className={cn(heroWidth, "relative mb-2", heroMargin)}>
             <div className="relative w-full" style={{ aspectRatio: heroAspect, backgroundColor: theme.background_color || '#e5e7eb' }}>
               {hasVideo ? (
-                <video
-                  ref={(el) => {
-                    if (el) {
-                      if (el.readyState >= 3) { el.style.filter = 'none'; el.style.animation = 'none'; }
-                      const clear = () => { el.style.filter = 'none'; el.style.animation = 'none'; };
-                      const timer = setTimeout(clear, 2500);
-                      el.addEventListener('canplay', () => { clear(); clearTimeout(timer); }, { once: true });
-                    }
-                  }}
-                  src={profile.avatar_video_url!}
-                  className="w-full h-full object-cover media-deblur"
-                  style={{ objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%` }}
-                  onLoadedData={(e) => { e.currentTarget.style.filter = 'none'; e.currentTarget.style.animation = 'none'; }}
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
+                <SmoothAvatarVideo
+                  videoUrl={profile.avatar_video_url!}
+                  imageUrl={profile.avatar_url}
+                  alt={profile.title || "Avatar"}
+                  videoClassName="media-deblur"
+                  videoStyle={{ objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%` }}
+                  imageStyle={{ objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%` }}
                 />
               ) : (
                 <img
@@ -3484,18 +3557,12 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                       transform: `scale(${((theme as any).avatar_scale || 100) / 100})`,
                     }}
                   >
-                    <video
-                      ref={(el) => {
-                        if (el) {
-                          if (el.readyState >= 3) { el.style.filter = 'none'; el.style.animation = 'none'; }
-                          const clear = () => { el.style.filter = 'none'; el.style.animation = 'none'; };
-                          const timer = setTimeout(clear, 2500);
-                          el.addEventListener('canplay', () => { clear(); clearTimeout(timer); }, { once: true });
-                        }
-                      }}
-                      src={profile.avatar_video_url!}
-                      className="relative z-[1] w-full h-full object-cover media-deblur"
-                      style={
+                    <SmoothAvatarVideo
+                      videoUrl={profile.avatar_video_url!}
+                      imageUrl={profile.avatar_url}
+                      alt={profile.title || "Avatar"}
+                      videoClassName="media-deblur"
+                      videoStyle={
                         profile.avatar_video_crop
                           ? {
                               transformOrigin: '0 0',
@@ -3503,11 +3570,6 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                             }
                           : undefined
                       }
-                      onLoadedData={(e) => { e.currentTarget.style.filter = 'none'; e.currentTarget.style.animation = 'none'; }}
-                      autoPlay
-                      loop
-                      muted
-                      playsInline
                     />
                   </div>
                 ) : (

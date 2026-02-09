@@ -39,6 +39,82 @@ const stripHtmlToPlainText = (value?: string | null) => {
   return text.replace(/\s+/g, " ").trim()
 }
 
+function SmoothAvatarVideo({
+  videoUrl,
+  imageUrl,
+  alt,
+  videoClassName,
+  imageClassName,
+  videoStyle,
+  imageStyle,
+}: {
+  videoUrl: string
+  imageUrl?: string | null
+  alt: string
+  videoClassName?: string
+  imageClassName?: string
+  videoStyle?: React.CSSProperties
+  imageStyle?: React.CSSProperties
+}) {
+  const [isReady, setIsReady] = useState(false)
+  const [hasError, setHasError] = useState(false)
+
+  const markReady = useCallback(() => {
+    setIsReady(true)
+  }, [])
+
+  useEffect(() => {
+    setIsReady(false)
+    setHasError(false)
+  }, [videoUrl])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsReady(true)
+    }, 1800)
+
+    return () => clearTimeout(timer)
+  }, [videoUrl])
+
+  return (
+    <>
+      {imageUrl ? (
+        <img
+          src={imageUrl}
+          alt={alt}
+          className={cn(
+            "absolute inset-0 w-full h-full object-cover scale-105 transition-all duration-500",
+            hasError ? "opacity-100 blur-0" : isReady ? "opacity-0 blur-0" : "opacity-100 blur-[2px]",
+            imageClassName,
+          )}
+          style={imageStyle}
+        />
+      ) : (
+        <div className={cn("absolute inset-0 bg-white/20 animate-pulse transition-opacity duration-500", isReady ? "opacity-0" : "opacity-100")} />
+      )}
+      {!hasError && (
+        <video
+          src={videoUrl}
+          className={cn(
+            "relative z-[1] w-full h-full object-cover transition-all duration-500",
+            isReady ? "opacity-100 blur-0 scale-100" : "opacity-0 blur-[1.5px] scale-[1.03]",
+            videoClassName,
+          )}
+          style={videoStyle}
+          onLoadedData={markReady}
+          onCanPlay={markReady}
+          onPlaying={markReady}
+          onError={() => setHasError(true)}
+          autoPlay
+          loop
+          muted
+          playsInline
+        />
+      )}
+    </>
+  )
+}
+
 // Spotify Modal Context - allows modals to render at root level instead of inside blocks
 interface SpotifyModalContextType {
   openSpotifyModal: (data: {
@@ -756,28 +832,11 @@ function ShareButton({
           <div className="text-center">
             <div className="w-20 h-20 mx-auto mb-4 rounded-full overflow-hidden bg-white/25 flex items-center justify-center ring-4 ring-white/30 shadow-xl relative">
               {avatarVideoUrl ? (
-                <>
-                  {avatarUrl ? (
-                    <img
-                      src={avatarUrl}
-                      alt={pageTitle}
-                      className="absolute inset-0 w-full h-full object-cover scale-105 blur-[1.5px]"
-                    />
-                  ) : (
-                    <div className="absolute inset-0 bg-white/20 animate-pulse" />
-                  )}
-                  <video
-                    src={avatarVideoUrl}
-                    className="relative z-[1] w-full h-full object-cover opacity-0 transition-opacity duration-500"
-                    onLoadedData={(e) => {
-                      e.currentTarget.style.opacity = "1"
-                    }}
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                  />
-                </>
+                <SmoothAvatarVideo
+                  videoUrl={avatarVideoUrl}
+                  imageUrl={avatarUrl}
+                  alt={pageTitle}
+                />
               ) : avatarUrl ? (
                 <img src={avatarUrl} alt={pageTitle} className="w-full h-full object-cover" />
               ) : (
@@ -3343,27 +3402,18 @@ function PublicBlockRenderer({
           <div className={cn(heroWidth, "relative mb-2 md:mb-1", heroMargin)}>
             <div className="relative w-full" style={{ aspectRatio, backgroundColor: theme.background_color || '#e5e7eb' }}>
               {hasVideo ? (
-                <video
-                    ref={(el) => {
-                      if (videoRef) (videoRef as React.MutableRefObject<HTMLVideoElement | null>).current = el;
-                      if (el) {
-                        if (el.readyState >= 3) { el.style.filter = 'none'; el.style.animation = 'none'; }
-                        const clear = () => { el.style.filter = 'none'; el.style.animation = 'none'; };
-                        const timer = setTimeout(clear, 2500);
-                        el.addEventListener('canplay', () => { clear(); clearTimeout(timer); }, { once: true });
-                      }
-                    }}
-                    src={profile.avatar_video_url!}
-                    className="w-full h-full object-cover media-deblur"
-                    style={{
-                      objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%`,
-                    }}
-                    onLoadedData={(e) => { e.currentTarget.style.filter = 'none'; e.currentTarget.style.animation = 'none'; e.currentTarget.style.opacity = '1'; }}
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                  />
+                <SmoothAvatarVideo
+                  videoUrl={profile.avatar_video_url!}
+                  imageUrl={profile.avatar_url}
+                  alt={profile.title || "Avatar"}
+                  videoClassName="media-deblur"
+                  videoStyle={{
+                    objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%`,
+                  }}
+                  imageStyle={{
+                    objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%`,
+                  }}
+                />
               ) : (
                 <img
                   src={profile.avatar_url! || "/placeholder.svg"}
@@ -3547,29 +3597,15 @@ function PublicBlockRenderer({
                       transform: `scale(${((theme as any).avatar_scale || 100) / 100})`,
                     }}
                   >
-                    {profile.avatar_url && (
-                      <img
-                        src={profile.avatar_url}
-                        alt={profile.title || "Avatar"}
-                        className="absolute inset-0 w-full h-full object-cover scale-105 blur-[2px]"
-                        style={{
-                          transform: `translateY(${(theme as any).avatar_offset_y || 0}px) scale(1.05)`,
-                        }}
-                      />
-                    )}
-                    <video
-                      ref={(el) => {
-                        if (videoRef) (videoRef as React.MutableRefObject<HTMLVideoElement | null>).current = el;
-                        if (el) {
-                          if (el.readyState >= 3) { el.style.filter = 'none'; el.style.animation = 'none'; }
-                          const clear = () => { el.style.filter = 'none'; el.style.animation = 'none'; };
-                          const timer = setTimeout(clear, 2500);
-                          el.addEventListener('canplay', () => { clear(); clearTimeout(timer); }, { once: true });
-                        }
+                    <SmoothAvatarVideo
+                      videoUrl={profile.avatar_video_url!}
+                      imageUrl={profile.avatar_url}
+                      alt={profile.title || "Avatar"}
+                      imageStyle={{
+                        transform: `translateY(${(theme as any).avatar_offset_y || 0}px) scale(1.05)`,
                       }}
-                      src={profile.avatar_video_url!}
-                      className="relative z-[1] w-full h-full object-cover media-deblur opacity-0 transition-opacity duration-500"
-                      style={
+                      videoClassName="media-deblur"
+                      videoStyle={
                         profile.avatar_video_crop
                           ? {
                               transformOrigin: '0 0',
@@ -3577,11 +3613,6 @@ function PublicBlockRenderer({
                             }
                           : undefined
                       }
-                      onLoadedData={(e) => { e.currentTarget.style.filter = 'none'; e.currentTarget.style.animation = 'none'; e.currentTarget.style.opacity = '1'; }}
-                      autoPlay
-                      loop
-                      muted
-                      playsInline
                     />
                   </div>
                 ) : (

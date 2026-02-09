@@ -412,7 +412,7 @@ const blockCategories = [
       { type: "link_button" as const, label: "X (Twitter)", description: "Link to X", icon: Share2, preset: { label: "Follow on X", url: "https://x.com/" } },
       { type: "link_button" as const, label: "Facebook", description: "Link to Facebook", icon: Share2, preset: { label: "Follow on Facebook", url: "https://facebook.com/" } },
       { type: "link_button" as const, label: "LinkedIn", description: "Link to LinkedIn", icon: Share2, preset: { label: "Connect on LinkedIn", url: "https://linkedin.com/in/" } },
-      { type: "link_button" as const, label: "Threads", description: "Link to Threads", icon: Share2, preset: { label: "Follow on Threads", url: "https://threads.net/@" } },
+      { type: "link_button" as const, label: "Threads", description: "Link to Threads", icon: ({ className }: { className?: string }) => <SocialIconsSVG.threads size={16} className={className} />, preset: { label: "Follow on Threads", url: "https://threads.net/@" } },
     ],
   },
   {
