@@ -4030,7 +4030,7 @@ function BlockItem({
   const [statsData, setStatsData] = useState<{ total_clicks: number; total_views: number; chart_data: { date: string; clicks: number; views: number }[] } | null>(null)
   const [statsLoading, setStatsLoading] = useState(false)
   const [clickCount, setClickCount] = useState<number | null>(null)
-  const [statsTimeframe, setStatsTimeframe] = useState<'7' | '14' | '30' | 'custom'>('7')
+  const [statsTimeframe, setStatsTimeframe] = useState<'7' | 'today' | '30' | 'custom'>('7')
   const [customStartDate, setCustomStartDate] = useState('')
   const [customEndDate, setCustomEndDate] = useState('')
   const [isMobileStatsViewport, setIsMobileStatsViewport] = useState(false)
@@ -4187,7 +4187,7 @@ function BlockItem({
       if (statsTimeframe === 'custom' && customStartDate && customEndDate) {
         fetchStats(undefined, customStartDate, customEndDate)
       } else if (statsTimeframe !== 'custom') {
-        fetchStats(parseInt(statsTimeframe))
+        fetchStats(statsTimeframe === 'today' ? 1 : parseInt(statsTimeframe, 10))
       }
     }
   }, [statsTimeframe, customStartDate, customEndDate, showStatsModal])
@@ -4668,9 +4668,9 @@ function BlockItem({
                   {/* Timeframe selector */}
                   <div className="flex gap-2 mb-4">
                     {[
-                      { value: '7', label: '7 days' },
-                      { value: '14', label: '14 days' },
-                      { value: '30', label: '30 days' },
+                      { value: '7', label: '7 Days' },
+                      { value: 'today', label: 'Today' },
+                      { value: '30', label: '30 Days' },
                       { value: 'custom', label: 'Custom' },
                     ].map((tf) => (
                       <button
@@ -4730,41 +4730,42 @@ function BlockItem({
                       {/* Chart */}
                       <div className="bg-gray-50 rounded-xl p-4">
                         <div className="text-xs font-medium text-gray-500 mb-3">Activity</div>
-                        <div className="flex items-end gap-[3px] h-28">
-                          {statsData.chart_data.map((day, i) => {
-                            const maxValue = Math.max(...statsData.chart_data.map(d => Math.max(d.clicks, d.views || 0)), 1)
-                            const viewHeight = ((day.views || 0) / maxValue) * 100
-                            const clickHeight = (day.clicks / maxValue) * 100
+                        <div className="h-28">
+                          {(() => {
+                            const points = statsData.chart_data
+                            const maxValue = Math.max(...points.map(d => Math.max(d.clicks, d.views || 0)), 1)
+                            const width = 100
+                            const height = 100
+                            const steps = Math.max(points.length - 1, 1)
+                            const toY = (value: number) => height - ((value / maxValue) * 84 + 8)
+                            const viewsPath = points.map((day, index) => `${(index / steps) * width},${toY(day.views || 0)}`).join(' ')
+                            const clicksPath = points.map((day, index) => `${(index / steps) * width},${toY(day.clicks)}`).join(' ')
+
                             return (
-                              <div key={day.date} className="flex-1 flex gap-[2px] items-end group relative h-full">
-                                {/* Views bar */}
-                                <div className="flex-1 flex flex-col justify-end h-full">
-                                  <div
-                                    className="w-full bg-blue-400 rounded-t-sm transition-all group-hover:bg-blue-500"
-                                    style={{ height: `${Math.max(viewHeight, 4)}%`, minHeight: '4px' }}
-                                  />
-                                </div>
-                                {/* Clicks bar */}
-                                <div className="flex-1 flex flex-col justify-end h-full">
-                                  <div
-                                    className="w-full bg-violet-400 rounded-t-sm transition-all group-hover:bg-violet-500"
-                                    style={{ height: `${Math.max(clickHeight, 4)}%`, minHeight: '4px' }}
-                                  />
-                                </div>
-                                {/* Tooltip */}
-                                <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[10px] px-2 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 pointer-events-none shadow-lg">
-                                  <div className="font-medium">{new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
-                                  <div className="flex gap-3 mt-0.5">
-                                    <span className="text-blue-300">{day.views || 0} views</span>
-                                    <span className="text-violet-300">{day.clicks} {isEmailCapture ? "submissions" : isPDFDocument ? "opens" : "clicks"}</span>
-                                  </div>
-                                </div>
-                              </div>
+                              <svg viewBox="0 0 100 100" className="w-full h-full overflow-visible">
+                                <line x1="0" y1="92" x2="100" y2="92" stroke="#e5e7eb" strokeWidth="1" />
+                                <polyline
+                                  fill="none"
+                                  stroke="#60a5fa"
+                                  strokeWidth="2.25"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  points={viewsPath}
+                                />
+                                <polyline
+                                  fill="none"
+                                  stroke="#a78bfa"
+                                  strokeWidth="2.25"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  points={clicksPath}
+                                />
+                              </svg>
                             )
-                          })}
+                          })()}
                         </div>
                         <div className="flex justify-between mt-3 pt-2 border-t border-gray-200">
-                          <span className="text-[10px] text-muted-foreground">{statsTimeframe === 'custom' ? customStartDate : `${statsTimeframe}d ago`}</span>
+                          <span className="text-[10px] text-muted-foreground">{statsTimeframe === 'custom' ? customStartDate : statsTimeframe === 'today' ? 'Today' : `${statsTimeframe}d ago`}</span>
                           <span className="text-[10px] text-muted-foreground">{statsTimeframe === 'custom' ? customEndDate : 'Today'}</span>
                         </div>
                         {/* Legend */}
