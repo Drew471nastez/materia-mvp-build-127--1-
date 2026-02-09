@@ -459,5 +459,241 @@ export async function POST(request: Request) {
     console.error("[v0] Payment failed:", pi.id, pi.last_payment_error?.message)
   }
 
+  // ============================================================================
+  // SUBSCRIPTION EVENT HANDLERS
+  // ============================================================================
+
+  // Handle subscription creation
+  if (event.type === "customer.subscription.created") {
+    const subscription = event.data.object as Stripe.Subscription
+    const metadata = subscription.metadata || {}
+    const creatorId = metadata.creator_id
+    const planId = metadata.plan_id
+
+    console.log("[Subscription] Created:", subscription.id, "for creator:", creatorId)
+
+    if (!creatorId || !planId) {
+      console.error("[Subscription] Missing creator_id or plan_id in metadata")
+      return NextResponse.json({ received: true, message: "Missing metadata" })
+    }
+
+    try {
+      // Create subscription record
+      await supabaseAdmin.from("subscriptions").insert({
+        creator_id: creatorId,
+        stripe_subscription_id: subscription.id,
+        stripe_customer_id: subscription.customer as string,
+        plan_id: planId,
+        status: subscription.status,
+        current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
+        current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+        cancel_at_period_end: subscription.cancel_at_period_end,
+      })
+
+      // Update creator's plan
+      await supabaseAdmin
+        .from("creators")
+        .update({
+          subscription_plan_id: planId,
+          subscription_status: subscription.status,
+          stripe_customer_id: subscription.customer as string,
+        })
+        .eq("id", creatorId)
+
+      console.log("[Subscription] Successfully created subscription record")
+    } catch (error) {
+      console.error("[Subscription] Error creating subscription:", error)
+    }
+
+    return NextResponse.json({ received: true })
+  }
+
+  // Handle subscription updates
+  if (event.type === "customer.subscription.updated") {
+    const subscription = event.data.object as Stripe.Subscription
+
+    console.log("[Subscription] Updated:", subscription.id, "Status:", subscription.status)
+
+    try {
+      // Get subscription record
+      const { data: existingSubscription } = await supabaseAdmin
+        .from("subscriptions")
+        .select("id, creator_id, plan_id")
+        .eq("stripe_subscription_id", subscription.id)
+        .maybeSingle()
+
+      if (!existingSubscription) {
+        console.log("[Subscription] No existing record found, skipping update")
+        return NextResponse.json({ received: true, message: "No existing subscription" })
+      }
+
+      // Update subscription record
+      await supabaseAdmin
+        .from("subscriptions")
+        .update({
+          status: subscription.status,
+          current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
+          current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+          cancel_at_period_end: subscription.cancel_at_period_end,
+          canceled_at: subscription.canceled_at ? new Date(subscription.canceled_at * 1000).toISOString() : null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("stripe_subscription_id", subscription.id)
+
+      // Update creator's status
+      await supabaseAdmin
+        .from("creators")
+        .update({
+          subscription_status: subscription.status,
+        })
+        .eq("id", existingSubscription.creator_id)
+
+      console.log("[Subscription] Successfully updated subscription")
+    } catch (error) {
+      console.error("[Subscription] Error updating subscription:", error)
+    }
+
+    return NextResponse.json({ received: true })
+  }
+
+  // Handle subscription deletion/cancellation
+  if (event.type === "customer.subscription.deleted") {
+    const subscription = event.data.object as Stripe.Subscription
+
+    console.log("[Subscription] Deleted:", subscription.id)
+
+    try {
+      // Get subscription record
+      const { data: existingSubscription } = await supabaseAdmin
+        .from("subscriptions")
+        .select("id, creator_id")
+        .eq("stripe_subscription_id", subscription.id)
+        .maybeSingle()
+
+      if (!existingSubscription) {
+        console.log("[Subscription] No existing record found")
+        return NextResponse.json({ received: true, message: "No existing subscription" })
+      }
+
+      // Update subscription status
+      await supabaseAdmin
+        .from("subscriptions")
+        .update({
+          status: "canceled",
+          canceled_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("stripe_subscription_id", subscription.id)
+
+      // Revert creator to free plan
+      await supabaseAdmin
+        .from("creators")
+        .update({
+          subscription_plan_id: "free",
+          subscription_status: "active",
+        })
+        .eq("id", existingSubscription.creator_id)
+
+      console.log("[Subscription] Reverted creator to free plan")
+    } catch (error) {
+      console.error("[Subscription] Error handling deletion:", error)
+    }
+
+    return NextResponse.json({ received: true })
+  }
+
+  // Handle invoice payment succeeded
+  if (event.type === "invoice.payment_succeeded") {
+    const invoice = event.data.object as Stripe.Invoice
+
+    console.log("[Invoice] Payment succeeded:", invoice.id)
+
+    // Only process subscription invoices, not one-time payments
+    if (!invoice.subscription) {
+      return NextResponse.json({ received: true, message: "Not a subscription invoice" })
+    }
+
+    try {
+      // Get subscription record
+      const { data: subscription } = await supabaseAdmin
+        .from("subscriptions")
+        .select("id, creator_id")
+        .eq("stripe_subscription_id", invoice.subscription as string)
+        .maybeSingle()
+
+      if (!subscription) {
+        console.log("[Invoice] No subscription found for invoice")
+        return NextResponse.json({ received: true, message: "No subscription found" })
+      }
+
+      // Create invoice record
+      await supabaseAdmin.from("invoices").insert({
+        creator_id: subscription.creator_id,
+        subscription_id: subscription.id,
+        stripe_invoice_id: invoice.id,
+        amount_cents: invoice.amount_paid,
+        status: "paid",
+        invoice_pdf_url: invoice.invoice_pdf || null,
+        hosted_invoice_url: invoice.hosted_invoice_url || null,
+        period_start: invoice.period_start ? new Date(invoice.period_start * 1000).toISOString() : null,
+        period_end: invoice.period_end ? new Date(invoice.period_end * 1000).toISOString() : null,
+      })
+
+      console.log("[Invoice] Successfully created invoice record")
+    } catch (error) {
+      console.error("[Invoice] Error creating invoice:", error)
+    }
+
+    return NextResponse.json({ received: true })
+  }
+
+  // Handle invoice payment failed
+  if (event.type === "invoice.payment_failed") {
+    const invoice = event.data.object as Stripe.Invoice
+
+    console.log("[Invoice] Payment failed:", invoice.id)
+
+    if (!invoice.subscription) {
+      return NextResponse.json({ received: true, message: "Not a subscription invoice" })
+    }
+
+    try {
+      // Get subscription record
+      const { data: subscription } = await supabaseAdmin
+        .from("subscriptions")
+        .select("id, creator_id")
+        .eq("stripe_subscription_id", invoice.subscription as string)
+        .maybeSingle()
+
+      if (!subscription) {
+        console.log("[Invoice] No subscription found")
+        return NextResponse.json({ received: true, message: "No subscription found" })
+      }
+
+      // Update subscription status to past_due
+      await supabaseAdmin
+        .from("subscriptions")
+        .update({
+          status: "past_due",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("stripe_subscription_id", invoice.subscription as string)
+
+      // Update creator status
+      await supabaseAdmin
+        .from("creators")
+        .update({
+          subscription_status: "past_due",
+        })
+        .eq("id", subscription.creator_id)
+
+      console.log("[Invoice] Updated subscription to past_due status")
+    } catch (error) {
+      console.error("[Invoice] Error updating subscription status:", error)
+    }
+
+    return NextResponse.json({ received: true })
+  }
+
   return NextResponse.json({ received: true })
 }

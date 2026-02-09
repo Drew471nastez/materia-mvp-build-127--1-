@@ -7,13 +7,7 @@ import { nanoid } from "nanoid"
 import { cookies } from "next/headers"
 import { generateReceiptToken } from "@/lib/security"
 import { collectOrderDeviceInfo } from "@/lib/device-info"
-
-function calculatePlatformFee(amountCents: number): number {
-  const feePercent = 0.06 // 6%
-  const feeFixed = 30 // $0.30 in cents
-  const fee = Math.round(amountCents * feePercent) + feeFixed
-  return Math.min(fee, amountCents - 50) // Leave at least $0.50 for seller
-}
+import { calculatePlatformFee } from "@/lib/billing/fee-calculator"
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -190,13 +184,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Minimum payment amount is $0.50" }, { status: 400 })
   }
 
-  const platformFee = calculatePlatformFee(totalAmount)
+  // Calculate platform fee based on creator's subscription plan
+  const feeCalculation = await calculatePlatformFee(totalAmount, product.creator.id, admin)
+  const platformFee = feeCalculation.platformFeeCents
 
   console.log("[v0] Checkout details:", {
     totalAmount,
     platformFee,
     sellerReceives: totalAmount - platformFee,
     stripeAccountId: product.creator.stripe_account_id,
+    creatorPlan: feeCalculation.planId,
+    feePercent: `${(feeCalculation.feePercent * 100).toFixed(2)}%`,
     variantId: selectedVariant?.id || "none",
     variantName: selectedVariant?.name || "none",
   })

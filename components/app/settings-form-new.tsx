@@ -180,13 +180,12 @@ const TABS = [
   { id: "general", label: "General", icon: Settings },
   { id: "security", label: "Security", icon: Shield },
   { id: "privacy", label: "Privacy", icon: ToggleLeft },
-  { id: "billing", label: "Billing", icon: CreditCard },
   { id: "payments", label: "Payments", icon: Wallet },
   { id: "stores", label: "Stores", icon: Store },
 ] as const
 
 type TabId = typeof TABS[number]["id"]
-const TAB_IDS: TabId[] = ["general", "security", "privacy", "billing", "payments", "stores"]
+const TAB_IDS: TabId[] = ["general", "security", "privacy", "payments", "stores"]
 
 interface SettingsFormProps {
   profile: Profile & {
@@ -1660,6 +1659,38 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 </div>
               </div>
 
+              {/* OnePage URL Card */}
+              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
+                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">
+                  OnePage URL
+                </h3>
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="onepageHandle" className="text-[13px] font-medium text-[#374151]">
+                      Your OnePage Handle
+                    </Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[14px] text-[#6b7280]">
+                        @
+                      </span>
+                      <Input
+                        id="onepageHandle"
+                        value={username}
+                        onChange={(e) => {
+                          const value = e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, "")
+                          setUsername(value)
+                        }}
+                        placeholder="yourhandle"
+                        className="h-11 pl-7 border-[#e5e7eb] rounded-xl text-[14px] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
+                      />
+                    </div>
+                    <p className="text-[12px] text-[#6b7280]">
+                      Your OnePage will be available at: <span className="font-medium text-[#8b5cf6]">{getLinksUrl(username || "yourhandle")}</span>
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               {/* Emails Card - Email + Support Email */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
                 <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">
@@ -1752,38 +1783,6 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   </span>
                   <ChevronRight className="h-4 w-4 text-[#9ca3af]" />
                 </button>
-              </div>
-
-              {/* OnePage URL Card */}
-              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">
-                  OnePage URL
-                </h3>
-                <div className="space-y-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="onepageHandle" className="text-[13px] font-medium text-[#374151]">
-                      Your OnePage Handle
-                    </Label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[14px] text-[#6b7280]">
-                        @
-                      </span>
-                      <Input
-                        id="onepageHandle"
-                        value={username}
-                        onChange={(e) => {
-                          const value = e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, "")
-                          setUsername(value)
-                        }}
-                        placeholder="yourhandle"
-                        className="h-11 pl-7 border-[#e5e7eb] rounded-xl text-[14px] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
-                      />
-                    </div>
-                    <p className="text-[12px] text-[#6b7280]">
-                      Your OnePage will be available at: <span className="font-medium text-[#8b5cf6]">{getLinksUrl(username || "yourhandle")}</span>
-                    </p>
-                  </div>
-                </div>
               </div>
 
               {/* Address Card */}
@@ -2173,51 +2172,6 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                       />
                     </button>
                   </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Billing Tab */}
-          {!isTabLoading && activeTab === "billing" && (
-            <div className="space-y-4 sm:space-y-6">
-              {/* Current Plan Card */}
-              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">
-                  Current Plan
-                </h3>
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="text-[18px] font-bold text-[#1a1a2e]">Free Plan</p>
-                      <span className="text-[11px] font-medium text-[#8b5cf6] bg-[#f5f3ff] px-2 py-0.5 rounded-full">Current</span>
-                    </div>
-                    <p className="text-[13px] text-[#6b7280] mt-1">Basic features included</p>
-                  </div>
-                  <button type="button" className="px-5 h-10 text-[13px] font-medium bg-[#8b5cf6] hover:bg-[#7c3aed] text-white rounded-xl transition-colors">
-                    Upgrade Plan
-                  </button>
-                </div>
-              </div>
-
-              {/* Payment Methods Card */}
-              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">Payment Methods</h3>
-                <div className="bg-[#f9fafb] rounded-xl p-4 text-center">
-                  <CreditCard className="h-8 w-8 text-[#9ca3af] mx-auto mb-2" />
-                  <p className="text-[13px] text-[#6b7280] mb-3">No payment methods added yet.</p>
-                  <button type="button" className="px-4 h-9 text-[13px] font-medium bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#374151] rounded-lg transition-colors">
-                    Add Payment Method
-                  </button>
-                </div>
-              </div>
-
-              {/* Billing History Card */}
-              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">Billing History</h3>
-                <div className="bg-[#f9fafb] rounded-xl p-4 text-center">
-                  <FileText className="h-8 w-8 text-[#9ca3af] mx-auto mb-2" />
-                  <p className="text-[13px] text-[#6b7280]">No billing history available.</p>
                 </div>
               </div>
             </div>
