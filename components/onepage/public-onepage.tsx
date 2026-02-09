@@ -503,8 +503,7 @@ function ShareButton({
   const [isOpen, setIsOpen] = useState(false)
   const [copied, setCopied] = useState(false)
   const [isShareVisible, setIsShareVisible] = useState(true)
-  const [isShareContentReady, setIsShareContentReady] = useState(false)
-
+  // Share button visibility on scroll
   useEffect(() => {
     let ticking = false
 
@@ -525,14 +524,6 @@ function ShareButton({
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
 
-  useEffect(() => {
-    if (!isOpen) {
-      setIsShareContentReady(false)
-      return
-    }
-    const timer = window.setTimeout(() => setIsShareContentReady(true), 140)
-    return () => window.clearTimeout(timer)
-  }, [isOpen])
 
   // Adapt popup header background to theme - prioritize gradient, then solid color, then accent
   const getPopupHeaderBackground = () => {
@@ -773,20 +764,6 @@ function ShareButton({
           </div>
         </div>
 
-        {!isShareContentReady ? (
-          <div className="px-5 pb-6 pt-2 animate-pulse">
-            <div className="h-12 rounded-xl bg-gray-100 mb-4" />
-            <div className="grid grid-cols-4 gap-3">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="flex flex-col items-center gap-2">
-                  <div className="w-[46px] h-[46px] rounded-full bg-gray-100" />
-                  <div className="w-10 h-2.5 rounded bg-gray-100" />
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : (
-        <>
         {/* Share options - centered and well-aligned */}
         <div className="flex justify-center items-center gap-4 px-3 pt-[6px] relative z-10">
           {shareOptions.map(
@@ -807,10 +784,6 @@ function ShareButton({
             ),
           )}
         </div>
-
-        {/* Storelib CTA Section */}
-        </>
-        )}
         <div className="px-5 pb-6 relative z-10">
           <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
             <div className="flex items-center gap-3">
