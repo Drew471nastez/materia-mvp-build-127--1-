@@ -514,7 +514,7 @@ function EditorLayout() {
       style={{ zIndex: 10 }}
     >
       <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-[140] transition-all duration-300 ease-out ${showSaveToast ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2 pointer-events-none"}`}>
-        <div className="bg-[#1a1a2e] text-white px-4 py-2.5 rounded-xl shadow-lg text-sm font-medium">OnePage saved</div>
+        <div className="bg-[#1a1a2e] text-white px-4 py-2.5 rounded-xl shadow-lg text-sm font-medium">Changes Saved</div>
       </div>
       {/* Header - ALWAYS visible with solid background */}
       <header className="flex items-center justify-between border-b bg-white px-3 sm:px-4 md:px-6 h-[56px] sm:h-[60px] shrink-0 relative z-30 gap-2 overflow-hidden">

@@ -598,6 +598,7 @@ export function LinksTab() {
   const [imageFieldType, setImageFieldType] = useState<string | null>(null)
   const [imageUploading, setImageUploading] = useState(false)
   const [showArchiveView, setShowArchiveView] = useState(false)
+  const [isMobileModalViewport, setIsMobileModalViewport] = useState(false)
 
   // Thumbnail modal state
   const [showThumbnailModal, setShowThumbnailModal] = useState(false)
@@ -607,6 +608,17 @@ export function LinksTab() {
   const [iconSearchQuery, setIconSearchQuery] = useState("")
   const [iconCategory, setIconCategory] = useState("all")
   const thumbnailInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    const checkViewport = () => {
+      if (typeof window === 'undefined') return
+      setIsMobileModalViewport(window.innerWidth < 640)
+    }
+
+    checkViewport()
+    window.addEventListener('resize', checkViewport)
+    return () => window.removeEventListener('resize', checkViewport)
+  }, [])
 
   // Streaming service URL modal state
   const [showStreamingUrlModal, setShowStreamingUrlModal] = useState(false)
@@ -1866,7 +1878,20 @@ export function LinksTab() {
 
       {/* Add Block Modal - Linktree style without sidebar */}
       <Dialog open={showAddModal} onOpenChange={(open) => { setShowAddModal(open); if (!open) { setSearchQuery(""); setInsertAfterId(null); setAddToGroupId(null); } }}>
-        <DialogContent onOpenAutoFocus={(e) => e.preventDefault()} className="w-[calc(100%-24px)] max-w-[520px] h-auto max-h-[85vh] sm:max-h-[min(680px,85vh)] p-0 gap-0 overflow-hidden rounded-2xl mx-auto flex flex-col">
+        <DialogContent
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          className={cn(
+            "h-auto p-0 gap-0 overflow-hidden mx-auto flex flex-col border-[#ececf1]",
+            isMobileModalViewport
+              ? "top-auto left-0 right-0 bottom-0 translate-x-0 translate-y-0 w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[86vh] data-[state=open]:slide-in-from-bottom-4 data-[state=closed]:slide-out-to-bottom-4"
+              : "w-[calc(100%-24px)] max-w-[520px] max-h-[85vh] sm:max-h-[min(680px,85vh)] rounded-2xl"
+          )}
+        >
+          {isMobileModalViewport && (
+            <div className="pt-2 pb-1 flex justify-center border-b border-[#f1f1f4]">
+              <div className="h-1 w-10 rounded-full bg-[#d7d7df]" />
+            </div>
+          )}
           {/* Header with title and close button */}
           <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-5 pb-3 bg-white shrink-0">
             <DialogTitle className="text-lg sm:text-xl font-semibold">
@@ -2107,7 +2132,20 @@ export function LinksTab() {
 
       {/* Social Links Modal - Modern Scrollable Vertical List */}
       <Dialog open={showSocialModal} onOpenChange={(open) => { setShowSocialModal(open); if (!open) { setSelectedSocial(null); setSocialUrl(""); setSearchQuery(""); setSocialUrlError(null); } }}>
-        <DialogContent onOpenAutoFocus={(e) => e.preventDefault()} className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto max-h-[85vh] flex flex-col">
+        <DialogContent
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          className={cn(
+            "p-0 gap-0 overflow-hidden mx-auto flex flex-col border-[#ececf1]",
+            isMobileModalViewport
+              ? "top-auto left-0 right-0 bottom-0 translate-x-0 translate-y-0 w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[86vh] data-[state=open]:slide-in-from-bottom-4 data-[state=closed]:slide-out-to-bottom-4"
+              : "w-[calc(100%-32px)] max-w-md rounded-2xl max-h-[85vh]"
+          )}
+        >
+          {isMobileModalViewport && (
+            <div className="pt-2 pb-1 flex justify-center border-b border-[#f1f1f4]">
+              <div className="h-1 w-10 rounded-full bg-[#d7d7df]" />
+            </div>
+          )}
           <DialogHeader className="p-4 sm:p-5 border-b shrink-0">
             <DialogTitle className="text-base sm:text-lg font-semibold">
               {selectedSocial ? "Edit Social Link" : "Add Social Link"}
