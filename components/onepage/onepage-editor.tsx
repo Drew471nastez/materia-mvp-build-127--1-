@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/dialog"
 import { OnboardingModal } from "./onboarding-modal"
 import { createClient } from "@/lib/supabase/client"
+import { SaveNotification } from "@/components/ui/save-notification"
 
 // Settings Filter Icon SVG Component
 const SettingsFilterIcon = ({ className }: { className?: string }) => (
@@ -513,9 +514,7 @@ function EditorLayout() {
       className="flex flex-col bg-gray-50/50 fixed left-0 right-0 bottom-0 top-[68px] md:inset-y-0 md:left-64 md:top-0"
       style={{ zIndex: 10 }}
     >
-      <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-[140] transition-all duration-300 ease-out ${showSaveToast ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2 pointer-events-none"}`}>
-        <div className="bg-[#1a1a2e] text-white px-4 py-2.5 rounded-xl shadow-lg text-sm font-medium">Changes Saved</div>
-      </div>
+      <SaveNotification show={showSaveToast} message="Changes saved" duration={2000} />
       {/* Header - ALWAYS visible with solid background */}
       <header className="flex items-center justify-between border-b bg-white px-3 sm:px-4 md:px-6 h-[56px] sm:h-[60px] shrink-0 relative z-30 gap-2 overflow-hidden">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">

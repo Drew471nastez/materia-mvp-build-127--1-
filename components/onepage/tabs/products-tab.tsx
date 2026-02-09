@@ -492,13 +492,15 @@ export function ProductsTab() {
             const diff = (e.touches[0]?.clientY ?? 0) - addProductSheetStartYRef.current
             if (diff > 0) {
               e.preventDefault()
-              setAddProductSheetDragY(diff * 0.82)
+              // Soft resistance for smooth, controlled motion
+              setAddProductSheetDragY(diff * 0.8)
             }
           }}
           onTouchEnd={() => {
             if (!isMobileViewport || !isAddProductSheetDragging) return
             setIsAddProductSheetDragging(false)
-            if (addProductSheetDragY > 90) {
+            // Consistent threshold for smooth close gesture
+            if (addProductSheetDragY > 80) {
               setShowAddModal(false)
               setAddProductSheetDragY(0)
               return
@@ -508,20 +510,20 @@ export function ProductsTab() {
           className={cn(
             "p-0 gap-0 overflow-hidden border-[#ececf1] duration-300 ease-out",
             isMobileViewport
-              ? "top-auto left-0 right-0 bottom-0 translate-x-0 translate-y-0 w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[64vh] data-[state=open]:slide-in-from-bottom-4 data-[state=closed]:slide-out-to-bottom-4 data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100"
+              ? "top-auto left-0 right-0 bottom-0 translate-x-0 translate-y-0 w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[49vh] data-[state=open]:slide-in-from-bottom-4 data-[state=closed]:slide-out-to-bottom-4 data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100"
               : "max-w-[520px] max-h-[680px] rounded-2xl"
           )}
           style={isMobileViewport ? { transform: `translateY(${addProductSheetDragY}px)`, transition: isAddProductSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)' } : undefined}
         >
           {isMobileViewport && (
-            <div className="pt-2 pb-1 flex justify-center border-b border-[#f1f1f4]">
-              <div className="h-1 w-10 rounded-full bg-[#d7d7df]" />
+            <div className="pt-3 pb-2 flex justify-center cursor-pointer">
+              <div className="h-1.5 w-10 rounded-full bg-gray-300" />
             </div>
           )}
 
           {isMobileViewport ? (
             <>
-              <div className="px-4 pt-2 pb-3 border-b">
+              <div className="px-4 pt-2 pb-3 border-b border-gray-100">
                 <DialogTitle className="text-base font-semibold">Add Product</DialogTitle>
                 <p className="text-xs text-muted-foreground mt-0.5">Choose what you want to add to your page</p>
               </div>

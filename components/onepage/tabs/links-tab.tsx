@@ -1915,13 +1915,15 @@ export function LinksTab() {
             const diff = (e.touches[0]?.clientY ?? 0) - addSheetStartYRef.current
             if (diff > 0) {
               e.preventDefault()
-              setAddSheetDragY(diff * 0.82)
+              // Soft resistance for smooth, controlled motion
+              setAddSheetDragY(diff * 0.8)
             }
           }}
           onTouchEnd={() => {
             if (!isMobileModalViewport || !isAddSheetDragging) return
             setIsAddSheetDragging(false)
-            if (addSheetDragY > 90) {
+            // Consistent threshold for smooth close gesture
+            if (addSheetDragY > 80) {
               setShowAddModal(false)
               setSearchQuery("")
               setInsertAfterId(null)
@@ -1934,18 +1936,18 @@ export function LinksTab() {
           className={cn(
             "h-auto p-0 gap-0 overflow-hidden mx-auto flex flex-col border-[#ececf1] duration-300 ease-out",
             isMobileModalViewport
-              ? "top-auto left-0 right-0 bottom-0 translate-x-0 translate-y-0 w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[64vh] data-[state=open]:slide-in-from-bottom-4 data-[state=closed]:slide-out-to-bottom-4 data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100"
+              ? "top-auto left-0 right-0 bottom-0 translate-x-0 translate-y-0 w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[49vh] data-[state=open]:slide-in-from-bottom-4 data-[state=closed]:slide-out-to-bottom-4 data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100"
               : "w-[calc(100%-24px)] max-w-[520px] max-h-[85vh] sm:max-h-[min(680px,85vh)] rounded-2xl"
           )}
           style={isMobileModalViewport ? { transform: `translateY(${addSheetDragY}px)`, transition: isAddSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)' } : undefined}
         >
           {isMobileModalViewport && (
-            <div className="pt-2 pb-1 flex justify-center border-b border-[#f1f1f4]">
-              <div className="h-1 w-10 rounded-full bg-[#d7d7df]" />
+            <div className="pt-3 pb-2 flex justify-center cursor-pointer">
+              <div className="h-1.5 w-10 rounded-full bg-gray-300" />
             </div>
           )}
           {/* Header with title and close button */}
-          <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-5 pb-3 bg-white shrink-0">
+          <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-5 pb-3 bg-white shrink-0 border-b border-gray-100">
             <DialogTitle className="text-lg sm:text-xl font-semibold">
               {addToGroupId ? "Add to Group" : "Add Block"}
             </DialogTitle>
@@ -2201,13 +2203,15 @@ export function LinksTab() {
             const diff = (e.touches[0]?.clientY ?? 0) - socialSheetStartYRef.current
             if (diff > 0) {
               e.preventDefault()
-              setSocialSheetDragY(diff * 0.82)
+              // Soft resistance for smooth, controlled motion
+              setSocialSheetDragY(diff * 0.8)
             }
           }}
           onTouchEnd={() => {
             if (!isMobileModalViewport || !isSocialSheetDragging) return
             setIsSocialSheetDragging(false)
-            if (socialSheetDragY > 90) {
+            // Consistent threshold for smooth close gesture
+            if (socialSheetDragY > 80) {
               setShowSocialModal(false)
               setSelectedSocial(null)
               setSocialUrl("")
@@ -2221,17 +2225,17 @@ export function LinksTab() {
           className={cn(
             "p-0 gap-0 overflow-hidden mx-auto flex flex-col border-[#ececf1] duration-300 ease-out",
             isMobileModalViewport
-              ? "top-auto left-0 right-0 bottom-0 translate-x-0 translate-y-0 w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[64vh] data-[state=open]:slide-in-from-bottom-4 data-[state=closed]:slide-out-to-bottom-4 data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100"
+              ? "top-auto left-0 right-0 bottom-0 translate-x-0 translate-y-0 w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[49vh] data-[state=open]:slide-in-from-bottom-4 data-[state=closed]:slide-out-to-bottom-4 data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100"
               : "w-[calc(100%-32px)] max-w-md rounded-2xl max-h-[85vh]"
           )}
           style={isMobileModalViewport ? { transform: `translateY(${socialSheetDragY}px)`, transition: isSocialSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)' } : undefined}
         >
           {isMobileModalViewport && (
-            <div className="pt-2 pb-1 flex justify-center border-b border-[#f1f1f4]">
-              <div className="h-1 w-10 rounded-full bg-[#d7d7df]" />
+            <div className="pt-3 pb-2 flex justify-center cursor-pointer">
+              <div className="h-1.5 w-10 rounded-full bg-gray-300" />
             </div>
           )}
-          <DialogHeader className="p-4 sm:p-5 border-b shrink-0">
+          <DialogHeader className="p-4 sm:p-5 border-b border-gray-100 shrink-0">
             <DialogTitle className="text-base sm:text-lg font-semibold">
               {selectedSocial ? "Edit Social Link" : "Add Social Link"}
             </DialogTitle>
