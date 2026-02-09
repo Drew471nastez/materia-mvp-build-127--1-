@@ -605,8 +605,16 @@ export function LinksTab() {
   const [socialSheetDragY, setSocialSheetDragY] = useState(0)
   const [isSocialSheetDragging, setIsSocialSheetDragging] = useState(false)
   const socialSheetStartYRef = useRef(0)
-  const [isAddModalAnimating, setIsAddModalAnimating] = useState(false)
-  const [isSocialModalAnimating, setIsSocialModalAnimating] = useState(false)
+  const [isAddSheetPresented, setIsAddSheetPresented] = useState(false)
+  const [isSocialSheetPresented, setIsSocialSheetPresented] = useState(false)
+  const addSheetCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const socialSheetCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const addSheetLastYRef = useRef(0)
+  const addSheetLastTimeRef = useRef(0)
+  const addSheetVelocityRef = useRef(0)
+  const socialSheetLastYRef = useRef(0)
+  const socialSheetLastTimeRef = useRef(0)
+  const socialSheetVelocityRef = useRef(0)
 
   // Thumbnail modal state
   const [showThumbnailModal, setShowThumbnailModal] = useState(false)
@@ -629,36 +637,34 @@ export function LinksTab() {
   }, [])
 
   useEffect(() => {
-    if (showAddModal && !isAddModalAnimating) {
-      // Modal opening - start animation
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          setIsAddModalAnimating(true)
-        })
+    if (!showAddModal || !isMobileModalViewport) return
+    const raf1 = requestAnimationFrame(() => {
+      const raf2 = requestAnimationFrame(() => {
+        setIsAddSheetPresented(true)
       })
-    } else if (!showAddModal && isAddModalAnimating) {
-      // Modal closing - stop animation immediately
-      setIsAddModalAnimating(false)
-      setAddSheetDragY(0)
-      setIsAddSheetDragging(false)
-    }
-  }, [showAddModal, isAddModalAnimating])
+      return () => cancelAnimationFrame(raf2)
+    })
+    return () => cancelAnimationFrame(raf1)
+  }, [showAddModal, isMobileModalViewport])
 
   useEffect(() => {
-    if (showSocialModal && !isSocialModalAnimating) {
-      // Modal opening - start animation
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          setIsSocialModalAnimating(true)
-        })
+    if (!showSocialModal || !isMobileModalViewport) return
+    const raf1 = requestAnimationFrame(() => {
+      const raf2 = requestAnimationFrame(() => {
+        setIsSocialSheetPresented(true)
       })
-    } else if (!showSocialModal && isSocialModalAnimating) {
-      // Modal closing - stop animation immediately
-      setIsSocialModalAnimating(false)
-      setSocialSheetDragY(0)
-      setIsSocialSheetDragging(false)
+      return () => cancelAnimationFrame(raf2)
+    })
+    return () => cancelAnimationFrame(raf1)
+  }, [showSocialModal, isMobileModalViewport])
+
+  useEffect(() => {
+    return () => {
+      if (addSheetCloseTimerRef.current) clearTimeout(addSheetCloseTimerRef.current)
+      if (socialSheetCloseTimerRef.current) clearTimeout(socialSheetCloseTimerRef.current)
     }
-  }, [showSocialModal, isSocialModalAnimating])
+  }, [])
+
 
   // Streaming service URL modal state
   const [showStreamingUrlModal, setShowStreamingUrlModal] = useState(false)
@@ -1359,14 +1365,62 @@ export function LinksTab() {
     return false
   }
 
+  const closeAddSheet = () => {
+    if (!showAddModal) return
+
+    if (!isMobileModalViewport) {
+      setShowAddModal(false)
+      setSearchQuery("")
+      setInsertAfterId(null)
+      setAddToGroupId(null)
+      return
+    }
+
+    setIsAddSheetDragging(false)
+    setAddSheetDragY(0)
+    setIsAddSheetPresented(false)
+
+    if (addSheetCloseTimerRef.current) clearTimeout(addSheetCloseTimerRef.current)
+    addSheetCloseTimerRef.current = setTimeout(() => {
+      setShowAddModal(false)
+      setSearchQuery("")
+      setInsertAfterId(null)
+      setAddToGroupId(null)
+    }, 400)
+  }
+
+  const closeSocialSheet = () => {
+    if (!showSocialModal) return
+
+    if (!isMobileModalViewport) {
+      setShowSocialModal(false)
+      setSelectedSocial(null)
+      setSocialUrl("")
+      setSearchQuery("")
+      setSocialUrlError(null)
+      return
+    }
+
+    setIsSocialSheetDragging(false)
+    setSocialSheetDragY(0)
+    setIsSocialSheetPresented(false)
+
+    if (socialSheetCloseTimerRef.current) clearTimeout(socialSheetCloseTimerRef.current)
+    socialSheetCloseTimerRef.current = setTimeout(() => {
+      setShowSocialModal(false)
+      setSelectedSocial(null)
+      setSocialUrl("")
+      setSearchQuery("")
+      setSocialUrlError(null)
+    }, 400)
+  }
+
   const handleAddBlock = (type: OnePageBlockType, preset?: { label: string; url: string }) => {
     // If adding to a group, handle differently
     if (addToGroupId) {
       // Don't allow adding these types to a group
       if (type === "header" || type === "group" || type === "social_row" || type === "product" || type === "email_capture" || type === "text" || type === "divider") {
-        setShowAddModal(false)
-        setSearchQuery("")
-        setAddToGroupId(null)
+        closeAddSheet()
         return
       }
 
@@ -1409,9 +1463,7 @@ export function LinksTab() {
         const newChildren = [...(groupData.children || []), newBlock]
         updateBlock(addToGroupId, { data: { ...groupData, children: newChildren } })
       }
-      setShowAddModal(false)
-      setSearchQuery("")
-      setAddToGroupId(null)
+      closeAddSheet()
       return
     }
 
@@ -1447,9 +1499,7 @@ export function LinksTab() {
         }
       })
     }
-    setShowAddModal(false)
-    setSearchQuery("")
-    setInsertAfterId(null)
+    closeAddSheet()
   }
 
   // Handler to move a child block from a group back to the main blocks list
@@ -1493,7 +1543,7 @@ export function LinksTab() {
     setSelectedSocial(null)
     setSocialUrl("")
     setSocialUrlError(null)
-    setShowSocialModal(false)
+    closeSocialSheet()
   }
 
   const handleRemoveSocial = (platform: string) => {
@@ -1695,6 +1745,7 @@ export function LinksTab() {
                     onClick={() => {
                       setSelectedSocial(platform)
                       setSocialUrl(social_links?.[platform as keyof typeof social_links] || "")
+                      setIsSocialSheetPresented(false)
                       setShowSocialModal(true)
                     }}
                   >
@@ -1713,7 +1764,10 @@ export function LinksTab() {
               )
             })}
             <button
-              onClick={() => setShowSocialModal(true)}
+              onClick={() => {
+                setIsSocialSheetPresented(false)
+                setShowSocialModal(true)
+              }}
               className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 hover:bg-gray-200 transition-colors cursor-pointer"
             >
               <Plus className="h-3.5 w-3.5" />
@@ -1728,6 +1782,7 @@ export function LinksTab() {
           setInsertAfterId(null)
           setAddButtonClicked(true)
           setTimeout(() => setAddButtonClicked(false), 300)
+          setIsAddSheetPresented(false)
           setShowAddModal(true)
         }}
         className="w-full h-11 bg-violet-500 hover:bg-violet-600 text-white font-medium rounded-lg flex items-center justify-center gap-2 transition-all duration-200 ease-out group cursor-pointer select-none active:scale-[0.98]"
@@ -1855,7 +1910,10 @@ export function LinksTab() {
                 isLast={index === sortedBlocks.length - 1}
                 socialLinks={social_links}
                 onOpenImageLibrary={(blockId, fieldType) => { setImageBlockId(blockId); setImageFieldType(fieldType || null); setShowImageLibrary(true) }}
-                onOpenSocialModal={() => setShowSocialModal(true)}
+                onOpenSocialModal={() => {
+                  setIsSocialSheetPresented(false)
+                  setShowSocialModal(true)
+                }}
                 onOpenThumbnailModal={(blockId) => { setThumbnailBlockId(blockId); setShowThumbnailModal(true); setShowIconLibraryInModal(false) }}
                 iconPaths={THUMBNAIL_ICON_PATHS}
                 filledIcons={FILLED_ICONS}
@@ -1878,6 +1936,7 @@ export function LinksTab() {
                 onMoveChildToMainList={handleMoveChildToMainList}
                 onOpenAddBlockModal={(groupId) => {
                   setAddToGroupId(groupId)
+                  setIsAddSheetPresented(false)
                   setShowAddModal(true)
                 }}
               />
@@ -1889,6 +1948,7 @@ export function LinksTab() {
                   type="button"
                   onClick={() => {
                     setInsertAfterId(block.id)
+                    setIsAddSheetPresented(false)
                     setShowAddModal(true)
                   }}
                   className="absolute inset-x-0 -top-4 -bottom-4 flex items-center justify-center px-1 focus:outline-none"
@@ -1917,38 +1977,52 @@ export function LinksTab() {
       )}
 
       {/* Add Block Modal - Linktree style without sidebar */}
-      <Dialog open={showAddModal} onOpenChange={(open) => { setShowAddModal(open); if (!open) { setSearchQuery(""); setInsertAfterId(null); setAddToGroupId(null); } }}>
+      <Dialog open={showAddModal} onOpenChange={(open) => {
+        if (open) {
+          setIsAddSheetPresented(false)
+          setShowAddModal(true)
+          return
+        }
+        closeAddSheet()
+      }}>
         <DialogContent
           onOpenAutoFocus={(e) => e.preventDefault()}
-          showCloseButton={false}
+          showCloseButton
+          disableDefaultAnimations={isMobileModalViewport}
+          overlayClassName={isMobileModalViewport ? cn("bg-black/40 transition-[backdrop-filter,opacity] duration-400", isAddSheetPresented ? "opacity-100 backdrop-blur-[2px]" : "opacity-0 backdrop-blur-0") : undefined}
           onTouchStart={(e) => {
             if (!isMobileModalViewport) return
             const touchY = e.touches[0]?.clientY ?? 0
             const bounds = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
             if (touchY - bounds.top <= 72) {
               addSheetStartYRef.current = touchY
+              addSheetLastYRef.current = touchY
+              addSheetLastTimeRef.current = Date.now()
+              addSheetVelocityRef.current = 0
               setIsAddSheetDragging(true)
             }
           }}
           onTouchMove={(e) => {
             if (!isMobileModalViewport || !isAddSheetDragging) return
-            const diff = (e.touches[0]?.clientY ?? 0) - addSheetStartYRef.current
+            const currentY = e.touches[0]?.clientY ?? 0
+            const diff = currentY - addSheetStartYRef.current
             if (diff > 0) {
               e.preventDefault()
-              // Soft resistance for smooth, controlled motion
-              setAddSheetDragY(diff * 0.8)
+              const now = Date.now()
+              const dt = Math.max(1, now - addSheetLastTimeRef.current)
+              addSheetVelocityRef.current = (currentY - addSheetLastYRef.current) / dt
+              addSheetLastYRef.current = currentY
+              addSheetLastTimeRef.current = now
+
+              const resisted = diff <= 160 ? diff * 0.92 : 147 + (diff - 160) * 0.4
+              setAddSheetDragY(resisted)
             }
           }}
           onTouchEnd={() => {
             if (!isMobileModalViewport || !isAddSheetDragging) return
             setIsAddSheetDragging(false)
-            // Consistent threshold for smooth close gesture
-            if (addSheetDragY > 80) {
-              setShowAddModal(false)
-              setSearchQuery("")
-              setInsertAfterId(null)
-              setAddToGroupId(null)
-              setAddSheetDragY(0)
+            if (addSheetDragY > 92 || addSheetVelocityRef.current > 0.55) {
+              closeAddSheet()
               return
             }
             setAddSheetDragY(0)
@@ -1956,7 +2030,7 @@ export function LinksTab() {
           className={cn(
             "h-auto p-0 gap-0 overflow-hidden mx-auto flex flex-col border-[#ececf1]",
             isMobileModalViewport
-              ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh]"
+              ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh] !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0"
               : "w-[calc(100%-24px)] max-w-[520px] max-h-[85vh] sm:max-h-[min(680px,85vh)] rounded-2xl"
           )}
           style={isMobileModalViewport ? {
@@ -1965,7 +2039,7 @@ export function LinksTab() {
             left: 0,
             right: 0,
             bottom: 0,
-            transform: isAddModalAnimating ? `translateY(${addSheetDragY}px)` : "translateY(100%)",
+            transform: isAddSheetPresented ? `translateY(${addSheetDragY}px)` : "translateY(100%)",
             transition: isAddSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
             maxHeight: '75vh'
           } : undefined}
@@ -2214,39 +2288,52 @@ export function LinksTab() {
       </Dialog>
 
       {/* Social Links Modal - Modern Scrollable Vertical List */}
-      <Dialog open={showSocialModal} onOpenChange={(open) => { setShowSocialModal(open); if (!open) { setSelectedSocial(null); setSocialUrl(""); setSearchQuery(""); setSocialUrlError(null); } }}>
+      <Dialog open={showSocialModal} onOpenChange={(open) => {
+        if (open) {
+          setIsSocialSheetPresented(false)
+          setShowSocialModal(true)
+          return
+        }
+        closeSocialSheet()
+      }}>
         <DialogContent
           onOpenAutoFocus={(e) => e.preventDefault()}
-          showCloseButton={false}
+          showCloseButton
+          disableDefaultAnimations={isMobileModalViewport}
+          overlayClassName={isMobileModalViewport ? cn("bg-black/40 transition-[backdrop-filter,opacity] duration-400", isSocialSheetPresented ? "opacity-100 backdrop-blur-[2px]" : "opacity-0 backdrop-blur-0") : undefined}
           onTouchStart={(e) => {
             if (!isMobileModalViewport) return
             const touchY = e.touches[0]?.clientY ?? 0
             const bounds = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
             if (touchY - bounds.top <= 72) {
               socialSheetStartYRef.current = touchY
+              socialSheetLastYRef.current = touchY
+              socialSheetLastTimeRef.current = Date.now()
+              socialSheetVelocityRef.current = 0
               setIsSocialSheetDragging(true)
             }
           }}
           onTouchMove={(e) => {
             if (!isMobileModalViewport || !isSocialSheetDragging) return
-            const diff = (e.touches[0]?.clientY ?? 0) - socialSheetStartYRef.current
+            const currentY = e.touches[0]?.clientY ?? 0
+            const diff = currentY - socialSheetStartYRef.current
             if (diff > 0) {
               e.preventDefault()
-              // Soft resistance for smooth, controlled motion
-              setSocialSheetDragY(diff * 0.8)
+              const now = Date.now()
+              const dt = Math.max(1, now - socialSheetLastTimeRef.current)
+              socialSheetVelocityRef.current = (currentY - socialSheetLastYRef.current) / dt
+              socialSheetLastYRef.current = currentY
+              socialSheetLastTimeRef.current = now
+
+              const resisted = diff <= 160 ? diff * 0.92 : 147 + (diff - 160) * 0.4
+              setSocialSheetDragY(resisted)
             }
           }}
           onTouchEnd={() => {
             if (!isMobileModalViewport || !isSocialSheetDragging) return
             setIsSocialSheetDragging(false)
-            // Consistent threshold for smooth close gesture
-            if (socialSheetDragY > 80) {
-              setShowSocialModal(false)
-              setSelectedSocial(null)
-              setSocialUrl("")
-              setSearchQuery("")
-              setSocialUrlError(null)
-              setSocialSheetDragY(0)
+            if (socialSheetDragY > 92 || socialSheetVelocityRef.current > 0.55) {
+              closeSocialSheet()
               return
             }
             setSocialSheetDragY(0)
@@ -2254,7 +2341,7 @@ export function LinksTab() {
           className={cn(
             "p-0 gap-0 overflow-hidden mx-auto flex flex-col border-[#ececf1]",
             isMobileModalViewport
-              ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh]"
+              ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh] !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0"
               : "w-[calc(100%-32px)] max-w-md rounded-2xl max-h-[85vh]"
           )}
           style={isMobileModalViewport ? {
@@ -2263,7 +2350,7 @@ export function LinksTab() {
             left: 0,
             right: 0,
             bottom: 0,
-            transform: isSocialModalAnimating ? `translateY(${socialSheetDragY}px)` : "translateY(100%)",
+            transform: isSocialSheetPresented ? `translateY(${socialSheetDragY}px)` : "translateY(100%)",
             transition: isSocialSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
             maxHeight: '75vh'
           } : undefined}
@@ -2649,12 +2736,18 @@ export function LinksTab() {
           setIconCategory("all")
         }
       }}>
-        <DialogContent className={cn(
-          "p-0 gap-0 overflow-hidden rounded-2xl mx-auto transition-all duration-200",
-          showIconLibraryInModal
-            ? "w-[calc(100%-32px)] sm:max-w-[572px] max-w-[650px]"
-            : "w-[calc(100%-32px)] sm:max-w-[416px] max-w-[455px]"
-        )}>
+        <DialogContent
+          disableDefaultAnimations={isMobileModalViewport}
+          overlayClassName={isMobileModalViewport ? cn("bg-black/40 transition-[backdrop-filter,opacity] duration-400", isAddSheetPresented ? "opacity-100 backdrop-blur-[2px]" : "opacity-0 backdrop-blur-0") : undefined}
+          className={cn(
+            "p-0 gap-0 overflow-hidden mx-auto transition-all duration-200 flex flex-col",
+            isMobileModalViewport
+              ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh] !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0 data-[state=open]:translate-y-0 data-[state=closed]:translate-y-full transition-transform duration-[400ms] ease-[cubic-bezier(0.32,0.72,0,1)]"
+              : showIconLibraryInModal
+                ? "rounded-2xl w-[calc(100%-32px)] sm:max-w-[572px] max-w-[650px]"
+                : "rounded-2xl w-[calc(100%-32px)] sm:max-w-[416px] max-w-[455px]"
+          )}
+        >
           {/* Main Options View */}
           {!showIconLibraryInModal && (
             <>
@@ -3931,17 +4024,37 @@ function BlockItem({
   const { updateBlock, onepage } = useOnePage()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showAnimationMenu, setShowAnimationMenu] = useState(false)
+  const [showAnimationSheet, setShowAnimationSheet] = useState(false)
   const [showButtonTextMenu, setShowButtonTextMenu] = useState(false)
   const [showStatsModal, setShowStatsModal] = useState(false)
   const [statsData, setStatsData] = useState<{ total_clicks: number; total_views: number; chart_data: { date: string; clicks: number; views: number }[] } | null>(null)
   const [statsLoading, setStatsLoading] = useState(false)
   const [clickCount, setClickCount] = useState<number | null>(null)
-  const [statsTimeframe, setStatsTimeframe] = useState<'7' | '14' | '30' | 'custom'>('7')
+  const [statsTimeframe, setStatsTimeframe] = useState<'7' | 'today' | '30' | 'custom'>('7')
   const [customStartDate, setCustomStartDate] = useState('')
   const [customEndDate, setCustomEndDate] = useState('')
   const [isMobileStatsViewport, setIsMobileStatsViewport] = useState(false)
+  const [isStatsSheetPresented, setIsStatsSheetPresented] = useState(false)
+  const [statsSheetDragY, setStatsSheetDragY] = useState(0)
+  const [isStatsSheetDragging, setIsStatsSheetDragging] = useState(false)
+  const statsSheetStartYRef = useRef(0)
+  const statsSheetCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [isAnimationSheetPresented, setIsAnimationSheetPresented] = useState(false)
+  const [animationSheetDragY, setAnimationSheetDragY] = useState(0)
+  const [isAnimationSheetDragging, setIsAnimationSheetDragging] = useState(false)
+  const animationSheetStartYRef = useRef(0)
+  const animationSheetCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const animationMenuRef = useRef<HTMLDivElement>(null)
   const buttonTextMenuRef = useRef<HTMLDivElement>(null)
+
+  const animationOptions = [
+    { id: 'none', label: 'None' },
+    { id: 'pulse', label: 'Pulse' },
+    { id: 'bounce', label: 'Bounce' },
+    { id: 'shake', label: 'Shake' },
+    { id: 'glow', label: 'Glow' },
+    { id: 'swipe', label: 'Swipe' },
+  ] as const
 
   // Close animation menu when clicking outside
   useEffect(() => {
@@ -3980,6 +4093,71 @@ function BlockItem({
     return () => window.removeEventListener('resize', checkViewport)
   }, [])
 
+  useEffect(() => {
+    if (!showStatsModal || !isMobileStatsViewport) return
+    const raf1 = requestAnimationFrame(() => {
+      const raf2 = requestAnimationFrame(() => {
+        setIsStatsSheetPresented(true)
+      })
+      return () => cancelAnimationFrame(raf2)
+    })
+    return () => cancelAnimationFrame(raf1)
+  }, [showStatsModal, isMobileStatsViewport])
+
+  useEffect(() => {
+    if (!showAnimationSheet || !isMobileStatsViewport) return
+    const raf1 = requestAnimationFrame(() => {
+      const raf2 = requestAnimationFrame(() => {
+        setIsAnimationSheetPresented(true)
+      })
+      return () => cancelAnimationFrame(raf2)
+    })
+    return () => cancelAnimationFrame(raf1)
+  }, [showAnimationSheet, isMobileStatsViewport])
+
+  useEffect(() => {
+    return () => {
+      if (statsSheetCloseTimerRef.current) clearTimeout(statsSheetCloseTimerRef.current)
+      if (animationSheetCloseTimerRef.current) clearTimeout(animationSheetCloseTimerRef.current)
+    }
+  }, [])
+
+  const closeStatsSheet = useCallback(() => {
+    if (!showStatsModal) return
+
+    if (!isMobileStatsViewport) {
+      setShowStatsModal(false)
+      return
+    }
+
+    setIsStatsSheetDragging(false)
+    setStatsSheetDragY(0)
+    setIsStatsSheetPresented(false)
+
+    if (statsSheetCloseTimerRef.current) clearTimeout(statsSheetCloseTimerRef.current)
+    statsSheetCloseTimerRef.current = setTimeout(() => {
+      setShowStatsModal(false)
+    }, 400)
+  }, [showStatsModal, isMobileStatsViewport])
+
+  const closeAnimationSheet = useCallback(() => {
+    if (!showAnimationSheet) return
+
+    if (!isMobileStatsViewport) {
+      setShowAnimationSheet(false)
+      return
+    }
+
+    setIsAnimationSheetDragging(false)
+    setAnimationSheetDragY(0)
+    setIsAnimationSheetPresented(false)
+
+    if (animationSheetCloseTimerRef.current) clearTimeout(animationSheetCloseTimerRef.current)
+    animationSheetCloseTimerRef.current = setTimeout(() => {
+      setShowAnimationSheet(false)
+    }, 400)
+  }, [showAnimationSheet, isMobileStatsViewport])
+
   // Fetch stats when modal is opened or timeframe changes
   const fetchStats = async (days?: number, startDate?: string, endDate?: string) => {
     if (!onepage?.id) return
@@ -4009,7 +4187,7 @@ function BlockItem({
       if (statsTimeframe === 'custom' && customStartDate && customEndDate) {
         fetchStats(undefined, customStartDate, customEndDate)
       } else if (statsTimeframe !== 'custom') {
-        fetchStats(parseInt(statsTimeframe))
+        fetchStats(statsTimeframe === 'today' ? 1 : parseInt(statsTimeframe, 10))
       }
     }
   }, [statsTimeframe, customStartDate, customEndDate, showStatsModal])
@@ -4250,6 +4428,11 @@ function BlockItem({
               type="button"
               onClick={(e) => {
                 e.stopPropagation()
+                if (isMobileStatsViewport) {
+                  setIsAnimationSheetPresented(false)
+                  setShowAnimationSheet(true)
+                  return
+                }
                 setShowAnimationMenu(!showAnimationMenu)
               }}
               className={cn(
@@ -4264,16 +4447,9 @@ function BlockItem({
             </button>
 
             {/* Animation dropdown menu */}
-            {showAnimationMenu && (
+            {!isMobileStatsViewport && showAnimationMenu && (
               <div className="absolute right-0 top-full mt-1 w-32 bg-white rounded-lg shadow-lg border z-50 py-1 animate-in fade-in slide-in-from-top-1 duration-150">
-                {[
-                  { id: 'none', label: 'None' },
-                  { id: 'pulse', label: 'Pulse' },
-                  { id: 'bounce', label: 'Bounce' },
-                  { id: 'shake', label: 'Shake' },
-                  { id: 'glow', label: 'Glow' },
-                  { id: 'swipe', label: 'Swipe' },
-                ].map((anim) => {
+                {animationOptions.map((anim) => {
                   const currentAnimation = (block.data as any).animation_type || 'none'
                   return (
                     <button
@@ -4305,6 +4481,104 @@ function BlockItem({
           </div>
         )}
 
+        {hasAnimation && (
+          <Dialog open={showAnimationSheet} onOpenChange={(open) => {
+            if (open) {
+              setIsAnimationSheetPresented(false)
+              setShowAnimationSheet(true)
+              return
+            }
+            closeAnimationSheet()
+          }}>
+            <DialogContent
+              showCloseButton
+              disableDefaultAnimations={isMobileStatsViewport}
+              overlayClassName={isMobileStatsViewport ? cn("bg-black/40 transition-[backdrop-filter,opacity] duration-400", isAnimationSheetPresented ? "opacity-100 backdrop-blur-[2px]" : "opacity-0 backdrop-blur-0") : undefined}
+              onTouchStart={(e) => {
+                if (!isMobileStatsViewport) return
+                const touchY = e.touches[0]?.clientY ?? 0
+                const bounds = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
+                if (touchY - bounds.top <= 72) {
+                  animationSheetStartYRef.current = touchY
+                  setIsAnimationSheetDragging(true)
+                }
+              }}
+              onTouchMove={(e) => {
+                if (!isMobileStatsViewport || !isAnimationSheetDragging) return
+                const diff = (e.touches[0]?.clientY ?? 0) - animationSheetStartYRef.current
+                if (diff > 0) {
+                  e.preventDefault()
+                  setAnimationSheetDragY(diff * 0.85)
+                }
+              }}
+              onTouchEnd={() => {
+                if (!isMobileStatsViewport || !isAnimationSheetDragging) return
+                setIsAnimationSheetDragging(false)
+                if (animationSheetDragY > 88) {
+                  closeAnimationSheet()
+                  return
+                }
+                setAnimationSheetDragY(0)
+              }}
+              className={cn(
+                "p-0 gap-0 overflow-hidden mx-auto border-[#ececf1]",
+                isMobileStatsViewport
+                  ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh] !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0"
+                  : "w-[calc(100%-32px)] max-w-[360px] rounded-2xl"
+              )}
+              style={isMobileStatsViewport ? {
+                position: 'fixed',
+                top: 'auto',
+                left: 0,
+                right: 0,
+                bottom: 0,
+                transform: isAnimationSheetPresented ? `translateY(${animationSheetDragY}px)` : 'translateY(100%)',
+                transition: isAnimationSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
+                maxHeight: '75vh'
+              } : undefined}
+            >
+              {isMobileStatsViewport && (
+                <div className="pt-3 pb-2 flex justify-center">
+                  <div className="h-1.5 w-10 rounded-full bg-gray-300" />
+                </div>
+              )}
+              <DialogHeader className="p-4 border-b">
+                <DialogTitle className="text-base font-semibold">Animation</DialogTitle>
+              </DialogHeader>
+              <div className="p-3 max-h-[65vh] overflow-y-auto pb-[max(16px,env(safe-area-inset-bottom))]">
+                <div className="space-y-1">
+                  {animationOptions.map((anim) => {
+                    const currentAnimation = (block.data as any).animation_type || 'none'
+                    return (
+                      <button
+                        key={anim.id}
+                        type="button"
+                        onClick={() => {
+                          updateBlock(block.id, {
+                            data: {
+                              ...block.data,
+                              animation_type: anim.id as 'none' | 'pulse' | 'bounce' | 'shake' | 'glow' | 'swipe'
+                            }
+                          })
+                          closeAnimationSheet()
+                        }}
+                        className={cn(
+                          "w-full px-3 py-2.5 rounded-xl text-left text-sm transition-colors",
+                          currentAnimation === anim.id
+                            ? "bg-violet-50 text-violet-700 font-medium"
+                            : "text-gray-700 hover:bg-gray-50"
+                        )}
+                      >
+                        {anim.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
+
         {/* Stats control for link buttons and email capture */}
         {hasStats && (
           <>
@@ -4312,6 +4586,7 @@ function BlockItem({
               type="button"
               onClick={(e) => {
                 e.stopPropagation()
+                setIsStatsSheetPresented(false)
                 setShowStatsModal(true)
                 fetchStats(7)
               }}
@@ -4325,18 +4600,64 @@ function BlockItem({
             </button>
 
             {/* Stats Modal */}
-            <Dialog open={showStatsModal} onOpenChange={setShowStatsModal}>
+            <Dialog open={showStatsModal} onOpenChange={(open) => {
+              if (open) {
+                setIsStatsSheetPresented(false)
+                setShowStatsModal(true)
+                return
+              }
+              closeStatsSheet()
+            }}>
               <DialogContent
+                showCloseButton
+                disableDefaultAnimations={isMobileStatsViewport}
+                overlayClassName={isMobileStatsViewport ? cn("bg-black/40 transition-[backdrop-filter,opacity] duration-400", isStatsSheetPresented ? "opacity-100 backdrop-blur-[2px]" : "opacity-0 backdrop-blur-0") : undefined}
+                onTouchStart={(e) => {
+                  if (!isMobileStatsViewport) return
+                  const touchY = e.touches[0]?.clientY ?? 0
+                  const bounds = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
+                  if (touchY - bounds.top <= 72) {
+                    statsSheetStartYRef.current = touchY
+                    setIsStatsSheetDragging(true)
+                  }
+                }}
+                onTouchMove={(e) => {
+                  if (!isMobileStatsViewport || !isStatsSheetDragging) return
+                  const diff = (e.touches[0]?.clientY ?? 0) - statsSheetStartYRef.current
+                  if (diff > 0) {
+                    e.preventDefault()
+                    setStatsSheetDragY(diff * 0.85)
+                  }
+                }}
+                onTouchEnd={() => {
+                  if (!isMobileStatsViewport || !isStatsSheetDragging) return
+                  setIsStatsSheetDragging(false)
+                  if (statsSheetDragY > 88) {
+                    closeStatsSheet()
+                    return
+                  }
+                  setStatsSheetDragY(0)
+                }}
                 className={cn(
                   "p-0 gap-0 overflow-hidden mx-auto border-[#ececf1]",
                   isMobileStatsViewport
-                    ? "top-auto left-0 right-0 bottom-0 translate-x-0 translate-y-0 w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 data-[state=open]:slide-in-from-bottom-4 data-[state=closed]:slide-out-to-bottom-4"
+                    ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh] !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0"
                     : "w-[calc(100%-32px)] max-w-[420px] rounded-2xl"
                 )}
+                style={isMobileStatsViewport ? {
+                  position: 'fixed',
+                  top: 'auto',
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  transform: isStatsSheetPresented ? `translateY(${statsSheetDragY}px)` : 'translateY(100%)',
+                  transition: isStatsSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
+                  maxHeight: '75vh'
+                } : undefined}
               >
                 {isMobileStatsViewport && (
-                  <div className="pt-2 pb-1 flex justify-center border-b border-[#f1f1f4]">
-                    <div className="h-1 w-10 rounded-full bg-[#d7d7df]" />
+                  <div className="pt-3 pb-2 flex justify-center">
+                    <div className="h-1.5 w-10 rounded-full bg-gray-300" />
                   </div>
                 )}
                 <DialogHeader className="p-4 border-b">
@@ -4347,9 +4668,9 @@ function BlockItem({
                   {/* Timeframe selector */}
                   <div className="flex gap-2 mb-4">
                     {[
-                      { value: '7', label: '7 days' },
-                      { value: '14', label: '14 days' },
-                      { value: '30', label: '30 days' },
+                      { value: '7', label: '7 Days' },
+                      { value: 'today', label: 'Today' },
+                      { value: '30', label: '30 Days' },
                       { value: 'custom', label: 'Custom' },
                     ].map((tf) => (
                       <button
@@ -4409,41 +4730,42 @@ function BlockItem({
                       {/* Chart */}
                       <div className="bg-gray-50 rounded-xl p-4">
                         <div className="text-xs font-medium text-gray-500 mb-3">Activity</div>
-                        <div className="flex items-end gap-[3px] h-28">
-                          {statsData.chart_data.map((day, i) => {
-                            const maxValue = Math.max(...statsData.chart_data.map(d => Math.max(d.clicks, d.views || 0)), 1)
-                            const viewHeight = ((day.views || 0) / maxValue) * 100
-                            const clickHeight = (day.clicks / maxValue) * 100
+                        <div className="h-28">
+                          {(() => {
+                            const points = statsData.chart_data
+                            const maxValue = Math.max(...points.map(d => Math.max(d.clicks, d.views || 0)), 1)
+                            const width = 100
+                            const height = 100
+                            const steps = Math.max(points.length - 1, 1)
+                            const toY = (value: number) => height - ((value / maxValue) * 84 + 8)
+                            const viewsPath = points.map((day, index) => `${(index / steps) * width},${toY(day.views || 0)}`).join(' ')
+                            const clicksPath = points.map((day, index) => `${(index / steps) * width},${toY(day.clicks)}`).join(' ')
+
                             return (
-                              <div key={day.date} className="flex-1 flex gap-[2px] items-end group relative h-full">
-                                {/* Views bar */}
-                                <div className="flex-1 flex flex-col justify-end h-full">
-                                  <div
-                                    className="w-full bg-blue-400 rounded-t-sm transition-all group-hover:bg-blue-500"
-                                    style={{ height: `${Math.max(viewHeight, 4)}%`, minHeight: '4px' }}
-                                  />
-                                </div>
-                                {/* Clicks bar */}
-                                <div className="flex-1 flex flex-col justify-end h-full">
-                                  <div
-                                    className="w-full bg-violet-400 rounded-t-sm transition-all group-hover:bg-violet-500"
-                                    style={{ height: `${Math.max(clickHeight, 4)}%`, minHeight: '4px' }}
-                                  />
-                                </div>
-                                {/* Tooltip */}
-                                <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[10px] px-2 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 pointer-events-none shadow-lg">
-                                  <div className="font-medium">{new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
-                                  <div className="flex gap-3 mt-0.5">
-                                    <span className="text-blue-300">{day.views || 0} views</span>
-                                    <span className="text-violet-300">{day.clicks} {isEmailCapture ? "submissions" : isPDFDocument ? "opens" : "clicks"}</span>
-                                  </div>
-                                </div>
-                              </div>
+                              <svg viewBox="0 0 100 100" className="w-full h-full overflow-visible">
+                                <line x1="0" y1="92" x2="100" y2="92" stroke="#e5e7eb" strokeWidth="1" />
+                                <polyline
+                                  fill="none"
+                                  stroke="#60a5fa"
+                                  strokeWidth="2.25"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  points={viewsPath}
+                                />
+                                <polyline
+                                  fill="none"
+                                  stroke="#a78bfa"
+                                  strokeWidth="2.25"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  points={clicksPath}
+                                />
+                              </svg>
                             )
-                          })}
+                          })()}
                         </div>
                         <div className="flex justify-between mt-3 pt-2 border-t border-gray-200">
-                          <span className="text-[10px] text-muted-foreground">{statsTimeframe === 'custom' ? customStartDate : `${statsTimeframe}d ago`}</span>
+                          <span className="text-[10px] text-muted-foreground">{statsTimeframe === 'custom' ? customStartDate : statsTimeframe === 'today' ? 'Today' : `${statsTimeframe}d ago`}</span>
                           <span className="text-[10px] text-muted-foreground">{statsTimeframe === 'custom' ? customEndDate : 'Today'}</span>
                         </div>
                         {/* Legend */}
