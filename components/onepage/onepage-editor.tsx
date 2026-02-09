@@ -196,6 +196,7 @@ function EditorLayout() {
   const [isSavingForNav, setIsSavingForNav] = useState(false)
   const [showProUpgradeDialog, setShowProUpgradeDialog] = useState(false)
   const [showSaveToast, setShowSaveToast] = useState(false)
+  const previousSaveStateRef = useRef(saveState)
 
   // =====================================================
   // ONBOARDING STATE - Fetch directly from database
@@ -205,12 +206,18 @@ function EditorLayout() {
   const [showOnboarding, setShowOnboarding] = useState(false) // Start with false, check DB
 
   useEffect(() => {
-    if (saveState === "saved" && !isDirty) {
+    const previousSaveState = previousSaveStateRef.current
+    const justFinishedSaving = saveState === "saved" && previousSaveState === "saving"
+
+    if (justFinishedSaving) {
       setShowSaveToast(true)
       const timer = setTimeout(() => setShowSaveToast(false), 4000)
+      previousSaveStateRef.current = saveState
       return () => clearTimeout(timer)
     }
-  }, [saveState, isDirty])
+
+    previousSaveStateRef.current = saveState
+  }, [saveState])
   const [onboardingChecked, setOnboardingChecked] = useState(false) // Track if we've checked
   const completedThisSessionRef = useRef(false)
   
