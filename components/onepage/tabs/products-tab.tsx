@@ -148,6 +148,18 @@ export function ProductsTab() {
     fetchProducts()
   }, [])
 
+  // Detect mobile viewport for bottom sheet behavior
+  useEffect(() => {
+    const checkViewport = () => {
+      if (typeof window === 'undefined') return
+      setIsMobileViewport(window.innerWidth < 640)
+    }
+
+    checkViewport()
+    window.addEventListener('resize', checkViewport)
+    return () => window.removeEventListener('resize', checkViewport)
+  }, [])
+
   useEffect(() => {
     if (showAddModal && !isAddProductModalAnimating) {
       // Modal opening - start animation
@@ -487,7 +499,7 @@ export function ProductsTab() {
       <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
         <DialogContent
           onOpenAutoFocus={(e) => e.preventDefault()}
-          showCloseButton={false}
+          showCloseButton={!isMobileViewport}
           onTouchStart={(e) => {
             if (!isMobileViewport) return
             const touchY = e.touches[0]?.clientY ?? 0
@@ -520,16 +532,11 @@ export function ProductsTab() {
           className={cn(
             "p-0 gap-0 overflow-hidden border-[#ececf1]",
             isMobileViewport
-              ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh]"
+              ? "!fixed !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0 w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh]"
               : "max-w-[520px] max-h-[680px] rounded-2xl"
           )}
           style={isMobileViewport ? {
-            position: 'fixed',
-            top: 'auto',
-            left: 0,
-            right: 0,
-            bottom: 0,
-            transform: isAddProductModalAnimating ? `translateY(${addProductSheetDragY}px)` : "translateY(100%)",
+            transform: isAddProductModalAnimating ? `translateY(${addProductSheetDragY}px) !important` : "translateY(100%) !important",
             transition: isAddProductSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
             maxHeight: '75vh'
           } : undefined}
