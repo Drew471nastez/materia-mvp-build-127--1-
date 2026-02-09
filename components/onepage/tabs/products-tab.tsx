@@ -520,12 +520,18 @@ export function ProductsTab() {
           className={cn(
             "p-0 gap-0 overflow-hidden border-[#ececf1]",
             isMobileViewport
-              ? "top-auto left-0 right-0 bottom-0 w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh]"
+              ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh]"
               : "max-w-[520px] max-h-[680px] rounded-2xl"
           )}
           style={isMobileViewport ? {
+            position: 'fixed',
+            top: 'auto',
+            left: 0,
+            right: 0,
+            bottom: 0,
             transform: isAddProductModalAnimating ? `translateY(${addProductSheetDragY}px)` : "translateY(100%)",
-            transition: isAddProductSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)'
+            transition: isAddProductSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
+            maxHeight: '75vh'
           } : undefined}
         >
           {isMobileViewport && (

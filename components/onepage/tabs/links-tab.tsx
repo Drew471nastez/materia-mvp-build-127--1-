@@ -1956,12 +1956,18 @@ export function LinksTab() {
           className={cn(
             "h-auto p-0 gap-0 overflow-hidden mx-auto flex flex-col border-[#ececf1]",
             isMobileModalViewport
-              ? "top-auto left-0 right-0 bottom-0 w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh]"
+              ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh]"
               : "w-[calc(100%-24px)] max-w-[520px] max-h-[85vh] sm:max-h-[min(680px,85vh)] rounded-2xl"
           )}
           style={isMobileModalViewport ? {
+            position: 'fixed',
+            top: 'auto',
+            left: 0,
+            right: 0,
+            bottom: 0,
             transform: isAddModalAnimating ? `translateY(${addSheetDragY}px)` : "translateY(100%)",
-            transition: isAddSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)'
+            transition: isAddSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
+            maxHeight: '75vh'
           } : undefined}
         >
           {isMobileModalViewport && (
@@ -2248,12 +2254,18 @@ export function LinksTab() {
           className={cn(
             "p-0 gap-0 overflow-hidden mx-auto flex flex-col border-[#ececf1]",
             isMobileModalViewport
-              ? "top-auto left-0 right-0 bottom-0 w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh]"
+              ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh]"
               : "w-[calc(100%-32px)] max-w-md rounded-2xl max-h-[85vh]"
           )}
           style={isMobileModalViewport ? {
+            position: 'fixed',
+            top: 'auto',
+            left: 0,
+            right: 0,
+            bottom: 0,
             transform: isSocialModalAnimating ? `translateY(${socialSheetDragY}px)` : "translateY(100%)",
-            transition: isSocialSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)'
+            transition: isSocialSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
+            maxHeight: '75vh'
           } : undefined}
         >
           {isMobileModalViewport && (
