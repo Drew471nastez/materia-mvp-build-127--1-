@@ -165,6 +165,21 @@ function ShareModal({
   productSlug?: string
 }) {
   const [copied, setCopied] = useState(false)
+  const [mounted, setMounted] = useState(false)
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    if (isOpen) {
+      setMounted(true)
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => setVisible(true))
+      })
+    } else {
+      setVisible(false)
+      const timer = setTimeout(() => setMounted(false), 300)
+      return () => clearTimeout(timer)
+    }
+  }, [isOpen])
 
   const shareUrl = typeof window !== "undefined" ? `${window.location.origin}/p/${productSlug}` : `/p/${productSlug}`
 
@@ -190,15 +205,23 @@ function ShareModal({
     window.open(facebookUrl, "_blank", "noopener,noreferrer")
   }
 
-  if (!isOpen) return null
+  if (!mounted) return null
 
   return (
-    <div className="fixed inset-0 z-[999999] flex items-center justify-center" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-[999999] flex items-center justify-center transition-opacity duration-300 ease-out"
+      style={{ opacity: visible ? 1 : 0 }}
+      onClick={onClose}
+    >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50" />
+      <div
+        className="absolute inset-0 bg-black/50 transition-all duration-300 ease-out"
+        style={{ backdropFilter: visible ? 'blur(4px)' : 'blur(0px)', WebkitBackdropFilter: visible ? 'blur(4px)' : 'blur(0px)' }}
+      />
       {/* Modal */}
       <div
-        className="relative bg-background max-w-[240px] w-full mx-4 p-4 rounded-2xl shadow-xl"
+        className="relative bg-background max-w-[240px] w-full mx-4 p-4 rounded-2xl shadow-xl transition-all duration-300 ease-out"
+        style={{ transform: visible ? 'scale(1)' : 'scale(0.95)' }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex flex-col gap-3">

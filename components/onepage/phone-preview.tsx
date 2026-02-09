@@ -3302,16 +3302,36 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                 <video
                   ref={(el) => {
                     if (el) {
-                      if (el.readyState >= 3) { el.style.filter = 'none'; el.style.animation = 'none'; }
-                      const clear = () => { el.style.filter = 'none'; el.style.animation = 'none'; };
-                      const timer = setTimeout(clear, 2500);
+                      if (el.readyState >= 3) {
+                        el.style.filter = 'none';
+                        el.style.opacity = '1';
+                      } else {
+                        el.style.filter = 'blur(6px)';
+                        el.style.opacity = '0.8';
+                        el.style.transition = 'filter 0.5s ease-out, opacity 0.5s ease-out';
+                      }
+                      const clear = () => {
+                        el.style.filter = 'none';
+                        el.style.opacity = '1';
+                      };
+                      const timer = setTimeout(clear, 3000);
                       el.addEventListener('canplay', () => { clear(); clearTimeout(timer); }, { once: true });
+                      el.addEventListener('loadeddata', () => { clear(); clearTimeout(timer); }, { once: true });
+                      el.addEventListener('playing', () => { clear(); clearTimeout(timer); }, { once: true });
                     }
                   }}
                   src={profile.avatar_video_url!}
-                  className="w-full h-full object-cover media-deblur"
-                  style={{ objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%` }}
-                  onLoadedData={(e) => { e.currentTarget.style.filter = 'none'; e.currentTarget.style.animation = 'none'; }}
+                  poster={profile.avatar_url || undefined}
+                  className="w-full h-full object-cover"
+                  style={{
+                    objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%`,
+                    filter: 'blur(6px)',
+                    opacity: 0.8,
+                    transition: 'filter 0.5s ease-out, opacity 0.5s ease-out',
+                  }}
+                  onLoadedData={(e) => { e.currentTarget.style.filter = 'none'; e.currentTarget.style.opacity = '1'; }}
+                  onCanPlay={(e) => { e.currentTarget.style.filter = 'none'; e.currentTarget.style.opacity = '1'; }}
+                  onPlaying={(e) => { e.currentTarget.style.filter = 'none'; e.currentTarget.style.opacity = '1'; }}
                   autoPlay
                   loop
                   muted
@@ -3482,28 +3502,64 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                     style={{
                       borderColor: `${theme.text_color}20`,
                       transform: `scale(${((theme as any).avatar_scale || 100) / 100})`,
+                      backgroundColor: theme.button_color || '#6366f1',
                     }}
                   >
+                    {/* Poster fallback: show avatar image behind video so circle is never empty */}
+                    {profile.avatar_url && (
+                      <img
+                        src={profile.avatar_url}
+                        alt=""
+                        className="absolute inset-0 w-full h-full object-cover z-[0]"
+                        style={
+                          profile.avatar_video_crop
+                            ? {
+                                transformOrigin: '0 0',
+                                transform: `scale(${100 / profile.avatar_video_crop.width}) translate(-${profile.avatar_video_crop.x}%, -${profile.avatar_video_crop.y}%)`,
+                              }
+                            : undefined
+                        }
+                      />
+                    )}
                     <video
                       ref={(el) => {
                         if (el) {
-                          if (el.readyState >= 3) { el.style.filter = 'none'; el.style.animation = 'none'; }
-                          const clear = () => { el.style.filter = 'none'; el.style.animation = 'none'; };
-                          const timer = setTimeout(clear, 2500);
+                          // Start blurred, transition to sharp on load
+                          if (el.readyState >= 3) {
+                            el.style.filter = 'none';
+                            el.style.opacity = '1';
+                          } else {
+                            el.style.filter = 'blur(6px)';
+                            el.style.opacity = '0.8';
+                            el.style.transition = 'filter 0.5s ease-out, opacity 0.5s ease-out';
+                          }
+                          const clear = () => {
+                            el.style.filter = 'none';
+                            el.style.opacity = '1';
+                          };
+                          const timer = setTimeout(clear, 3000);
                           el.addEventListener('canplay', () => { clear(); clearTimeout(timer); }, { once: true });
+                          el.addEventListener('loadeddata', () => { clear(); clearTimeout(timer); }, { once: true });
+                          el.addEventListener('playing', () => { clear(); clearTimeout(timer); }, { once: true });
                         }
                       }}
                       src={profile.avatar_video_url!}
-                      className="relative z-[1] w-full h-full object-cover media-deblur"
-                      style={
-                        profile.avatar_video_crop
+                      poster={profile.avatar_url || undefined}
+                      className="relative z-[1] w-full h-full object-cover"
+                      style={{
+                        filter: 'blur(6px)',
+                        opacity: 0.8,
+                        transition: 'filter 0.5s ease-out, opacity 0.5s ease-out',
+                        ...(profile.avatar_video_crop
                           ? {
                               transformOrigin: '0 0',
                               transform: `scale(${100 / profile.avatar_video_crop.width}) translate(-${profile.avatar_video_crop.x}%, -${profile.avatar_video_crop.y}%)`,
                             }
-                          : undefined
-                      }
-                      onLoadedData={(e) => { e.currentTarget.style.filter = 'none'; e.currentTarget.style.animation = 'none'; }}
+                          : {}),
+                      }}
+                      onLoadedData={(e) => { e.currentTarget.style.filter = 'none'; e.currentTarget.style.opacity = '1'; }}
+                      onCanPlay={(e) => { e.currentTarget.style.filter = 'none'; e.currentTarget.style.opacity = '1'; }}
+                      onPlaying={(e) => { e.currentTarget.style.filter = 'none'; e.currentTarget.style.opacity = '1'; }}
                       autoPlay
                       loop
                       muted
@@ -3638,15 +3694,16 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
         'apple-music': 'M8.5 7.5l10-1.75m-10 1.75v11.375m0-11.375V5.09a1 1 0 0 1 .83-.99l8-1.4a1.17 1.17 0 0 1 1.17.99V5.75m0 0v11.125m-12.31.154l-1.06.19a1.97 1.97 0 0 0-1.63 1.81c0 1.22 1.1 2.15 2.31 1.94l1.06-.19a1.97 1.97 0 0 0 1.63-1.81c0-1.22-1.1-2.15-2.31-1.94zm10-2l-1.06.19a1.97 1.97 0 0 0-1.63 1.81c0 1.22 1.1 2.15 2.31 1.94l1.06-.19a1.97 1.97 0 0 0 1.63-1.81c0-1.22-1.1-2.15-2.31-1.94z',
         'notion': 'M16.5749 7.25003C16.6367 7.59473 16.5568 7.93086 16.2367 7.96109L15.7054 8.05698L15.4846 16.374C15.0168 16.6242 14.5911 16.7615 14.2397 16.7493C13.673 16.7296 13.5363 16.5344 13.1293 15.9535L9.82408 10.0074L9.6745 15.6431L10.7624 15.9474C10.7624 15.9474 10.7444 16.6282 9.8619 16.5975L7.42244 16.6648C7.35563 16.5103 7.43656 16.1329 7.68674 16.0686L8.32658 15.9004L8.52431 8.45081L7.64386 8.34411C7.5821 7.99941 7.77252 7.51503 8.26605 7.49448L10.8834 7.39512L14.328 13.4217L14.4666 8.20066L13.5514 8.05443C13.4916 7.63739 13.7802 7.34321 14.1354 7.32029L16.5749 7.25003Z M17.2583 2.83306C13.7917 2.44562 10.2083 2.44562 6.74177 2.83306C4.72971 3.05794 3.10538 4.64295 2.86883 6.66548C2.45429 10.2098 2.45429 13.7903 2.86883 17.3346C3.10538 19.3571 4.72971 20.9422 6.74177 21.167C10.2083 21.5545 13.7917 21.5545 17.2583 21.167C19.2703 20.9422 20.8946 19.3571 21.1312 17.3346C21.5457 13.7903 21.5457 10.2098 21.1312 6.66548C20.8946 4.64295 19.2703 3.05794 17.2583 2.83306ZM6.90838 4.32378C10.2642 3.94871 13.7358 3.94871 17.0916 4.32378C18.4218 4.47244 19.4872 5.52205 19.6414 6.83973C20.0424 10.2683 20.0424 13.7318 19.6414 17.1604C19.4872 18.478 18.4218 19.5277 17.0916 19.6763C13.7358 20.0514 10.2642 20.0514 6.90838 19.6763C5.57827 19.5277 4.51278 18.478 4.35867 17.1604C3.95767 13.7318 3.95767 10.2683 4.35867 6.83973C4.51278 5.52205 5.57827 4.47244 6.90838 4.32378Z',
         'vimeo': 'M22.396 7.164c-.093 2.026-1.507 4.799-4.245 8.32C15.322 19.161 12.928 21 10.97 21c-1.214 0-2.24-1.119-3.08-3.357L6.16 11.088c-.56-2.238-1.16-3.357-1.8-3.357-.14 0-.628.294-1.464.88l-.88-1.132c.92-.809 1.83-1.618 2.72-2.428 1.226-1.06 2.146-1.618 2.76-1.672 1.45-.14 2.342.852 2.675 2.976.36 2.292.612 3.719.754 4.28.42 1.906.88 2.858 1.38 2.858.39 0 .976-.617 1.76-1.85.783-1.232 1.203-2.17 1.26-2.813.112-1.06-.307-1.591-1.26-1.591-.448 0-.91.103-1.386.307.92-3.015 2.68-4.48 5.282-4.4 1.93.053 2.841 1.307 2.735 3.762z',
+        'threads': 'M9.482 9.024c-.405-.27-1.749-1.203-1.749-1.203 1.134-1.621 2.629-2.253 4.698-2.253 1.462 0 2.704.491 3.591 1.422s1.392 2.263 1.507 3.966q.738.31 1.357.726c1.663 1.117 2.579 2.79 2.579 4.705 0 4.074-3.339 7.613-9.384 7.613C6.891 24 1.5 20.98 1.5 11.991 1.5 3.051 6.723 0 12.066 0c2.469 0 6.259.364 8.434 7.554l-2.04.529C17.274 2.961 14.745 2.145 12.009 2.145c-5.348 0-8.373 3.256-8.373 10.185 0 6.214 3.381 9.514 8.445 9.514 4.165 0 7.271-2.165 7.271-5.334 0-2.157-1.812-3.19-1.905-3.19-.354 1.851-1.302 4.965-5.466 4.965-2.427 0-4.519-1.677-4.519-3.873 0-3.135 2.976-4.271 5.325-4.271.879 0 1.941.06 2.494.171 0-.956-.81-2.592-2.85-2.592-1.875 0-2.349.608-2.95 1.302zM13.074 12.285c-3.06 0-3.456 1.305-3.456 2.124 0 1.317 1.564 1.752 2.4 1.752 1.53 0 3.101-.423 3.348-3.635a9.3 9.3 0 0 0-2.292-.241',
       }
       // Icons that should be rendered with fill instead of stroke
       const FILLED_ICONS = new Set([
         'instagram', 'twitter', 'youtube', 'tiktok', 'spotify', 'facebook', 'linkedin',
         'twitch', 'discord', 'telegram', 'whatsapp', 'pinterest', 'snapchat',
-        'github', 'vimeo', 'notion'
+        'github', 'vimeo', 'notion', 'threads'
       ])
 
-      // Auto-detect icon from URL for WhatsApp, Telegram, Vimeo, and Notion
+      // Auto-detect icon from URL for WhatsApp, Telegram, Vimeo, Notion, and Threads
       const getIconFromUrl = (url: string): string | null => {
         const lowerUrl = url.toLowerCase()
         if (lowerUrl.includes('wa.me') || lowerUrl.includes('whatsapp.com') || lowerUrl.includes('api.whatsapp.com')) {
@@ -3660,6 +3717,9 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
         }
         if (lowerUrl.includes('notion.so') || lowerUrl.includes('notion.site')) {
           return 'notion'
+        }
+        if (lowerUrl.includes('threads.net')) {
+          return 'threads'
         }
         return null
       }
