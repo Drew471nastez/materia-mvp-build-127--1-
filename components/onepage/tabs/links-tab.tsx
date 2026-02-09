@@ -1934,12 +1934,15 @@ export function LinksTab() {
             setAddSheetDragY(0)
           }}
           className={cn(
-            "h-auto p-0 gap-0 overflow-hidden mx-auto flex flex-col border-[#ececf1] duration-300 ease-out",
+            "h-auto p-0 gap-0 overflow-hidden mx-auto flex flex-col border-[#ececf1]",
             isMobileModalViewport
-              ? "!opacity-100 top-auto left-0 right-0 bottom-0 translate-x-0 translate-y-0 w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh] data-[state=open]:slide-in-from-bottom-4 data-[state=closed]:slide-out-to-bottom-4"
+              ? "top-auto left-0 right-0 bottom-0 w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh]"
               : "w-[calc(100%-24px)] max-w-[520px] max-h-[85vh] sm:max-h-[min(680px,85vh)] rounded-2xl"
           )}
-          style={isMobileModalViewport ? { transform: `translateY(${addSheetDragY}px)`, transition: isAddSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)' } : undefined}
+          style={isMobileModalViewport ? {
+            transform: showAddModal ? `translateY(${addSheetDragY}px)` : "translateY(100%)",
+            transition: isAddSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)'
+          } : undefined}
         >
           {isMobileModalViewport && (
             <div className="pt-3 pb-2 flex justify-center cursor-pointer">
@@ -2223,12 +2226,15 @@ export function LinksTab() {
             setSocialSheetDragY(0)
           }}
           className={cn(
-            "p-0 gap-0 overflow-hidden mx-auto flex flex-col border-[#ececf1] duration-300 ease-out",
+            "p-0 gap-0 overflow-hidden mx-auto flex flex-col border-[#ececf1]",
             isMobileModalViewport
-              ? "!opacity-100 top-auto left-0 right-0 bottom-0 translate-x-0 translate-y-0 w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh] data-[state=open]:slide-in-from-bottom-4 data-[state=closed]:slide-out-to-bottom-4"
+              ? "top-auto left-0 right-0 bottom-0 w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh]"
               : "w-[calc(100%-32px)] max-w-md rounded-2xl max-h-[85vh]"
           )}
-          style={isMobileModalViewport ? { transform: `translateY(${socialSheetDragY}px)`, transition: isSocialSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)' } : undefined}
+          style={isMobileModalViewport ? {
+            transform: showSocialModal ? `translateY(${socialSheetDragY}px)` : "translateY(100%)",
+            transition: isSocialSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)'
+          } : undefined}
         >
           {isMobileModalViewport && (
             <div className="pt-3 pb-2 flex justify-center cursor-pointer">

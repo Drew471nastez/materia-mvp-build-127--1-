@@ -508,12 +508,15 @@ export function ProductsTab() {
             setAddProductSheetDragY(0)
           }}
           className={cn(
-            "p-0 gap-0 overflow-hidden border-[#ececf1] duration-300 ease-out",
+            "p-0 gap-0 overflow-hidden border-[#ececf1]",
             isMobileViewport
-              ? "!opacity-100 top-auto left-0 right-0 bottom-0 translate-x-0 translate-y-0 w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh] data-[state=open]:slide-in-from-bottom-4 data-[state=closed]:slide-out-to-bottom-4"
+              ? "top-auto left-0 right-0 bottom-0 w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh]"
               : "max-w-[520px] max-h-[680px] rounded-2xl"
           )}
-          style={isMobileViewport ? { transform: `translateY(${addProductSheetDragY}px)`, transition: isAddProductSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)' } : undefined}
+          style={isMobileViewport ? {
+            transform: showAddModal ? `translateY(${addProductSheetDragY}px)` : "translateY(100%)",
+            transition: isAddProductSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)'
+          } : undefined}
         >
           {isMobileViewport && (
             <div className="pt-3 pb-2 flex justify-center cursor-pointer">
