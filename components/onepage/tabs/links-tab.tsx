@@ -609,6 +609,12 @@ export function LinksTab() {
   const [isSocialSheetPresented, setIsSocialSheetPresented] = useState(false)
   const addSheetCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const socialSheetCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const addSheetLastYRef = useRef(0)
+  const addSheetLastTimeRef = useRef(0)
+  const addSheetVelocityRef = useRef(0)
+  const socialSheetLastYRef = useRef(0)
+  const socialSheetLastTimeRef = useRef(0)
+  const socialSheetVelocityRef = useRef(0)
 
   // Thumbnail modal state
   const [showThumbnailModal, setShowThumbnailModal] = useState(false)
@@ -1983,35 +1989,40 @@ export function LinksTab() {
           onOpenAutoFocus={(e) => e.preventDefault()}
           showCloseButton={!isMobileModalViewport}
           disableDefaultAnimations={isMobileModalViewport}
-          overlayClassName={isMobileModalViewport ? "data-[state=open]:animate-none data-[state=closed]:animate-none bg-black/40" : undefined}
+          overlayClassName={isMobileModalViewport ? "data-[state=open]:animate-none data-[state=closed]:animate-none bg-black/40 backdrop-blur-[2px]" : undefined}
           onTouchStart={(e) => {
             if (!isMobileModalViewport) return
             const touchY = e.touches[0]?.clientY ?? 0
             const bounds = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
             if (touchY - bounds.top <= 72) {
               addSheetStartYRef.current = touchY
+              addSheetLastYRef.current = touchY
+              addSheetLastTimeRef.current = Date.now()
+              addSheetVelocityRef.current = 0
               setIsAddSheetDragging(true)
             }
           }}
           onTouchMove={(e) => {
             if (!isMobileModalViewport || !isAddSheetDragging) return
-            const diff = (e.touches[0]?.clientY ?? 0) - addSheetStartYRef.current
+            const currentY = e.touches[0]?.clientY ?? 0
+            const diff = currentY - addSheetStartYRef.current
             if (diff > 0) {
               e.preventDefault()
-              // Soft resistance for smooth, controlled motion
-              setAddSheetDragY(diff * 0.8)
+              const now = Date.now()
+              const dt = Math.max(1, now - addSheetLastTimeRef.current)
+              addSheetVelocityRef.current = (currentY - addSheetLastYRef.current) / dt
+              addSheetLastYRef.current = currentY
+              addSheetLastTimeRef.current = now
+
+              const resisted = diff <= 160 ? diff * 0.92 : 147 + (diff - 160) * 0.4
+              setAddSheetDragY(resisted)
             }
           }}
           onTouchEnd={() => {
             if (!isMobileModalViewport || !isAddSheetDragging) return
             setIsAddSheetDragging(false)
-            // Consistent threshold for smooth close gesture
-            if (addSheetDragY > 80) {
-              setShowAddModal(false)
-              setSearchQuery("")
-              setInsertAfterId(null)
-              setAddToGroupId(null)
-              setAddSheetDragY(0)
+            if (addSheetDragY > 92 || addSheetVelocityRef.current > 0.55) {
+              closeAddSheet()
               return
             }
             setAddSheetDragY(0)
@@ -2289,36 +2300,40 @@ export function LinksTab() {
           onOpenAutoFocus={(e) => e.preventDefault()}
           showCloseButton={!isMobileModalViewport}
           disableDefaultAnimations={isMobileModalViewport}
-          overlayClassName={isMobileModalViewport ? "data-[state=open]:animate-none data-[state=closed]:animate-none bg-black/40" : undefined}
+          overlayClassName={isMobileModalViewport ? "data-[state=open]:animate-none data-[state=closed]:animate-none bg-black/40 backdrop-blur-[2px]" : undefined}
           onTouchStart={(e) => {
             if (!isMobileModalViewport) return
             const touchY = e.touches[0]?.clientY ?? 0
             const bounds = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
             if (touchY - bounds.top <= 72) {
               socialSheetStartYRef.current = touchY
+              socialSheetLastYRef.current = touchY
+              socialSheetLastTimeRef.current = Date.now()
+              socialSheetVelocityRef.current = 0
               setIsSocialSheetDragging(true)
             }
           }}
           onTouchMove={(e) => {
             if (!isMobileModalViewport || !isSocialSheetDragging) return
-            const diff = (e.touches[0]?.clientY ?? 0) - socialSheetStartYRef.current
+            const currentY = e.touches[0]?.clientY ?? 0
+            const diff = currentY - socialSheetStartYRef.current
             if (diff > 0) {
               e.preventDefault()
-              // Soft resistance for smooth, controlled motion
-              setSocialSheetDragY(diff * 0.8)
+              const now = Date.now()
+              const dt = Math.max(1, now - socialSheetLastTimeRef.current)
+              socialSheetVelocityRef.current = (currentY - socialSheetLastYRef.current) / dt
+              socialSheetLastYRef.current = currentY
+              socialSheetLastTimeRef.current = now
+
+              const resisted = diff <= 160 ? diff * 0.92 : 147 + (diff - 160) * 0.4
+              setSocialSheetDragY(resisted)
             }
           }}
           onTouchEnd={() => {
             if (!isMobileModalViewport || !isSocialSheetDragging) return
             setIsSocialSheetDragging(false)
-            // Consistent threshold for smooth close gesture
-            if (socialSheetDragY > 80) {
+            if (socialSheetDragY > 92 || socialSheetVelocityRef.current > 0.55) {
               closeSocialSheet()
-              setSelectedSocial(null)
-              setSocialUrl("")
-              setSearchQuery("")
-              setSocialUrlError(null)
-              setSocialSheetDragY(0)
               return
             }
             setSocialSheetDragY(0)

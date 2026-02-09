@@ -98,6 +98,9 @@ export function ProductsTab() {
   const [isAddProductSheetPresented, setIsAddProductSheetPresented] = useState(false)
   const addProductSheetStartYRef = useRef(0)
   const addProductSheetCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const addProductSheetLastYRef = useRef(0)
+  const addProductSheetLastTimeRef = useRef(0)
+  const addProductSheetVelocityRef = useRef(0)
   const router = useRouter()
 
   // Show notification and auto-hide after 3 seconds
@@ -520,30 +523,39 @@ export function ProductsTab() {
           onOpenAutoFocus={(e) => e.preventDefault()}
           showCloseButton={!isMobileViewport}
           disableDefaultAnimations={isMobileViewport}
-          overlayClassName={isMobileViewport ? "data-[state=open]:animate-none data-[state=closed]:animate-none bg-black/40" : undefined}
+          overlayClassName={isMobileViewport ? "data-[state=open]:animate-none data-[state=closed]:animate-none bg-black/40 backdrop-blur-[2px]" : undefined}
           onTouchStart={(e) => {
             if (!isMobileViewport) return
             const touchY = e.touches[0]?.clientY ?? 0
             const bounds = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
             if (touchY - bounds.top <= 72) {
               addProductSheetStartYRef.current = touchY
+              addProductSheetLastYRef.current = touchY
+              addProductSheetLastTimeRef.current = Date.now()
+              addProductSheetVelocityRef.current = 0
               setIsAddProductSheetDragging(true)
             }
           }}
           onTouchMove={(e) => {
             if (!isMobileViewport || !isAddProductSheetDragging) return
-            const diff = (e.touches[0]?.clientY ?? 0) - addProductSheetStartYRef.current
+            const currentY = e.touches[0]?.clientY ?? 0
+            const diff = currentY - addProductSheetStartYRef.current
             if (diff > 0) {
               e.preventDefault()
-              // Soft resistance for smooth, controlled motion
-              setAddProductSheetDragY(diff * 0.8)
+              const now = Date.now()
+              const dt = Math.max(1, now - addProductSheetLastTimeRef.current)
+              addProductSheetVelocityRef.current = (currentY - addProductSheetLastYRef.current) / dt
+              addProductSheetLastYRef.current = currentY
+              addProductSheetLastTimeRef.current = now
+
+              const resisted = diff <= 160 ? diff * 0.92 : 147 + (diff - 160) * 0.4
+              setAddProductSheetDragY(resisted)
             }
           }}
           onTouchEnd={() => {
             if (!isMobileViewport || !isAddProductSheetDragging) return
             setIsAddProductSheetDragging(false)
-            // Consistent threshold for smooth close gesture
-            if (addProductSheetDragY > 80) {
+            if (addProductSheetDragY > 92 || addProductSheetVelocityRef.current > 0.55) {
               closeAddProductSheet()
               return
             }
