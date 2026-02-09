@@ -33,7 +33,7 @@ import {
   Check,
   GraduationCap,
 } from "lucide-react"
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 
@@ -93,6 +93,9 @@ export function ProductsTab() {
   const [addedProductIds, setAddedProductIds] = useState<Set<string>>(new Set())
   const [notification, setNotification] = useState<{ message: string; visible: boolean }>({ message: "", visible: false })
   const [isMobileViewport, setIsMobileViewport] = useState(false)
+  const [addProductSheetDragY, setAddProductSheetDragY] = useState(0)
+  const [isAddProductSheetDragging, setIsAddProductSheetDragging] = useState(false)
+  const addProductSheetStartYRef = useRef(0)
   const router = useRouter()
 
   // Show notification and auto-hide after 3 seconds
@@ -143,6 +146,13 @@ export function ProductsTab() {
 
     fetchProducts()
   }, [])
+
+  useEffect(() => {
+    if (!showAddModal) {
+      setAddProductSheetDragY(0)
+      setIsAddProductSheetDragging(false)
+    }
+  }, [showAddModal])
 
   // Get badge info for product type
   const getProductBadge = (type?: string) => {
@@ -468,12 +478,40 @@ export function ProductsTab() {
         <DialogContent
           onOpenAutoFocus={(e) => e.preventDefault()}
           showCloseButton={false}
+          onTouchStart={(e) => {
+            if (!isMobileViewport) return
+            const touchY = e.touches[0]?.clientY ?? 0
+            const bounds = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
+            if (touchY - bounds.top <= 72) {
+              addProductSheetStartYRef.current = touchY
+              setIsAddProductSheetDragging(true)
+            }
+          }}
+          onTouchMove={(e) => {
+            if (!isMobileViewport || !isAddProductSheetDragging) return
+            const diff = (e.touches[0]?.clientY ?? 0) - addProductSheetStartYRef.current
+            if (diff > 0) {
+              e.preventDefault()
+              setAddProductSheetDragY(diff * 0.82)
+            }
+          }}
+          onTouchEnd={() => {
+            if (!isMobileViewport || !isAddProductSheetDragging) return
+            setIsAddProductSheetDragging(false)
+            if (addProductSheetDragY > 90) {
+              setShowAddModal(false)
+              setAddProductSheetDragY(0)
+              return
+            }
+            setAddProductSheetDragY(0)
+          }}
           className={cn(
             "p-0 gap-0 overflow-hidden border-[#ececf1] duration-300 ease-out",
             isMobileViewport
-              ? "top-auto left-0 right-0 bottom-0 translate-x-0 translate-y-0 w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[86vh] data-[state=open]:slide-in-from-bottom-4 data-[state=closed]:slide-out-to-bottom-4 data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100"
+              ? "top-auto left-0 right-0 bottom-0 translate-x-0 translate-y-0 w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[64vh] data-[state=open]:slide-in-from-bottom-4 data-[state=closed]:slide-out-to-bottom-4 data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100"
               : "max-w-[520px] max-h-[680px] rounded-2xl"
           )}
+          style={isMobileViewport ? { transform: `translateY(${addProductSheetDragY}px)`, transition: isAddProductSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)' } : undefined}
         >
           {isMobileViewport && (
             <div className="pt-2 pb-1 flex justify-center border-b border-[#f1f1f4]">

@@ -599,6 +599,12 @@ export function LinksTab() {
   const [imageUploading, setImageUploading] = useState(false)
   const [showArchiveView, setShowArchiveView] = useState(false)
   const [isMobileModalViewport, setIsMobileModalViewport] = useState(false)
+  const [addSheetDragY, setAddSheetDragY] = useState(0)
+  const [isAddSheetDragging, setIsAddSheetDragging] = useState(false)
+  const addSheetStartYRef = useRef(0)
+  const [socialSheetDragY, setSocialSheetDragY] = useState(0)
+  const [isSocialSheetDragging, setIsSocialSheetDragging] = useState(false)
+  const socialSheetStartYRef = useRef(0)
 
   // Thumbnail modal state
   const [showThumbnailModal, setShowThumbnailModal] = useState(false)
@@ -619,6 +625,20 @@ export function LinksTab() {
     window.addEventListener('resize', checkViewport)
     return () => window.removeEventListener('resize', checkViewport)
   }, [])
+
+  useEffect(() => {
+    if (!showAddModal) {
+      setAddSheetDragY(0)
+      setIsAddSheetDragging(false)
+    }
+  }, [showAddModal])
+
+  useEffect(() => {
+    if (!showSocialModal) {
+      setSocialSheetDragY(0)
+      setIsSocialSheetDragging(false)
+    }
+  }, [showSocialModal])
 
   // Streaming service URL modal state
   const [showStreamingUrlModal, setShowStreamingUrlModal] = useState(false)
@@ -1881,12 +1901,43 @@ export function LinksTab() {
         <DialogContent
           onOpenAutoFocus={(e) => e.preventDefault()}
           showCloseButton={false}
+          onTouchStart={(e) => {
+            if (!isMobileModalViewport) return
+            const touchY = e.touches[0]?.clientY ?? 0
+            const bounds = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
+            if (touchY - bounds.top <= 72) {
+              addSheetStartYRef.current = touchY
+              setIsAddSheetDragging(true)
+            }
+          }}
+          onTouchMove={(e) => {
+            if (!isMobileModalViewport || !isAddSheetDragging) return
+            const diff = (e.touches[0]?.clientY ?? 0) - addSheetStartYRef.current
+            if (diff > 0) {
+              e.preventDefault()
+              setAddSheetDragY(diff * 0.82)
+            }
+          }}
+          onTouchEnd={() => {
+            if (!isMobileModalViewport || !isAddSheetDragging) return
+            setIsAddSheetDragging(false)
+            if (addSheetDragY > 90) {
+              setShowAddModal(false)
+              setSearchQuery("")
+              setInsertAfterId(null)
+              setAddToGroupId(null)
+              setAddSheetDragY(0)
+              return
+            }
+            setAddSheetDragY(0)
+          }}
           className={cn(
             "h-auto p-0 gap-0 overflow-hidden mx-auto flex flex-col border-[#ececf1] duration-300 ease-out",
             isMobileModalViewport
-              ? "top-auto left-0 right-0 bottom-0 translate-x-0 translate-y-0 w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[86vh] data-[state=open]:slide-in-from-bottom-4 data-[state=closed]:slide-out-to-bottom-4 data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100"
+              ? "top-auto left-0 right-0 bottom-0 translate-x-0 translate-y-0 w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[64vh] data-[state=open]:slide-in-from-bottom-4 data-[state=closed]:slide-out-to-bottom-4 data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100"
               : "w-[calc(100%-24px)] max-w-[520px] max-h-[85vh] sm:max-h-[min(680px,85vh)] rounded-2xl"
           )}
+          style={isMobileModalViewport ? { transform: `translateY(${addSheetDragY}px)`, transition: isAddSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)' } : undefined}
         >
           {isMobileModalViewport && (
             <div className="pt-2 pb-1 flex justify-center border-b border-[#f1f1f4]">
@@ -2136,12 +2187,44 @@ export function LinksTab() {
         <DialogContent
           onOpenAutoFocus={(e) => e.preventDefault()}
           showCloseButton={false}
+          onTouchStart={(e) => {
+            if (!isMobileModalViewport) return
+            const touchY = e.touches[0]?.clientY ?? 0
+            const bounds = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
+            if (touchY - bounds.top <= 72) {
+              socialSheetStartYRef.current = touchY
+              setIsSocialSheetDragging(true)
+            }
+          }}
+          onTouchMove={(e) => {
+            if (!isMobileModalViewport || !isSocialSheetDragging) return
+            const diff = (e.touches[0]?.clientY ?? 0) - socialSheetStartYRef.current
+            if (diff > 0) {
+              e.preventDefault()
+              setSocialSheetDragY(diff * 0.82)
+            }
+          }}
+          onTouchEnd={() => {
+            if (!isMobileModalViewport || !isSocialSheetDragging) return
+            setIsSocialSheetDragging(false)
+            if (socialSheetDragY > 90) {
+              setShowSocialModal(false)
+              setSelectedSocial(null)
+              setSocialUrl("")
+              setSearchQuery("")
+              setSocialUrlError(null)
+              setSocialSheetDragY(0)
+              return
+            }
+            setSocialSheetDragY(0)
+          }}
           className={cn(
             "p-0 gap-0 overflow-hidden mx-auto flex flex-col border-[#ececf1] duration-300 ease-out",
             isMobileModalViewport
-              ? "top-auto left-0 right-0 bottom-0 translate-x-0 translate-y-0 w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[86vh] data-[state=open]:slide-in-from-bottom-4 data-[state=closed]:slide-out-to-bottom-4 data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100"
+              ? "top-auto left-0 right-0 bottom-0 translate-x-0 translate-y-0 w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[64vh] data-[state=open]:slide-in-from-bottom-4 data-[state=closed]:slide-out-to-bottom-4 data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100"
               : "w-[calc(100%-32px)] max-w-md rounded-2xl max-h-[85vh]"
           )}
+          style={isMobileModalViewport ? { transform: `translateY(${socialSheetDragY}px)`, transition: isSocialSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)' } : undefined}
         >
           {isMobileModalViewport && (
             <div className="pt-2 pb-1 flex justify-center border-b border-[#f1f1f4]">
