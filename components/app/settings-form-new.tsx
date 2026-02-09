@@ -1423,7 +1423,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
       </div>
 
       <div className="h-full overflow-y-scroll overflow-x-hidden page-scroll bg-[#fafafa]" style={{ scrollbarGutter: 'stable' }}>
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-28 sm:pb-52 overflow-x-hidden">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-16 sm:pb-32 overflow-x-hidden">
         {/* Header with Handle pill */}
         <div className="mb-6 flex items-start justify-between gap-3">
           <div>
@@ -1752,6 +1752,38 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   </span>
                   <ChevronRight className="h-4 w-4 text-[#9ca3af]" />
                 </button>
+              </div>
+
+              {/* OnePage URL Card */}
+              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
+                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">
+                  OnePage URL
+                </h3>
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="onepageHandle" className="text-[13px] font-medium text-[#374151]">
+                      Your OnePage Handle
+                    </Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[14px] text-[#6b7280]">
+                        @
+                      </span>
+                      <Input
+                        id="onepageHandle"
+                        value={username}
+                        onChange={(e) => {
+                          const value = e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, "")
+                          setUsername(value)
+                        }}
+                        placeholder="yourhandle"
+                        className="h-11 pl-7 border-[#e5e7eb] rounded-xl text-[14px] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
+                      />
+                    </div>
+                    <p className="text-[12px] text-[#6b7280]">
+                      Your OnePage will be available at: <span className="font-medium text-[#8b5cf6]">{getLinksUrl(username || "yourhandle")}</span>
+                    </p>
+                  </div>
+                </div>
               </div>
 
               {/* Address Card */}
