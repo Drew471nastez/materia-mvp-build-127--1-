@@ -764,10 +764,18 @@ function EditorLayout() {
               }}
             >
               {onepage.avatar_video_url ? (
-                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full mx-auto mb-2 overflow-hidden">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full mx-auto mb-2 overflow-hidden relative bg-white/20">
+                  {onepage.avatar_url ? (
+                    <img src={onepage.avatar_url} alt={onepage.title} className="absolute inset-0 w-full h-full object-cover scale-105 blur-[2px]" />
+                  ) : (
+                    <div className="absolute inset-0 bg-white/20 animate-pulse" />
+                  )}
                   <video
                     src={onepage.avatar_video_url}
-                    className="w-full h-full object-cover"
+                    className="relative z-[1] w-full h-full object-cover opacity-0 transition-all duration-500"
+                    onLoadedData={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.filter = 'blur(0px)' }}
+                    onCanPlay={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.filter = 'blur(0px)' }}
+                    onPlaying={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.filter = 'blur(0px)' }}
                     autoPlay
                     loop
                     muted

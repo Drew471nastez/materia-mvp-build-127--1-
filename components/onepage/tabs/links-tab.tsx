@@ -1564,23 +1564,32 @@ export function LinksTab() {
       {/* Profile Header with Real SVG Icons */}
       <div className="flex items-center gap-4 pt-[8px] sm:pt-0 pb-5 border-b">
         <div className="relative group cursor-pointer" onClick={() => setShowAvatarEditModal(true)}>
-          <Avatar className="h-14 w-14 border overflow-hidden">
+          <div className="h-14 w-14 border overflow-hidden rounded-full relative bg-gray-100">
             {onepage.avatar_video_url ? (
-              <video
-                src={onepage.avatar_video_url}
-                autoPlay
-                loop
-                muted
-                playsInline
-                className="w-full h-full object-cover"
-              />
-            ) : (
               <>
-                <AvatarImage src={avatar_url || undefined} />
-                <AvatarFallback>{title?.charAt(0) || "?"}</AvatarFallback>
+                {avatar_url ? (
+                  <img src={avatar_url} alt={title || 'Avatar'} className="absolute inset-0 w-full h-full object-cover scale-105 blur-[2px]" />
+                ) : (
+                  <div className="absolute inset-0 bg-gray-200 animate-pulse" />
+                )}
+                <video
+                  src={onepage.avatar_video_url}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  className="relative z-[1] w-full h-full object-cover opacity-0 transition-all duration-500"
+                  onLoadedData={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.filter = 'blur(0px)' }}
+                  onCanPlay={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.filter = 'blur(0px)' }}
+                  onPlaying={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.filter = 'blur(0px)' }}
+                />
               </>
+            ) : avatar_url ? (
+              <img src={avatar_url} alt={title || 'Avatar'} className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">{title?.charAt(0) || "?"}</div>
             )}
-          </Avatar>
+          </div>
           <div className="absolute inset-0 bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
             <Pencil className="h-4 w-4 text-white" />
           </div>
