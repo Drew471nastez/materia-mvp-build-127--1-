@@ -57,15 +57,20 @@ function DialogContent({
   showCloseButton = true,
   overlayClassName,
   disableDefaultAnimations = false,
+  disableOverlayDefaultAnimations,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
   overlayClassName?: string
   disableDefaultAnimations?: boolean
+  disableOverlayDefaultAnimations?: boolean
 }) {
   return (
     <DialogPortal data-slot="dialog-portal">
-      <DialogOverlay className={overlayClassName} disableDefaultAnimations={disableDefaultAnimations} />
+      <DialogOverlay
+        className={overlayClassName}
+        disableDefaultAnimations={disableOverlayDefaultAnimations ?? disableDefaultAnimations}
+      />
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(

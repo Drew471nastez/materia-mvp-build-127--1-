@@ -39,24 +39,6 @@ import type { OnePageTheme } from "@/lib/onepage/types"
 
 type DesignSection = "header" | "theme" | "wallpaper" | "text" | "buttons" | "socials" | "footer"
 
-
-function useIsMobileSheetViewport() {
-  const [isMobileSheetViewport, setIsMobileSheetViewport] = useState(false)
-
-  useEffect(() => {
-    const checkViewport = () => {
-      if (typeof window === "undefined") return
-      setIsMobileSheetViewport(window.innerWidth < 640)
-    }
-
-    checkViewport()
-    window.addEventListener("resize", checkViewport)
-    return () => window.removeEventListener("resize", checkViewport)
-  }, [])
-
-  return isMobileSheetViewport
-}
-
 // Custom Toggle Component with theme-style design
 function Toggle({ checked, onCheckedChange }: { checked: boolean; onCheckedChange: (checked: boolean) => void }) {
   return (
@@ -781,7 +763,6 @@ export function DesignTab() {
 
 function HeaderSection() {
   const { onepage, updateProfile, updateTheme } = useOnePage()
-  const isMobileSheetViewport = useIsMobileSheetViewport()
   const [showEditModal, setShowEditModal] = useState(false)
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [showCropModal, setShowCropModal] = useState(false)
@@ -2291,17 +2272,7 @@ function HeaderSection() {
 
       {/* Title Font Modal */}
       <Dialog open={showTitleFontModal} onOpenChange={setShowTitleFontModal}>
-        <DialogContent
-          showCloseButton
-          disableDefaultAnimations={isMobileSheetViewport}
-          overlayClassName={isMobileSheetViewport ? "bg-black/40 data-[state=open]:opacity-100 data-[state=closed]:opacity-0 data-[state=open]:backdrop-blur-[2px] data-[state=closed]:backdrop-blur-0 transition-[backdrop-filter,opacity] duration-400" : undefined}
-          className={cn(
-            "p-0 gap-0 overflow-hidden mx-auto flex flex-col",
-            isMobileSheetViewport
-              ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh] !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0 data-[state=open]:translate-y-0 data-[state=closed]:translate-y-full transition-transform duration-[400ms] ease-[cubic-bezier(0.32,0.72,0,1)]"
-              : "w-[calc(100%-32px)] sm:max-w-md max-w-[100vw] rounded-2xl max-h-[80vh] sm:max-h-[70vh]"
-          )}
-        >
+        <DialogContent className="w-[calc(100%-32px)] sm:max-w-md max-w-[100vw] p-0 gap-0 overflow-hidden rounded-2xl mx-auto max-h-[80vh] sm:max-h-[70vh] flex flex-col">
           <DialogHeader className="p-4 border-b shrink-0">
             <DialogTitle className="text-lg font-semibold">Select Title Font</DialogTitle>
           </DialogHeader>
@@ -3889,7 +3860,6 @@ function WallpaperSection() {
 
 function TextSection() {
   const { onepage, updateTheme } = useOnePage()
-  const isMobileSheetViewport = useIsMobileSheetViewport()
   const [showFontModal, setShowFontModal] = useState(false)
   const [showTitleFontModal, setShowTitleFontModal] = useState(false)
   const [fontFilter, setFontFilter] = useState<"all" | "sans" | "serif" | "display" | "mono" | "handwritten">("all")
@@ -3922,17 +3892,7 @@ function TextSection() {
         </button>
       </div>
       <Dialog open={showFontModal} onOpenChange={setShowFontModal}>
-        <DialogContent
-          showCloseButton
-          disableDefaultAnimations={isMobileSheetViewport}
-          overlayClassName={isMobileSheetViewport ? "bg-black/40 data-[state=open]:opacity-100 data-[state=closed]:opacity-0 data-[state=open]:backdrop-blur-[2px] data-[state=closed]:backdrop-blur-0 transition-[backdrop-filter,opacity] duration-400" : undefined}
-          className={cn(
-            "p-0 gap-0 overflow-hidden mx-auto flex flex-col",
-            isMobileSheetViewport
-              ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh] !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0 data-[state=open]:translate-y-0 data-[state=closed]:translate-y-full transition-transform duration-[400ms] ease-[cubic-bezier(0.32,0.72,0,1)]"
-              : "w-[calc(100%-32px)] sm:max-w-md max-w-[100vw] rounded-2xl max-h-[80vh] sm:max-h-[70vh]"
-          )}
-        >
+        <DialogContent className="w-[calc(100%-32px)] sm:max-w-md max-w-[100vw] p-0 gap-0 overflow-hidden rounded-2xl mx-auto max-h-[80vh] sm:max-h-[70vh] flex flex-col">
           <DialogHeader className="p-4 border-b shrink-0">
             <DialogTitle className="text-lg font-semibold">Choose Font</DialogTitle>
             <div className="relative mt-3">
@@ -3975,17 +3935,7 @@ function TextSection() {
         </button>
       </div>
       <Dialog open={showTitleFontModal} onOpenChange={setShowTitleFontModal}>
-        <DialogContent
-          showCloseButton
-          disableDefaultAnimations={isMobileSheetViewport}
-          overlayClassName={isMobileSheetViewport ? "bg-black/40 data-[state=open]:opacity-100 data-[state=closed]:opacity-0 data-[state=open]:backdrop-blur-[2px] data-[state=closed]:backdrop-blur-0 transition-[backdrop-filter,opacity] duration-400" : undefined}
-          className={cn(
-            "p-0 gap-0 overflow-hidden mx-auto flex flex-col",
-            isMobileSheetViewport
-              ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh] !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0 data-[state=open]:translate-y-0 data-[state=closed]:translate-y-full transition-transform duration-[400ms] ease-[cubic-bezier(0.32,0.72,0,1)]"
-              : "w-[calc(100%-32px)] sm:max-w-md max-w-[100vw] rounded-2xl max-h-[80vh] sm:max-h-[70vh]"
-          )}
-        >
+        <DialogContent className="w-[calc(100%-32px)] sm:max-w-md max-w-[100vw] p-0 gap-0 overflow-hidden rounded-2xl mx-auto max-h-[80vh] sm:max-h-[70vh] flex flex-col">
           <DialogHeader className="p-4 border-b shrink-0">
             <DialogTitle className="text-lg font-semibold">Choose Title Font</DialogTitle>
           </DialogHeader>

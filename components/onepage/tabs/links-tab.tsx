@@ -1989,7 +1989,7 @@ export function LinksTab() {
           onOpenAutoFocus={(e) => e.preventDefault()}
           showCloseButton
           disableDefaultAnimations={isMobileModalViewport}
-          overlayClassName={isMobileModalViewport ? "bg-black/40 data-[state=open]:opacity-100 data-[state=closed]:opacity-0 data-[state=open]:backdrop-blur-[2px] data-[state=closed]:backdrop-blur-0 transition-[backdrop-filter,opacity] duration-400" : undefined}
+          overlayClassName={isMobileModalViewport ? cn("bg-black/40 transition-[backdrop-filter,opacity] duration-400", isAddSheetPresented ? "opacity-100 backdrop-blur-[2px]" : "opacity-0 backdrop-blur-0") : undefined}
           onTouchStart={(e) => {
             if (!isMobileModalViewport) return
             const touchY = e.touches[0]?.clientY ?? 0
@@ -2300,7 +2300,7 @@ export function LinksTab() {
           onOpenAutoFocus={(e) => e.preventDefault()}
           showCloseButton
           disableDefaultAnimations={isMobileModalViewport}
-          overlayClassName={isMobileModalViewport ? "bg-black/40 data-[state=open]:opacity-100 data-[state=closed]:opacity-0 data-[state=open]:backdrop-blur-[2px] data-[state=closed]:backdrop-blur-0 transition-[backdrop-filter,opacity] duration-400" : undefined}
+          overlayClassName={isMobileModalViewport ? cn("bg-black/40 transition-[backdrop-filter,opacity] duration-400", isSocialSheetPresented ? "opacity-100 backdrop-blur-[2px]" : "opacity-0 backdrop-blur-0") : undefined}
           onTouchStart={(e) => {
             if (!isMobileModalViewport) return
             const touchY = e.touches[0]?.clientY ?? 0
@@ -2738,7 +2738,7 @@ export function LinksTab() {
       }}>
         <DialogContent
           disableDefaultAnimations={isMobileModalViewport}
-          overlayClassName={isMobileModalViewport ? "bg-black/40 data-[state=open]:opacity-100 data-[state=closed]:opacity-0 data-[state=open]:backdrop-blur-[2px] data-[state=closed]:backdrop-blur-0 transition-[backdrop-filter,opacity] duration-400" : undefined}
+          overlayClassName={isMobileModalViewport ? cn("bg-black/40 transition-[backdrop-filter,opacity] duration-400", isAddSheetPresented ? "opacity-100 backdrop-blur-[2px]" : "opacity-0 backdrop-blur-0") : undefined}
           className={cn(
             "p-0 gap-0 overflow-hidden mx-auto transition-all duration-200 flex flex-col",
             isMobileModalViewport
