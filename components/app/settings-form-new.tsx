@@ -1366,6 +1366,9 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     setTimeout(() => setCopied(false), 2000)
   }
 
+  const settingsHandleBase = creator?.username || profile?.username || storeUrlDisplay.split(".")[0] || "store"
+  const settingsHandleLabel = `@${settingsHandleBase}`
+
   return (
     <>
       {/* Save Toast Notification */}
@@ -1390,15 +1393,20 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
             <h1 className="text-[22px] sm:text-[28px] font-bold text-[#1a1a2e]">{t("settings.title")}</h1>
             <p className="text-[14px] text-[#6b7280] mt-1">{t("settings.subtitle")}</p>
           </div>
-          {/* Store URL with copy */}
+          {/* Store URL with dashboard-style handle pill + copy */}
           <div className="flex items-center gap-2">
             <a
               href={storeUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[13px] text-[#8b5cf6] hover:text-[#7c3aed] transition-colors"
+              className="relative inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-[#e5e7eb] bg-white/90 text-[12px] font-medium text-[#4b5563] hover:text-[#111827] hover:border-[#d1d5db] hover:bg-white transition-all cursor-pointer overflow-hidden"
             >
-              {storeUrlDisplay}
+              <span className="absolute -inset-px rounded-full opacity-45 pointer-events-none animate-[spin_12s_linear_infinite] bg-[conic-gradient(from_0deg,transparent_0deg,transparent_270deg,rgba(139,92,246,0.30)_320deg,transparent_360deg)]" />
+              <span className="absolute inset-[1px] rounded-full bg-white/95" />
+              <span className="relative z-[1] inline-flex items-center gap-1.5">
+                {settingsHandleLabel}
+                <ExternalLink className="h-3.5 w-3.5 text-[#9ca3af]" />
+              </span>
             </a>
             <button
               type="button"

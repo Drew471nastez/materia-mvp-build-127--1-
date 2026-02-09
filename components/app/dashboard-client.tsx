@@ -1291,6 +1291,7 @@ export function DashboardClient({
   const hasProducts = initialSetupSteps.find((s) => s.id === "product")?.completed || false
   const hasPayouts = initialSetupSteps.find((s) => s.id === "payouts")?.completed || false
   const hasOnePageSetup = initialSetupSteps.find((s) => s.id === "onepage")?.completed || false
+  const mobileHandleLabel = creatorHandle.length > 14 ? `${creatorHandle.slice(0, 14)}...` : creatorHandle
 
   // Announcement bar state
   const [announcementType, setAnnouncementType] = useState<"upgrade" | "steps" | "payouts">("upgrade")
@@ -1450,7 +1451,7 @@ export function DashboardClient({
                   <span className="absolute -inset-px rounded-full opacity-40 pointer-events-none animate-[spin_12s_linear_infinite] bg-[conic-gradient(from_0deg,transparent_0deg,transparent_270deg,rgba(139,92,246,0.30)_320deg,transparent_360deg)]" />
                   <span className="absolute inset-[1px] rounded-full bg-white/95" />
                   <span className="relative z-[1] inline-flex items-center gap-1.5">
-                    @{creatorHandle}
+                    @{mobileHandleLabel}
                     <ExternalLink className="h-3.5 w-3.5 text-[#9ca3af]" />
                   </span>
                 </button>
