@@ -96,6 +96,7 @@ export function ProductsTab() {
   const [addProductSheetDragY, setAddProductSheetDragY] = useState(0)
   const [isAddProductSheetDragging, setIsAddProductSheetDragging] = useState(false)
   const addProductSheetStartYRef = useRef(0)
+  const [isAddProductModalAnimating, setIsAddProductModalAnimating] = useState(false)
   const router = useRouter()
 
   // Show notification and auto-hide after 3 seconds
@@ -148,11 +149,20 @@ export function ProductsTab() {
   }, [])
 
   useEffect(() => {
-    if (!showAddModal) {
+    if (showAddModal && !isAddProductModalAnimating) {
+      // Modal opening - start animation
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setIsAddProductModalAnimating(true)
+        })
+      })
+    } else if (!showAddModal && isAddProductModalAnimating) {
+      // Modal closing - stop animation immediately
+      setIsAddProductModalAnimating(false)
       setAddProductSheetDragY(0)
       setIsAddProductSheetDragging(false)
     }
-  }, [showAddModal])
+  }, [showAddModal, isAddProductModalAnimating])
 
   // Get badge info for product type
   const getProductBadge = (type?: string) => {
@@ -514,7 +524,7 @@ export function ProductsTab() {
               : "max-w-[520px] max-h-[680px] rounded-2xl"
           )}
           style={isMobileViewport ? {
-            transform: showAddModal ? `translateY(${addProductSheetDragY}px)` : "translateY(100%)",
+            transform: isAddProductModalAnimating ? `translateY(${addProductSheetDragY}px)` : "translateY(100%)",
             transition: isAddProductSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)'
           } : undefined}
         >

@@ -605,6 +605,8 @@ export function LinksTab() {
   const [socialSheetDragY, setSocialSheetDragY] = useState(0)
   const [isSocialSheetDragging, setIsSocialSheetDragging] = useState(false)
   const socialSheetStartYRef = useRef(0)
+  const [isAddModalAnimating, setIsAddModalAnimating] = useState(false)
+  const [isSocialModalAnimating, setIsSocialModalAnimating] = useState(false)
 
   // Thumbnail modal state
   const [showThumbnailModal, setShowThumbnailModal] = useState(false)
@@ -627,18 +629,36 @@ export function LinksTab() {
   }, [])
 
   useEffect(() => {
-    if (!showAddModal) {
+    if (showAddModal && !isAddModalAnimating) {
+      // Modal opening - start animation
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setIsAddModalAnimating(true)
+        })
+      })
+    } else if (!showAddModal && isAddModalAnimating) {
+      // Modal closing - stop animation immediately
+      setIsAddModalAnimating(false)
       setAddSheetDragY(0)
       setIsAddSheetDragging(false)
     }
-  }, [showAddModal])
+  }, [showAddModal, isAddModalAnimating])
 
   useEffect(() => {
-    if (!showSocialModal) {
+    if (showSocialModal && !isSocialModalAnimating) {
+      // Modal opening - start animation
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setIsSocialModalAnimating(true)
+        })
+      })
+    } else if (!showSocialModal && isSocialModalAnimating) {
+      // Modal closing - stop animation immediately
+      setIsSocialModalAnimating(false)
       setSocialSheetDragY(0)
       setIsSocialSheetDragging(false)
     }
-  }, [showSocialModal])
+  }, [showSocialModal, isSocialModalAnimating])
 
   // Streaming service URL modal state
   const [showStreamingUrlModal, setShowStreamingUrlModal] = useState(false)
@@ -1940,7 +1960,7 @@ export function LinksTab() {
               : "w-[calc(100%-24px)] max-w-[520px] max-h-[85vh] sm:max-h-[min(680px,85vh)] rounded-2xl"
           )}
           style={isMobileModalViewport ? {
-            transform: showAddModal ? `translateY(${addSheetDragY}px)` : "translateY(100%)",
+            transform: isAddModalAnimating ? `translateY(${addSheetDragY}px)` : "translateY(100%)",
             transition: isAddSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)'
           } : undefined}
         >
@@ -2232,7 +2252,7 @@ export function LinksTab() {
               : "w-[calc(100%-32px)] max-w-md rounded-2xl max-h-[85vh]"
           )}
           style={isMobileModalViewport ? {
-            transform: showSocialModal ? `translateY(${socialSheetDragY}px)` : "translateY(100%)",
+            transform: isSocialModalAnimating ? `translateY(${socialSheetDragY}px)` : "translateY(100%)",
             transition: isSocialSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)'
           } : undefined}
         >
