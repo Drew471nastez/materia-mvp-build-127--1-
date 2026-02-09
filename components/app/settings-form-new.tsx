@@ -181,11 +181,12 @@ const TABS = [
   { id: "security", label: "Security", icon: Shield },
   { id: "privacy", label: "Privacy", icon: ToggleLeft },
   { id: "payments", label: "Payments", icon: Wallet },
+  { id: "billing", label: "Billing", icon: CreditCard },
   { id: "stores", label: "Stores", icon: Store },
 ] as const
 
 type TabId = typeof TABS[number]["id"]
-const TAB_IDS: TabId[] = ["general", "security", "privacy", "payments", "stores"]
+const TAB_IDS: TabId[] = ["general", "security", "privacy", "payments", "billing", "stores"]
 
 interface SettingsFormProps {
   profile: Profile & {
@@ -1058,6 +1059,10 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   // Tab change with skeleton loading animation
   const handleTabChange = (newTab: TabId) => {
     if (newTab === activeTab) return
+    if (newTab === "billing") {
+      router.push("/app/settings/billing")
+      return
+    }
     setIsTabLoading(true)
     setActiveTab(newTab)
     setTimeout(() => {
@@ -1611,82 +1616,78 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 </div>
               </div>
 
-              {/* Profile Information Card - Username + Store URL */}
+              {/* Profile Information Card - Username + Store URL + OnePage URL */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
                 <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">
-                  {t("settings.profileInfo")}
+                  Personal Information
                 </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="firstName" className="text-[13px] font-medium text-[#374151]">
-                      Username
-                    </Label>
-                    <Input
-                      id="firstName"
-                      value={fullNameForUsernameInput}
-                      onChange={(e) => {
-                        const value = e.target.value
-                        const [first = "", ...rest] = value.trimStart().split(/\s+/)
-                        setFirstName(first)
-                        setLastName(rest.join(" "))
-                      }}
-                      placeholder="Enter your display name"
-                      className="h-11 border-[#e5e7eb] rounded-xl text-[14px] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="storeUrlProfile" className="text-[13px] font-medium text-[#374151]">
-                      {t("settings.storeUrl")}
-                    </Label>
-                    <Input
-                      id="storeUrlProfile"
-                      value={username}
-                      onChange={(e) => validateUsername(e.target.value)}
-                      placeholder="your-store-name"
-                      className={`h-11 rounded-xl text-[14px] ${
-                        usernameError ? "border-red-300 focus:ring-red-500 focus:border-red-500" : "border-[#e5e7eb] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
-                      }`}
-                    />
-                    {usernameError ? (
-                      <p className="text-[12px] text-red-600 flex items-center gap-1">
-                        <AlertCircle className="h-3 w-3" />
-                        {usernameError}
-                      </p>
-                    ) : (
-                      <p className="text-[12px] text-[#9ca3af]">{storeUrlDisplay}</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* OnePage URL Card */}
-              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">
-                  OnePage URL
-                </h3>
-                <div className="space-y-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="onepageHandle" className="text-[13px] font-medium text-[#374151]">
-                      Your OnePage Handle
-                    </Label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[14px] text-[#6b7280]">
-                        @
-                      </span>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="firstName" className="text-[13px] font-medium text-[#374151]">
+                        Username
+                      </Label>
                       <Input
-                        id="onepageHandle"
-                        value={username}
+                        id="firstName"
+                        value={fullNameForUsernameInput}
                         onChange={(e) => {
-                          const value = e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, "")
-                          setUsername(value)
+                          const value = e.target.value
+                          const [first = "", ...rest] = value.trimStart().split(/\s+/)
+                          setFirstName(first)
+                          setLastName(rest.join(" "))
                         }}
-                        placeholder="yourhandle"
-                        className="h-11 pl-7 border-[#e5e7eb] rounded-xl text-[14px] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
+                        placeholder="Enter your display name"
+                        className="h-11 border-[#e5e7eb] rounded-xl text-[14px] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
                       />
                     </div>
-                    <p className="text-[12px] text-[#6b7280]">
-                      Your OnePage will be available at: <span className="font-medium text-[#8b5cf6]">{getLinksUrl(username || "yourhandle")}</span>
-                    </p>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="storeUrlProfile" className="text-[13px] font-medium text-[#374151]">
+                        {t("settings.storeUrl")}
+                      </Label>
+                      <Input
+                        id="storeUrlProfile"
+                        value={username}
+                        onChange={(e) => validateUsername(e.target.value)}
+                        placeholder="your-store-name"
+                        className={`h-11 rounded-xl text-[14px] ${
+                          usernameError ? "border-red-300 focus:ring-red-500 focus:border-red-500" : "border-[#e5e7eb] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
+                        }`}
+                      />
+                      {usernameError ? (
+                        <p className="text-[12px] text-red-600 flex items-center gap-1">
+                          <AlertCircle className="h-3 w-3" />
+                          {usernameError}
+                        </p>
+                      ) : (
+                        <p className="text-[12px] text-[#9ca3af]">{storeUrlDisplay}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-[#f3f4f6]">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="onepageHandle" className="text-[13px] font-medium text-[#374151]">
+                        Your OnePage Handle
+                      </Label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[14px] text-[#6b7280]">
+                          @
+                        </span>
+                        <Input
+                          id="onepageHandle"
+                          value={username}
+                          onChange={(e) => {
+                            const value = e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, "")
+                            setUsername(value)
+                          }}
+                          placeholder="yourhandle"
+                          className="h-11 pl-7 border-[#e5e7eb] rounded-xl text-[14px] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
+                        />
+                      </div>
+                      <p className="text-[12px] text-[#6b7280]">
+                        Your OnePage will be available at: <span className="font-medium text-[#8b5cf6]">{getLinksUrl(username || "yourhandle")}</span>
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
