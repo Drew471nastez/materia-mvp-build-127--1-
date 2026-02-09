@@ -80,6 +80,44 @@ function DialogContent({
   )
 }
 
+/**
+ * BottomSheetContent - A mobile-first bottom sheet modal.
+ * On mobile: slides up smoothly from the bottom with rounded top corners, drag handle, no X button.
+ * On desktop (sm+): centered dialog with standard positioning.
+ */
+function BottomSheetContent({
+  className,
+  children,
+  ...props
+}: React.ComponentProps<typeof DialogPrimitive.Content>) {
+  return (
+    <DialogPortal data-slot="dialog-portal">
+      <DialogOverlay className="data-[state=open]:duration-300 data-[state=closed]:duration-200" />
+      <DialogPrimitive.Content
+        data-slot="dialog-content"
+        className={cn(
+          // Mobile: bottom sheet sliding up from bottom
+          'bg-white fixed z-[2147483639] w-full flex flex-col outline-none',
+          'bottom-0 left-0 right-0 rounded-t-[20px] max-h-[90vh]',
+          'data-[state=open]:animate-[bottomSheetSlideUp_350ms_cubic-bezier(0.16,1,0.3,1)] data-[state=closed]:animate-[bottomSheetSlideDown_250ms_cubic-bezier(0.4,0,0.2,1)]',
+          // Desktop: centered modal
+          'sm:bottom-auto sm:left-[50%] sm:top-[50%] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-2xl sm:max-w-[520px] sm:max-h-[85vh]',
+          'sm:data-[state=open]:animate-[popoverInCentered_200ms_cubic-bezier(0.16,1,0.3,1)] sm:data-[state=closed]:animate-[fadeOut_150ms_ease-out]',
+          'shadow-[0_-4px_40px_rgba(0,0,0,0.12)] sm:shadow-2xl',
+          className,
+        )}
+        {...props}
+      >
+        {/* Drag handle - mobile only */}
+        <div className="sm:hidden flex justify-center pt-3 pb-1 shrink-0">
+          <div className="w-9 h-[5px] rounded-full bg-gray-300" />
+        </div>
+        {children}
+      </DialogPrimitive.Content>
+    </DialogPortal>
+  )
+}
+
 function DialogHeader({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
@@ -131,6 +169,7 @@ function DialogDescription({
 
 export {
   Dialog,
+  BottomSheetContent,
   DialogClose,
   DialogContent,
   DialogDescription,

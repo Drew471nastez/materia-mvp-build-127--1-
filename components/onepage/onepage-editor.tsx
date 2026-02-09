@@ -195,6 +195,37 @@ function EditorLayout() {
   const [isSavingForNav, setIsSavingForNav] = useState(false)
   const [showProUpgradeDialog, setShowProUpgradeDialog] = useState(false)
 
+  // Save notification toast state
+  const [saveToast, setSaveToast] = useState<{ visible: boolean; exiting: boolean }>({ visible: false, exiting: false })
+  const saveToastTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const prevSaveStateRef = useRef(saveState)
+
+  // Watch saveState to show save notification toast
+  useEffect(() => {
+    if (prevSaveStateRef.current === "saving" && saveState === "saved") {
+      // Clear any existing timer
+      if (saveToastTimerRef.current) clearTimeout(saveToastTimerRef.current)
+      // Show the toast
+      setSaveToast({ visible: true, exiting: false })
+      // Start exit animation after 2.2s
+      saveToastTimerRef.current = setTimeout(() => {
+        setSaveToast({ visible: true, exiting: true })
+        // Remove from DOM after exit animation completes
+        saveToastTimerRef.current = setTimeout(() => {
+          setSaveToast({ visible: false, exiting: false })
+        }, 300)
+      }, 2200)
+    }
+    prevSaveStateRef.current = saveState
+  }, [saveState])
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (saveToastTimerRef.current) clearTimeout(saveToastTimerRef.current)
+    }
+  }, [])
+
   // =====================================================
   // ONBOARDING STATE - Fetch directly from database
   // This ensures it works across ALL devices for the same account
@@ -500,6 +531,19 @@ function EditorLayout() {
       className="flex flex-col bg-gray-50/50 fixed inset-0 md:left-64 top-[68px] md:top-0"
       style={{ zIndex: 10 }}
     >
+      {/* Save notification toast - smooth slide in/out from top */}
+      {saveToast.visible && (
+        <div
+          className={`fixed top-[76px] md:top-2 left-1/2 z-50 ${saveToast.exiting ? 'animate-toast-out' : 'animate-toast-in'}`}
+          style={{ pointerEvents: 'none' }}
+        >
+          <div className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-full shadow-lg">
+            <Check className="h-4 w-4 text-emerald-400" />
+            <span className="text-sm font-medium whitespace-nowrap">Changes saved</span>
+          </div>
+        </div>
+      )}
+
       {/* Header - ALWAYS visible with solid background */}
       <header className="flex items-center justify-between border-b bg-white px-3 sm:px-4 md:px-6 h-[56px] sm:h-[60px] shrink-0 relative z-30 gap-2 overflow-hidden">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">

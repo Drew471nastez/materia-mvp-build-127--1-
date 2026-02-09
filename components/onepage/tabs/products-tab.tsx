@@ -8,7 +8,7 @@ import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
 import {
   Dialog,
-  DialogContent,
+  BottomSheetContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -33,7 +33,7 @@ import {
   Check,
   GraduationCap,
 } from "lucide-react"
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 
@@ -91,15 +91,20 @@ export function ProductsTab() {
   const [searchQuery, setSearchQuery] = useState("")
   const [addingProductId, setAddingProductId] = useState<string | null>(null)
   const [addedProductIds, setAddedProductIds] = useState<Set<string>>(new Set())
-  const [notification, setNotification] = useState<{ message: string; visible: boolean }>({ message: "", visible: false })
+  const [notification, setNotification] = useState<{ message: string; visible: boolean; exiting: boolean }>({ message: "", visible: false, exiting: false })
+  const notificationTimerRef = useRef<NodeJS.Timeout | null>(null)
   const router = useRouter()
 
-  // Show notification and auto-hide after 3 seconds
+  // Show notification and auto-hide with smooth exit animation
   const showNotification = (message: string) => {
-    setNotification({ message, visible: true })
-    setTimeout(() => {
-      setNotification({ message: "", visible: false })
-    }, 3000)
+    if (notificationTimerRef.current) clearTimeout(notificationTimerRef.current)
+    setNotification({ message, visible: true, exiting: false })
+    notificationTimerRef.current = setTimeout(() => {
+      setNotification(prev => ({ ...prev, exiting: true }))
+      notificationTimerRef.current = setTimeout(() => {
+        setNotification({ message: "", visible: false, exiting: false })
+      }, 300)
+    }, 2500)
   }
 
   // Check which products already have blocks on the page
@@ -266,10 +271,13 @@ export function ProductsTab() {
     <div className="space-y-6">
       {/* Notification Toast */}
       {notification.visible && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-2 duration-300">
-          <div className="flex items-center gap-2 px-4 py-3 bg-gray-900 text-white rounded-lg shadow-lg">
-            <Check className="h-4 w-4 text-green-400" />
-            <span className="text-sm font-medium">{notification.message}</span>
+        <div
+          className={`fixed top-[76px] md:top-2 left-1/2 z-50 ${notification.exiting ? 'animate-toast-out' : 'animate-toast-in'}`}
+          style={{ pointerEvents: 'none' }}
+        >
+          <div className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-full shadow-lg">
+            <Check className="h-4 w-4 text-emerald-400" />
+            <span className="text-sm font-medium whitespace-nowrap">{notification.message}</span>
           </div>
         </div>
       )}
@@ -452,17 +460,17 @@ export function ProductsTab() {
         </div>
       </div>
 
-      {/* Add Product Modal - Similar to Links tab Add Block modal */}
+      {/* Add Product Modal - Bottom sheet on mobile, centered on desktop */}
       <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
-        <DialogContent className="max-w-[520px] max-h-[680px] p-0 gap-0 overflow-hidden">
-          <div className="p-6 pb-4 border-b">
+        <BottomSheetContent className="p-0 gap-0 overflow-hidden sm:max-w-[520px] max-h-[85vh] sm:max-h-[680px]">
+          <div className="px-4 sm:px-6 pt-2 sm:pt-6 pb-4 border-b">
             <DialogTitle className="text-lg font-semibold">Add Product</DialogTitle>
             <p className="text-sm text-muted-foreground mt-1">
               Choose what you want to add to your page
             </p>
           </div>
 
-          <div className="p-4 overflow-y-auto max-h-[500px]">
+          <div className="p-4 sm:p-4 pb-[max(20px,env(safe-area-inset-bottom))] sm:pb-4 overflow-y-auto">
             <div className="grid gap-3">
               {productTypeOptions.map((option) => {
                 const Icon = option.icon
@@ -502,7 +510,7 @@ export function ProductsTab() {
               })}
             </div>
           </div>
-        </DialogContent>
+        </BottomSheetContent>
       </Dialog>
     </div>
   )

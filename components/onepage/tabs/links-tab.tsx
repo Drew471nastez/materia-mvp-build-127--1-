@@ -65,6 +65,7 @@ import { cn } from "@/lib/utils"
 import {
   Dialog,
   DialogContent,
+  BottomSheetContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -1847,11 +1848,11 @@ export function LinksTab() {
       </div>
       )}
 
-      {/* Add Block Modal - Linktree style without sidebar */}
+      {/* Add Block Modal - Bottom sheet on mobile, centered on desktop */}
       <Dialog open={showAddModal} onOpenChange={(open) => { setShowAddModal(open); if (!open) { setSearchQuery(""); setInsertAfterId(null); setAddToGroupId(null); } }}>
-        <DialogContent className="w-[calc(100%-24px)] max-w-[520px] h-auto max-h-[85vh] sm:max-h-[min(680px,85vh)] p-0 gap-0 overflow-hidden rounded-2xl mx-auto flex flex-col">
-          {/* Header with title and close button */}
-          <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-5 pb-3 bg-white shrink-0">
+        <BottomSheetContent className="p-0 gap-0 overflow-hidden max-h-[85vh] sm:max-h-[min(680px,85vh)]">
+          {/* Header */}
+          <DialogHeader className="px-4 sm:px-6 pt-2 sm:pt-5 pb-3 bg-white shrink-0">
             <DialogTitle className="text-lg sm:text-xl font-semibold">
               {addToGroupId ? "Add to Group" : "Add Block"}
             </DialogTitle>
@@ -1884,7 +1885,7 @@ export function LinksTab() {
           </div>
 
           {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto px-4 sm:px-6 pb-5 overscroll-contain">
+          <div className="flex-1 overflow-y-auto px-4 sm:px-6 pb-5 sm:pb-5 pb-[max(20px,env(safe-area-inset-bottom))] overscroll-contain">
             {/* Quick action buttons - horizontal row */}
             {!searchQuery && !addToGroupId && (
               <div className="grid grid-cols-4 gap-2 sm:gap-3 mb-5">
@@ -2085,13 +2086,13 @@ export function LinksTab() {
               </div>
             )}
           </div>
-        </DialogContent>
+        </BottomSheetContent>
       </Dialog>
 
-      {/* Social Links Modal - Modern Scrollable Vertical List */}
+      {/* Social Links Modal - Bottom sheet on mobile, centered on desktop */}
       <Dialog open={showSocialModal} onOpenChange={(open) => { setShowSocialModal(open); if (!open) { setSelectedSocial(null); setSocialUrl(""); setSearchQuery(""); setSocialUrlError(null); } }}>
-        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto max-h-[85vh] flex flex-col">
-          <DialogHeader className="p-4 sm:p-5 border-b shrink-0">
+        <BottomSheetContent className="p-0 gap-0 overflow-hidden max-h-[85vh] sm:max-w-md">
+          <DialogHeader className="px-4 sm:px-5 pt-2 sm:pt-5 pb-3 border-b shrink-0">
             <DialogTitle className="text-base sm:text-lg font-semibold">
               {selectedSocial ? "Edit Social Link" : "Add Social Link"}
             </DialogTitle>
@@ -2172,7 +2173,7 @@ export function LinksTab() {
             </>
           ) : (
             // URL input for selected platform
-            <div className="p-4 sm:p-5 space-y-4">
+            <div className="p-4 sm:p-5 pb-[max(20px,env(safe-area-inset-bottom))] sm:pb-5 space-y-4">
               {(() => {
                 const platform = SOCIAL_PLATFORMS.find(p => p.id === selectedSocial)
                 return (
@@ -2248,7 +2249,7 @@ export function LinksTab() {
               })()}
             </div>
           )}
-        </DialogContent>
+        </BottomSheetContent>
       </Dialog>
 
       {/* Streaming Service URL Modal */}
