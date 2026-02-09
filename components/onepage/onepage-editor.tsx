@@ -195,7 +195,7 @@ function EditorLayout() {
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null)
   const [isSavingForNav, setIsSavingForNav] = useState(false)
   const [showProUpgradeDialog, setShowProUpgradeDialog] = useState(false)
-  const [showSaveToast, setShowSaveToast] = useState(false)
+  const [saveToastSequence, setSaveToastSequence] = useState(0)
   const previousSaveStateRef = useRef(saveState)
 
   // =====================================================
@@ -210,10 +210,9 @@ function EditorLayout() {
     const justFinishedSaving = saveState === "saved" && previousSaveState === "saving"
 
     if (justFinishedSaving) {
-      setShowSaveToast(true)
-      const timer = setTimeout(() => setShowSaveToast(false), 4000)
+      setSaveToastSequence((prev) => prev + 1)
       previousSaveStateRef.current = saveState
-      return () => clearTimeout(timer)
+      return
     }
 
     previousSaveStateRef.current = saveState
@@ -521,7 +520,12 @@ function EditorLayout() {
       className="flex flex-col bg-gray-50/50 fixed left-0 right-0 bottom-0 top-[68px] md:inset-y-0 md:left-64 md:top-0"
       style={{ zIndex: 10 }}
     >
-      <SaveNotification show={showSaveToast} message="Changes saved" duration={4000} />
+      <SaveNotification
+        key={saveToastSequence}
+        show={saveToastSequence > 0}
+        message="Changes saved"
+        duration={4000}
+      />
       {/* Header - ALWAYS visible with solid background */}
       <header className="flex items-center justify-between border-b bg-white px-3 sm:px-4 md:px-6 h-[56px] sm:h-[60px] shrink-0 relative z-30 gap-2 overflow-hidden">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
