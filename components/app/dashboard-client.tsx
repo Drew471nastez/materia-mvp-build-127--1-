@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, type ReactNode } from "react"
 import Link from "next/link"
 import {
   Eye,
@@ -33,6 +33,7 @@ import {
 import { createClient } from "@/lib/supabase/client"
 import { useLanguage } from "@/lib/i18n"
 import { getLinksUrl, getStoreUrl } from "@/lib/url-helpers"
+import { useToast } from "@/hooks/use-toast"
 
 interface SetupStep {
   id: string
@@ -106,10 +107,87 @@ interface DashboardClientProps {
   creatorHandle?: string
 }
 
+function ChainLinkIcon({ className = "w-4 h-4", stroke = "#ffffff" }: { className?: string; stroke?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+      <path
+        d="M10.0002 13C10.4297 13.5741 10.9776 14.0491 11.6067 14.3929C12.2359 14.7367 12.9317 14.9411 13.6468 14.9923C14.362 15.0435 15.0798 14.9403 15.7515 14.6897C16.4233 14.4392 17.0333 14.047 17.5402 13.54L20.5402 10.54C21.451 9.59695 21.955 8.33394 21.9436 7.02296C21.9322 5.71198 21.4063 4.45791 20.4793 3.53087C19.5523 2.60383 18.2982 2.07799 16.9872 2.0666C15.6762 2.0552 14.4132 2.55918 13.4702 3.46997L11.7502 5.17997M14.0002 11C13.5707 10.4258 13.0228 9.95078 12.3936 9.60703C11.7645 9.26327 11.0687 9.05885 10.3535 9.00763C9.63841 8.95641 8.92061 9.0596 8.24885 9.31018C7.5771 9.56077 6.96709 9.9529 6.4602 10.46L3.4602 13.46C2.54941 14.403 2.04544 15.666 2.05683 16.977C2.06822 18.288 2.59407 19.542 3.52111 20.4691C4.44815 21.3961 5.70221 21.9219 7.01319 21.9333C8.32418 21.9447 9.58719 21.4408 10.5302 20.53L12.2402 18.82"
+        stroke={stroke}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+function CopyLinkIcon({ className = "w-4 h-4" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+      <path
+        d="M10.0696 7C10.3869 3.9787 11.8424 3 15.5 3C19.7059 3 21 4.29412 21 8.5C21 12.1576 20.0213 13.6131 17 13.9304M3 15.5C3 11.2941 4.29412 10 8.5 10C12.7059 10 14 11.2941 14 15.5C14 19.7059 12.7059 21 8.5 21C4.29412 21 3 19.7059 3 15.5Z"
+        stroke="#6b6b6b"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
 type TimeframeOption = {
   value: string
   label: string
   getDates: () => { start: Date; end: Date }
+}
+
+function QuickAccessRow({
+  label,
+  url,
+  icon,
+  isCopied,
+  onCopy,
+  onOpen,
+}: {
+  label: string
+  url: string
+  icon: ReactNode
+  isCopied: boolean
+  onCopy: () => void
+  onOpen: () => void
+}) {
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onOpen() }}
+      className="w-full text-left rounded-2xl border border-[#ececf1] p-3.5 hover:bg-[#fafafa] active:bg-[#f4f4f5] transition-colors cursor-pointer"
+    >
+      <div className="flex items-center gap-3">
+        {icon}
+        <div className="min-w-0 flex-1">
+          <p className="text-[15px] font-semibold text-[#111827]">{label}</p>
+          <p className="text-[12px] text-[#6b7280] truncate">{url}</p>
+        </div>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            onCopy()
+          }}
+          className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all ${
+            isCopied
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+              : "border-[#e5e7eb] bg-white text-[#6b7280] hover:bg-[#f8fafc]"
+          }`}
+        >
+          {isCopied ? <Check className="h-3.5 w-3.5" /> : <CopyLinkIcon className="h-3.5 w-3.5" />}
+          {isCopied ? "Copied" : "Copy link"}
+        </button>
+      </div>
+    </div>
+  )
 }
 
 const timeframeOptions: TimeframeOption[] = [
@@ -465,11 +543,19 @@ function QuickAccessBottomSheet({
   onClose,
   onePageUrl,
   storeUrl,
+  isOnePageCopied,
+  isStoreCopied,
+  onCopyOnePage,
+  onCopyStore,
 }: {
   isOpen: boolean
   onClose: () => void
   onePageUrl: string
   storeUrl: string
+  isOnePageCopied: boolean
+  isStoreCopied: boolean
+  onCopyOnePage: () => void
+  onCopyStore: () => void
 }) {
   const [isVisible, setIsVisible] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
@@ -478,9 +564,7 @@ function QuickAccessBottomSheet({
     if (isOpen && !isVisible) {
       setIsVisible(true)
       document.body.style.overflow = "hidden"
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => setIsAnimating(true))
-      })
+      requestAnimationFrame(() => requestAnimationFrame(() => setIsAnimating(true)))
     } else if (!isOpen && isVisible) {
       setIsAnimating(false)
       document.body.style.overflow = ""
@@ -505,14 +589,14 @@ function QuickAccessBottomSheet({
         className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity duration-400 ease-out ${
           isAnimating ? "opacity-100" : "opacity-0"
         }`}
-        style={{ transitionDuration: '400ms' }}
+        style={{ transitionDuration: "400ms" }}
         onClick={handleClose}
       />
       <div
         className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
         style={{
           transform: isAnimating ? "translateY(0%)" : "translateY(100%)",
-          transition: 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
+          transition: "transform 400ms cubic-bezier(0.32, 0.72, 0, 1)",
         }}
       >
         <div className="pt-3 pb-2">
@@ -523,45 +607,29 @@ function QuickAccessBottomSheet({
         <div className="px-4 pb-5">
           <h3 className="text-[16px] font-semibold text-[#1a1a2e] mb-4">Quick access</h3>
           <div className="space-y-2">
-            <button
-              type="button"
-              onClick={() => {
+            <QuickAccessRow
+              label="OnePage"
+              url={onePageUrl}
+              isCopied={isOnePageCopied}
+              onCopy={onCopyOnePage}
+              onOpen={() => {
                 window.open(onePageUrl, "_blank", "noopener,noreferrer")
                 handleClose()
               }}
-              className="w-full text-left rounded-2xl border border-[#ececf1] p-3.5 hover:bg-[#fafafa] active:bg-[#f4f4f5] transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-white border border-[#e5e7eb] flex items-center justify-center">
-                  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-4 h-4">
-                    <path d="M10.0002 13C10.4297 13.5741 10.9776 14.0491 11.6067 14.3929C12.2359 14.7367 12.9317 14.9411 13.6468 14.9923C14.362 15.0435 15.0798 14.9403 15.7515 14.6897C16.4233 14.4392 17.0333 14.047 17.5402 13.54L20.5402 10.54C21.451 9.59695 21.955 8.33394 21.9436 7.02296C21.9322 5.71198 21.4063 4.45791 20.4793 3.53087C19.5523 2.60383 18.2982 2.07799 16.9872 2.0666C15.6762 2.0552 14.4132 2.55918 13.4702 3.46997L11.7502 5.17997M14.0002 11C13.5707 10.4258 13.0228 9.95078 12.3936 9.60703C11.7645 9.26327 11.0687 9.05885 10.3535 9.00763C9.63841 8.95641 8.92061 9.0596 8.24885 9.31018C7.5771 9.56077 6.96709 9.9529 6.4602 10.46L3.4602 13.46C2.54941 14.403 2.04544 15.666 2.05683 16.977C2.06822 18.288 2.59407 19.542 3.52111 20.4691C4.44815 21.3961 5.70221 21.9219 7.01319 21.9333C8.32418 21.9447 9.58719 21.4408 10.5302 20.53L12.2402 18.82" stroke="#000000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-[15px] font-semibold text-[#111827]">OnePage</p>
-                  <p className="text-[12px] text-[#6b7280] truncate max-w-[260px]">{onePageUrl}</p>
-                </div>
-              </div>
-            </button>
+              icon={<div className="w-8 h-8 rounded-full bg-[#8b5cf6] flex items-center justify-center"><ChainLinkIcon className="w-4 h-4" stroke="#ffffff" /></div>}
+            />
 
-            <button
-              type="button"
-              onClick={() => {
+            <QuickAccessRow
+              label="Store"
+              url={storeUrl}
+              isCopied={isStoreCopied}
+              onCopy={onCopyStore}
+              onOpen={() => {
                 window.open(storeUrl, "_blank", "noopener,noreferrer")
                 handleClose()
               }}
-              className="w-full text-left rounded-2xl border border-[#ececf1] p-3.5 hover:bg-[#fafafa] active:bg-[#f4f4f5] transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-black flex items-center justify-center overflow-hidden">
-                  <img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib_pixian_ai.png" alt="Storelib" className="w-5 h-5 object-contain" />
-                </div>
-                <div>
-                  <p className="text-[15px] font-semibold text-[#111827]">Store</p>
-                  <p className="text-[12px] text-[#6b7280] truncate max-w-[260px]">{storeUrl}</p>
-                </div>
-              </div>
-            </button>
+              icon={<div className="w-8 h-8 rounded-full bg-black flex items-center justify-center overflow-hidden"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib_pixian_ai.png" alt="Storelib" className="w-5 h-5 object-contain" /></div>}
+            />
           </div>
         </div>
         <div className="h-[env(safe-area-inset-bottom)]" />
@@ -610,6 +678,8 @@ export function DashboardClient({
   })
   const [liveVisitors, setLiveVisitors] = useState(0)
   const { t } = useLanguage()
+  const { toast } = useToast()
+  const [copiedTarget, setCopiedTarget] = useState<"onepage" | "store" | null>(null)
 
   const formatCurrency = (cents: number, compact = false) => {
     const value = cents / 100
@@ -1134,6 +1204,18 @@ export function DashboardClient({
   }, [timeframe, creatorId])
 
   // Close dropdown when clicking outside (desktop only)
+  const copyQuickAccessUrl = async (target: "onepage" | "store") => {
+    const url = target === "onepage" ? publicOnePageUrl : publicStoreUrl
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopiedTarget(target)
+      toast({ title: "Link copied" })
+      setTimeout(() => setCopiedTarget((prev) => (prev === target ? null : prev)), 1800)
+    } catch {
+      toast({ title: "Copy failed", description: "Please copy the link manually.", variant: "destructive" })
+    }
+  }
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement
@@ -1317,7 +1399,7 @@ export function DashboardClient({
                     }}
                     className="relative inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-[#e5e7eb] bg-white/90 text-[12px] font-medium text-[#4b5563] hover:text-[#111827] hover:border-[#d1d5db] hover:bg-white transition-all cursor-pointer overflow-hidden"
                   >
-                    <span className="absolute -inset-px rounded-full opacity-45 pointer-events-none animate-[spin_8s_linear_infinite] bg-[conic-gradient(from_0deg,transparent_0deg,transparent_250deg,rgba(99,102,241,0.45)_300deg,transparent_360deg)]" />
+                    <span className="absolute -inset-px rounded-full opacity-45 pointer-events-none animate-[spin_12s_linear_infinite] bg-[conic-gradient(from_0deg,transparent_0deg,transparent_270deg,rgba(139,92,246,0.30)_320deg,transparent_360deg)]" />
                     <span className="absolute inset-[1px] rounded-full bg-white/95" />
                     <span className="relative z-[1] inline-flex items-center gap-1.5">
                       @{creatorHandle}
@@ -1325,30 +1407,34 @@ export function DashboardClient({
                     </span>
                   </button>
                   {isProfileAccessOpen && (
-                    <div className="absolute left-0 top-full mt-2 w-[280px] sm:w-[320px] rounded-2xl border border-[#e5e7eb] bg-white shadow-xl p-2 z-50">
+                    <div className="absolute left-0 top-full mt-2 w-[280px] sm:w-[320px] rounded-2xl border border-[#e5e7eb] bg-white shadow-xl p-2 z-50 origin-top-left animate-in fade-in zoom-in-95 duration-200">
                       <p className="px-2 pt-1 pb-2 text-[11px] text-[#6b7280]">Quick access</p>
-                      <button
-                        type="button"
+                      <div
+                        role="button"
+                        tabIndex={0}
                         onClick={() => {
                           window.open(publicOnePageUrl, "_blank", "noopener,noreferrer")
                           setIsProfileAccessOpen(false)
                         }}
-                        className="w-full text-left rounded-xl p-3 hover:bg-[#f9fafb] transition-colors cursor-pointer"
+                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { window.open(publicOnePageUrl, "_blank", "noopener,noreferrer"); setIsProfileAccessOpen(false) } }}
+                        className="w-full text-left rounded-xl p-3 hover:bg-[#f9fafb] transition-colors cursor-pointer group"
                       >
-                        <div className="flex items-center gap-2 text-[13px] font-semibold text-[#111827]"><span className="w-5 h-5 rounded-full bg-white border border-[#e5e7eb] flex items-center justify-center"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5"><path d="M10.0002 13C10.4297 13.5741 10.9776 14.0491 11.6067 14.3929C12.2359 14.7367 12.9317 14.9411 13.6468 14.9923C14.362 15.0435 15.0798 14.9403 15.7515 14.6897C16.4233 14.4392 17.0333 14.047 17.5402 13.54L20.5402 10.54C21.451 9.59695 21.955 8.33394 21.9436 7.02296C21.9322 5.71198 21.4063 4.45791 20.4793 3.53087C19.5523 2.60383 18.2982 2.07799 16.9872 2.0666C15.6762 2.0552 14.4132 2.55918 13.4702 3.46997L11.7502 5.17997M14.0002 11C13.5707 10.4258 13.0228 9.95078 12.3936 9.60703C11.7645 9.26327 11.0687 9.05885 10.3535 9.00763C9.63841 8.95641 8.92061 9.0596 8.24885 9.31018C7.5771 9.56077 6.96709 9.9529 6.4602 10.46L3.4602 13.46C2.54941 14.403 2.04544 15.666 2.05683 16.977C2.06822 18.288 2.59407 19.542 3.52111 20.4691C4.44815 21.3961 5.70221 21.9219 7.01319 21.9333C8.32418 21.9447 9.58719 21.4408 10.5302 20.53L12.2402 18.82" stroke="#000000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg></span>OnePage</div>
-                        <p className="text-[11px] text-[#6b7280] mt-1 truncate">{publicOnePageUrl}</p>
-                      </button>
-                      <button
-                        type="button"
+                        <div className="flex items-center gap-2 text-[13px] font-semibold text-[#111827]"><span className="w-5 h-5 rounded-full bg-[#8b5cf6] flex items-center justify-center"><ChainLinkIcon className="w-3 h-3" stroke="#ffffff" /></span>OnePage</div>
+                        <div className="mt-1 flex items-center justify-between gap-2"><p className="text-[11px] text-[#6b7280] truncate">{publicOnePageUrl}</p><button type="button" onClick={(e) => { e.stopPropagation(); copyQuickAccessUrl("onepage") }} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] transition-all ${copiedTarget === "onepage" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-[#e5e7eb] text-[#6b7280] bg-white"}`}>{copiedTarget === "onepage" ? <Check className="h-3 w-3" /> : <CopyLinkIcon className="h-3 w-3" />}{copiedTarget === "onepage" ? "Copied" : "Copy"}</button></div>
+                      </div>
+                      <div
+                        role="button"
+                        tabIndex={0}
                         onClick={() => {
                           window.open(publicStoreUrl, "_blank", "noopener,noreferrer")
                           setIsProfileAccessOpen(false)
                         }}
-                        className="w-full text-left rounded-xl p-3 hover:bg-[#f9fafb] transition-colors cursor-pointer"
+                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { window.open(publicStoreUrl, "_blank", "noopener,noreferrer"); setIsProfileAccessOpen(false) } }}
+                        className="w-full text-left rounded-xl p-3 hover:bg-[#f9fafb] transition-colors cursor-pointer group"
                       >
                         <div className="flex items-center gap-2 text-[13px] font-semibold text-[#111827]"><span className="w-5 h-5 rounded-full bg-black flex items-center justify-center overflow-hidden"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib_pixian_ai.png" alt="Storelib" className="w-3.5 h-3.5 object-contain" /></span>Store</div>
-                        <p className="text-[11px] text-[#6b7280] mt-1 truncate">{publicStoreUrl}</p>
-                      </button>
+                        <div className="mt-1 flex items-center justify-between gap-2"><p className="text-[11px] text-[#6b7280] truncate">{publicStoreUrl}</p><button type="button" onClick={(e) => { e.stopPropagation(); copyQuickAccessUrl("store") }} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] transition-all ${copiedTarget === "store" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-[#e5e7eb] text-[#6b7280] bg-white"}`}>{copiedTarget === "store" ? <Check className="h-3 w-3" /> : <CopyLinkIcon className="h-3 w-3" />}{copiedTarget === "store" ? "Copied" : "Copy"}</button></div>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1450,6 +1536,10 @@ export function DashboardClient({
           onClose={() => setIsQuickAccessMobileOpen(false)}
           onePageUrl={publicOnePageUrl}
           storeUrl={publicStoreUrl}
+          isOnePageCopied={copiedTarget === "onepage"}
+          isStoreCopied={copiedTarget === "store"}
+          onCopyOnePage={() => copyQuickAccessUrl("onepage")}
+          onCopyStore={() => copyQuickAccessUrl("store")}
         />
 
         {/* Stats Cards */}
