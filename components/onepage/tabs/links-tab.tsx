@@ -4024,6 +4024,7 @@ function BlockItem({
   const { updateBlock, onepage } = useOnePage()
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showAnimationMenu, setShowAnimationMenu] = useState(false)
+  const [showAnimationSheet, setShowAnimationSheet] = useState(false)
   const [showButtonTextMenu, setShowButtonTextMenu] = useState(false)
   const [showStatsModal, setShowStatsModal] = useState(false)
   const [statsData, setStatsData] = useState<{ total_clicks: number; total_views: number; chart_data: { date: string; clicks: number; views: number }[] } | null>(null)
@@ -4033,8 +4034,27 @@ function BlockItem({
   const [customStartDate, setCustomStartDate] = useState('')
   const [customEndDate, setCustomEndDate] = useState('')
   const [isMobileStatsViewport, setIsMobileStatsViewport] = useState(false)
+  const [isStatsSheetPresented, setIsStatsSheetPresented] = useState(false)
+  const [statsSheetDragY, setStatsSheetDragY] = useState(0)
+  const [isStatsSheetDragging, setIsStatsSheetDragging] = useState(false)
+  const statsSheetStartYRef = useRef(0)
+  const statsSheetCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [isAnimationSheetPresented, setIsAnimationSheetPresented] = useState(false)
+  const [animationSheetDragY, setAnimationSheetDragY] = useState(0)
+  const [isAnimationSheetDragging, setIsAnimationSheetDragging] = useState(false)
+  const animationSheetStartYRef = useRef(0)
+  const animationSheetCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const animationMenuRef = useRef<HTMLDivElement>(null)
   const buttonTextMenuRef = useRef<HTMLDivElement>(null)
+
+  const animationOptions = [
+    { id: 'none', label: 'None' },
+    { id: 'pulse', label: 'Pulse' },
+    { id: 'bounce', label: 'Bounce' },
+    { id: 'shake', label: 'Shake' },
+    { id: 'glow', label: 'Glow' },
+    { id: 'swipe', label: 'Swipe' },
+  ] as const
 
   // Close animation menu when clicking outside
   useEffect(() => {
@@ -4072,6 +4092,71 @@ function BlockItem({
     window.addEventListener('resize', checkViewport)
     return () => window.removeEventListener('resize', checkViewport)
   }, [])
+
+  useEffect(() => {
+    if (!showStatsModal || !isMobileStatsViewport) return
+    const raf1 = requestAnimationFrame(() => {
+      const raf2 = requestAnimationFrame(() => {
+        setIsStatsSheetPresented(true)
+      })
+      return () => cancelAnimationFrame(raf2)
+    })
+    return () => cancelAnimationFrame(raf1)
+  }, [showStatsModal, isMobileStatsViewport])
+
+  useEffect(() => {
+    if (!showAnimationSheet || !isMobileStatsViewport) return
+    const raf1 = requestAnimationFrame(() => {
+      const raf2 = requestAnimationFrame(() => {
+        setIsAnimationSheetPresented(true)
+      })
+      return () => cancelAnimationFrame(raf2)
+    })
+    return () => cancelAnimationFrame(raf1)
+  }, [showAnimationSheet, isMobileStatsViewport])
+
+  useEffect(() => {
+    return () => {
+      if (statsSheetCloseTimerRef.current) clearTimeout(statsSheetCloseTimerRef.current)
+      if (animationSheetCloseTimerRef.current) clearTimeout(animationSheetCloseTimerRef.current)
+    }
+  }, [])
+
+  const closeStatsSheet = useCallback(() => {
+    if (!showStatsModal) return
+
+    if (!isMobileStatsViewport) {
+      setShowStatsModal(false)
+      return
+    }
+
+    setIsStatsSheetDragging(false)
+    setStatsSheetDragY(0)
+    setIsStatsSheetPresented(false)
+
+    if (statsSheetCloseTimerRef.current) clearTimeout(statsSheetCloseTimerRef.current)
+    statsSheetCloseTimerRef.current = setTimeout(() => {
+      setShowStatsModal(false)
+    }, 400)
+  }, [showStatsModal, isMobileStatsViewport])
+
+  const closeAnimationSheet = useCallback(() => {
+    if (!showAnimationSheet) return
+
+    if (!isMobileStatsViewport) {
+      setShowAnimationSheet(false)
+      return
+    }
+
+    setIsAnimationSheetDragging(false)
+    setAnimationSheetDragY(0)
+    setIsAnimationSheetPresented(false)
+
+    if (animationSheetCloseTimerRef.current) clearTimeout(animationSheetCloseTimerRef.current)
+    animationSheetCloseTimerRef.current = setTimeout(() => {
+      setShowAnimationSheet(false)
+    }, 400)
+  }, [showAnimationSheet, isMobileStatsViewport])
 
   // Fetch stats when modal is opened or timeframe changes
   const fetchStats = async (days?: number, startDate?: string, endDate?: string) => {
@@ -4343,6 +4428,11 @@ function BlockItem({
               type="button"
               onClick={(e) => {
                 e.stopPropagation()
+                if (isMobileStatsViewport) {
+                  setIsAnimationSheetPresented(false)
+                  setShowAnimationSheet(true)
+                  return
+                }
                 setShowAnimationMenu(!showAnimationMenu)
               }}
               className={cn(
@@ -4357,16 +4447,9 @@ function BlockItem({
             </button>
 
             {/* Animation dropdown menu */}
-            {showAnimationMenu && (
+            {!isMobileStatsViewport && showAnimationMenu && (
               <div className="absolute right-0 top-full mt-1 w-32 bg-white rounded-lg shadow-lg border z-50 py-1 animate-in fade-in slide-in-from-top-1 duration-150">
-                {[
-                  { id: 'none', label: 'None' },
-                  { id: 'pulse', label: 'Pulse' },
-                  { id: 'bounce', label: 'Bounce' },
-                  { id: 'shake', label: 'Shake' },
-                  { id: 'glow', label: 'Glow' },
-                  { id: 'swipe', label: 'Swipe' },
-                ].map((anim) => {
+                {animationOptions.map((anim) => {
                   const currentAnimation = (block.data as any).animation_type || 'none'
                   return (
                     <button
@@ -4398,6 +4481,104 @@ function BlockItem({
           </div>
         )}
 
+        {hasAnimation && (
+          <Dialog open={showAnimationSheet} onOpenChange={(open) => {
+            if (open) {
+              setIsAnimationSheetPresented(false)
+              setShowAnimationSheet(true)
+              return
+            }
+            closeAnimationSheet()
+          }}>
+            <DialogContent
+              showCloseButton
+              disableDefaultAnimations={isMobileStatsViewport}
+              overlayClassName={isMobileStatsViewport ? cn("bg-black/40 transition-[backdrop-filter,opacity] duration-400", isAnimationSheetPresented ? "opacity-100 backdrop-blur-[2px]" : "opacity-0 backdrop-blur-0") : undefined}
+              onTouchStart={(e) => {
+                if (!isMobileStatsViewport) return
+                const touchY = e.touches[0]?.clientY ?? 0
+                const bounds = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
+                if (touchY - bounds.top <= 72) {
+                  animationSheetStartYRef.current = touchY
+                  setIsAnimationSheetDragging(true)
+                }
+              }}
+              onTouchMove={(e) => {
+                if (!isMobileStatsViewport || !isAnimationSheetDragging) return
+                const diff = (e.touches[0]?.clientY ?? 0) - animationSheetStartYRef.current
+                if (diff > 0) {
+                  e.preventDefault()
+                  setAnimationSheetDragY(diff * 0.85)
+                }
+              }}
+              onTouchEnd={() => {
+                if (!isMobileStatsViewport || !isAnimationSheetDragging) return
+                setIsAnimationSheetDragging(false)
+                if (animationSheetDragY > 88) {
+                  closeAnimationSheet()
+                  return
+                }
+                setAnimationSheetDragY(0)
+              }}
+              className={cn(
+                "p-0 gap-0 overflow-hidden mx-auto border-[#ececf1]",
+                isMobileStatsViewport
+                  ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh] !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0"
+                  : "w-[calc(100%-32px)] max-w-[360px] rounded-2xl"
+              )}
+              style={isMobileStatsViewport ? {
+                position: 'fixed',
+                top: 'auto',
+                left: 0,
+                right: 0,
+                bottom: 0,
+                transform: isAnimationSheetPresented ? `translateY(${animationSheetDragY}px)` : 'translateY(100%)',
+                transition: isAnimationSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
+                maxHeight: '75vh'
+              } : undefined}
+            >
+              {isMobileStatsViewport && (
+                <div className="pt-3 pb-2 flex justify-center">
+                  <div className="h-1.5 w-10 rounded-full bg-gray-300" />
+                </div>
+              )}
+              <DialogHeader className="p-4 border-b">
+                <DialogTitle className="text-base font-semibold">Animation</DialogTitle>
+              </DialogHeader>
+              <div className="p-3 max-h-[65vh] overflow-y-auto pb-[max(16px,env(safe-area-inset-bottom))]">
+                <div className="space-y-1">
+                  {animationOptions.map((anim) => {
+                    const currentAnimation = (block.data as any).animation_type || 'none'
+                    return (
+                      <button
+                        key={anim.id}
+                        type="button"
+                        onClick={() => {
+                          updateBlock(block.id, {
+                            data: {
+                              ...block.data,
+                              animation_type: anim.id as 'none' | 'pulse' | 'bounce' | 'shake' | 'glow' | 'swipe'
+                            }
+                          })
+                          closeAnimationSheet()
+                        }}
+                        className={cn(
+                          "w-full px-3 py-2.5 rounded-xl text-left text-sm transition-colors",
+                          currentAnimation === anim.id
+                            ? "bg-violet-50 text-violet-700 font-medium"
+                            : "text-gray-700 hover:bg-gray-50"
+                        )}
+                      >
+                        {anim.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
+
         {/* Stats control for link buttons and email capture */}
         {hasStats && (
           <>
@@ -4405,6 +4586,7 @@ function BlockItem({
               type="button"
               onClick={(e) => {
                 e.stopPropagation()
+                setIsStatsSheetPresented(false)
                 setShowStatsModal(true)
                 fetchStats(7)
               }}
@@ -4418,18 +4600,64 @@ function BlockItem({
             </button>
 
             {/* Stats Modal */}
-            <Dialog open={showStatsModal} onOpenChange={setShowStatsModal}>
+            <Dialog open={showStatsModal} onOpenChange={(open) => {
+              if (open) {
+                setIsStatsSheetPresented(false)
+                setShowStatsModal(true)
+                return
+              }
+              closeStatsSheet()
+            }}>
               <DialogContent
+                showCloseButton
+                disableDefaultAnimations={isMobileStatsViewport}
+                overlayClassName={isMobileStatsViewport ? cn("bg-black/40 transition-[backdrop-filter,opacity] duration-400", isStatsSheetPresented ? "opacity-100 backdrop-blur-[2px]" : "opacity-0 backdrop-blur-0") : undefined}
+                onTouchStart={(e) => {
+                  if (!isMobileStatsViewport) return
+                  const touchY = e.touches[0]?.clientY ?? 0
+                  const bounds = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
+                  if (touchY - bounds.top <= 72) {
+                    statsSheetStartYRef.current = touchY
+                    setIsStatsSheetDragging(true)
+                  }
+                }}
+                onTouchMove={(e) => {
+                  if (!isMobileStatsViewport || !isStatsSheetDragging) return
+                  const diff = (e.touches[0]?.clientY ?? 0) - statsSheetStartYRef.current
+                  if (diff > 0) {
+                    e.preventDefault()
+                    setStatsSheetDragY(diff * 0.85)
+                  }
+                }}
+                onTouchEnd={() => {
+                  if (!isMobileStatsViewport || !isStatsSheetDragging) return
+                  setIsStatsSheetDragging(false)
+                  if (statsSheetDragY > 88) {
+                    closeStatsSheet()
+                    return
+                  }
+                  setStatsSheetDragY(0)
+                }}
                 className={cn(
                   "p-0 gap-0 overflow-hidden mx-auto border-[#ececf1]",
                   isMobileStatsViewport
-                    ? "top-auto left-0 right-0 bottom-0 translate-x-0 translate-y-0 w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 data-[state=open]:slide-in-from-bottom-4 data-[state=closed]:slide-out-to-bottom-4"
+                    ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[75vh] !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0"
                     : "w-[calc(100%-32px)] max-w-[420px] rounded-2xl"
                 )}
+                style={isMobileStatsViewport ? {
+                  position: 'fixed',
+                  top: 'auto',
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  transform: isStatsSheetPresented ? `translateY(${statsSheetDragY}px)` : 'translateY(100%)',
+                  transition: isStatsSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
+                  maxHeight: '75vh'
+                } : undefined}
               >
                 {isMobileStatsViewport && (
-                  <div className="pt-2 pb-1 flex justify-center border-b border-[#f1f1f4]">
-                    <div className="h-1 w-10 rounded-full bg-[#d7d7df]" />
+                  <div className="pt-3 pb-2 flex justify-center">
+                    <div className="h-1.5 w-10 rounded-full bg-gray-300" />
                   </div>
                 )}
                 <DialogHeader className="p-4 border-b">
