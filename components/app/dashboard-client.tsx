@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, type ReactNode } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import {
   Eye,
   ShoppingCart,
@@ -145,23 +146,29 @@ function QuickAccessRow({
   label,
   url,
   icon,
+  actionLabel,
   isCopied,
-  onCopy,
+  onAction,
   onOpen,
 }: {
   label: string
   url: string
   icon: ReactNode
+  actionLabel: "copy" | "setup"
   isCopied: boolean
-  onCopy: () => void
+  onAction: () => void
   onOpen: () => void
 }) {
+  const isSetupAction = actionLabel === "setup"
+
   return (
     <div
       role="button"
       tabIndex={0}
       onClick={onOpen}
-      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onOpen() }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") onOpen()
+      }}
       className="w-full text-left rounded-2xl border border-[#ececf1] p-3.5 hover:bg-[#fafafa] active:bg-[#f4f4f5] transition-colors cursor-pointer"
     >
       <div className="flex items-center gap-3">
@@ -174,21 +181,30 @@ function QuickAccessRow({
           type="button"
           onClick={(e) => {
             e.stopPropagation()
-            onCopy()
+            onAction()
           }}
           className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all ${
-            isCopied
-              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-              : "border-[#e5e7eb] bg-white text-[#6b7280] hover:bg-[#f8fafc]"
+            isSetupAction
+              ? "border-[#ddd6fe] bg-[#f5f3ff] text-[#6d28d9] hover:bg-[#ede9fe]"
+              : isCopied
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : "border-[#e5e7eb] bg-white text-[#6b7280] hover:bg-[#f8fafc]"
           }`}
         >
-          {isCopied ? <Check className="h-3.5 w-3.5" /> : <CopyLinkIcon className="h-3.5 w-3.5" />}
-          {isCopied ? "Copied" : "Copy link"}
+          {isSetupAction ? (
+            <ArrowRight className="h-3.5 w-3.5" />
+          ) : isCopied ? (
+            <Check className="h-3.5 w-3.5" />
+          ) : (
+            <CopyLinkIcon className="h-3.5 w-3.5" />
+          )}
+          {isSetupAction ? "Set up" : isCopied ? "Copied" : "Copy link"}
         </button>
       </div>
     </div>
   )
 }
+
 
 const timeframeOptions: TimeframeOption[] = [
   {
@@ -547,6 +563,8 @@ function QuickAccessBottomSheet({
   isStoreCopied,
   onCopyOnePage,
   onCopyStore,
+  isOnePageReady,
+  onSetupOnePage,
 }: {
   isOpen: boolean
   onClose: () => void
@@ -556,6 +574,8 @@ function QuickAccessBottomSheet({
   isStoreCopied: boolean
   onCopyOnePage: () => void
   onCopyStore: () => void
+  isOnePageReady: boolean
+  onSetupOnePage: () => void
 }) {
   const [isVisible, setIsVisible] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
@@ -609,11 +629,23 @@ function QuickAccessBottomSheet({
           <div className="space-y-2">
             <QuickAccessRow
               label="OnePage"
-              url={onePageUrl}
+              url={isOnePageReady ? onePageUrl : "Set up your OnePage to create a link"}
+              actionLabel={isOnePageReady ? "copy" : "setup"}
               isCopied={isOnePageCopied}
-              onCopy={onCopyOnePage}
+              onAction={() => {
+                if (isOnePageReady) {
+                  onCopyOnePage()
+                } else {
+                  onSetupOnePage()
+                  handleClose()
+                }
+              }}
               onOpen={() => {
-                window.open(onePageUrl, "_blank", "noopener,noreferrer")
+                if (isOnePageReady) {
+                  window.open(onePageUrl, "_blank", "noopener,noreferrer")
+                } else {
+                  onSetupOnePage()
+                }
                 handleClose()
               }}
               icon={<div className="w-8 h-8 rounded-full bg-[#8b5cf6] flex items-center justify-center"><ChainLinkIcon className="w-4 h-4" stroke="#ffffff" /></div>}
@@ -622,8 +654,9 @@ function QuickAccessBottomSheet({
             <QuickAccessRow
               label="Store"
               url={storeUrl}
+              actionLabel="copy"
               isCopied={isStoreCopied}
-              onCopy={onCopyStore}
+              onAction={onCopyStore}
               onOpen={() => {
                 window.open(storeUrl, "_blank", "noopener,noreferrer")
                 handleClose()
@@ -653,6 +686,7 @@ export function DashboardClient({
   const [isProfileAccessOpen, setIsProfileAccessOpen] = useState(false)
   const [isQuickAccessMobileOpen, setIsQuickAccessMobileOpen] = useState(false)
   const profileAccessRef = useRef<HTMLDivElement | null>(null)
+  const router = useRouter()
 
   const publicStoreUrl = creatorHandle ? getStoreUrl(creatorHandle) : ""
   const publicOnePageUrl = creatorHandle ? getLinksUrl(creatorHandle) : ""
@@ -680,6 +714,7 @@ export function DashboardClient({
   const { t } = useLanguage()
   const { toast } = useToast()
   const [copiedTarget, setCopiedTarget] = useState<"onepage" | "store" | null>(null)
+  const [copyNotice, setCopyNotice] = useState<string | null>(null)
 
   const formatCurrency = (cents: number, compact = false) => {
     const value = cents / 100
@@ -1206,11 +1241,14 @@ export function DashboardClient({
   // Close dropdown when clicking outside (desktop only)
   const copyQuickAccessUrl = async (target: "onepage" | "store") => {
     const url = target === "onepage" ? publicOnePageUrl : publicStoreUrl
+    if (!url) return
     try {
       await navigator.clipboard.writeText(url)
       setCopiedTarget(target)
+      setCopyNotice("Link copied")
       toast({ title: "Link copied" })
       setTimeout(() => setCopiedTarget((prev) => (prev === target ? null : prev)), 1800)
+      setTimeout(() => setCopyNotice(null), 1800)
     } catch {
       toast({ title: "Copy failed", description: "Please copy the link manually.", variant: "destructive" })
     }
@@ -1238,6 +1276,7 @@ export function DashboardClient({
   // Derive completion status from steps
   const hasProducts = initialSetupSteps.find((s) => s.id === "product")?.completed || false
   const hasPayouts = initialSetupSteps.find((s) => s.id === "payouts")?.completed || false
+  const hasOnePageSetup = initialSetupSteps.find((s) => s.id === "onepage")?.completed || false
 
   // Announcement bar state
   const [announcementType, setAnnouncementType] = useState<"upgrade" | "steps" | "payouts">("upgrade")
@@ -1379,9 +1418,30 @@ export function DashboardClient({
       </div>
 
       <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto">
+        {copyNotice && (
+          <div className="fixed top-4 left-1/2 z-[120] -translate-x-1/2 rounded-full bg-[#111827] px-4 py-2 text-xs font-medium text-white shadow-lg animate-in fade-in slide-in-from-top-2 duration-200">
+            {copyNotice}
+          </div>
+        )}
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>
+            <div className="mb-1 flex justify-end md:hidden">
+              {creatorHandle && (
+                <button
+                  type="button"
+                  onClick={() => setIsQuickAccessMobileOpen(true)}
+                  className="relative inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-[#e5e7eb] bg-white/90 text-[12px] font-medium text-[#4b5563] transition-all cursor-pointer overflow-hidden"
+                >
+                  <span className="absolute -inset-px rounded-full opacity-40 pointer-events-none animate-[spin_12s_linear_infinite] bg-[conic-gradient(from_0deg,transparent_0deg,transparent_270deg,rgba(139,92,246,0.30)_320deg,transparent_360deg)]" />
+                  <span className="absolute inset-[1px] rounded-full bg-white/95" />
+                  <span className="relative z-[1] inline-flex items-center gap-1.5">
+                    @{creatorHandle}
+                    <ExternalLink className="h-3.5 w-3.5 text-[#9ca3af]" />
+                  </span>
+                </button>
+              )}
+            </div>
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-[22px] sm:text-[26px] font-semibold text-[#1a1a2e] tracking-tight">
                 {t("dashboard.welcome")}, {displayName}
@@ -1397,7 +1457,7 @@ export function DashboardClient({
                       }
                       setIsProfileAccessOpen((v) => !v)
                     }}
-                    className="relative inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-[#e5e7eb] bg-white/90 text-[12px] font-medium text-[#4b5563] hover:text-[#111827] hover:border-[#d1d5db] hover:bg-white transition-all cursor-pointer overflow-hidden"
+                    className="hidden md:inline-flex relative items-center gap-1.5 px-3 py-1 rounded-full border border-[#e5e7eb] bg-white/90 text-[12px] font-medium text-[#4b5563] hover:text-[#111827] hover:border-[#d1d5db] hover:bg-white transition-all cursor-pointer overflow-hidden"
                   >
                     <span className="absolute -inset-px rounded-full opacity-45 pointer-events-none animate-[spin_12s_linear_infinite] bg-[conic-gradient(from_0deg,transparent_0deg,transparent_270deg,rgba(139,92,246,0.30)_320deg,transparent_360deg)]" />
                     <span className="absolute inset-[1px] rounded-full bg-white/95" />
@@ -1413,14 +1473,27 @@ export function DashboardClient({
                         role="button"
                         tabIndex={0}
                         onClick={() => {
-                          window.open(publicOnePageUrl, "_blank", "noopener,noreferrer")
+                          if (hasOnePageSetup) {
+                            window.open(publicOnePageUrl, "_blank", "noopener,noreferrer")
+                          } else {
+                            router.push("/app/onepage")
+                          }
                           setIsProfileAccessOpen(false)
                         }}
-                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { window.open(publicOnePageUrl, "_blank", "noopener,noreferrer"); setIsProfileAccessOpen(false) } }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            if (hasOnePageSetup) {
+                              window.open(publicOnePageUrl, "_blank", "noopener,noreferrer")
+                            } else {
+                              router.push("/app/onepage")
+                            }
+                            setIsProfileAccessOpen(false)
+                          }
+                        }}
                         className="w-full text-left rounded-xl p-3 hover:bg-[#f9fafb] transition-colors cursor-pointer group"
                       >
                         <div className="flex items-center gap-2 text-[13px] font-semibold text-[#111827]"><span className="w-5 h-5 rounded-full bg-[#8b5cf6] flex items-center justify-center"><ChainLinkIcon className="w-3 h-3" stroke="#ffffff" /></span>OnePage</div>
-                        <div className="mt-1 flex items-center justify-between gap-2"><p className="text-[11px] text-[#6b7280] truncate">{publicOnePageUrl}</p><button type="button" onClick={(e) => { e.stopPropagation(); copyQuickAccessUrl("onepage") }} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] transition-all ${copiedTarget === "onepage" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-[#e5e7eb] text-[#6b7280] bg-white"}`}>{copiedTarget === "onepage" ? <Check className="h-3 w-3" /> : <CopyLinkIcon className="h-3 w-3" />}{copiedTarget === "onepage" ? "Copied" : "Copy"}</button></div>
+                        <div className="mt-1 flex items-center justify-between gap-2"><p className="text-[11px] text-[#6b7280] truncate">{hasOnePageSetup ? publicOnePageUrl : "Set up your OnePage to create a link"}</p><button type="button" onClick={(e) => { e.stopPropagation(); if (hasOnePageSetup) { copyQuickAccessUrl("onepage") } else { router.push("/app/onepage"); setIsProfileAccessOpen(false) } }} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] transition-all ${hasOnePageSetup ? (copiedTarget === "onepage" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-[#e5e7eb] text-[#6b7280] bg-white") : "border-[#ddd6fe] bg-[#f5f3ff] text-[#6d28d9]"}`}>{hasOnePageSetup ? (copiedTarget === "onepage" ? <Check className="h-3 w-3" /> : <CopyLinkIcon className="h-3 w-3" />) : <ArrowRight className="h-3 w-3" />}{hasOnePageSetup ? (copiedTarget === "onepage" ? "Copied" : "Copy") : "Set up"}</button></div>
                       </div>
                       <div
                         role="button"
@@ -1534,12 +1607,14 @@ export function DashboardClient({
         <QuickAccessBottomSheet
           isOpen={isQuickAccessMobileOpen}
           onClose={() => setIsQuickAccessMobileOpen(false)}
-          onePageUrl={publicOnePageUrl}
+          onePageUrl={hasOnePageSetup ? publicOnePageUrl : "Set up your OnePage to create a link"}
           storeUrl={publicStoreUrl}
           isOnePageCopied={copiedTarget === "onepage"}
           isStoreCopied={copiedTarget === "store"}
           onCopyOnePage={() => copyQuickAccessUrl("onepage")}
           onCopyStore={() => copyQuickAccessUrl("store")}
+          isOnePageReady={hasOnePageSetup}
+          onSetupOnePage={() => router.push("/app/onepage")}
         />
 
         {/* Stats Cards */}
