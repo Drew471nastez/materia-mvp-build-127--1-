@@ -49,6 +49,13 @@ export async function POST() {
       )
     }
 
+    if (subscription.cancel_at_period_end) {
+      return NextResponse.json({
+        success: true,
+        message: "Subscription is already scheduled for cancellation",
+      })
+    }
+
     // Cancel subscription at period end in Stripe
     const canceledSubscription = await stripe.subscriptions.update(
       subscription.stripe_subscription_id,

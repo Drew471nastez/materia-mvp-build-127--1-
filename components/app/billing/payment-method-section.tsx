@@ -28,59 +28,29 @@ export function PaymentMethodSection({ paymentMethod, onManagePayment }: Payment
     }
   }
 
-  const getCardBrandIcon = (brand: string) => {
-    // You can expand this with actual card brand SVGs
-    const brandUpper = brand.toUpperCase()
-    return (
-      <div className="w-10 h-7 bg-gradient-to-br from-gray-700 to-gray-900 rounded flex items-center justify-center text-white text-[10px] font-bold">
-        {brandUpper === "VISA" && "VISA"}
-        {brandUpper === "MASTERCARD" && "MC"}
-        {brandUpper === "AMEX" && "AMEX"}
-        {brandUpper === "DISCOVER" && "DISC"}
-        {!["VISA", "MASTERCARD", "AMEX", "DISCOVER"].includes(brandUpper) && brandUpper.slice(0, 4)}
-      </div>
-    )
-  }
-
   return (
     <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-        <div>
-          <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1">
-            Payment Method
-          </h3>
-          <p className="text-[13px] text-[#6b7280]">
-            Manage your payment methods for subscription billing
-          </p>
-        </div>
+      <div className="mb-4">
+        <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1">Payment details</h3>
+        <p className="text-[13px] text-[#6b7280]">Update card number, expiration, and CVC in Stripe&apos;s secure billing form.</p>
       </div>
 
-      {paymentMethod ? (
-        <div className="bg-[#f9fafb] rounded-xl p-4 mb-4">
-          <div className="flex items-center gap-4">
-            {getCardBrandIcon(paymentMethod.card_brand)}
-            <div className="flex-1">
-              <div className="text-[14px] font-medium text-[#1a1a2e] mb-0.5">
-                {paymentMethod.card_brand.charAt(0).toUpperCase() + paymentMethod.card_brand.slice(1)} •••• {paymentMethod.card_last4}
-              </div>
-              <div className="text-[12px] text-[#6b7280]">
-                Expires {String(paymentMethod.card_exp_month).padStart(2, "0")}/{paymentMethod.card_exp_year}
-              </div>
-            </div>
-            <div className="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full">
-              Default
-            </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+        <div className="rounded-xl border border-[#e5e7eb] bg-[#f9fafb] p-3">
+          <div className="text-[11px] text-[#6b7280] mb-1">Card number</div>
+          <div className="text-[13px] font-medium text-[#1a1a2e]">{paymentMethod ? `•••• •••• •••• ${paymentMethod.card_last4}` : "Not added"}</div>
+        </div>
+        <div className="rounded-xl border border-[#e5e7eb] bg-[#f9fafb] p-3">
+          <div className="text-[11px] text-[#6b7280] mb-1">Expiration month/year</div>
+          <div className="text-[13px] font-medium text-[#1a1a2e]">
+            {paymentMethod ? `${String(paymentMethod.card_exp_month).padStart(2, "0")}/${paymentMethod.card_exp_year}` : "Not added"}
           </div>
         </div>
-      ) : (
-        <div className="bg-[#f9fafb] rounded-xl p-6 text-center mb-4">
-          <CreditCard className="h-10 w-10 text-[#9ca3af] mx-auto mb-3" />
-          <p className="text-[13px] text-[#6b7280] mb-1">No payment method on file</p>
-          <p className="text-[12px] text-[#9ca3af]">
-            Add a payment method to subscribe to paid plans
-          </p>
+        <div className="rounded-xl border border-[#e5e7eb] bg-[#f9fafb] p-3 sm:col-span-2">
+          <div className="text-[11px] text-[#6b7280] mb-1">CVC</div>
+          <div className="text-[13px] font-medium text-[#1a1a2e]">•••</div>
         </div>
-      )}
+      </div>
 
       <button
         onClick={handleManage}
@@ -95,15 +65,11 @@ export function PaymentMethodSection({ paymentMethod, onManagePayment }: Payment
         ) : (
           <>
             <CreditCard className="h-4 w-4" />
-            {paymentMethod ? "Manage Payment Methods" : "Add Payment Method"}
+            {paymentMethod ? "Update Payment Method" : "Set Up Payment Method"}
             <ExternalLink className="h-3.5 w-3.5" />
           </>
         )}
       </button>
-
-      <p className="text-[11px] text-[#9ca3af] mt-3">
-        You'll be redirected to Stripe's secure portal to manage your payment methods
-      </p>
     </div>
   )
 }

@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { PricingPlans } from "./pricing-plans"
 import { SubscriptionStatus } from "./subscription-status"
 import { PaymentMethodSection } from "./payment-method-section"
@@ -134,13 +135,36 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <div className="mb-6 sm:mb-8 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        <div className="flex gap-1 p-1 w-fit h-[44px] sm:h-[48px] items-center">
+          <Link href="/app/settings" className="flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full text-[13px] sm:text-[14px] font-medium text-[#6b7280] hover:text-[#374151] hover:bg-[#f3f4f6] border border-transparent whitespace-nowrap">
+            General
+          </Link>
+          <Link href="/app/settings" className="flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full text-[13px] sm:text-[14px] font-medium text-[#6b7280] hover:text-[#374151] hover:bg-[#f3f4f6] border border-transparent whitespace-nowrap">
+            Security
+          </Link>
+          <Link href="/app/settings" className="flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full text-[13px] sm:text-[14px] font-medium text-[#6b7280] hover:text-[#374151] hover:bg-[#f3f4f6] border border-transparent whitespace-nowrap">
+            Privacy
+          </Link>
+          <span className="flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full text-[13px] sm:text-[14px] font-medium bg-[#f3f4f6] text-[#1a1a2e] border border-[#e5e7eb] whitespace-nowrap">
+            Billing
+          </span>
+          <Link href="/app/settings" className="flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full text-[13px] sm:text-[14px] font-medium text-[#6b7280] hover:text-[#374151] hover:bg-[#f3f4f6] border border-transparent whitespace-nowrap">
+            Payments
+          </Link>
+          <Link href="/app/settings" className="flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full text-[13px] sm:text-[14px] font-medium text-[#6b7280] hover:text-[#374151] hover:bg-[#f3f4f6] border border-transparent whitespace-nowrap">
+            Stores
+          </Link>
+        </div>
+      </div>
+
       {/* Header */}
       <div className="mb-6 sm:mb-8">
         <h1 className="text-[22px] sm:text-[28px] font-bold text-[#1a1a2e] mb-2">
           Billing & Subscription
         </h1>
         <p className="text-[14px] text-[#6b7280]">
-          Manage your subscription plan, payment methods, and billing history
+          This tab manages plans, subscriptions, and platform transaction fees. It does not manage payout provider connections.
         </p>
       </div>
 

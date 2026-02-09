@@ -42,9 +42,9 @@ export async function POST(request: Request) {
       .eq("creator_id", creator.id)
       .maybeSingle()
 
-    if (existingSubscription && existingSubscription.status === "active") {
+    if (existingSubscription && ["active", "trialing", "past_due"].includes(existingSubscription.status)) {
       return NextResponse.json(
-        { error: "You already have an active subscription. Please cancel or change your current plan instead." },
+        { error: "You already have an existing subscription. Please change or cancel your current plan instead." },
         { status: 400 }
       )
     }

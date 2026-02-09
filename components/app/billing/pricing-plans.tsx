@@ -35,9 +35,7 @@ export function PricingPlans({ plans, currentPlanId, onUpgrade }: PricingPlansPr
     }
   }
 
-  const formatPrice = (cents: number) => {
-    return `$${(cents / 100).toFixed(0)}`
-  }
+  const formatPrice = (cents: number) => `$${(cents / 100).toFixed(0)}`
 
   const formatFee = (feePercent: number, feeFixedCents: number) => {
     const percent = (feePercent * 100).toFixed(feePercent >= 0.01 ? 1 : 2)
@@ -46,9 +44,9 @@ export function PricingPlans({ plans, currentPlanId, onUpgrade }: PricingPlansPr
 
   return (
     <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-      <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">Choose Your Plan</h3>
+      <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-2">Your Storelib Subscription</h3>
       <p className="text-[13px] text-[#6b7280] mb-6">
-        Upgrade to reduce platform transaction fees and unlock premium features
+        Pick a plan that matches your sales volume. Plan changes update platform fee logic across checkout immediately.
       </p>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -67,7 +65,7 @@ export function PricingPlans({ plans, currentPlanId, onUpgrade }: PricingPlansPr
             >
               {isCurrentPlan && (
                 <span className="absolute top-3 right-3 text-[10px] font-bold text-[#8b5cf6] bg-white px-2 py-1 rounded-full border border-[#8b5cf6]">
-                  CURRENT
+                  CURRENT PLAN
                 </span>
               )}
 
@@ -78,23 +76,17 @@ export function PricingPlans({ plans, currentPlanId, onUpgrade }: PricingPlansPr
                     <span className="text-[28px] font-bold text-[#1a1a2e]">Free</span>
                   ) : (
                     <>
-                      <span className="text-[28px] font-bold text-[#1a1a2e]">
-                        {formatPrice(plan.price_cents)}
-                      </span>
+                      <span className="text-[28px] font-bold text-[#1a1a2e]">{formatPrice(plan.price_cents)}</span>
                       <span className="text-[13px] text-[#6b7280]">/month</span>
                     </>
                   )}
                 </div>
               </div>
 
-              <div className="mb-5">
-                <div className="text-[12px] font-semibold text-[#6b7280] mb-2">
-                  Platform Fee
-                </div>
-                <div className="text-[15px] font-bold text-[#8b5cf6]">
-                  {formatFee(plan.fee_percent, plan.fee_fixed_cents)}
-                </div>
-                <div className="text-[11px] text-[#9ca3af] mt-0.5">per transaction</div>
+              <div className="mb-5 rounded-lg border border-[#ede9fe] bg-[#faf5ff] p-3">
+                <div className="text-[11px] font-semibold text-[#6b7280] mb-1">Platform Fee</div>
+                <div className="text-[15px] font-bold text-[#7c3aed]">{formatFee(plan.fee_percent, plan.fee_fixed_cents)}</div>
+                <div className="text-[11px] text-[#9ca3af]">per transaction</div>
               </div>
 
               <ul className="space-y-2.5 mb-5">
@@ -125,9 +117,9 @@ export function PricingPlans({ plans, currentPlanId, onUpgrade }: PricingPlansPr
                 ) : isCurrentPlan ? (
                   "Current Plan"
                 ) : isFree ? (
-                  "Downgrade"
+                  "Downgrade to Free"
                 ) : (
-                  "Upgrade"
+                  "Change Plan"
                 )}
               </button>
             </div>

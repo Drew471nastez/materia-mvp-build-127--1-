@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     // Get creator record
     const { data: creator, error: creatorError } = await supabase
       .from("creators")
-      .select("id, subscription_plan_id")
+      .select("id, subscription_plan_id, subscription_status")
       .eq("user_id", user.id)
       .single()
 
@@ -58,6 +58,13 @@ export async function POST(request: Request) {
       )
     }
 
+    if (creator.subscription_plan_id === newPlanId) {
+      return NextResponse.json(
+        { error: "You are already on this plan" },
+        { status: 400 }
+      )
+    }
+
     if (!subscription || !subscription.stripe_subscription_id) {
       return NextResponse.json(
         { error: "No active subscription found. Please create a new subscription instead." },
@@ -76,6 +83,13 @@ export async function POST(request: Request) {
     if (planError || !newPlan || !newPlan.stripe_price_id) {
       return NextResponse.json(
         { error: "Invalid plan or plan not configured" },
+        { status: 400 }
+      )
+    }
+
+    if (!["active", "trialing", "past_due"].includes(subscription.status)) {
+      return NextResponse.json(
+        { error: "Subscription is not in a changeable state" },
         { status: 400 }
       )
     }
