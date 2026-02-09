@@ -241,7 +241,7 @@ function ResetPasswordContent() {
           <Button
             type="submit"
             disabled={isLoading || !password.trim() || !confirmPassword.trim()}
-            className="h-12 w-full rounded-full bg-neutral-200 text-[15px] font-semibold text-neutral-400 hover:bg-neutral-300 hover:text-neutral-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="h-12 w-full rounded-full bg-neutral-200 text-[15px] font-semibold text-black hover:bg-neutral-300 hover:text-black disabled:opacity-50 disabled:cursor-not-allowed disabled:text-neutral-400"
           >
             {isLoading ? "Resetting..." : "Reset Password"}
           </Button>

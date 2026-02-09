@@ -1606,23 +1606,32 @@ function HeaderSection() {
       <h2 className="text-lg md:text-xl font-semibold">Header</h2>
 
       <div className="flex items-center gap-4 md:gap-5">
-        <Avatar className="h-16 w-16 md:h-20 md:w-20 border overflow-hidden">
+        <div className="h-16 w-16 md:h-20 md:w-20 border overflow-hidden rounded-full relative bg-gray-100">
           {avatarVideoUrl ? (
-            <video
-              src={avatarVideoUrl}
-              autoPlay
-              loop
-              muted
-              playsInline
-              className="w-full h-full object-cover"
-            />
-          ) : (
             <>
-              <AvatarImage src={onepage.avatar_url || undefined} />
-              <AvatarFallback className="text-lg md:text-xl bg-gray-100">{onepage.title?.charAt(0) || "?"}</AvatarFallback>
+              {onepage.avatar_url ? (
+                <img src={onepage.avatar_url} alt={onepage.title} className="absolute inset-0 w-full h-full object-cover scale-105 blur-[2px]" />
+              ) : (
+                <div className="absolute inset-0 bg-gray-200 animate-pulse" />
+              )}
+              <video
+                src={avatarVideoUrl}
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="relative z-[1] w-full h-full object-cover opacity-0 transition-all duration-500"
+                onLoadedData={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.filter = 'blur(0px)' }}
+                onCanPlay={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.filter = 'blur(0px)' }}
+                onPlaying={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.filter = 'blur(0px)' }}
+              />
             </>
+          ) : onepage.avatar_url ? (
+            <img src={onepage.avatar_url} alt={onepage.title} className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-lg md:text-xl bg-gray-100">{onepage.title?.charAt(0) || "?"}</div>
           )}
-        </Avatar>
+        </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setShowEditModal(true)} disabled={uploading} className="h-9 rounded-lg" data-avatar-edit>
             <ImageIcon className="h-4 w-4 mr-2" />

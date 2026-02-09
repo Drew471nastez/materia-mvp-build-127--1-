@@ -11,14 +11,28 @@ import {
   X, Check, Loader2, AlertCircle, Mail, Lock,
   CreditCard, Store, Shield, Settings, Wallet,
   Camera, ExternalLink, ChevronRight, Globe,
-  User, Palette, Link2, FileText, Search, ChevronLeft, Upload, Copy, Pencil,
+  User, Palette, Link2, FileText, Search, ChevronLeft, Upload, Pencil,
   ToggleLeft, LogOut, Trash2, Languages, Info, ChevronDown
 } from "lucide-react"
 import type { Profile, Creator } from "@/lib/types"
 import { isValidUsername } from "@/lib/reserved-words"
-import { getStoreUrl, getStoreUrlDisplay } from "@/lib/url-helpers"
+import { getLinksUrl, getStoreUrl, getStoreUrlDisplay } from "@/lib/url-helpers"
 import { useLanguage, LANGUAGES } from "@/lib/i18n"
 import Image from "next/image"
+
+function ChainLinkIcon({ className = "w-3 h-3", stroke = "#ffffff" }: { className?: string; stroke?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+      <path
+        d="M10.0002 13C10.4297 13.5741 10.9776 14.0491 11.6067 14.3929C12.2359 14.7367 12.9317 14.9411 13.6468 14.9923C14.362 15.0435 15.0798 14.9403 15.7515 14.6897C16.4233 14.4392 17.0333 14.047 17.5402 13.54L20.5402 10.54C21.451 9.59695 21.955 8.33394 21.9436 7.02296C21.9322 5.71198 21.4063 4.45791 20.4793 3.53087C19.5523 2.60383 18.2982 2.07799 16.9872 2.0666C15.6762 2.0552 14.4132 2.55918 13.4702 3.46997L11.7502 5.17997M14.0002 11C13.5707 10.4258 13.0228 9.95078 12.3936 9.60703C11.7645 9.26327 11.0687 9.05885 10.3535 9.00763C9.63841 8.95641 8.92061 9.0596 8.24885 9.31018C7.5771 9.56077 6.96709 9.9529 6.4602 10.46L3.4602 13.46C2.54941 14.403 2.04544 15.666 2.05683 16.977C2.06822 18.288 2.59407 19.542 3.52111 20.4691C4.44815 21.3961 5.70221 21.9219 7.01319 21.9333C8.32418 21.9447 9.58719 21.4408 10.5302 20.53L12.2402 18.82"
+        stroke={stroke}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
 
 // Countries list
 const COUNTRIES = [
@@ -1358,13 +1372,24 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     setEmailChangeSuccess(false)
   }
 
-  // Store URL for copy
-  const [copied, setCopied] = useState(false)
-  const handleCopyStoreUrl = () => {
-    navigator.clipboard.writeText(storeUrl)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
+  // Header quick access
+  const [isQuickAccessOpen, setIsQuickAccessOpen] = useState(false)
+  const quickAccessRef = useRef<HTMLDivElement | null>(null)
+
+  const settingsHandleBase = creator?.username || profile?.username || storeUrlDisplay.split(".")[0] || "store"
+  const settingsHandleLabel = `@${settingsHandleBase}`
+  const onepageUrl = getLinksUrl(settingsHandleBase)
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      if (quickAccessRef.current && !quickAccessRef.current.contains(target)) {
+        setIsQuickAccessOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
 
   return (
     <>
@@ -1384,36 +1409,74 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
       <div className="h-full overflow-y-scroll overflow-x-hidden page-scroll bg-[#fafafa]" style={{ scrollbarGutter: 'stable' }}>
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-28 sm:pb-52 overflow-x-hidden">
-        {/* Header with Store URL */}
-        <div className="mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        {/* Header with Handle pill */}
+        <div className="mb-6 flex items-start justify-between gap-3">
           <div>
             <h1 className="text-[22px] sm:text-[28px] font-bold text-[#1a1a2e]">{t("settings.title")}</h1>
             <p className="text-[14px] text-[#6b7280] mt-1">{t("settings.subtitle")}</p>
           </div>
-          {/* Store URL with copy */}
-          <div className="flex items-center gap-2">
-            <a
-              href={storeUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[13px] text-[#8b5cf6] hover:text-[#7c3aed] transition-colors"
-            >
-              {storeUrlDisplay}
-            </a>
+          <div ref={quickAccessRef} className="relative shrink-0">
             <button
               type="button"
-              onClick={handleCopyStoreUrl}
-              className="p-1.5 rounded-lg hover:bg-[#f3f4f6] transition-colors"
-              title="Copy store URL"
+              onClick={() => {
+                if (isMobileViewport) {
+                  setIsQuickAccessOpen(true)
+                  return
+                }
+                setIsQuickAccessOpen((v) => !v)
+              }}
+              className="relative inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-[#e5e7eb] bg-white/90 text-[12px] font-medium text-[#4b5563] hover:text-[#111827] hover:border-[#d1d5db] hover:bg-white transition-all cursor-pointer overflow-hidden"
             >
-              {copied ? (
-                <Check className="h-4 w-4 text-emerald-500" />
-              ) : (
-                <Copy className="h-4 w-4 text-[#9ca3af] hover:text-[#6b7280]" />
-              )}
+              <span className="absolute -inset-px rounded-full opacity-45 pointer-events-none animate-[spin_12s_linear_infinite] bg-[conic-gradient(from_0deg,transparent_0deg,transparent_270deg,rgba(139,92,246,0.30)_320deg,transparent_360deg)]" />
+              <span className="absolute inset-[1px] rounded-full bg-white/95" />
+              <span className="relative z-[1] inline-flex items-center gap-1.5">
+                {settingsHandleLabel}
+                <ExternalLink className="h-3.5 w-3.5 text-[#9ca3af]" />
+              </span>
             </button>
+
+            {!isMobileViewport && isQuickAccessOpen && (
+              <div className="absolute right-0 top-full mt-2 w-[280px] rounded-2xl border border-[#e5e7eb] bg-white shadow-xl p-2 z-50 origin-top-right animate-in fade-in zoom-in-95 duration-200">
+                <p className="px-2 pt-1 pb-2 text-[11px] text-[#6b7280]">Quick access</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.open(onepageUrl, "_blank", "noopener,noreferrer")
+                    setIsQuickAccessOpen(false)
+                  }}
+                  className="w-full text-left rounded-xl p-3 hover:bg-[#f9fafb] transition-colors cursor-pointer"
+                >
+                  <p className="text-[13px] font-semibold text-[#111827] flex items-center gap-2"><span className="w-5 h-5 rounded-full bg-[#8b5cf6] flex items-center justify-center"><ChainLinkIcon className="w-2.5 h-2.5" stroke="#ffffff" /></span>OnePage</p>
+                  <p className="text-[11px] text-[#6b7280] truncate mt-1">{onepageUrl}</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.open(storeUrl, "_blank", "noopener,noreferrer")
+                    setIsQuickAccessOpen(false)
+                  }}
+                  className="w-full text-left rounded-xl p-3 hover:bg-[#f9fafb] transition-colors cursor-pointer"
+                >
+                  <p className="text-[13px] font-semibold text-[#111827] flex items-center gap-2"><span className="w-5 h-5 rounded-full bg-black flex items-center justify-center overflow-hidden"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib_pixian_ai.png" alt="Storelib" className="w-3.5 h-3.5 object-contain" /></span>Store</p>
+                  <p className="text-[11px] text-[#6b7280] truncate mt-1">{storeUrl}</p>
+                </button>
+              </div>
+            )}
           </div>
         </div>
+
+        <MobileBottomSheet isOpen={isMobileViewport && isQuickAccessOpen} onClose={() => setIsQuickAccessOpen(false)} title="Quick access">
+          <div className="space-y-2">
+            <button type="button" onClick={() => { window.open(onepageUrl, "_blank", "noopener,noreferrer"); setIsQuickAccessOpen(false) }} className="w-full text-left rounded-xl border border-[#ececf1] p-3">
+              <p className="text-[14px] font-semibold text-[#111827] flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-[#8b5cf6] flex items-center justify-center"><ChainLinkIcon className="w-3 h-3" stroke="#ffffff" /></span>OnePage</p>
+              <p className="text-[12px] text-[#6b7280] truncate mt-1">{onepageUrl}</p>
+            </button>
+            <button type="button" onClick={() => { window.open(storeUrl, "_blank", "noopener,noreferrer"); setIsQuickAccessOpen(false) }} className="w-full text-left rounded-xl border border-[#ececf1] p-3">
+              <p className="text-[14px] font-semibold text-[#111827] flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-black flex items-center justify-center overflow-hidden"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib_pixian_ai.png" alt="Storelib" className="w-4 h-4 object-contain" /></span>Store</p>
+              <p className="text-[12px] text-[#6b7280] truncate mt-1">{storeUrl}</p>
+            </button>
+          </div>
+        </MobileBottomSheet>
 
         {/* Pill-shaped Tab Navigation - Hidden scrollbar, fixed height to prevent layout shift */}
         <div className="mb-6 sm:mb-8 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
@@ -2115,7 +2178,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
           {/* Payments Tab */}
           {!isTabLoading && activeTab === "payments" && (
-            <div className="space-y-4 sm:space-y-6">
+            <div className="space-y-[10px] sm:space-y-[14px]">
               {/* Stripe Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
                 <div className="flex items-center justify-between gap-3">
