@@ -182,10 +182,11 @@ const TABS = [
   { id: "privacy", label: "Privacy", icon: ToggleLeft },
   { id: "payments", label: "Payments", icon: Wallet },
   { id: "stores", label: "Stores", icon: Store },
+  { id: "billing", label: "Billing", icon: CreditCard },
 ] as const
 
 type TabId = typeof TABS[number]["id"]
-const TAB_IDS: TabId[] = ["general", "security", "privacy", "payments", "stores"]
+const TAB_IDS: TabId[] = ["general", "security", "privacy", "payments", "stores", "billing"]
 
 interface SettingsFormProps {
   profile: Profile & {
@@ -1058,6 +1059,11 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   // Tab change with skeleton loading animation
   const handleTabChange = (newTab: TabId) => {
     if (newTab === activeTab) return
+    // Billing tab navigates to its own route
+    if (newTab === "billing") {
+      router.push("/app/settings/billing")
+      return
+    }
     setIsTabLoading(true)
     setActiveTab(newTab)
     setTimeout(() => {
@@ -1502,7 +1508,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                               tab.id === "privacy" ? t("settings.privacy") :
                               tab.id === "billing" ? t("settings.billing") :
                               tab.id === "payments" ? t("settings.payments") :
-                              tab.id === "stores" ? t("settings.stores") : tab.label
+                              t("settings.stores")
               return (
                 <button
                   key={tab.id}
@@ -1657,17 +1663,12 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                     )}
                   </div>
                 </div>
-              </div>
 
-              {/* OnePage URL Card */}
-              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">
-                  OnePage URL
-                </h3>
-                <div className="space-y-3">
+                {/* OnePage URL - inside Profile Information */}
+                <div className="mt-4 pt-4 border-t border-[#f3f4f6]">
                   <div className="space-y-1.5">
                     <Label htmlFor="onepageHandle" className="text-[13px] font-medium text-[#374151]">
-                      Your OnePage Handle
+                      OnePage URL
                     </Label>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[14px] text-[#6b7280]">
