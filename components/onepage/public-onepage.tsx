@@ -3848,6 +3848,7 @@ function PublicBlockRenderer({
       const detectedIcon = data.icon || getIconFromUrl(data.url)
       const iconPath = detectedIcon ? ICON_PATHS[detectedIcon] : null
       const isFilledIcon = detectedIcon ? FILLED_ICONS.has(detectedIcon) : false
+      const iconViewBox = detectedIcon === "threads" ? "0 0 16 16" : "0 0 24 24"
 
       const buttonShadow = (theme as any).button_shadow || "none"
       const shadowColor = (theme as any).button_shadow_color || "#000000"
@@ -4063,7 +4064,7 @@ function PublicBlockRenderer({
                 ) : iconPath ? (
                   <div className="w-full h-full flex items-center justify-center py-6">
                     <svg
-                      viewBox="0 0 24 24"
+                      viewBox={iconViewBox}
                       className="w-16 h-16"
                       style={{ color: theme.button_text_color }}
                       fill={isFilledIcon ? "currentColor" : "none"}
@@ -4266,7 +4267,7 @@ function PublicBlockRenderer({
             ) : iconPath ? (
               <svg
                 className="w-[37.5px] h-[37.5px] sm:w-[42.5px] sm:h-[42.5px] shrink-0 absolute left-[20px]"
-                viewBox="0 0 24 24"
+                viewBox={iconViewBox}
                 fill={isFilledIcon ? "currentColor" : "none"}
                 stroke={isFilledIcon ? "none" : "currentColor"}
                 strokeWidth={isFilledIcon ? "0" : "2"}
@@ -4330,7 +4331,7 @@ function PublicBlockRenderer({
             ) : iconPath ? (
               <svg
                 className="w-[37.5px] h-[37.5px] sm:w-[42.5px] sm:h-[42.5px] shrink-0 absolute left-[20px]"
-                viewBox="0 0 24 24"
+                viewBox={iconViewBox}
                 fill={isFilledIcon ? "currentColor" : "none"}
                 stroke={isFilledIcon ? "none" : "currentColor"}
                 strokeWidth={isFilledIcon ? "0" : "2"}
@@ -4403,7 +4404,7 @@ function PublicBlockRenderer({
           ) : iconPath ? (
             <svg
               className="w-[37.5px] h-[37.5px] sm:w-[42.5px] sm:h-[42.5px] shrink-0 absolute left-[20px]"
-              viewBox="0 0 24 24"
+              viewBox={iconViewBox}
               fill={isFilledIcon ? "currentColor" : "none"}
               stroke={isFilledIcon ? "none" : "currentColor"}
               strokeWidth={isFilledIcon ? "0" : "2"}

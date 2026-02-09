@@ -2115,7 +2115,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
           {/* Payments Tab */}
           {!isTabLoading && activeTab === "payments" && (
-            <div className="space-y-3 sm:space-y-4">
+            <div className="space-y-[10px] sm:space-y-[14px]">
               {/* Stripe Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
                 <div className="flex items-center justify-between gap-3">

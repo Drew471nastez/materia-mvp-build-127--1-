@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import {
   Eye,
@@ -32,6 +32,7 @@ import {
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { useLanguage } from "@/lib/i18n"
+import { getLinksUrl, getStoreUrl } from "@/lib/url-helpers"
 
 interface SetupStep {
   id: string
@@ -102,6 +103,7 @@ interface DashboardClientProps {
   initialOrders?: Order[]
   initialTotalOrders?: number
   initialTotalRevenue?: number
+  creatorHandle?: string
 }
 
 type TimeframeOption = {
@@ -466,9 +468,15 @@ export function DashboardClient({
   initialOrders = [],
   initialTotalOrders = 0,
   initialTotalRevenue = 0,
+  creatorHandle = "",
 }: DashboardClientProps) {
   const [timeframe, setTimeframe] = useState("last_7_days")
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const [isProfileAccessOpen, setIsProfileAccessOpen] = useState(false)
+  const profileAccessRef = useRef<HTMLDivElement | null>(null)
+
+  const publicStoreUrl = creatorHandle ? getStoreUrl(creatorHandle) : ""
+  const publicOnePageUrl = creatorHandle ? getLinksUrl(creatorHandle) : ""
   const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [expandedStep, setExpandedStep] = useState<string | null>(null)
@@ -1021,6 +1029,9 @@ export function DashboardClient({
       if (!target.closest(".timeframe-dropdown")) {
         setIsDropdownOpen(false)
       }
+      if (profileAccessRef.current && !profileAccessRef.current.contains(target)) {
+        setIsProfileAccessOpen(false)
+      }
     }
     document.addEventListener("mousedown", handleClickOutside)
     return () => document.removeEventListener("mousedown", handleClickOutside)
@@ -1178,9 +1189,50 @@ export function DashboardClient({
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-[22px] sm:text-[26px] font-semibold text-[#1a1a2e] tracking-tight">
-              {t("dashboard.welcome")}, {displayName}
-            </h1>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-[22px] sm:text-[26px] font-semibold text-[#1a1a2e] tracking-tight">
+                {t("dashboard.welcome")}, {displayName}
+              </h1>
+              {creatorHandle && (
+                <div ref={profileAccessRef} className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsProfileAccessOpen((v) => !v)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-[#e5e7eb] bg-white/90 text-[12px] font-medium text-[#4b5563] hover:text-[#111827] hover:border-[#d1d5db] hover:bg-white transition-all cursor-pointer"
+                  >
+                    @{creatorHandle}
+                    <ExternalLink className="h-3.5 w-3.5 text-[#9ca3af]" />
+                  </button>
+                  {isProfileAccessOpen && (
+                    <div className="absolute left-0 top-full mt-2 w-[280px] sm:w-[320px] rounded-2xl border border-[#e5e7eb] bg-white shadow-xl p-2 z-50">
+                      <p className="px-2 pt-1 pb-2 text-[11px] text-[#6b7280]">Quick access</p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          window.open(publicOnePageUrl, "_blank", "noopener,noreferrer")
+                          setIsProfileAccessOpen(false)
+                        }}
+                        className="w-full text-left rounded-xl p-3 hover:bg-[#f9fafb] transition-colors cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2 text-[13px] font-semibold text-[#111827]"><Link2 className="h-4 w-4 text-[#8b5cf6]" />OnePage</div>
+                        <p className="text-[11px] text-[#6b7280] mt-1 truncate">{publicOnePageUrl}</p>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          window.open(publicStoreUrl, "_blank", "noopener,noreferrer")
+                          setIsProfileAccessOpen(false)
+                        }}
+                        className="w-full text-left rounded-xl p-3 hover:bg-[#f9fafb] transition-colors cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2 text-[13px] font-semibold text-[#111827]"><Blocks className="h-4 w-4 text-[#0ea5e9]" />Store</div>
+                        <p className="text-[11px] text-[#6b7280] mt-1 truncate">{publicStoreUrl}</p>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
             <p className="text-[14px] text-[#6b7280] mt-1">{t("dashboard.subtitle")}</p>
           </div>
 

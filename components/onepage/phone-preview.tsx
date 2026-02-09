@@ -3733,6 +3733,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
       const detectedIcon = data.icon || getIconFromUrl(data.url)
       const iconPath = detectedIcon ? ICON_PATHS[detectedIcon] : null
       const isFilledIcon = detectedIcon ? FILLED_ICONS.has(detectedIcon) : false
+      const iconViewBox = detectedIcon === "threads" ? "0 0 16 16" : "0 0 24 24"
       // Icon color should match button text color
       const iconColor = theme.button_style === "outline" ? theme.text_color : theme.button_text_color
 
@@ -3894,7 +3895,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                     <svg
                       width="48"
                       height="48"
-                      viewBox="0 0 24 24"
+                      viewBox={iconViewBox}
                       fill={isFilledIcon ? "currentColor" : "none"}
                       stroke={isFilledIcon ? "none" : "currentColor"}
                       strokeWidth={isFilledIcon ? "0" : "1.5"}
@@ -4148,7 +4149,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               <svg
                 width={s.buttonIcon}
                 height={s.buttonIcon}
-                viewBox="0 0 24 24"
+                viewBox={iconViewBox}
                 fill={isFilledIcon ? "currentColor" : "none"}
                 stroke={isFilledIcon ? "none" : "currentColor"}
                 strokeWidth={isFilledIcon ? "0" : "2"}
@@ -4224,7 +4225,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               <svg
                 width={s.buttonIcon}
                 height={s.buttonIcon}
-                viewBox="0 0 24 24"
+                viewBox={iconViewBox}
                 fill={isFilledIcon ? "currentColor" : "none"}
                 stroke={isFilledIcon ? "none" : "currentColor"}
                 strokeWidth={isFilledIcon ? "0" : "2"}
@@ -4299,7 +4300,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
             <svg
               width={s.buttonIcon}
               height={s.buttonIcon}
-              viewBox="0 0 24 24"
+              viewBox={iconViewBox}
               fill={isFilledIcon ? "currentColor" : "none"}
               stroke={isFilledIcon ? "none" : "currentColor"}
               strokeWidth={isFilledIcon ? "0" : "2"}

@@ -724,6 +724,7 @@ export function LinksTab() {
     'at-sign': 'M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94',
     'share': 'M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13',
     'share-2': 'M18 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM18 22a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98',
+    'threads': 'M6.321 6.016c-.27-.18-1.166-.802-1.166-.802.756-1.081 1.753-1.502 3.132-1.502.975 0 1.803.327 2.394.948s.928 1.509 1.005 2.644q.492.207.905.484c1.109.745 1.719 1.86 1.719 3.137 0 2.716-2.226 5.075-6.256 5.075C4.594 16 1 13.987 1 7.994 1 2.034 4.482 0 8.044 0 9.69 0 13.55.243 15 5.036l-1.36.353C12.516 1.974 10.163 1.43 8.006 1.43c-3.565 0-5.582 2.171-5.582 6.79 0 4.143 2.254 6.343 5.63 6.343 2.777 0 4.847-1.443 4.847-3.556 0-1.438-1.208-2.127-1.27-2.127-.236 1.234-.868 3.31-3.644 3.31-1.618 0-3.013-1.118-3.013-2.582 0-2.09 1.984-2.847 3.55-2.847.586 0 1.294.04 1.663.114 0-.637-.54-1.728-1.9-1.728-1.25 0-1.566.405-1.967.868ZM8.716 8.19c-2.04 0-2.304.87-2.304 1.416 0 .878 1.043 1.168 1.6 1.168 1.02 0 2.067-.282 2.232-2.423a6.2 6.2 0 0 0-1.528-.161',
     // Media & Entertainment
     'music': 'M9 18V5l12-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zm12-2a3 3 0 1 1-6 0 3 3 0 0 1 6 0z',
     'video': 'M23 7l-7 5 7 5V7zM14 5H3a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2z',
@@ -902,6 +903,8 @@ export function LinksTab() {
     path,
     isFilled: FILLED_ICONS.has(id)
   }))
+
+  const getThumbnailIconViewBox = (iconId?: string | null) => (iconId === "threads" ? "0 0 16 16" : "0 0 24 24")
 
   // Auto-fetch thumbnail for social media links (Spotify, YouTube, etc.)
   const autoFetchThumbnail = useCallback(async (blockId: string, url: string) => {
@@ -2505,7 +2508,7 @@ export function LinksTab() {
                             return <img src={linkData.thumbnail_url} alt="" className="w-full h-full object-cover" />
                           } else if (linkData?.icon && THUMBNAIL_ICON_PATHS[linkData.icon]) {
                             return (
-                              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500">
+                              <svg width="28" height="28" viewBox={getThumbnailIconViewBox(linkData?.icon)} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500">
                                 <path d={THUMBNAIL_ICON_PATHS[linkData.icon]} />
                               </svg>
                             )
@@ -3967,7 +3970,7 @@ function BlockItem({
               <svg
                 width="20"
                 height="20"
-                viewBox="0 0 24 24"
+                viewBox={getThumbnailIconViewBox((preview as any).iconId)}
                 fill={filledIcons?.has((preview as any).iconId) ? "currentColor" : "none"}
                 stroke={filledIcons?.has((preview as any).iconId) ? "none" : "currentColor"}
                 strokeWidth={filledIcons?.has((preview as any).iconId) ? "0" : "2"}
@@ -3999,7 +4002,7 @@ function BlockItem({
               <svg
                 width="20"
                 height="20"
-                viewBox="0 0 24 24"
+                viewBox={getThumbnailIconViewBox((preview as any).iconId)}
                 fill={filledIcons?.has((preview as any).iconId) ? "currentColor" : "none"}
                 stroke={filledIcons?.has((preview as any).iconId) ? "none" : "currentColor"}
                 strokeWidth={filledIcons?.has((preview as any).iconId) ? "0" : "2"}
