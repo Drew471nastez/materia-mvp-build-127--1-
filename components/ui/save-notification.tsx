@@ -43,10 +43,10 @@ export function SaveNotification({
   if (!isVisible) return null
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-[200] flex justify-center pointer-events-none">
+    <div className="fixed top-[76px] md:top-4 left-0 right-0 z-[2147483646] flex justify-center px-3 sm:px-4 pointer-events-none">
       <div
         className={cn(
-          "mt-4 px-4 py-2.5 bg-gray-900 text-white rounded-full shadow-lg flex items-center gap-2",
+          "px-4 py-2.5 bg-gray-900/95 text-white rounded-full shadow-lg flex items-center gap-2 max-w-full",
           isAnimating
             ? "translate-y-0"
             : "-translate-y-4"
@@ -55,10 +55,8 @@ export function SaveNotification({
           transition: 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)'
         }}
       >
-        <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
-          <Check className="w-3 h-3 text-white" strokeWidth={3} />
-        </div>
-        <span className="text-sm font-medium">{message}</span>
+        <Check className="w-4 h-4 text-white shrink-0" strokeWidth={2.6} />
+        <span className="text-sm font-medium truncate">{message}</span>
       </div>
     </div>
   )
