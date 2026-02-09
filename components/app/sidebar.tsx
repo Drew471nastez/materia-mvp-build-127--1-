@@ -396,7 +396,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
       <div className="border-t border-neutral-200/50 px-4 py-[15px]">
         <div className="flex items-center justify-between">
           <Link
-            href="/"
+            href="/explore"
             onClick={onItemClick}
             className="flex items-center gap-2 hover:opacity-80 transition-opacity"
           >
@@ -497,7 +497,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
       <div className="border-t border-neutral-200/50 px-4 py-[15px]">
         <div className="flex items-center justify-between">
           <Link
-            href="/"
+            href="/explore"
             onClick={onItemClick}
             className="flex items-center gap-2 hover:opacity-80 transition-opacity"
           >

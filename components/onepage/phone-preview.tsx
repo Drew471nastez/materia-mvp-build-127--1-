@@ -38,6 +38,83 @@ const stripHtmlToPlainText = (value?: string | null) => {
   return text.replace(/\s+/g, " ").trim()
 }
 
+
+function SmoothAvatarVideo({
+  videoUrl,
+  imageUrl,
+  alt,
+  videoClassName,
+  imageClassName,
+  videoStyle,
+  imageStyle,
+}: {
+  videoUrl: string
+  imageUrl?: string | null
+  alt: string
+  videoClassName?: string
+  imageClassName?: string
+  videoStyle?: React.CSSProperties
+  imageStyle?: React.CSSProperties
+}) {
+  const [isReady, setIsReady] = useState(false)
+  const [hasError, setHasError] = useState(false)
+
+  const markReady = useCallback(() => {
+    setIsReady(true)
+  }, [])
+
+  useEffect(() => {
+    setIsReady(false)
+    setHasError(false)
+  }, [videoUrl])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsReady(true)
+    }, 1800)
+
+    return () => clearTimeout(timer)
+  }, [videoUrl])
+
+  return (
+    <>
+      {imageUrl ? (
+        <img
+          src={imageUrl}
+          alt={alt}
+          className={cn(
+            "absolute inset-0 w-full h-full object-cover scale-105 transition-all duration-500",
+            hasError ? "opacity-100 blur-0" : isReady ? "opacity-0 blur-0" : "opacity-100 blur-[2px]",
+            imageClassName,
+          )}
+          style={imageStyle}
+        />
+      ) : (
+        <div className={cn("absolute inset-0 bg-white/20 animate-pulse transition-opacity duration-500", isReady ? "opacity-0" : "opacity-100")} />
+      )}
+      {!hasError && (
+        <video
+          src={videoUrl}
+          className={cn(
+            "relative z-[1] w-full h-full object-cover transition-all duration-500",
+            isReady ? "opacity-100 blur-0 scale-100" : "opacity-0 blur-[1.5px] scale-[1.03]",
+            videoClassName,
+          )}
+          style={videoStyle}
+          onLoadedData={markReady}
+          onCanPlay={markReady}
+          onPlaying={markReady}
+          onError={() => setHasError(true)}
+          autoPlay
+          loop
+          muted
+          playsInline
+        />
+      )}
+    </>
+  )
+}
+
 // Spotify Modal Context - allows modals to render at root level instead of inside blocks
 interface SpotifyModalContextType {
   openSpotifyModal: (data: {
@@ -412,7 +489,13 @@ function ShareButtonPreview({
         )}
       >
         {/* Backdrop */}
-        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsOpen(false)} />
+        <div
+          className={cn(
+            "absolute inset-0 transition-[background-color,backdrop-filter] duration-300 ease-out",
+            isOpen ? "bg-black/40 backdrop-blur-sm" : "bg-black/0 backdrop-blur-0",
+          )}
+          onClick={() => setIsOpen(false)}
+        />
 
         {/* Modal - centered within phone preview */}
         <div
@@ -448,12 +531,12 @@ function ShareButtonPreview({
               <div className="text-center">
                 <div
                   className={cn(
-                    "mx-auto mb-2 rounded-full overflow-hidden bg-white/20 flex items-center justify-center shadow-lg ring-2 ring-white/30",
+                    "mx-auto mb-2 rounded-full overflow-hidden bg-white/20 flex items-center justify-center shadow-lg ring-2 ring-white/30 relative",
                     scale === "small" ? "w-10 h-10" : "w-12 h-12",
                   )}
                 >
                   {avatarVideoUrl ? (
-                    <video src={avatarVideoUrl} className="w-full h-full object-cover" autoPlay loop muted playsInline />
+                    <SmoothAvatarVideo videoUrl={avatarVideoUrl} imageUrl={avatarUrl} alt={sellerName} />
                   ) : avatarUrl ? (
                     <img
                       src={avatarUrl}
@@ -3299,23 +3382,13 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
           <div className={cn(heroWidth, "relative mb-2", heroMargin)}>
             <div className="relative w-full" style={{ aspectRatio: heroAspect, backgroundColor: theme.background_color || '#e5e7eb' }}>
               {hasVideo ? (
-                <video
-                  ref={(el) => {
-                    if (el) {
-                      if (el.readyState >= 3) { el.style.filter = 'none'; el.style.animation = 'none'; }
-                      const clear = () => { el.style.filter = 'none'; el.style.animation = 'none'; };
-                      const timer = setTimeout(clear, 2500);
-                      el.addEventListener('canplay', () => { clear(); clearTimeout(timer); }, { once: true });
-                    }
-                  }}
-                  src={profile.avatar_video_url!}
-                  className="w-full h-full object-cover media-deblur"
-                  style={{ objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%` }}
-                  onLoadedData={(e) => { e.currentTarget.style.filter = 'none'; e.currentTarget.style.animation = 'none'; }}
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
+                <SmoothAvatarVideo
+                  videoUrl={profile.avatar_video_url!}
+                  imageUrl={profile.avatar_url}
+                  alt={profile.title || "Avatar"}
+                  videoClassName="media-deblur"
+                  videoStyle={{ objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%` }}
+                  imageStyle={{ objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%` }}
                 />
               ) : (
                 <img
@@ -3484,18 +3557,12 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                       transform: `scale(${((theme as any).avatar_scale || 100) / 100})`,
                     }}
                   >
-                    <video
-                      ref={(el) => {
-                        if (el) {
-                          if (el.readyState >= 3) { el.style.filter = 'none'; el.style.animation = 'none'; }
-                          const clear = () => { el.style.filter = 'none'; el.style.animation = 'none'; };
-                          const timer = setTimeout(clear, 2500);
-                          el.addEventListener('canplay', () => { clear(); clearTimeout(timer); }, { once: true });
-                        }
-                      }}
-                      src={profile.avatar_video_url!}
-                      className="relative z-[1] w-full h-full object-cover media-deblur"
-                      style={
+                    <SmoothAvatarVideo
+                      videoUrl={profile.avatar_video_url!}
+                      imageUrl={profile.avatar_url}
+                      alt={profile.title || "Avatar"}
+                      videoClassName="media-deblur"
+                      videoStyle={
                         profile.avatar_video_crop
                           ? {
                               transformOrigin: '0 0',
@@ -3503,11 +3570,6 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                             }
                           : undefined
                       }
-                      onLoadedData={(e) => { e.currentTarget.style.filter = 'none'; e.currentTarget.style.animation = 'none'; }}
-                      autoPlay
-                      loop
-                      muted
-                      playsInline
                     />
                   </div>
                 ) : (
@@ -3626,6 +3688,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
         'youtube': 'M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33zM9.75 15.02V8.48l5.75 3.27-5.75 3.27z',
         'tiktok': 'M16.8218 5.1344C16.0887 4.29394 15.648 3.19805 15.648 2H14.7293C14.9659 3.3095 15.7454 4.43326 16.8218 5.1344ZM8.3218 11.9048C6.73038 11.9048 5.43591 13.2004 5.43591 14.7931C5.43591 15.903 6.06691 16.8688 6.98556 17.3517C6.64223 16.8781 6.43808 16.2977 6.43808 15.6661C6.43808 14.0734 7.73255 12.7778 9.324 12.7778C9.62093 12.7778 9.90856 12.8288 10.1777 12.9124V9.40192C9.89927 9.36473 9.61628 9.34149 9.324 9.34149C9.27294 9.34149 9.22654 9.34614 9.1755 9.34614V12.0394C8.90176 11.9558 8.61873 11.9048 8.3218 11.9048ZM19.4245 6.67608V9.34614C17.6429 9.34614 15.9912 8.77501 14.6456 7.80911V14.7977C14.6456 18.2851 11.8108 21.127 8.32172 21.127C6.97621 21.127 5.7235 20.6998 4.69812 19.98C5.8534 21.2198 7.50049 22 9.32392 22C12.8083 22 15.6478 19.1627 15.6478 15.6707V8.68211C16.9933 9.64801 18.645 10.2191 20.4267 10.2191V6.78293C20.0787 6.78293 19.7446 6.74574 19.4245 6.67608ZM14.6456 14.7977V7.80911C15.9912 8.77501 17.6429 9.34614 19.4245 9.34614V6.67608C18.3945 6.45788 17.4899 5.90063 16.8218 5.1344C15.7454 4.43326 14.9704 3.3095 14.7245 2H12.2098L12.2051 15.7775C12.1495 17.3192 10.8782 18.5591 9.32393 18.5591C8.35884 18.5591 7.50977 18.0808 6.98085 17.3564C6.06219 16.8688 5.4312 15.9076 5.4312 14.7977C5.4312 13.205 6.72567 11.9094 8.31708 11.9094C8.61402 11.9094 8.90168 11.9605 9.17079 12.0441V9.35079C5.75598 9.42509 3 12.2298 3 15.6707C3 17.3331 3.64492 18.847 4.69812 19.98C5.7235 20.6998 6.97621 21.127 8.32172 21.127C11.8061 21.127 14.6456 18.2851 14.6456 14.7977Z',
         'spotify': 'M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm4.586 14.424a.623.623 0 0 1-.857.207c-2.348-1.435-5.304-1.76-8.785-.964a.623.623 0 0 1-.277-1.215c3.809-.87 7.076-.496 9.712 1.115a.623.623 0 0 1 .207.857zm1.223-2.722a.78.78 0 0 1-1.072.257c-2.687-1.652-6.786-2.131-9.965-1.166a.78.78 0 0 1-.452-1.493c3.632-1.102 8.147-.568 11.232 1.329a.78.78 0 0 1 .257 1.073zm.105-2.835c-3.223-1.914-8.54-2.09-11.618-1.156a.935.935 0 0 1-.542-1.79c3.533-1.072 9.404-.865 13.115 1.338a.935.935 0 0 1-1.014 1.567l.059.041z',
+        'threads': 'M6.321 6.016c-.27-.18-1.166-.802-1.166-.802.756-1.081 1.753-1.502 3.132-1.502.975 0 1.803.327 2.394.948s.928 1.509 1.005 2.644q.492.207.905.484c1.109.745 1.719 1.86 1.719 3.137 0 2.716-2.226 5.075-6.256 5.075C4.594 16 1 13.987 1 7.994 1 2.034 4.482 0 8.044 0 9.69 0 13.55.243 15 5.036l-1.36.353C12.516 1.974 10.163 1.43 8.006 1.43c-3.565 0-5.582 2.171-5.582 6.79 0 4.143 2.254 6.343 5.63 6.343 2.777 0 4.847-1.443 4.847-3.556 0-1.438-1.208-2.127-1.27-2.127-.236 1.234-.868 3.31-3.644 3.31-1.618 0-3.013-1.118-3.013-2.582 0-2.09 1.984-2.847 3.55-2.847.586 0 1.294.04 1.663.114 0-.637-.54-1.728-1.9-1.728-1.25 0-1.566.405-1.967.868ZM8.716 8.19c-2.04 0-2.304.87-2.304 1.416 0 .878 1.043 1.168 1.6 1.168 1.02 0 2.067-.282 2.232-2.423a6.2 6.2 0 0 0-1.528-.161',
         'facebook': 'M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z',
         'linkedin': 'M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z',
         'twitch': 'M21 2H3v16h5v4l4-4h5l4-4V2zm-10 9V7m5 4V7',
@@ -3643,7 +3706,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
       const FILLED_ICONS = new Set([
         'instagram', 'twitter', 'youtube', 'tiktok', 'spotify', 'facebook', 'linkedin',
         'twitch', 'discord', 'telegram', 'whatsapp', 'pinterest', 'snapchat',
-        'github', 'vimeo', 'notion'
+        'github', 'vimeo', 'notion', 'threads'
       ])
 
       // Auto-detect icon from URL for WhatsApp, Telegram, Vimeo, and Notion
@@ -3658,6 +3721,9 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
         if (lowerUrl.includes('vimeo.com')) {
           return 'vimeo'
         }
+        if (lowerUrl.includes('threads.net')) {
+          return 'threads'
+        }
         if (lowerUrl.includes('notion.so') || lowerUrl.includes('notion.site')) {
           return 'notion'
         }
@@ -3667,6 +3733,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
       const detectedIcon = data.icon || getIconFromUrl(data.url)
       const iconPath = detectedIcon ? ICON_PATHS[detectedIcon] : null
       const isFilledIcon = detectedIcon ? FILLED_ICONS.has(detectedIcon) : false
+      const iconViewBox = detectedIcon === "threads" ? "0 0 16 16" : "0 0 24 24"
       // Icon color should match button text color
       const iconColor = theme.button_style === "outline" ? theme.text_color : theme.button_text_color
 
@@ -3828,7 +3895,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
                     <svg
                       width="48"
                       height="48"
-                      viewBox="0 0 24 24"
+                      viewBox={iconViewBox}
                       fill={isFilledIcon ? "currentColor" : "none"}
                       stroke={isFilledIcon ? "none" : "currentColor"}
                       strokeWidth={isFilledIcon ? "0" : "1.5"}
@@ -4082,7 +4149,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               <svg
                 width={s.buttonIcon}
                 height={s.buttonIcon}
-                viewBox="0 0 24 24"
+                viewBox={iconViewBox}
                 fill={isFilledIcon ? "currentColor" : "none"}
                 stroke={isFilledIcon ? "none" : "currentColor"}
                 strokeWidth={isFilledIcon ? "0" : "2"}
@@ -4158,7 +4225,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
               <svg
                 width={s.buttonIcon}
                 height={s.buttonIcon}
-                viewBox="0 0 24 24"
+                viewBox={iconViewBox}
                 fill={isFilledIcon ? "currentColor" : "none"}
                 stroke={isFilledIcon ? "none" : "currentColor"}
                 strokeWidth={isFilledIcon ? "0" : "2"}
@@ -4233,7 +4300,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
             <svg
               width={s.buttonIcon}
               height={s.buttonIcon}
-              viewBox="0 0 24 24"
+              viewBox={iconViewBox}
               fill={isFilledIcon ? "currentColor" : "none"}
               stroke={isFilledIcon ? "none" : "currentColor"}
               strokeWidth={isFilledIcon ? "0" : "2"}

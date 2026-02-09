@@ -77,6 +77,16 @@ export function EditorStickyAddToCart({
   const buttonText = isPurchased ? "Download" : getButtonText(settings.buttonStyle)
   const [showFilesModal, setShowFilesModal] = useState(false)
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
+  const [isMobileViewport, setIsMobileViewport] = useState(false)
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const media = window.matchMedia("(max-width: 639px)")
+    const sync = () => setIsMobileViewport(media.matches)
+    sync()
+    media.addEventListener("change", sync)
+    return () => media.removeEventListener("change", sync)
+  }, [])
 
   const handleDownloadFile = async (assetId: string) => {
     setDownloadingId(assetId)
@@ -218,7 +228,7 @@ export function EditorStickyAddToCart({
 
       {downloadFiles.length > 1 && (
         <>
-          <Dialog open={showFilesModal} onOpenChange={setShowFilesModal}>
+          {!isMobileViewport && <Dialog open={showFilesModal} onOpenChange={setShowFilesModal}>
             <DialogContent className="sm:max-w-lg">
               <DialogHeader>
                 <DialogTitle>{product.title}</DialogTitle>
@@ -235,9 +245,9 @@ export function EditorStickyAddToCart({
                 ))}
               </div>
             </DialogContent>
-          </Dialog>
+          </Dialog>}
 
-          {showFilesModal && (
+          {showFilesModal && isMobileViewport && (
             <div className="sm:hidden fixed inset-0 z-[80] bg-black/45" onClick={() => setShowFilesModal(false)}>
               <div className="absolute bottom-0 left-0 right-0 rounded-t-3xl bg-white p-4 pt-3 shadow-2xl animate-in slide-in-from-bottom duration-300" onClick={(e) => e.stopPropagation()}>
                 <div className="mx-auto mb-3 h-1.5 w-14 rounded-full bg-neutral-200" />
@@ -279,11 +289,18 @@ export function LiveStickyAddToCart({
   const [isMounted, setIsMounted] = useState(false)
   const [showFilesModal, setShowFilesModal] = useState(false)
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
+  const [isMobileViewport, setIsMobileViewport] = useState(false)
   const barRef = useRef<HTMLDivElement>(null)
 
   // Mount on client
   useEffect(() => {
     setIsMounted(true)
+    if (typeof window === "undefined") return
+    const media = window.matchMedia("(max-width: 639px)")
+    const sync = () => setIsMobileViewport(media.matches)
+    sync()
+    media.addEventListener("change", sync)
+    return () => media.removeEventListener("change", sync)
   }, [])
 
   // Handle scroll visibility - show when reaching description section, hide near footer
@@ -535,7 +552,7 @@ export function LiveStickyAddToCart({
 
       {downloadFiles.length > 1 && (
         <>
-          <Dialog open={showFilesModal} onOpenChange={setShowFilesModal}>
+          {!isMobileViewport && <Dialog open={showFilesModal} onOpenChange={setShowFilesModal}>
             <DialogContent className="sm:max-w-lg">
               <DialogHeader>
                 <DialogTitle>{product.title}</DialogTitle>
@@ -552,9 +569,9 @@ export function LiveStickyAddToCart({
                 ))}
               </div>
             </DialogContent>
-          </Dialog>
+          </Dialog>}
 
-          {showFilesModal && (
+          {showFilesModal && isMobileViewport && (
             <div className="sm:hidden fixed inset-0 z-[80] bg-black/45" onClick={() => setShowFilesModal(false)}>
               <div className="absolute bottom-0 left-0 right-0 rounded-t-3xl bg-white p-4 pt-3 shadow-2xl animate-in slide-in-from-bottom duration-300" onClick={(e) => e.stopPropagation()}>
                 <div className="mx-auto mb-3 h-1.5 w-14 rounded-full bg-neutral-200" />

@@ -330,6 +330,10 @@ const SocialIconsSVG: Record<string, React.FC<{ size?: number; color?: string; c
   ),
 }
 
+function getThumbnailIconViewBox(iconId?: string | null) {
+  return iconId === "threads" ? "0 0 16 16" : "0 0 24 24"
+}
+
 // Social platforms configuration with SVG icons
 const SOCIAL_PLATFORMS = [
   { id: "threads", label: "Threads", placeholder: "https://threads.net/@username", color: "#000000" },
@@ -412,7 +416,7 @@ const blockCategories = [
       { type: "link_button" as const, label: "X (Twitter)", description: "Link to X", icon: Share2, preset: { label: "Follow on X", url: "https://x.com/" } },
       { type: "link_button" as const, label: "Facebook", description: "Link to Facebook", icon: Share2, preset: { label: "Follow on Facebook", url: "https://facebook.com/" } },
       { type: "link_button" as const, label: "LinkedIn", description: "Link to LinkedIn", icon: Share2, preset: { label: "Connect on LinkedIn", url: "https://linkedin.com/in/" } },
-      { type: "link_button" as const, label: "Threads", description: "Link to Threads", icon: Share2, preset: { label: "Follow on Threads", url: "https://threads.net/@" } },
+      { type: "link_button" as const, label: "Threads", description: "Link to Threads", icon: ({ className }: { className?: string }) => <SocialIconsSVG.threads size={16} className={className} />, preset: { label: "Follow on Threads", url: "https://threads.net/@" } },
     ],
   },
   {
@@ -594,6 +598,7 @@ export function LinksTab() {
   const [imageFieldType, setImageFieldType] = useState<string | null>(null)
   const [imageUploading, setImageUploading] = useState(false)
   const [showArchiveView, setShowArchiveView] = useState(false)
+  const [isMobileModalViewport, setIsMobileModalViewport] = useState(false)
 
   // Thumbnail modal state
   const [showThumbnailModal, setShowThumbnailModal] = useState(false)
@@ -603,6 +608,17 @@ export function LinksTab() {
   const [iconSearchQuery, setIconSearchQuery] = useState("")
   const [iconCategory, setIconCategory] = useState("all")
   const thumbnailInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    const checkViewport = () => {
+      if (typeof window === 'undefined') return
+      setIsMobileModalViewport(window.innerWidth < 640)
+    }
+
+    checkViewport()
+    window.addEventListener('resize', checkViewport)
+    return () => window.removeEventListener('resize', checkViewport)
+  }, [])
 
   // Streaming service URL modal state
   const [showStreamingUrlModal, setShowStreamingUrlModal] = useState(false)
@@ -724,6 +740,7 @@ export function LinksTab() {
     'at-sign': 'M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94',
     'share': 'M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13',
     'share-2': 'M18 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM18 22a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98',
+    'threads': 'M6.321 6.016c-.27-.18-1.166-.802-1.166-.802.756-1.081 1.753-1.502 3.132-1.502.975 0 1.803.327 2.394.948s.928 1.509 1.005 2.644q.492.207.905.484c1.109.745 1.719 1.86 1.719 3.137 0 2.716-2.226 5.075-6.256 5.075C4.594 16 1 13.987 1 7.994 1 2.034 4.482 0 8.044 0 9.69 0 13.55.243 15 5.036l-1.36.353C12.516 1.974 10.163 1.43 8.006 1.43c-3.565 0-5.582 2.171-5.582 6.79 0 4.143 2.254 6.343 5.63 6.343 2.777 0 4.847-1.443 4.847-3.556 0-1.438-1.208-2.127-1.27-2.127-.236 1.234-.868 3.31-3.644 3.31-1.618 0-3.013-1.118-3.013-2.582 0-2.09 1.984-2.847 3.55-2.847.586 0 1.294.04 1.663.114 0-.637-.54-1.728-1.9-1.728-1.25 0-1.566.405-1.967.868ZM8.716 8.19c-2.04 0-2.304.87-2.304 1.416 0 .878 1.043 1.168 1.6 1.168 1.02 0 2.067-.282 2.232-2.423a6.2 6.2 0 0 0-1.528-.161',
     // Media & Entertainment
     'music': 'M9 18V5l12-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zm12-2a3 3 0 1 1-6 0 3 3 0 0 1 6 0z',
     'video': 'M23 7l-7 5 7 5V7zM14 5H3a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2z',
@@ -1559,23 +1576,32 @@ export function LinksTab() {
       {/* Profile Header with Real SVG Icons */}
       <div className="flex items-center gap-4 pt-[8px] sm:pt-0 pb-5 border-b">
         <div className="relative group cursor-pointer" onClick={() => setShowAvatarEditModal(true)}>
-          <Avatar className="h-14 w-14 border overflow-hidden">
+          <div className="h-14 w-14 border overflow-hidden rounded-full relative bg-gray-100">
             {onepage.avatar_video_url ? (
-              <video
-                src={onepage.avatar_video_url}
-                autoPlay
-                loop
-                muted
-                playsInline
-                className="w-full h-full object-cover"
-              />
-            ) : (
               <>
-                <AvatarImage src={avatar_url || undefined} />
-                <AvatarFallback>{title?.charAt(0) || "?"}</AvatarFallback>
+                {avatar_url ? (
+                  <img src={avatar_url} alt={title || 'Avatar'} className="absolute inset-0 w-full h-full object-cover scale-105 blur-[2px]" />
+                ) : (
+                  <div className="absolute inset-0 bg-gray-200 animate-pulse" />
+                )}
+                <video
+                  src={onepage.avatar_video_url}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  className="relative z-[1] w-full h-full object-cover opacity-0 transition-all duration-500"
+                  onLoadedData={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.filter = 'blur(0px)' }}
+                  onCanPlay={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.filter = 'blur(0px)' }}
+                  onPlaying={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.filter = 'blur(0px)' }}
+                />
               </>
+            ) : avatar_url ? (
+              <img src={avatar_url} alt={title || 'Avatar'} className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">{title?.charAt(0) || "?"}</div>
             )}
-          </Avatar>
+          </div>
           <div className="absolute inset-0 bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
             <Pencil className="h-4 w-4 text-white" />
           </div>
@@ -1852,7 +1878,21 @@ export function LinksTab() {
 
       {/* Add Block Modal - Linktree style without sidebar */}
       <Dialog open={showAddModal} onOpenChange={(open) => { setShowAddModal(open); if (!open) { setSearchQuery(""); setInsertAfterId(null); setAddToGroupId(null); } }}>
-        <DialogContent className="w-[calc(100%-24px)] max-w-[520px] h-auto max-h-[85vh] sm:max-h-[min(680px,85vh)] p-0 gap-0 overflow-hidden rounded-2xl mx-auto flex flex-col">
+        <DialogContent
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          showCloseButton={false}
+          className={cn(
+            "h-auto p-0 gap-0 overflow-hidden mx-auto flex flex-col border-[#ececf1] duration-300 ease-out",
+            isMobileModalViewport
+              ? "top-auto left-0 right-0 bottom-0 translate-x-0 translate-y-0 w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[86vh] data-[state=open]:slide-in-from-bottom-4 data-[state=closed]:slide-out-to-bottom-4 data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100"
+              : "w-[calc(100%-24px)] max-w-[520px] max-h-[85vh] sm:max-h-[min(680px,85vh)] rounded-2xl"
+          )}
+        >
+          {isMobileModalViewport && (
+            <div className="pt-2 pb-1 flex justify-center border-b border-[#f1f1f4]">
+              <div className="h-1 w-10 rounded-full bg-[#d7d7df]" />
+            </div>
+          )}
           {/* Header with title and close button */}
           <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-5 pb-3 bg-white shrink-0">
             <DialogTitle className="text-lg sm:text-xl font-semibold">
@@ -2093,7 +2133,21 @@ export function LinksTab() {
 
       {/* Social Links Modal - Modern Scrollable Vertical List */}
       <Dialog open={showSocialModal} onOpenChange={(open) => { setShowSocialModal(open); if (!open) { setSelectedSocial(null); setSocialUrl(""); setSearchQuery(""); setSocialUrlError(null); } }}>
-        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto max-h-[85vh] flex flex-col">
+        <DialogContent
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          showCloseButton={false}
+          className={cn(
+            "p-0 gap-0 overflow-hidden mx-auto flex flex-col border-[#ececf1] duration-300 ease-out",
+            isMobileModalViewport
+              ? "top-auto left-0 right-0 bottom-0 translate-x-0 translate-y-0 w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[86vh] data-[state=open]:slide-in-from-bottom-4 data-[state=closed]:slide-out-to-bottom-4 data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100"
+              : "w-[calc(100%-32px)] max-w-md rounded-2xl max-h-[85vh]"
+          )}
+        >
+          {isMobileModalViewport && (
+            <div className="pt-2 pb-1 flex justify-center border-b border-[#f1f1f4]">
+              <div className="h-1 w-10 rounded-full bg-[#d7d7df]" />
+            </div>
+          )}
           <DialogHeader className="p-4 sm:p-5 border-b shrink-0">
             <DialogTitle className="text-base sm:text-lg font-semibold">
               {selectedSocial ? "Edit Social Link" : "Add Social Link"}
@@ -2505,7 +2559,7 @@ export function LinksTab() {
                             return <img src={linkData.thumbnail_url} alt="" className="w-full h-full object-cover" />
                           } else if (linkData?.icon && THUMBNAIL_ICON_PATHS[linkData.icon]) {
                             return (
-                              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500">
+                              <svg width="28" height="28" viewBox={getThumbnailIconViewBox(linkData?.icon)} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500">
                                 <path d={THUMBNAIL_ICON_PATHS[linkData.icon]} />
                               </svg>
                             )
@@ -3760,6 +3814,7 @@ function BlockItem({
   const [statsTimeframe, setStatsTimeframe] = useState<'7' | '14' | '30' | 'custom'>('7')
   const [customStartDate, setCustomStartDate] = useState('')
   const [customEndDate, setCustomEndDate] = useState('')
+  const [isMobileStatsViewport, setIsMobileStatsViewport] = useState(false)
   const animationMenuRef = useRef<HTMLDivElement>(null)
   const buttonTextMenuRef = useRef<HTMLDivElement>(null)
 
@@ -3788,6 +3843,17 @@ function BlockItem({
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [showButtonTextMenu])
+
+  useEffect(() => {
+    const checkViewport = () => {
+      if (typeof window === 'undefined') return
+      setIsMobileStatsViewport(window.innerWidth < 640)
+    }
+
+    checkViewport()
+    window.addEventListener('resize', checkViewport)
+    return () => window.removeEventListener('resize', checkViewport)
+  }, [])
 
   // Fetch stats when modal is opened or timeframe changes
   const fetchStats = async (days?: number, startDate?: string, endDate?: string) => {
@@ -3967,7 +4033,7 @@ function BlockItem({
               <svg
                 width="20"
                 height="20"
-                viewBox="0 0 24 24"
+                viewBox={getThumbnailIconViewBox((preview as any).iconId)}
                 fill={filledIcons?.has((preview as any).iconId) ? "currentColor" : "none"}
                 stroke={filledIcons?.has((preview as any).iconId) ? "none" : "currentColor"}
                 strokeWidth={filledIcons?.has((preview as any).iconId) ? "0" : "2"}
@@ -3999,7 +4065,7 @@ function BlockItem({
               <svg
                 width="20"
                 height="20"
-                viewBox="0 0 24 24"
+                viewBox={getThumbnailIconViewBox((preview as any).iconId)}
                 fill={filledIcons?.has((preview as any).iconId) ? "currentColor" : "none"}
                 stroke={filledIcons?.has((preview as any).iconId) ? "none" : "currentColor"}
                 strokeWidth={filledIcons?.has((preview as any).iconId) ? "0" : "2"}
@@ -4135,12 +4201,24 @@ function BlockItem({
 
             {/* Stats Modal */}
             <Dialog open={showStatsModal} onOpenChange={setShowStatsModal}>
-              <DialogContent className="w-[calc(100%-32px)] max-w-[420px] p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+              <DialogContent
+                className={cn(
+                  "p-0 gap-0 overflow-hidden mx-auto border-[#ececf1]",
+                  isMobileStatsViewport
+                    ? "top-auto left-0 right-0 bottom-0 translate-x-0 translate-y-0 w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 data-[state=open]:slide-in-from-bottom-4 data-[state=closed]:slide-out-to-bottom-4"
+                    : "w-[calc(100%-32px)] max-w-[420px] rounded-2xl"
+                )}
+              >
+                {isMobileStatsViewport && (
+                  <div className="pt-2 pb-1 flex justify-center border-b border-[#f1f1f4]">
+                    <div className="h-1 w-10 rounded-full bg-[#d7d7df]" />
+                  </div>
+                )}
                 <DialogHeader className="p-4 border-b">
                   <DialogTitle className="text-base font-semibold">{isGroup ? "Group Stats" : isEmailCapture ? "Form Stats" : isPDFDocument ? "PDF Stats" : isImage ? "Image Stats" : "Link Stats"}</DialogTitle>
                 </DialogHeader>
 
-                <div className="p-4">
+                <div className={cn("p-4", isMobileStatsViewport && "max-h-[75vh] overflow-y-auto pb-[max(16px,env(safe-area-inset-bottom))]")}>
                   {/* Timeframe selector */}
                   <div className="flex gap-2 mb-4">
                     {[

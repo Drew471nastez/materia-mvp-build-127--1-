@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
 import { ArrowRight } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
+import { createClient } from "@/lib/supabase/client"
 
 const TYPING_PHRASES = [
   "Start monetizing your passion...",
@@ -126,6 +127,7 @@ export function Hero() {
   const [isMobile, setIsMobile] = useState(false)
   const [imagesLoaded, setImagesLoaded] = useState(false)
   const [logosLoaded, setLogosLoaded] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
   const loadedImagesCount = useRef(0)
   const loadedLogosCount = useRef(0)
 
@@ -183,6 +185,29 @@ export function Hero() {
     update()
     window.addEventListener("resize", update)
     return () => window.removeEventListener("resize", update)
+  }, [])
+
+  useEffect(() => {
+    const supabase = createClient()
+
+    const syncAuthState = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      setIsAuthenticated(Boolean(user))
+    }
+
+    syncAuthState()
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthenticated(Boolean(session?.user))
+    })
+
+    return () => {
+      subscription.unsubscribe()
+    }
   }, [])
 
   useEffect(() => {
@@ -495,16 +520,16 @@ export function Hero() {
           Discover
         </Link>
         <Link
-          href="/signup"
+          href={isAuthenticated ? "/app" : "/signup"}
           className="inline-flex items-center gap-2 px-6 sm:px-7 py-2.5 sm:py-3 rounded-full text-sm font-semibold bg-violet-600 text-white hover:bg-violet-700 transition-colors"
         >
-          Sign Up
+          {isAuthenticated ? "Dashboard" : "Sign Up"}
           <ArrowRight className="w-3.5 h-3.5" />
         </Link>
       </div>
 
       <p className="text-[16px] sm:text-[19.5px] text-neutral-600 text-center mb-[102px] sm:mb-[127px] max-w-[90%] sm:max-w-[590px] leading-relaxed px-4 mx-auto">
-        The #1 e-commerce platform for creators & entrepreneurs. Create, sell, and grow with your audience.
+        The #1 e-commerce platform for creators & entrepreneurs. Sell products, manage links & grow an audience.
       </p>
 
       <div className="relative w-full">

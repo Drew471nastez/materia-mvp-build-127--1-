@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useState, useEffect, Suspense } from "react"
+import { useState, useEffect, Suspense, useRef } from "react"
 import Image from "next/image"
 import { getCanonicalSiteUrl } from "@/lib/url-helpers"
 
@@ -18,10 +18,13 @@ function SignUpFormContent() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
+  const [isContinueLoading, setIsContinueLoading] = useState(false)
+  const [isRedirecting, setIsRedirecting] = useState(false)
   const [showPasswordField, setShowPasswordField] = useState(false)
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
   const [isBannerLoaded, setIsBannerLoaded] = useState(false)
   const [googleOnlyEmail, setGoogleOnlyEmail] = useState<string | null>(null)
+  const redirectTimeoutRef = useRef<number | null>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
   const claim = searchParams.get("claim")
@@ -31,6 +34,19 @@ function SignUpFormContent() {
   const redirectUrl = searchParams.get("redirect")
   const pendingReview = searchParams.get("pendingReview")
   const autoBuyer = searchParams.get("autoBuyer") // Auto-select buyer account type (from receipt page)
+
+  const navigateWithFallback = (url: string) => {
+    setIsRedirecting(true)
+    router.push(url)
+    if (typeof window !== "undefined") {
+      if (redirectTimeoutRef.current) {
+        window.clearTimeout(redirectTimeoutRef.current)
+      }
+      redirectTimeoutRef.current = window.setTimeout(() => {
+        window.location.assign(url)
+      }, 1500)
+    }
+  }
 
   const lookupAccountOrigin = async (rawEmail: string) => {
     const emailToCheck = rawEmail.trim().toLowerCase()
@@ -67,6 +83,14 @@ function SignUpFormContent() {
   }, [router])
 
   useEffect(() => {
+    return () => {
+      if (redirectTimeoutRef.current && typeof window !== "undefined") {
+        window.clearTimeout(redirectTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
     if (prefilledEmail) {
       setEmail(prefilledEmail)
     }
@@ -86,6 +110,7 @@ function SignUpFormContent() {
         return
       }
 
+      setIsContinueLoading(true)
       try {
         const origin = await lookupAccountOrigin(email)
         if (origin?.exists && origin?.googleOnly) {
@@ -98,6 +123,9 @@ function SignUpFormContent() {
           return
         }
       } catch {}
+      finally {
+        setIsContinueLoading(false)
+      }
 
       setGoogleOnlyEmail(null)
       setShowPasswordField(true)
@@ -176,7 +204,7 @@ function SignUpFormContent() {
           } catch (claimError) {
             console.error("Failed to claim purchase:", claimError)
           }
-          router.push(`/receipt/${receiptToken}`)
+          navigateWithFallback(`/receipt/${receiptToken}`)
           router.refresh()
           return
         }
@@ -190,7 +218,7 @@ function SignUpFormContent() {
         if (pendingReview === "true") {
           verifyUrl += `&pendingReview=true`
         }
-        router.push(verifyUrl)
+        navigateWithFallback(verifyUrl)
         router.refresh()
       }
     } catch (error: unknown) {
@@ -269,7 +297,7 @@ function SignUpFormContent() {
   const isFormValid = agreeToTerms
 
   // Show loading while checking auth status
-  if (isCheckingAuth) {
+  if (isCheckingAuth || isRedirecting) {
     return (
       <div className="flex min-h-svh w-full items-center justify-center">
         <div className="text-center">
@@ -288,9 +316,9 @@ function SignUpFormContent() {
             <img
               src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
               alt="Storelib"
-              className="h-12 w-12 md:h-10 md:w-10"
+              className="h-[46px] w-[46px] md:h-[38px] md:w-[38px]"
             />
-            <span className="text-3xl md:text-2xl font-bold tracking-tight text-neutral-900">Storelib</span>
+            <span className="text-[29px] md:text-[23px] font-bold tracking-tight text-neutral-900">Storelib</span>
           </Link>
 
           <h1 className="mb-2 text-[32px] font-bold tracking-tight text-neutral-900">Join Storelib</h1>
@@ -349,13 +377,13 @@ function SignUpFormContent() {
             <Button
               type="submit"
               className="h-12 w-full rounded-full bg-neutral-200 text-[15px] font-semibold text-neutral-400 hover:bg-neutral-300 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={isLoading || !isFormValid}
+              disabled={isLoading || isContinueLoading || !isFormValid}
               style={{
                 backgroundColor: isFormValid ? "#171717" : undefined,
                 color: isFormValid ? "#fff" : undefined,
               }}
             >
-              {isLoading ? "Creating account..." : "Continue"}
+              {isLoading ? "Creating account..." : isContinueLoading ? "Checking..." : "Continue"}
             </Button>
           </form>
 

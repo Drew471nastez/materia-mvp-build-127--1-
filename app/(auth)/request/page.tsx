@@ -139,7 +139,7 @@ export default function RequestPasswordResetPage() {
           <Button
             type="submit"
             disabled={isLoading || !email.trim()}
-            className="h-12 w-full rounded-full bg-neutral-200 text-[15px] font-semibold text-neutral-400 hover:bg-neutral-300 hover:text-neutral-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="h-12 w-full rounded-full bg-neutral-200 text-[15px] font-semibold text-black hover:bg-neutral-300 hover:text-black disabled:opacity-50 disabled:cursor-not-allowed disabled:text-neutral-400"
           >
             {isLoading ? "Sending..." : "Send Email"}
           </Button>

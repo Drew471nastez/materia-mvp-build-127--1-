@@ -152,6 +152,7 @@ export default async function AppDashboard() {
       initialOrders={allOrders}
       initialTotalOrders={totalOrders}
       initialTotalRevenue={totalRevenue}
+      creatorHandle={profile?.username || creator.slug || ""}
     />
   )
 }
