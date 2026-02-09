@@ -92,6 +92,7 @@ export function ProductsTab() {
   const [addingProductId, setAddingProductId] = useState<string | null>(null)
   const [addedProductIds, setAddedProductIds] = useState<Set<string>>(new Set())
   const [notification, setNotification] = useState<{ message: string; visible: boolean }>({ message: "", visible: false })
+  const [isMobileViewport, setIsMobileViewport] = useState(false)
   const router = useRouter()
 
   // Show notification and auto-hide after 3 seconds
@@ -254,6 +255,16 @@ export function ProductsTab() {
       window.location.href = `/app/products/new?type=${option.id}`
     }
   }
+
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const media = window.matchMedia("(max-width: 767px)")
+    const sync = () => setIsMobileViewport(media.matches)
+    sync()
+    media.addEventListener("change", sync)
+    return () => media.removeEventListener("change", sync)
+  }, [])
 
   // Filter products by search
   const filteredProducts = products.filter(p =>
@@ -452,9 +463,9 @@ export function ProductsTab() {
         </div>
       </div>
 
-      {/* Add Product Modal - Similar to Links tab Add Block modal */}
-      <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
-        <DialogContent className="max-w-[520px] max-h-[680px] p-0 gap-0 overflow-hidden">
+      {/* Add Product Modal - desktop dialog + mobile bottom sheet */}
+      <Dialog open={showAddModal && !isMobileViewport} onOpenChange={setShowAddModal}>
+        <DialogContent onOpenAutoFocus={(e) => e.preventDefault()} className="max-w-[520px] max-h-[680px] p-0 gap-0 overflow-hidden">
           <div className="p-6 pb-4 border-b">
             <DialogTitle className="text-lg font-semibold">Add Product</DialogTitle>
             <p className="text-sm text-muted-foreground mt-1">
@@ -504,6 +515,45 @@ export function ProductsTab() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {showAddModal && isMobileViewport && (
+        <div className="fixed inset-0 z-[120] md:hidden">
+          <div className="absolute inset-0 bg-black/45" onClick={() => setShowAddModal(false)} />
+          <div className="absolute bottom-0 left-0 right-0 rounded-t-3xl bg-white p-4 pt-3 shadow-2xl animate-in slide-in-from-bottom duration-300">
+            <div className="mx-auto mb-3 h-1.5 w-14 rounded-full bg-neutral-200" />
+            <div className="mb-3 border-b pb-3">
+              <h3 className="text-base font-semibold">Add Product</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">Choose what you want to add to your page</p>
+            </div>
+            <div className="max-h-[65vh] space-y-2 overflow-y-auto pb-2">
+              {productTypeOptions.map((option) => {
+                const Icon = option.icon
+                const isComingSoon = (option as any).comingSoon === true
+                return (
+                  <button
+                    key={option.id}
+                    onClick={() => handleModalOptionClick(option as any)}
+                    disabled={isComingSoon}
+                    className={cn(
+                      "w-full flex items-center gap-3 p-3 border rounded-xl transition-all text-left",
+                      isComingSoon ? "opacity-60 cursor-not-allowed bg-gray-50" : "hover:border-violet-300 hover:bg-violet-50/50"
+                    )}
+                  >
+                    <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0", option.color, isComingSoon && "opacity-60")}>
+                      <Icon className="h-5 w-5 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm">{option.title}</p>
+                      <p className="text-xs text-muted-foreground">{option.description}</p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-gray-400" />
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

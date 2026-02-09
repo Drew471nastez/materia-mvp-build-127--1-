@@ -190,9 +190,9 @@ export default function VerifyEmailContent() {
             <img
               src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
               alt="Storelib"
-              className="h-10 w-10"
+              className="h-[38px] w-[38px]"
             />
-            <span className="text-2xl font-bold tracking-tight text-neutral-900">Storelib</span>
+            <span className="text-[23px] font-bold tracking-tight text-neutral-900">Storelib</span>
           </Link>
 
           {success ? (

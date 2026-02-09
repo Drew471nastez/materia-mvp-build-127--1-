@@ -11,12 +11,12 @@ import {
   X, Check, Loader2, AlertCircle, Mail, Lock,
   CreditCard, Store, Shield, Settings, Wallet,
   Camera, ExternalLink, ChevronRight, Globe,
-  User, Palette, Link2, FileText, Search, ChevronLeft, Upload, Copy, Pencil,
+  User, Palette, Link2, FileText, Search, ChevronLeft, Upload, Pencil,
   ToggleLeft, LogOut, Trash2, Languages, Info, ChevronDown
 } from "lucide-react"
 import type { Profile, Creator } from "@/lib/types"
 import { isValidUsername } from "@/lib/reserved-words"
-import { getStoreUrl, getStoreUrlDisplay } from "@/lib/url-helpers"
+import { getLinksUrl, getStoreUrl, getStoreUrlDisplay } from "@/lib/url-helpers"
 import { useLanguage, LANGUAGES } from "@/lib/i18n"
 import Image from "next/image"
 
@@ -1358,16 +1358,24 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     setEmailChangeSuccess(false)
   }
 
-  // Store URL for copy
-  const [copied, setCopied] = useState(false)
-  const handleCopyStoreUrl = () => {
-    navigator.clipboard.writeText(storeUrl)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
+  // Header quick access
+  const [isQuickAccessOpen, setIsQuickAccessOpen] = useState(false)
+  const quickAccessRef = useRef<HTMLDivElement | null>(null)
 
   const settingsHandleBase = creator?.username || profile?.username || storeUrlDisplay.split(".")[0] || "store"
   const settingsHandleLabel = `@${settingsHandleBase}`
+  const onepageUrl = getLinksUrl(settingsHandleBase)
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      if (quickAccessRef.current && !quickAccessRef.current.contains(target)) {
+        setIsQuickAccessOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
 
   return (
     <>
@@ -1387,18 +1395,22 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
       <div className="h-full overflow-y-scroll overflow-x-hidden page-scroll bg-[#fafafa]" style={{ scrollbarGutter: 'stable' }}>
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-28 sm:pb-52 overflow-x-hidden">
-        {/* Header with Store URL */}
-        <div className="mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        {/* Header with Handle pill */}
+        <div className="mb-6 flex items-start justify-between gap-3">
           <div>
             <h1 className="text-[22px] sm:text-[28px] font-bold text-[#1a1a2e]">{t("settings.title")}</h1>
             <p className="text-[14px] text-[#6b7280] mt-1">{t("settings.subtitle")}</p>
           </div>
-          {/* Store URL with dashboard-style handle pill + copy */}
-          <div className="flex items-center gap-2">
-            <a
-              href={storeUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+          <div ref={quickAccessRef} className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                if (isMobileViewport) {
+                  setIsQuickAccessOpen(true)
+                  return
+                }
+                setIsQuickAccessOpen((v) => !v)
+              }}
               className="relative inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-[#e5e7eb] bg-white/90 text-[12px] font-medium text-[#4b5563] hover:text-[#111827] hover:border-[#d1d5db] hover:bg-white transition-all cursor-pointer overflow-hidden"
             >
               <span className="absolute -inset-px rounded-full opacity-45 pointer-events-none animate-[spin_12s_linear_infinite] bg-[conic-gradient(from_0deg,transparent_0deg,transparent_270deg,rgba(139,92,246,0.30)_320deg,transparent_360deg)]" />
@@ -1407,21 +1419,50 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 {settingsHandleLabel}
                 <ExternalLink className="h-3.5 w-3.5 text-[#9ca3af]" />
               </span>
-            </a>
-            <button
-              type="button"
-              onClick={handleCopyStoreUrl}
-              className="p-1.5 rounded-lg hover:bg-[#f3f4f6] transition-colors"
-              title="Copy store URL"
-            >
-              {copied ? (
-                <Check className="h-4 w-4 text-emerald-500" />
-              ) : (
-                <Copy className="h-4 w-4 text-[#9ca3af] hover:text-[#6b7280]" />
-              )}
             </button>
+
+            {!isMobileViewport && isQuickAccessOpen && (
+              <div className="absolute right-0 top-full mt-2 w-[280px] rounded-2xl border border-[#e5e7eb] bg-white shadow-xl p-2 z-50 origin-top-right animate-in fade-in zoom-in-95 duration-200">
+                <p className="px-2 pt-1 pb-2 text-[11px] text-[#6b7280]">Quick access</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.open(onepageUrl, "_blank", "noopener,noreferrer")
+                    setIsQuickAccessOpen(false)
+                  }}
+                  className="w-full text-left rounded-xl p-3 hover:bg-[#f9fafb] transition-colors cursor-pointer"
+                >
+                  <p className="text-[13px] font-semibold text-[#111827]">OnePage</p>
+                  <p className="text-[11px] text-[#6b7280] truncate mt-1">{onepageUrl}</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.open(storeUrl, "_blank", "noopener,noreferrer")
+                    setIsQuickAccessOpen(false)
+                  }}
+                  className="w-full text-left rounded-xl p-3 hover:bg-[#f9fafb] transition-colors cursor-pointer"
+                >
+                  <p className="text-[13px] font-semibold text-[#111827]">Store</p>
+                  <p className="text-[11px] text-[#6b7280] truncate mt-1">{storeUrl}</p>
+                </button>
+              </div>
+            )}
           </div>
         </div>
+
+        <MobileBottomSheet isOpen={isMobileViewport && isQuickAccessOpen} onClose={() => setIsQuickAccessOpen(false)} title="Quick access">
+          <div className="space-y-2">
+            <button type="button" onClick={() => { window.open(onepageUrl, "_blank", "noopener,noreferrer"); setIsQuickAccessOpen(false) }} className="w-full text-left rounded-xl border border-[#ececf1] p-3">
+              <p className="text-[14px] font-semibold text-[#111827]">OnePage</p>
+              <p className="text-[12px] text-[#6b7280] truncate mt-1">{onepageUrl}</p>
+            </button>
+            <button type="button" onClick={() => { window.open(storeUrl, "_blank", "noopener,noreferrer"); setIsQuickAccessOpen(false) }} className="w-full text-left rounded-xl border border-[#ececf1] p-3">
+              <p className="text-[14px] font-semibold text-[#111827]">Store</p>
+              <p className="text-[12px] text-[#6b7280] truncate mt-1">{storeUrl}</p>
+            </button>
+          </div>
+        </MobileBottomSheet>
 
         {/* Pill-shaped Tab Navigation - Hidden scrollbar, fixed height to prevent layout shift */}
         <div className="mb-6 sm:mb-8 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">

@@ -16,6 +16,8 @@ function LoginFormContent() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
+  const [isContinueLoading, setIsContinueLoading] = useState(false)
+  const [isRedirecting, setIsRedirecting] = useState(false)
   const [showPasswordField, setShowPasswordField] = useState(false)
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
   const [isBannerLoaded, setIsBannerLoaded] = useState(false)
@@ -73,6 +75,7 @@ function LoginFormContent() {
         return
       }
 
+      setIsContinueLoading(true)
       try {
         const origin = await lookupAccountOrigin(email)
         if (origin?.googleOnly) {
@@ -82,6 +85,9 @@ function LoginFormContent() {
           return
         }
       } catch {}
+      finally {
+        setIsContinueLoading(false)
+      }
 
       setGoogleOnlyEmail(null)
       setShowPasswordField(true)
@@ -139,6 +145,7 @@ function LoginFormContent() {
           }
           // Clear the stored redirect
           localStorage.removeItem("storelib_auth_redirect")
+          setIsRedirecting(true)
           router.push(finalUrl)
           router.refresh()
           return
@@ -149,6 +156,7 @@ function LoginFormContent() {
 
         if (!welcomeShown) {
           // User hasn't completed welcome selection - redirect to signup/success
+          setIsRedirecting(true)
           router.push("/signup/success")
           router.refresh()
           return
@@ -163,18 +171,22 @@ function LoginFormContent() {
 
         if (creator) {
           if (creator.onboarding_completed === false) {
-            router.push("/signup/success")
+            setIsRedirecting(true)
+          router.push("/signup/success")
           } else {
+            setIsRedirecting(true)
             router.push("/app")
           }
         } else {
           // No creator record - check user type from localStorage
           const userType = localStorage.getItem("storelib_user_type")
           if (userType === "buyer") {
+            setIsRedirecting(true)
             router.push("/library")
           } else {
             // Default to signup/success for creators or unknown
-            router.push("/signup/success")
+            setIsRedirecting(true)
+          router.push("/signup/success")
           }
         }
         router.refresh()
@@ -251,7 +263,7 @@ function LoginFormContent() {
   }
 
   // Show loading while checking auth status
-  if (isCheckingAuth) {
+  if (isCheckingAuth || isRedirecting) {
     return (
       <div className="flex min-h-svh w-full items-center justify-center">
         <div className="text-center">
@@ -270,9 +282,9 @@ function LoginFormContent() {
             <img
               src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
               alt="Storelib"
-              className="h-12 w-12 md:h-10 md:w-10"
+              className="h-[46px] w-[46px] md:h-[38px] md:w-[38px]"
             />
-            <span className="text-3xl md:text-2xl font-bold tracking-tight text-neutral-900">Storelib</span>
+            <span className="text-[29px] md:text-[23px] font-bold tracking-tight text-neutral-900">Storelib</span>
           </Link>
 
           <h1 className="mb-2 text-[32px] font-bold tracking-tight text-neutral-900">Welcome back</h1>
@@ -318,9 +330,9 @@ function LoginFormContent() {
             <Button
               type="submit"
               className="h-12 w-full rounded-full bg-neutral-900 text-[15px] font-semibold text-white hover:bg-neutral-800 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={isLoading}
+              disabled={isLoading || isContinueLoading}
             >
-              {isLoading ? "Logging in..." : "Continue"}
+              {isLoading ? "Logging in..." : isContinueLoading ? "Checking..." : "Continue"}
             </Button>
           </form>
 

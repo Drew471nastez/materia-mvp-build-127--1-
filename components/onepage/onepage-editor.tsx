@@ -194,6 +194,7 @@ function EditorLayout() {
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null)
   const [isSavingForNav, setIsSavingForNav] = useState(false)
   const [showProUpgradeDialog, setShowProUpgradeDialog] = useState(false)
+  const [showSaveToast, setShowSaveToast] = useState(false)
 
   // =====================================================
   // ONBOARDING STATE - Fetch directly from database
@@ -201,6 +202,14 @@ function EditorLayout() {
   // =====================================================
   
   const [showOnboarding, setShowOnboarding] = useState(false) // Start with false, check DB
+
+  useEffect(() => {
+    if (saveState === "saved" && !isDirty) {
+      setShowSaveToast(true)
+      const timer = setTimeout(() => setShowSaveToast(false), 4000)
+      return () => clearTimeout(timer)
+    }
+  }, [saveState, isDirty])
   const [onboardingChecked, setOnboardingChecked] = useState(false) // Track if we've checked
   const completedThisSessionRef = useRef(false)
   
@@ -504,6 +513,9 @@ function EditorLayout() {
       className="flex flex-col bg-gray-50/50 fixed left-0 right-0 bottom-0 top-[68px] md:inset-y-0 md:left-64 md:top-0"
       style={{ zIndex: 10 }}
     >
+      <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-[140] transition-all duration-300 ease-out ${showSaveToast ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2 pointer-events-none"}`}>
+        <div className="bg-[#1a1a2e] text-white px-4 py-2.5 rounded-xl shadow-lg text-sm font-medium">OnePage saved</div>
+      </div>
       {/* Header - ALWAYS visible with solid background */}
       <header className="flex items-center justify-between border-b bg-white px-3 sm:px-4 md:px-6 h-[56px] sm:h-[60px] shrink-0 relative z-30 gap-2 overflow-hidden">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">

@@ -1866,7 +1866,7 @@ export function LinksTab() {
 
       {/* Add Block Modal - Linktree style without sidebar */}
       <Dialog open={showAddModal} onOpenChange={(open) => { setShowAddModal(open); if (!open) { setSearchQuery(""); setInsertAfterId(null); setAddToGroupId(null); } }}>
-        <DialogContent className="w-[calc(100%-24px)] max-w-[520px] h-auto max-h-[85vh] sm:max-h-[min(680px,85vh)] p-0 gap-0 overflow-hidden rounded-2xl mx-auto flex flex-col">
+        <DialogContent onOpenAutoFocus={(e) => e.preventDefault()} className="w-[calc(100%-24px)] max-w-[520px] h-auto max-h-[85vh] sm:max-h-[min(680px,85vh)] p-0 gap-0 overflow-hidden rounded-2xl mx-auto flex flex-col">
           {/* Header with title and close button */}
           <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-5 pb-3 bg-white shrink-0">
             <DialogTitle className="text-lg sm:text-xl font-semibold">
@@ -2107,7 +2107,7 @@ export function LinksTab() {
 
       {/* Social Links Modal - Modern Scrollable Vertical List */}
       <Dialog open={showSocialModal} onOpenChange={(open) => { setShowSocialModal(open); if (!open) { setSelectedSocial(null); setSocialUrl(""); setSearchQuery(""); setSocialUrlError(null); } }}>
-        <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto max-h-[85vh] flex flex-col">
+        <DialogContent onOpenAutoFocus={(e) => e.preventDefault()} className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto max-h-[85vh] flex flex-col">
           <DialogHeader className="p-4 sm:p-5 border-b shrink-0">
             <DialogTitle className="text-base sm:text-lg font-semibold">
               {selectedSocial ? "Edit Social Link" : "Add Social Link"}
