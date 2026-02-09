@@ -96,7 +96,6 @@ export function ProductsTab() {
   const [addProductSheetDragY, setAddProductSheetDragY] = useState(0)
   const [isAddProductSheetDragging, setIsAddProductSheetDragging] = useState(false)
   const addProductSheetStartYRef = useRef(0)
-  const [isAddProductModalAnimating, setIsAddProductModalAnimating] = useState(false)
   const router = useRouter()
 
   // Show notification and auto-hide after 3 seconds
@@ -148,21 +147,6 @@ export function ProductsTab() {
     fetchProducts()
   }, [])
 
-  useEffect(() => {
-    if (showAddModal && !isAddProductModalAnimating) {
-      // Modal opening - start animation
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          setIsAddProductModalAnimating(true)
-        })
-      })
-    } else if (!showAddModal && isAddProductModalAnimating) {
-      // Modal closing - stop animation immediately
-      setIsAddProductModalAnimating(false)
-      setAddProductSheetDragY(0)
-      setIsAddProductSheetDragging(false)
-    }
-  }, [showAddModal, isAddProductModalAnimating])
 
   // Get badge info for product type
   const getProductBadge = (type?: string) => {
@@ -488,6 +472,8 @@ export function ProductsTab() {
         <DialogContent
           onOpenAutoFocus={(e) => e.preventDefault()}
           showCloseButton={false}
+          disableDefaultAnimations={isMobileViewport}
+          overlayClassName={isMobileViewport ? "data-[state=open]:animate-none data-[state=closed]:animate-none bg-black/40" : undefined}
           onTouchStart={(e) => {
             if (!isMobileViewport) return
             const touchY = e.touches[0]?.clientY ?? 0
@@ -529,7 +515,7 @@ export function ProductsTab() {
             left: 0,
             right: 0,
             bottom: 0,
-            transform: isAddProductModalAnimating ? `translateY(${addProductSheetDragY}px)` : "translateY(100%)",
+            transform: showAddModal ? `translateY(${addProductSheetDragY}px)` : "translateY(100%)",
             transition: isAddProductSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
             maxHeight: '75vh'
           } : undefined}

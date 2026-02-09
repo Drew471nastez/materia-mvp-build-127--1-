@@ -605,8 +605,6 @@ export function LinksTab() {
   const [socialSheetDragY, setSocialSheetDragY] = useState(0)
   const [isSocialSheetDragging, setIsSocialSheetDragging] = useState(false)
   const socialSheetStartYRef = useRef(0)
-  const [isAddModalAnimating, setIsAddModalAnimating] = useState(false)
-  const [isSocialModalAnimating, setIsSocialModalAnimating] = useState(false)
 
   // Thumbnail modal state
   const [showThumbnailModal, setShowThumbnailModal] = useState(false)
@@ -628,37 +626,7 @@ export function LinksTab() {
     return () => window.removeEventListener('resize', checkViewport)
   }, [])
 
-  useEffect(() => {
-    if (showAddModal && !isAddModalAnimating) {
-      // Modal opening - start animation
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          setIsAddModalAnimating(true)
-        })
-      })
-    } else if (!showAddModal && isAddModalAnimating) {
-      // Modal closing - stop animation immediately
-      setIsAddModalAnimating(false)
-      setAddSheetDragY(0)
-      setIsAddSheetDragging(false)
-    }
-  }, [showAddModal, isAddModalAnimating])
 
-  useEffect(() => {
-    if (showSocialModal && !isSocialModalAnimating) {
-      // Modal opening - start animation
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          setIsSocialModalAnimating(true)
-        })
-      })
-    } else if (!showSocialModal && isSocialModalAnimating) {
-      // Modal closing - stop animation immediately
-      setIsSocialModalAnimating(false)
-      setSocialSheetDragY(0)
-      setIsSocialSheetDragging(false)
-    }
-  }, [showSocialModal, isSocialModalAnimating])
 
   // Streaming service URL modal state
   const [showStreamingUrlModal, setShowStreamingUrlModal] = useState(false)
@@ -1921,6 +1889,8 @@ export function LinksTab() {
         <DialogContent
           onOpenAutoFocus={(e) => e.preventDefault()}
           showCloseButton={false}
+          disableDefaultAnimations={isMobileModalViewport}
+          overlayClassName={isMobileModalViewport ? "data-[state=open]:animate-none data-[state=closed]:animate-none bg-black/40" : undefined}
           onTouchStart={(e) => {
             if (!isMobileModalViewport) return
             const touchY = e.touches[0]?.clientY ?? 0
@@ -1965,7 +1935,7 @@ export function LinksTab() {
             left: 0,
             right: 0,
             bottom: 0,
-            transform: isAddModalAnimating ? `translateY(${addSheetDragY}px)` : "translateY(100%)",
+            transform: showAddModal ? `translateY(${addSheetDragY}px)` : "translateY(100%)",
             transition: isAddSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
             maxHeight: '75vh'
           } : undefined}
@@ -2218,6 +2188,8 @@ export function LinksTab() {
         <DialogContent
           onOpenAutoFocus={(e) => e.preventDefault()}
           showCloseButton={false}
+          disableDefaultAnimations={isMobileModalViewport}
+          overlayClassName={isMobileModalViewport ? "data-[state=open]:animate-none data-[state=closed]:animate-none bg-black/40" : undefined}
           onTouchStart={(e) => {
             if (!isMobileModalViewport) return
             const touchY = e.touches[0]?.clientY ?? 0
@@ -2263,7 +2235,7 @@ export function LinksTab() {
             left: 0,
             right: 0,
             bottom: 0,
-            transform: isSocialModalAnimating ? `translateY(${socialSheetDragY}px)` : "translateY(100%)",
+            transform: showSocialModal ? `translateY(${socialSheetDragY}px)` : "translateY(100%)",
             transition: isSocialSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
             maxHeight: '75vh'
           } : undefined}
