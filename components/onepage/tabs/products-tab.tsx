@@ -33,7 +33,7 @@ import {
   Check,
   GraduationCap,
 } from "lucide-react"
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 
@@ -92,6 +92,10 @@ export function ProductsTab() {
   const [addingProductId, setAddingProductId] = useState<string | null>(null)
   const [addedProductIds, setAddedProductIds] = useState<Set<string>>(new Set())
   const [notification, setNotification] = useState<{ message: string; visible: boolean }>({ message: "", visible: false })
+  const [isMobileViewport, setIsMobileViewport] = useState(false)
+  const [addProductSheetDragY, setAddProductSheetDragY] = useState(0)
+  const [isAddProductSheetDragging, setIsAddProductSheetDragging] = useState(false)
+  const addProductSheetStartYRef = useRef(0)
   const router = useRouter()
 
   // Show notification and auto-hide after 3 seconds
@@ -142,6 +146,13 @@ export function ProductsTab() {
 
     fetchProducts()
   }, [])
+
+  useEffect(() => {
+    if (!showAddModal) {
+      setAddProductSheetDragY(0)
+      setIsAddProductSheetDragging(false)
+    }
+  }, [showAddModal])
 
   // Get badge info for product type
   const getProductBadge = (type?: string) => {
@@ -254,6 +265,16 @@ export function ProductsTab() {
       window.location.href = `/app/products/new?type=${option.id}`
     }
   }
+
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const media = window.matchMedia("(max-width: 767px)")
+    const sync = () => setIsMobileViewport(media.matches)
+    sync()
+    media.addEventListener("change", sync)
+    return () => media.removeEventListener("change", sync)
+  }, [])
 
   // Filter products by search
   const filteredProducts = products.filter(p =>
@@ -452,56 +473,136 @@ export function ProductsTab() {
         </div>
       </div>
 
-      {/* Add Product Modal - Similar to Links tab Add Block modal */}
+      {/* Add Product Modal - desktop dialog + mobile bottom sheet */}
       <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
-        <DialogContent className="max-w-[520px] max-h-[680px] p-0 gap-0 overflow-hidden">
-          <div className="p-6 pb-4 border-b">
-            <DialogTitle className="text-lg font-semibold">Add Product</DialogTitle>
-            <p className="text-sm text-muted-foreground mt-1">
-              Choose what you want to add to your page
-            </p>
-          </div>
-
-          <div className="p-4 overflow-y-auto max-h-[500px]">
-            <div className="grid gap-3">
-              {productTypeOptions.map((option) => {
-                const Icon = option.icon
-                const isComingSoon = (option as any).comingSoon === true
-                return (
-                  <button
-                    key={option.id}
-                    onClick={() => handleModalOptionClick(option as any)}
-                    disabled={isComingSoon}
-                    className={cn(
-                      "flex items-center gap-4 p-4 border rounded-xl transition-all text-left group",
-                      isComingSoon
-                        ? "opacity-60 cursor-not-allowed bg-gray-50"
-                        : "hover:border-violet-300 hover:bg-violet-50/50"
-                    )}
-                  >
-                    <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center shrink-0", option.color, isComingSoon && "opacity-60")}>
-                      <Icon className="h-6 w-6 text-white" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium">{option.title}</p>
-                        <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-medium", option.badgeColor)}>
-                          {option.badge}
-                        </span>
-                        {isComingSoon && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-gray-200 text-gray-500">
-                            Coming Soon
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-sm text-muted-foreground mt-0.5">{option.description}</p>
-                    </div>
-                    <ChevronRight className={cn("h-5 w-5 text-gray-400 transition-colors", !isComingSoon && "group-hover:text-violet-500")} />
-                  </button>
-                )
-              })}
+        <DialogContent
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          showCloseButton={false}
+          onTouchStart={(e) => {
+            if (!isMobileViewport) return
+            const touchY = e.touches[0]?.clientY ?? 0
+            const bounds = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
+            if (touchY - bounds.top <= 72) {
+              addProductSheetStartYRef.current = touchY
+              setIsAddProductSheetDragging(true)
+            }
+          }}
+          onTouchMove={(e) => {
+            if (!isMobileViewport || !isAddProductSheetDragging) return
+            const diff = (e.touches[0]?.clientY ?? 0) - addProductSheetStartYRef.current
+            if (diff > 0) {
+              e.preventDefault()
+              setAddProductSheetDragY(diff * 0.82)
+            }
+          }}
+          onTouchEnd={() => {
+            if (!isMobileViewport || !isAddProductSheetDragging) return
+            setIsAddProductSheetDragging(false)
+            if (addProductSheetDragY > 90) {
+              setShowAddModal(false)
+              setAddProductSheetDragY(0)
+              return
+            }
+            setAddProductSheetDragY(0)
+          }}
+          className={cn(
+            "p-0 gap-0 overflow-hidden border-[#ececf1] duration-300 ease-out",
+            isMobileViewport
+              ? "top-auto left-0 right-0 bottom-0 translate-x-0 translate-y-0 w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[64vh] data-[state=open]:slide-in-from-bottom-4 data-[state=closed]:slide-out-to-bottom-4 data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100"
+              : "max-w-[520px] max-h-[680px] rounded-2xl"
+          )}
+          style={isMobileViewport ? { transform: `translateY(${addProductSheetDragY}px)`, transition: isAddProductSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)' } : undefined}
+        >
+          {isMobileViewport && (
+            <div className="pt-2 pb-1 flex justify-center border-b border-[#f1f1f4]">
+              <div className="h-1 w-10 rounded-full bg-[#d7d7df]" />
             </div>
-          </div>
+          )}
+
+          {isMobileViewport ? (
+            <>
+              <div className="px-4 pt-2 pb-3 border-b">
+                <DialogTitle className="text-base font-semibold">Add Product</DialogTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">Choose what you want to add to your page</p>
+              </div>
+              <div className="max-h-[65vh] space-y-2 overflow-y-auto p-4 pb-[max(12px,env(safe-area-inset-bottom))]">
+                {productTypeOptions.map((option) => {
+                  const Icon = option.icon
+                  const isComingSoon = (option as any).comingSoon === true
+                  return (
+                    <button
+                      key={option.id}
+                      onClick={() => handleModalOptionClick(option as any)}
+                      disabled={isComingSoon}
+                      className={cn(
+                        "w-full flex items-center gap-3 p-3 border rounded-xl transition-all text-left",
+                        isComingSoon ? "opacity-60 cursor-not-allowed bg-gray-50" : "hover:border-violet-300 hover:bg-violet-50/50"
+                      )}
+                    >
+                      <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0", option.color, isComingSoon && "opacity-60")}>
+                        <Icon className="h-5 w-5 text-white" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm">{option.title}</p>
+                        <p className="text-xs text-muted-foreground">{option.description}</p>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-gray-400" />
+                    </button>
+                  )
+                })}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="p-6 pb-4 border-b">
+                <DialogTitle className="text-lg font-semibold">Add Product</DialogTitle>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Choose what you want to add to your page
+                </p>
+              </div>
+
+              <div className="p-4 overflow-y-auto max-h-[500px]">
+                <div className="grid gap-3">
+                  {productTypeOptions.map((option) => {
+                    const Icon = option.icon
+                    const isComingSoon = (option as any).comingSoon === true
+                    return (
+                      <button
+                        key={option.id}
+                        onClick={() => handleModalOptionClick(option as any)}
+                        disabled={isComingSoon}
+                        className={cn(
+                          "flex items-center gap-4 p-4 border rounded-xl transition-all text-left group",
+                          isComingSoon
+                            ? "opacity-60 cursor-not-allowed bg-gray-50"
+                            : "hover:border-violet-300 hover:bg-violet-50/50"
+                        )}
+                      >
+                        <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center shrink-0", option.color, isComingSoon && "opacity-60")}>
+                          <Icon className="h-6 w-6 text-white" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium">{option.title}</p>
+                            <span className={cn("text-[10px] px-1.5 py-0.5 rounded-full font-medium", option.badgeColor)}>
+                              {option.badge}
+                            </span>
+                            {isComingSoon && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-gray-200 text-gray-500">
+                                Coming Soon
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm text-muted-foreground mt-0.5">{option.description}</p>
+                        </div>
+                        <ChevronRight className={cn("h-5 w-5 text-gray-400 transition-colors", !isComingSoon && "group-hover:text-violet-500")} />
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </div>
