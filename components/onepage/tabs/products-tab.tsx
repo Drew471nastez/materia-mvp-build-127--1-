@@ -467,10 +467,11 @@ export function ProductsTab() {
       <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
         <DialogContent
           onOpenAutoFocus={(e) => e.preventDefault()}
+          showCloseButton={false}
           className={cn(
-            "p-0 gap-0 overflow-hidden border-[#ececf1]",
+            "p-0 gap-0 overflow-hidden border-[#ececf1] duration-300 ease-out",
             isMobileViewport
-              ? "top-auto left-0 right-0 bottom-0 translate-x-0 translate-y-0 w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[86vh] data-[state=open]:slide-in-from-bottom-4 data-[state=closed]:slide-out-to-bottom-4"
+              ? "top-auto left-0 right-0 bottom-0 translate-x-0 translate-y-0 w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[86vh] data-[state=open]:slide-in-from-bottom-4 data-[state=closed]:slide-out-to-bottom-4 data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100"
               : "max-w-[520px] max-h-[680px] rounded-2xl"
           )}
         >

@@ -1880,10 +1880,11 @@ export function LinksTab() {
       <Dialog open={showAddModal} onOpenChange={(open) => { setShowAddModal(open); if (!open) { setSearchQuery(""); setInsertAfterId(null); setAddToGroupId(null); } }}>
         <DialogContent
           onOpenAutoFocus={(e) => e.preventDefault()}
+          showCloseButton={false}
           className={cn(
-            "h-auto p-0 gap-0 overflow-hidden mx-auto flex flex-col border-[#ececf1]",
+            "h-auto p-0 gap-0 overflow-hidden mx-auto flex flex-col border-[#ececf1] duration-300 ease-out",
             isMobileModalViewport
-              ? "top-auto left-0 right-0 bottom-0 translate-x-0 translate-y-0 w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[86vh] data-[state=open]:slide-in-from-bottom-4 data-[state=closed]:slide-out-to-bottom-4"
+              ? "top-auto left-0 right-0 bottom-0 translate-x-0 translate-y-0 w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[86vh] data-[state=open]:slide-in-from-bottom-4 data-[state=closed]:slide-out-to-bottom-4 data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100"
               : "w-[calc(100%-24px)] max-w-[520px] max-h-[85vh] sm:max-h-[min(680px,85vh)] rounded-2xl"
           )}
         >
@@ -2134,10 +2135,11 @@ export function LinksTab() {
       <Dialog open={showSocialModal} onOpenChange={(open) => { setShowSocialModal(open); if (!open) { setSelectedSocial(null); setSocialUrl(""); setSearchQuery(""); setSocialUrlError(null); } }}>
         <DialogContent
           onOpenAutoFocus={(e) => e.preventDefault()}
+          showCloseButton={false}
           className={cn(
-            "p-0 gap-0 overflow-hidden mx-auto flex flex-col border-[#ececf1]",
+            "p-0 gap-0 overflow-hidden mx-auto flex flex-col border-[#ececf1] duration-300 ease-out",
             isMobileModalViewport
-              ? "top-auto left-0 right-0 bottom-0 translate-x-0 translate-y-0 w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[86vh] data-[state=open]:slide-in-from-bottom-4 data-[state=closed]:slide-out-to-bottom-4"
+              ? "top-auto left-0 right-0 bottom-0 translate-x-0 translate-y-0 w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 max-h-[86vh] data-[state=open]:slide-in-from-bottom-4 data-[state=closed]:slide-out-to-bottom-4 data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100"
               : "w-[calc(100%-32px)] max-w-md rounded-2xl max-h-[85vh]"
           )}
         >

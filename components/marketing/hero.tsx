@@ -529,7 +529,7 @@ export function Hero() {
       </div>
 
       <p className="text-[16px] sm:text-[19.5px] text-neutral-600 text-center mb-[102px] sm:mb-[127px] max-w-[90%] sm:max-w-[590px] leading-relaxed px-4 mx-auto">
-        The #1 e-commerce platform for creators & entrepreneurs. Sell digital products, manage links & grow your audience.
+        The #1 e-commerce platform for creators & entrepreneurs. Sell products, manage links & grow an audience.
       </p>
 
       <div className="relative w-full">
