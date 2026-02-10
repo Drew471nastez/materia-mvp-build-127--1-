@@ -4,16 +4,22 @@ import { stripe } from "@/lib/stripe"
 
 const PLAN_ORDER: Record<string, number> = { free: 0, growth: 1, pro: 2 }
 
+// LIVE Stripe Price IDs
+const PRICE_GROWTH = process.env.PRICE_GROWTH_MONTHLY || "price_1SzBWaBYevnBVyznNCTOXDoS"
+const PRICE_PRO = process.env.PRICE_PRO_MONTHLY || "price_1SzBXSBYevnBVyznYjXfOOXX"
+
 function getStripePriceId(planId: string): string | null {
-  if (planId === "growth") return process.env.PRICE_GROWTH_MONTHLY || null
-  if (planId === "pro") return process.env.PRICE_PRO_MONTHLY || null
+  if (planId === "growth") return PRICE_GROWTH
+  if (planId === "pro") return PRICE_PRO
   return null
 }
 
 function getPlanIdFromPriceId(priceId: string | undefined): "growth" | "pro" | "free" {
   if (!priceId) return "free"
-  if (priceId === process.env.PRICE_GROWTH_MONTHLY) return "growth"
-  if (priceId === process.env.PRICE_PRO_MONTHLY) return "pro"
+  if (priceId === PRICE_GROWTH) return "growth"
+  if (priceId === PRICE_PRO) return "pro"
+  if (priceId.includes("SzBWa")) return "growth"
+  if (priceId.includes("SzBXS")) return "pro"
   return "free"
 }
 

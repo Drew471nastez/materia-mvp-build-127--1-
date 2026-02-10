@@ -2264,6 +2264,14 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
           {/* Payments Tab */}
           {!isTabLoading && activeTab === "payments" && (
             <div className="space-y-[10px] sm:space-y-[14px]">
+              {/* Error display for Connect flow */}
+              {error && (
+                <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-800 text-[13px] flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <span>{error}</span>
+                  <button type="button" onClick={() => setError(null)} className="ml-auto shrink-0 cursor-pointer"><X className="h-4 w-4" /></button>
+                </div>
+              )}
               {/* Stripe Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
                 <div className="flex items-center justify-between gap-3">

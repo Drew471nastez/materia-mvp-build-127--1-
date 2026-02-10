@@ -37,10 +37,16 @@ const PRO_PLAN = {
 
 const SUBSCRIBED_STATUSES = new Set(["active", "trialing", "past_due"])
 
+// LIVE Stripe Price IDs
+const PRICE_GROWTH = process.env.PRICE_GROWTH_MONTHLY || "price_1SzBWaBYevnBVyznNCTOXDoS"
+const PRICE_PRO = process.env.PRICE_PRO_MONTHLY || "price_1SzBXSBYevnBVyznYjXfOOXX"
+
 function getPlanIdFromPriceId(priceId: string | undefined): "growth" | "pro" | "free" {
   if (!priceId) return "free"
-  if (priceId === process.env.PRICE_GROWTH_MONTHLY) return "growth"
-  if (priceId === process.env.PRICE_PRO_MONTHLY) return "pro"
+  if (priceId === PRICE_GROWTH) return "growth"
+  if (priceId === PRICE_PRO) return "pro"
+  if (priceId.includes("SzBWa")) return "growth"
+  if (priceId.includes("SzBXS")) return "pro"
   return "free"
 }
 

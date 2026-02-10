@@ -2,16 +2,14 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { stripe, getOrCreateStripeCustomer } from "@/lib/stripe"
 
-// Map plan IDs to env var price IDs
+// LIVE Stripe Price IDs
+const PRICE_GROWTH = process.env.PRICE_GROWTH_MONTHLY || "price_1SzBWaBYevnBVyznNCTOXDoS"
+const PRICE_PRO = process.env.PRICE_PRO_MONTHLY || "price_1SzBXSBYevnBVyznYjXfOOXX"
+
 function getStripePriceId(planId: string): string | null {
-  switch (planId) {
-    case "growth":
-      return process.env.PRICE_GROWTH_MONTHLY || null
-    case "pro":
-      return process.env.PRICE_PRO_MONTHLY || null
-    default:
-      return null
-  }
+  if (planId === "growth") return PRICE_GROWTH
+  if (planId === "pro") return PRICE_PRO
+  return null
 }
 
 export async function POST(request: Request) {
