@@ -899,6 +899,27 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     if (activeTab === "payments" || activeTab === "general") loadStripeStatus()
   }, [activeTab, loadStripeStatus])
 
+  // Handle Stripe Connect return/refresh URL parameters
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const tab = params.get("tab")
+    const stripeParam = params.get("stripe")
+
+    if (tab === "payments") {
+      setActiveTab("payments")
+    }
+
+    if (stripeParam === "return" || stripeParam === "refresh") {
+      setActiveTab("payments")
+      loadStripeStatus()
+      // Clean URL
+      const url = new URL(window.location.href)
+      url.searchParams.delete("tab")
+      url.searchParams.delete("stripe")
+      window.history.replaceState({}, "", url.pathname)
+    }
+  }, [loadStripeStatus])
+
   const connectStripe = async () => {
     setStripeBusy("connect")
     try {
@@ -2263,7 +2284,11 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                       <p className="text-[13px] sm:text-[14px] text-[#6b7280] mt-0.5">Connect to accept payments from Credit/Debit cards</p>
                     </div>
                   </div>
-                  <button type="button" onClick={() => setShowStripeManage((v) => !v)} className="px-4 sm:px-5 h-9 sm:h-10 text-[13px] sm:text-[14px] font-medium border border-[#e5e7eb] hover:bg-[#f9fafb] text-[#374151] rounded-lg transition-colors cursor-pointer shrink-0">{showStripeManage ? "Hide" : "Manage"}</button>
+                  {stripeStatus.connected ? (
+                    <button type="button" onClick={() => setShowStripeManage((v) => !v)} className="px-4 sm:px-5 h-9 sm:h-10 text-[13px] sm:text-[14px] font-medium border border-[#e5e7eb] hover:bg-[#f9fafb] text-[#374151] rounded-lg transition-colors cursor-pointer shrink-0">{showStripeManage ? "Hide" : "Manage"}</button>
+                  ) : (
+                    <button type="button" onClick={connectStripe} disabled={stripeBusy !== null} className="px-4 sm:px-5 h-9 sm:h-10 text-[13px] sm:text-[14px] font-semibold bg-[#8b5cf6] hover:bg-[#7c3aed] text-white rounded-lg transition-colors cursor-pointer shrink-0 disabled:opacity-60">{stripeBusy === "connect" ? "Connecting..." : stripeStatus.status === "pending" ? "Complete Setup" : "Connect"}</button>
+                  )}
                 </div>
               </div>
 

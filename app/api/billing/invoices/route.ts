@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { stripe, getOrCreateStripeCustomer } from "@/lib/stripe"
 
 export async function GET() {
   try {
     const supabase = await createClient()
 
-    // Get current user
     const {
       data: { user },
       error: authError,
@@ -15,10 +15,9 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Get creator record
     const { data: creator, error: creatorError } = await supabase
       .from("creators")
-      .select("id")
+      .select("id, stripe_customer_id, slug, username")
       .eq("user_id", user.id)
       .single()
 
@@ -26,31 +25,59 @@ export async function GET() {
       return NextResponse.json({ error: "Creator not found" }, { status: 404 })
     }
 
-    // Get invoices for the creator
-    const { data: invoices, error: invoicesError } = await supabase
-      .from("invoices")
-      .select(`
-        *,
-        subscriptions (
-          plan_id,
-          subscription_plans (
-            name
-          )
-        )
-      `)
-      .eq("creator_id", creator.id)
-      .order("created_at", { ascending: false })
-      .limit(50)
-
-    if (invoicesError) {
-      console.error("Error fetching invoices:", invoicesError)
-      return NextResponse.json(
-        { error: "Failed to fetch invoices" },
-        { status: 500 }
-      )
+    // Fetch directly from Stripe (source of truth)
+    let stripeCustomerId: string | null = null
+    try {
+      stripeCustomerId = await getOrCreateStripeCustomer({
+        creatorId: creator.id,
+        existingCustomerId: creator.stripe_customer_id,
+        email: user.email,
+        userId: user.id,
+        username: creator.username || creator.slug || "creator",
+      })
+    } catch (err) {
+      console.error("[Invoices API] Error getting Stripe customer:", err)
     }
 
-    return NextResponse.json({ invoices: invoices || [] })
+    if (!stripeCustomerId) {
+      return NextResponse.json({ invoices: [] })
+    }
+
+    try {
+      const stripeInvoices = await stripe.invoices.list({ customer: stripeCustomerId, limit: 20 })
+      const invoices = stripeInvoices.data.map((inv) => ({
+        id: inv.id,
+        stripe_invoice_id: inv.id,
+        amount_cents: inv.amount_paid || inv.total || 0,
+        status: inv.status === "paid" ? "paid" : inv.status === "open" ? "open" : inv.status || "unknown",
+        invoice_pdf_url: inv.invoice_pdf || null,
+        hosted_invoice_url: inv.hosted_invoice_url || null,
+        period_start: inv.period_start ? new Date(inv.period_start * 1000).toISOString() : null,
+        period_end: inv.period_end ? new Date(inv.period_end * 1000).toISOString() : null,
+        created_at: inv.created ? new Date(inv.created * 1000).toISOString() : new Date().toISOString(),
+        description: inv.lines?.data?.[0]?.description || "Subscription",
+      }))
+
+      return NextResponse.json({ invoices })
+    } catch (err) {
+      console.error("[Invoices API] Stripe fetch error:", err)
+    }
+
+    // Fallback to DB if Stripe fails
+    try {
+      const { data: dbInvoices } = await supabase
+        .from("invoices")
+        .select("*")
+        .eq("creator_id", creator.id)
+        .order("created_at", { ascending: false })
+        .limit(50)
+
+      return NextResponse.json({ invoices: dbInvoices || [] })
+    } catch (err) {
+      console.error("[Invoices API] DB fallback error:", err)
+    }
+
+    return NextResponse.json({ invoices: [] })
   } catch (error: any) {
     console.error("Error in GET /api/billing/invoices:", error)
     return NextResponse.json(

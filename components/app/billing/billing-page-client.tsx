@@ -1,12 +1,12 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import type React from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
   Settings, Shield, ToggleLeft, Wallet, Store, CreditCard,
   Check, Loader2, Download, FileText, Clock, CheckCircle, XCircle, AlertCircle,
-  Rocket, Lock, ShieldCheck, Pencil, Trash2, ExternalLink, X, ArrowUpRight,
+  Rocket, Lock, ShieldCheck, Pencil, Trash2, ExternalLink, X, ArrowUpRight, RefreshCw,
 } from "lucide-react"
 import { useLanguage } from "@/lib/i18n"
 
@@ -44,6 +44,52 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
   const [showUpgradeModal, setShowUpgradeModal] = useState<{ planId: string; planName: string; priceCents: number } | null>(null)
   const [upgradeLoading, setUpgradeLoading] = useState(false)
   const [upgradePreview, setUpgradePreview] = useState<{ amountDueTodayCents: number; nextBillingDate: string; nextAmountCents: number; type: "upgrade" | "downgrade" } | null>(null)
+
+  // Local state for billing data - allows client-side mutations to update UI immediately
+  const [livePaymentMethod, setLivePaymentMethod] = useState<any | null>(initialData.paymentMethod)
+  const [liveSubscription, setLiveSubscription] = useState<any | null>(initialData.subscription)
+  const [liveCurrentPlan, setLiveCurrentPlan] = useState<any>(initialData.currentPlan)
+  const [liveInvoices, setLiveInvoices] = useState<any[]>(initialData.invoices)
+  const [refreshing, setRefreshing] = useState(false)
+
+  // Sync from initialData when server data changes (e.g. router.refresh())
+  useEffect(() => {
+    setLivePaymentMethod(initialData.paymentMethod)
+    setLiveSubscription(initialData.subscription)
+    setLiveCurrentPlan(initialData.currentPlan)
+    setLiveInvoices(initialData.invoices)
+  }, [initialData.paymentMethod, initialData.subscription, initialData.currentPlan, initialData.invoices])
+
+  // Client-side refresh of billing data from API (fallback when server data is stale)
+  const refreshBillingData = useCallback(async () => {
+    setRefreshing(true)
+    try {
+      // Fetch subscription status (which triggers Stripe sync on server)
+      const subRes = await fetch("/api/billing/subscription")
+      if (subRes.ok) {
+        const subData = await subRes.json()
+        if (subData.subscription) {
+          setLiveSubscription(subData.subscription)
+          setLiveCurrentPlan(subData.currentPlan || initialData.currentPlan)
+        }
+      }
+    } catch (err) {
+      console.error("[Billing] Client refresh error:", err)
+    }
+    try {
+      // Fetch invoices
+      const invRes = await fetch("/api/billing/invoices")
+      if (invRes.ok) {
+        const invData = await invRes.json()
+        if (invData.invoices?.length) {
+          setLiveInvoices(invData.invoices)
+        }
+      }
+    } catch (err) {
+      console.error("[Billing] Client invoice refresh error:", err)
+    }
+    setRefreshing(false)
+  }, [initialData.currentPlan])
 
   useEffect(() => {
     const success = searchParams.get("success")
@@ -131,15 +177,29 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
       const response = await fetch("/api/billing/payment-method", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ paymentMethodId: initialData.paymentMethod?.stripe_payment_method_id || null }),
+        body: JSON.stringify({ paymentMethodId: livePaymentMethod?.stripe_payment_method_id || null }),
       })
       if (!response.ok) {
         const error = await response.json()
         throw new Error(error.error || "Failed to remove payment method")
       }
+      const result = await response.json()
+      // Update local state immediately - check if there's a remaining payment method
+      if (result.paymentMethods?.length > 0) {
+        const pm = result.paymentMethods[0]
+        setLivePaymentMethod({
+          stripe_payment_method_id: pm.id,
+          card_brand: pm.brand || "unknown",
+          card_last4: pm.last4 || "0000",
+          card_exp_month: pm.expMonth || 0,
+          card_exp_year: pm.expYear || 0,
+          is_default: true,
+        })
+      } else {
+        setLivePaymentMethod(null)
+      }
       showNotification("success", "Payment method removed successfully")
       setShowRemoveConfirm(false)
-      router.refresh()
     } catch (error: any) {
       showNotification("error", error.message || "Failed to remove payment method")
     } finally {
@@ -202,8 +262,9 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
     }
   }
 
-  const currentPlan = initialData.currentPlan
-  const subscription = initialData.subscription
+  // Use live state (updated by client-side actions)
+  const currentPlan = liveCurrentPlan
+  const subscription = liveSubscription
   const isSubscribed = subscription && (subscription.status === "active" || subscription.status === "trialing" || subscription.status === "past_due")
   const planPrice = currentPlan.price_cents > 0 ? `$${(currentPlan.price_cents / 100).toFixed(currentPlan.price_cents % 100 === 0 ? 0 : 2)}` : "$0"
   const feeDisplay = `${(currentPlan.fee_percent * 100).toFixed(currentPlan.fee_percent >= 0.01 ? 1 : 2)}% + $${(currentPlan.fee_fixed_cents / 100).toFixed(2)} per transaction`
@@ -248,6 +309,7 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
           <div className={`mb-6 p-4 rounded-xl border flex items-center gap-3 ${notification.type === "success" ? "bg-emerald-50 border-emerald-200 text-emerald-900" : "bg-red-50 border-red-200 text-red-900"}`}>
             {notification.type === "success" ? <CheckCircle className="h-5 w-5 shrink-0" /> : <AlertCircle className="h-5 w-5 shrink-0" />}
             <p className="text-[13px] font-medium">{notification.message}</p>
+            <button onClick={() => setNotification(null)} className="ml-auto shrink-0 text-current opacity-60 hover:opacity-100 cursor-pointer"><X className="h-4 w-4" /></button>
           </div>
         )}
 
@@ -350,21 +412,21 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                   </div>
                 </div>
 
-                {initialData.paymentMethod ? (
+                {livePaymentMethod ? (
                   <div className="space-y-4">
                     <div className="bg-[#f9fafb] rounded-xl p-4">
                       <span className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider block mb-3">Card Number</span>
                       <div className="text-[16px] font-mono font-medium text-[#1a1a2e] tracking-widest mb-4">
-                        &bull;&bull;&bull;&bull; &bull;&bull;&bull;&bull; &bull;&bull;&bull;&bull; {initialData.paymentMethod.card_last4}
+                        &bull;&bull;&bull;&bull; &bull;&bull;&bull;&bull; &bull;&bull;&bull;&bull; {livePaymentMethod.card_last4}
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <span className="text-[11px] font-medium text-[#6b7280] uppercase tracking-wider block mb-1">Brand</span>
-                          <span className="text-[13px] font-medium text-[#1a1a2e] capitalize">{initialData.paymentMethod.card_brand || "Card"}</span>
+                          <span className="text-[13px] font-medium text-[#1a1a2e] capitalize">{livePaymentMethod.card_brand || "Card"}</span>
                         </div>
                         <div>
                           <span className="text-[11px] font-medium text-[#6b7280] uppercase tracking-wider block mb-1">Expires</span>
-                          <span className="text-[13px] font-medium text-[#1a1a2e]">{String(initialData.paymentMethod.card_exp_month).padStart(2, "0")}/{initialData.paymentMethod.card_exp_year}</span>
+                          <span className="text-[13px] font-medium text-[#1a1a2e]">{String(livePaymentMethod.card_exp_month).padStart(2, "0")}/{livePaymentMethod.card_exp_year}</span>
                         </div>
                       </div>
                     </div>
@@ -413,12 +475,18 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
           <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-[#e5e7eb]">
             <div className="flex items-center justify-between mb-2">
               <h2 className="text-[17px] font-bold text-[#1a1a2e]">Billing History</h2>
-              {initialData.invoices.length > 0 && (
-                <button onClick={openCustomerPortal} disabled={portalLoading} className="flex items-center gap-1.5 h-8 px-3 text-[12px] font-medium text-[#6b7280] border border-[#e5e7eb] rounded-lg hover:bg-[#f9fafb] transition-colors cursor-pointer">
-                  <ExternalLink className="h-3.5 w-3.5" />
-                  View All
+              <div className="flex items-center gap-2">
+                <button onClick={refreshBillingData} disabled={refreshing} className="flex items-center gap-1.5 h-8 px-3 text-[12px] font-medium text-[#6b7280] border border-[#e5e7eb] rounded-lg hover:bg-[#f9fafb] transition-colors cursor-pointer">
+                  <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
+                  Refresh
                 </button>
-              )}
+                {liveInvoices.length > 0 && (
+                  <button onClick={openCustomerPortal} disabled={portalLoading} className="flex items-center gap-1.5 h-8 px-3 text-[12px] font-medium text-[#6b7280] border border-[#e5e7eb] rounded-lg hover:bg-[#f9fafb] transition-colors cursor-pointer">
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    View All
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Next billing date */}
@@ -428,11 +496,11 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
             {subscription?.current_period_end && subscription.cancel_at_period_end && (
               <p className="text-[13px] text-amber-600 mb-4">Your subscription ends on <span className="font-medium">{formatDateLong(subscription.current_period_end)}</span>.</p>
             )}
-            {!isSubscribed && (
-              <p className="text-[13px] text-[#6b7280] mb-4">{isSubscribed ? "Active subscription" : "No active subscription."}</p>
+            {!isSubscribed && !subscription?.cancel_at_period_end && (
+              <p className="text-[13px] text-[#6b7280] mb-4">No active subscription.</p>
             )}
 
-            {initialData.invoices.length === 0 ? (
+            {liveInvoices.length === 0 ? (
               <div className="bg-[#f9fafb] rounded-xl p-8 text-center">
                 <FileText className="h-10 w-10 text-[#d1d5db] mx-auto mb-3" />
                 <p className="text-[13px] text-[#6b7280] mb-1">No invoices yet</p>
@@ -442,7 +510,7 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
               <>
                 {/* Mobile view - cards, clickable */}
                 <div className="block sm:hidden space-y-3">
-                  {initialData.invoices.map((invoice: any) => (
+                  {liveInvoices.map((invoice: any) => (
                     <button key={invoice.id} onClick={() => setSelectedInvoice(invoice)} className="w-full text-left bg-[#f9fafb] rounded-xl p-4 border border-[#e5e7eb] hover:border-[#d1d5db] hover:shadow-sm transition-all cursor-pointer">
                       <div className="flex items-start justify-between mb-2">
                         <div>
@@ -469,7 +537,7 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                       </tr>
                     </thead>
                     <tbody>
-                      {initialData.invoices.map((invoice: any) => (
+                      {liveInvoices.map((invoice: any) => (
                         <tr key={invoice.id} onClick={() => setSelectedInvoice(invoice)} className="border-b border-[#f3f4f6] last:border-0 hover:bg-[#f5f3ff]/30 transition-colors cursor-pointer">
                           <td className="py-4 text-[13px] text-[#374151]">{formatDate(invoice.created_at)}</td>
                           <td className="py-4 text-[13px] text-[#374151]">{invoice.description || (invoice.period_start && invoice.period_end ? `${formatDate(invoice.period_start)} - ${formatDate(invoice.period_end)}` : "Subscription")}</td>

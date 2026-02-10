@@ -25,8 +25,14 @@ export async function getOrCreateStripeCustomer({
   // If we have a stored customer ID, validate it against the current Stripe keys
   if (existingCustomerId) {
     try {
-      await stripe.customers.retrieve(existingCustomerId)
-      return existingCustomerId // Valid customer, use it
+      const existing = await stripe.customers.retrieve(existingCustomerId)
+      if ((existing as any).deleted) {
+        console.warn(
+          `Stripe customer ${existingCustomerId} was deleted. Creating new live customer.`
+        )
+      } else {
+        return existingCustomerId // Valid customer, use it
+      }
     } catch (err: any) {
       // Customer doesn't exist on current keys (test→live migration, etc.)
       console.warn(

@@ -62,11 +62,11 @@ export default async function BillingPage() {
   let invoices: any[] = []
   let paymentMethod: any = null
 
+  const { data: creator } = await supabase.from("creators").select("*").eq("user_id", user.id).maybeSingle()
+
+  if (!creator) redirect("/signup/success")
+
   try {
-    const { data: creator } = await supabase.from("creators").select("*").eq("user_id", user.id).maybeSingle()
-
-    if (!creator) redirect("/signup/success")
-
     const { data: dbPlans } = await supabase
       .from("subscription_plans")
       .select("*")
@@ -74,100 +74,136 @@ export default async function BillingPage() {
       .order("price_cents", { ascending: true })
 
     if (dbPlans?.length) plans = dbPlans
+  } catch (error) {
+    console.error("[Billing] Error loading plans from DB:", error)
+  }
 
-    const stripeCustomerId = await getOrCreateStripeCustomer({
+  let stripeCustomerId: string | null = null
+
+  // Step 1: Get or create Stripe customer
+  try {
+    stripeCustomerId = await getOrCreateStripeCustomer({
       creatorId: creator.id,
       existingCustomerId: creator.stripe_customer_id,
       email: user.email,
       userId: user.id,
       username: creator.username || creator.slug || "creator",
     })
+  } catch (error) {
+    console.error("[Billing] Error getting Stripe customer:", error)
+  }
 
-    const stripeSubs = await stripe.subscriptions.list({ customer: stripeCustomerId, limit: 10 })
-    const preferredSubscription = stripeSubs.data.find((s) => SUBSCRIBED_STATUSES.has(s.status)) ?? stripeSubs.data[0]
+  if (stripeCustomerId) {
+    // Step 2: Fetch subscription from Stripe (independent)
+    try {
+      const stripeSubs = await stripe.subscriptions.list({ customer: stripeCustomerId, limit: 10 })
+      const preferredSubscription = stripeSubs.data.find((s) => SUBSCRIBED_STATUSES.has(s.status)) ?? stripeSubs.data[0]
 
-    if (preferredSubscription && SUBSCRIBED_STATUSES.has(preferredSubscription.status)) {
-      const currentPriceId = preferredSubscription.items.data[0]?.price?.id
-      const livePlanId = getPlanIdFromPriceId(currentPriceId)
-      currentPlan = plans.find((p: any) => p.id === livePlanId) ?? FREE_PLAN
+      if (preferredSubscription && SUBSCRIBED_STATUSES.has(preferredSubscription.status)) {
+        const currentPriceId = preferredSubscription.items.data[0]?.price?.id
+        const livePlanId = getPlanIdFromPriceId(currentPriceId)
+        currentPlan = plans.find((p: any) => p.id === livePlanId) ?? FREE_PLAN
 
-      subscription = {
-        id: preferredSubscription.id,
-        stripe_subscription_id: preferredSubscription.id,
-        plan_id: livePlanId,
-        pending_plan_id: (preferredSubscription.metadata?.pending_plan_id as string) || null,
-        status: preferredSubscription.status,
-        current_period_start: new Date(preferredSubscription.current_period_start * 1000).toISOString(),
-        current_period_end: new Date(preferredSubscription.current_period_end * 1000).toISOString(),
-        cancel_at_period_end: preferredSubscription.cancel_at_period_end,
-        subscription_plans: currentPlan,
-      }
-
-      await supabase
-        .from("creators")
-        .update({
-          stripe_customer_id: stripeCustomerId,
-          subscription_plan_id: livePlanId,
-          subscription_status: preferredSubscription.status,
-        })
-        .eq("id", creator.id)
-
-      await supabase
-        .from("subscriptions")
-        .upsert({
-          creator_id: creator.id,
+        subscription = {
+          id: preferredSubscription.id,
           stripe_subscription_id: preferredSubscription.id,
           plan_id: livePlanId,
-          pending_plan_id: null,
+          pending_plan_id: (preferredSubscription.metadata?.pending_plan_id as string) || null,
           status: preferredSubscription.status,
           current_period_start: new Date(preferredSubscription.current_period_start * 1000).toISOString(),
           current_period_end: new Date(preferredSubscription.current_period_end * 1000).toISOString(),
-          updated_at: new Date().toISOString(),
-        }, { onConflict: "creator_id" })
-    }
+          cancel_at_period_end: preferredSubscription.cancel_at_period_end,
+          subscription_plans: currentPlan,
+        }
 
-    const customer = await stripe.customers.retrieve(stripeCustomerId)
-    const defaultPaymentMethodId = typeof customer.invoice_settings.default_payment_method === "string"
-      ? customer.invoice_settings.default_payment_method
-      : customer.invoice_settings.default_payment_method?.id || null
+        // Sync to DB (non-blocking, don't let DB errors break billing page)
+        try {
+          await supabase
+            .from("creators")
+            .update({
+              stripe_customer_id: stripeCustomerId,
+              subscription_plan_id: livePlanId,
+              subscription_status: preferredSubscription.status,
+            })
+            .eq("id", creator.id)
 
-    const stripePaymentMethods = await stripe.paymentMethods.list({ customer: stripeCustomerId, type: "card", limit: 10 })
-    const defaultPaymentMethod = stripePaymentMethods.data.find((pm) => pm.id === defaultPaymentMethodId) || stripePaymentMethods.data[0]
-
-    if (defaultPaymentMethod) {
-      paymentMethod = {
-        stripe_payment_method_id: defaultPaymentMethod.id,
-        card_brand: defaultPaymentMethod.card?.brand || "unknown",
-        card_last4: defaultPaymentMethod.card?.last4 || "0000",
-        card_exp_month: defaultPaymentMethod.card?.exp_month || 0,
-        card_exp_year: defaultPaymentMethod.card?.exp_year || 0,
-        is_default: defaultPaymentMethod.id === defaultPaymentMethodId,
+          await supabase
+            .from("subscriptions")
+            .upsert({
+              creator_id: creator.id,
+              stripe_subscription_id: preferredSubscription.id,
+              plan_id: livePlanId,
+              pending_plan_id: null,
+              status: preferredSubscription.status,
+              current_period_start: new Date(preferredSubscription.current_period_start * 1000).toISOString(),
+              current_period_end: new Date(preferredSubscription.current_period_end * 1000).toISOString(),
+              updated_at: new Date().toISOString(),
+            }, { onConflict: "creator_id" })
+        } catch (syncError) {
+          console.error("[Billing] Error syncing subscription to DB:", syncError)
+        }
       }
+    } catch (error) {
+      console.error("[Billing] Error fetching subscriptions from Stripe:", error)
     }
 
-    const stripeInvoices = await stripe.invoices.list({ customer: stripeCustomerId, limit: 20 })
-    invoices = stripeInvoices.data.map((inv) => ({
-      id: inv.id,
-      stripe_invoice_id: inv.id,
-      amount_cents: inv.amount_paid || inv.total || 0,
-      status: inv.status === "paid" ? "paid" : inv.status === "open" ? "open" : inv.status || "unknown",
-      invoice_pdf_url: inv.invoice_pdf || null,
-      hosted_invoice_url: inv.hosted_invoice_url || null,
-      period_start: inv.period_start ? new Date(inv.period_start * 1000).toISOString() : null,
-      period_end: inv.period_end ? new Date(inv.period_end * 1000).toISOString() : null,
-      created_at: inv.created ? new Date(inv.created * 1000).toISOString() : new Date().toISOString(),
-      description: inv.lines?.data?.[0]?.description || "Subscription",
-    }))
+    // Step 3: Fetch payment methods from Stripe (independent of subscription)
+    try {
+      const customer = await stripe.customers.retrieve(stripeCustomerId)
+      if (!(customer as any).deleted) {
+        const defaultPaymentMethodId = typeof customer.invoice_settings.default_payment_method === "string"
+          ? customer.invoice_settings.default_payment_method
+          : customer.invoice_settings.default_payment_method?.id || null
 
+        const stripePaymentMethods = await stripe.paymentMethods.list({ customer: stripeCustomerId, type: "card", limit: 10 })
+        const defaultPaymentMethod = stripePaymentMethods.data.find((pm) => pm.id === defaultPaymentMethodId) || stripePaymentMethods.data[0]
+
+        if (defaultPaymentMethod) {
+          paymentMethod = {
+            stripe_payment_method_id: defaultPaymentMethod.id,
+            card_brand: defaultPaymentMethod.card?.brand || "unknown",
+            card_last4: defaultPaymentMethod.card?.last4 || "0000",
+            card_exp_month: defaultPaymentMethod.card?.exp_month || 0,
+            card_exp_year: defaultPaymentMethod.card?.exp_year || 0,
+            is_default: defaultPaymentMethod.id === defaultPaymentMethodId,
+          }
+        }
+      }
+    } catch (error) {
+      console.error("[Billing] Error fetching payment methods from Stripe:", error)
+    }
+
+    // Step 4: Fetch invoices from Stripe (independent of subscription and payment methods)
+    try {
+      const stripeInvoices = await stripe.invoices.list({ customer: stripeCustomerId, limit: 20 })
+      invoices = stripeInvoices.data.map((inv) => ({
+        id: inv.id,
+        stripe_invoice_id: inv.id,
+        amount_cents: inv.amount_paid || inv.total || 0,
+        status: inv.status === "paid" ? "paid" : inv.status === "open" ? "open" : inv.status || "unknown",
+        invoice_pdf_url: inv.invoice_pdf || null,
+        hosted_invoice_url: inv.hosted_invoice_url || null,
+        period_start: inv.period_start ? new Date(inv.period_start * 1000).toISOString() : null,
+        period_end: inv.period_end ? new Date(inv.period_end * 1000).toISOString() : null,
+        created_at: inv.created ? new Date(inv.created * 1000).toISOString() : new Date().toISOString(),
+        description: inv.lines?.data?.[0]?.description || "Subscription",
+      }))
+    } catch (error) {
+      console.error("[Billing] Error fetching invoices from Stripe:", error)
+    }
+
+    // Step 5: If no subscription found, sync free plan to DB
     if (!subscription) {
       currentPlan = FREE_PLAN
-      await supabase
-        .from("creators")
-        .update({ subscription_plan_id: "free", subscription_status: "inactive" })
-        .eq("id", creator.id)
+      try {
+        await supabase
+          .from("creators")
+          .update({ subscription_plan_id: "free", subscription_status: "inactive" })
+          .eq("id", creator.id)
+      } catch (error) {
+        console.error("[Billing] Error syncing free plan to DB:", error)
+      }
     }
-  } catch (error) {
-    console.error("Billing page data loading error:", error)
   }
 
   return (
