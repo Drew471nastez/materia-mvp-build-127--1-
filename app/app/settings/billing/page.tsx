@@ -114,8 +114,13 @@ export default async function BillingPage() {
 
   if (stripeCustomerId) {
     // Step 2: Fetch subscription from Stripe (independent)
+    // Expand latest_invoice to get period dates (SDK v20 removed current_period_start/end)
     try {
-      const stripeSubs = await stripe.subscriptions.list({ customer: stripeCustomerId, limit: 10 })
+      const stripeSubs = await stripe.subscriptions.list({
+        customer: stripeCustomerId,
+        limit: 10,
+        expand: ["data.latest_invoice"],
+      })
       const preferredSubscription = stripeSubs.data.find((s) => SUBSCRIBED_STATUSES.has(s.status)) ?? stripeSubs.data[0]
 
       if (preferredSubscription && SUBSCRIBED_STATUSES.has(preferredSubscription.status)) {
@@ -123,11 +128,17 @@ export default async function BillingPage() {
         const livePlanId = getPlanIdFromPriceId(currentPriceId)
         currentPlan = plans.find((p: any) => p.id === livePlanId) ?? FREE_PLAN
 
-        // Handle both old API (current_period_start/end as Unix timestamps)
-        // and new API (current_period.start_date/end_date as ISO date strings)
+        // Extract period dates: try legacy fields, then current_period object, then latest_invoice
         const sub = preferredSubscription as any
-        const periodStart = sub.current_period_start || sub.current_period?.start_date || null
-        const periodEnd = sub.current_period_end || sub.current_period?.end_date || null
+        let periodStartTs: any = sub.current_period_start || sub.current_period?.start_date || null
+        let periodEndTs: any = sub.current_period_end || sub.current_period?.end_date || null
+
+        // Fallback to latest_invoice period dates
+        if (!periodStartTs || !periodEndTs) {
+          const inv = typeof sub.latest_invoice === "object" ? sub.latest_invoice : null
+          if (inv?.period_start) periodStartTs = periodStartTs || inv.period_start
+          if (inv?.period_end) periodEndTs = periodEndTs || inv.period_end
+        }
 
         subscription = {
           id: preferredSubscription.id,
@@ -135,8 +146,8 @@ export default async function BillingPage() {
           plan_id: livePlanId,
           pending_plan_id: (preferredSubscription.metadata?.pending_plan_id as string) || null,
           status: preferredSubscription.status,
-          current_period_start: safeTimestamp(periodStart),
-          current_period_end: safeTimestamp(periodEnd),
+          current_period_start: safeTimestamp(periodStartTs),
+          current_period_end: safeTimestamp(periodEndTs),
           cancel_at_period_end: preferredSubscription.cancel_at_period_end,
           subscription_plans: currentPlan,
         }
@@ -161,8 +172,8 @@ export default async function BillingPage() {
               plan_id: livePlanId,
               pending_plan_id: null,
               status: preferredSubscription.status,
-              current_period_start: safeTimestamp(periodStart),
-              current_period_end: safeTimestamp(periodEnd),
+              current_period_start: safeTimestamp(periodStartTs),
+              current_period_end: safeTimestamp(periodEndTs),
               updated_at: new Date().toISOString(),
             }, { onConflict: "creator_id" })
         } catch (syncError) {

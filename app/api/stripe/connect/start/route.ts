@@ -79,8 +79,9 @@ export async function POST() {
     const msg = error?.message || ""
     if (msg.includes("platform-profile") || msg.includes("responsibilities") || msg.includes("managing losses")) {
       return NextResponse.json({
-        error: "Stripe Connect requires platform configuration. The platform owner needs to complete the Connect platform profile at dashboard.stripe.com/settings/connect before onboarding can begin. Please contact support.",
+        error: "Before connecting creators, you must accept the platform responsibilities in your Stripe Dashboard. Go to Settings → Connect → Platform profile and review the 'Managing losses' section, then try again.",
         code: "platform_not_configured",
+        helpUrl: "https://dashboard.stripe.com/settings/connect/platform-profile",
       }, { status: 503 })
     }
     return NextResponse.json({ error: msg || "Failed to start Stripe Connect onboarding" }, { status: 500 })

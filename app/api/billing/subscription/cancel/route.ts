@@ -2,6 +2,17 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { stripe } from "@/lib/stripe"
 
+function safeTimestamp(ts: any): string {
+  if (!ts) return new Date().toISOString()
+  if (ts instanceof Date) return ts.toISOString()
+  if (typeof ts === "string") return ts
+  if (typeof ts === "number" && !isNaN(ts)) {
+    const d = ts > 1e12 ? new Date(ts) : new Date(ts * 1000)
+    return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString()
+  }
+  return new Date().toISOString()
+}
+
 export async function POST() {
   try {
     const supabase = await createClient()
@@ -66,10 +77,14 @@ export async function POST() {
       })
       .eq("id", subscription.id)
 
+    // Get the period end from the canceled subscription
+    const cancelSub = canceledSubscription as any
+    const cancelPeriodEnd = cancelSub.current_period_end || cancelSub.current_period?.end_date || null
+
     return NextResponse.json({
       success: true,
       message: "Subscription will be canceled at the end of the current billing period",
-      cancelAt: new Date(canceledSubscription.current_period_end * 1000).toISOString(),
+      cancelAt: safeTimestamp(cancelPeriodEnd),
     })
   } catch (error: any) {
     console.error("Error in POST /api/billing/subscription/cancel:", error)

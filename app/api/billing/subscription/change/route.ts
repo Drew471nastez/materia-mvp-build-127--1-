@@ -27,6 +27,40 @@ function isUpgrade(currentPlanId: string, newPlanId: string): boolean {
   return (PLAN_ORDER[newPlanId] ?? 0) > (PLAN_ORDER[currentPlanId] ?? 0)
 }
 
+function safeTimestamp(ts: any): string {
+  if (!ts) return new Date().toISOString()
+  if (ts instanceof Date) return ts.toISOString()
+  if (typeof ts === "string") return ts
+  if (typeof ts === "number" && !isNaN(ts)) {
+    const d = ts > 1e12 ? new Date(ts) : new Date(ts * 1000)
+    return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString()
+  }
+  return new Date().toISOString()
+}
+
+// Extract period dates from subscription (SDK v20: current_period_start/end removed)
+function getSubscriptionPeriod(sub: any): { periodStart: number; periodEnd: number } {
+  // Try legacy fields first (may still be on the raw API response)
+  if (sub.current_period_start && sub.current_period_end) {
+    return { periodStart: sub.current_period_start, periodEnd: sub.current_period_end }
+  }
+  // Try new current_period object
+  if (sub.current_period?.start_date && sub.current_period?.end_date) {
+    return {
+      periodStart: Math.floor(new Date(sub.current_period.start_date).getTime() / 1000),
+      periodEnd: Math.floor(new Date(sub.current_period.end_date).getTime() / 1000),
+    }
+  }
+  // Fallback: derive from latest_invoice
+  const invoice = typeof sub.latest_invoice === "object" ? sub.latest_invoice : null
+  if (invoice?.period_start && invoice?.period_end) {
+    return { periodStart: invoice.period_start, periodEnd: invoice.period_end }
+  }
+  // Last resort: start_date + 30 days
+  const start = sub.start_date || Math.floor(Date.now() / 1000)
+  return { periodStart: start, periodEnd: start + 30 * 24 * 60 * 60 }
+}
+
 export async function POST(request: Request) {
   try {
     const supabase = await createClient()
@@ -77,7 +111,11 @@ export async function POST(request: Request) {
       )
     }
 
-    const stripeSubscription = await stripe.subscriptions.retrieve(subscriptionRecord.stripe_subscription_id)
+    // Expand latest_invoice to get period dates (SDK v20 removed current_period_start/end)
+    const stripeSubscription = await stripe.subscriptions.retrieve(
+      subscriptionRecord.stripe_subscription_id,
+      { expand: ["latest_invoice"] }
+    ) as any
     const subItem = stripeSubscription.items.data[0]
     if (!subItem) {
       return NextResponse.json({ error: "Subscription item not found" }, { status: 400 })
@@ -86,19 +124,24 @@ export async function POST(request: Request) {
     const currentPlanId = getPlanIdFromPriceId(subItem.price.id) || creator.subscription_plan_id || "free"
     const upgrading = isUpgrade(currentPlanId, newPlanId)
 
-    const upcomingInvoice = await stripe.invoices.retrieveUpcoming({
+    const { periodStart, periodEnd } = getSubscriptionPeriod(stripeSubscription)
+
+    // Stripe SDK v20: use createPreview instead of retrieveUpcoming
+    const upcomingInvoice = await stripe.invoices.createPreview({
       subscription: stripeSubscription.id,
-      subscription_items: [{ id: subItem.id, price: stripePriceId }],
-      subscription_proration_behavior: upgrading ? "create_prorations" : "none",
+      subscription_details: {
+        items: [{ id: subItem.id, price: stripePriceId }],
+        proration_behavior: upgrading ? "create_prorations" : "none",
+      },
     })
 
     const amountDueNowCents = upgrading ? Math.max(0, upcomingInvoice.amount_due || 0) : 0
 
-    const nextBillingDate = new Date(stripeSubscription.current_period_end * 1000).toISOString()
+    const nextBillingDate = safeTimestamp(periodEnd)
     const nextAmountCents = subItem.price.id === stripePriceId
       ? subItem.price.unit_amount || 0
       : upcomingInvoice.lines.data
-          .find((line) => line.price?.id === stripePriceId && !line.proration)
+          .find((line: any) => line.price?.id === stripePriceId && !line.proration)
           ?.amount || 0
 
     if (previewOnly) {
@@ -121,13 +164,16 @@ export async function POST(request: Request) {
         },
       })
 
+      // Get updated period from the updated subscription
+      const updatedPeriod = getSubscriptionPeriod(updatedSubscription as any)
+
       await supabase
         .from("subscriptions")
         .update({
           plan_id: newPlanId,
           status: updatedSubscription.status,
-          current_period_start: new Date(updatedSubscription.current_period_start * 1000).toISOString(),
-          current_period_end: new Date(updatedSubscription.current_period_end * 1000).toISOString(),
+          current_period_start: safeTimestamp(updatedPeriod.periodStart),
+          current_period_end: safeTimestamp(updatedPeriod.periodEnd),
           pending_plan_id: null,
           updated_at: new Date().toISOString(),
         })
@@ -148,6 +194,7 @@ export async function POST(request: Request) {
       })
     }
 
+    // Downgrade: schedule for end of current period
     let schedule = null as any
     if (stripeSubscription.schedule) {
       schedule = await stripe.subscriptionSchedules.retrieve(
@@ -162,13 +209,13 @@ export async function POST(request: Request) {
       phases: [
         {
           items: [{ price: subItem.price.id, quantity: 1 }],
-          start_date: stripeSubscription.current_period_start,
-          end_date: stripeSubscription.current_period_end,
+          start_date: periodStart,
+          end_date: periodEnd,
           proration_behavior: "none",
         },
         {
           items: [{ price: stripePriceId, quantity: 1 }],
-          start_date: stripeSubscription.current_period_end,
+          start_date: periodEnd,
           proration_behavior: "none",
         },
       ],
@@ -190,7 +237,7 @@ export async function POST(request: Request) {
       success: true,
       type: "downgrade",
       message: "Downgrade scheduled for end of cycle.",
-      effectiveDate: new Date(stripeSubscription.current_period_end * 1000).toISOString(),
+      effectiveDate: safeTimestamp(periodEnd),
       nextBillingDate,
       nextAmountCents: Math.abs(nextAmountCents),
       amountDueTodayCents: amountDueNowCents,

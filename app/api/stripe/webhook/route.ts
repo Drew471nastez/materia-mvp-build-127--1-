@@ -483,7 +483,7 @@ export async function POST(request: Request) {
   // ============================================================================
 
   if (event.type === "customer.subscription.created") {
-    const subscription = event.data.object as Stripe.Subscription & { current_period_start: number; current_period_end: number }
+    const subscription = event.data.object as any
     const metadata = subscription.metadata || {}
     const creatorId = metadata.creator_id
     const planId = metadata.plan_id
@@ -497,8 +497,14 @@ export async function POST(request: Request) {
 
     try {
       const subAny = subscription as any
-      const periodStart = subAny.current_period_start || subAny.current_period?.start_date || null
-      const periodEnd = subAny.current_period_end || subAny.current_period?.end_date || null
+      let periodStart = subAny.current_period_start || subAny.current_period?.start_date || null
+      let periodEnd = subAny.current_period_end || subAny.current_period?.end_date || null
+      // Fallback to latest_invoice period
+      if (!periodStart || !periodEnd) {
+        const inv = typeof subAny.latest_invoice === "object" ? subAny.latest_invoice : null
+        if (inv?.period_start) periodStart = periodStart || inv.period_start
+        if (inv?.period_end) periodEnd = periodEnd || inv.period_end
+      }
 
       // Upsert subscription record (may already exist from a previous attempt)
       await supabaseAdmin.from("subscriptions").upsert({
@@ -555,8 +561,13 @@ export async function POST(request: Request) {
         planId = metadata.plan_id
       }
 
-      const updPeriodStart = subscription.current_period_start || subscription.current_period?.start_date || null
-      const updPeriodEnd = subscription.current_period_end || subscription.current_period?.end_date || null
+      let updPeriodStart = subscription.current_period_start || subscription.current_period?.start_date || null
+      let updPeriodEnd = subscription.current_period_end || subscription.current_period?.end_date || null
+      if (!updPeriodStart || !updPeriodEnd) {
+        const inv = typeof subscription.latest_invoice === "object" ? subscription.latest_invoice : null
+        if (inv?.period_start) updPeriodStart = updPeriodStart || inv.period_start
+        if (inv?.period_end) updPeriodEnd = updPeriodEnd || inv.period_end
+      }
 
       await supabaseAdmin
         .from("subscriptions")

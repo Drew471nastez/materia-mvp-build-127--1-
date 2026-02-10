@@ -113,7 +113,12 @@ export async function GET() {
     }
 
     try {
-      const stripeSubs = await stripe.subscriptions.list({ customer: stripeCustomerId, limit: 10 })
+      // Expand latest_invoice to get period dates (SDK v20 removed current_period_start/end)
+      const stripeSubs = await stripe.subscriptions.list({
+        customer: stripeCustomerId,
+        limit: 10,
+        expand: ["data.latest_invoice"],
+      })
       const preferredSubscription = stripeSubs.data.find((s) => SUBSCRIBED_STATUSES.has(s.status)) ?? stripeSubs.data[0]
 
       if (preferredSubscription && SUBSCRIBED_STATUSES.has(preferredSubscription.status)) {
@@ -122,10 +127,14 @@ export async function GET() {
         const livePlanId = getPlanIdFromPriceId(currentPriceId)
         const currentPlan = getPlanObject(livePlanId)
 
-        // Handle both old API (current_period_start/end as Unix timestamps)
-        // and new API (current_period.start_date/end_date as ISO date strings)
-        const periodStart = sub.current_period_start || sub.current_period?.start_date || null
-        const periodEnd = sub.current_period_end || sub.current_period?.end_date || null
+        // Extract period dates: try legacy fields, then current_period object, then latest_invoice
+        let periodStart: any = sub.current_period_start || sub.current_period?.start_date || null
+        let periodEnd: any = sub.current_period_end || sub.current_period?.end_date || null
+        if (!periodStart || !periodEnd) {
+          const inv = typeof sub.latest_invoice === "object" ? sub.latest_invoice : null
+          if (inv?.period_start) periodStart = periodStart || inv.period_start
+          if (inv?.period_end) periodEnd = periodEnd || inv.period_end
+        }
 
         const subscription = {
           id: sub.id,

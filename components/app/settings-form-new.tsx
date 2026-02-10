@@ -810,6 +810,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   const [success, setSuccess] = useState(false)
   const [showSaveToast, setShowSaveToast] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [connectHelpUrl, setConnectHelpUrl] = useState<string | null>(null)
   const [usernameError, setUsernameError] = useState<string | null>(null)
 
   // Avatar fallback order: Profile (manually set) → Store Builder → OnePage → Google → Initials
@@ -927,8 +928,11 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
       const data = await res.json()
       if (!res.ok) {
         console.error("Stripe Connect start error:", data)
+        if (data?.code === "platform_not_configured" && data?.helpUrl) {
+          setConnectHelpUrl(data.helpUrl)
+        }
         setError(data?.error || "Failed to start Stripe Connect. Please try again.")
-        setTimeout(() => setError(null), 5000)
+        setTimeout(() => setError(null), 15000)
         return
       }
       if (data?.url) {
@@ -2266,10 +2270,18 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
             <div className="space-y-[10px] sm:space-y-[14px]">
               {/* Error display for Connect flow */}
               {error && (
-                <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-800 text-[13px] flex items-center gap-2">
-                  <AlertCircle className="h-4 w-4 shrink-0" />
-                  <span>{error}</span>
-                  <button type="button" onClick={() => setError(null)} className="ml-auto shrink-0 cursor-pointer"><X className="h-4 w-4" /></button>
+                <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-800 text-[13px] flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                    <span className="flex-1">{error}</span>
+                    <button type="button" onClick={() => { setError(null); setConnectHelpUrl(null) }} className="shrink-0 cursor-pointer"><X className="h-4 w-4" /></button>
+                  </div>
+                  {connectHelpUrl && (
+                    <a href={connectHelpUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-[12px] font-medium text-[#7c3aed] hover:text-[#6d28d9] ml-6">
+                      <ExternalLink className="h-3 w-3" />
+                      Open Stripe Platform Profile Settings
+                    </a>
+                  )}
                 </div>
               )}
               {/* Stripe Card */}
