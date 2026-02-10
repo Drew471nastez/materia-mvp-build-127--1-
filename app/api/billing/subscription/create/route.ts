@@ -5,7 +5,7 @@ import { stripe } from "@/lib/stripe"
 export async function POST(request: Request) {
   try {
     const supabase = await createClient()
-    const { planId } = await request.json()
+    const { planId, embedded } = await request.json()
 
     if (!planId || planId === "free") {
       return NextResponse.json(
@@ -86,7 +86,41 @@ export async function POST(request: Request) {
         .eq("id", creator.id)
     }
 
-    // Create Stripe Checkout Session for subscription
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL
+
+    if (embedded) {
+      // Embedded checkout mode - renders inside a modal
+      const checkoutSession = await stripe.checkout.sessions.create({
+        customer: stripeCustomerId,
+        mode: "subscription",
+        payment_method_types: ["card"],
+        ui_mode: "embedded",
+        line_items: [
+          {
+            price: plan.stripe_price_id,
+            quantity: 1,
+          },
+        ],
+        return_url: `${baseUrl}/app/settings/billing?session_id={CHECKOUT_SESSION_ID}&success=true`,
+        metadata: {
+          creator_id: creator.id,
+          plan_id: planId,
+        },
+        subscription_data: {
+          metadata: {
+            creator_id: creator.id,
+            plan_id: planId,
+          },
+        },
+      })
+
+      return NextResponse.json({
+        clientSecret: checkoutSession.client_secret,
+        sessionId: checkoutSession.id,
+      })
+    }
+
+    // Standard redirect checkout mode
     const checkoutSession = await stripe.checkout.sessions.create({
       customer: stripeCustomerId,
       mode: "subscription",
@@ -97,8 +131,8 @@ export async function POST(request: Request) {
           quantity: 1,
         },
       ],
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/app/settings/billing?session_id={CHECKOUT_SESSION_ID}&success=true`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/app/settings/billing?canceled=true`,
+      success_url: `${baseUrl}/app/settings/billing?session_id={CHECKOUT_SESSION_ID}&success=true`,
+      cancel_url: `${baseUrl}/app/settings/billing?canceled=true`,
       metadata: {
         creator_id: creator.id,
         plan_id: planId,

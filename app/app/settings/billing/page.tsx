@@ -1,3 +1,4 @@
+import { Suspense } from "react"
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { BillingPageClient } from "@/components/app/billing/billing-page-client"
@@ -124,14 +125,20 @@ export default async function BillingPage() {
   }
 
   return (
-    <BillingPageClient
-      initialData={{
-        plans,
-        subscription,
-        currentPlan,
-        invoices,
-        paymentMethod,
-      }}
-    />
+    <Suspense fallback={
+      <div className="h-full flex items-center justify-center bg-[#fafafa]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#7c3aed]" />
+      </div>
+    }>
+      <BillingPageClient
+        initialData={{
+          plans,
+          subscription,
+          currentPlan,
+          invoices,
+          paymentMethod,
+        }}
+      />
+    </Suspense>
   )
 }

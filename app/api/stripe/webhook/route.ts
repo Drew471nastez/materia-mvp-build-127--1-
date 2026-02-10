@@ -43,7 +43,53 @@ export async function POST(request: Request) {
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session
 
-    console.log("[v0] Processing checkout session:", session.id)
+    console.log("[v0] Processing checkout session:", session.id, "mode:", session.mode)
+
+    // Handle setup mode sessions (adding payment method without charging)
+    if (session.mode === "setup") {
+      const setupCreatorId = session.metadata?.creator_id
+      const customerId = typeof session.customer === "string" ? session.customer : session.customer?.id
+      const setupIntentId = typeof session.setup_intent === "string" ? session.setup_intent : session.setup_intent?.id
+
+      console.log("[v0] Setup session completed for creator:", setupCreatorId)
+
+      if (setupIntentId && setupCreatorId) {
+        try {
+          const setupIntent = await stripe.setupIntents.retrieve(setupIntentId)
+          const paymentMethodId = typeof setupIntent.payment_method === "string"
+            ? setupIntent.payment_method
+            : setupIntent.payment_method?.id
+
+          if (paymentMethodId) {
+            const pm = await stripe.paymentMethods.retrieve(paymentMethodId)
+
+            // Set as default payment method for the customer
+            if (customerId) {
+              await stripe.customers.update(customerId, {
+                invoice_settings: { default_payment_method: paymentMethodId },
+              })
+            }
+
+            // Save to database
+            await supabaseAdmin.from("payment_methods").upsert({
+              creator_id: setupCreatorId,
+              stripe_payment_method_id: paymentMethodId,
+              card_brand: pm.card?.brand || "unknown",
+              card_last4: pm.card?.last4 || "0000",
+              card_exp_month: pm.card?.exp_month || 0,
+              card_exp_year: pm.card?.exp_year || 0,
+              is_default: true,
+            }, { onConflict: "creator_id, stripe_payment_method_id" })
+
+            console.log("[v0] Payment method saved for creator:", setupCreatorId)
+          }
+        } catch (err) {
+          console.error("[v0] Error saving setup payment method:", err)
+        }
+      }
+
+      return NextResponse.json({ received: true, message: "Setup session processed" })
+    }
 
     // NOTE: For card payments, this should already be "paid".
     // If you support async methods, you might want to also handle checkout.session.async_payment_succeeded.

@@ -1,13 +1,14 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import {
   Settings, Shield, ToggleLeft, Wallet, Store, CreditCard,
   X, Check, Star, Loader2, Download, FileText, Clock, CheckCircle, XCircle, AlertCircle,
-  Eye, EyeOff, Rocket, Filter, MoreVertical, Plus, Lock, ShieldCheck,
+  Eye, EyeOff, Rocket, Filter, Lock, ShieldCheck,
 } from "lucide-react"
 import { useLanguage } from "@/lib/i18n"
+import { CheckoutModal } from "./checkout-modal"
 
 const TABS = [
   { id: "general", label: "General", icon: Settings },
@@ -32,6 +33,7 @@ interface BillingPageClientProps {
 
 export function BillingPageClient({ initialData }: BillingPageClientProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { t } = useLanguage()
   const [notification, setNotification] = useState<{ type: "success" | "error"; message: string } | null>(null)
   const [showPricingModal, setShowPricingModal] = useState(false)
@@ -41,7 +43,31 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
   const [cancelingSubscription, setCancelingSubscription] = useState(false)
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [showCardNumber, setShowCardNumber] = useState(false)
-  const [updatingPayment, setUpdatingPayment] = useState(false)
+
+  // Checkout modal state
+  const [checkoutVisible, setCheckoutVisible] = useState(false)
+  const [checkoutMode, setCheckoutMode] = useState<"subscription" | "setup">("setup")
+  const [checkoutPlanId, setCheckoutPlanId] = useState<string>("")
+  const [checkoutPlanName, setCheckoutPlanName] = useState<string>("")
+
+  // Handle success/cancel query params on mount
+  useEffect(() => {
+    const success = searchParams.get("success")
+    const setupSuccess = searchParams.get("setup_success")
+    const canceled = searchParams.get("canceled")
+
+    if (success === "true") {
+      showNotification("success", "Subscription activated successfully! Your plan has been updated.")
+      // Clean URL
+      window.history.replaceState({}, "", "/app/settings/billing")
+    } else if (setupSuccess === "true") {
+      showNotification("success", "Payment method added successfully!")
+      window.history.replaceState({}, "", "/app/settings/billing")
+    } else if (canceled === "true") {
+      showNotification("error", "Checkout was canceled. No changes were made.")
+      window.history.replaceState({}, "", "/app/settings/billing")
+    }
+  }, [searchParams])
 
   const showNotification = (type: "success" | "error", message: string) => {
     setNotification({ type, message })
@@ -53,7 +79,7 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
     router.push("/app/settings")
   }
 
-  // Smooth modal open
+  // Smooth pricing modal open
   const openPricingModal = () => {
     setShowPricingModal(true)
     requestAnimationFrame(() => {
@@ -63,12 +89,32 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
     })
   }
 
-  // Smooth modal close
+  // Smooth pricing modal close
   const closePricingModal = () => {
     setPricingModalVisible(false)
     setTimeout(() => {
       setShowPricingModal(false)
     }, 300)
+  }
+
+  // Open checkout modal for subscription
+  const openSubscriptionCheckout = (planId: string, planName: string) => {
+    setCheckoutPlanId(planId)
+    setCheckoutPlanName(planName)
+    setCheckoutMode("subscription")
+    closePricingModal()
+    // Small delay to let pricing modal close first
+    setTimeout(() => {
+      setCheckoutVisible(true)
+    }, 350)
+  }
+
+  // Open checkout modal for adding payment method
+  const openSetupCheckout = () => {
+    setCheckoutMode("setup")
+    setCheckoutPlanId("")
+    setCheckoutPlanName("")
+    setCheckoutVisible(true)
   }
 
   const handleUpgrade = async (planId: string) => {
@@ -87,7 +133,8 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
         return
       }
 
-      if (initialData.subscription) {
+      if (initialData.subscription && initialData.subscription.status === "active") {
+        // Already subscribed - change plan via API
         const response = await fetch("/api/billing/subscription/change", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -101,19 +148,9 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
         closePricingModal()
         router.refresh()
       } else {
-        const response = await fetch("/api/billing/subscription/create", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ planId }),
-        })
-        if (!response.ok) {
-          const error = await response.json()
-          throw new Error(error.error || "Failed to create subscription")
-        }
-        const data = await response.json()
-        if (data.checkoutUrl) {
-          window.location.href = data.checkoutUrl
-        }
+        // No subscription - open embedded checkout modal
+        const plan = initialData.plans.find((p: any) => p.id === planId)
+        openSubscriptionCheckout(planId, plan?.name || planId)
       }
     } catch (error: any) {
       showNotification("error", error.message || "An error occurred")
@@ -137,25 +174,6 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
       showNotification("error", error.message || "Failed to cancel subscription")
     } finally {
       setCancelingSubscription(false)
-    }
-  }
-
-  const handleUpdatePayment = async () => {
-    setUpdatingPayment(true)
-    try {
-      const response = await fetch("/api/billing/customer-portal", { method: "POST" })
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || "Failed to open customer portal")
-      }
-      const data = await response.json()
-      if (data.url) {
-        window.location.href = data.url
-      }
-    } catch (error: any) {
-      showNotification("error", error.message || "Failed to open payment portal")
-    } finally {
-      setUpdatingPayment(false)
     }
   }
 
@@ -419,15 +437,11 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                   )}
 
                   <button
-                    onClick={handleUpdatePayment}
-                    disabled={updatingPayment}
-                    className="mt-4 h-10 px-5 text-[13px] font-medium text-[#7c3aed] border border-[#7c3aed] rounded-xl hover:bg-[#f5f3ff] disabled:opacity-60 transition-colors flex items-center gap-2"
+                    onClick={openSetupCheckout}
+                    className="mt-4 h-10 px-5 text-[13px] font-medium text-[#7c3aed] border border-[#7c3aed] rounded-xl hover:bg-[#f5f3ff] transition-colors flex items-center gap-2"
                   >
-                    {updatingPayment ? (
-                      <><Loader2 className="h-4 w-4 animate-spin" />Opening Portal...</>
-                    ) : (
-                      <><CreditCard className="h-4 w-4" />{initialData.paymentMethod ? "Manage Payment" : "Add Payment Method"}</>
-                    )}
+                    <CreditCard className="h-4 w-4" />
+                    {initialData.paymentMethod ? "Manage Payment" : "Add Payment Method"}
                   </button>
                 </div>
               </div>
@@ -531,80 +545,6 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
               )}
             </div>
 
-            {/* ---- SECTION 3: Payment Method ---- */}
-            <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-[#e5e7eb]">
-              <h2 className="text-[17px] font-bold text-[#1a1a2e] mb-5">Payment Method</h2>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Existing Card Visual */}
-                {initialData.paymentMethod ? (
-                  <div className="relative w-full h-[200px] rounded-2xl overflow-hidden bg-gradient-to-br from-[#1a1a2e] via-[#2d2d52] to-[#4a3a8a] p-5 text-white shadow-lg">
-                    {/* Card background pattern */}
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-8 translate-x-8" />
-                    <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-6 -translate-x-6" />
-
-                    <div className="relative h-full flex flex-col justify-between">
-                      {/* Card Top */}
-                      <div className="flex items-start justify-between">
-                        {/* Chip */}
-                        <div className="w-10 h-7 bg-gradient-to-br from-yellow-300 to-yellow-500 rounded-md flex items-center justify-center">
-                          <div className="w-6 h-4 border border-yellow-600/40 rounded-sm" />
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <MoreVertical className="h-4 w-4 text-white/60" />
-                        </div>
-                      </div>
-
-                      {/* Card Number */}
-                      <div className="text-[17px] font-mono tracking-[0.2em] text-white/95">
-                        {maskCardNumber(initialData.paymentMethod.card_last4)}
-                      </div>
-
-                      {/* Card Bottom */}
-                      <div className="flex items-end justify-between">
-                        <div>
-                          <div className="text-[9px] uppercase tracking-wider text-white/50 mb-0.5">Card Holder</div>
-                          <div className="text-[13px] font-medium text-white/90">Account Owner</div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-[9px] uppercase tracking-wider text-white/50 mb-0.5">Expires</div>
-                          <div className="text-[13px] font-medium text-white/90">
-                            {String(initialData.paymentMethod.card_exp_month).padStart(2, "0")}/{String(initialData.paymentMethod.card_exp_year).slice(-2)}
-                          </div>
-                        </div>
-                        {/* Brand Logo */}
-                        <div className="text-[14px] font-bold text-white/80 uppercase">
-                          {initialData.paymentMethod.card_brand}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ) : null}
-
-                {/* Add New Card */}
-                <button
-                  onClick={handleUpdatePayment}
-                  disabled={updatingPayment}
-                  className="w-full h-[200px] rounded-2xl border-2 border-dashed border-[#d1d5db] hover:border-[#7c3aed] hover:bg-[#faf8ff] transition-all duration-200 flex flex-col items-center justify-center gap-3 group"
-                >
-                  {updatingPayment ? (
-                    <Loader2 className="h-8 w-8 text-[#7c3aed] animate-spin" />
-                  ) : (
-                    <>
-                      <div className="w-12 h-12 rounded-full bg-[#f3f4f6] group-hover:bg-[#ede9fe] flex items-center justify-center transition-colors">
-                        <Plus className="h-5 w-5 text-[#9ca3af] group-hover:text-[#7c3aed] transition-colors" />
-                      </div>
-                      <span className="text-[13px] font-medium text-[#9ca3af] group-hover:text-[#7c3aed] transition-colors">Add New Card</span>
-                    </>
-                  )}
-                </button>
-              </div>
-
-              <p className="text-[11px] text-[#9ca3af] mt-4 flex items-center gap-1.5">
-                <Lock className="h-3 w-3" />
-                Your payment information is securely stored and processed by Stripe. We never store your full card details.
-              </p>
-            </div>
           </div>
         </div>
       </div>
@@ -674,7 +614,6 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                   const isCurrentPlan = plan.id === currentPlan.id
                   const isFree = plan.id === "free"
                   const isPro = plan.id === "pro"
-                  const isGrowth = plan.id === "growth"
                   const monthlyPrice = plan.price_cents / 100
                   const annualPrice = Math.round(monthlyPrice * 0.65 * 100) / 100
                   const displayPrice = billingPeriod === "annual" && !isFree ? annualPrice : monthlyPrice
@@ -820,6 +759,15 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
           </div>
         </div>
       )}
+
+      {/* ============ CHECKOUT MODAL (Stripe Embedded) ============ */}
+      <CheckoutModal
+        mode={checkoutMode}
+        planId={checkoutPlanId}
+        planName={checkoutPlanName}
+        visible={checkoutVisible}
+        onClose={() => setCheckoutVisible(false)}
+      />
     </>
   )
 }
