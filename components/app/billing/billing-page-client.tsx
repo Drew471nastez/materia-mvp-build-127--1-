@@ -348,22 +348,27 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                       Upgrade to {nextUpgradePlan.name}
                     </button>
                   )}
-                  {/* Pro plan -> no upgrade button (already top tier) */}
-                  {/* Manage + Cancel for any paid plan */}
-                  {isSubscribed && !subscription.cancel_at_period_end && (
-                    <>
-                      <button onClick={openCustomerPortal} disabled={portalLoading} className="h-10 px-5 text-[13px] font-medium text-[#7c3aed] border border-[#7c3aed] rounded-xl hover:bg-[#f5f3ff] transition-colors flex items-center gap-2 cursor-pointer">
-                        {portalLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ExternalLink className="h-3.5 w-3.5" />}
-                        Manage Subscription
-                      </button>
-                    </>
-                  )}
+                  {/* If cancel_at_period_end, show upgrade option to reactivate */}
                   {isSubscribed && subscription.cancel_at_period_end && (
-                    <div className="text-[13px] text-amber-600 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5">
-                      Your plan will be canceled on {formatDate(subscription.current_period_end)}
-                    </div>
+                    <a href="/app/settings/billing/upgrade" className="h-10 px-5 text-[13px] font-semibold text-white bg-[#7c3aed] rounded-xl hover:bg-[#6d28d9] active:bg-[#5b21b6] transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2 no-underline cursor-pointer">
+                      <Rocket className="h-4 w-4" />
+                      Upgrade
+                    </a>
+                  )}
+                  {/* Always show Manage Subscription for any active paid plan */}
+                  {isSubscribed && (
+                    <button onClick={openCustomerPortal} disabled={portalLoading} className="h-10 px-5 text-[13px] font-medium text-[#7c3aed] border border-[#7c3aed] rounded-xl hover:bg-[#f5f3ff] transition-colors flex items-center gap-2 cursor-pointer">
+                      {portalLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ExternalLink className="h-3.5 w-3.5" />}
+                      Manage Subscription
+                    </button>
                   )}
                 </div>
+                {/* Subtle cancel notice */}
+                {isSubscribed && subscription.cancel_at_period_end && (
+                  <p className="text-[12px] text-[#9ca3af] mt-3">
+                    Your plan will be canceled on {formatDate(subscription.current_period_end)}
+                  </p>
+                )}
               </div>
 
               {/* Right: Payment Details */}
@@ -446,7 +451,7 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
               </p>
             )}
             {subscription?.current_period_end && subscription.cancel_at_period_end && (
-              <p className="text-[13px] text-amber-600 mb-4">Your subscription ends on <span className="font-medium">{formatDateLong(subscription.current_period_end)}</span>.</p>
+              <p className="text-[13px] text-[#9ca3af] mb-4">Your subscription ends on <span className="font-medium text-[#6b7280]">{formatDateLong(subscription.current_period_end)}</span>.</p>
             )}
             {!isSubscribed && !subscription?.cancel_at_period_end && (
               <p className="text-[13px] text-[#6b7280] mb-4">No active subscription.</p>
@@ -573,9 +578,15 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                 const result = await response.json()
                 if (!response.ok) { throw new Error(result.error || "Failed to change plan") }
                 showNotification("success", result.message || `Plan changed to ${showUpgradeModal.planName}!`)
-                // Optimistically update pending plan for downgrades
+                // Optimistically update state
                 if (result.type === "downgrade") {
                   setLiveSubscription((prev: any) => prev ? { ...prev, pending_plan_id: showUpgradeModal.planId } : prev)
+                } else if (result.type === "upgrade") {
+                  // Clear pending/cancel state on upgrade
+                  setLiveSubscription((prev: any) => prev ? { ...prev, pending_plan_id: null, cancel_at_period_end: false } : prev)
+                  // Update current plan optimistically
+                  const newPlan = initialData.plans.find((p: any) => p.id === showUpgradeModal.planId)
+                  if (newPlan) setLiveCurrentPlan(newPlan)
                 }
                 setShowUpgradeModal(null)
                 router.refresh()
@@ -872,13 +883,16 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
           const isDowngrade = plan.price_cents < currentPlan.price_cents
           const monthlyPrice = plan.price_cents / 100
 
+          const isUpgrade = plan.price_cents > currentPlan.price_cents
+
           let buttonLabel = `Upgrade to ${plan.name}`
           if (isCurrentPlan) buttonLabel = "Current Plan"
           else if (isPendingPlan) buttonLabel = "Downgrade Scheduled"
           else if (isFree) buttonLabel = "Downgrade to Free"
           else if (isDowngrade) buttonLabel = `Downgrade to ${plan.name}`
 
-          const isDisabled = isCurrentPlan || isPendingPlan || loading !== null
+          // Only disable current plan and pending plan (but allow upgrades from any state)
+          const isDisabled = isCurrentPlan || (isPendingPlan && !isUpgrade) || loading !== null
 
           return (
             <div key={plan.id} className={`relative rounded-2xl p-6 flex flex-col transition-all duration-200 ${isPro ? "bg-[#1a1a2e] text-white shadow-xl border-2 border-[#7c3aed]/30" : "bg-white border-2 border-[#e5e7eb] hover:border-[#d1d5db] shadow-sm hover:shadow-md"}`}>

@@ -308,12 +308,15 @@ export async function POST(request: Request) {
     }
 
     if (upgrading) {
+      // Clear cancel_at_period_end if set (re-upgrade after scheduled cancel)
       const updatedSubscription = await stripe.subscriptions.update(subscriptionRecord.stripe_subscription_id, {
         items: [{ id: subItem.id, price: stripePriceId }],
         proration_behavior: "create_prorations",
+        cancel_at_period_end: false,
         metadata: {
           creator_id: creator.id,
           plan_id: newPlanId,
+          pending_plan_id: "",
         },
       })
 
@@ -328,6 +331,7 @@ export async function POST(request: Request) {
           current_period_start: safeTimestamp(updatedPeriod.periodStart),
           current_period_end: safeTimestamp(updatedPeriod.periodEnd),
           pending_plan_id: null,
+          cancel_at_period_end: false,
           updated_at: new Date().toISOString(),
         })
         .eq("id", subscriptionRecord.id)

@@ -24,13 +24,18 @@ export function UpgradePageClient({
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annual">("monthly")
   const [loading, setLoading] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [closing, setClosing] = useState(false)
 
   const goBack = () => {
-    router.push("/app/settings/billing")
+    setClosing(true)
+    // Start fade-out animation, then navigate
+    setTimeout(() => {
+      router.push("/app/settings/billing")
+    }, 200)
   }
 
   const handleUpgrade = async (planId: string) => {
-    if (planId === currentPlanId || planId === pendingPlanId || loading) return
+    if (planId === currentPlanId || loading) return
     setLoading(planId)
     setError(null)
 
@@ -117,7 +122,7 @@ export function UpgradePageClient({
   }
 
   return (
-    <div className="fixed inset-0 z-[60] bg-white overflow-y-auto">
+    <div className={`fixed inset-0 z-[60] bg-white overflow-y-auto transition-opacity duration-200 ${closing ? "opacity-0" : "opacity-100"}`}>
       {/* Top bar */}
       <div className="sticky top-0 z-10 bg-white border-b border-[#e5e7eb]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14 sm:h-16">
@@ -192,10 +197,11 @@ export function UpgradePageClient({
             const isPro = plan.id === "pro"
             const currentPlan = plans.find((p: any) => p.id === currentPlanId)
             const isDowngrade = currentPlan ? plan.price_cents < currentPlan.price_cents : false
+            const isUpgrade = currentPlan ? plan.price_cents > currentPlan.price_cents : false
             const monthlyPrice = plan.price_cents / 100
             const annualPrice = Math.round(monthlyPrice * 0.65 * 100) / 100
             const displayPrice = billingPeriod === "annual" && !isFree ? annualPrice : monthlyPrice
-            const isDisabled = isCurrentPlan || isPendingPlan || loading !== null
+            const isDisabled = isCurrentPlan || (isPendingPlan && !isUpgrade) || loading !== null
 
             return (
               <div
