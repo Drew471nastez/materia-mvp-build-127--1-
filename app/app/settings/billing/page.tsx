@@ -141,11 +141,17 @@ export default async function BillingPage() {
         if (!periodStartTs && sub.current_period?.start_date) periodStartTs = sub.current_period.start_date
         if (!periodEndTs && sub.current_period?.end_date) periodEndTs = sub.current_period.end_date
 
-        // Priority 3: latest_invoice period fields
+        // Priority 3: latest_invoice period fields (try ALL possible field names)
         const inv = typeof sub.latest_invoice === "object" && sub.latest_invoice ? sub.latest_invoice : null
         if (inv) {
           if (!periodStartTs && inv.period_start) periodStartTs = inv.period_start
           if (!periodEndTs && inv.period_end) periodEndTs = inv.period_end
+          // Try new object format: invoice.period.start_date / end_date
+          if (!periodStartTs && inv.period?.start_date) periodStartTs = inv.period.start_date
+          if (!periodEndTs && inv.period?.end_date) periodEndTs = inv.period.end_date
+          // Try: invoice.period.start / end
+          if (!periodStartTs && inv.period?.start) periodStartTs = inv.period.start
+          if (!periodEndTs && inv.period?.end) periodEndTs = inv.period.end
 
           // Priority 4: invoice line items period
           if (!periodStartTs || !periodEndTs) {
@@ -157,14 +163,20 @@ export default async function BillingPage() {
           }
         }
 
-        // Priority 5: Compute from billing_cycle_anchor or start_date
-        if (!periodEndTs) {
+        // Priority 5: Compute from billing_cycle_anchor (use DATE-ONLY comparison)
+        if (!periodEndTs || (periodStartTs && periodEndTs && String(periodStartTs) === String(periodEndTs))) {
           const anchor = sub.billing_cycle_anchor || sub.start_date
           if (anchor) {
             const anchorMs = typeof anchor === "number" ? (anchor > 1e12 ? anchor : anchor * 1000) : new Date(anchor).getTime()
             const anchorDate = new Date(anchorMs)
             const now = new Date()
-            while (anchorDate <= now) anchorDate.setMonth(anchorDate.getMonth() + 1)
+            // Compare by date only (ignore time) so same-day billing anchor advances correctly
+            const anchorDay = new Date(anchorDate.getFullYear(), anchorDate.getMonth(), anchorDate.getDate())
+            const todayDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+            while (anchorDay <= todayDay) {
+              anchorDate.setMonth(anchorDate.getMonth() + 1)
+              anchorDay.setMonth(anchorDay.getMonth() + 1)
+            }
             periodEndTs = anchorDate.toISOString()
             if (!periodStartTs) {
               const startDate = new Date(anchorDate)

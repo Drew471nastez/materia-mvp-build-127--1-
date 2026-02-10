@@ -187,6 +187,8 @@ export function UpgradePageClient({
             const isCurrentPlan = plan.id === currentPlanId
             const isFree = plan.id === "free"
             const isPro = plan.id === "pro"
+            const currentPlan = plans.find((p: any) => p.id === currentPlanId)
+            const isDowngrade = currentPlan ? plan.price_cents < currentPlan.price_cents : false
             const monthlyPrice = plan.price_cents / 100
             const annualPrice = Math.round(monthlyPrice * 0.65 * 100) / 100
             const displayPrice = billingPeriod === "annual" && !isFree ? annualPrice : monthlyPrice
@@ -258,8 +260,10 @@ export function UpgradePageClient({
                     <><Loader2 className="h-4 w-4 animate-spin" />Processing...</>
                   ) : isCurrentPlan ? (
                     "Current Plan"
-                  ) : isFree ? (
-                    "Downgrade to Free"
+                  ) : isDowngrade ? (
+                    `Downgrade to ${plan.name}`
+                  ) : hasActiveSubscription ? (
+                    `Upgrade to ${plan.name}`
                   ) : (
                     `Get started with ${plan.name}`
                   )}

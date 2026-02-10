@@ -937,7 +937,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
       }
       if (data?.url) {
         // Open Stripe Connect in a popup window (like Stan.store)
-        const w = 600
+        const w = 1100
         const h = 700
         const left = window.screenX + (window.outerWidth - w) / 2
         const top = window.screenY + (window.outerHeight - h) / 2

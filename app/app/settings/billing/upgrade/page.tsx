@@ -38,9 +38,17 @@ const PRO_PLAN = {
 
 const FALLBACK_PLANS = [FREE_PLAN, GROWTH_PLAN, PRO_PLAN]
 
+// LIVE Stripe Price IDs (hardcoded fallbacks since env vars may not be set)
+const PRICE_GROWTH = process.env.PRICE_GROWTH_MONTHLY || "price_1SzBWaBYevnBVyznNCTOXDoS"
+const PRICE_PRO = process.env.PRICE_PRO_MONTHLY || "price_1SzBXSBYevnBVyznYjXfOOXX"
+
 function getPlanIdFromPriceId(priceId: string): string | null {
-  if (priceId === process.env.PRICE_GROWTH_MONTHLY) return "growth"
-  if (priceId === process.env.PRICE_PRO_MONTHLY) return "pro"
+  if (!priceId) return null
+  if (priceId === PRICE_GROWTH) return "growth"
+  if (priceId === PRICE_PRO) return "pro"
+  // Partial match fallback
+  if (priceId.includes("SzBWa")) return "growth"
+  if (priceId.includes("SzBXS")) return "pro"
   return null
 }
 

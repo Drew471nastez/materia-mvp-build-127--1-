@@ -49,27 +49,35 @@ function getSubscriptionPeriod(sub: any): { periodStart: number; periodEnd: numb
       const d = new Date(ts)
       return isNaN(d.getTime()) ? null : Math.floor(d.getTime() / 1000)
     }
+    if (ts instanceof Date) return Math.floor(ts.getTime() / 1000)
     return null
   }
 
   let periodStart: number | null = null
   let periodEnd: number | null = null
 
-  // Priority 1: Legacy top-level fields
+  // Priority 1: Legacy top-level fields (pre-v20 API versions)
   if (sub.current_period_start) periodStart = toUnixSeconds(sub.current_period_start)
   if (sub.current_period_end) periodEnd = toUnixSeconds(sub.current_period_end)
 
-  // Priority 2: SDK v20 current_period object
+  // Priority 2: SDK v20 current_period object (start_date/end_date)
   if (!periodStart && sub.current_period?.start_date) periodStart = toUnixSeconds(sub.current_period.start_date)
   if (!periodEnd && sub.current_period?.end_date) periodEnd = toUnixSeconds(sub.current_period.end_date)
 
-  // Priority 3: latest_invoice period
+  // Priority 3: latest_invoice period fields (try ALL possible field names)
   const invoice = typeof sub.latest_invoice === "object" && sub.latest_invoice ? sub.latest_invoice : null
   if (invoice) {
+    // Try old field names: invoice.period_start / period_end
     if (!periodStart && invoice.period_start) periodStart = toUnixSeconds(invoice.period_start)
     if (!periodEnd && invoice.period_end) periodEnd = toUnixSeconds(invoice.period_end)
+    // Try new object format: invoice.period.start_date / end_date
+    if (!periodStart && invoice.period?.start_date) periodStart = toUnixSeconds(invoice.period.start_date)
+    if (!periodEnd && invoice.period?.end_date) periodEnd = toUnixSeconds(invoice.period.end_date)
+    // Try: invoice.period.start / end
+    if (!periodStart && invoice.period?.start) periodStart = toUnixSeconds(invoice.period.start)
+    if (!periodEnd && invoice.period?.end) periodEnd = toUnixSeconds(invoice.period.end)
 
-    // Priority 4: invoice line items
+    // Priority 4: invoice line items period
     if (!periodStart || !periodEnd) {
       const lineItem = invoice.lines?.data?.[0]
       if (lineItem?.period) {
@@ -79,15 +87,21 @@ function getSubscriptionPeriod(sub: any): { periodStart: number; periodEnd: numb
     }
   }
 
-  // Priority 5: Compute from billing_cycle_anchor or start_date
-  if (!periodEnd) {
+  // Priority 5: Compute from billing_cycle_anchor (use DATE-ONLY comparison)
+  if (!periodEnd || (periodStart && periodEnd && periodStart === periodEnd)) {
     const anchor = sub.billing_cycle_anchor || sub.start_date
     if (anchor) {
       const anchorSec = toUnixSeconds(anchor)
       if (anchorSec) {
         const anchorDate = new Date(anchorSec * 1000)
         const now = new Date()
-        while (anchorDate <= now) anchorDate.setMonth(anchorDate.getMonth() + 1)
+        // Compare by date only (ignore time) so same-day billing anchor advances correctly
+        const anchorDay = new Date(anchorDate.getFullYear(), anchorDate.getMonth(), anchorDate.getDate())
+        const todayDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        while (anchorDay <= todayDay) {
+          anchorDate.setMonth(anchorDate.getMonth() + 1)
+          anchorDay.setMonth(anchorDay.getMonth() + 1)
+        }
         periodEnd = Math.floor(anchorDate.getTime() / 1000)
         if (!periodStart) {
           const startDate = new Date(anchorDate)
@@ -102,7 +116,7 @@ function getSubscriptionPeriod(sub: any): { periodStart: number; periodEnd: numb
   if (!periodStart) periodStart = Math.floor(Date.now() / 1000)
   if (!periodEnd) periodEnd = periodStart + 30 * 24 * 60 * 60
 
-  console.log("[Change] Period extraction:", { periodStart, periodEnd, hasInvoice: !!invoice })
+  console.log("[Change] Period extraction:", { periodStart, periodEnd, hasInvoice: !!invoice, diff: periodEnd - periodStart })
   return { periodStart, periodEnd }
 }
 

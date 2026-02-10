@@ -139,11 +139,17 @@ export async function GET() {
         if (!periodStart && sub.current_period?.start_date) periodStart = sub.current_period.start_date
         if (!periodEnd && sub.current_period?.end_date) periodEnd = sub.current_period.end_date
 
-        // Priority 3: latest_invoice period fields
+        // Priority 3: latest_invoice period fields (try ALL possible field names)
         const inv = typeof sub.latest_invoice === "object" && sub.latest_invoice ? sub.latest_invoice : null
         if (inv) {
           if (!periodStart && inv.period_start) periodStart = inv.period_start
           if (!periodEnd && inv.period_end) periodEnd = inv.period_end
+          // Try new object format: invoice.period.start_date / end_date
+          if (!periodStart && inv.period?.start_date) periodStart = inv.period.start_date
+          if (!periodEnd && inv.period?.end_date) periodEnd = inv.period.end_date
+          // Try: invoice.period.start / end
+          if (!periodStart && inv.period?.start) periodStart = inv.period.start
+          if (!periodEnd && inv.period?.end) periodEnd = inv.period.end
 
           // Priority 4: invoice line items period
           if (!periodStart || !periodEnd) {
@@ -155,14 +161,20 @@ export async function GET() {
           }
         }
 
-        // Priority 5: Compute from billing_cycle_anchor or start_date
-        if (!periodEnd) {
+        // Priority 5: Compute from billing_cycle_anchor (use DATE-ONLY comparison)
+        if (!periodEnd || (periodStart && periodEnd && String(periodStart) === String(periodEnd))) {
           const anchor = sub.billing_cycle_anchor || sub.start_date
           if (anchor) {
             const anchorMs = typeof anchor === "number" ? (anchor > 1e12 ? anchor : anchor * 1000) : new Date(anchor).getTime()
             const anchorDate = new Date(anchorMs)
             const now = new Date()
-            while (anchorDate <= now) anchorDate.setMonth(anchorDate.getMonth() + 1)
+            // Compare by date only (ignore time) so same-day billing anchor advances correctly
+            const anchorDay = new Date(anchorDate.getFullYear(), anchorDate.getMonth(), anchorDate.getDate())
+            const todayDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+            while (anchorDay <= todayDay) {
+              anchorDate.setMonth(anchorDate.getMonth() + 1)
+              anchorDay.setMonth(anchorDay.getMonth() + 1)
+            }
             periodEnd = anchorDate.toISOString()
             if (!periodStart) {
               const startDate = new Date(anchorDate)
