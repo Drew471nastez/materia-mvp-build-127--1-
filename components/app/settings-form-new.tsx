@@ -896,7 +896,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   }, [])
 
   useEffect(() => {
-    if (activeTab === "payments") loadStripeStatus()
+    if (activeTab === "payments" || activeTab === "general") loadStripeStatus()
   }, [activeTab, loadStripeStatus])
 
   const connectStripe = async () => {
@@ -1582,6 +1582,26 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
           {/* General Tab */}
           {!isTabLoading && activeTab === "general" && (
             <div className="space-y-4 sm:space-y-6">
+              {/* Purple Announcement Bar — Connect Stripe */}
+              {!stripeStatusLoading && !stripeStatus.connected && (
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] px-4 sm:px-6 py-3.5 sm:py-4 shadow-sm">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Wallet className="h-5 w-5 text-white shrink-0" />
+                    <p className="text-[13px] sm:text-[14px] font-medium text-white">
+                      Get paid — Connect your payouts to receive payments.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={connectStripe}
+                    disabled={stripeBusy !== null}
+                    className="shrink-0 h-9 px-5 text-[13px] font-semibold text-[#7c3aed] bg-white rounded-lg hover:bg-[#f5f3ff] active:bg-[#ede9fe] transition-colors shadow-sm cursor-pointer disabled:opacity-60"
+                  >
+                    {stripeBusy === "connect" ? "Connecting..." : "Connect"}
+                  </button>
+                </div>
+              )}
+
               {/* Profile Image Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
                 <div className="flex items-center gap-4">

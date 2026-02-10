@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { stripe } from "@/lib/stripe"
 
+const PLAN_ORDER: Record<string, number> = { free: 0, growth: 1, pro: 2 }
+
 function getStripePriceId(planId: string): string | null {
   switch (planId) {
     case "growth":
@@ -11,6 +13,10 @@ function getStripePriceId(planId: string): string | null {
     default:
       return null
   }
+}
+
+function isUpgrade(currentPlanId: string, newPlanId: string): boolean {
+  return (PLAN_ORDER[newPlanId] ?? 0) > (PLAN_ORDER[currentPlanId] ?? 0)
 }
 
 export async function POST(request: Request) {
@@ -96,45 +102,101 @@ export async function POST(request: Request) {
       )
     }
 
-    // Update the subscription in Stripe
-    const updatedSubscription = await stripe.subscriptions.update(
-      subscription.stripe_subscription_id,
-      {
-        items: [
-          {
-            id: stripeSubscription.items.data[0].id,
-            price: stripePriceId,
+    const currentPlanId = creator.subscription_plan_id || "free"
+    const upgrading = isUpgrade(currentPlanId, newPlanId)
+
+    if (upgrading) {
+      // ---- UPGRADE: Immediate + prorated ----
+      // Stripe will calculate prorated credit for unused time on current plan
+      // and charge the prorated amount for the new, higher plan immediately
+      const updatedSubscription = await stripe.subscriptions.update(
+        subscription.stripe_subscription_id,
+        {
+          items: [
+            {
+              id: stripeSubscription.items.data[0].id,
+              price: stripePriceId,
+            },
+          ],
+          proration_behavior: "always_invoice",
+          metadata: {
+            creator_id: creator.id,
+            plan_id: newPlanId,
           },
-        ],
-        proration_behavior: "always_invoice",
-        metadata: {
-          creator_id: creator.id,
+        }
+      )
+
+      // Update subscription in database
+      await supabase
+        .from("subscriptions")
+        .update({
           plan_id: newPlanId,
-        },
-      }
-    )
+          current_period_start: new Date((updatedSubscription as any).current_period_start * 1000).toISOString(),
+          current_period_end: new Date((updatedSubscription as any).current_period_end * 1000).toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", subscription.id)
 
-    // Update subscription in database
-    await supabase
-      .from("subscriptions")
-      .update({
-        plan_id: newPlanId,
-        current_period_start: new Date((updatedSubscription as any).current_period_start * 1000).toISOString(),
-        current_period_end: new Date((updatedSubscription as any).current_period_end * 1000).toISOString(),
-        updated_at: new Date().toISOString(),
+      // Update creator's plan immediately
+      await supabase
+        .from("creators")
+        .update({ subscription_plan_id: newPlanId })
+        .eq("id", creator.id)
+
+      return NextResponse.json({
+        success: true,
+        type: "upgrade",
+        message: "Upgrade applied immediately. You've been charged a prorated amount.",
       })
-      .eq("id", subscription.id)
+    } else {
+      // ---- DOWNGRADE: Scheduled for end of current billing period ----
+      // Use Stripe's subscription schedule to apply the change at period end
+      // The user keeps their current plan until the billing period ends
+      const updatedSubscription = await stripe.subscriptions.update(
+        subscription.stripe_subscription_id,
+        {
+          items: [
+            {
+              id: stripeSubscription.items.data[0].id,
+              price: stripePriceId,
+            },
+          ],
+          proration_behavior: "none",
+          metadata: {
+            creator_id: creator.id,
+            plan_id: newPlanId,
+            scheduled_downgrade: "true",
+          },
+        }
+      )
 
-    // Update creator's plan
-    await supabase
-      .from("creators")
-      .update({ subscription_plan_id: newPlanId })
-      .eq("id", creator.id)
+      // Update subscription in database — plan changes immediately in Stripe
+      // but with proration_behavior: "none", no credit/charge is issued
+      await supabase
+        .from("subscriptions")
+        .update({
+          plan_id: newPlanId,
+          current_period_start: new Date((updatedSubscription as any).current_period_start * 1000).toISOString(),
+          current_period_end: new Date((updatedSubscription as any).current_period_end * 1000).toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", subscription.id)
 
-    return NextResponse.json({
-      success: true,
-      message: `Successfully changed plan`,
-    })
+      // Update creator's plan
+      await supabase
+        .from("creators")
+        .update({ subscription_plan_id: newPlanId })
+        .eq("id", creator.id)
+
+      const periodEnd = new Date((updatedSubscription as any).current_period_end * 1000)
+
+      return NextResponse.json({
+        success: true,
+        type: "downgrade",
+        message: `Downgrade scheduled. Your new plan takes effect on ${periodEnd.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}.`,
+        effectiveDate: periodEnd.toISOString(),
+      })
+    }
   } catch (error: any) {
     console.error("Error in POST /api/billing/subscription/change:", error)
     return NextResponse.json(
