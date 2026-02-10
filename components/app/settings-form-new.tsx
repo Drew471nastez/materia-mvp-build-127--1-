@@ -12,7 +12,7 @@ import {
   CreditCard, Store, Shield, Settings, Wallet,
   Camera, ExternalLink, ChevronRight, Globe,
   User, Palette, Link2, FileText, Search, ChevronLeft, Upload, Pencil,
-  ToggleLeft, LogOut, Trash2, Languages, Info, ChevronDown, CheckCircle, Clock
+  ToggleLeft, LogOut, Trash2, Languages, Info, ChevronDown, CheckCircle, Clock, Copy, Plus
 } from "lucide-react"
 import type { Profile, Creator } from "@/lib/types"
 import { isValidUsername } from "@/lib/reserved-words"
@@ -824,7 +824,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   const [domainError, setDomainError] = useState<string | null>(null)
   const [domainVerifying, setDomainVerifying] = useState<string | null>(null)
   const [domainRemoving, setDomainRemoving] = useState<string | null>(null)
-  const [recommendedDomain, setRecommendedDomain] = useState("")
+  const [copiedValue, setCopiedValue] = useState<string | null>(null)
 
   // Avatar fallback order: Profile (manually set) → Store Builder → OnePage → Google → Initials
   // Filter out placeholder URLs to match layout.tsx logic for sidebar consistency
@@ -1230,12 +1230,19 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     }
   }
 
-  // Set recommended domain based on username
-  useEffect(() => {
-    if (username) {
-      setRecommendedDomain(`${username.toLowerCase()}.com`)
-    }
-  }, [username])
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text)
+    setCopiedValue(text)
+    setTimeout(() => setCopiedValue(null), 2000)
+  }
+
+  // Suggested domains based on username
+  const suggestedDomains = username ? [
+    `${username.toLowerCase()}.com`,
+    `${username.toLowerCase()}.store`,
+    `${username.toLowerCase()}.shop`,
+    `${username.toLowerCase()}.io`,
+  ] : []
 
   // Tab change with skeleton loading animation
   const handleTabChange = (newTab: TabId) => {
@@ -2619,45 +2626,29 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
           {/* Domains Tab */}
           {!isTabLoading && activeTab === "domains" && (
             <div className="space-y-4 sm:space-y-6">
-              {/* Recommended Domain */}
-              {recommendedDomain && domains.every((d) => d.domain !== recommendedDomain) && (
-                <div className="bg-gradient-to-r from-[#fdf2f8] to-[#faf5ff] rounded-2xl p-4 sm:p-6 border border-[#f3e8ff] shadow-sm">
-                  <p className="text-[11px] font-bold text-[#ec4899] uppercase tracking-wider mb-2">Recommended</p>
-                  <div className="flex items-center justify-between gap-4">
-                    <p className="text-[20px] sm:text-[24px] font-bold text-[#1a1a2e]">{recommendedDomain}</p>
-                    <button
-                      onClick={() => { setDomainInput(recommendedDomain); addDomain() }}
-                      className="shrink-0 h-10 px-5 text-[13px] font-semibold text-white bg-gradient-to-r from-[#ec4899] to-[#8b5cf6] rounded-xl hover:shadow-lg transition-all cursor-pointer"
-                    >
-                      Claim
-                    </button>
-                  </div>
-                </div>
-              )}
-
               {/* Connect Your Domain Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
                 <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1">Connect your own domain</h3>
-                <p className="text-[13px] text-[#6b7280] mb-4">Connect a custom domain to your store and OnePage. Your store will be available at <span className="font-medium">yourdomain.com</span> and your OnePage at <span className="font-medium">yourdomain.com/links</span>.</p>
+                <p className="text-[13px] text-[#6b7280] mb-4">Connect a custom domain to your store and OnePage. Your store will be at <span className="font-medium">yourdomain.com</span> and OnePage at <span className="font-medium">yourdomain.com/links</span>.</p>
 
                 <div className="flex gap-2">
                   <div className="flex-1 relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#9ca3af]" />
+                    <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#9ca3af]" />
                     <input
                       type="text"
                       value={domainInput}
                       onChange={(e) => { setDomainInput(e.target.value); setDomainError(null) }}
                       onKeyDown={(e) => e.key === "Enter" && addDomain()}
-                      placeholder="Search for a different domain"
+                      placeholder="Enter your domain (e.g. mydomain.com)"
                       className="w-full h-11 pl-10 pr-4 text-[14px] border border-[#e5e7eb] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#8b5cf6] focus:border-[#8b5cf6] transition-colors"
                     />
                   </div>
                   <button
                     onClick={addDomain}
                     disabled={domainAdding || !domainInput.trim()}
-                    className="h-11 px-5 text-[13px] font-semibold text-white bg-[#7c3aed] rounded-xl hover:bg-[#6d28d9] transition-colors disabled:opacity-50 cursor-pointer flex items-center gap-2"
+                    className="h-11 px-5 text-[13px] font-semibold text-white bg-[#7c3aed] rounded-xl hover:bg-[#6d28d9] transition-colors disabled:opacity-50 cursor-pointer flex items-center gap-2 shrink-0"
                   >
-                    {domainAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                    {domainAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                     Connect
                   </button>
                 </div>
@@ -2669,7 +2660,23 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   </div>
                 )}
 
-                <p className="mt-3 text-[12px] text-[#9ca3af]">Already own a domain you want to connect? Enter it above.</p>
+                {/* Suggested Domains */}
+                {suggestedDomains.length > 0 && domains.length === 0 && (
+                  <div className="mt-4">
+                    <p className="text-[12px] font-medium text-[#6b7280] mb-2">Suggested domains based on your username:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {suggestedDomains.filter((sd) => !domains.some((d) => d.domain === sd)).map((sd) => (
+                        <button
+                          key={sd}
+                          onClick={() => { setDomainInput(sd); setDomainError(null) }}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-[#7c3aed] bg-[#f5f3ff] border border-[#ede9fe] rounded-lg hover:bg-[#ede9fe] transition-colors cursor-pointer"
+                        >
+                          {sd}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Connected Domains List */}
@@ -2689,17 +2696,17 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 ) : (
                   <>
                     {/* Table Header - Desktop */}
-                    <div className="hidden sm:grid sm:grid-cols-[1fr_120px_140px_100px] gap-4 pb-3 border-b border-[#e5e7eb]">
+                    <div className="hidden sm:grid sm:grid-cols-[1fr_110px_150px_140px] gap-4 pb-3 border-b border-[#e5e7eb]">
                       <p className="text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider">Domain Name</p>
                       <p className="text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider">Status</p>
                       <p className="text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider">Date Added</p>
-                      <p className="text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider text-right">Action</p>
+                      <p className="text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider text-right">Actions</p>
                     </div>
 
                     {domains.map((d) => (
                       <div key={d.id}>
                         {/* Desktop Row */}
-                        <div className="hidden sm:grid sm:grid-cols-[1fr_120px_140px_100px] gap-4 items-center py-4 border-b border-[#f3f4f6] last:border-0">
+                        <div className="hidden sm:grid sm:grid-cols-[1fr_110px_150px_140px] gap-4 items-center py-4 border-b border-[#f3f4f6] last:border-0">
                           <p className="text-[14px] font-medium text-[#1a1a2e]">{d.domain}</p>
                           <div>
                             {d.status === "active" ? (
@@ -2724,15 +2731,15 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                               <button
                                 onClick={() => verifyDomain(d.id)}
                                 disabled={domainVerifying === d.id}
-                                className="text-[12px] font-medium text-[#7c3aed] hover:text-[#6d28d9] cursor-pointer disabled:opacity-50"
+                                className="h-8 px-3 text-[12px] font-medium text-[#7c3aed] border border-[#ede9fe] bg-[#f5f3ff] hover:bg-[#ede9fe] rounded-lg transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1"
                               >
-                                {domainVerifying === d.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Verify"}
+                                {domainVerifying === d.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Verify"}
                               </button>
                             )}
                             <button
                               onClick={() => removeDomain(d.id)}
                               disabled={domainRemoving === d.id}
-                              className="text-[12px] font-medium text-[#6b7280] hover:text-red-600 border border-[#e5e7eb] hover:border-red-200 px-3 py-1.5 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                              className="h-8 px-3 text-[12px] font-medium text-[#6b7280] border border-[#e5e7eb] hover:text-red-600 hover:border-red-200 rounded-lg transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1"
                             >
                               {domainRemoving === d.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Remove"}
                             </button>
@@ -2771,7 +2778,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                             <button
                               onClick={() => removeDomain(d.id)}
                               disabled={domainRemoving === d.id}
-                              className="h-9 px-4 text-[12px] font-medium text-[#6b7280] border border-[#e5e7eb] rounded-lg hover:text-red-600 hover:border-red-200 transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1"
+                              className={`h-9 px-4 text-[12px] font-medium text-[#6b7280] border border-[#e5e7eb] rounded-lg hover:text-red-600 hover:border-red-200 transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1 ${d.status === "active" ? "flex-1" : ""}`}
                             >
                               {domainRemoving === d.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Remove"}
                             </button>
@@ -2792,28 +2799,66 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   <div className="space-y-4">
                     {/* CNAME Record */}
                     <div className="bg-[#f9fafb] rounded-xl p-4">
-                      <p className="text-[12px] font-semibold text-[#374151] mb-2">Step 1: Add CNAME Record</p>
-                      <div className="grid grid-cols-[80px_1fr] gap-2 text-[12px]">
-                        <span className="text-[#6b7280]">Type:</span>
-                        <span className="font-mono text-[#1a1a2e]">CNAME</span>
-                        <span className="text-[#6b7280]">Name:</span>
-                        <span className="font-mono text-[#1a1a2e]">@ or www</span>
-                        <span className="text-[#6b7280]">Value:</span>
-                        <span className="font-mono text-[#7c3aed]">cname.storelib.com</span>
+                      <p className="text-[12px] font-semibold text-[#374151] mb-3">Step 1: Add CNAME Record</p>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-[12px]">
+                            <span className="text-[#6b7280] w-14">Type:</span>
+                            <span className="font-mono font-medium text-[#1a1a2e]">CNAME</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-[12px]">
+                            <span className="text-[#6b7280] w-14">Name:</span>
+                            <span className="font-mono font-medium text-[#1a1a2e]">@ or www</span>
+                          </div>
+                          <button onClick={() => copyToClipboard("@")} className="text-[11px] text-[#7c3aed] hover:text-[#6d28d9] cursor-pointer flex items-center gap-1">
+                            {copiedValue === "@" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                            {copiedValue === "@" ? "Copied" : "Copy"}
+                          </button>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-[12px]">
+                            <span className="text-[#6b7280] w-14">Value:</span>
+                            <span className="font-mono font-medium text-[#7c3aed]">cname.storelib.com</span>
+                          </div>
+                          <button onClick={() => copyToClipboard("cname.storelib.com")} className="text-[11px] text-[#7c3aed] hover:text-[#6d28d9] cursor-pointer flex items-center gap-1">
+                            {copiedValue === "cname.storelib.com" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                            {copiedValue === "cname.storelib.com" ? "Copied" : "Copy"}
+                          </button>
+                        </div>
                       </div>
                     </div>
 
                     {/* TXT Verification */}
                     {domains.filter((d) => d.status !== "active").map((d) => (
                       <div key={d.id} className="bg-[#f9fafb] rounded-xl p-4">
-                        <p className="text-[12px] font-semibold text-[#374151] mb-2">Step 2: Add TXT Record for {d.domain}</p>
-                        <div className="grid grid-cols-[80px_1fr] gap-2 text-[12px]">
-                          <span className="text-[#6b7280]">Type:</span>
-                          <span className="font-mono text-[#1a1a2e]">TXT</span>
-                          <span className="text-[#6b7280]">Name:</span>
-                          <span className="font-mono text-[#1a1a2e]">_storelib</span>
-                          <span className="text-[#6b7280]">Value:</span>
-                          <span className="font-mono text-[#7c3aed] break-all text-[11px]">{d.verification_token}</span>
+                        <p className="text-[12px] font-semibold text-[#374151] mb-3">Step 2: Add TXT Record for {d.domain}</p>
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-[12px]">
+                            <span className="text-[#6b7280] w-14">Type:</span>
+                            <span className="font-mono font-medium text-[#1a1a2e]">TXT</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 text-[12px]">
+                              <span className="text-[#6b7280] w-14">Name:</span>
+                              <span className="font-mono font-medium text-[#1a1a2e]">_storelib</span>
+                            </div>
+                            <button onClick={() => copyToClipboard("_storelib")} className="text-[11px] text-[#7c3aed] hover:text-[#6d28d9] cursor-pointer flex items-center gap-1">
+                              {copiedValue === "_storelib" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                              {copiedValue === "_storelib" ? "Copied" : "Copy"}
+                            </button>
+                          </div>
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-start gap-2 text-[12px] min-w-0">
+                              <span className="text-[#6b7280] w-14 shrink-0">Value:</span>
+                              <span className="font-mono font-medium text-[#7c3aed] break-all text-[11px]">{d.verification_token}</span>
+                            </div>
+                            <button onClick={() => copyToClipboard(d.verification_token)} className="text-[11px] text-[#7c3aed] hover:text-[#6d28d9] cursor-pointer flex items-center gap-1 shrink-0">
+                              {copiedValue === d.verification_token ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                              {copiedValue === d.verification_token ? "Copied" : "Copy"}
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -2823,38 +2868,44 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 </div>
               )}
 
-              {/* How It Works */}
+              {/* How Custom Domains Work */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
                 <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-3">How Custom Domains Work</h3>
-                <div className="space-y-3">
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-[#f5f3ff] flex items-center justify-center shrink-0 mt-0.5">
-                      <span className="text-[11px] font-bold text-[#7c3aed]">1</span>
+                {(() => {
+                  const activeDomain = domains.find((d) => d.status === "active")?.domain
+                  const displayDomain = activeDomain || "yourdomain.com"
+                  return (
+                    <div className="space-y-3">
+                      <div className="flex items-start gap-3">
+                        <div className="w-6 h-6 rounded-full bg-[#f5f3ff] flex items-center justify-center shrink-0 mt-0.5">
+                          <span className="text-[11px] font-bold text-[#7c3aed]">1</span>
+                        </div>
+                        <div>
+                          <p className="text-[13px] font-medium text-[#374151]">Your Store</p>
+                          <p className="text-[12px] text-[#6b7280]"><span className="font-mono bg-[#f3f4f6] px-1.5 py-0.5 rounded">{username}.storelib.com</span> → <span className="font-mono bg-[#f5f3ff] text-[#7c3aed] px-1.5 py-0.5 rounded">{displayDomain}</span></p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <div className="w-6 h-6 rounded-full bg-[#f5f3ff] flex items-center justify-center shrink-0 mt-0.5">
+                          <span className="text-[11px] font-bold text-[#7c3aed]">2</span>
+                        </div>
+                        <div>
+                          <p className="text-[13px] font-medium text-[#374151]">Your OnePage</p>
+                          <p className="text-[12px] text-[#6b7280]"><span className="font-mono bg-[#f3f4f6] px-1.5 py-0.5 rounded">{username}.storelib.com/links</span> → <span className="font-mono bg-[#f5f3ff] text-[#7c3aed] px-1.5 py-0.5 rounded">{displayDomain}/links</span></p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <div className="w-6 h-6 rounded-full bg-[#f5f3ff] flex items-center justify-center shrink-0 mt-0.5">
+                          <span className="text-[11px] font-bold text-[#7c3aed]">3</span>
+                        </div>
+                        <div>
+                          <p className="text-[13px] font-medium text-[#374151]">Marketplace Links Stay</p>
+                          <p className="text-[12px] text-[#6b7280]">Traffic from the marketplace still uses <span className="font-mono bg-[#f3f4f6] px-1.5 py-0.5 rounded">{username}.storelib.com</span></p>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-[13px] font-medium text-[#374151]">Your Store</p>
-                      <p className="text-[12px] text-[#6b7280]"><span className="font-mono">{username}.storelib.com</span> → <span className="font-mono">yourdomain.com</span></p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-[#f5f3ff] flex items-center justify-center shrink-0 mt-0.5">
-                      <span className="text-[11px] font-bold text-[#7c3aed]">2</span>
-                    </div>
-                    <div>
-                      <p className="text-[13px] font-medium text-[#374151]">Your OnePage</p>
-                      <p className="text-[12px] text-[#6b7280]"><span className="font-mono">{username}.storelib.com/links</span> → <span className="font-mono">yourdomain.com/links</span></p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-[#f5f3ff] flex items-center justify-center shrink-0 mt-0.5">
-                      <span className="text-[11px] font-bold text-[#7c3aed]">3</span>
-                    </div>
-                    <div>
-                      <p className="text-[13px] font-medium text-[#374151]">Marketplace Links Stay</p>
-                      <p className="text-[12px] text-[#6b7280]">Traffic from the marketplace still uses <span className="font-mono">{username}.storelib.com</span></p>
-                    </div>
-                  </div>
-                </div>
+                  )
+                })()}
               </div>
             </div>
           )}
