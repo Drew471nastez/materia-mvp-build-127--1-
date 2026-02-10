@@ -17,22 +17,22 @@ const FREE_PLAN = {
 const GROWTH_PLAN = {
   id: "growth",
   name: "Growth",
-  price_cents: 2900,
+  price_cents: 2990,
   billing_period: "month",
   fee_percent: 0.03,
   fee_fixed_cents: 25,
-  features: ["$29/month", "3% + $0.25 per transaction", "Advanced analytics", "Priority support", "Custom domain"],
+  features: ["3% + $0.25 per transaction", "Advanced analytics", "Priority support", "Custom domain"],
   is_active: true,
 }
 
 const PRO_PLAN = {
   id: "pro",
-  name: "Pro",
+  name: "Professional",
   price_cents: 9900,
   billing_period: "month",
   fee_percent: 0.015,
   fee_fixed_cents: 25,
-  features: ["$99/month", "1.5% + $0.25 per transaction", "Premium analytics", "Dedicated support", "White-label options", "API access"],
+  features: ["1.5% + $0.25 per transaction", "Premium analytics", "Dedicated support", "White-label options", "API access"],
   is_active: true,
 }
 

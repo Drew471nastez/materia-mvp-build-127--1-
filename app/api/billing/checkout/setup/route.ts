@@ -45,28 +45,21 @@ export async function POST() {
         .eq("id", creator.id)
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL
+    const appUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "https://storelib.com"
 
-    // Create a setup-mode Checkout Session (collects card without charging)
-    const checkoutSession = await stripe.checkout.sessions.create({
+    // Use Stripe Customer Portal for payment method management
+    const portalSession = await stripe.billingPortal.sessions.create({
       customer: stripeCustomerId,
-      mode: "setup",
-      payment_method_types: ["card"],
-      ui_mode: "embedded",
-      return_url: `${baseUrl}/app/settings/billing?setup_success=true`,
-      metadata: {
-        creator_id: creator.id,
-      },
+      return_url: `${appUrl}/app/settings/billing?setup_success=1`,
     })
 
     return NextResponse.json({
-      clientSecret: checkoutSession.client_secret,
-      sessionId: checkoutSession.id,
+      url: portalSession.url,
     })
   } catch (error: any) {
     console.error("Error in POST /api/billing/checkout/setup:", error)
     return NextResponse.json(
-      { error: error.message || "Failed to create setup session" },
+      { error: error.message || "Failed to create session" },
       { status: 500 }
     )
   }

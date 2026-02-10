@@ -3,10 +3,9 @@ import Stripe from "stripe"
 import { createClient } from "@/lib/supabase/server"
 import crypto from "crypto"
 import { getValidatedPlatformStatementDescriptor } from "@/lib/payments/platform-descriptor"
+import { calculatePlatformFee } from "@/lib/fees"
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2024-04-10",
-})
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
 function isValidEmail(email: string) {
   return typeof email === "string" && email.includes("@") && email.length <= 254
@@ -20,13 +19,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing or invalid productId/email" }, { status: 400 })
     }
 
-    // Optional logged-in buyer
     const supabase = await createClient()
     const {
       data: { user },
     } = await supabase.auth.getUser()
 
-    // Fetch product with creator_id (required for webhook)
+    // Fetch product with creator_id
     const { data: product, error } = await supabase
       .from("products")
       .select("id,title,price_cents,currency,creator_id")
@@ -41,7 +39,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Product is missing creator_id" }, { status: 400 })
     }
 
-    // Paid only
     if (!product.price_cents || product.price_cents <= 0) {
       return NextResponse.json(
         { error: "Product is free. Use /api/checkout/complete-free" },
@@ -50,44 +47,65 @@ export async function POST(req: Request) {
     }
 
     const currency = "usd"
-
-    // Used for guest access email link (stored by webhook into orders.access_token)
     const accessToken = crypto.randomBytes(24).toString("hex")
 
-    let intent
-    try {
-      intent = await stripe.paymentIntents.create({
+    // Calculate platform fee using the shared fee calculator
+    const feeCalc = await calculatePlatformFee(product.creator_id, product.price_cents)
+
+    // Get the seller's connected Stripe account for destination charges
+    const { data: creator } = await supabase
+      .from("creators")
+      .select("stripe_account_id, charges_enabled")
+      .eq("id", product.creator_id)
+      .single()
+
+    const hasConnectedAccount = creator?.stripe_account_id && creator?.charges_enabled
+
+    // Build the payment intent params
+    const intentParams: Stripe.PaymentIntentCreateParams = {
       amount: product.price_cents,
       currency,
       receipt_email: email,
-      statement_descriptor_suffix: getValidatedPlatformStatementDescriptor(),
       automatic_payment_methods: { enabled: true },
-
-      // IMPORTANT: metadata keys must match your webhook
       metadata: {
         product_id: product.id,
         creator_id: product.creator_id,
         buyer_id: user?.id || "",
         email,
         access_token: accessToken,
+        fee_percent: String(feeCalc.fee_percent),
+        fee_fixed_cents: String(feeCalc.fee_fixed_cents),
+        fee_total_cents: String(feeCalc.fee_total_cents),
+        seller_net_cents: String(feeCalc.seller_net_cents),
+        plan_used: feeCalc.plan_used,
+        platform_fee_cents: String(feeCalc.fee_total_cents),
       },
-    })
+    }
+
+    // Add statement descriptor if possible
+    try {
+      intentParams.statement_descriptor_suffix = getValidatedPlatformStatementDescriptor()
+    } catch {
+      // Skip descriptor if it fails validation
+    }
+
+    // If seller has a connected Stripe account, use destination charges
+    // This sends money to the seller's account, while Storelib keeps the application fee
+    if (hasConnectedAccount) {
+      intentParams.application_fee_amount = feeCalc.fee_total_cents
+      intentParams.transfer_data = {
+        destination: creator.stripe_account_id,
+      }
+    }
+
+    let intent
+    try {
+      intent = await stripe.paymentIntents.create(intentParams)
     } catch (descriptorError: any) {
       if (String(descriptorError?.message || "").toLowerCase().includes("statement_descriptor")) {
         console.error("[create-intent] descriptor rejected, retrying without descriptor")
-        intent = await stripe.paymentIntents.create({
-          amount: product.price_cents,
-          currency,
-          receipt_email: email,
-          automatic_payment_methods: { enabled: true },
-          metadata: {
-            product_id: product.id,
-            creator_id: product.creator_id,
-            buyer_id: user?.id || "",
-            email,
-            access_token: accessToken,
-          },
-        })
+        delete intentParams.statement_descriptor_suffix
+        intent = await stripe.paymentIntents.create(intentParams)
       } else {
         throw descriptorError
       }

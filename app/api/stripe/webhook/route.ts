@@ -12,46 +12,46 @@ export const runtime = "nodejs"
 const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
 export async function POST(request: Request) {
-  console.log("[v0] Webhook received")
+  console.log("[Webhook] Received")
 
   const body = await request.text()
   const headersList = await headers()
   const signature = headersList.get("stripe-signature")
 
   if (!signature) {
-    console.error("[v0] Missing Stripe signature")
+    console.error("[Webhook] Missing Stripe signature")
     return NextResponse.json({ error: "Missing signature" }, { status: 400 })
   }
 
   if (!process.env.STRIPE_WEBHOOK_SECRET) {
-    console.error("[v0] Missing STRIPE_WEBHOOK_SECRET env")
+    console.error("[Webhook] Missing STRIPE_WEBHOOK_SECRET env")
     return NextResponse.json({ error: "Missing webhook secret" }, { status: 500 })
   }
 
   let event: Stripe.Event
   try {
     event = stripe.webhooks.constructEvent(body, signature, process.env.STRIPE_WEBHOOK_SECRET)
-    console.log("[v0] Webhook event type:", event.type)
+    console.log("[Webhook] Event type:", event.type)
   } catch (err) {
-    console.error("[v0] Signature verification failed:", err)
+    console.error("[Webhook] Signature verification failed:", err)
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 })
   }
 
-  // --------------------------------------------
-  // ✅ MAIN PAID FLOW
-  // --------------------------------------------
+  // ============================================================================
+  // checkout.session.completed
+  // ============================================================================
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session
 
-    console.log("[v0] Processing checkout session:", session.id, "mode:", session.mode)
+    console.log("[Webhook] Checkout session:", session.id, "mode:", session.mode)
 
-    // Handle setup mode sessions (adding payment method without charging)
+    // --- SETUP MODE: Adding payment method without charging ---
     if (session.mode === "setup") {
       const setupCreatorId = session.metadata?.creator_id
       const customerId = typeof session.customer === "string" ? session.customer : session.customer?.id
       const setupIntentId = typeof session.setup_intent === "string" ? session.setup_intent : session.setup_intent?.id
 
-      console.log("[v0] Setup session completed for creator:", setupCreatorId)
+      console.log("[Webhook] Setup session for creator:", setupCreatorId)
 
       if (setupIntentId && setupCreatorId) {
         try {
@@ -63,14 +63,12 @@ export async function POST(request: Request) {
           if (paymentMethodId) {
             const pm = await stripe.paymentMethods.retrieve(paymentMethodId)
 
-            // Set as default payment method for the customer
             if (customerId) {
               await stripe.customers.update(customerId, {
                 invoice_settings: { default_payment_method: paymentMethodId },
               })
             }
 
-            // Save to database
             await supabaseAdmin.from("payment_methods").upsert({
               creator_id: setupCreatorId,
               stripe_payment_method_id: paymentMethodId,
@@ -81,20 +79,63 @@ export async function POST(request: Request) {
               is_default: true,
             }, { onConflict: "creator_id, stripe_payment_method_id" })
 
-            console.log("[v0] Payment method saved for creator:", setupCreatorId)
+            console.log("[Webhook] Payment method saved for creator:", setupCreatorId)
           }
         } catch (err) {
-          console.error("[v0] Error saving setup payment method:", err)
+          console.error("[Webhook] Error saving setup payment method:", err)
         }
       }
 
       return NextResponse.json({ received: true, message: "Setup session processed" })
     }
 
-    // NOTE: For card payments, this should already be "paid".
-    // If you support async methods, you might want to also handle checkout.session.async_payment_succeeded.
+    // --- SUBSCRIPTION MODE: New subscription checkout ---
+    if (session.mode === "subscription") {
+      const metadata = session.metadata || {}
+      const creatorId = metadata.creator_id
+      const planId = metadata.plan_id
+
+      console.log("[Webhook] Subscription checkout for creator:", creatorId, "plan:", planId)
+
+      // Subscription events (created/updated) handle the actual DB sync
+      // Here we just save the payment method from the subscription checkout
+      if (creatorId && session.customer) {
+        try {
+          const customerId = typeof session.customer === "string" ? session.customer : session.customer.id
+
+          // Save payment method from the subscription
+          const customer = await stripe.customers.retrieve(customerId) as Stripe.Customer
+          const defaultPmId = customer.invoice_settings?.default_payment_method
+          if (defaultPmId) {
+            const pmId = typeof defaultPmId === "string" ? defaultPmId : defaultPmId.id
+            const pm = await stripe.paymentMethods.retrieve(pmId)
+
+            await supabaseAdmin.from("payment_methods").upsert({
+              creator_id: creatorId,
+              stripe_payment_method_id: pmId,
+              card_brand: pm.card?.brand || "unknown",
+              card_last4: pm.card?.last4 || "0000",
+              card_exp_month: pm.card?.exp_month || 0,
+              card_exp_year: pm.card?.exp_year || 0,
+              is_default: true,
+            }, { onConflict: "creator_id, stripe_payment_method_id" })
+
+            console.log("[Webhook] Subscription payment method saved")
+          }
+        } catch (err) {
+          console.error("[Webhook] Error saving subscription payment method:", err)
+        }
+      }
+
+      // Don't process further as product checkout - just return
+      if (!metadata.product_id) {
+        return NextResponse.json({ received: true, message: "Subscription checkout processed" })
+      }
+    }
+
+    // --- PAYMENT MODE: Product purchase checkout ---
     if (session.payment_status !== "paid") {
-      console.log("[v0] Payment not completed yet:", session.payment_status)
+      console.log("[Webhook] Payment not completed yet:", session.payment_status)
       return NextResponse.json({ received: true, message: "Payment not completed" })
     }
 
@@ -112,11 +153,9 @@ export async function POST(request: Request) {
     const sessionFingerprint = metadata.session_fingerprint || null
     const receiptToken = metadata.receipt_token || generateReceiptToken()
 
-    console.log("[v0] Session metadata:", { productId, creatorId, buyerId, buyerEmail })
-
     if (!productId || !creatorId) {
-      console.error("[v0] Missing required metadata:", { productId, creatorId })
-      return NextResponse.json({ error: "Missing metadata" }, { status: 400 })
+      console.log("[Webhook] Missing product metadata, skipping order creation")
+      return NextResponse.json({ received: true, message: "No product metadata" })
     }
 
     // idempotency: prevent duplicates
@@ -127,13 +166,12 @@ export async function POST(request: Request) {
       .maybeSingle()
 
     if (existingOrder) {
-      console.log("[v0] Order already exists:", existingOrder.id)
+      console.log("[Webhook] Order already exists:", existingOrder.id)
       return NextResponse.json({ received: true, message: "Already processed" })
     }
 
     const totalAmount = session.amount_total || 0
 
-    // your platform fee logic (kept)
     const platformFeeCents =
       Number.parseInt(metadata.platform_fee_cents || "0", 10) || Math.round(totalAmount * 0.06) + 30
 
@@ -141,7 +179,6 @@ export async function POST(request: Request) {
     let transferId: string | null = null
     let destinationPaymentId: string | null = null
 
-    // Payment method details
     let paymentMethod = "card"
     let cardBrand: string | null = null
     let cardLast4: string | null = null
@@ -151,7 +188,7 @@ export async function POST(request: Request) {
       if (session.payment_intent) {
         const paymentIntent = await stripe.paymentIntents.retrieve(session.payment_intent as string, {
           expand: ["charges", "transfer", "payment_method"],
-        })
+        }) as any
 
         if (paymentIntent.application_fee_amount) {
           applicationFeeAmount = paymentIntent.application_fee_amount
@@ -164,14 +201,12 @@ export async function POST(request: Request) {
         if (paymentIntent.charges?.data?.[0]) {
           destinationPaymentId = (paymentIntent.charges.data[0].destination_payment as string) || null
 
-          // Get payment method details from the charge
           const charge = paymentIntent.charges.data[0]
           if (charge.payment_method_details) {
             const pmDetails = charge.payment_method_details
-
             if (pmDetails.card) {
               paymentMethod = "card"
-              cardBrand = pmDetails.card.brand || null // visa, mastercard, amex, etc.
+              cardBrand = pmDetails.card.brand || null
               cardLast4 = pmDetails.card.last4 || null
             } else if (pmDetails.paypal) {
               paymentMethod = "paypal"
@@ -181,29 +216,17 @@ export async function POST(request: Request) {
             }
           }
         }
-
-        console.log("[v0] Payment Intent details:", {
-          id: paymentIntent.id,
-          application_fee_amount: applicationFeeAmount,
-          transfer: transferId,
-          destination_payment: destinationPaymentId,
-          payment_method: paymentMethod,
-          card_brand: cardBrand,
-          card_last4: cardLast4,
-        })
       }
     } catch (error) {
-      console.error("[v0] Failed to retrieve payment intent details:", error)
+      console.error("[Webhook] Failed to retrieve payment intent details:", error)
     }
 
-    // Get product title for email subject + seller email
     let productTitle = (metadata.product_title || "").toString().trim()
     if (!productTitle) {
       const { data: productRow } = await supabaseAdmin.from("products").select("title").eq("id", productId).maybeSingle()
       productTitle = productRow?.title || "Product"
     }
 
-    // Get variant info from metadata
     const variantId = metadata.variant_id || null
     const variantName = metadata.variant_name || null
 
@@ -212,45 +235,31 @@ export async function POST(request: Request) {
       buyer_first_name: buyerFirstName || null,
       buyer_last_name: buyerLastName || null,
       buyer_email: buyerEmail || null,
-
       product_id: productId,
-
       amount_cents: totalAmount,
       tip_cents: tipCents,
-
-      // kept your fee fields as-is
       fee_cents: applicationFeeAmount,
       application_fee_cents: applicationFeeAmount,
       transfer_id: transferId,
-
       currency: session.currency || "usd",
       provider: "stripe",
       status: "completed",
-
       stripe_session_id: session.id,
       stripe_payment_intent_id: session.payment_intent as string,
-
       session_fingerprint: sessionFingerprint,
       receipt_token: receiptToken,
       allowed_fingerprints: sessionFingerprint ? [sessionFingerprint] : [],
-
       agreed_to_terms: metadata.agreed_to_terms === "true",
       agreed_at: metadata.agreed_at || null,
-
-      // Payment method details
       payment_method: paymentMethod,
       card_brand: cardBrand,
       card_last4: cardLast4,
       paypal_email: paypalEmail,
-
-      // Device and geo info from checkout metadata
       buyer_country: metadata.buyer_country || null,
       buyer_country_code: metadata.buyer_country_code || null,
       buyer_device_type: metadata.buyer_device_type || null,
       buyer_os: metadata.buyer_os || null,
       buyer_browser: metadata.buyer_browser || null,
-
-      // Variant info
       variant_id: variantId || null,
       variant_name: variantName || null,
     }
@@ -258,12 +267,6 @@ export async function POST(request: Request) {
     if (!buyerId) {
       orderData.access_token = accessToken
     }
-
-    console.log("[v0] Creating order with transfer details:", {
-      fee: applicationFeeAmount,
-      transfer: transferId,
-      destination_payment: destinationPaymentId,
-    })
 
     // Try full insert first, fallback to minimal if it fails
     let order = null
@@ -273,9 +276,8 @@ export async function POST(request: Request) {
     order = result1.data
     orderInsertError = result1.error
 
-    // If full insert fails, try with minimal fields only (including required receipt_token)
     if (orderInsertError) {
-      console.log("[v0] Full insert failed, trying minimal fields:", orderInsertError.message)
+      console.log("[Webhook] Full insert failed, trying minimal:", orderInsertError.message)
 
       const minimalOrderData: Record<string, any> = {
         product_id: productId,
@@ -297,13 +299,13 @@ export async function POST(request: Request) {
     }
 
     if (orderInsertError) {
-      console.error("[v0] Order creation failed:", orderInsertError)
+      console.error("[Webhook] Order creation failed:", orderInsertError)
       return NextResponse.json({ error: "Failed to create order" }, { status: 500 })
     }
 
-    console.log("[v0] ✅ Order created:", order.id)
+    console.log("[Webhook] Order created:", order.id)
 
-    // Customer record upsert (kept)
+    // Customer record upsert
     if (buyerEmail && creatorId) {
       await supabaseAdmin.from("customers").upsert(
         {
@@ -314,14 +316,9 @@ export async function POST(request: Request) {
           order_count: 1,
           total_spent_cents: totalAmount,
         },
-        {
-          onConflict: "email,creator_id",
-          ignoreDuplicates: false,
-        },
+        { onConflict: "email,creator_id", ignoreDuplicates: false }
       )
-      console.log("[v0] ✅ Customer record upserted")
 
-      // Add buyer to seller's subscribers list for future email marketing
       const normalizedEmail = buyerEmail.toLowerCase().trim()
       const { data: existingSubscriber } = await supabaseAdmin
         .from("subscribers")
@@ -346,7 +343,6 @@ export async function POST(request: Request) {
           consent_timestamp: new Date().toISOString(),
           unsubscribe_token: unsubscribeToken,
         })
-        console.log("[v0] ✅ Added buyer to subscribers:", normalizedEmail)
       } else if (existingSubscriber.status === "unsubscribed") {
         await supabaseAdmin
           .from("subscribers")
@@ -357,22 +353,17 @@ export async function POST(request: Request) {
             unsubscribed_at: null,
           })
           .eq("id", existingSubscriber.id)
-        console.log("[v0] ✅ Re-subscribed buyer:", normalizedEmail)
-      } else {
-        console.log("[v0] ✅ Buyer already subscribed:", normalizedEmail)
       }
     }
 
-    // Entitlement - with per-variant access control
+    // Entitlement
     if (buyerId) {
-      // Check for existing entitlement for this SPECIFIC variant (or product if no variant)
       let entitlementQuery = supabaseAdmin
         .from("entitlements")
         .select("id")
         .eq("buyer_id", buyerId)
         .eq("product_id", productId)
 
-      // If variant specified, check for that specific variant entitlement
       if (variantId) {
         entitlementQuery = entitlementQuery.eq("variant_id", variantId)
       } else {
@@ -382,58 +373,32 @@ export async function POST(request: Request) {
       const { data: existingEntitlement } = await entitlementQuery.maybeSingle()
 
       if (!existingEntitlement) {
-        console.log("[v0] Creating entitlement for user:", buyerId, "variant:", variantId || "none")
-
-        const { error: entitlementError } = await supabaseAdmin.from("entitlements").insert({
+        const { error: entErr } = await supabaseAdmin.from("entitlements").insert({
           buyer_id: buyerId,
           creator_id: creatorId,
           product_id: productId,
           variant_id: variantId || null,
           community_access: metadata.includes_community === "true" || metadata.product_type === "course",
         })
-
-        if (entitlementError) {
-          console.error("[v0] Entitlement creation failed:", entitlementError)
-        } else {
-          console.log("[v0] ✅ Entitlement created for variant:", variantId || "none")
-        }
-      } else {
-        console.log("[v0] ✅ Entitlement already exists for this variant")
+        if (entErr) console.error("[Webhook] Entitlement error:", entErr)
       }
     }
 
-    // Sales count (kept)
-    console.log("[v0] Incrementing sales count...")
-    await supabaseAdmin.rpc("increment_product_sales", { p_product_id: productId }).catch((err) => {
-      console.error("[v0] Failed to increment sales:", err)
-    })
+    // Sales count
+    const { error: salesErr } = await supabaseAdmin.rpc("increment_product_sales", { p_product_id: productId })
+    if (salesErr) console.error("[Webhook] Failed to increment sales:", salesErr)
 
-    // Analytics (kept)
-    console.log("[v0] Recording analytics...")
-    await supabaseAdmin
+    // Analytics
+    const { error: analyticsErr } = await supabaseAdmin
       .from("analytics_events")
-      .insert({
-        creator_id: creatorId,
-        product_id: productId,
-        event_type: "purchase",
-      })
-      .catch((err) => {
-        console.error("[v0] Failed to record analytics:", err)
-      })
+      .insert({ creator_id: creatorId, product_id: productId, event_type: "purchase" })
+    if (analyticsErr) console.error("[Webhook] Analytics error:", analyticsErr)
 
-    // --------------------------------------------
-    // ✅ EMAILS: Use the ONE working pipeline
-    // This fixes paid emails not sending + keeps sender display_name logic
-    // --------------------------------------------
+    // Emails
     try {
-      const baseUrl =
-        process.env.SITE_URL ||
-        process.env.NEXT_PUBLIC_SITE_URL ||
-        process.env.NEXT_PUBLIC_APP_URL ||
-        process.env.APP_URL ||
-        "https://storelib.com"
+      const baseUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "https://storelib.com"
 
-      const emailResult = await sendOrderEmails(supabaseAdmin, {
+      await sendOrderEmails(supabaseAdmin, {
         orderId: order.id,
         creatorId,
         buyerEmail,
@@ -447,9 +412,6 @@ export async function POST(request: Request) {
         variantName: variantName || null,
       })
 
-      console.log("[v0] ✅ Email result:", emailResult)
-
-      // Trigger email flows for purchase
       try {
         await triggerEmailFlows(supabaseAdmin, {
           triggerType: "purchase",
@@ -461,21 +423,20 @@ export async function POST(request: Request) {
           orderId: order.id,
         })
       } catch (flowErr) {
-        console.error("[v0] Email flow trigger error (non-fatal):", flowErr)
+        console.error("[Webhook] Email flow trigger error (non-fatal):", flowErr)
       }
     } catch (emailErr) {
-      console.error("[v0] ❌ Email sending failed (order still ok):", emailErr)
-      // IMPORTANT: do not fail webhook response — order is already created
+      console.error("[Webhook] Email sending failed (order still ok):", emailErr)
     }
 
-    console.log("[v0] Webhook processing complete")
     return NextResponse.json({ received: true })
   }
 
-  // Optional logs (kept)
+  // ============================================================================
+  // payment_intent.succeeded
+  // ============================================================================
   if (event.type === "payment_intent.succeeded") {
     const pi = event.data.object as Stripe.PaymentIntent
-    console.log("[v0] Processing payment intent:", pi.id)
 
     const { data: existingOrder } = await supabaseAdmin
       .from("orders")
@@ -484,48 +445,35 @@ export async function POST(request: Request) {
       .maybeSingle()
 
     if (existingOrder) {
-      console.log("[v0] Payment intent already processed via checkout session")
       return NextResponse.json({ received: true, message: "Already processed" })
     }
-
-    const metadata = pi.metadata || {}
-    const productId = metadata.product_id
-    const creatorId = metadata.creator_id
-
-    if (!productId || !creatorId) {
-      console.log("[v0] Payment intent missing metadata, skipping")
-      return NextResponse.json({ received: true, message: "Missing metadata" })
-    }
-
-    console.log("[v0] Processing payment intent as direct payment (no-op here)")
   }
 
   if (event.type === "payment_intent.payment_failed") {
     const pi = event.data.object as Stripe.PaymentIntent
-    console.error("[v0] Payment failed:", pi.id, pi.last_payment_error?.message)
+    console.error("[Webhook] Payment failed:", pi.id, pi.last_payment_error?.message)
   }
 
   // ============================================================================
-  // SUBSCRIPTION EVENT HANDLERS
+  // SUBSCRIPTION EVENTS
   // ============================================================================
 
-  // Handle subscription creation
   if (event.type === "customer.subscription.created") {
-    const subscription = event.data.object as Stripe.Subscription
+    const subscription = event.data.object as Stripe.Subscription & { current_period_start: number; current_period_end: number }
     const metadata = subscription.metadata || {}
     const creatorId = metadata.creator_id
     const planId = metadata.plan_id
 
-    console.log("[Subscription] Created:", subscription.id, "for creator:", creatorId)
+    console.log("[Subscription] Created:", subscription.id, "creator:", creatorId, "plan:", planId)
 
     if (!creatorId || !planId) {
-      console.error("[Subscription] Missing creator_id or plan_id in metadata")
+      console.error("[Subscription] Missing metadata")
       return NextResponse.json({ received: true, message: "Missing metadata" })
     }
 
     try {
-      // Create subscription record
-      await supabaseAdmin.from("subscriptions").insert({
+      // Upsert subscription record (may already exist from a previous attempt)
+      await supabaseAdmin.from("subscriptions").upsert({
         creator_id: creatorId,
         stripe_subscription_id: subscription.id,
         stripe_customer_id: subscription.customer as string,
@@ -534,9 +482,8 @@ export async function POST(request: Request) {
         current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
         current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
         cancel_at_period_end: subscription.cancel_at_period_end,
-      })
+      }, { onConflict: "creator_id" })
 
-      // Update creator's plan
       await supabaseAdmin
         .from("creators")
         .update({
@@ -546,73 +493,23 @@ export async function POST(request: Request) {
         })
         .eq("id", creatorId)
 
-      console.log("[Subscription] Successfully created subscription record")
+      console.log("[Subscription] Created successfully")
     } catch (error) {
-      console.error("[Subscription] Error creating subscription:", error)
+      console.error("[Subscription] Error creating:", error)
     }
 
     return NextResponse.json({ received: true })
   }
 
-  // Handle subscription updates
   if (event.type === "customer.subscription.updated") {
-    const subscription = event.data.object as Stripe.Subscription
+    const subscription = event.data.object as Stripe.Subscription & { current_period_start: number; current_period_end: number }
 
     console.log("[Subscription] Updated:", subscription.id, "Status:", subscription.status)
 
     try {
-      // Get subscription record
       const { data: existingSubscription } = await supabaseAdmin
         .from("subscriptions")
         .select("id, creator_id, plan_id")
-        .eq("stripe_subscription_id", subscription.id)
-        .maybeSingle()
-
-      if (!existingSubscription) {
-        console.log("[Subscription] No existing record found, skipping update")
-        return NextResponse.json({ received: true, message: "No existing subscription" })
-      }
-
-      // Update subscription record
-      await supabaseAdmin
-        .from("subscriptions")
-        .update({
-          status: subscription.status,
-          current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-          current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
-          cancel_at_period_end: subscription.cancel_at_period_end,
-          canceled_at: subscription.canceled_at ? new Date(subscription.canceled_at * 1000).toISOString() : null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("stripe_subscription_id", subscription.id)
-
-      // Update creator's status
-      await supabaseAdmin
-        .from("creators")
-        .update({
-          subscription_status: subscription.status,
-        })
-        .eq("id", existingSubscription.creator_id)
-
-      console.log("[Subscription] Successfully updated subscription")
-    } catch (error) {
-      console.error("[Subscription] Error updating subscription:", error)
-    }
-
-    return NextResponse.json({ received: true })
-  }
-
-  // Handle subscription deletion/cancellation
-  if (event.type === "customer.subscription.deleted") {
-    const subscription = event.data.object as Stripe.Subscription
-
-    console.log("[Subscription] Deleted:", subscription.id)
-
-    try {
-      // Get subscription record
-      const { data: existingSubscription } = await supabaseAdmin
-        .from("subscriptions")
-        .select("id, creator_id")
         .eq("stripe_subscription_id", subscription.id)
         .maybeSingle()
 
@@ -621,7 +518,58 @@ export async function POST(request: Request) {
         return NextResponse.json({ received: true, message: "No existing subscription" })
       }
 
-      // Update subscription status
+      // Determine plan from subscription items
+      let planId = existingSubscription.plan_id
+      const metadata = subscription.metadata || {}
+      if (metadata.plan_id) {
+        planId = metadata.plan_id
+      }
+
+      await supabaseAdmin
+        .from("subscriptions")
+        .update({
+          status: subscription.status,
+          plan_id: planId,
+          current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
+          current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+          cancel_at_period_end: subscription.cancel_at_period_end,
+          canceled_at: subscription.canceled_at ? new Date(subscription.canceled_at * 1000).toISOString() : null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("stripe_subscription_id", subscription.id)
+
+      await supabaseAdmin
+        .from("creators")
+        .update({
+          subscription_plan_id: planId,
+          subscription_status: subscription.status,
+        })
+        .eq("id", existingSubscription.creator_id)
+
+      console.log("[Subscription] Updated successfully")
+    } catch (error) {
+      console.error("[Subscription] Error updating:", error)
+    }
+
+    return NextResponse.json({ received: true })
+  }
+
+  if (event.type === "customer.subscription.deleted") {
+    const subscription = event.data.object as Stripe.Subscription & { current_period_start: number; current_period_end: number }
+
+    console.log("[Subscription] Deleted:", subscription.id)
+
+    try {
+      const { data: existingSubscription } = await supabaseAdmin
+        .from("subscriptions")
+        .select("id, creator_id")
+        .eq("stripe_subscription_id", subscription.id)
+        .maybeSingle()
+
+      if (!existingSubscription) {
+        return NextResponse.json({ received: true, message: "No existing subscription" })
+      }
+
       await supabaseAdmin
         .from("subscriptions")
         .update({
@@ -631,7 +579,6 @@ export async function POST(request: Request) {
         })
         .eq("stripe_subscription_id", subscription.id)
 
-      // Revert creator to free plan
       await supabaseAdmin
         .from("creators")
         .update({
@@ -640,7 +587,7 @@ export async function POST(request: Request) {
         })
         .eq("id", existingSubscription.creator_id)
 
-      console.log("[Subscription] Reverted creator to free plan")
+      console.log("[Subscription] Reverted to free plan")
     } catch (error) {
       console.error("[Subscription] Error handling deletion:", error)
     }
@@ -648,19 +595,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ received: true })
   }
 
-  // Handle invoice payment succeeded
-  if (event.type === "invoice.payment_succeeded") {
-    const invoice = event.data.object as Stripe.Invoice
+  // ============================================================================
+  // INVOICE EVENTS
+  // ============================================================================
 
-    console.log("[Invoice] Payment succeeded:", invoice.id)
+  if (event.type === "invoice.paid" || event.type === "invoice.payment_succeeded") {
+    const invoice = event.data.object as Stripe.Invoice & { subscription?: string; period_start?: number; period_end?: number }
 
-    // Only process subscription invoices, not one-time payments
+    console.log("[Invoice] Paid:", invoice.id)
+
     if (!invoice.subscription) {
       return NextResponse.json({ received: true, message: "Not a subscription invoice" })
     }
 
     try {
-      // Get subscription record
       const { data: subscription } = await supabaseAdmin
         .from("subscriptions")
         .select("id, creator_id")
@@ -668,12 +616,11 @@ export async function POST(request: Request) {
         .maybeSingle()
 
       if (!subscription) {
-        console.log("[Invoice] No subscription found for invoice")
         return NextResponse.json({ received: true, message: "No subscription found" })
       }
 
-      // Create invoice record
-      await supabaseAdmin.from("invoices").insert({
+      // Upsert invoice to avoid duplicates
+      await supabaseAdmin.from("invoices").upsert({
         creator_id: subscription.creator_id,
         subscription_id: subscription.id,
         stripe_invoice_id: invoice.id,
@@ -683,19 +630,18 @@ export async function POST(request: Request) {
         hosted_invoice_url: invoice.hosted_invoice_url || null,
         period_start: invoice.period_start ? new Date(invoice.period_start * 1000).toISOString() : null,
         period_end: invoice.period_end ? new Date(invoice.period_end * 1000).toISOString() : null,
-      })
+      }, { onConflict: "stripe_invoice_id" })
 
-      console.log("[Invoice] Successfully created invoice record")
+      console.log("[Invoice] Record saved")
     } catch (error) {
-      console.error("[Invoice] Error creating invoice:", error)
+      console.error("[Invoice] Error:", error)
     }
 
     return NextResponse.json({ received: true })
   }
 
-  // Handle invoice payment failed
   if (event.type === "invoice.payment_failed") {
-    const invoice = event.data.object as Stripe.Invoice
+    const invoice = event.data.object as Stripe.Invoice & { subscription?: string; period_start?: number; period_end?: number }
 
     console.log("[Invoice] Payment failed:", invoice.id)
 
@@ -704,7 +650,6 @@ export async function POST(request: Request) {
     }
 
     try {
-      // Get subscription record
       const { data: subscription } = await supabaseAdmin
         .from("subscriptions")
         .select("id, creator_id")
@@ -712,11 +657,9 @@ export async function POST(request: Request) {
         .maybeSingle()
 
       if (!subscription) {
-        console.log("[Invoice] No subscription found")
         return NextResponse.json({ received: true, message: "No subscription found" })
       }
 
-      // Update subscription status to past_due
       await supabaseAdmin
         .from("subscriptions")
         .update({
@@ -725,17 +668,55 @@ export async function POST(request: Request) {
         })
         .eq("stripe_subscription_id", invoice.subscription as string)
 
-      // Update creator status
       await supabaseAdmin
         .from("creators")
-        .update({
-          subscription_status: "past_due",
-        })
+        .update({ subscription_status: "past_due" })
         .eq("id", subscription.creator_id)
 
-      console.log("[Invoice] Updated subscription to past_due status")
+      console.log("[Invoice] Subscription set to past_due")
     } catch (error) {
-      console.error("[Invoice] Error updating subscription status:", error)
+      console.error("[Invoice] Error:", error)
+    }
+
+    return NextResponse.json({ received: true })
+  }
+
+  // ============================================================================
+  // CONNECT ACCOUNT EVENTS
+  // ============================================================================
+
+  if (event.type === "account.updated") {
+    const account = event.data.object as Stripe.Account
+
+    console.log("[Connect] Account updated:", account.id)
+
+    try {
+      const { data: creator } = await supabaseAdmin
+        .from("creators")
+        .select("id")
+        .eq("stripe_account_id", account.id)
+        .maybeSingle()
+
+      if (creator) {
+        const chargesEnabled = account.charges_enabled || false
+        const payoutsEnabled = account.payouts_enabled || false
+        let onboardingStatus = "pending"
+        if (chargesEnabled && payoutsEnabled) onboardingStatus = "enabled"
+        else if (chargesEnabled || payoutsEnabled) onboardingStatus = "restricted"
+
+        await supabaseAdmin
+          .from("creators")
+          .update({
+            charges_enabled: chargesEnabled,
+            payouts_enabled: payoutsEnabled,
+            stripe_onboarding_status: onboardingStatus,
+          })
+          .eq("id", creator.id)
+
+        console.log("[Connect] Updated creator:", creator.id, "status:", onboardingStatus)
+      }
+    } catch (error) {
+      console.error("[Connect] Error updating account:", error)
     }
 
     return NextResponse.json({ received: true })

@@ -52,7 +52,7 @@ export async function POST() {
     // Create Stripe Customer Portal session
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: stripeCustomerId,
-      return_url: `${process.env.NEXT_PUBLIC_APP_URL}/app/settings/billing`,
+      return_url: `${process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "https://storelib.com"}/app/settings/billing`,
     })
 
     return NextResponse.json({

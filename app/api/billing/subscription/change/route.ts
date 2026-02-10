@@ -2,6 +2,17 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { stripe } from "@/lib/stripe"
 
+function getStripePriceId(planId: string): string | null {
+  switch (planId) {
+    case "growth":
+      return process.env.PRICE_GROWTH_MONTHLY || null
+    case "pro":
+      return process.env.PRICE_PRO_MONTHLY || null
+    default:
+      return null
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const supabase = await createClient()
@@ -43,6 +54,14 @@ export async function POST(request: Request) {
       )
     }
 
+    const stripePriceId = getStripePriceId(newPlanId)
+    if (!stripePriceId) {
+      return NextResponse.json(
+        { error: "No Stripe price configured for this plan" },
+        { status: 400 }
+      )
+    }
+
     // Get current subscription
     const { data: subscription, error: subscriptionError } = await supabase
       .from("subscriptions")
@@ -63,43 +82,6 @@ export async function POST(request: Request) {
         { error: "No active subscription found. Please create a new subscription instead." },
         { status: 400 }
       )
-    }
-
-    // Get new plan details
-    const { data: newPlan, error: planError } = await supabase
-      .from("subscription_plans")
-      .select("*")
-      .eq("id", newPlanId)
-      .eq("is_active", true)
-      .single()
-
-    if (planError || !newPlan) {
-      return NextResponse.json(
-        { error: "Invalid plan or plan not found" },
-        { status: 400 }
-      )
-    }
-
-    // Auto-create Stripe product and price if not configured
-    let stripePriceId = newPlan.stripe_price_id
-    if (!stripePriceId) {
-      const product = await stripe.products.create({
-        name: `Storelib ${newPlan.name} Plan`,
-        description: `${newPlan.name} subscription plan`,
-        metadata: { plan_id: newPlan.id },
-      })
-      const price = await stripe.prices.create({
-        product: product.id,
-        unit_amount: newPlan.price_cents,
-        currency: "usd",
-        recurring: { interval: "month" },
-        metadata: { plan_id: newPlan.id },
-      })
-      stripePriceId = price.id
-      await supabase
-        .from("subscription_plans")
-        .update({ stripe_price_id: stripePriceId })
-        .eq("id", newPlan.id)
     }
 
     // Get the Stripe subscription
@@ -124,7 +106,7 @@ export async function POST(request: Request) {
             price: stripePriceId,
           },
         ],
-        proration_behavior: "always_invoice", // Create invoice for proration
+        proration_behavior: "always_invoice",
         metadata: {
           creator_id: creator.id,
           plan_id: newPlanId,
@@ -137,8 +119,8 @@ export async function POST(request: Request) {
       .from("subscriptions")
       .update({
         plan_id: newPlanId,
-        current_period_start: new Date(updatedSubscription.current_period_start * 1000).toISOString(),
-        current_period_end: new Date(updatedSubscription.current_period_end * 1000).toISOString(),
+        current_period_start: new Date((updatedSubscription as any).current_period_start * 1000).toISOString(),
+        current_period_end: new Date((updatedSubscription as any).current_period_end * 1000).toISOString(),
         updated_at: new Date().toISOString(),
       })
       .eq("id", subscription.id)
@@ -151,8 +133,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      subscription: updatedSubscription,
-      message: `Successfully changed to ${newPlan.name} plan`,
+      message: `Successfully changed plan`,
     })
   } catch (error: any) {
     console.error("Error in POST /api/billing/subscription/change:", error)

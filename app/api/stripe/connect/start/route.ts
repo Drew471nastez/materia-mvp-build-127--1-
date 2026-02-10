@@ -67,8 +67,9 @@ export async function POST(request: Request) {
     }
 
     // Create account link for onboarding
-    const returnUrl = `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/app/settings/payments?success=true`
-    const refreshUrl = `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/app/settings/payments?refresh=true`
+    const baseUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://storelib.com"
+    const returnUrl = `${baseUrl}/app/settings?tab=payments&connect_success=true`
+    const refreshUrl = `${baseUrl}/app/settings?tab=payments&refresh=true`
 
     const accountLink = await stripe.accountLinks.create({
       account: accountId,
