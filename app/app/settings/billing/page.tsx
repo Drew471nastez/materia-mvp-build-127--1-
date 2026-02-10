@@ -39,10 +39,13 @@ const PRO_PLAN = {
 
 const FALLBACK_PLANS = [FREE_PLAN, GROWTH_PLAN, PRO_PLAN]
 
-// Map Stripe price IDs back to plan IDs
+// Map Stripe price IDs back to plan IDs — LIVE price IDs hardcoded as fallback
+const LIVE_PRICE_GROWTH = "price_1SzBWaBYevnBVyznNCTOXDoS"
+const LIVE_PRICE_PRO = "price_1SzBXSBYevnBVyznYjXfOOXX"
+
 function getPlanIdFromPriceId(priceId: string): string | null {
-  if (priceId === process.env.PRICE_GROWTH_MONTHLY) return "growth"
-  if (priceId === process.env.PRICE_PRO_MONTHLY) return "pro"
+  if (priceId === process.env.PRICE_GROWTH_MONTHLY || priceId === LIVE_PRICE_GROWTH) return "growth"
+  if (priceId === process.env.PRICE_PRO_MONTHLY || priceId === LIVE_PRICE_PRO) return "pro"
   return null
 }
 
@@ -260,6 +263,18 @@ export default async function BillingPage() {
           cancel_at_period_end: false,
           subscription_plans: matchedPlan,
         }
+      }
+    }
+
+    // --- SYNC: Write Stripe truth back to Supabase ---
+    if (subscription && subscription.plan_id && subscription.plan_id !== "free") {
+      try {
+        await supabase
+          .from("creators")
+          .update({ subscription_plan_id: subscription.plan_id })
+          .eq("user_id", user.id)
+      } catch {
+        // Non-critical — just sync
       }
     }
 

@@ -36,10 +36,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Creator profile not found" }, { status: 404 })
     }
 
-    // Get profile for email
-    const { data: profile } = await supabase.from("profiles").select("email").eq("id", user.id).single()
-
-    const email = profile?.email || user.email || ""
+    const email = user.email || ""
 
     let accountId = (creator as any).stripe_account_id || null
 

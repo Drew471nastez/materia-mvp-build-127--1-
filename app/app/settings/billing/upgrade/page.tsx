@@ -38,9 +38,12 @@ const PRO_PLAN = {
 
 const FALLBACK_PLANS = [FREE_PLAN, GROWTH_PLAN, PRO_PLAN]
 
+const LIVE_PRICE_GROWTH = "price_1SzBWaBYevnBVyznNCTOXDoS"
+const LIVE_PRICE_PRO = "price_1SzBXSBYevnBVyznYjXfOOXX"
+
 function getPlanIdFromPriceId(priceId: string): string | null {
-  if (priceId === process.env.PRICE_GROWTH_MONTHLY) return "growth"
-  if (priceId === process.env.PRICE_PRO_MONTHLY) return "pro"
+  if (priceId === process.env.PRICE_GROWTH_MONTHLY || priceId === LIVE_PRICE_GROWTH) return "growth"
+  if (priceId === process.env.PRICE_PRO_MONTHLY || priceId === LIVE_PRICE_PRO) return "pro"
   return null
 }
 
