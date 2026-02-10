@@ -106,6 +106,7 @@ interface DashboardClientProps {
   initialTotalOrders?: number
   initialTotalRevenue?: number
   creatorHandle?: string
+  connectedDomain?: string | null
 }
 
 function ChainLinkIcon({ className = "w-4 h-4", stroke = "#ffffff" }: { className?: string; stroke?: string }) {
@@ -680,6 +681,7 @@ export function DashboardClient({
   initialTotalOrders = 0,
   initialTotalRevenue = 0,
   creatorHandle = "",
+  connectedDomain = null,
 }: DashboardClientProps) {
   const [timeframe, setTimeframe] = useState("last_7_days")
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
@@ -690,8 +692,8 @@ export function DashboardClient({
   const profileAccessRef = useRef<HTMLDivElement | null>(null)
   const router = useRouter()
 
-  const publicStoreUrl = creatorHandle ? getStoreUrl(creatorHandle) : ""
-  const publicOnePageUrl = creatorHandle ? getLinksUrl(creatorHandle) : ""
+  const publicStoreUrl = connectedDomain ? `https://${connectedDomain}` : (creatorHandle ? getStoreUrl(creatorHandle) : "")
+  const publicOnePageUrl = connectedDomain ? `https://${connectedDomain}/links` : (creatorHandle ? getLinksUrl(creatorHandle) : "")
   const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [expandedStep, setExpandedStep] = useState<string | null>(null)

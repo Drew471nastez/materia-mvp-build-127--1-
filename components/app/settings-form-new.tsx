@@ -181,13 +181,13 @@ const TABS = [
   { id: "security", label: "Security", icon: Shield },
   { id: "payments", label: "Payments", icon: Wallet },
   { id: "billing", label: "Billing", icon: CreditCard },
+  { id: "domains", label: "Domains", icon: Globe },
   { id: "privacy", label: "Privacy", icon: ToggleLeft },
   { id: "stores", label: "Stores", icon: Store },
-  { id: "domains", label: "Domains", icon: Globe },
 ] as const
 
 type TabId = typeof TABS[number]["id"]
-const TAB_IDS: TabId[] = ["general", "security", "privacy", "payments", "stores", "billing", "domains"]
+const TAB_IDS: TabId[] = ["general", "security", "payments", "billing", "domains", "privacy", "stores"]
 
 interface SettingsFormProps {
   profile: Profile & {
@@ -913,14 +913,19 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     if (activeTab === "payments" || activeTab === "general") loadStripeStatus()
   }, [activeTab, loadStripeStatus])
 
-  // Handle Stripe Connect return/refresh URL parameters
+  // Handle URL parameters for tab navigation and Stripe Connect return/refresh
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
-    const tab = params.get("tab")
+    const tab = params.get("tab") as TabId | null
     const stripeParam = params.get("stripe")
 
-    if (tab === "payments") {
-      setActiveTab("payments")
+    if (tab && TAB_IDS.includes(tab as TabId) && tab !== "billing") {
+      setActiveTab(tab as TabId)
+      if (tab === "domains") fetchDomains()
+      // Clean URL
+      const url = new URL(window.location.href)
+      url.searchParams.delete("tab")
+      window.history.replaceState({}, "", url.toString())
     }
 
     if (stripeParam === "return" || stripeParam === "refresh") {
@@ -932,7 +937,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
       url.searchParams.delete("stripe")
       window.history.replaceState({}, "", url.pathname)
     }
-  }, [loadStripeStatus])
+  }, [loadStripeStatus, fetchDomains])
 
   const connectStripe = async () => {
     setStripeBusy("connect")
@@ -1152,7 +1157,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     }
   }, [activeTab])
 
-  // Fetch domains when switching to domains tab
+  // Fetch domains when switching to domains tab or on mount (for quick links)
   const fetchDomains = useCallback(async () => {
     setDomainsLoading(true)
     try {
@@ -1165,6 +1170,11 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
       setDomainsLoading(false)
     }
   }, [])
+
+  // Fetch domains on mount so quick links can use the custom domain
+  useEffect(() => {
+    fetchDomains()
+  }, [fetchDomains])
 
   const addDomain = async () => {
     if (!domainInput.trim()) return
@@ -1587,7 +1597,9 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
   const settingsHandleBase = creator?.username || profile?.username || storeUrlDisplay.split(".")[0] || "store"
   const settingsHandleLabel = `@${settingsHandleBase}`
-  const onepageUrl = getLinksUrl(settingsHandleBase)
+  const connectedDomain = domains.find((d: any) => d.status === "active")?.domain || null
+  const onepageUrl = connectedDomain ? `https://${connectedDomain}/links` : getLinksUrl(settingsHandleBase)
+  const storeUrlWithDomain = connectedDomain ? `https://${connectedDomain}` : storeUrl
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -1661,13 +1673,13 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 <button
                   type="button"
                   onClick={() => {
-                    window.open(storeUrl, "_blank", "noopener,noreferrer")
+                    window.open(storeUrlWithDomain, "_blank", "noopener,noreferrer")
                     setIsQuickAccessOpen(false)
                   }}
                   className="w-full text-left rounded-xl p-3 hover:bg-[#f9fafb] transition-colors cursor-pointer"
                 >
                   <p className="text-[13px] font-semibold text-[#111827] flex items-center gap-2"><span className="w-5 h-5 rounded-full bg-black flex items-center justify-center overflow-hidden"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib_pixian_ai.png" alt="Storelib" className="w-3.5 h-3.5 object-contain" /></span>Store</p>
-                  <p className="text-[11px] text-[#6b7280] truncate mt-1">{storeUrl}</p>
+                  <p className="text-[11px] text-[#6b7280] truncate mt-1">{storeUrlWithDomain}</p>
                 </button>
               </div>
             )}
@@ -1680,9 +1692,9 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               <p className="text-[14px] font-semibold text-[#111827] flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-[#8b5cf6] flex items-center justify-center"><ChainLinkIcon className="w-3 h-3" stroke="#ffffff" /></span>OnePage</p>
               <p className="text-[12px] text-[#6b7280] truncate mt-1">{onepageUrl}</p>
             </button>
-            <button type="button" onClick={() => { window.open(storeUrl, "_blank", "noopener,noreferrer"); setIsQuickAccessOpen(false) }} className="w-full text-left rounded-xl border border-[#ececf1] p-3">
+            <button type="button" onClick={() => { window.open(storeUrlWithDomain, "_blank", "noopener,noreferrer"); setIsQuickAccessOpen(false) }} className="w-full text-left rounded-xl border border-[#ececf1] p-3">
               <p className="text-[14px] font-semibold text-[#111827] flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-black flex items-center justify-center overflow-hidden"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib_pixian_ai.png" alt="Storelib" className="w-4 h-4 object-contain" /></span>Store</p>
-              <p className="text-[12px] text-[#6b7280] truncate mt-1">{storeUrl}</p>
+              <p className="text-[12px] text-[#6b7280] truncate mt-1">{storeUrlWithDomain}</p>
             </button>
           </div>
         </MobileBottomSheet>

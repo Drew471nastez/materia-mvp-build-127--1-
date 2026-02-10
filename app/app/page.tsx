@@ -143,6 +143,14 @@ export default async function AppDashboard() {
 
   const displayName = profile?.display_name || creator.display_name || "there"
 
+  // Check for connected custom domain
+  const { data: activeDomain } = await adminSupabase
+    .from("custom_domains")
+    .select("domain")
+    .eq("creator_id", creator.id)
+    .eq("status", "active")
+    .maybeSingle()
+
   return (
     <DashboardClient
       creatorId={creator.id}
@@ -153,6 +161,7 @@ export default async function AppDashboard() {
       initialTotalOrders={totalOrders}
       initialTotalRevenue={totalRevenue}
       creatorHandle={profile?.username || creator.slug || ""}
+      connectedDomain={activeDomain?.domain || null}
     />
   )
 }
