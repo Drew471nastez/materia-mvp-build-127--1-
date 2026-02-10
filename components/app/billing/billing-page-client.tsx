@@ -173,7 +173,7 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
 
   const currentPlan = initialData.currentPlan
   const subscription = initialData.subscription
-  const isSubscribed = subscription && (subscription.status === "active" || subscription.status === "trialing")
+  const isSubscribed = subscription && (subscription.status === "active" || subscription.status === "trialing" || subscription.status === "past_due")
   const planPrice = currentPlan.price_cents > 0 ? `$${(currentPlan.price_cents / 100).toFixed(currentPlan.price_cents % 100 === 0 ? 0 : 2)}` : "$0"
   const feeDisplay = `${(currentPlan.fee_percent * 100).toFixed(currentPlan.fee_percent >= 0.01 ? 1 : 2)}% + $${(currentPlan.fee_fixed_cents / 100).toFixed(2)} per transaction`
 
@@ -769,7 +769,7 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
   showNotification: (type: "success" | "error", message: string) => void; router: any
   onUpgradeClick: (planId: string, planName: string, priceCents: number) => void
 }) {
-  const isSubscribed = subscription && (subscription.status === "active" || subscription.status === "trialing")
+  const isSubscribed = subscription && (subscription.status === "active" || subscription.status === "trialing" || subscription.status === "past_due")
 
   const handlePlanAction = (planId: string) => {
     if (planId === currentPlan.id || loading) return

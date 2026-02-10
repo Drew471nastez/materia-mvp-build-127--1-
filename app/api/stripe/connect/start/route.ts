@@ -1,12 +1,20 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
+
+function tryCreateAdminClient() {
+  try {
+    const { createAdminClient } = require("@/lib/supabase/admin")
+    return createAdminClient()
+  } catch {
+    return null
+  }
+}
 
 export async function POST(request: Request) {
   try {
     const supabase = await createClient()
-    const adminSupabase = createAdminClient()
+    const adminSupabase = tryCreateAdminClient()
 
     // Check authentication
     const {
@@ -58,9 +66,10 @@ export async function POST(request: Request) {
       })
       accountId = account.id
 
-      // Update creator with new account ID (safe even if columns don't exist yet)
+      // Update creator with new account ID — try admin first, fall back to regular client
+      const dbClient = adminSupabase || supabase
       try {
-        await adminSupabase
+        await dbClient
           .from("creators")
           .update({
             stripe_account_id: accountId,
@@ -68,19 +77,19 @@ export async function POST(request: Request) {
           })
           .eq("id", creator.id)
       } catch (dbErr) {
-        console.error("Failed to update creator with stripe_account_id (column may not exist):", dbErr)
+        console.error("Failed to update creator with stripe_account_id:", dbErr)
       }
 
-      // Log connection event (safe even if table doesn't exist)
+      // Log connection event
       try {
-        await adminSupabase.from("payment_connection_events").insert({
+        await dbClient.from("payment_connection_events").insert({
           creator_id: creator.id,
           provider: "stripe",
           event_type: "onboarding_started",
           metadata: { account_id: accountId },
         })
       } catch (logErr) {
-        console.warn("Failed to log payment_connection_event (table may not exist):", logErr)
+        console.warn("Failed to log payment_connection_event:", logErr)
       }
     }
 

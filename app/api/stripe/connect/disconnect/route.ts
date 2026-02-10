@@ -1,11 +1,20 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
+
+function tryCreateAdminClient() {
+  try {
+    const { createAdminClient } = require("@/lib/supabase/admin")
+    return createAdminClient()
+  } catch {
+    return null
+  }
+}
 
 export async function POST() {
   try {
     const supabase = await createClient()
-    const adminSupabase = createAdminClient()
+    const adminSupabase = tryCreateAdminClient()
+    const dbClient = adminSupabase || supabase
 
     // Check authentication
     const {
@@ -34,7 +43,7 @@ export async function POST() {
 
     // Clear Stripe Connect data (but keep historical orders)
     try {
-      await adminSupabase
+      await dbClient
         .from("creators")
         .update({
           stripe_account_id: null,
@@ -47,7 +56,7 @@ export async function POST() {
 
     // Log disconnection event
     try {
-      await adminSupabase.from("payment_connection_events").insert({
+      await dbClient.from("payment_connection_events").insert({
         creator_id: creator.id,
         provider: "stripe",
         event_type: "disconnected",

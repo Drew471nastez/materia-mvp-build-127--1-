@@ -1,12 +1,21 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
+
+function tryCreateAdminClient() {
+  try {
+    const { createAdminClient } = require("@/lib/supabase/admin")
+    return createAdminClient()
+  } catch {
+    return null
+  }
+}
 
 export async function GET() {
   try {
     const supabase = await createClient()
-    const adminSupabase = createAdminClient()
+    const adminSupabase = tryCreateAdminClient()
+    const dbClient = adminSupabase || supabase
 
     const {
       data: { user },
@@ -40,16 +49,13 @@ export async function GET() {
     try {
       account = await stripe.accounts.retrieve(stripeAccountId)
     } catch {
-      // Account doesn't exist on current keys (test→live migration)
       console.warn(`Stripe account ${stripeAccountId} not found. Clearing stale reference.`)
       try {
-        await adminSupabase
+        await dbClient
           .from("creators")
           .update({
             stripe_account_id: null,
             stripe_onboarding_status: "pending",
-            charges_enabled: false,
-            payouts_enabled: false,
           })
           .eq("id", creator.id)
       } catch (dbErr) {
@@ -71,60 +77,27 @@ export async function GET() {
     let newStatus = "not_connected"
     if (isComplete) {
       newStatus = "enabled"
-    } else if (stripeAccountId && (chargesEnabled || payoutsEnabled)) {
+    } else if (chargesEnabled || payoutsEnabled) {
       newStatus = "restricted"
-    } else if (stripeAccountId) {
+    } else {
       newStatus = "pending"
     }
 
-    console.log("[v0] Stripe account status:", {
-      accountId: stripeAccountId,
-      chargesEnabled,
-      payoutsEnabled,
-      status: newStatus,
-      detailsSubmitted: account.details_submitted,
-    })
-
-    // Update DB with latest status (safe even if columns don't exist)
+    // Update DB with latest status
     try {
-      if (
-        (creator as any).stripe_onboarding_status !== newStatus ||
-        (creator as any).charges_enabled !== chargesEnabled ||
-        (creator as any).payouts_enabled !== payoutsEnabled
-      ) {
-        await adminSupabase
-          .from("creators")
-          .update({
-            stripe_onboarding_status: newStatus,
-            charges_enabled: chargesEnabled,
-            payouts_enabled: payoutsEnabled,
-          })
-          .eq("id", creator.id)
-
-        console.log("[v0] Updated creator capabilities:", { chargesEnabled, payoutsEnabled, status: newStatus })
-
-        if (newStatus === "enabled" && (creator as any).stripe_onboarding_status !== "enabled") {
-          try {
-            await adminSupabase.from("payment_connection_events").insert({
-              creator_id: creator.id,
-              provider: "stripe",
-              event_type: "onboarding_completed",
-              metadata: {
-                account_id: stripeAccountId,
-                charges_enabled: chargesEnabled,
-                payouts_enabled: payoutsEnabled,
-              },
-            })
-          } catch (logErr) {
-            console.warn("Failed to log connection event:", logErr)
-          }
-        }
-      }
+      await dbClient
+        .from("creators")
+        .update({
+          stripe_onboarding_status: newStatus,
+          charges_enabled: chargesEnabled,
+          payouts_enabled: payoutsEnabled,
+        })
+        .eq("id", creator.id)
     } catch (dbErr) {
-      console.warn("Failed to update creator capabilities (columns may not exist):", dbErr)
+      console.warn("Failed to update creator capabilities:", dbErr)
     }
 
-    const maskedAccountId = stripeAccountId ? `acct_****${stripeAccountId.slice(-4)}` : null
+    const maskedAccountId = `acct_****${stripeAccountId.slice(-4)}`
 
     return NextResponse.json({
       connected: isComplete,
@@ -134,10 +107,9 @@ export async function GET() {
       chargesEnabled,
       payoutsEnabled,
       detailsSubmitted: account.details_submitted,
-      externalAccount: account.external_accounts?.data?.[0] || null,
     })
   } catch (error) {
-    console.error("[v0] Stripe Connect Status Error:", error)
+    console.error("[Stripe Connect Status Error]", error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to fetch Stripe Connect status" },
       { status: 500 },
