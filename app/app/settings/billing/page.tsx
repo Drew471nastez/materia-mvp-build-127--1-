@@ -27,11 +27,11 @@ const GROWTH_PLAN = {
 const PRO_PLAN = {
   id: "pro",
   name: "Pro",
-  price_cents: 10000,
+  price_cents: 9900,
   billing_period: "month",
   fee_percent: 0.015,
   fee_fixed_cents: 25,
-  features: ["$100/month", "1.5% + $0.25 per transaction", "Premium analytics", "Dedicated support", "White-label options", "API access"],
+  features: ["$99/month", "1.5% + $0.25 per transaction", "Premium analytics", "Dedicated support", "White-label options", "API access"],
   is_active: true,
 }
 

@@ -169,7 +169,7 @@ CREATE POLICY "Service role has full access to invoices"
 INSERT INTO public.subscription_plans (id, name, price_cents, billing_period, fee_percent, fee_fixed_cents, stripe_price_id, features, is_active) VALUES
 ('free', 'Free', 0, NULL, 0.0600, 25, NULL, '["6% + $0.25 per transaction", "Basic analytics", "Standard support"]'::jsonb, true),
 ('growth', 'Growth', 2900, 'month', 0.0300, 25, NULL, '["$29/month", "3% + $0.25 per transaction", "Advanced analytics", "Priority support", "Custom domain"]'::jsonb, true),
-('pro', 'Pro', 10000, 'month', 0.0150, 25, NULL, '["$100/month", "1.5% + $0.25 per transaction", "Premium analytics", "Dedicated support", "White-label options", "API access"]'::jsonb, true)
+('pro', 'Pro', 9900, 'month', 0.0150, 25, NULL, '["$99/month", "1.5% + $0.25 per transaction", "Premium analytics", "Dedicated support", "White-label options", "API access"]'::jsonb, true)
 ON CONFLICT (id) DO UPDATE SET
   name = EXCLUDED.name,
   price_cents = EXCLUDED.price_cents,
