@@ -23,7 +23,6 @@ export function UpgradePageClient({
   cancelAtPeriodEnd = false,
 }: UpgradePageClientProps) {
   const router = useRouter()
-  const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annual">("monthly")
   const [loading, setLoading] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [closing, setClosing] = useState(false)
@@ -153,29 +152,6 @@ export function UpgradePageClient({
           </div>
         )}
 
-        {/* Monthly / Annual toggle */}
-        <div className="flex justify-center mb-10">
-          <div className="inline-flex items-center bg-[#f3f4f6] rounded-full p-1">
-            <button
-              onClick={() => setBillingPeriod("monthly")}
-              className={`px-6 py-2.5 text-[14px] font-medium rounded-full transition-all duration-200 ${
-                billingPeriod === "monthly" ? "bg-white text-[#1a1a2e] shadow-sm" : "text-[#6b7280] hover:text-[#374151]"
-              }`}
-            >
-              Monthly
-            </button>
-            <button
-              onClick={() => setBillingPeriod("annual")}
-              className={`px-6 py-2.5 text-[14px] font-medium rounded-full transition-all duration-200 flex items-center gap-2 ${
-                billingPeriod === "annual" ? "bg-white text-[#1a1a2e] shadow-sm" : "text-[#6b7280] hover:text-[#374151]"
-              }`}
-            >
-              Annual
-              <span className="text-[11px] font-bold text-[#7c3aed] bg-[#ede9fe] px-2 py-0.5 rounded-full">Save 35%</span>
-            </button>
-          </div>
-        </div>
-
         {/* Plan Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
           {plans.map((plan: any) => {
@@ -183,12 +159,12 @@ export function UpgradePageClient({
             const isPendingPlan = plan.id === pendingPlanId
             const isFree = plan.id === "free"
             const isPro = plan.id === "pro"
+            const isGrowth = plan.id === "growth"
             const currentPlan = plans.find((p: any) => p.id === currentPlanId)
             const isDowngrade = currentPlan ? plan.price_cents < currentPlan.price_cents : false
             const isUpgrade = currentPlan ? plan.price_cents > currentPlan.price_cents : false
             const monthlyPrice = plan.price_cents / 100
-            const annualPrice = Math.round(monthlyPrice * 0.65 * 100) / 100
-            const displayPrice = billingPeriod === "annual" && !isFree ? annualPrice : monthlyPrice
+            const displayPrice = monthlyPrice
             const isDisabled = isCurrentPlan || (cancelAtPeriodEnd && isFree) || (isPendingPlan && !isUpgrade) || loading !== null
 
             return (
@@ -200,11 +176,18 @@ export function UpgradePageClient({
                     : "bg-white border-2 border-[#e5e7eb] hover:border-[#d1d5db] shadow-sm hover:shadow-md"
                 }`}
               >
+                {isGrowth && (
+                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
+                    <span className="inline-flex items-center gap-1 px-3.5 py-1 bg-[#7c3aed] rounded-full text-[11px] font-bold text-white shadow-lg">
+                      Popular
+                    </span>
+                  </div>
+                )}
                 {isPro && (
                   <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
                     <span className="inline-flex items-center gap-1 px-3.5 py-1 bg-[#7c3aed] rounded-full text-[11px] font-bold text-white shadow-lg">
                       <Star className="h-3 w-3 fill-white" />
-                      Popular
+                      Recommended
                     </span>
                   </div>
                 )}
@@ -232,11 +215,6 @@ export function UpgradePageClient({
                         </span>
                         <span className={`text-[15px] ${isPro ? "text-white/60" : "text-[#9ca3af]"}`}>/mo</span>
                       </div>
-                      {billingPeriod === "annual" && (
-                        <p className={`text-[13px] mt-1.5 ${isPro ? "text-white/60" : "text-[#9ca3af]"}`}>
-                          Billed annually (${(displayPrice * 12).toFixed(0)}/year)
-                        </p>
-                      )}
                     </>
                   )}
                 </div>

@@ -179,10 +179,10 @@ const TIMEZONES = [
 const TABS = [
   { id: "general", label: "General", icon: Settings },
   { id: "security", label: "Security", icon: Shield },
-  { id: "privacy", label: "Privacy", icon: ToggleLeft },
   { id: "payments", label: "Payments", icon: Wallet },
-  { id: "stores", label: "Stores", icon: Store },
   { id: "billing", label: "Billing", icon: CreditCard },
+  { id: "privacy", label: "Privacy", icon: ToggleLeft },
+  { id: "stores", label: "Stores", icon: Store },
 ] as const
 
 type TabId = typeof TABS[number]["id"]
@@ -1675,11 +1675,12 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 </div>
               )}
               {!stripeStatusLoading && !stripeStatus.connected && (
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] px-4 sm:px-6 py-3.5 sm:py-4 shadow-sm transition-all duration-300">
+                <div className="flex items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] px-4 sm:px-6 py-3 sm:py-3.5 shadow-sm transition-all duration-300">
                   <div className="flex items-center gap-3 min-w-0">
                     <Wallet className="h-5 w-5 text-white shrink-0" />
                     <p className="text-[13px] sm:text-[14px] font-medium text-white">
-                      Get paid - Connect Stripe
+                      <span className="sm:hidden">Get paid - Connect Stripe</span>
+                      <span className="hidden sm:inline">Get paid — Connect your payouts to receive payments.</span>
                     </p>
                   </div>
                   <button

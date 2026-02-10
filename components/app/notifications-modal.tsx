@@ -237,7 +237,7 @@ export function NotificationsModal({
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={cn(
-              "px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors",
+              "px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors cursor-pointer",
               activeTab === tab.id
                 ? "bg-neutral-900 text-white"
                 : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"

@@ -443,8 +443,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           </div>
         )}
 
-        {/* Setup Progress Section for Mobile - hidden on settings and emails pages */}
-        {setupProgress && setupProgress.completed < setupProgress.total && !pathname.startsWith("/app/settings") && !pathname.startsWith("/app/emails") && (
+        {/* Setup Progress Section for Mobile sidebar - always shown when incomplete */}
+        {setupProgress && setupProgress.completed < setupProgress.total && !pathname.startsWith("/app/emails") && (
           <button
             onClick={() => {
               onItemClick?.()
