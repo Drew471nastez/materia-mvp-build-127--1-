@@ -121,7 +121,7 @@ export function UpgradePageClient({
         <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14 sm:h-16">
           <button
             onClick={goBack}
-            className="flex items-center gap-1.5 text-[13px] sm:text-[14px] font-medium text-[#7c3aed] hover:text-[#6d28d9] transition-colors"
+            className="flex items-center gap-1.5 text-[13px] sm:text-[14px] font-medium text-[#7c3aed] hover:text-[#6d28d9] transition-colors cursor-pointer relative z-10"
           >
             <ArrowLeft className="h-4 w-4" />
             <span className="hidden sm:inline">Back to billing</span>
@@ -131,12 +131,12 @@ export function UpgradePageClient({
           <img
             src={STORELIB_LOGO_URL}
             alt="Storelib"
-            className="h-6 sm:h-7 absolute left-1/2 -translate-x-1/2"
+            className="h-6 sm:h-7 absolute left-1/2 -translate-x-1/2 pointer-events-none"
           />
 
           <button
             onClick={goBack}
-            className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[#f3f4f6] transition-colors"
+            className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[#f3f4f6] transition-colors cursor-pointer relative z-10"
           >
             <X className="h-5 w-5 text-[#6b7280]" />
           </button>

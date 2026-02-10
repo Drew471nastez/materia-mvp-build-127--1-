@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import {
   Settings, Shield, ToggleLeft, Wallet, Store, CreditCard,
   Check, Loader2, Download, FileText, Clock, CheckCircle, XCircle, AlertCircle,
-  Rocket, Lock, ShieldCheck, Pencil, Trash2, ExternalLink, X, ArrowUpRight, RefreshCw,
+  Rocket, Lock, ShieldCheck, Pencil, ExternalLink, X, ArrowUpRight, RefreshCw,
 } from "lucide-react"
 import { useLanguage } from "@/lib/i18n"
 
@@ -35,10 +35,9 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { t } = useLanguage()
-  const [notification, setNotification] = useState<{ type: "success" | "error"; message: string } | null>(null)
+  const [notification, setNotification] = useState<{ type: "success" | "error"; message: string; visible: boolean } | null>(null)
+  const notifTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [loading, setLoading] = useState<string | null>(null)
-  const [removingPayment, setRemovingPayment] = useState(false)
-  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false)
   const [portalLoading, setPortalLoading] = useState(false)
   const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null)
   const [showUpgradeModal, setShowUpgradeModal] = useState<{ planId: string; planName: string; priceCents: number } | null>(null)
@@ -111,8 +110,17 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
   }, [searchParams])
 
   const showNotification = (type: "success" | "error", message: string) => {
-    setNotification({ type, message })
-    setTimeout(() => setNotification(null), 5000)
+    if (notifTimeoutRef.current) clearTimeout(notifTimeoutRef.current)
+    setNotification({ type, message, visible: true })
+    notifTimeoutRef.current = setTimeout(() => {
+      setNotification(prev => prev ? { ...prev, visible: false } : null)
+      setTimeout(() => setNotification(null), 400)
+    }, 5000)
+  }
+
+  const dismissNotification = () => {
+    setNotification(prev => prev ? { ...prev, visible: false } : null)
+    setTimeout(() => setNotification(null), 400)
   }
 
   const handleTabChange = (tabId: TabId) => {
@@ -170,43 +178,6 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
       setPortalLoading(false)
     }
   }
-
-  const handleRemovePayment = async () => {
-    setRemovingPayment(true)
-    try {
-      const response = await fetch("/api/billing/payment-method", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ paymentMethodId: livePaymentMethod?.stripe_payment_method_id || null }),
-      })
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || "Failed to remove payment method")
-      }
-      const result = await response.json()
-      // Update local state immediately - check if there's a remaining payment method
-      if (result.paymentMethods?.length > 0) {
-        const pm = result.paymentMethods[0]
-        setLivePaymentMethod({
-          stripe_payment_method_id: pm.id,
-          card_brand: pm.brand || "unknown",
-          card_last4: pm.last4 || "0000",
-          card_exp_month: pm.expMonth || 0,
-          card_exp_year: pm.expYear || 0,
-          is_default: true,
-        })
-      } else {
-        setLivePaymentMethod(null)
-      }
-      showNotification("success", "Payment method removed successfully")
-      setShowRemoveConfirm(false)
-    } catch (error: any) {
-      showNotification("error", error.message || "Failed to remove payment method")
-    } finally {
-      setRemovingPayment(false)
-    }
-  }
-
 
   const openUpgradeModal = async (planId: string, planName: string, priceCents: number) => {
     setShowUpgradeModal({ planId, planName, priceCents })
@@ -269,8 +240,12 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
   const planPrice = currentPlan.price_cents > 0 ? `$${(currentPlan.price_cents / 100).toFixed(currentPlan.price_cents % 100 === 0 ? 0 : 2)}` : "$0"
   const feeDisplay = `${(currentPlan.fee_percent * 100).toFixed(currentPlan.fee_percent >= 0.01 ? 1 : 2)}% + $${(currentPlan.fee_fixed_cents / 100).toFixed(2)} per transaction`
 
-  // Determine the next upgrade target
+  // Detect pending downgrade (scheduled plan change)
+  const pendingPlanId = subscription?.pending_plan_id || null
   const plans = initialData.plans
+  const pendingPlan = pendingPlanId && pendingPlanId !== currentPlan.id ? plans.find((p: any) => p.id === pendingPlanId) : null
+
+  // Determine the next upgrade target
   const nextUpgradePlan = currentPlan.id === "growth"
     ? plans.find((p: any) => p.id === "pro")
     : currentPlan.id === "free"
@@ -304,14 +279,7 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
           </div>
         </div>
 
-        {/* Notification */}
-        {notification && (
-          <div className={`mb-6 p-4 rounded-xl border flex items-center gap-3 ${notification.type === "success" ? "bg-emerald-50 border-emerald-200 text-emerald-900" : "bg-red-50 border-red-200 text-red-900"}`}>
-            {notification.type === "success" ? <CheckCircle className="h-5 w-5 shrink-0" /> : <AlertCircle className="h-5 w-5 shrink-0" />}
-            <p className="text-[13px] font-medium">{notification.message}</p>
-            <button onClick={() => setNotification(null)} className="ml-auto shrink-0 text-current opacity-60 hover:opacity-100 cursor-pointer"><X className="h-4 w-4" /></button>
-          </div>
-        )}
+        {/* Notification is now a fixed toast at top of screen - rendered at end of component */}
 
         <div className="space-y-6">
 
@@ -330,6 +298,18 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                   </span>
                 </div>
 
+                {/* Pending downgrade banner */}
+                {pendingPlan && subscription?.current_period_end && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 mb-4">
+                    <p className="text-[13px] font-medium text-amber-900">
+                      Switching to {pendingPlan.name} on {formatDate(subscription.current_period_end)}
+                    </p>
+                    <p className="text-[12px] text-amber-700 mt-1">
+                      Next payment: ${(pendingPlan.price_cents / 100).toFixed(2)}/month
+                    </p>
+                  </div>
+                )}
+
                 <div className="mb-4">
                   <div className="flex items-baseline gap-1">
                     <span className="text-[36px] font-bold text-[#1a1a2e] leading-none">{planPrice}</span>
@@ -344,14 +324,6 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                     </div>
                     Platform fee: {feeDisplay}
                   </li>
-                  {(currentPlan.features || []).slice(0, 4).map((feature: string, idx: number) => (
-                    <li key={idx} className="flex items-center gap-2.5 text-[13px] text-[#374151]">
-                      <div className="w-4 h-4 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
-                        <Check className="h-2.5 w-2.5 text-emerald-600" strokeWidth={3} />
-                      </div>
-                      {feature}
-                    </li>
-                  ))}
                   {subscription?.current_period_end && (
                     <li className="flex items-center gap-2.5 text-[13px] text-[#6b7280]">
                       <div className="w-4 h-4 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
@@ -428,25 +400,10 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                       </div>
                     </div>
                     <TrustBadges />
-                    {showRemoveConfirm && (
-                      <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-                        <p className="text-[13px] text-red-900 mb-3">Remove this payment method? You&apos;ll need to add a new one to subscribe.</p>
-                        <div className="flex gap-2">
-                          <button onClick={() => setShowRemoveConfirm(false)} disabled={removingPayment} className="flex-1 h-9 text-[13px] font-medium bg-white border border-[#e5e7eb] rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">Cancel</button>
-                          <button onClick={handleRemovePayment} disabled={removingPayment} className="flex-1 h-9 text-[13px] font-medium bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center gap-1.5 cursor-pointer">
-                            {removingPayment ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Removing...</> : "Remove"}
-                          </button>
-                        </div>
-                      </div>
-                    )}
                     <div className="flex gap-3">
                       <button onClick={handleAddPaymentMethod} disabled={portalLoading} className="h-10 px-5 text-[13px] font-medium text-[#7c3aed] border border-[#7c3aed] rounded-xl hover:bg-[#f5f3ff] transition-colors flex items-center gap-2 cursor-pointer">
                         {portalLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Pencil className="h-3.5 w-3.5" />}
                         Edit Payment
-                      </button>
-                      <button onClick={() => setShowRemoveConfirm(true)} className="h-10 px-5 text-[13px] font-medium text-[#6b7280] border border-[#e5e7eb] rounded-xl hover:bg-[#f9fafb] hover:text-red-600 hover:border-red-200 transition-colors flex items-center gap-2 cursor-pointer">
-                        <Trash2 className="h-3.5 w-3.5" />
-                        Remove
                       </button>
                     </div>
                   </div>
@@ -488,7 +445,10 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
 
             {/* Next billing date */}
             {subscription?.current_period_end && isSubscribed && !subscription.cancel_at_period_end && (
-              <p className="text-[13px] text-[#6b7280] mb-4">Your next billing date is <span className="font-medium text-[#374151]">{formatDateLong(subscription.current_period_end)}</span>.</p>
+              <p className="text-[13px] text-[#6b7280] mb-4">
+                Your next billing date is <span className="font-medium text-[#374151]">{formatDateLong(subscription.current_period_end)}</span>.
+                {pendingPlan && <> Your plan will change to <span className="font-medium text-[#374151]">{pendingPlan.name}</span> (${(pendingPlan.price_cents / 100).toFixed(2)}/month).</>}
+              </p>
             )}
             {subscription?.current_period_end && subscription.cancel_at_period_end && (
               <p className="text-[13px] text-amber-600 mb-4">Your subscription ends on <span className="font-medium">{formatDateLong(subscription.current_period_end)}</span>.</p>
@@ -567,6 +527,7 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
             showNotification={showNotification}
             router={router}
             onUpgradeClick={(planId, planName, priceCents) => openUpgradeModal(planId, planName, priceCents)}
+            pendingPlanId={pendingPlanId}
           />
         </div>
       </div>
@@ -588,6 +549,17 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
       )}
 
       {/* Upgrade Confirmation Modal */}
+      {/* Fixed notification toast at top of screen */}
+      {notification && (
+        <div className="fixed top-0 left-0 right-0 z-[200] flex justify-center pointer-events-none">
+          <div className={`mx-4 mt-4 max-w-lg w-full pointer-events-auto bg-[#1a1a2e] text-white rounded-xl shadow-2xl px-5 py-3.5 flex items-center gap-3 transition-all duration-300 ease-out ${notification.visible ? "translate-y-0 opacity-100" : "-translate-y-4 opacity-0"}`}>
+            {notification.type === "success" ? <CheckCircle className="h-5 w-5 shrink-0 text-emerald-400" /> : <AlertCircle className="h-5 w-5 shrink-0 text-red-400" />}
+            <p className="text-[13px] font-medium flex-1">{notification.message}</p>
+            <button onClick={dismissNotification} className="shrink-0 text-white/60 hover:text-white transition-colors cursor-pointer"><X className="h-4 w-4" /></button>
+          </div>
+        </div>
+      )}
+
       {showUpgradeModal && (
         <UpgradeConfirmModal
           planId={showUpgradeModal.planId}
@@ -606,6 +578,10 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                 const result = await response.json()
                 if (!response.ok) { throw new Error(result.error || "Failed to change plan") }
                 showNotification("success", result.message || `Plan changed to ${showUpgradeModal.planName}!`)
+                // Optimistically update pending plan for downgrades
+                if (result.type === "downgrade") {
+                  setLiveSubscription((prev: any) => prev ? { ...prev, pending_plan_id: showUpgradeModal.planId } : prev)
+                }
                 setShowUpgradeModal(null)
                 router.refresh()
                 // Also refresh client-side billing data
@@ -854,10 +830,11 @@ function MobileBottomSheet({ isOpen, onClose, title, children }: { isOpen: boole
 /* ============================================================
    Pricing Tiers
    ============================================================ */
-function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, showNotification, router, onUpgradeClick }: {
+function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, showNotification, router, onUpgradeClick, pendingPlanId }: {
   plans: any[]; currentPlan: any; subscription: any; loading: string | null; setLoading: (v: string | null) => void
   showNotification: (type: "success" | "error", message: string) => void; router: any
   onUpgradeClick: (planId: string, planName: string, priceCents: number) => void
+  pendingPlanId?: string | null
 }) {
   const isSubscribed = subscription && (subscription.status === "active" || subscription.status === "trialing" || subscription.status === "past_due")
 
@@ -894,6 +871,7 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {plans.map((plan: any) => {
           const isCurrentPlan = plan.id === currentPlan.id
+          const isPendingPlan = plan.id === pendingPlanId
           const isFree = plan.id === "free"
           const isPro = plan.id === "pro"
           const isDowngrade = plan.price_cents < currentPlan.price_cents
@@ -901,46 +879,59 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
 
           let buttonLabel = `Upgrade to ${plan.name}`
           if (isCurrentPlan) buttonLabel = "Current Plan"
+          else if (isPendingPlan) buttonLabel = "Downgrade Scheduled"
           else if (isFree) buttonLabel = "Downgrade to Free"
           else if (isDowngrade) buttonLabel = `Downgrade to ${plan.name}`
 
+          const isDisabled = isCurrentPlan || isPendingPlan || loading !== null
+
           return (
-            <div key={plan.id} className={`relative rounded-2xl p-6 flex flex-col transition-all duration-200 ${isPro ? "bg-[#1a1a2e] text-white shadow-xl border-2 border-[#7c3aed]/30" : "bg-white border-2 border-[#e5e7eb] hover:border-[#d1d5db] shadow-sm hover:shadow-md"}`}>
-              {isPro && (
+            <div key={plan.id} className={`relative rounded-2xl p-6 flex flex-col transition-all duration-200 ${isPendingPlan ? "bg-white border-2 border-amber-300 shadow-sm ring-1 ring-amber-200" : isPro ? "bg-[#1a1a2e] text-white shadow-xl border-2 border-[#7c3aed]/30" : "bg-white border-2 border-[#e5e7eb] hover:border-[#d1d5db] shadow-sm hover:shadow-md"}`}>
+              {isPro && !isPendingPlan && (
                 <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
                   <span className="inline-flex items-center gap-1 px-3.5 py-1 bg-[#7c3aed] rounded-full text-[11px] font-bold text-white shadow-lg">Popular</span>
                 </div>
               )}
+              {isPendingPlan && (
+                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
+                  <span className="inline-flex items-center gap-1 px-3.5 py-1 bg-amber-500 rounded-full text-[11px] font-bold text-white shadow-lg">
+                    <Clock className="h-3 w-3" />
+                    Scheduled
+                  </span>
+                </div>
+              )}
               <div className="mb-4">
-                <h3 className={`text-[18px] font-bold mb-1 ${isPro ? "text-white" : "text-[#1a1a2e]"}`}>{plan.name}</h3>
-                <p className={`text-[12px] leading-relaxed ${isPro ? "text-white/70" : "text-[#6b7280]"}`}>{descriptions[plan.id] || ""}</p>
+                <h3 className={`text-[18px] font-bold mb-1 ${isPro && !isPendingPlan ? "text-white" : "text-[#1a1a2e]"}`}>{plan.name}</h3>
+                <p className={`text-[12px] leading-relaxed ${isPro && !isPendingPlan ? "text-white/70" : "text-[#6b7280]"}`}>{descriptions[plan.id] || ""}</p>
               </div>
               <div className="mb-5">
                 {isFree ? (
-                  <div className={`text-[32px] font-bold leading-none ${isPro ? "text-white" : "text-[#1a1a2e]"}`}>$0</div>
+                  <div className={`text-[32px] font-bold leading-none ${isPro && !isPendingPlan ? "text-white" : "text-[#1a1a2e]"}`}>$0</div>
                 ) : (
                   <div className="flex items-baseline gap-1">
-                    <span className={`text-[32px] font-bold leading-none ${isPro ? "text-white" : "text-[#1a1a2e]"}`}>${monthlyPrice % 1 === 0 ? monthlyPrice.toFixed(0) : monthlyPrice.toFixed(2)}</span>
-                    <span className={`text-[14px] ${isPro ? "text-white/60" : "text-[#9ca3af]"}`}>/mo</span>
+                    <span className={`text-[32px] font-bold leading-none ${isPro && !isPendingPlan ? "text-white" : "text-[#1a1a2e]"}`}>${monthlyPrice % 1 === 0 ? monthlyPrice.toFixed(0) : monthlyPrice.toFixed(2)}</span>
+                    <span className={`text-[14px] ${isPro && !isPendingPlan ? "text-white/60" : "text-[#9ca3af]"}`}>/mo</span>
                   </div>
                 )}
               </div>
               <button
                 onClick={() => handlePlanAction(plan.id)}
-                disabled={isCurrentPlan || loading !== null}
+                disabled={isDisabled}
                 className={`w-full h-11 text-[13px] font-semibold rounded-xl transition-all duration-200 flex items-center justify-center gap-2 mb-5 cursor-pointer ${
                   isCurrentPlan
                     ? isPro ? "bg-white/20 text-white/80 cursor-default" : "bg-[#f3f4f6] text-[#9ca3af] cursor-default"
-                    : isPro ? "bg-[#7c3aed] hover:bg-[#6d28d9] text-white shadow-lg shadow-[#7c3aed]/25" : "bg-[#7c3aed] hover:bg-[#6d28d9] text-white"
+                    : isPendingPlan
+                      ? "bg-amber-100 text-amber-700 cursor-default"
+                      : isPro ? "bg-[#7c3aed] hover:bg-[#6d28d9] text-white shadow-lg shadow-[#7c3aed]/25" : "bg-[#7c3aed] hover:bg-[#6d28d9] text-white"
                 }`}
               >
-                {loading === plan.id ? <><Loader2 className="h-4 w-4 animate-spin" />Processing...</> : buttonLabel}
+                {loading === plan.id ? <><Loader2 className="h-4 w-4 animate-spin" />Processing...</> : isPendingPlan ? <><Clock className="h-3.5 w-3.5" />{buttonLabel}</> : buttonLabel}
               </button>
               <ul className="space-y-2.5 flex-1">
                 {(featureLists[plan.id]?.(plan) || plan.features || []).map((feature: string, idx: number) => (
-                  <li key={idx} className={`flex items-start gap-2 text-[12px] ${isPro ? "text-white/80" : "text-[#374151]"}`}>
-                    <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${isPro ? "bg-[#7c3aed]/30" : "bg-[#ede9fe]"}`}>
-                      <Check className={`h-2.5 w-2.5 ${isPro ? "text-[#a78bfa]" : "text-[#7c3aed]"}`} strokeWidth={3} />
+                  <li key={idx} className={`flex items-start gap-2 text-[12px] ${isPro && !isPendingPlan ? "text-white/80" : "text-[#374151]"}`}>
+                    <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${isPro && !isPendingPlan ? "bg-[#7c3aed]/30" : "bg-[#ede9fe]"}`}>
+                      <Check className={`h-2.5 w-2.5 ${isPro && !isPendingPlan ? "text-[#a78bfa]" : "text-[#7c3aed]"}`} strokeWidth={3} />
                     </div>
                     <span>{feature}</span>
                   </li>
