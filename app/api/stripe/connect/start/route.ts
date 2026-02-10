@@ -33,7 +33,7 @@ export async function POST(request: Request) {
 
     const email = profile?.email || user.email || ""
 
-    let accountId = creator.stripe_account_id
+    let accountId = (creator as any).stripe_account_id || null
 
     // Validate existing account if present (handles test→live key migration)
     if (accountId) {
@@ -58,22 +58,30 @@ export async function POST(request: Request) {
       })
       accountId = account.id
 
-      // Update creator with new account ID
-      await adminSupabase
-        .from("creators")
-        .update({
-          stripe_account_id: accountId,
-          stripe_onboarding_status: "pending",
-        })
-        .eq("id", creator.id)
+      // Update creator with new account ID (safe even if columns don't exist yet)
+      try {
+        await adminSupabase
+          .from("creators")
+          .update({
+            stripe_account_id: accountId,
+            stripe_onboarding_status: "pending",
+          })
+          .eq("id", creator.id)
+      } catch (dbErr) {
+        console.error("Failed to update creator with stripe_account_id (column may not exist):", dbErr)
+      }
 
-      // Log connection event
-      await adminSupabase.from("payment_connection_events").insert({
-        creator_id: creator.id,
-        provider: "stripe",
-        event_type: "onboarding_started",
-        metadata: { account_id: accountId },
-      })
+      // Log connection event (safe even if table doesn't exist)
+      try {
+        await adminSupabase.from("payment_connection_events").insert({
+          creator_id: creator.id,
+          provider: "stripe",
+          event_type: "onboarding_started",
+          metadata: { account_id: accountId },
+        })
+      } catch (logErr) {
+        console.warn("Failed to log payment_connection_event (table may not exist):", logErr)
+      }
     }
 
     // Create account link for onboarding

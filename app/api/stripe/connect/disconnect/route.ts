@@ -27,28 +27,35 @@ export async function POST() {
       return NextResponse.json({ error: "Creator profile not found" }, { status: 404 })
     }
 
-    if (!creator.stripe_account_id) {
+    const stripeAccountId = (creator as any).stripe_account_id || null
+    if (!stripeAccountId) {
       return NextResponse.json({ error: "No Stripe account connected" }, { status: 400 })
     }
 
-    const oldAccountId = creator.stripe_account_id
-
     // Clear Stripe Connect data (but keep historical orders)
-    await adminSupabase
-      .from("creators")
-      .update({
-        stripe_account_id: null,
-        stripe_onboarding_status: "pending",
-      })
-      .eq("id", creator.id)
+    try {
+      await adminSupabase
+        .from("creators")
+        .update({
+          stripe_account_id: null,
+          stripe_onboarding_status: "pending",
+        })
+        .eq("id", creator.id)
+    } catch (dbErr) {
+      console.warn("Failed to clear stripe_account_id:", dbErr)
+    }
 
     // Log disconnection event
-    await adminSupabase.from("payment_connection_events").insert({
-      creator_id: creator.id,
-      provider: "stripe",
-      event_type: "disconnected",
-      metadata: { previous_account_id: oldAccountId },
-    })
+    try {
+      await adminSupabase.from("payment_connection_events").insert({
+        creator_id: creator.id,
+        provider: "stripe",
+        event_type: "disconnected",
+        metadata: { previous_account_id: stripeAccountId },
+      })
+    } catch (logErr) {
+      console.warn("Failed to log disconnect event:", logErr)
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {

@@ -397,7 +397,7 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
             {subscription?.current_period_end && subscription.cancel_at_period_end && (
               <p className="text-[13px] text-amber-600 mb-4">Your subscription ends on <span className="font-medium">{formatDateLong(subscription.current_period_end)}</span>.</p>
             )}
-            {(!subscription || !isSubscribed) && (
+            {!isSubscribed && (
               <p className="text-[13px] text-[#6b7280] mb-4">No active subscription.</p>
             )}
 

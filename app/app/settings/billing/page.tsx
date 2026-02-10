@@ -239,15 +239,27 @@ export default async function BillingPage() {
         .eq("creator_id", creator.id)
         .maybeSingle()
 
-      if (sub?.plan_id && sub.status === "active") {
+      if (sub?.plan_id && (sub.status === "active" || sub.status === "trialing")) {
         subscription = sub
         const matchedPlan = plans.find((p: any) => p.id === sub.plan_id)
         if (matchedPlan) currentPlan = matchedPlan
         subscription.subscription_plans = currentPlan
-      } else if (creator.subscription_plan_id && creator.subscription_plan_id !== "free" && creator.subscription_status === "active") {
-        // Creator has a plan set but no subscription record
+      } else if (creator.subscription_plan_id && creator.subscription_plan_id !== "free") {
+        // Creator has a plan set but no subscription record — build a synthetic one
         const matchedPlan = plans.find((p: any) => p.id === creator.subscription_plan_id)
-        if (matchedPlan) currentPlan = matchedPlan
+        if (matchedPlan) {
+          currentPlan = matchedPlan
+          subscription = {
+            id: "db-fallback",
+            stripe_subscription_id: null,
+            plan_id: creator.subscription_plan_id,
+            status: creator.subscription_status || "active",
+            current_period_start: null,
+            current_period_end: null,
+            cancel_at_period_end: false,
+            subscription_plans: matchedPlan,
+          }
+        }
       }
     }
 
