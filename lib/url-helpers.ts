@@ -193,6 +193,35 @@ export function getProductUrlWithCustomDomain(username: string, productSlug: str
 }
 
 /**
+ * Check if the current host is a custom domain (not storelib.com or its subdomains)
+ * Used to hide platform header/footer when viewing seller pages via custom domain
+ * @param host - The current host (e.g., from window.location.host)
+ * @returns true if the host is a custom domain
+ */
+export function isCustomDomain(host: string): boolean {
+  const mainDomain = getMainDomain()
+  const hostWithoutPort = host.split(":")[0]
+
+  // localhost and 127.0.0.1 are not custom domains
+  if (hostWithoutPort === "localhost" || hostWithoutPort === "127.0.0.1") {
+    return false
+  }
+
+  // Main domain itself is not a custom domain
+  if (hostWithoutPort === mainDomain) {
+    return false
+  }
+
+  // Subdomains of storelib.com are not custom domains
+  if (hostWithoutPort.endsWith(`.${mainDomain}`)) {
+    return false
+  }
+
+  // Any other domain with a dot is a custom domain
+  return hostWithoutPort.includes(".")
+}
+
+/**
  * Check if the current URL is a seller subdomain
  * @param host - The current host (e.g., from window.location.host)
  * @returns The username if on a subdomain, null otherwise
