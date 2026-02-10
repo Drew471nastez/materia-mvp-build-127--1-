@@ -884,15 +884,19 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
           const monthlyPrice = plan.price_cents / 100
 
           const isUpgrade = plan.price_cents > currentPlan.price_cents
+          const isCanceling = subscription?.cancel_at_period_end === true
 
           let buttonLabel = `Upgrade to ${plan.name}`
-          if (isCurrentPlan) buttonLabel = "Current Plan"
+          if (isCurrentPlan && isCanceling) buttonLabel = "Current Plan"
+          else if (isCurrentPlan) buttonLabel = "Current Plan"
           else if (isPendingPlan) buttonLabel = "Downgrade Scheduled"
+          else if (isCanceling && isFree) buttonLabel = "Cancel Scheduled"
+          else if (isCanceling) buttonLabel = "Upgrade Again"
           else if (isFree) buttonLabel = "Downgrade to Free"
           else if (isDowngrade) buttonLabel = `Downgrade to ${plan.name}`
 
-          // Only disable current plan and pending plan (but allow upgrades from any state)
-          const isDisabled = isCurrentPlan || (isPendingPlan && !isUpgrade) || loading !== null
+          // Disable: current plan, "cancel scheduled" Free, pending non-upgrade
+          const isDisabled = isCurrentPlan || (isCanceling && isFree) || (isPendingPlan && !isUpgrade) || loading !== null
 
           return (
             <div key={plan.id} className={`relative rounded-2xl p-6 flex flex-col transition-all duration-200 ${isPro ? "bg-[#1a1a2e] text-white shadow-xl border-2 border-[#7c3aed]/30" : "bg-white border-2 border-[#e5e7eb] hover:border-[#d1d5db] shadow-sm hover:shadow-md"}`}>
@@ -921,7 +925,7 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
                 className={`w-full h-11 text-[13px] font-semibold rounded-xl transition-all duration-200 flex items-center justify-center gap-2 mb-5 cursor-pointer ${
                   isCurrentPlan
                     ? isPro ? "bg-white/20 text-white/80 cursor-default" : "bg-[#f3f4f6] text-[#9ca3af] cursor-default"
-                    : isPendingPlan
+                    : (isCanceling && isFree) || isPendingPlan
                       ? "bg-[#f3f4f6] text-[#6b7280] cursor-default"
                       : isPro ? "bg-[#7c3aed] hover:bg-[#6d28d9] text-white shadow-lg shadow-[#7c3aed]/25" : "bg-[#7c3aed] hover:bg-[#6d28d9] text-white"
                 }`}

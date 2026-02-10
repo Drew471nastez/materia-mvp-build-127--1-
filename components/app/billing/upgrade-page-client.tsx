@@ -12,6 +12,7 @@ interface UpgradePageClientProps {
   currentPlanId: string
   hasActiveSubscription: boolean
   pendingPlanId?: string | null
+  cancelAtPeriodEnd?: boolean
 }
 
 export function UpgradePageClient({
@@ -19,6 +20,7 @@ export function UpgradePageClient({
   currentPlanId,
   hasActiveSubscription,
   pendingPlanId,
+  cancelAtPeriodEnd = false,
 }: UpgradePageClientProps) {
   const router = useRouter()
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annual">("monthly")
@@ -27,11 +29,12 @@ export function UpgradePageClient({
   const [closing, setClosing] = useState(false)
 
   const goBack = () => {
+    if (closing) return
     setClosing(true)
-    // Start fade-out animation, then navigate
+    // Show spinner briefly, then navigate
     setTimeout(() => {
       router.push("/app/settings/billing")
-    }, 200)
+    }, 400)
   }
 
   const handleUpgrade = async (planId: string) => {
@@ -122,7 +125,16 @@ export function UpgradePageClient({
   }
 
   return (
-    <div className={`fixed inset-0 z-[60] bg-white overflow-y-auto transition-opacity duration-200 ${closing ? "opacity-0" : "opacity-100"}`}>
+    <div className="fixed inset-0 z-[60] bg-white overflow-y-auto">
+      {/* Smooth close overlay */}
+      {closing && (
+        <div className="fixed inset-0 z-[70] bg-white/90 backdrop-blur-sm flex items-center justify-center transition-opacity duration-300 animate-in fade-in">
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="h-6 w-6 text-[#7c3aed] animate-spin" />
+            <p className="text-[13px] text-[#6b7280] font-medium">Going back...</p>
+          </div>
+        </div>
+      )}
       {/* Top bar */}
       <div className="sticky top-0 z-10 bg-white border-b border-[#e5e7eb]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14 sm:h-16">
@@ -201,7 +213,7 @@ export function UpgradePageClient({
             const monthlyPrice = plan.price_cents / 100
             const annualPrice = Math.round(monthlyPrice * 0.65 * 100) / 100
             const displayPrice = billingPeriod === "annual" && !isFree ? annualPrice : monthlyPrice
-            const isDisabled = isCurrentPlan || (isPendingPlan && !isUpgrade) || loading !== null
+            const isDisabled = isCurrentPlan || (cancelAtPeriodEnd && isFree) || (isPendingPlan && !isUpgrade) || loading !== null
 
             return (
               <div
@@ -261,7 +273,7 @@ export function UpgradePageClient({
                       ? isPro
                         ? "bg-white/20 text-white/80 cursor-default"
                         : "bg-[#f3f4f6] text-[#9ca3af] cursor-default"
-                      : isPendingPlan
+                      : (cancelAtPeriodEnd && isFree) || isPendingPlan
                         ? "bg-[#f3f4f6] text-[#6b7280] cursor-default"
                         : isPro
                           ? "bg-[#7c3aed] hover:bg-[#6d28d9] text-white shadow-lg shadow-[#7c3aed]/25 hover:shadow-[#7c3aed]/40 active:scale-[0.98]"
@@ -274,6 +286,10 @@ export function UpgradePageClient({
                     "Current Plan"
                   ) : isPendingPlan ? (
                     "Downgrade Scheduled"
+                  ) : cancelAtPeriodEnd && isFree ? (
+                    "Cancel Scheduled"
+                  ) : cancelAtPeriodEnd ? (
+                    "Upgrade Again"
                   ) : isDowngrade ? (
                     `Downgrade to ${plan.name}`
                   ) : hasActiveSubscription ? (
