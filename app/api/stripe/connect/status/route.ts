@@ -35,7 +35,29 @@ export async function GET() {
       })
     }
 
-    const account = await stripe.accounts.retrieve(creator.stripe_account_id)
+    let account
+    try {
+      account = await stripe.accounts.retrieve(creator.stripe_account_id)
+    } catch {
+      // Account doesn't exist on current keys (test→live migration)
+      console.warn(`Stripe account ${creator.stripe_account_id} not found. Clearing stale reference.`)
+      await adminSupabase
+        .from("creators")
+        .update({
+          stripe_account_id: null,
+          stripe_onboarding_status: "pending",
+          charges_enabled: false,
+          payouts_enabled: false,
+        })
+        .eq("id", creator.id)
+
+      return NextResponse.json({
+        connected: false,
+        status: "not_connected",
+        chargesEnabled: false,
+        payoutsEnabled: false,
+      })
+    }
 
     const chargesEnabled = account.charges_enabled || false
     const payoutsEnabled = account.payouts_enabled || false

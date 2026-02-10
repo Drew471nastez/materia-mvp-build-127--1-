@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import {
   Settings, Shield, ToggleLeft, Wallet, Store, CreditCard,
   Check, Loader2, Download, FileText, Clock, CheckCircle, XCircle, AlertCircle,
-  Eye, EyeOff, Rocket, Filter, Lock, ShieldCheck, Pencil, Trash2, ExternalLink,
+  Eye, EyeOff, Rocket, Lock, ShieldCheck, Pencil, Trash2, ExternalLink,
 } from "lucide-react"
 import { useLanguage } from "@/lib/i18n"
 
@@ -52,6 +52,7 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
     if (success === "1" || success === "true") {
       showNotification("success", "Subscription activated successfully! Your plan has been updated.")
       window.history.replaceState({}, "", "/app/settings/billing")
+      router.refresh()
     } else if (setupSuccess === "1" || setupSuccess === "true") {
       showNotification("success", "Payment method updated successfully!")
       window.history.replaceState({}, "", "/app/settings/billing")
@@ -108,21 +109,21 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
     }
   }
 
+  // Cancel subscription via Customer Portal
   const handleCancelSubscription = async () => {
-    setCancelingSubscription(true)
+    setPortalLoading(true)
     try {
-      const response = await fetch("/api/billing/subscription/cancel", { method: "POST" })
+      const response = await fetch("/api/billing/customer-portal", { method: "POST" })
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || "Failed to cancel subscription")
+        const err = await response.json()
+        throw new Error(err.error || "Failed to open portal")
       }
-      showNotification("success", "Subscription canceled successfully")
-      setShowCancelConfirm(false)
-      router.refresh()
+      const { url } = await response.json()
+      window.location.href = url
     } catch (error: any) {
-      showNotification("error", error.message || "Failed to cancel subscription")
+      showNotification("error", error.message || "Failed to open billing portal")
     } finally {
-      setCancelingSubscription(false)
+      setPortalLoading(false)
     }
   }
 
@@ -163,7 +164,7 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
   const formatAmount = (cents: number) => `$${(cents / 100).toFixed(2)}`
 
   const maskCardNumber = (last4: string) => {
-    if (showCardNumber) return `4532 •••• •••• ${last4}`
+    if (showCardNumber) return `•••• •••• •••• ${last4}`
     return `XXXX XXXX XXXX ${last4}`
   }
 
@@ -183,7 +184,8 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
 
   const currentPlan = initialData.currentPlan
   const subscription = initialData.subscription
-  const planPrice = currentPlan.price_cents > 0 ? `$${(currentPlan.price_cents / 100).toFixed(0)}` : "$0"
+  const isSubscribed = subscription && (subscription.status === "active" || subscription.status === "trialing")
+  const planPrice = currentPlan.price_cents > 0 ? `$${(currentPlan.price_cents / 100).toFixed(currentPlan.price_cents % 100 === 0 ? 0 : 2)}` : "$0"
   const feeDisplay = `${(currentPlan.fee_percent * 100).toFixed(currentPlan.fee_percent >= 0.01 ? 1 : 2)}% + $${(currentPlan.fee_fixed_cents / 100).toFixed(2)} per transaction`
 
   return (
@@ -241,7 +243,11 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
               <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-[#e5e7eb]">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-[15px] font-semibold text-[#1a1a2e]">Current Plan</h3>
-                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full">
+                  <span className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full ${
+                    isSubscribed
+                      ? "text-emerald-700 bg-emerald-50"
+                      : "text-gray-600 bg-gray-100"
+                  }`}>
                     <CheckCircle className="h-3 w-3" />
                     {currentPlan.name}
                   </span>
@@ -279,45 +285,40 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                   )}
                 </ul>
 
-                {/* Cancel Confirm */}
-                {showCancelConfirm && (
-                  <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
-                    <p className="text-[13px] text-red-900 mb-3">Are you sure? You&apos;ll keep access until the end of your billing period.</p>
-                    <div className="flex gap-2">
-                      <button onClick={() => setShowCancelConfirm(false)} disabled={cancelingSubscription} className="flex-1 h-9 text-[13px] font-medium bg-white border border-[#e5e7eb] rounded-lg hover:bg-gray-50 transition-colors">Keep Plan</button>
-                      <button onClick={handleCancelSubscription} disabled={cancelingSubscription} className="flex-1 h-9 text-[13px] font-medium bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center gap-1.5">
-                        {cancelingSubscription ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Canceling...</> : "Confirm Cancel"}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
                 {/* Buttons */}
                 <div className="flex flex-wrap gap-3">
-                  <a
-                    href="/app/settings/billing/upgrade"
-                    className="h-10 px-5 text-[13px] font-semibold text-white bg-[#7c3aed] rounded-xl hover:bg-[#6d28d9] active:bg-[#5b21b6] transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2 no-underline"
-                  >
-                    <Rocket className="h-4 w-4" />
-                    Upgrade
-                  </a>
-                  {subscription && subscription.status === "active" && !subscription.cancel_at_period_end && (
-                    <button
-                      onClick={() => setShowCancelConfirm(true)}
-                      className="h-10 px-5 text-[13px] font-medium text-[#6b7280] border border-[#e5e7eb] rounded-xl hover:bg-[#f9fafb] hover:text-red-600 hover:border-red-200 transition-colors"
+                  {currentPlan.id === "free" && (
+                    <a
+                      href="/app/settings/billing/upgrade"
+                      className="h-10 px-5 text-[13px] font-semibold text-white bg-[#7c3aed] rounded-xl hover:bg-[#6d28d9] active:bg-[#5b21b6] transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2 no-underline"
                     >
-                      Cancel Subscription
-                    </button>
+                      <Rocket className="h-4 w-4" />
+                      Upgrade
+                    </a>
                   )}
-                  {subscription && (
-                    <button
-                      onClick={openCustomerPortal}
-                      disabled={portalLoading}
-                      className="h-10 px-5 text-[13px] font-medium text-[#6b7280] border border-[#e5e7eb] rounded-xl hover:bg-[#f9fafb] transition-colors flex items-center gap-2"
-                    >
-                      {portalLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ExternalLink className="h-3.5 w-3.5" />}
-                      Manage Subscription
-                    </button>
+                  {isSubscribed && !subscription.cancel_at_period_end && (
+                    <>
+                      <button
+                        onClick={openCustomerPortal}
+                        disabled={portalLoading}
+                        className="h-10 px-5 text-[13px] font-medium text-[#7c3aed] border border-[#7c3aed] rounded-xl hover:bg-[#f5f3ff] transition-colors flex items-center gap-2"
+                      >
+                        {portalLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ExternalLink className="h-3.5 w-3.5" />}
+                        Manage Subscription
+                      </button>
+                      <button
+                        onClick={handleCancelSubscription}
+                        disabled={portalLoading}
+                        className="h-10 px-5 text-[13px] font-medium text-[#6b7280] border border-[#e5e7eb] rounded-xl hover:bg-[#f9fafb] hover:text-red-600 hover:border-red-200 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  )}
+                  {isSubscribed && subscription.cancel_at_period_end && (
+                    <div className="text-[13px] text-amber-600 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5">
+                      Your plan will be canceled on {formatDate(subscription.current_period_end)}
+                    </div>
                   )}
                 </div>
               </div>
@@ -393,7 +394,7 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                       </div>
                     )}
 
-                    {/* Edit / Remove buttons */}
+                    {/* Edit Payment / Remove buttons */}
                     <div className="flex gap-3">
                       <button
                         onClick={handleAddPaymentMethod}
@@ -401,7 +402,7 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                         className="h-10 px-5 text-[13px] font-medium text-[#7c3aed] border border-[#7c3aed] rounded-xl hover:bg-[#f5f3ff] transition-colors flex items-center gap-2"
                       >
                         {portalLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Pencil className="h-3.5 w-3.5" />}
-                        Edit
+                        Edit Payment
                       </button>
                       <button
                         onClick={() => setShowRemoveConfirm(true)}
@@ -485,10 +486,10 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                         {getStatusBadge(invoice.status)}
                       </div>
                       <p className="text-[12px] text-[#6b7280] mb-3">
-                        {invoice.period_start && invoice.period_end
+                        {invoice.description || (invoice.period_start && invoice.period_end
                           ? `${formatDate(invoice.period_start)} to ${formatDate(invoice.period_end)}`
-                          : `Subscription`
-                        }
+                          : "Subscription"
+                        )}
                       </p>
                       {invoice.invoice_pdf_url && (
                         <a
@@ -522,10 +523,10 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                         <tr key={invoice.id} className="border-b border-[#f3f4f6] last:border-0 hover:bg-[#fafafa] transition-colors">
                           <td className="py-4 text-[13px] text-[#374151]">{formatDate(invoice.created_at)}</td>
                           <td className="py-4 text-[13px] text-[#374151]">
-                            {invoice.period_start && invoice.period_end
+                            {invoice.description || (invoice.period_start && invoice.period_end
                               ? `${formatDate(invoice.period_start)} to ${formatDate(invoice.period_end)}`
-                              : `Subscription`
-                            }
+                              : "Subscription"
+                            )}
                           </td>
                           <td className="py-4 text-[13px] font-medium text-[#1a1a2e]">{formatAmount(invoice.amount_cents)}</td>
                           <td className="py-4">{getStatusBadge(invoice.status)}</td>
@@ -588,6 +589,8 @@ function PricingTiers({
   showNotification: (type: "success" | "error", message: string) => void
   router: any
 }) {
+  const isSubscribed = subscription && (subscription.status === "active" || subscription.status === "trialing")
+
   const handleUpgrade = async (planId: string) => {
     if (planId === currentPlan.id || loading) return
     setLoading(planId)
@@ -603,7 +606,7 @@ function PricingTiers({
         return
       }
 
-      if (subscription && subscription.status === "active") {
+      if (isSubscribed) {
         // Already subscribed - change plan via API
         const response = await fetch("/api/billing/subscription/change", {
           method: "POST",

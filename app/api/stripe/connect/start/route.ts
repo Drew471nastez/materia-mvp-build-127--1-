@@ -35,7 +35,17 @@ export async function POST(request: Request) {
 
     let accountId = creator.stripe_account_id
 
-    // Create or retrieve Stripe Connect account
+    // Validate existing account if present (handles test→live key migration)
+    if (accountId) {
+      try {
+        await stripe.accounts.retrieve(accountId)
+      } catch {
+        console.warn(`Stripe account ${accountId} not found (likely test-mode). Creating new live account.`)
+        accountId = null
+      }
+    }
+
+    // Create Stripe Connect account if needed
     if (!accountId) {
       const account = await stripe.accounts.create({
         type: "express",

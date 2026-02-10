@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
+import { stripe } from "@/lib/stripe"
 import { UpgradePageClient } from "@/components/app/billing/upgrade-page-client"
 
 const FREE_PLAN = {
@@ -37,6 +38,12 @@ const PRO_PLAN = {
 
 const FALLBACK_PLANS = [FREE_PLAN, GROWTH_PLAN, PRO_PLAN]
 
+function getPlanIdFromPriceId(priceId: string): string | null {
+  if (priceId === process.env.PRICE_GROWTH_MONTHLY) return "growth"
+  if (priceId === process.env.PRICE_PRO_MONTHLY) return "pro"
+  return null
+}
+
 export default async function UpgradePage() {
   const supabase = await createClient()
 
@@ -55,15 +62,13 @@ export default async function UpgradePage() {
   try {
     const { data: creator } = await supabase
       .from("creators")
-      .select("id, subscription_plan_id, subscription_status")
+      .select("id, subscription_plan_id, subscription_status, stripe_customer_id")
       .eq("user_id", user.id)
       .maybeSingle()
 
     if (!creator) {
       redirect("/signup/success")
     }
-
-    currentPlanId = creator.subscription_plan_id || "free"
 
     // Fetch plans
     const { data: dbPlans } = await supabase
@@ -76,14 +81,42 @@ export default async function UpgradePage() {
       plans = dbPlans
     }
 
-    // Check subscription
-    const { data: sub } = await supabase
-      .from("subscriptions")
-      .select("status")
-      .eq("creator_id", creator.id)
-      .maybeSingle()
+    // Fetch live subscription status from Stripe
+    if (creator.stripe_customer_id) {
+      try {
+        await stripe.customers.retrieve(creator.stripe_customer_id)
 
-    hasActiveSubscription = sub?.status === "active"
+        const stripeSubs = await stripe.subscriptions.list({
+          customer: creator.stripe_customer_id,
+          status: "active",
+          limit: 1,
+        })
+
+        const activeSub = stripeSubs.data[0]
+        if (activeSub) {
+          hasActiveSubscription = true
+          const priceId = activeSub.items.data[0]?.price?.id
+          const planId = priceId ? getPlanIdFromPriceId(priceId) : (activeSub.metadata?.plan_id || null)
+          currentPlanId = planId || creator.subscription_plan_id || "free"
+        } else {
+          currentPlanId = creator.subscription_plan_id || "free"
+        }
+      } catch {
+        // Fallback to DB data
+        currentPlanId = creator.subscription_plan_id || "free"
+      }
+    } else {
+      currentPlanId = creator.subscription_plan_id || "free"
+
+      // Check subscription in DB as fallback
+      const { data: sub } = await supabase
+        .from("subscriptions")
+        .select("status")
+        .eq("creator_id", creator.id)
+        .maybeSingle()
+
+      hasActiveSubscription = sub?.status === "active"
+    }
   } catch (error) {
     console.error("Upgrade page data loading error:", error)
   }
