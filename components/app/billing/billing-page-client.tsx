@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import {
   Settings, Shield, ToggleLeft, Wallet, Store, CreditCard,
   X, Check, Star, Loader2, Download, FileText, Clock, CheckCircle, XCircle, AlertCircle,
-  Eye, EyeOff, Rocket, Filter, Lock, ShieldCheck,
+  Eye, EyeOff, Rocket, Filter, Lock, ShieldCheck, Pencil, Trash2,
 } from "lucide-react"
 import { useLanguage } from "@/lib/i18n"
 import { CheckoutModal } from "./checkout-modal"
@@ -43,6 +43,10 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
   const [cancelingSubscription, setCancelingSubscription] = useState(false)
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [showCardNumber, setShowCardNumber] = useState(false)
+
+  // Payment method actions
+  const [removingPayment, setRemovingPayment] = useState(false)
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false)
 
   // Checkout modal state
   const [checkoutVisible, setCheckoutVisible] = useState(false)
@@ -174,6 +178,24 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
       showNotification("error", error.message || "Failed to cancel subscription")
     } finally {
       setCancelingSubscription(false)
+    }
+  }
+
+  const handleRemovePayment = async () => {
+    setRemovingPayment(true)
+    try {
+      const response = await fetch("/api/billing/payment-method", { method: "DELETE" })
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Failed to remove payment method")
+      }
+      showNotification("success", "Payment method removed successfully")
+      setShowRemoveConfirm(false)
+      router.refresh()
+    } catch (error: any) {
+      showNotification("error", error.message || "Failed to remove payment method")
+    } finally {
+      setRemovingPayment(false)
     }
   }
 
@@ -410,6 +432,37 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                           PCI DSS
                         </div>
                       </div>
+
+                      {/* Remove Confirm */}
+                      {showRemoveConfirm && (
+                        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                          <p className="text-[13px] text-red-900 mb-3">Remove this payment method? You&apos;ll need to add a new one to subscribe.</p>
+                          <div className="flex gap-2">
+                            <button onClick={() => setShowRemoveConfirm(false)} disabled={removingPayment} className="flex-1 h-9 text-[13px] font-medium bg-white border border-[#e5e7eb] rounded-lg hover:bg-gray-50 transition-colors">Cancel</button>
+                            <button onClick={handleRemovePayment} disabled={removingPayment} className="flex-1 h-9 text-[13px] font-medium bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center gap-1.5">
+                              {removingPayment ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Removing...</> : "Remove"}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Edit / Remove buttons */}
+                      <div className="flex gap-3">
+                        <button
+                          onClick={openSetupCheckout}
+                          className="h-10 px-5 text-[13px] font-medium text-[#7c3aed] border border-[#7c3aed] rounded-xl hover:bg-[#f5f3ff] transition-colors flex items-center gap-2"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => setShowRemoveConfirm(true)}
+                          className="h-10 px-5 text-[13px] font-medium text-[#6b7280] border border-[#e5e7eb] rounded-xl hover:bg-[#f9fafb] hover:text-red-600 hover:border-red-200 transition-colors flex items-center gap-2"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Remove
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <div className="space-y-4">
@@ -433,16 +486,16 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                           SSL Encrypted
                         </div>
                       </div>
+
+                      <button
+                        onClick={openSetupCheckout}
+                        className="h-10 px-5 text-[13px] font-medium text-[#7c3aed] border border-[#7c3aed] rounded-xl hover:bg-[#f5f3ff] transition-colors flex items-center gap-2"
+                      >
+                        <CreditCard className="h-4 w-4" />
+                        Add Payment Method
+                      </button>
                     </div>
                   )}
-
-                  <button
-                    onClick={openSetupCheckout}
-                    className="mt-4 h-10 px-5 text-[13px] font-medium text-[#7c3aed] border border-[#7c3aed] rounded-xl hover:bg-[#f5f3ff] transition-colors flex items-center gap-2"
-                  >
-                    <CreditCard className="h-4 w-4" />
-                    {initialData.paymentMethod ? "Manage Payment" : "Add Payment Method"}
-                  </button>
                 </div>
               </div>
             </div>

@@ -73,11 +73,33 @@ export async function POST(request: Request) {
       .eq("is_active", true)
       .single()
 
-    if (planError || !newPlan || !newPlan.stripe_price_id) {
+    if (planError || !newPlan) {
       return NextResponse.json(
-        { error: "Invalid plan or plan not configured" },
+        { error: "Invalid plan or plan not found" },
         { status: 400 }
       )
+    }
+
+    // Auto-create Stripe product and price if not configured
+    let stripePriceId = newPlan.stripe_price_id
+    if (!stripePriceId) {
+      const product = await stripe.products.create({
+        name: `Storelib ${newPlan.name} Plan`,
+        description: `${newPlan.name} subscription plan`,
+        metadata: { plan_id: newPlan.id },
+      })
+      const price = await stripe.prices.create({
+        product: product.id,
+        unit_amount: newPlan.price_cents,
+        currency: "usd",
+        recurring: { interval: "month" },
+        metadata: { plan_id: newPlan.id },
+      })
+      stripePriceId = price.id
+      await supabase
+        .from("subscription_plans")
+        .update({ stripe_price_id: stripePriceId })
+        .eq("id", newPlan.id)
     }
 
     // Get the Stripe subscription
@@ -99,7 +121,7 @@ export async function POST(request: Request) {
         items: [
           {
             id: stripeSubscription.items.data[0].id,
-            price: newPlan.stripe_price_id,
+            price: stripePriceId,
           },
         ],
         proration_behavior: "always_invoice", // Create invoice for proration

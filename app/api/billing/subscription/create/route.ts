@@ -57,11 +57,41 @@ export async function POST(request: Request) {
       .eq("is_active", true)
       .single()
 
-    if (planError || !plan || !plan.stripe_price_id) {
+    if (planError || !plan) {
       return NextResponse.json(
-        { error: "Invalid plan or plan not configured" },
+        { error: "Invalid plan or plan not found" },
         { status: 400 }
       )
+    }
+
+    // Auto-create Stripe product and price if not configured
+    let stripePriceId = plan.stripe_price_id
+    if (!stripePriceId) {
+      // Create a Stripe product for this plan
+      const product = await stripe.products.create({
+        name: `Storelib ${plan.name} Plan`,
+        description: `${plan.name} subscription plan - ${(plan.fee_percent * 100).toFixed(1)}% + $${(plan.fee_fixed_cents / 100).toFixed(2)} per transaction`,
+        metadata: { plan_id: plan.id },
+      })
+
+      // Create a recurring price
+      const price = await stripe.prices.create({
+        product: product.id,
+        unit_amount: plan.price_cents,
+        currency: "usd",
+        recurring: { interval: "month" },
+        metadata: { plan_id: plan.id },
+      })
+
+      stripePriceId = price.id
+
+      // Save the stripe_price_id back to the database
+      await supabase
+        .from("subscription_plans")
+        .update({ stripe_price_id: stripePriceId })
+        .eq("id", plan.id)
+
+      console.log(`Auto-created Stripe price ${stripePriceId} for plan ${plan.id}`)
     }
 
     // Create or get Stripe customer
@@ -89,7 +119,7 @@ export async function POST(request: Request) {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL
 
     if (embedded) {
-      // Embedded checkout mode - renders inside a modal
+      // Embedded checkout mode - renders fullscreen
       const checkoutSession = await stripe.checkout.sessions.create({
         customer: stripeCustomerId,
         mode: "subscription",
@@ -97,7 +127,7 @@ export async function POST(request: Request) {
         ui_mode: "embedded",
         line_items: [
           {
-            price: plan.stripe_price_id,
+            price: stripePriceId,
             quantity: 1,
           },
         ],
@@ -127,7 +157,7 @@ export async function POST(request: Request) {
       payment_method_types: ["card"],
       line_items: [
         {
-          price: plan.stripe_price_id,
+          price: stripePriceId,
           quantity: 1,
         },
       ],
