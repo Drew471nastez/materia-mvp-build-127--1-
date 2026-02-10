@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { stripe } from "@/lib/stripe"
+import { stripe, getOrCreateStripeCustomer } from "@/lib/stripe"
 
 export async function POST() {
   try {
@@ -25,25 +25,14 @@ export async function POST() {
       return NextResponse.json({ error: "Creator not found" }, { status: 404 })
     }
 
-    let stripeCustomerId = creator.stripe_customer_id
-
-    if (!stripeCustomerId) {
-      const customer = await stripe.customers.create({
-        email: user.email,
-        metadata: {
-          creator_id: creator.id,
-          user_id: user.id,
-          username: creator.username || creator.slug,
-        },
-      })
-
-      stripeCustomerId = customer.id
-
-      await supabase
-        .from("creators")
-        .update({ stripe_customer_id: stripeCustomerId })
-        .eq("id", creator.id)
-    }
+    // Validate or create Stripe customer (handles test→live key migration)
+    const stripeCustomerId = await getOrCreateStripeCustomer({
+      creatorId: creator.id,
+      existingCustomerId: creator.stripe_customer_id,
+      email: user.email,
+      userId: user.id,
+      username: creator.username || creator.slug,
+    })
 
     const appUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "https://storelib.com"
 
