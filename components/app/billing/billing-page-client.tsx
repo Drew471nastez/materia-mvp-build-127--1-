@@ -4,7 +4,8 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import {
   Settings, Shield, ToggleLeft, Wallet, Store, CreditCard,
-  X, Check, Star, Loader2, Download, FileText, Clock, CheckCircle, XCircle, AlertCircle, CreditCard as CardIcon,
+  X, Check, Star, Loader2, Download, FileText, Clock, CheckCircle, XCircle, AlertCircle,
+  Eye, EyeOff, Rocket, Filter, MoreVertical, Plus, Lock, ShieldCheck,
 } from "lucide-react"
 import { useLanguage } from "@/lib/i18n"
 
@@ -34,15 +35,12 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
   const { t } = useLanguage()
   const [notification, setNotification] = useState<{ type: "success" | "error"; message: string } | null>(null)
   const [showPricingModal, setShowPricingModal] = useState(false)
+  const [pricingModalVisible, setPricingModalVisible] = useState(false)
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annual">("monthly")
   const [loading, setLoading] = useState<string | null>(null)
   const [cancelingSubscription, setCancelingSubscription] = useState(false)
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
-
-  // Payment form state
-  const [cardNumber, setCardNumber] = useState("")
-  const [expiry, setExpiry] = useState("")
-  const [cvc, setCvc] = useState("")
+  const [showCardNumber, setShowCardNumber] = useState(false)
   const [updatingPayment, setUpdatingPayment] = useState(false)
 
   const showNotification = (type: "success" | "error", message: string) => {
@@ -53,6 +51,24 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
   const handleTabChange = (tabId: TabId) => {
     if (tabId === "billing") return
     router.push("/app/settings")
+  }
+
+  // Smooth modal open
+  const openPricingModal = () => {
+    setShowPricingModal(true)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setPricingModalVisible(true)
+      })
+    })
+  }
+
+  // Smooth modal close
+  const closePricingModal = () => {
+    setPricingModalVisible(false)
+    setTimeout(() => {
+      setShowPricingModal(false)
+    }, 300)
   }
 
   const handleUpgrade = async (planId: string) => {
@@ -66,7 +82,7 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
           throw new Error(error.error || "Failed to cancel subscription")
         }
         showNotification("success", "Subscription will be canceled at the end of the billing period")
-        setShowPricingModal(false)
+        closePricingModal()
         router.refresh()
         return
       }
@@ -82,7 +98,7 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
           throw new Error(error.error || "Failed to change plan")
         }
         showNotification("success", "Plan changed successfully!")
-        setShowPricingModal(false)
+        closePricingModal()
         router.refresh()
       } else {
         const response = await fetch("/api/billing/subscription/create", {
@@ -143,17 +159,6 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
     }
   }
 
-  const formatCardNumber = (value: string) => {
-    const digits = value.replace(/\D/g, "").slice(0, 16)
-    return digits.replace(/(\d{4})(?=\d)/g, "$1 ")
-  }
-
-  const formatExpiry = (value: string) => {
-    const digits = value.replace(/\D/g, "").slice(0, 4)
-    if (digits.length > 2) return `${digits.slice(0, 2)}/${digits.slice(2)}`
-    return digits
-  }
-
   const getTabLabel = (tabId: string) => {
     switch (tabId) {
       case "general": return t("settings.general")
@@ -172,23 +177,28 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
 
   const formatAmount = (cents: number) => `$${(cents / 100).toFixed(2)}`
 
+  const maskCardNumber = (last4: string) => {
+    if (showCardNumber) return `4532 •••• •••• ${last4}`
+    return `XXXX XXXX XXXX ${last4}`
+  }
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "paid":
-        return <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full"><CheckCircle className="h-3 w-3" />Paid</span>
+        return <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full"><CheckCircle className="h-3 w-3" />Paid</span>
       case "open":
-        return <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full"><Clock className="h-3 w-3" />Pending</span>
+        return <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full"><Clock className="h-3 w-3" />Pending</span>
       case "void":
       case "uncollectible":
-        return <span className="inline-flex items-center gap-1 text-[11px] font-medium text-red-700 bg-red-50 px-2 py-0.5 rounded-full"><XCircle className="h-3 w-3" />{status.charAt(0).toUpperCase() + status.slice(1)}</span>
+        return <span className="inline-flex items-center gap-1 text-[11px] font-medium text-red-700 bg-red-50 px-2.5 py-1 rounded-full"><XCircle className="h-3 w-3" />Failed</span>
       default:
-        return <span className="text-[11px] font-medium text-gray-700 bg-gray-100 px-2 py-0.5 rounded-full">{status.charAt(0).toUpperCase() + status.slice(1)}</span>
+        return <span className="text-[11px] font-medium text-gray-700 bg-gray-100 px-2.5 py-1 rounded-full">{status.charAt(0).toUpperCase() + status.slice(1)}</span>
     }
   }
 
   const currentPlan = initialData.currentPlan
   const subscription = initialData.subscription
-  const planPrice = currentPlan.price_cents > 0 ? `$${(currentPlan.price_cents / 100).toFixed(0)}/mo` : "Free"
+  const planPrice = currentPlan.price_cents > 0 ? `$${(currentPlan.price_cents / 100).toFixed(0)}` : "$0"
   const feeDisplay = `${(currentPlan.fee_percent * 100).toFixed(currentPlan.fee_percent >= 0.01 ? 1 : 2)}% + $${(currentPlan.fee_fixed_cents / 100).toFixed(2)} per transaction`
 
   return (
@@ -229,7 +239,8 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
 
           {/* Notification */}
           {notification && (
-            <div className={`mb-6 p-4 rounded-xl border ${notification.type === "success" ? "bg-emerald-50 border-emerald-200 text-emerald-900" : "bg-red-50 border-red-200 text-red-900"}`}>
+            <div className={`mb-6 p-4 rounded-xl border flex items-center gap-3 ${notification.type === "success" ? "bg-emerald-50 border-emerald-200 text-emerald-900" : "bg-red-50 border-red-200 text-red-900"}`}>
+              {notification.type === "success" ? <CheckCircle className="h-5 w-5 shrink-0" /> : <AlertCircle className="h-5 w-5 shrink-0" />}
               <p className="text-[13px] font-medium">{notification.message}</p>
             </div>
           )}
@@ -237,374 +248,574 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
           {/* ============ BILLING CONTENT ============ */}
           <div className="space-y-6">
 
-            {/* Row: Subscription Info + Payment Details */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* ---- SECTION 1: Subscription Overview ---- */}
+            <div>
+              <h2 className="text-[17px] font-bold text-[#1a1a2e] mb-4">Subscription Overview</h2>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-              {/* Left: Your Storelib Subscription */}
-              <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <h2 className="text-[16px] sm:text-[18px] font-bold text-[#1a1a2e] mb-4">Your Storelib Subscription</h2>
-                <div className="bg-[#f9fafb] rounded-xl p-4 mb-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[14px] font-semibold text-[#1a1a2e]">{currentPlan.name} Plan</span>
-                    <span className="text-[14px] font-bold text-[#1a1a2e]">{planPrice}</span>
+                {/* Left: Current Plan */}
+                <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-[#e5e7eb]">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-[15px] font-semibold text-[#1a1a2e]">Current Plan</h3>
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full">
+                      <CheckCircle className="h-3 w-3" />
+                      {currentPlan.name}
+                    </span>
                   </div>
-                  {subscription && (
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-[12px] text-[#6b7280]">Status:</span>
-                      {subscription.cancel_at_period_end ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full"><Clock className="h-3 w-3" />Canceling</span>
-                      ) : subscription.status === "active" ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full"><CheckCircle className="h-3 w-3" />Active</span>
-                      ) : subscription.status === "past_due" ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-red-700 bg-red-50 px-2 py-0.5 rounded-full"><AlertCircle className="h-3 w-3" />Past Due</span>
-                      ) : (
-                        <span className="text-[11px] font-medium text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full">{subscription.status}</span>
-                      )}
+
+                  <div className="mb-4">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-[36px] font-bold text-[#1a1a2e] leading-none">{planPrice}</span>
+                      {currentPlan.price_cents > 0 && <span className="text-[14px] text-[#6b7280]">/month</span>}
+                    </div>
+                  </div>
+
+                  <ul className="space-y-2.5 mb-5">
+                    <li className="flex items-center gap-2.5 text-[13px] text-[#374151]">
+                      <div className="w-4 h-4 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
+                        <Check className="h-2.5 w-2.5 text-emerald-600" strokeWidth={3} />
+                      </div>
+                      Platform fee: {feeDisplay}
+                    </li>
+                    {(currentPlan.features || []).slice(0, 4).map((feature: string, idx: number) => (
+                      <li key={idx} className="flex items-center gap-2.5 text-[13px] text-[#374151]">
+                        <div className="w-4 h-4 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
+                          <Check className="h-2.5 w-2.5 text-emerald-600" strokeWidth={3} />
+                        </div>
+                        {feature}
+                      </li>
+                    ))}
+                    {subscription?.current_period_end && (
+                      <li className="flex items-center gap-2.5 text-[13px] text-[#6b7280]">
+                        <div className="w-4 h-4 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+                          <Clock className="h-2.5 w-2.5 text-gray-500" />
+                        </div>
+                        {subscription.cancel_at_period_end ? "Expires" : "Renews"}: {formatDate(subscription.current_period_end)}
+                      </li>
+                    )}
+                  </ul>
+
+                  {/* Cancel Confirm */}
+                  {showCancelConfirm && (
+                    <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
+                      <p className="text-[13px] text-red-900 mb-3">Are you sure? You&apos;ll keep access until the end of your billing period.</p>
+                      <div className="flex gap-2">
+                        <button onClick={() => setShowCancelConfirm(false)} disabled={cancelingSubscription} className="flex-1 h-9 text-[13px] font-medium bg-white border border-[#e5e7eb] rounded-lg hover:bg-gray-50 transition-colors">Keep Plan</button>
+                        <button onClick={handleCancelSubscription} disabled={cancelingSubscription} className="flex-1 h-9 text-[13px] font-medium bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center gap-1.5">
+                          {cancelingSubscription ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Canceling...</> : "Confirm Cancel"}
+                        </button>
+                      </div>
                     </div>
                   )}
-                  <p className="text-[12px] text-[#6b7280]">Platform fee: {feeDisplay}</p>
-                  {subscription?.current_period_end && (
-                    <p className="text-[12px] text-[#6b7280] mt-1">
-                      {subscription.cancel_at_period_end ? "Expires" : "Next billing"}: {formatDate(subscription.current_period_end)}
-                    </p>
-                  )}
+
+                  {/* Buttons */}
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      onClick={openPricingModal}
+                      className="h-10 px-5 text-[13px] font-semibold text-white bg-[#7c3aed] rounded-xl hover:bg-[#6d28d9] active:bg-[#5b21b6] transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2"
+                    >
+                      <Rocket className="h-4 w-4" />
+                      Upgrade
+                    </button>
+                    {subscription && subscription.status === "active" && !subscription.cancel_at_period_end && (
+                      <button
+                        onClick={() => setShowCancelConfirm(true)}
+                        className="h-10 px-5 text-[13px] font-medium text-[#6b7280] border border-[#e5e7eb] rounded-xl hover:bg-[#f9fafb] hover:text-red-600 hover:border-red-200 transition-colors"
+                      >
+                        Cancel Subscription
+                      </button>
+                    )}
+                  </div>
                 </div>
 
-                {/* Cancel Confirm */}
-                {showCancelConfirm && (
-                  <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
-                    <p className="text-[13px] text-red-900 mb-3">Are you sure? You'll keep access until the end of your billing period.</p>
-                    <div className="flex gap-2">
-                      <button onClick={() => setShowCancelConfirm(false)} disabled={cancelingSubscription} className="flex-1 h-9 text-[13px] font-medium bg-white border border-[#e5e7eb] rounded-lg hover:bg-gray-50 transition-colors">Keep Plan</button>
-                      <button onClick={handleCancelSubscription} disabled={cancelingSubscription} className="flex-1 h-9 text-[13px] font-medium bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center gap-1.5">
-                        {cancelingSubscription ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Canceling...</> : "Confirm Cancel"}
-                      </button>
+                {/* Right: Payment Details */}
+                <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-[#e5e7eb]">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-[15px] font-semibold text-[#1a1a2e]">Payment Details</h3>
+                    <div className="flex items-center gap-1.5 text-[11px] text-[#9ca3af]">
+                      <Lock className="h-3 w-3" />
+                      Secured
                     </div>
                   </div>
-                )}
 
-                {/* Action buttons */}
-                <div className="flex flex-wrap gap-3">
-                  {subscription && subscription.status === "active" && !subscription.cancel_at_period_end && (
-                    <button
-                      onClick={() => setShowCancelConfirm(true)}
-                      className="h-10 px-5 text-[13px] font-medium text-red-600 border border-red-200 rounded-xl hover:bg-red-50 transition-colors"
-                    >
-                      Cancel Subscription
-                    </button>
+                  {initialData.paymentMethod ? (
+                    <div className="space-y-4">
+                      {/* Card Info */}
+                      <div className="bg-[#f9fafb] rounded-xl p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Card Number</span>
+                          <button
+                            onClick={() => setShowCardNumber(!showCardNumber)}
+                            className="flex items-center gap-1 text-[11px] text-[#7c3aed] hover:text-[#6d28d9] transition-colors"
+                          >
+                            {showCardNumber ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                            {showCardNumber ? "Hide" : "Show"}
+                          </button>
+                        </div>
+                        <div className="text-[16px] font-mono font-medium text-[#1a1a2e] tracking-widest mb-4">
+                          {maskCardNumber(initialData.paymentMethod.card_last4)}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <span className="text-[11px] font-medium text-[#6b7280] uppercase tracking-wider block mb-1">Card Holder</span>
+                            <span className="text-[13px] font-medium text-[#1a1a2e]">Account Owner</span>
+                          </div>
+                          <div>
+                            <span className="text-[11px] font-medium text-[#6b7280] uppercase tracking-wider block mb-1">Expires</span>
+                            <span className="text-[13px] font-medium text-[#1a1a2e]">
+                              {String(initialData.paymentMethod.card_exp_month).padStart(2, "0")}/{initialData.paymentMethod.card_exp_year}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Trust Badges */}
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#f9fafb] border border-[#e5e7eb] rounded-lg">
+                          <div className="w-7 h-4.5 bg-[#1a1f71] rounded-sm flex items-center justify-center text-white text-[6px] font-bold leading-none">VISA</div>
+                        </div>
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#f9fafb] border border-[#e5e7eb] rounded-lg">
+                          <div className="w-7 h-4.5 bg-[#eb001b] rounded-sm flex items-center justify-center">
+                            <div className="w-2.5 h-2.5 bg-[#f79e1b] rounded-full opacity-80" />
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#f9fafb] border border-[#e5e7eb] rounded-lg">
+                          <div className="w-7 h-4.5 bg-[#006fcf] rounded-sm flex items-center justify-center text-white text-[5px] font-bold leading-none">AMEX</div>
+                        </div>
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#f9fafb] border border-[#e5e7eb] rounded-lg text-[10px] font-medium text-[#6b7280]">
+                          <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
+                          SSL
+                        </div>
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#f9fafb] border border-[#e5e7eb] rounded-lg text-[10px] font-medium text-[#6b7280]">
+                          <Lock className="h-3.5 w-3.5 text-[#7c3aed]" />
+                          PCI DSS
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="bg-[#f9fafb] rounded-xl p-6 text-center">
+                        <CreditCard className="h-10 w-10 text-[#d1d5db] mx-auto mb-3" />
+                        <p className="text-[13px] text-[#6b7280] mb-1">No payment method on file</p>
+                        <p className="text-[12px] text-[#9ca3af]">Add a payment method to subscribe to paid plans</p>
+                      </div>
+                      {/* Trust Badges */}
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#f9fafb] border border-[#e5e7eb] rounded-lg">
+                          <div className="w-7 h-4.5 bg-[#1a1f71] rounded-sm flex items-center justify-center text-white text-[6px] font-bold leading-none">VISA</div>
+                        </div>
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#f9fafb] border border-[#e5e7eb] rounded-lg">
+                          <div className="w-7 h-4.5 bg-[#eb001b] rounded-sm flex items-center justify-center">
+                            <div className="w-2.5 h-2.5 bg-[#f79e1b] rounded-full opacity-80" />
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#f9fafb] border border-[#e5e7eb] rounded-lg text-[10px] font-medium text-[#6b7280]">
+                          <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
+                          SSL Encrypted
+                        </div>
+                      </div>
+                    </div>
                   )}
+
                   <button
-                    onClick={() => setShowPricingModal(true)}
-                    className="h-10 px-5 text-[13px] font-medium text-[#6c47ff] border border-[#6c47ff] rounded-xl hover:bg-[#f5f3ff] transition-colors"
+                    onClick={handleUpdatePayment}
+                    disabled={updatingPayment}
+                    className="mt-4 h-10 px-5 text-[13px] font-medium text-[#7c3aed] border border-[#7c3aed] rounded-xl hover:bg-[#f5f3ff] disabled:opacity-60 transition-colors flex items-center gap-2"
                   >
-                    Change Plan
+                    {updatingPayment ? (
+                      <><Loader2 className="h-4 w-4 animate-spin" />Opening Portal...</>
+                    ) : (
+                      <><CreditCard className="h-4 w-4" />{initialData.paymentMethod ? "Manage Payment" : "Add Payment Method"}</>
+                    )}
                   </button>
                 </div>
               </div>
-
-              {/* Right: Payment Details */}
-              <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <h2 className="text-[16px] sm:text-[18px] font-bold text-[#1a1a2e] mb-4">Payment Details</h2>
-
-                {initialData.paymentMethod ? (
-                  <div className="bg-[#f9fafb] rounded-xl p-4 mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-7 bg-gradient-to-br from-gray-700 to-gray-900 rounded flex items-center justify-center text-white text-[9px] font-bold">
-                        {initialData.paymentMethod.card_brand?.toUpperCase().slice(0, 4)}
-                      </div>
-                      <div>
-                        <div className="text-[14px] font-medium text-[#1a1a2e]">
-                          {initialData.paymentMethod.card_brand?.charAt(0).toUpperCase() + initialData.paymentMethod.card_brand?.slice(1)} •••• {initialData.paymentMethod.card_last4}
-                        </div>
-                        <div className="text-[12px] text-[#6b7280]">
-                          Expires {String(initialData.paymentMethod.card_exp_month).padStart(2, "0")}/{initialData.paymentMethod.card_exp_year}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-[13px] text-[#6b7280] mb-4">No payment method saved.</p>
-                )}
-
-                {/* Card input fields */}
-                <div className="space-y-3 mb-4">
-                  <div className="relative">
-                    <input
-                      type="text"
-                      placeholder="Card number"
-                      value={cardNumber}
-                      onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
-                      className="w-full h-11 pl-4 pr-24 text-[14px] border border-[#e5e7eb] rounded-xl focus:ring-2 focus:ring-[#6c47ff] focus:border-[#6c47ff] outline-none"
-                      maxLength={19}
-                    />
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                      <div className="w-8 h-5 bg-[#1a1f71] rounded-sm flex items-center justify-center text-white text-[6px] font-bold">VISA</div>
-                      <div className="w-8 h-5 bg-[#eb001b] rounded-sm flex items-center justify-center">
-                        <div className="w-3 h-3 bg-[#f79e1b] rounded-full opacity-80" />
-                      </div>
-                      <div className="w-8 h-5 bg-[#006fcf] rounded-sm flex items-center justify-center text-white text-[5px] font-bold">AMEX</div>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <input
-                      type="text"
-                      placeholder="Expiration date"
-                      value={expiry}
-                      onChange={(e) => setExpiry(formatExpiry(e.target.value))}
-                      className="h-11 px-4 text-[14px] border border-[#e5e7eb] rounded-xl focus:ring-2 focus:ring-[#6c47ff] focus:border-[#6c47ff] outline-none"
-                      maxLength={5}
-                    />
-                    <div className="relative">
-                      <input
-                        type="text"
-                        placeholder="Security code"
-                        value={cvc}
-                        onChange={(e) => setCvc(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                        className="w-full h-11 pl-4 pr-10 text-[14px] border border-[#e5e7eb] rounded-xl focus:ring-2 focus:ring-[#6c47ff] focus:border-[#6c47ff] outline-none"
-                        maxLength={4}
-                      />
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-[#9ca3af] border border-[#d1d5db] rounded px-1 py-0.5 font-mono">123</div>
-                    </div>
-                  </div>
-                </div>
-
-                <button
-                  onClick={handleUpdatePayment}
-                  disabled={updatingPayment}
-                  className="w-full sm:w-auto h-11 px-8 text-[14px] font-semibold bg-[#1a1a2e] text-white rounded-xl hover:bg-[#2d2d44] disabled:opacity-60 transition-colors flex items-center justify-center gap-2"
-                >
-                  {updatingPayment ? <><Loader2 className="h-4 w-4 animate-spin" />Updating...</> : "Update"}
-                </button>
-              </div>
             </div>
 
-            {/* Invoices */}
+            {/* ---- SECTION 2: Billing History ---- */}
             <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-[#e5e7eb]">
-              <div className="flex items-center gap-2 mb-5">
-                <Clock className="h-5 w-5 text-[#1a1a2e]" />
-                <h2 className="text-[16px] sm:text-[18px] font-bold text-[#1a1a2e]">Invoices</h2>
+              <div className="flex items-center justify-between mb-5">
+                <h2 className="text-[17px] font-bold text-[#1a1a2e]">Billing History</h2>
+                {initialData.invoices.length > 0 && (
+                  <button className="flex items-center gap-1.5 h-8 px-3 text-[12px] font-medium text-[#6b7280] border border-[#e5e7eb] rounded-lg hover:bg-[#f9fafb] transition-colors">
+                    <Filter className="h-3.5 w-3.5" />
+                    Filter
+                  </button>
+                )}
               </div>
 
               {initialData.invoices.length === 0 ? (
                 <div className="bg-[#f9fafb] rounded-xl p-8 text-center">
-                  <FileText className="h-10 w-10 text-[#9ca3af] mx-auto mb-3" />
-                  <p className="text-[13px] text-[#6b7280]">No invoices yet</p>
-                  <p className="text-[12px] text-[#9ca3af] mt-1">Your billing history will appear here</p>
+                  <FileText className="h-10 w-10 text-[#d1d5db] mx-auto mb-3" />
+                  <p className="text-[13px] text-[#6b7280] mb-1">No invoices yet</p>
+                  <p className="text-[12px] text-[#9ca3af]">Your billing history will appear here</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-[#e5e7eb]">
-                        <th className="text-left text-[13px] font-semibold text-[#1a1a2e] pb-3">Date</th>
-                        <th className="text-left text-[13px] font-semibold text-[#1a1a2e] pb-3">Amount</th>
-                        <th className="text-left text-[13px] font-semibold text-[#1a1a2e] pb-3">Status</th>
-                        <th className="text-right text-[13px] font-semibold text-[#1a1a2e] pb-3"></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {initialData.invoices.map((invoice: any) => (
-                        <tr key={invoice.id} className="border-b border-[#f3f4f6] last:border-0">
-                          <td className="py-4 text-[13px] text-[#374151]">{formatDate(invoice.created_at)}</td>
-                          <td className="py-4 text-[13px] text-[#374151]">{formatAmount(invoice.amount_cents)}</td>
-                          <td className="py-4">{getStatusBadge(invoice.status)}</td>
-                          <td className="py-4 text-right">
-                            {invoice.invoice_pdf_url && (
-                              <a
-                                href={invoice.invoice_pdf_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-[#374151] border border-[#e5e7eb] rounded-lg hover:bg-[#f3f4f6] transition-colors"
-                              >
-                                <Download className="h-3.5 w-3.5" />
-                                Download
-                              </a>
-                            )}
-                          </td>
+                <>
+                  {/* Mobile view */}
+                  <div className="block sm:hidden space-y-3">
+                    {initialData.invoices.map((invoice: any) => (
+                      <div key={invoice.id} className="bg-[#f9fafb] rounded-xl p-4 border border-[#e5e7eb]">
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <div className="text-[14px] font-semibold text-[#1a1a2e]">{formatAmount(invoice.amount_cents)}</div>
+                            <div className="text-[12px] text-[#6b7280] mt-0.5">{formatDate(invoice.created_at)}</div>
+                          </div>
+                          {getStatusBadge(invoice.status)}
+                        </div>
+                        <p className="text-[12px] text-[#6b7280] mb-3">
+                          {invoice.period_start && invoice.period_end
+                            ? `${currentPlan.name} Plan - ${formatDate(invoice.period_start)} to ${formatDate(invoice.period_end)}`
+                            : `${currentPlan.name} Plan Subscription`
+                          }
+                        </p>
+                        {invoice.invoice_pdf_url && (
+                          <a
+                            href={invoice.invoice_pdf_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 text-[12px] font-medium text-[#7c3aed] hover:text-[#6d28d9] transition-colors"
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                            Download Invoice
+                          </a>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Desktop table view */}
+                  <div className="hidden sm:block overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-[#e5e7eb]">
+                          <th className="text-left text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider pb-3">Date</th>
+                          <th className="text-left text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider pb-3">Description</th>
+                          <th className="text-left text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider pb-3">Amount</th>
+                          <th className="text-left text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider pb-3">Status</th>
+                          <th className="text-right text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider pb-3">Action</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {initialData.invoices.map((invoice: any) => (
+                          <tr key={invoice.id} className="border-b border-[#f3f4f6] last:border-0 hover:bg-[#fafafa] transition-colors">
+                            <td className="py-4 text-[13px] text-[#374151]">{formatDate(invoice.created_at)}</td>
+                            <td className="py-4 text-[13px] text-[#374151]">
+                              {invoice.period_start && invoice.period_end
+                                ? `${currentPlan.name} Plan - ${formatDate(invoice.period_start)} to ${formatDate(invoice.period_end)}`
+                                : `${currentPlan.name} Plan Subscription`
+                              }
+                            </td>
+                            <td className="py-4 text-[13px] font-medium text-[#1a1a2e]">{formatAmount(invoice.amount_cents)}</td>
+                            <td className="py-4">{getStatusBadge(invoice.status)}</td>
+                            <td className="py-4 text-right">
+                              {invoice.invoice_pdf_url && (
+                                <a
+                                  href={invoice.invoice_pdf_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1.5 text-[12px] font-medium text-[#7c3aed] hover:text-[#6d28d9] transition-colors"
+                                >
+                                  <Download className="h-3.5 w-3.5" />
+                                  Download Invoice
+                                </a>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
               )}
+            </div>
+
+            {/* ---- SECTION 3: Payment Method ---- */}
+            <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-[#e5e7eb]">
+              <h2 className="text-[17px] font-bold text-[#1a1a2e] mb-5">Payment Method</h2>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Existing Card Visual */}
+                {initialData.paymentMethod ? (
+                  <div className="relative w-full h-[200px] rounded-2xl overflow-hidden bg-gradient-to-br from-[#1a1a2e] via-[#2d2d52] to-[#4a3a8a] p-5 text-white shadow-lg">
+                    {/* Card background pattern */}
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-8 translate-x-8" />
+                    <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-6 -translate-x-6" />
+
+                    <div className="relative h-full flex flex-col justify-between">
+                      {/* Card Top */}
+                      <div className="flex items-start justify-between">
+                        {/* Chip */}
+                        <div className="w-10 h-7 bg-gradient-to-br from-yellow-300 to-yellow-500 rounded-md flex items-center justify-center">
+                          <div className="w-6 h-4 border border-yellow-600/40 rounded-sm" />
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <MoreVertical className="h-4 w-4 text-white/60" />
+                        </div>
+                      </div>
+
+                      {/* Card Number */}
+                      <div className="text-[17px] font-mono tracking-[0.2em] text-white/95">
+                        {maskCardNumber(initialData.paymentMethod.card_last4)}
+                      </div>
+
+                      {/* Card Bottom */}
+                      <div className="flex items-end justify-between">
+                        <div>
+                          <div className="text-[9px] uppercase tracking-wider text-white/50 mb-0.5">Card Holder</div>
+                          <div className="text-[13px] font-medium text-white/90">Account Owner</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-[9px] uppercase tracking-wider text-white/50 mb-0.5">Expires</div>
+                          <div className="text-[13px] font-medium text-white/90">
+                            {String(initialData.paymentMethod.card_exp_month).padStart(2, "0")}/{String(initialData.paymentMethod.card_exp_year).slice(-2)}
+                          </div>
+                        </div>
+                        {/* Brand Logo */}
+                        <div className="text-[14px] font-bold text-white/80 uppercase">
+                          {initialData.paymentMethod.card_brand}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
+                {/* Add New Card */}
+                <button
+                  onClick={handleUpdatePayment}
+                  disabled={updatingPayment}
+                  className="w-full h-[200px] rounded-2xl border-2 border-dashed border-[#d1d5db] hover:border-[#7c3aed] hover:bg-[#faf8ff] transition-all duration-200 flex flex-col items-center justify-center gap-3 group"
+                >
+                  {updatingPayment ? (
+                    <Loader2 className="h-8 w-8 text-[#7c3aed] animate-spin" />
+                  ) : (
+                    <>
+                      <div className="w-12 h-12 rounded-full bg-[#f3f4f6] group-hover:bg-[#ede9fe] flex items-center justify-center transition-colors">
+                        <Plus className="h-5 w-5 text-[#9ca3af] group-hover:text-[#7c3aed] transition-colors" />
+                      </div>
+                      <span className="text-[13px] font-medium text-[#9ca3af] group-hover:text-[#7c3aed] transition-colors">Add New Card</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <p className="text-[11px] text-[#9ca3af] mt-4 flex items-center gap-1.5">
+                <Lock className="h-3 w-3" />
+                Your payment information is securely stored and processed by Stripe. We never store your full card details.
+              </p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ============ FULLSCREEN PRICING MODAL ============ */}
+      {/* ============ FULLSCREEN PRICING MODAL WITH ANIMATIONS ============ */}
       {showPricingModal && (
-        <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
-          {/* Close button */}
-          <button
-            onClick={() => setShowPricingModal(false)}
-            className="absolute top-4 right-4 sm:top-6 sm:right-6 z-10 w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+        <div
+          className={`fixed inset-0 z-50 transition-all duration-300 ease-out ${
+            pricingModalVisible ? "opacity-100" : "opacity-0"
+          }`}
+        >
+          {/* Backdrop */}
+          <div
+            className={`absolute inset-0 bg-black/20 backdrop-blur-sm transition-opacity duration-300 ${
+              pricingModalVisible ? "opacity-100" : "opacity-0"
+            }`}
+            onClick={closePricingModal}
+          />
+
+          {/* Modal Content */}
+          <div
+            className={`absolute inset-0 bg-white overflow-y-auto transition-all duration-300 ease-out ${
+              pricingModalVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+            }`}
           >
-            <X className="h-6 w-6 text-[#374151]" />
-          </button>
+            {/* Close button */}
+            <button
+              onClick={closePricingModal}
+              className="fixed top-4 right-4 sm:top-6 sm:right-6 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-white/80 backdrop-blur-sm border border-[#e5e7eb] hover:bg-gray-100 transition-colors shadow-sm"
+            >
+              <X className="h-5 w-5 text-[#374151]" />
+            </button>
 
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
-            {/* Monthly / Annual toggle */}
-            <div className="flex justify-center mb-10">
-              <div className="inline-flex items-center bg-[#f3f4f6] rounded-full p-1">
-                <button
-                  onClick={() => setBillingPeriod("monthly")}
-                  className={`px-5 py-2 text-[14px] font-medium rounded-full transition-colors ${
-                    billingPeriod === "monthly" ? "bg-white text-[#1a1a2e] shadow-sm" : "text-[#6b7280]"
-                  }`}
-                >
-                  Monthly
-                </button>
-                <button
-                  onClick={() => setBillingPeriod("annual")}
-                  className={`px-5 py-2 text-[14px] font-medium rounded-full transition-colors flex items-center gap-1.5 ${
-                    billingPeriod === "annual" ? "bg-white text-[#1a1a2e] shadow-sm" : "text-[#6b7280]"
-                  }`}
-                >
-                  Annual <span className="text-[12px] font-semibold text-emerald-600">(Save 20%)</span>
-                </button>
+            <div className="max-w-5xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
+              {/* Title */}
+              <div className="text-center mb-4">
+                <h2 className="text-[28px] sm:text-[36px] font-bold text-[#1a1a2e]">Choose Your Plan</h2>
+                <p className="text-[15px] text-[#6b7280] mt-2">Scale your business with the right plan for you</p>
               </div>
-            </div>
 
-            {/* Plan Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {initialData.plans.map((plan: any) => {
-                const isCurrentPlan = plan.id === currentPlan.id
-                const isFree = plan.id === "free"
-                const isGrowth = plan.id === "growth"
-                const monthlyPrice = plan.price_cents / 100
-                const annualPrice = Math.round(monthlyPrice * 0.8 * 100) / 100
-                const displayPrice = billingPeriod === "annual" && !isFree ? annualPrice : monthlyPrice
-                const originalPrice = billingPeriod === "annual" && !isFree ? monthlyPrice : null
-                const feePercent = (plan.fee_percent * 100).toFixed(plan.fee_percent >= 0.01 ? 1 : 2)
-
-                const descriptions: Record<string, string> = {
-                  free: "Get started with the essentials. Perfect for new creators.",
-                  growth: "Lower fees and advanced tools for growing creators.",
-                  pro: "The lowest fees and premium features for professionals.",
-                }
-
-                const featureLists: Record<string, string[]> = {
-                  free: [
-                    `${feePercent}% + $0.25 per transaction`,
-                    "Basic analytics",
-                    "Standard support",
-                    "Up to 10 products",
-                    "Community access",
-                  ],
-                  growth: [
-                    `${feePercent}% + $0.25 per transaction`,
-                    "Advanced analytics",
-                    "Priority support",
-                    "Custom domain",
-                    "Unlimited products",
-                    "Email marketing tools",
-                  ],
-                  pro: [
-                    `${feePercent}% + $0.25 per transaction`,
-                    "Premium analytics",
-                    "Dedicated support",
-                    "White-label options",
-                    "API access",
-                    "Unlimited products",
-                    "Custom integrations",
-                    "Priority processing",
-                  ],
-                }
-
-                return (
-                  <div
-                    key={plan.id}
-                    className={`relative rounded-2xl border-2 p-6 sm:p-7 flex flex-col ${
-                      isGrowth
-                        ? "border-[#d4a017] shadow-lg"
-                        : isCurrentPlan
-                          ? "border-[#6c47ff] bg-[#faf8ff]"
-                          : "border-[#e5e7eb]"
+              {/* Monthly / Annual toggle */}
+              <div className="flex justify-center mb-10">
+                <div className="inline-flex items-center bg-[#f3f4f6] rounded-full p-1">
+                  <button
+                    onClick={() => setBillingPeriod("monthly")}
+                    className={`px-6 py-2.5 text-[14px] font-medium rounded-full transition-all duration-200 ${
+                      billingPeriod === "monthly" ? "bg-white text-[#1a1a2e] shadow-sm" : "text-[#6b7280] hover:text-[#374151]"
                     }`}
                   >
-                    {/* Most Popular badge */}
-                    {isGrowth && (
-                      <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
-                        <span className="inline-flex items-center gap-1 px-3 py-1 bg-[#fffbeb] border border-[#d4a017] rounded-full text-[11px] font-semibold text-[#92710c]">
-                          <Star className="h-3 w-3 fill-[#d4a017] text-[#d4a017]" />
-                          Most Popular
-                        </span>
-                      </div>
-                    )}
+                    Monthly
+                  </button>
+                  <button
+                    onClick={() => setBillingPeriod("annual")}
+                    className={`px-6 py-2.5 text-[14px] font-medium rounded-full transition-all duration-200 flex items-center gap-2 ${
+                      billingPeriod === "annual" ? "bg-white text-[#1a1a2e] shadow-sm" : "text-[#6b7280] hover:text-[#374151]"
+                    }`}
+                  >
+                    Annual
+                    <span className="text-[11px] font-bold text-[#7c3aed] bg-[#ede9fe] px-2 py-0.5 rounded-full">Save 35%</span>
+                  </button>
+                </div>
+              </div>
 
-                    {/* Plan name */}
-                    <div className="mb-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h3 className="text-[22px] sm:text-[26px] font-bold text-[#1a1a2e]">{plan.name}</h3>
-                        {billingPeriod === "annual" && !isFree && (
-                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">Save 20%</span>
-                        )}
-                      </div>
-                      <p className="text-[13px] text-[#6b7280] leading-relaxed">{descriptions[plan.id] || ""}</p>
-                    </div>
+              {/* Plan Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
+                {initialData.plans.map((plan: any) => {
+                  const isCurrentPlan = plan.id === currentPlan.id
+                  const isFree = plan.id === "free"
+                  const isPro = plan.id === "pro"
+                  const isGrowth = plan.id === "growth"
+                  const monthlyPrice = plan.price_cents / 100
+                  const annualPrice = Math.round(monthlyPrice * 0.65 * 100) / 100
+                  const displayPrice = billingPeriod === "annual" && !isFree ? annualPrice : monthlyPrice
+                  const feePercent = (plan.fee_percent * 100).toFixed(plan.fee_percent >= 0.01 ? 1 : 2)
 
-                    {/* Price */}
-                    <div className="mb-5">
-                      {isFree ? (
-                        <>
-                          <div className="text-[40px] font-bold text-[#1a1a2e] leading-none">$0</div>
-                          <p className="text-[13px] text-[#6b7280] mt-1">Free</p>
-                        </>
-                      ) : (
-                        <>
-                          <div className="flex items-baseline gap-2">
-                            <span className="text-[40px] font-bold text-[#1a1a2e] leading-none">${displayPrice.toFixed(displayPrice % 1 === 0 ? 0 : 2)}</span>
-                            {originalPrice && (
-                              <span className="text-[18px] text-[#9ca3af] line-through">${originalPrice.toFixed(0)}</span>
-                            )}
-                          </div>
-                          <p className="text-[13px] text-[#6b7280] mt-1">
-                            Per month{billingPeriod === "annual" ? ", billed annually" : ""}
-                          </p>
-                        </>
-                      )}
-                    </div>
+                  const descriptions: Record<string, string> = {
+                    free: "Perfect for getting started. Explore the basics at no cost.",
+                    growth: "Ideal for growing creators who want lower fees and more tools.",
+                    pro: "For professionals who demand the lowest fees and premium features.",
+                  }
 
-                    {/* CTA Button */}
-                    <button
-                      onClick={() => handleUpgrade(plan.id)}
-                      disabled={isCurrentPlan || loading !== null}
-                      className={`w-full h-12 text-[14px] font-semibold rounded-xl transition-all flex items-center justify-center gap-2 mb-6 ${
-                        isCurrentPlan
-                          ? "bg-[#1a1a2e] text-white cursor-default"
-                          : isGrowth
-                            ? "bg-[#2d6a4f] hover:bg-[#245a42] text-white"
-                            : isFree
-                              ? "bg-[#f3f4f6] text-[#374151] hover:bg-[#e5e7eb]"
-                              : "bg-[#2d6a4f] hover:bg-[#245a42] text-white"
+                  const featureLists: Record<string, string[]> = {
+                    free: [
+                      `${feePercent}% + $0.25 per transaction`,
+                      "Basic analytics dashboard",
+                      "Standard email support",
+                      "Up to 10 products",
+                      "Community access",
+                    ],
+                    growth: [
+                      `${feePercent}% + $0.25 per transaction`,
+                      "Advanced analytics & reports",
+                      "Priority email support",
+                      "Custom domain support",
+                      "Unlimited products",
+                      "Email marketing tools",
+                      "Discount codes",
+                    ],
+                    pro: [
+                      `${feePercent}% + $0.25 per transaction`,
+                      "Premium analytics & insights",
+                      "Dedicated account manager",
+                      "White-label options",
+                      "Full API access",
+                      "Unlimited products",
+                      "Custom integrations",
+                      "Priority processing",
+                      "Advanced automation",
+                    ],
+                  }
+
+                  return (
+                    <div
+                      key={plan.id}
+                      className={`relative rounded-2xl p-6 sm:p-7 flex flex-col transition-all duration-200 ${
+                        isPro
+                          ? "bg-[#1a1a2e] text-white shadow-xl border-2 border-[#7c3aed]/30 scale-[1.02]"
+                          : "bg-white border-2 border-[#e5e7eb] hover:border-[#d1d5db] shadow-sm hover:shadow-md"
                       }`}
                     >
-                      {loading === plan.id ? (
-                        <><Loader2 className="h-4 w-4 animate-spin" />Processing...</>
-                      ) : isCurrentPlan ? (
-                        "Current Plan"
-                      ) : isFree ? (
-                        "Downgrade to Free"
-                      ) : (
-                        `Upgrade to ${plan.name}`
+                      {/* Popular badge for Pro */}
+                      {isPro && (
+                        <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
+                          <span className="inline-flex items-center gap-1 px-3.5 py-1 bg-[#7c3aed] rounded-full text-[11px] font-bold text-white shadow-lg">
+                            <Star className="h-3 w-3 fill-white" />
+                            Popular
+                          </span>
+                        </div>
                       )}
-                    </button>
 
-                    {/* Features */}
-                    <ul className="space-y-3 flex-1">
-                      {(featureLists[plan.id] || plan.features || []).map((feature: string, idx: number) => (
-                        <li key={idx} className="flex items-start gap-2.5 text-[13px] text-[#374151]">
-                          <div className="w-5 h-5 rounded-full bg-emerald-50 flex items-center justify-center shrink-0 mt-0.5">
-                            <Check className="h-3 w-3 text-emerald-600" strokeWidth={3} />
-                          </div>
-                          <span>{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )
-              })}
+                      {/* Plan name */}
+                      <div className="mb-5">
+                        <h3 className={`text-[20px] font-bold mb-1.5 ${isPro ? "text-white" : "text-[#1a1a2e]"}`}>
+                          {plan.name}
+                        </h3>
+                        <p className={`text-[13px] leading-relaxed ${isPro ? "text-white/70" : "text-[#6b7280]"}`}>
+                          {descriptions[plan.id] || ""}
+                        </p>
+                      </div>
+
+                      {/* Price */}
+                      <div className="mb-6">
+                        {isFree ? (
+                          <>
+                            <div className={`text-[40px] font-bold leading-none ${isPro ? "text-white" : "text-[#1a1a2e]"}`}>$0</div>
+                            <p className={`text-[13px] mt-1.5 ${isPro ? "text-white/60" : "text-[#9ca3af]"}`}>Free forever</p>
+                          </>
+                        ) : (
+                          <>
+                            <div className="flex items-baseline gap-1">
+                              <span className={`text-[40px] font-bold leading-none ${isPro ? "text-white" : "text-[#1a1a2e]"}`}>
+                                ${displayPrice.toFixed(displayPrice % 1 === 0 ? 0 : 2)}
+                              </span>
+                              <span className={`text-[15px] ${isPro ? "text-white/60" : "text-[#9ca3af]"}`}>/mo</span>
+                            </div>
+                            {billingPeriod === "annual" && (
+                              <p className={`text-[13px] mt-1.5 ${isPro ? "text-white/60" : "text-[#9ca3af]"}`}>
+                                Billed annually (${(displayPrice * 12).toFixed(0)}/year)
+                              </p>
+                            )}
+                          </>
+                        )}
+                      </div>
+
+                      {/* CTA Button */}
+                      <button
+                        onClick={() => handleUpgrade(plan.id)}
+                        disabled={isCurrentPlan || loading !== null}
+                        className={`w-full h-12 text-[14px] font-semibold rounded-xl transition-all duration-200 flex items-center justify-center gap-2 mb-6 ${
+                          isCurrentPlan
+                            ? isPro
+                              ? "bg-white/20 text-white/80 cursor-default"
+                              : "bg-[#f3f4f6] text-[#9ca3af] cursor-default"
+                            : isPro
+                              ? "bg-[#7c3aed] hover:bg-[#6d28d9] text-white shadow-lg shadow-[#7c3aed]/25 hover:shadow-[#7c3aed]/40"
+                              : "bg-[#7c3aed] hover:bg-[#6d28d9] text-white"
+                        }`}
+                      >
+                        {loading === plan.id ? (
+                          <><Loader2 className="h-4 w-4 animate-spin" />Processing...</>
+                        ) : isCurrentPlan ? (
+                          "Current Plan"
+                        ) : (
+                          `Get started with ${plan.name}`
+                        )}
+                      </button>
+
+                      {/* Features */}
+                      <ul className="space-y-3 flex-1">
+                        {(featureLists[plan.id] || plan.features || []).map((feature: string, idx: number) => (
+                          <li key={idx} className={`flex items-start gap-2.5 text-[13px] ${isPro ? "text-white/80" : "text-[#374151]"}`}>
+                            <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
+                              isPro ? "bg-[#7c3aed]/30" : "bg-[#ede9fe]"
+                            }`}>
+                              <Check className={`h-3 w-3 ${isPro ? "text-[#a78bfa]" : "text-[#7c3aed]"}`} strokeWidth={3} />
+                            </div>
+                            <span>{feature}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Bottom note */}
+              <div className="text-center mt-10">
+                <p className="text-[13px] text-[#9ca3af]">
+                  All plans include core features. Upgrade or downgrade anytime.
+                </p>
+              </div>
             </div>
           </div>
         </div>
