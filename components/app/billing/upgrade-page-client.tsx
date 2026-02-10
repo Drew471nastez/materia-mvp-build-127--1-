@@ -140,7 +140,7 @@ export function UpgradePageClient({
       {/* Content */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
         {/* Title */}
-        <div className="text-center mb-4">
+        <div className="text-center mb-10">
           <h1 className="text-[28px] sm:text-[36px] font-bold text-[#1a1a2e]">Choose Your Plan</h1>
           <p className="text-[15px] text-[#6b7280] mt-2">Scale your business with the right plan for you</p>
         </div>
