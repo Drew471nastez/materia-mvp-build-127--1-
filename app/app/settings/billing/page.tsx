@@ -40,6 +40,18 @@ const PRO_PLAN = {
 const FALLBACK_PLANS = [FREE_PLAN, GROWTH_PLAN, PRO_PLAN]
 const SUBSCRIBED_STATUSES = new Set(["active", "trialing", "past_due"])
 
+function safeTimestamp(ts: any): string {
+  if (!ts) return new Date().toISOString()
+  if (ts instanceof Date) return ts.toISOString()
+  if (typeof ts === "string") return ts
+  if (typeof ts === "number" && !isNaN(ts)) {
+    // Stripe timestamps are Unix seconds; detect if already in ms
+    const d = ts > 1e12 ? new Date(ts) : new Date(ts * 1000)
+    return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString()
+  }
+  return new Date().toISOString()
+}
+
 // LIVE Stripe Price IDs
 const PRICE_GROWTH = process.env.PRICE_GROWTH_MONTHLY || "price_1SzBWaBYevnBVyznNCTOXDoS"
 const PRICE_PRO = process.env.PRICE_PRO_MONTHLY || "price_1SzBXSBYevnBVyznYjXfOOXX"
@@ -111,14 +123,20 @@ export default async function BillingPage() {
         const livePlanId = getPlanIdFromPriceId(currentPriceId)
         currentPlan = plans.find((p: any) => p.id === livePlanId) ?? FREE_PLAN
 
+        // Handle both old API (current_period_start/end as Unix timestamps)
+        // and new API (current_period.start_date/end_date as ISO date strings)
+        const sub = preferredSubscription as any
+        const periodStart = sub.current_period_start || sub.current_period?.start_date || null
+        const periodEnd = sub.current_period_end || sub.current_period?.end_date || null
+
         subscription = {
           id: preferredSubscription.id,
           stripe_subscription_id: preferredSubscription.id,
           plan_id: livePlanId,
           pending_plan_id: (preferredSubscription.metadata?.pending_plan_id as string) || null,
           status: preferredSubscription.status,
-          current_period_start: new Date(preferredSubscription.current_period_start * 1000).toISOString(),
-          current_period_end: new Date(preferredSubscription.current_period_end * 1000).toISOString(),
+          current_period_start: safeTimestamp(periodStart),
+          current_period_end: safeTimestamp(periodEnd),
           cancel_at_period_end: preferredSubscription.cancel_at_period_end,
           subscription_plans: currentPlan,
         }
@@ -139,11 +157,12 @@ export default async function BillingPage() {
             .upsert({
               creator_id: creator.id,
               stripe_subscription_id: preferredSubscription.id,
+              stripe_customer_id: stripeCustomerId,
               plan_id: livePlanId,
               pending_plan_id: null,
               status: preferredSubscription.status,
-              current_period_start: new Date(preferredSubscription.current_period_start * 1000).toISOString(),
-              current_period_end: new Date(preferredSubscription.current_period_end * 1000).toISOString(),
+              current_period_start: safeTimestamp(periodStart),
+              current_period_end: safeTimestamp(periodEnd),
               updated_at: new Date().toISOString(),
             }, { onConflict: "creator_id" })
         } catch (syncError) {
@@ -190,9 +209,9 @@ export default async function BillingPage() {
         status: inv.status === "paid" ? "paid" : inv.status === "open" ? "open" : inv.status || "unknown",
         invoice_pdf_url: inv.invoice_pdf || null,
         hosted_invoice_url: inv.hosted_invoice_url || null,
-        period_start: inv.period_start ? new Date(inv.period_start * 1000).toISOString() : null,
-        period_end: inv.period_end ? new Date(inv.period_end * 1000).toISOString() : null,
-        created_at: inv.created ? new Date(inv.created * 1000).toISOString() : new Date().toISOString(),
+        period_start: inv.period_start ? safeTimestamp(inv.period_start) : null,
+        period_end: inv.period_end ? safeTimestamp(inv.period_end) : null,
+        created_at: inv.created ? safeTimestamp(inv.created) : new Date().toISOString(),
         description: inv.lines?.data?.[0]?.description || "Subscription",
       }))
     } catch (error) {

@@ -15,6 +15,17 @@ const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, proces
 const PRICE_GROWTH = process.env.PRICE_GROWTH_MONTHLY || "price_1SzBWaBYevnBVyznNCTOXDoS"
 const PRICE_PRO = process.env.PRICE_PRO_MONTHLY || "price_1SzBXSBYevnBVyznYjXfOOXX"
 
+function safeTimestamp(ts: any): string {
+  if (!ts) return new Date().toISOString()
+  if (ts instanceof Date) return ts.toISOString()
+  if (typeof ts === "string") return ts
+  if (typeof ts === "number" && !isNaN(ts)) {
+    const d = ts > 1e12 ? new Date(ts) : new Date(ts * 1000)
+    return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString()
+  }
+  return new Date().toISOString()
+}
+
 function planIdFromPriceId(priceId?: string): "free" | "growth" | "pro" {
   if (!priceId) return "free"
   if (priceId === PRICE_GROWTH) return "growth"
@@ -485,6 +496,10 @@ export async function POST(request: Request) {
     }
 
     try {
+      const subAny = subscription as any
+      const periodStart = subAny.current_period_start || subAny.current_period?.start_date || null
+      const periodEnd = subAny.current_period_end || subAny.current_period?.end_date || null
+
       // Upsert subscription record (may already exist from a previous attempt)
       await supabaseAdmin.from("subscriptions").upsert({
         creator_id: creatorId,
@@ -492,8 +507,8 @@ export async function POST(request: Request) {
         stripe_customer_id: subscription.customer as string,
         plan_id: planId,
         status: subscription.status,
-        current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-        current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+        current_period_start: safeTimestamp(periodStart),
+        current_period_end: safeTimestamp(periodEnd),
         cancel_at_period_end: subscription.cancel_at_period_end,
       }, { onConflict: "creator_id" })
 
@@ -515,7 +530,7 @@ export async function POST(request: Request) {
   }
 
   if (event.type === "customer.subscription.updated") {
-    const subscription = event.data.object as Stripe.Subscription & { current_period_start: number; current_period_end: number }
+    const subscription = event.data.object as any
 
     console.log("[Subscription] Updated:", subscription.id, "Status:", subscription.status)
 
@@ -531,7 +546,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ received: true, message: "No existing subscription" })
       }
 
-      const currentPriceId = subscription.items.data[0]?.price?.id
+      const currentPriceId = subscription.items?.data?.[0]?.price?.id
       let planId = planIdFromPriceId(currentPriceId)
       const metadata = subscription.metadata || {}
       if (metadata.pending_plan_id && subscription.status === "active") {
@@ -540,16 +555,19 @@ export async function POST(request: Request) {
         planId = metadata.plan_id
       }
 
+      const updPeriodStart = subscription.current_period_start || subscription.current_period?.start_date || null
+      const updPeriodEnd = subscription.current_period_end || subscription.current_period?.end_date || null
+
       await supabaseAdmin
         .from("subscriptions")
         .update({
           status: subscription.status,
           plan_id: planId,
-          current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-          current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+          current_period_start: safeTimestamp(updPeriodStart),
+          current_period_end: safeTimestamp(updPeriodEnd),
           cancel_at_period_end: subscription.cancel_at_period_end,
           pending_plan_id: metadata.pending_plan_id && subscription.status !== "active" ? metadata.pending_plan_id : null,
-          canceled_at: subscription.canceled_at ? new Date(subscription.canceled_at * 1000).toISOString() : null,
+          canceled_at: subscription.canceled_at ? safeTimestamp(subscription.canceled_at) : null,
           updated_at: new Date().toISOString(),
         })
         .eq("stripe_subscription_id", subscription.id)
@@ -651,8 +669,8 @@ export async function POST(request: Request) {
         status: "paid",
         invoice_pdf_url: invoice.invoice_pdf || null,
         hosted_invoice_url: invoice.hosted_invoice_url || null,
-        period_start: invoice.period_start ? new Date(invoice.period_start * 1000).toISOString() : null,
-        period_end: invoice.period_end ? new Date(invoice.period_end * 1000).toISOString() : null,
+        period_start: invoice.period_start ? safeTimestamp(invoice.period_start) : null,
+        period_end: invoice.period_end ? safeTimestamp(invoice.period_end) : null,
       }, { onConflict: "stripe_invoice_id" })
 
       console.log("[Invoice] Record saved")

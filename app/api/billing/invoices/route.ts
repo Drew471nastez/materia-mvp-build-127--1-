@@ -2,6 +2,17 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { stripe, getOrCreateStripeCustomer } from "@/lib/stripe"
 
+function safeTimestamp(ts: any): string {
+  if (!ts) return new Date().toISOString()
+  if (ts instanceof Date) return ts.toISOString()
+  if (typeof ts === "string") return ts
+  if (typeof ts === "number" && !isNaN(ts)) {
+    const d = ts > 1e12 ? new Date(ts) : new Date(ts * 1000)
+    return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString()
+  }
+  return new Date().toISOString()
+}
+
 export async function GET() {
   try {
     const supabase = await createClient()
@@ -52,9 +63,9 @@ export async function GET() {
         status: inv.status === "paid" ? "paid" : inv.status === "open" ? "open" : inv.status || "unknown",
         invoice_pdf_url: inv.invoice_pdf || null,
         hosted_invoice_url: inv.hosted_invoice_url || null,
-        period_start: inv.period_start ? new Date(inv.period_start * 1000).toISOString() : null,
-        period_end: inv.period_end ? new Date(inv.period_end * 1000).toISOString() : null,
-        created_at: inv.created ? new Date(inv.created * 1000).toISOString() : new Date().toISOString(),
+        period_start: inv.period_start ? safeTimestamp(inv.period_start) : null,
+        period_end: inv.period_end ? safeTimestamp(inv.period_end) : null,
+        created_at: inv.created ? safeTimestamp(inv.created) : new Date().toISOString(),
         description: inv.lines?.data?.[0]?.description || "Subscription",
       }))
 

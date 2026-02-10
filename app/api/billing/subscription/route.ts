@@ -37,6 +37,17 @@ const PRO_PLAN = {
 
 const SUBSCRIBED_STATUSES = new Set(["active", "trialing", "past_due"])
 
+function safeTimestamp(ts: any): string {
+  if (!ts) return new Date().toISOString()
+  if (ts instanceof Date) return ts.toISOString()
+  if (typeof ts === "string") return ts
+  if (typeof ts === "number" && !isNaN(ts)) {
+    const d = ts > 1e12 ? new Date(ts) : new Date(ts * 1000)
+    return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString()
+  }
+  return new Date().toISOString()
+}
+
 // LIVE Stripe Price IDs
 const PRICE_GROWTH = process.env.PRICE_GROWTH_MONTHLY || "price_1SzBWaBYevnBVyznNCTOXDoS"
 const PRICE_PRO = process.env.PRICE_PRO_MONTHLY || "price_1SzBXSBYevnBVyznYjXfOOXX"
@@ -107,9 +118,14 @@ export async function GET() {
 
       if (preferredSubscription && SUBSCRIBED_STATUSES.has(preferredSubscription.status)) {
         const sub = preferredSubscription as any
-        const currentPriceId = sub.items.data[0]?.price?.id
+        const currentPriceId = sub.items?.data?.[0]?.price?.id
         const livePlanId = getPlanIdFromPriceId(currentPriceId)
         const currentPlan = getPlanObject(livePlanId)
+
+        // Handle both old API (current_period_start/end as Unix timestamps)
+        // and new API (current_period.start_date/end_date as ISO date strings)
+        const periodStart = sub.current_period_start || sub.current_period?.start_date || null
+        const periodEnd = sub.current_period_end || sub.current_period?.end_date || null
 
         const subscription = {
           id: sub.id,
@@ -117,8 +133,8 @@ export async function GET() {
           plan_id: livePlanId,
           pending_plan_id: (sub.metadata?.pending_plan_id as string) || null,
           status: sub.status,
-          current_period_start: new Date(sub.current_period_start * 1000).toISOString(),
-          current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
+          current_period_start: safeTimestamp(periodStart),
+          current_period_end: safeTimestamp(periodEnd),
           cancel_at_period_end: sub.cancel_at_period_end,
           subscription_plans: currentPlan,
         }
@@ -139,11 +155,12 @@ export async function GET() {
             .upsert({
               creator_id: creator.id,
               stripe_subscription_id: sub.id,
+              stripe_customer_id: stripeCustomerId,
               plan_id: livePlanId,
               pending_plan_id: null,
               status: sub.status,
-              current_period_start: new Date(sub.current_period_start * 1000).toISOString(),
-              current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
+              current_period_start: safeTimestamp(periodStart),
+              current_period_end: safeTimestamp(periodEnd),
               updated_at: new Date().toISOString(),
             }, { onConflict: "creator_id" })
         } catch (syncError) {

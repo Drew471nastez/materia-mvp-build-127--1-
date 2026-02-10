@@ -76,6 +76,13 @@ export async function POST() {
     return NextResponse.json({ url: accountLink.url })
   } catch (error: any) {
     console.error("[Stripe Connect Start Error]", error)
-    return NextResponse.json({ error: error.message || "Failed to start Stripe Connect onboarding" }, { status: 500 })
+    const msg = error?.message || ""
+    if (msg.includes("platform-profile") || msg.includes("responsibilities") || msg.includes("managing losses")) {
+      return NextResponse.json({
+        error: "Stripe Connect requires platform configuration. The platform owner needs to complete the Connect platform profile at dashboard.stripe.com/settings/connect before onboarding can begin. Please contact support.",
+        code: "platform_not_configured",
+      }, { status: 503 })
+    }
+    return NextResponse.json({ error: msg || "Failed to start Stripe Connect onboarding" }, { status: 500 })
   }
 }
