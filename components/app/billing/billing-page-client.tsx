@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import {
   Settings, Shield, ToggleLeft, Wallet, Store, CreditCard,
   Check, Loader2, Download, FileText, Clock, CheckCircle, XCircle, AlertCircle,
-  Rocket, Lock, ShieldCheck, Pencil, ExternalLink, X, ArrowUpRight, RefreshCw,
+  Rocket, Lock, Pencil, ExternalLink, X, ArrowUpRight,
 } from "lucide-react"
 import { useLanguage } from "@/lib/i18n"
 
@@ -245,6 +245,13 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
   const plans = initialData.plans
   const pendingPlan = pendingPlanId && pendingPlanId !== currentPlan.id ? plans.find((p: any) => p.id === pendingPlanId) : null
 
+  // Plan benefits for Current Plan card
+  const planBenefits: Record<string, string[]> = {
+    free: ["6% + $0.25 per transaction", "Unlimited digital products", "Basic OnePage features", "500 emails / month"],
+    growth: ["3% + $0.25 per transaction", "Unlimited digital products", "Premium OnePage features", "Custom domain", "Verified badge", "2,000 emails / month"],
+    pro: ["1.5% + $0.25 per transaction", "Unlimited digital products", "Premium OnePage features", "Custom domain", "Verified badge", "5,000 emails / month", "Priority support"],
+  }
+
   // Determine the next upgrade target
   const nextUpgradePlan = currentPlan.id === "growth"
     ? plans.find((p: any) => p.id === "pro")
@@ -312,13 +319,15 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                   </div>
                 </div>
 
-                <ul className="space-y-2.5 mb-5">
-                  <li className="flex items-center gap-2.5 text-[13px] text-[#374151]">
-                    <div className="w-4 h-4 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
-                      <Check className="h-2.5 w-2.5 text-emerald-600" strokeWidth={3} />
-                    </div>
-                    Platform fee: {feeDisplay}
-                  </li>
+                <ul className="space-y-2 mb-5">
+                  {(planBenefits[currentPlan.id] || planBenefits.free).map((benefit: string, idx: number) => (
+                    <li key={idx} className="flex items-center gap-2.5 text-[13px] text-[#374151]">
+                      <div className="w-4 h-4 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
+                        <Check className="h-2.5 w-2.5 text-emerald-600" strokeWidth={3} />
+                      </div>
+                      {benefit}
+                    </li>
+                  ))}
                   {subscription?.current_period_end && (
                     <li className="flex items-center gap-2.5 text-[13px] text-[#6b7280]">
                       <div className="w-4 h-4 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
@@ -429,26 +438,26 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
           <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-[#e5e7eb]">
             <div className="flex items-center justify-between mb-2">
               <h2 className="text-[17px] font-bold text-[#1a1a2e]">Billing History</h2>
-              <div className="flex items-center gap-2">
-                <button onClick={refreshBillingData} disabled={refreshing} className="flex items-center gap-1.5 h-8 px-3 text-[12px] font-medium text-[#6b7280] border border-[#e5e7eb] rounded-lg hover:bg-[#f9fafb] transition-colors cursor-pointer">
-                  <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
-                  Refresh
+              {liveInvoices.length > 0 && (
+                <button onClick={openCustomerPortal} disabled={portalLoading} className="flex items-center gap-1.5 h-8 px-3 text-[12px] font-medium text-[#6b7280] border border-[#e5e7eb] rounded-lg hover:bg-[#f9fafb] transition-colors cursor-pointer">
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  View All
                 </button>
-                {liveInvoices.length > 0 && (
-                  <button onClick={openCustomerPortal} disabled={portalLoading} className="flex items-center gap-1.5 h-8 px-3 text-[12px] font-medium text-[#6b7280] border border-[#e5e7eb] rounded-lg hover:bg-[#f9fafb] transition-colors cursor-pointer">
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    View All
-                  </button>
-                )}
-              </div>
+              )}
             </div>
 
             {/* Next billing date */}
             {subscription?.current_period_end && isSubscribed && !subscription.cancel_at_period_end && (
-              <p className="text-[13px] text-[#6b7280] mb-4">
-                Your next billing date is <span className="font-medium text-[#374151]">{formatDateLong(subscription.current_period_end)}</span>.
-                {pendingPlan && <> Your plan will change to <span className="font-medium text-[#374151]">{pendingPlan.name}</span> (${(pendingPlan.price_cents / 100).toFixed(2)}/month).</>}
-              </p>
+              <div className="mb-4 space-y-1">
+                <p className="text-[13px] text-[#6b7280]">
+                  Your next billing date is <span className="font-medium text-[#374151]">{formatDateLong(subscription.current_period_end)}</span>.
+                </p>
+                {pendingPlan && (
+                  <p className="text-[13px] text-[#6b7280]">
+                    Your plan will change to <span className="font-medium text-[#374151]">{pendingPlan.name}</span> (${(pendingPlan.price_cents / 100).toFixed(2)}/month).
+                  </p>
+                )}
+              </div>
             )}
             {subscription?.current_period_end && subscription.cancel_at_period_end && (
               <p className="text-[13px] text-[#9ca3af] mb-4">Your subscription ends on <span className="font-medium text-[#6b7280]">{formatDateLong(subscription.current_period_end)}</span>.</p>
@@ -568,6 +577,7 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
           currentPlan={currentPlan}
           subscription={subscription}
           isSubscribed={!!isSubscribed}
+          cancelAtPeriodEnd={!!subscription?.cancel_at_period_end}
           loading={upgradeLoading}
           preview={upgradePreview}
           onConfirm={async () => {
@@ -617,18 +627,37 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
    ============================================================ */
 function TrustBadges() {
   return (
-    <div className="flex items-center gap-3 flex-wrap">
-      <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#f9fafb] border border-[#e5e7eb] rounded-lg">
-        <div className="w-7 h-4.5 bg-[#1a1f71] rounded-sm flex items-center justify-center text-white text-[6px] font-bold leading-none">VISA</div>
+    <div className="flex items-center gap-2.5 flex-wrap">
+      {/* Visa */}
+      <div className="flex items-center px-2 py-1 bg-[#f9fafb] border border-[#e5e7eb] rounded-lg">
+        <svg viewBox="0 -9 58 58" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-6 w-9">
+          <rect x="0.5" y="0.5" width="57" height="39" rx="3.5" fill="white" stroke="#F3F3F3" />
+          <path d="M25.7516 27.4332H21.8901L24.3054 13.4325H28.1667L25.7516 27.4332Z" fill="#15195A" />
+          <path d="M39.7499 13.7748C38.9882 13.4915 37.7802 13.1787 36.2865 13.1787C32.4731 13.1787 29.7878 15.0851 29.7713 17.8106C29.7396 19.8215 31.6939 20.9384 33.1556 21.6089C34.6495 22.2941 35.1574 22.7413 35.1574 23.352C35.1422 24.29 33.9502 24.7223 32.8384 24.7223C31.2967 24.7223 30.4707 24.4994 29.2153 23.9776L28.7069 23.7539L28.1665 26.8967C29.0722 27.2835 30.7408 27.6268 32.4731 27.6419C36.5249 27.6419 39.1627 25.765 39.1939 22.8605C39.2093 21.2667 38.1774 20.0454 35.9526 19.0475C34.602 18.4069 33.7749 17.9749 33.7749 17.3195C33.7908 16.7236 34.4745 16.1133 35.9991 16.1133C37.2544 16.0834 38.1768 16.3663 38.8755 16.6494L39.2247 16.7981L39.7499 13.7748Z" fill="#15195A" />
+          <path fillRule="evenodd" clipRule="evenodd" d="M46.6618 13.4325H49.6486L52.7639 27.433H49.1885C49.1885 27.433 48.8386 25.8244 48.7278 25.3328H43.7699C43.6266 25.705 42.9595 27.433 42.9595 27.433H38.9078L44.6435 14.5941C45.0409 13.6855 45.7407 13.4325 46.6618 13.4325ZM46.4238 18.556C46.4238 18.556 45.2001 21.6689 44.8821 22.4732H48.0918C47.933 21.7733 47.2017 18.4219 47.2017 18.4219L46.9319 17.2156C46.8182 17.5262 46.6539 17.9533 46.543 18.2414C46.4679 18.4366 46.4173 18.568 46.4238 18.556Z" fill="#15195A" />
+          <path fillRule="evenodd" clipRule="evenodd" d="M5.1589 13.4325H11.3716C12.2138 13.462 12.8971 13.7152 13.1194 14.6094L14.4696 21.0422C14.4697 21.0426 14.4699 21.043 14.47 21.0434L14.8832 22.9796L18.6649 13.4325H22.7481L16.6785 27.4184H12.5951L9.15337 15.253C7.96587 14.6021 6.6106 14.0786 5.09534 13.7154L5.1589 13.4325Z" fill="#15195A" />
+        </svg>
       </div>
-      <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#f9fafb] border border-[#e5e7eb] rounded-lg">
-        <div className="w-7 h-4.5 bg-[#eb001b] rounded-sm flex items-center justify-center">
-          <div className="w-2.5 h-2.5 bg-[#f79e1b] rounded-full opacity-80" />
-        </div>
+      {/* Mastercard */}
+      <div className="flex items-center px-2 py-1 bg-[#f9fafb] border border-[#e5e7eb] rounded-lg">
+        <svg viewBox="0 -9 58 58" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-6 w-9">
+          <rect x="0.5" y="0.5" width="57" height="39" rx="3.5" fill="white" stroke="#F3F3F3" />
+          <path d="M34.3102 28.9765H23.9591V10.5122H34.3102V28.9765Z" fill="#FF5F00" />
+          <path d="M24.6223 19.7429C24.6223 15.9973 26.3891 12.6608 29.1406 10.5107C27.1285 8.93843 24.5892 7.99998 21.8294 7.99998C15.2961 7.99998 10 13.2574 10 19.7429C10 26.2283 15.2961 31.4857 21.8294 31.4857C24.5892 31.4857 27.1285 30.5473 29.1406 28.975C26.3891 26.8249 24.6223 23.4884 24.6223 19.7429" fill="#EB001B" />
+          <path d="M48.2706 19.7429C48.2706 26.2283 42.9745 31.4857 36.4412 31.4857C33.6814 31.4857 31.1421 30.5473 29.1293 28.975C31.8815 26.8249 33.6483 23.4884 33.6483 19.7429C33.6483 15.9973 31.8815 12.6608 29.1293 10.5107C31.1421 8.93843 33.6814 7.99998 36.4412 7.99998C42.9745 7.99998 48.2706 13.2574 48.2706 19.7429" fill="#F79E1B" />
+        </svg>
       </div>
-      <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#f9fafb] border border-[#e5e7eb] rounded-lg text-[10px] font-medium text-[#6b7280]">
-        <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
-        SSL Encrypted
+      {/* Apple Pay */}
+      <div className="flex items-center px-2 py-1 bg-[#f9fafb] border border-[#e5e7eb] rounded-lg">
+        <svg viewBox="0 -9 58 58" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-6 w-9">
+          <rect x="0.5" y="0.5" width="57" height="39" rx="3.5" fill="white" stroke="#F3F3F3" />
+          <path fillRule="evenodd" clipRule="evenodd" d="M17.5771 14.9265C17.1553 15.4313 16.4803 15.8294 15.8053 15.7725C15.7209 15.09 16.0513 14.3649 16.4381 13.9171C16.8599 13.3981 17.5982 13.0284 18.1959 13C18.2662 13.7109 17.992 14.4076 17.5771 14.9265ZM18.1888 15.9076C17.5942 15.873 17.0516 16.0884 16.6133 16.2624C16.3313 16.3744 16.0924 16.4692 15.9107 16.4692C15.7068 16.4692 15.4581 16.3693 15.1789 16.2571C14.813 16.1102 14.3947 15.9422 13.956 15.9502C12.9506 15.9645 12.0154 16.5403 11.5021 17.4573C10.4474 19.2915 11.2279 22.0071 12.2474 23.5C12.7467 24.2393 13.3443 25.0498 14.1318 25.0213C14.4783 25.0081 14.7275 24.9012 14.9854 24.7905C15.2823 24.6631 15.5908 24.5308 16.0724 24.5308C16.5374 24.5308 16.8324 24.6597 17.1155 24.7834C17.3847 24.9011 17.6433 25.014 18.0271 25.0071C18.8428 24.9929 19.356 24.2678 19.8553 23.5284C20.394 22.7349 20.6307 21.9605 20.6667 21.843L20.6709 21.8294C20.67 21.8285 20.6634 21.8254 20.6516 21.82C20.4715 21.7366 19.095 21.0995 19.0818 19.391C19.0686 17.957 20.1736 17.2304 20.3476 17.116C20.3582 17.109 20.3653 17.1043 20.3685 17.1019C19.6654 16.0498 18.5685 15.936 18.1888 15.9076ZM23.8349 24.9289V13.846H27.9482C30.0717 13.846 31.5553 15.3246 31.5553 17.4858C31.5553 19.6469 30.0435 21.1398 27.892 21.1398H25.5365V24.9289H23.8349ZM25.5365 15.2962H27.4982C28.9748 15.2962 29.8185 16.0924 29.8185 17.4929C29.8185 18.8934 28.9748 19.6967 27.4912 19.6967H25.5365V15.2962ZM37.1732 23.5995C36.7232 24.4668 35.7318 25.0142 34.6631 25.0142C33.081 25.0142 31.9771 24.0616 31.9771 22.6256C31.9771 21.2038 33.0459 20.3863 35.0217 20.2654L37.1451 20.1374V19.5261C37.1451 18.6232 36.5615 18.1327 35.5209 18.1327C34.6631 18.1327 34.0373 18.5806 33.9107 19.263H32.3779C32.4271 17.827 33.7631 16.782 35.5701 16.782C37.5177 16.782 38.7834 17.8128 38.7834 19.4123V24.9289H37.2084V23.5995H37.1732ZM35.1201 23.6991C34.2131 23.6991 33.6365 23.2583 33.6365 22.5829C33.6365 21.8863 34.192 21.481 35.2537 21.4171L37.1451 21.2962V21.9218C37.1451 22.9597 36.2732 23.6991 35.1201 23.6991ZM44.0076 25.3626C43.3256 27.3033 42.5451 27.9431 40.8857 27.9431C40.7592 27.9431 40.3373 27.9289 40.2388 27.9005V26.5711C40.3443 26.5853 40.6045 26.5995 40.7381 26.5995C41.4904 26.5995 41.9123 26.2796 42.1724 25.4479L42.3271 24.9573L39.4443 16.8886H41.2232L43.2271 23.436H43.2623L45.2662 16.8886H46.9959L44.0076 25.3626Z" fill="#000000" />
+        </svg>
+      </div>
+      {/* SSL Encrypted - simple gray/black */}
+      <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#f9fafb] border border-[#e5e7eb] rounded-lg text-[10px] font-medium text-[#374151]">
+        <Lock className="h-3 w-3 text-[#6b7280]" />
+        SSL
       </div>
     </div>
   )
@@ -724,13 +753,15 @@ function InvoiceContent({ invoice, formatDate, formatAmount, getStatusBadge, cur
 /* ============================================================
    Upgrade Confirmation Modal
    ============================================================ */
-function UpgradeConfirmModal({ planId, planName, priceCents, currentPlan, subscription, isSubscribed, loading, preview, onConfirm, onClose }: {
+function UpgradeConfirmModal({ planId, planName, priceCents, currentPlan, subscription, isSubscribed, loading, preview, onConfirm, onClose, cancelAtPeriodEnd = false }: {
   planId: string; planName: string; priceCents: number; currentPlan: any; subscription: any; isSubscribed: boolean; loading: boolean;
   preview: { amountDueTodayCents: number; nextBillingDate: string; nextAmountCents: number; type: "upgrade" | "downgrade" } | null;
-  onConfirm: () => void; onClose: () => void
+  onConfirm: () => void; onClose: () => void; cancelAtPeriodEnd?: boolean
 }) {
-  const isUpgrade = priceCents > currentPlan.price_cents
-  const isDowngrade = priceCents < currentPlan.price_cents
+  // When cancel_at_period_end is true and user clicks a paid plan, treat as re-upgrade
+  const isReUpgrade = cancelAtPeriodEnd && priceCents > 0
+  const isUpgrade = isReUpgrade || priceCents > currentPlan.price_cents
+  const isDowngrade = !isReUpgrade && priceCents < currentPlan.price_cents
 
   const nextChargeText = preview?.nextBillingDate
     ? `Your next charge will be $${((preview?.nextAmountCents || priceCents) / 100).toFixed(2)} on ${new Date(preview.nextBillingDate).toLocaleDateString("en-US", { month: "long", day: "numeric" })}.`
@@ -741,10 +772,18 @@ function UpgradeConfirmModal({ planId, planName, priceCents, currentPlan, subscr
       <div className="bg-white rounded-2xl w-full max-w-md shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="p-6">
           <h2 className="text-[18px] font-bold text-[#1a1a2e] mb-2">
-            {isUpgrade ? `Upgrade to ${planName}` : isDowngrade ? `Downgrade to ${planName}` : `Switch to ${planName}`}
+            {isReUpgrade ? `Upgrade Again to ${planName}` : isUpgrade ? `Upgrade to ${planName}` : isDowngrade ? `Downgrade to ${planName}` : `Switch to ${planName}`}
           </h2>
 
-          {isUpgrade && isSubscribed && (
+          {isReUpgrade && isSubscribed && (
+            <div className="bg-[#f5f3ff] border border-[#ede9fe] rounded-xl p-4 mb-4 space-y-2">
+              <p className="text-[13px] text-[#374151]">
+                Your cancellation will be reversed and you&apos;ll continue on the <span className="font-semibold text-[#7c3aed]">{planName}</span> plan at <span className="font-semibold text-[#7c3aed]">${(priceCents / 100).toFixed(2)}/month</span>.
+              </p>
+            </div>
+          )}
+
+          {isUpgrade && !isReUpgrade && isSubscribed && (
             <div className="bg-[#f5f3ff] border border-[#ede9fe] rounded-xl p-4 mb-4 space-y-2">
               <p className="text-[13px] text-[#374151]">
                 You&apos;ll be charged <span className="font-semibold text-[#7c3aed]">${((preview?.amountDueTodayCents || 0) / 100).toFixed(2)}</span> today for the remaining time in your current billing cycle.
@@ -770,7 +809,7 @@ function UpgradeConfirmModal({ planId, planName, priceCents, currentPlan, subscr
               Cancel
             </button>
             <button onClick={onConfirm} disabled={loading} className="flex-1 h-10 text-[13px] font-semibold text-white bg-[#7c3aed] rounded-xl hover:bg-[#6d28d9] transition-colors flex items-center justify-center gap-2 cursor-pointer">
-              {loading ? <><Loader2 className="h-4 w-4 animate-spin" />Processing...</> : isUpgrade ? "Confirm Upgrade" : isDowngrade ? "Confirm Downgrade" : "Confirm"}
+              {loading ? <><Loader2 className="h-4 w-4 animate-spin" />Processing...</> : isReUpgrade ? "Confirm Upgrade" : isUpgrade ? "Confirm Upgrade" : isDowngrade ? "Confirm Downgrade" : "Confirm"}
             </button>
           </div>
         </div>
@@ -860,15 +899,15 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
   }
 
   const descriptions: Record<string, string> = {
-    free: "Perfect for getting started. Explore the basics at no cost.",
-    growth: "Ideal for growing creators who want lower fees and more tools.",
-    pro: "For professionals who demand the lowest fees and premium features.",
+    free: "Perfect for getting started.",
+    growth: "For creators ready to scale and pay lower fees.",
+    pro: "For serious creators who want the lowest fees and priority support.",
   }
 
-  const featureLists: Record<string, (plan: any) => string[]> = {
-    free: (plan) => [`${(plan.fee_percent * 100).toFixed(1)}% + $0.25 per transaction`, "Basic analytics dashboard", "Standard email support", "Up to 10 products", "Community access"],
-    growth: (plan) => [`${(plan.fee_percent * 100).toFixed(1)}% + $0.25 per transaction`, "Advanced analytics & reports", "Priority email support", "Custom domain support", "Unlimited products", "Email marketing tools", "Discount codes"],
-    pro: (plan) => [`${(plan.fee_percent * 100).toFixed(2)}% + $0.25 per transaction`, "Premium analytics & insights", "Dedicated account manager", "White-label options", "Full API access", "Unlimited products", "Custom integrations", "Priority processing"],
+  const featureLists: Record<string, string[]> = {
+    free: ["6% + $0.25 per transaction", "Unlimited digital products", "Basic OnePage features", "500 emails / month"],
+    growth: ["3% + $0.25 per transaction", "Unlimited digital products", "Premium OnePage features", "Custom domain", "Verified badge", "2,000 emails / month"],
+    pro: ["1.5% + $0.25 per transaction", "Unlimited digital products", "Premium OnePage features", "Custom domain", "Verified badge", "5,000 emails / month", "Priority support"],
   }
 
   return (
@@ -933,7 +972,7 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
                 {loading === plan.id ? <><Loader2 className="h-4 w-4 animate-spin" />Processing...</> : buttonLabel}
               </button>
               <ul className="space-y-2.5 flex-1">
-                {(featureLists[plan.id]?.(plan) || plan.features || []).map((feature: string, idx: number) => (
+                {(featureLists[plan.id] || []).map((feature: string, idx: number) => (
                   <li key={idx} className={`flex items-start gap-2 text-[12px] ${isPro ? "text-white/80" : "text-[#374151]"}`}>
                     <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${isPro ? "bg-[#7c3aed]/30" : "bg-[#ede9fe]"}`}>
                       <Check className={`h-2.5 w-2.5 ${isPro ? "text-[#a78bfa]" : "text-[#7c3aed]"}`} strokeWidth={3} />

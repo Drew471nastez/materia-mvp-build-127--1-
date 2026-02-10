@@ -323,7 +323,7 @@ function MobileBottomSheet({
             <h2 className="text-[18px] font-semibold text-[#1a1a2e]">{title}</h2>
             <button
               onClick={handleClose}
-              className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center text-[#6b7280] hover:bg-[#e5e7eb] transition-colors"
+              className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center text-[#6b7280] hover:bg-[#e5e7eb] transition-colors cursor-pointer"
             >
               <X className="h-4 w-4" />
             </button>
@@ -1518,13 +1518,13 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 }
                 setIsQuickAccessOpen((v) => !v)
               }}
-              className="relative inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-[#e5e7eb] bg-white/90 text-[12px] font-medium text-[#4b5563] hover:text-[#111827] hover:border-[#d1d5db] hover:bg-white transition-all cursor-pointer overflow-hidden"
+              className="relative inline-flex items-center gap-1.5 px-3 py-1 sm:px-4 sm:py-1.5 rounded-full border border-[#e5e7eb] bg-white/90 text-[12px] sm:text-[14px] font-medium text-[#4b5563] hover:text-[#111827] hover:border-[#d1d5db] hover:bg-white transition-all cursor-pointer overflow-hidden"
             >
               <span className="absolute -inset-px rounded-full opacity-45 pointer-events-none animate-[spin_12s_linear_infinite] bg-[conic-gradient(from_0deg,transparent_0deg,transparent_270deg,rgba(139,92,246,0.30)_320deg,transparent_360deg)]" />
               <span className="absolute inset-[1px] rounded-full bg-white/95" />
-              <span className="relative z-[1] inline-flex items-center gap-1.5">
+              <span className="relative z-[1] inline-flex items-center gap-1.5 sm:gap-2">
                 {settingsHandleLabel}
-                <ExternalLink className="h-3.5 w-3.5 text-[#9ca3af]" />
+                <ExternalLink className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#9ca3af]" />
               </span>
             </button>
 
@@ -1604,50 +1604,44 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
         <form onSubmit={handleSubmit}>
           {/* Skeleton Loading */}
           {isTabLoading && (
-            <div className="space-y-4 sm:space-y-6 animate-pulse">
+            <div className="space-y-4 sm:space-y-6 animate-in fade-in duration-150">
               {/* Skeleton Card 1 */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
                 <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-full bg-gray-200" />
-                  <div className="flex-1 space-y-2">
-                    <div className="h-4 bg-gray-200 rounded w-32" />
-                    <div className="h-3 bg-gray-200 rounded w-48" />
+                  <div className="w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-full bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 animate-[shimmer_1.5s_ease-in-out_infinite] bg-[length:200%_100%]" />
+                  <div className="flex-1 space-y-2.5">
+                    <div className="h-4 bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 animate-[shimmer_1.5s_ease-in-out_infinite] bg-[length:200%_100%] rounded-lg w-32" />
+                    <div className="h-3 bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 animate-[shimmer_1.5s_ease-in-out_infinite] bg-[length:200%_100%] rounded-lg w-48" />
                   </div>
                 </div>
               </div>
               {/* Skeleton Card 2 */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <div className="h-5 bg-gray-200 rounded w-40 mb-4" />
+                <div className="h-5 bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 animate-[shimmer_1.5s_ease-in-out_infinite] bg-[length:200%_100%] rounded-lg w-40 mb-4" />
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <div className="h-3 bg-gray-200 rounded w-20" />
-                    <div className="h-11 bg-gray-200 rounded-xl" />
+                  <div className="space-y-2">
+                    <div className="h-3 bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 animate-[shimmer_1.5s_ease-in-out_infinite] bg-[length:200%_100%] rounded-lg w-20" />
+                    <div className="h-11 bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 animate-[shimmer_1.5s_ease-in-out_infinite] bg-[length:200%_100%] rounded-xl" />
                   </div>
-                  <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
-                    <div className="h-3 bg-gray-200 rounded w-24" />
-                    <div className="h-11 bg-gray-200 rounded-xl" />
+                  <div className="space-y-2">
+                    <div className="h-3 bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 animate-[shimmer_1.5s_ease-in-out_infinite] bg-[length:200%_100%] rounded-lg w-24" />
+                    <div className="h-11 bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 animate-[shimmer_1.5s_ease-in-out_infinite] bg-[length:200%_100%] rounded-xl" />
                   </div>
                 </div>
               </div>
               {/* Skeleton Card 3 */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <div className="h-5 bg-gray-200 rounded w-32 mb-4" />
+                <div className="h-5 bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 animate-[shimmer_1.5s_ease-in-out_infinite] bg-[length:200%_100%] rounded-lg w-32 mb-4" />
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <div className="h-3 bg-gray-200 rounded w-16" />
-                    <div className="h-11 bg-gray-200 rounded-xl" />
+                    <div className="h-3 bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 animate-[shimmer_1.5s_ease-in-out_infinite] bg-[length:200%_100%] rounded-lg w-16" />
+                    <div className="h-11 bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 animate-[shimmer_1.5s_ease-in-out_infinite] bg-[length:200%_100%] rounded-xl" />
                   </div>
                   <div className="space-y-2">
-                    <div className="h-3 bg-gray-200 rounded w-28" />
-                    <div className="h-11 bg-gray-200 rounded-xl" />
+                    <div className="h-3 bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 animate-[shimmer_1.5s_ease-in-out_infinite] bg-[length:200%_100%] rounded-lg w-28" />
+                    <div className="h-11 bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 animate-[shimmer_1.5s_ease-in-out_infinite] bg-[length:200%_100%] rounded-xl" />
                   </div>
                 </div>
-              </div>
-              {/* Skeleton Card 4 */}
-              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
-                <div className="h-5 bg-gray-200 rounded w-24 mb-2" />
-                <div className="h-3 bg-gray-200 rounded w-64 mb-4" />
-                <div className="h-11 bg-gray-200 rounded-xl" />
               </div>
             </div>
           )}
@@ -1768,31 +1762,35 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   </div>
                 </div>
 
-                {/* OnePage URL - inside Profile Information */}
-                <div className="mt-4 pt-4 border-t border-[#f3f4f6]">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="onepageHandle" className="text-[13px] font-medium text-[#374151]">
-                      OnePage URL
-                    </Label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[14px] text-[#6b7280]">
-                        @
-                      </span>
-                      <Input
-                        id="onepageHandle"
-                        value={username}
-                        onChange={(e) => {
-                          const value = e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, "")
-                          setUsername(value)
-                        }}
-                        placeholder="yourhandle"
-                        className="h-11 pl-7 border-[#e5e7eb] rounded-xl text-[14px] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
-                      />
-                    </div>
-                    <p className="text-[12px] text-[#6b7280]">
-                      Your OnePage will be available at: <span className="font-medium text-[#8b5cf6]">{getLinksUrl(username || "yourhandle")}</span>
-                    </p>
+              </div>
+
+              {/* OnePage URL - separate card */}
+              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
+                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">
+                  OnePage URL
+                </h3>
+                <div className="space-y-1.5">
+                  <Label htmlFor="onepageHandle" className="text-[13px] font-medium text-[#374151]">
+                    Handle
+                  </Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[14px] text-[#6b7280]">
+                      @
+                    </span>
+                    <Input
+                      id="onepageHandle"
+                      value={username}
+                      onChange={(e) => {
+                        const value = e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, "")
+                        setUsername(value)
+                      }}
+                      placeholder="yourhandle"
+                      className="h-11 pl-7 border-[#e5e7eb] rounded-xl text-[14px] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
+                    />
                   </div>
+                  <p className="text-[12px] text-[#6b7280]">
+                    Your OnePage will be available at: <span className="font-medium text-[#8b5cf6]">{getLinksUrl(username || "yourhandle")}</span>
+                  </p>
                 </div>
               </div>
 

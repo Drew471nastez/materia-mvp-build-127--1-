@@ -89,39 +89,15 @@ export function UpgradePageClient({
   }
 
   const descriptions: Record<string, string> = {
-    free: "Perfect for getting started. Explore the basics at no cost.",
-    growth: "Ideal for growing creators who want lower fees and more tools.",
-    pro: "For professionals who demand the lowest fees and premium features.",
+    free: "Perfect for getting started.",
+    growth: "For creators ready to scale and pay lower fees.",
+    pro: "For serious creators who want the lowest fees and priority support.",
   }
 
-  const featureLists: Record<string, (plan: any) => string[]> = {
-    free: (plan) => [
-      `${(plan.fee_percent * 100).toFixed(1)}% + $0.25 per transaction`,
-      "Basic analytics dashboard",
-      "Standard email support",
-      "Up to 10 products",
-      "Community access",
-    ],
-    growth: (plan) => [
-      `${(plan.fee_percent * 100).toFixed(1)}% + $0.25 per transaction`,
-      "Advanced analytics & reports",
-      "Priority email support",
-      "Custom domain support",
-      "Unlimited products",
-      "Email marketing tools",
-      "Discount codes",
-    ],
-    pro: (plan) => [
-      `${(plan.fee_percent * 100).toFixed(2)}% + $0.25 per transaction`,
-      "Premium analytics & insights",
-      "Dedicated account manager",
-      "White-label options",
-      "Full API access",
-      "Unlimited products",
-      "Custom integrations",
-      "Priority processing",
-      "Advanced automation",
-    ],
+  const featureLists: Record<string, string[]> = {
+    free: ["6% + $0.25 per transaction", "Unlimited digital products", "Basic OnePage features", "500 emails / month"],
+    growth: ["3% + $0.25 per transaction", "Unlimited digital products", "Premium OnePage features", "Custom domain", "Verified badge", "2,000 emails / month"],
+    pro: ["1.5% + $0.25 per transaction", "Unlimited digital products", "Premium OnePage features", "Custom domain", "Verified badge", "5,000 emails / month", "Priority support"],
   }
 
   return (
@@ -300,7 +276,7 @@ export function UpgradePageClient({
                 </button>
 
                 <ul className="space-y-3 flex-1">
-                  {(featureLists[plan.id]?.(plan) || plan.features || []).map((feature: string, idx: number) => (
+                  {(featureLists[plan.id] || []).map((feature: string, idx: number) => (
                     <li key={idx} className={`flex items-start gap-2.5 text-[13px] ${isPro ? "text-white/80" : "text-[#374151]"}`}>
                       <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
                         isPro ? "bg-[#7c3aed]/30" : "bg-[#ede9fe]"
