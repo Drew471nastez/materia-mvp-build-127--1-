@@ -241,7 +241,7 @@ export async function POST(request: Request) {
     }
 
     // Expand latest_invoice to get period dates (SDK v20 removed current_period_start/end)
-    const stripeSubscription = await stripe.subscriptions.retrieve(
+    let stripeSubscription = await stripe.subscriptions.retrieve(
       subscriptionRecord.stripe_subscription_id,
       { expand: ["latest_invoice"] }
     ) as any
@@ -325,43 +325,66 @@ export async function POST(request: Request) {
 
     // Downgrade: schedule for end of current period using Subscription Schedules
     try {
-      let schedule = null as any
+      // ALWAYS release any existing schedule first to start fresh
       const existingScheduleId = stripeSubscription.schedule
         ? (typeof stripeSubscription.schedule === "string" ? stripeSubscription.schedule : stripeSubscription.schedule.id)
         : null
 
       if (existingScheduleId) {
-        const existingSched = await stripe.subscriptionSchedules.retrieve(existingScheduleId)
-        // Only reuse active/not_started schedules; otherwise create new one
-        if (existingSched.status === "active" || existingSched.status === "not_started") {
-          schedule = existingSched
-        } else {
-          // Release the old schedule first, then create new
+        console.log("[Change] Releasing existing schedule:", existingScheduleId)
+        try {
+          await stripe.subscriptionSchedules.release(existingScheduleId)
+        } catch (releaseErr: any) {
+          console.warn("[Change] Could not release schedule:", releaseErr.message)
+          // Try cancel if release fails
           try {
-            await stripe.subscriptionSchedules.release(existingScheduleId)
-          } catch (releaseErr) {
-            console.warn("[Change] Could not release old schedule:", releaseErr)
+            await stripe.subscriptionSchedules.cancel(existingScheduleId)
+          } catch (cancelErr: any) {
+            console.warn("[Change] Could not cancel schedule either:", cancelErr.message)
           }
-          schedule = await stripe.subscriptionSchedules.create({ from_subscription: stripeSubscription.id })
         }
-      } else {
-        schedule = await stripe.subscriptionSchedules.create({ from_subscription: stripeSubscription.id })
+        // Re-retrieve subscription after releasing (schedule field will be cleared)
+        stripeSubscription = await stripe.subscriptions.retrieve(
+          subscriptionRecord.stripe_subscription_id,
+          { expand: ["latest_invoice"] }
+        ) as any
       }
 
-      console.log("[Change] Downgrade schedule:", { scheduleId: schedule.id, periodStart, periodEnd })
+      // Create a fresh schedule from the current subscription
+      const schedule = await stripe.subscriptionSchedules.create({
+        from_subscription: stripeSubscription.id,
+      })
 
+      // Use Stripe's own phase dates (most reliable - avoids any period extraction issues)
+      const currentPhase = schedule.phases?.[0]
+      if (!currentPhase) {
+        throw new Error("No current phase found in newly created schedule")
+      }
+
+      const phaseStart = currentPhase.start_date
+      const phaseEnd = currentPhase.end_date
+
+      console.log("[Change] Downgrade schedule:", {
+        scheduleId: schedule.id,
+        phaseStart,
+        phaseEnd,
+        computedPeriodStart: periodStart,
+        computedPeriodEnd: periodEnd,
+      })
+
+      // Update schedule: keep current plan until phase end, then switch to new plan
       await stripe.subscriptionSchedules.update(schedule.id, {
         end_behavior: "release",
         phases: [
           {
             items: [{ price: subItem.price.id, quantity: 1 }],
-            start_date: periodStart,
-            end_date: periodEnd,
+            start_date: phaseStart,
+            end_date: phaseEnd,
             proration_behavior: "none",
           },
           {
             items: [{ price: stripePriceId, quantity: 1 }],
-            start_date: periodEnd,
+            start_date: phaseEnd,
             proration_behavior: "none",
           },
         ],

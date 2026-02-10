@@ -617,6 +617,7 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                 if (checkoutUrl) window.location.href = checkoutUrl
               }
             } catch (error: any) {
+              setShowUpgradeModal(null)
               showNotification("error", error.message || "An error occurred")
             } finally {
               setUpgradeLoading(false)
