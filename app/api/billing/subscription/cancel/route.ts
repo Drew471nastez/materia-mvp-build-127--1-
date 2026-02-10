@@ -77,9 +77,24 @@ export async function POST() {
       })
       .eq("id", subscription.id)
 
-    // Get the period end from the canceled subscription
+    // Get the period end from the canceled subscription with robust fallbacks
     const cancelSub = canceledSubscription as any
-    const cancelPeriodEnd = cancelSub.current_period_end || cancelSub.current_period?.end_date || null
+    let cancelPeriodEnd: any = cancelSub.current_period_end || cancelSub.current_period?.end_date || null
+    if (!cancelPeriodEnd) {
+      // Try cancel_at field (Stripe sets this on cancel_at_period_end)
+      cancelPeriodEnd = cancelSub.cancel_at || null
+    }
+    if (!cancelPeriodEnd) {
+      // Compute from billing_cycle_anchor
+      const anchor = cancelSub.billing_cycle_anchor || cancelSub.start_date
+      if (anchor) {
+        const anchorMs = typeof anchor === "number" ? (anchor > 1e12 ? anchor : anchor * 1000) : new Date(anchor).getTime()
+        const anchorDate = new Date(anchorMs)
+        const now = new Date()
+        while (anchorDate <= now) anchorDate.setMonth(anchorDate.getMonth() + 1)
+        cancelPeriodEnd = anchorDate.toISOString()
+      }
+    }
 
     return NextResponse.json({
       success: true,

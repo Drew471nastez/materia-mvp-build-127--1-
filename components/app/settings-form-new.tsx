@@ -936,7 +936,24 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
         return
       }
       if (data?.url) {
-        window.location.href = data.url
+        // Open Stripe Connect in a popup window (like Stan.store)
+        const w = 600
+        const h = 700
+        const left = window.screenX + (window.outerWidth - w) / 2
+        const top = window.screenY + (window.outerHeight - h) / 2
+        const popup = window.open(data.url, "stripe-connect", `width=${w},height=${h},left=${left},top=${top},scrollbars=yes,resizable=yes`)
+        // Poll for popup close, then refresh status
+        if (popup) {
+          const pollTimer = setInterval(() => {
+            if (popup.closed) {
+              clearInterval(pollTimer)
+              loadStripeStatus()
+            }
+          }, 1000)
+        } else {
+          // Popup blocked - fall back to redirect
+          window.location.href = data.url
+        }
       } else {
         setError("No onboarding URL returned. Please try again.")
         setTimeout(() => setError(null), 5000)

@@ -39,26 +39,71 @@ function safeTimestamp(ts: any): string {
 }
 
 // Extract period dates from subscription (SDK v20: current_period_start/end removed)
+// Returns Unix timestamps (seconds)
 function getSubscriptionPeriod(sub: any): { periodStart: number; periodEnd: number } {
-  // Try legacy fields first (may still be on the raw API response)
-  if (sub.current_period_start && sub.current_period_end) {
-    return { periodStart: sub.current_period_start, periodEnd: sub.current_period_end }
+  // Helper: convert any timestamp to Unix seconds
+  function toUnixSeconds(ts: any): number | null {
+    if (!ts) return null
+    if (typeof ts === "number") return ts > 1e12 ? Math.floor(ts / 1000) : ts
+    if (typeof ts === "string") {
+      const d = new Date(ts)
+      return isNaN(d.getTime()) ? null : Math.floor(d.getTime() / 1000)
+    }
+    return null
   }
-  // Try new current_period object
-  if (sub.current_period?.start_date && sub.current_period?.end_date) {
-    return {
-      periodStart: Math.floor(new Date(sub.current_period.start_date).getTime() / 1000),
-      periodEnd: Math.floor(new Date(sub.current_period.end_date).getTime() / 1000),
+
+  let periodStart: number | null = null
+  let periodEnd: number | null = null
+
+  // Priority 1: Legacy top-level fields
+  if (sub.current_period_start) periodStart = toUnixSeconds(sub.current_period_start)
+  if (sub.current_period_end) periodEnd = toUnixSeconds(sub.current_period_end)
+
+  // Priority 2: SDK v20 current_period object
+  if (!periodStart && sub.current_period?.start_date) periodStart = toUnixSeconds(sub.current_period.start_date)
+  if (!periodEnd && sub.current_period?.end_date) periodEnd = toUnixSeconds(sub.current_period.end_date)
+
+  // Priority 3: latest_invoice period
+  const invoice = typeof sub.latest_invoice === "object" && sub.latest_invoice ? sub.latest_invoice : null
+  if (invoice) {
+    if (!periodStart && invoice.period_start) periodStart = toUnixSeconds(invoice.period_start)
+    if (!periodEnd && invoice.period_end) periodEnd = toUnixSeconds(invoice.period_end)
+
+    // Priority 4: invoice line items
+    if (!periodStart || !periodEnd) {
+      const lineItem = invoice.lines?.data?.[0]
+      if (lineItem?.period) {
+        if (!periodStart && lineItem.period.start) periodStart = toUnixSeconds(lineItem.period.start)
+        if (!periodEnd && lineItem.period.end) periodEnd = toUnixSeconds(lineItem.period.end)
+      }
     }
   }
-  // Fallback: derive from latest_invoice
-  const invoice = typeof sub.latest_invoice === "object" ? sub.latest_invoice : null
-  if (invoice?.period_start && invoice?.period_end) {
-    return { periodStart: invoice.period_start, periodEnd: invoice.period_end }
+
+  // Priority 5: Compute from billing_cycle_anchor or start_date
+  if (!periodEnd) {
+    const anchor = sub.billing_cycle_anchor || sub.start_date
+    if (anchor) {
+      const anchorSec = toUnixSeconds(anchor)
+      if (anchorSec) {
+        const anchorDate = new Date(anchorSec * 1000)
+        const now = new Date()
+        while (anchorDate <= now) anchorDate.setMonth(anchorDate.getMonth() + 1)
+        periodEnd = Math.floor(anchorDate.getTime() / 1000)
+        if (!periodStart) {
+          const startDate = new Date(anchorDate)
+          startDate.setMonth(startDate.getMonth() - 1)
+          periodStart = Math.floor(startDate.getTime() / 1000)
+        }
+      }
+    }
   }
-  // Last resort: start_date + 30 days
-  const start = sub.start_date || Math.floor(Date.now() / 1000)
-  return { periodStart: start, periodEnd: start + 30 * 24 * 60 * 60 }
+
+  // Final fallback
+  if (!periodStart) periodStart = Math.floor(Date.now() / 1000)
+  if (!periodEnd) periodEnd = periodStart + 30 * 24 * 60 * 60
+
+  console.log("[Change] Period extraction:", { periodStart, periodEnd, hasInvoice: !!invoice })
+  return { periodStart, periodEnd }
 }
 
 export async function POST(request: Request) {
@@ -70,8 +115,78 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Plan ID is required" }, { status: 400 })
     }
 
+    // Handle downgrade to Free as a cancellation (cancel at period end, keep features until then)
     if (newPlanId === "free") {
-      return NextResponse.json({ error: "To downgrade to Free, please cancel your subscription" }, { status: 400 })
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser()
+      if (authError || !user) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      }
+
+      const { data: creator } = await supabase
+        .from("creators")
+        .select("id, subscription_plan_id")
+        .eq("user_id", user.id)
+        .single()
+
+      if (!creator) {
+        return NextResponse.json({ error: "Creator not found" }, { status: 404 })
+      }
+
+      const { data: subscriptionRecord } = await supabase
+        .from("subscriptions")
+        .select("id, stripe_subscription_id")
+        .eq("creator_id", creator.id)
+        .maybeSingle()
+
+      if (!subscriptionRecord?.stripe_subscription_id) {
+        return NextResponse.json({ error: "No active subscription found" }, { status: 400 })
+      }
+
+      if (previewOnly) {
+        // Preview: show that subscription will cancel at period end
+        const stripeSub = await stripe.subscriptions.retrieve(
+          subscriptionRecord.stripe_subscription_id,
+          { expand: ["latest_invoice"] }
+        ) as any
+        const { periodEnd } = getSubscriptionPeriod(stripeSub)
+        return NextResponse.json({
+          success: true,
+          type: "downgrade",
+          amountDueTodayCents: 0,
+          nextBillingDate: safeTimestamp(periodEnd),
+          nextAmountCents: 0,
+        })
+      }
+
+      // Cancel at period end (user keeps features until then)
+      const canceledSub = await stripe.subscriptions.update(
+        subscriptionRecord.stripe_subscription_id,
+        { cancel_at_period_end: true }
+      )
+
+      // Get the period end from the canceled subscription
+      const { periodEnd: cancelPeriodEnd } = getSubscriptionPeriod(canceledSub as any)
+
+      await supabase
+        .from("subscriptions")
+        .update({
+          cancel_at_period_end: true,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", subscriptionRecord.id)
+
+      return NextResponse.json({
+        success: true,
+        type: "downgrade",
+        message: "Your plan will downgrade to Free at the end of your billing cycle. You'll keep all current features until then.",
+        effectiveDate: safeTimestamp(cancelPeriodEnd),
+        nextBillingDate: safeTimestamp(cancelPeriodEnd),
+        nextAmountCents: 0,
+        amountDueTodayCents: 0,
+      })
     }
 
     const {
@@ -194,54 +309,78 @@ export async function POST(request: Request) {
       })
     }
 
-    // Downgrade: schedule for end of current period
-    let schedule = null as any
-    if (stripeSubscription.schedule) {
-      schedule = await stripe.subscriptionSchedules.retrieve(
-        typeof stripeSubscription.schedule === "string" ? stripeSubscription.schedule : stripeSubscription.schedule.id,
-      )
-    } else {
-      schedule = await stripe.subscriptionSchedules.create({ from_subscription: stripeSubscription.id })
-    }
+    // Downgrade: schedule for end of current period using Subscription Schedules
+    try {
+      let schedule = null as any
+      const existingScheduleId = stripeSubscription.schedule
+        ? (typeof stripeSubscription.schedule === "string" ? stripeSubscription.schedule : stripeSubscription.schedule.id)
+        : null
 
-    await stripe.subscriptionSchedules.update(schedule.id, {
-      end_behavior: "release",
-      phases: [
-        {
-          items: [{ price: subItem.price.id, quantity: 1 }],
-          start_date: periodStart,
-          end_date: periodEnd,
-          proration_behavior: "none",
-        },
-        {
-          items: [{ price: stripePriceId, quantity: 1 }],
-          start_date: periodEnd,
-          proration_behavior: "none",
-        },
-      ],
-    })
+      if (existingScheduleId) {
+        const existingSched = await stripe.subscriptionSchedules.retrieve(existingScheduleId)
+        // Only reuse active/not_started schedules; otherwise create new one
+        if (existingSched.status === "active" || existingSched.status === "not_started") {
+          schedule = existingSched
+        } else {
+          // Release the old schedule first, then create new
+          try {
+            await stripe.subscriptionSchedules.release(existingScheduleId)
+          } catch (releaseErr) {
+            console.warn("[Change] Could not release old schedule:", releaseErr)
+          }
+          schedule = await stripe.subscriptionSchedules.create({ from_subscription: stripeSubscription.id })
+        }
+      } else {
+        schedule = await stripe.subscriptionSchedules.create({ from_subscription: stripeSubscription.id })
+      }
 
-    await stripe.subscriptions.update(subscriptionRecord.stripe_subscription_id, {
-      metadata: { ...stripeSubscription.metadata, pending_plan_id: newPlanId },
-    })
+      console.log("[Change] Downgrade schedule:", { scheduleId: schedule.id, periodStart, periodEnd })
 
-    await supabase
-      .from("subscriptions")
-      .update({
-        pending_plan_id: newPlanId,
-        updated_at: new Date().toISOString(),
+      await stripe.subscriptionSchedules.update(schedule.id, {
+        end_behavior: "release",
+        phases: [
+          {
+            items: [{ price: subItem.price.id, quantity: 1 }],
+            start_date: periodStart,
+            end_date: periodEnd,
+            proration_behavior: "none",
+          },
+          {
+            items: [{ price: stripePriceId, quantity: 1 }],
+            start_date: periodEnd,
+            proration_behavior: "none",
+          },
+        ],
       })
-      .eq("id", subscriptionRecord.id)
 
-    return NextResponse.json({
-      success: true,
-      type: "downgrade",
-      message: "Downgrade scheduled for end of cycle.",
-      effectiveDate: safeTimestamp(periodEnd),
-      nextBillingDate,
-      nextAmountCents: Math.abs(nextAmountCents),
-      amountDueTodayCents: amountDueNowCents,
-    })
+      await stripe.subscriptions.update(subscriptionRecord.stripe_subscription_id, {
+        metadata: { ...stripeSubscription.metadata, pending_plan_id: newPlanId },
+      })
+
+      await supabase
+        .from("subscriptions")
+        .update({
+          pending_plan_id: newPlanId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", subscriptionRecord.id)
+
+      return NextResponse.json({
+        success: true,
+        type: "downgrade",
+        message: "Downgrade scheduled for end of billing cycle. You'll keep all current features until then.",
+        effectiveDate: safeTimestamp(periodEnd),
+        nextBillingDate,
+        nextAmountCents: Math.abs(nextAmountCents),
+        amountDueTodayCents: amountDueNowCents,
+      })
+    } catch (scheduleError: any) {
+      console.error("[Change] Subscription schedule error:", scheduleError)
+      return NextResponse.json(
+        { error: `Failed to schedule downgrade: ${scheduleError.message || "Unknown error"}` },
+        { status: 500 }
+      )
+    }
   } catch (error: any) {
     console.error("Error in POST /api/billing/subscription/change:", error)
     return NextResponse.json({ error: error.message || "Failed to change subscription" }, { status: 500 })

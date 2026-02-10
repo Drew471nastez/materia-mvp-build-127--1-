@@ -389,9 +389,6 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                         {portalLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ExternalLink className="h-3.5 w-3.5" />}
                         Manage Subscription
                       </button>
-                      <button onClick={handleCancelSubscription} disabled={portalLoading} className="h-10 px-5 text-[13px] font-medium text-[#6b7280] border border-[#e5e7eb] rounded-xl hover:bg-[#f9fafb] hover:text-red-600 hover:border-red-200 transition-colors cursor-pointer">
-                        Cancel
-                      </button>
                     </>
                   )}
                   {isSubscribed && subscription.cancel_at_period_end && (
@@ -611,6 +608,8 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                 showNotification("success", result.message || `Plan changed to ${showUpgradeModal.planName}!`)
                 setShowUpgradeModal(null)
                 router.refresh()
+                // Also refresh client-side billing data
+                setTimeout(() => refreshBillingData(), 1000)
               } else {
                 const response = await fetch("/api/billing/subscription/create", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ planId: showUpgradeModal.planId }) })
                 if (!response.ok) { const error = await response.json(); throw new Error(error.error || "Failed to create checkout session") }

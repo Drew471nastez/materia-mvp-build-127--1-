@@ -127,14 +127,52 @@ export async function GET() {
         const livePlanId = getPlanIdFromPriceId(currentPriceId)
         const currentPlan = getPlanObject(livePlanId)
 
-        // Extract period dates: try legacy fields, then current_period object, then latest_invoice
-        let periodStart: any = sub.current_period_start || sub.current_period?.start_date || null
-        let periodEnd: any = sub.current_period_end || sub.current_period?.end_date || null
-        if (!periodStart || !periodEnd) {
-          const inv = typeof sub.latest_invoice === "object" ? sub.latest_invoice : null
-          if (inv?.period_start) periodStart = periodStart || inv.period_start
-          if (inv?.period_end) periodEnd = periodEnd || inv.period_end
+        // Robust period extraction with multiple fallbacks (SDK v20 removed current_period_start/end)
+        let periodStart: any = null
+        let periodEnd: any = null
+
+        // Priority 1: Legacy top-level fields
+        if (sub.current_period_start) periodStart = sub.current_period_start
+        if (sub.current_period_end) periodEnd = sub.current_period_end
+
+        // Priority 2: SDK v20 current_period object
+        if (!periodStart && sub.current_period?.start_date) periodStart = sub.current_period.start_date
+        if (!periodEnd && sub.current_period?.end_date) periodEnd = sub.current_period.end_date
+
+        // Priority 3: latest_invoice period fields
+        const inv = typeof sub.latest_invoice === "object" && sub.latest_invoice ? sub.latest_invoice : null
+        if (inv) {
+          if (!periodStart && inv.period_start) periodStart = inv.period_start
+          if (!periodEnd && inv.period_end) periodEnd = inv.period_end
+
+          // Priority 4: invoice line items period
+          if (!periodStart || !periodEnd) {
+            const lineItem = inv.lines?.data?.[0]
+            if (lineItem?.period) {
+              if (!periodStart && lineItem.period.start) periodStart = lineItem.period.start
+              if (!periodEnd && lineItem.period.end) periodEnd = lineItem.period.end
+            }
+          }
         }
+
+        // Priority 5: Compute from billing_cycle_anchor or start_date
+        if (!periodEnd) {
+          const anchor = sub.billing_cycle_anchor || sub.start_date
+          if (anchor) {
+            const anchorMs = typeof anchor === "number" ? (anchor > 1e12 ? anchor : anchor * 1000) : new Date(anchor).getTime()
+            const anchorDate = new Date(anchorMs)
+            const now = new Date()
+            while (anchorDate <= now) anchorDate.setMonth(anchorDate.getMonth() + 1)
+            periodEnd = anchorDate.toISOString()
+            if (!periodStart) {
+              const startDate = new Date(anchorDate)
+              startDate.setMonth(startDate.getMonth() - 1)
+              periodStart = startDate.toISOString()
+            }
+          }
+        }
+
+        console.log("[Subscription API] Period extraction:", { periodStart, periodEnd, hasInvoice: !!inv })
 
         const subscription = {
           id: sub.id,
