@@ -1,4 +1,5 @@
 import { createServerClient } from "@supabase/ssr"
+import { createClient } from "@supabase/supabase-js"
 import { NextResponse, type NextRequest } from "next/server"
 
 // Main domain - customize this based on environment
@@ -49,7 +50,7 @@ function extractUsernameFromHost(host: string): string | null {
 
   // Check if it's a subdomain of the main domain
   if (!hostWithoutPort.endsWith(`.${MAIN_DOMAIN}`) && hostWithoutPort !== MAIN_DOMAIN) {
-    // Could be a custom domain - for now, return null
+    // Not a storelib.com domain - could be a custom domain (handled separately)
     return null
   }
 
@@ -83,17 +84,80 @@ function isReservedPath(pathname: string): boolean {
   )
 }
 
+/**
+ * Resolve a custom domain to a username via Supabase lookup
+ * Returns the username if the domain is active, null otherwise
+ */
+async function resolveCustomDomain(host: string): Promise<string | null> {
+  const hostWithoutPort = host.split(":")[0]
+
+  // Skip known storelib domains and localhost
+  if (
+    hostWithoutPort === "localhost" ||
+    hostWithoutPort === "127.0.0.1" ||
+    hostWithoutPort === MAIN_DOMAIN ||
+    hostWithoutPort.endsWith(`.${MAIN_DOMAIN}`)
+  ) {
+    return null
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (!supabaseUrl || !supabaseKey) return null
+
+  try {
+    const supabase = createClient(supabaseUrl, supabaseKey)
+
+    const { data: domainRecord } = await supabase
+      .from("custom_domains")
+      .select("creator_id")
+      .eq("domain", hostWithoutPort)
+      .eq("status", "active")
+      .single()
+
+    if (!domainRecord) return null
+
+    const { data: creator } = await supabase
+      .from("creators")
+      .select("user_id")
+      .eq("id", domainRecord.creator_id)
+      .single()
+
+    if (!creator) return null
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("username")
+      .eq("id", creator.user_id)
+      .single()
+
+    return profile?.username || null
+  } catch {
+    return null
+  }
+}
+
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl
   const host = request.headers.get("host") || ""
 
   // Extract username from subdomain
-  const username = extractUsernameFromHost(host)
+  let username = extractUsernameFromHost(host)
+  let isCustomDomain = false
 
-  // Handle subdomain routing
+  // If no subdomain match, check if it's a custom domain
+  if (!username) {
+    const customDomainUsername = await resolveCustomDomain(host)
+    if (customDomainUsername) {
+      username = customDomainUsername
+      isCustomDomain = true
+    }
+  }
+
+  // Handle subdomain or custom domain routing
   let supabaseResponse: NextResponse
 
-  // If we have a username subdomain and it's not a reserved path
+  // If we have a username (from subdomain or custom domain) and it's not a reserved path
   if (username && !isReservedPath(pathname)) {
     // Rewrite URLs:
     // - /links -> /l/{username} (seller onepage - username is used as slug)
@@ -129,6 +193,9 @@ export async function proxy(request: NextRequest) {
     // Create rewrite response
     supabaseResponse = NextResponse.rewrite(rewriteUrl)
     supabaseResponse.headers.set("x-seller-subdomain", username)
+    if (isCustomDomain) {
+      supabaseResponse.headers.set("x-custom-domain", host.split(":")[0])
+    }
   } else {
     supabaseResponse = NextResponse.next({
       request,
@@ -170,6 +237,9 @@ export async function proxy(request: NextRequest) {
           }
           supabaseResponse = NextResponse.rewrite(rewriteUrl)
           supabaseResponse.headers.set("x-seller-subdomain", username)
+          if (isCustomDomain) {
+            supabaseResponse.headers.set("x-custom-domain", host.split(":")[0])
+          }
         } else {
           supabaseResponse = NextResponse.next({
             request,
