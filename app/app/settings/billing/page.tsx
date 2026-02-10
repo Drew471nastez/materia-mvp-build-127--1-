@@ -39,11 +39,13 @@ const PRO_PLAN = {
 
 const FALLBACK_PLANS = [FREE_PLAN, GROWTH_PLAN, PRO_PLAN]
 const SUBSCRIBED_STATUSES = new Set(["active", "trialing", "past_due"])
+const LIVE_PRICE_GROWTH_MONTHLY = "price_1SzBWaBYevnBVyznNCTOXDoS"
+const LIVE_PRICE_PRO_MONTHLY = "price_1SzBXSBYevnBVyznYjXfOOXX"
 
 function getPlanIdFromPriceId(priceId: string | undefined): "growth" | "pro" | "free" {
   if (!priceId) return "free"
-  if (priceId === process.env.PRICE_GROWTH_MONTHLY) return "growth"
-  if (priceId === process.env.PRICE_PRO_MONTHLY) return "pro"
+  if (priceId === (process.env.PRICE_GROWTH_MONTHLY || LIVE_PRICE_GROWTH_MONTHLY)) return "growth"
+  if (priceId === (process.env.PRICE_PRO_MONTHLY || LIVE_PRICE_PRO_MONTHLY)) return "pro"
   return "free"
 }
 
@@ -127,9 +129,15 @@ export default async function BillingPage() {
     }
 
     const customer = await stripe.customers.retrieve(stripeCustomerId)
-    const defaultPaymentMethodId = typeof customer.invoice_settings.default_payment_method === "string"
+    let defaultPaymentMethodId = typeof customer.invoice_settings.default_payment_method === "string"
       ? customer.invoice_settings.default_payment_method
       : customer.invoice_settings.default_payment_method?.id || null
+
+    if (!defaultPaymentMethodId && preferredSubscription?.default_payment_method) {
+      defaultPaymentMethodId = typeof preferredSubscription.default_payment_method === "string"
+        ? preferredSubscription.default_payment_method
+        : preferredSubscription.default_payment_method.id
+    }
 
     const stripePaymentMethods = await stripe.paymentMethods.list({ customer: stripeCustomerId, type: "card", limit: 10 })
     const defaultPaymentMethod = stripePaymentMethods.data.find((pm) => pm.id === defaultPaymentMethodId) || stripePaymentMethods.data[0]

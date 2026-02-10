@@ -256,8 +256,6 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
                       )}
                     </>
                   ) : connectionStatus?.status === "pending" ? (
-                    <Badge variant="destructive">Restricted</Badge>
-                  ) : connectionStatus?.status === "pending" ? (
                     <Badge variant="secondary">Pending Verification</Badge>
                   ) : (
                     <Badge variant="outline">Not Connected</Badge>
@@ -279,14 +277,14 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
                   </Button>
                 )}
 
-                {connectionStatus?.status !== "enabled" ? (
+                {connectionStatus?.status !== "connected" ? (
                   <Button onClick={handleConnectStripe} disabled={isLoading}>
                     {isLoading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         Connecting...
                       </>
-                    ) : connectionStatus?.status === "pending" || connectionStatus?.status === "pending" ? (
+                    ) : connectionStatus?.status === "pending" ? (
                       "Complete Setup"
                     ) : (
                       "Connect Stripe"

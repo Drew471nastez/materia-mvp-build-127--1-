@@ -22,20 +22,41 @@ export async function getOrCreateStripeCustomer({
   userId: string
   username: string
 }): Promise<string> {
-  // If we have a stored customer ID, validate it against the current Stripe keys
+  const supabase = await createClient()
+
+  const persistCustomerId = async (customerId: string) => {
+    await supabase.from("creators").update({ stripe_customer_id: customerId }).eq("id", creatorId)
+  }
+
   if (existingCustomerId) {
     try {
-      await stripe.customers.retrieve(existingCustomerId)
-      return existingCustomerId // Valid customer, use it
-    } catch (err: any) {
-      // Customer doesn't exist on current keys (test→live migration, etc.)
-      console.warn(
-        `Stripe customer ${existingCustomerId} not found (likely test-mode ID). Creating new live customer.`
-      )
+      const customer = await stripe.customers.retrieve(existingCustomerId)
+      if (!(customer as any).deleted) {
+        return existingCustomerId
+      }
+    } catch {
+      console.warn(`Stripe customer ${existingCustomerId} is invalid for current keyspace, attempting recovery by email.`)
     }
   }
 
-  // Create a fresh customer on the current (live) keys
+  if (email) {
+    const existingByEmail = await stripe.customers.list({ email, limit: 10 })
+    if (existingByEmail.data.length > 0) {
+      const ranked = await Promise.all(existingByEmail.data.map(async (customer) => {
+        const subs = await stripe.subscriptions.list({ customer: customer.id, limit: 5 })
+        const hasSubscribedState = subs.data.some((sub) => ["active", "trialing", "past_due"].includes(sub.status))
+        const pms = await stripe.paymentMethods.list({ customer: customer.id, type: "card", limit: 1 })
+        return { customerId: customer.id, score: (hasSubscribedState ? 100 : 0) + (pms.data.length > 0 ? 10 : 0) }
+      }))
+
+      ranked.sort((a, b) => b.score - a.score)
+      if (ranked[0]?.customerId) {
+        await persistCustomerId(ranked[0].customerId)
+        return ranked[0].customerId
+      }
+    }
+  }
+
   const customer = await stripe.customers.create({
     email,
     metadata: {
@@ -45,12 +66,6 @@ export async function getOrCreateStripeCustomer({
     },
   })
 
-  // Persist the new customer ID
-  const supabase = await createClient()
-  await supabase
-    .from("creators")
-    .update({ stripe_customer_id: customer.id })
-    .eq("id", creatorId)
-
+  await persistCustomerId(customer.id)
   return customer.id
 }

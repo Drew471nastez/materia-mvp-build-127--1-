@@ -253,6 +253,7 @@ export async function POST(request: Request) {
         session_fingerprint: sessionFingerprint,
         receipt_token: receiptToken,
         platform_fee_cents: platformFee.toString(),
+        plan_used: feeCalculation.planId,
         // Variant info (full data for order)
         variant_id: selectedVariant?.id || "",
         variant_name: selectedVariant?.name || "",

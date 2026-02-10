@@ -3,17 +3,19 @@ import { createClient } from "@/lib/supabase/server"
 import { stripe } from "@/lib/stripe"
 
 const PLAN_ORDER: Record<string, number> = { free: 0, growth: 1, pro: 2 }
+const LIVE_PRICE_GROWTH_MONTHLY = "price_1SzBWaBYevnBVyznNCTOXDoS"
+const LIVE_PRICE_PRO_MONTHLY = "price_1SzBXSBYevnBVyznYjXfOOXX"
 
 function getStripePriceId(planId: string): string | null {
-  if (planId === "growth") return process.env.PRICE_GROWTH_MONTHLY || null
-  if (planId === "pro") return process.env.PRICE_PRO_MONTHLY || null
+  if (planId === "growth") return process.env.PRICE_GROWTH_MONTHLY || LIVE_PRICE_GROWTH_MONTHLY
+  if (planId === "pro") return process.env.PRICE_PRO_MONTHLY || LIVE_PRICE_PRO_MONTHLY
   return null
 }
 
 function getPlanIdFromPriceId(priceId: string | undefined): "growth" | "pro" | "free" {
   if (!priceId) return "free"
-  if (priceId === process.env.PRICE_GROWTH_MONTHLY) return "growth"
-  if (priceId === process.env.PRICE_PRO_MONTHLY) return "pro"
+  if (priceId === (process.env.PRICE_GROWTH_MONTHLY || LIVE_PRICE_GROWTH_MONTHLY)) return "growth"
+  if (priceId === (process.env.PRICE_PRO_MONTHLY || LIVE_PRICE_PRO_MONTHLY)) return "pro"
   return "free"
 }
 

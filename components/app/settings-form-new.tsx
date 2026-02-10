@@ -2271,6 +2271,12 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 <div className="overflow-hidden">
                   <div className="-mt-2 rounded-2xl border border-[#e5e7eb] bg-[#fafafa] p-4 sm:p-5">
                     <p className="text-[13px] text-[#6b7280] mb-3">Manage Stripe account connection and capabilities.</p>
+                    {stripeStatusLoading && (
+                      <div className="space-y-2 mb-3">
+                        <div className="h-4 w-64 rounded bg-[#e5e7eb] animate-pulse" />
+                        <div className="h-4 w-44 rounded bg-[#e5e7eb] animate-pulse" />
+                      </div>
+                    )}
                     <div className="flex flex-wrap gap-2 mb-3">
                       <span className="px-2 py-1 rounded-full border text-[11px] bg-white">Charges: {stripeStatus.chargesEnabled ? "Enabled" : "Pending"}</span>
                       <span className="px-2 py-1 rounded-full border text-[11px] bg-white">Payouts: {stripeStatus.payoutsEnabled ? "Enabled" : "Pending"}</span>

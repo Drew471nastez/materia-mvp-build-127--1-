@@ -11,10 +11,13 @@ export const runtime = "nodejs"
 
 const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
+const LIVE_PRICE_GROWTH_MONTHLY = "price_1SzBWaBYevnBVyznNCTOXDoS"
+const LIVE_PRICE_PRO_MONTHLY = "price_1SzBXSBYevnBVyznYjXfOOXX"
+
 function planIdFromPriceId(priceId?: string): "free" | "growth" | "pro" {
   if (!priceId) return "free"
-  if (priceId === process.env.PRICE_GROWTH_MONTHLY) return "growth"
-  if (priceId === process.env.PRICE_PRO_MONTHLY) return "pro"
+  if (priceId === (process.env.PRICE_GROWTH_MONTHLY || LIVE_PRICE_GROWTH_MONTHLY)) return "growth"
+  if (priceId === (process.env.PRICE_PRO_MONTHLY || LIVE_PRICE_PRO_MONTHLY)) return "pro"
   return "free"
 }
 
@@ -237,7 +240,10 @@ export async function POST(request: Request) {
     const variantId = metadata.variant_id || null
     const variantName = metadata.variant_name || null
 
+    const planUsed = (metadata.plan_used || "free").toString()
+
     const orderData: any = {
+      creator_id: creatorId,
       buyer_id: buyerId || null,
       buyer_first_name: buyerFirstName || null,
       buyer_last_name: buyerLastName || null,
@@ -247,6 +253,8 @@ export async function POST(request: Request) {
       tip_cents: tipCents,
       fee_cents: applicationFeeAmount,
       application_fee_cents: applicationFeeAmount,
+      platform_fee_amount_cents: applicationFeeAmount,
+      plan_used: planUsed,
       transfer_id: transferId,
       currency: session.currency || "usd",
       provider: "stripe",
@@ -287,6 +295,7 @@ export async function POST(request: Request) {
       console.log("[Webhook] Full insert failed, trying minimal:", orderInsertError.message)
 
       const minimalOrderData: Record<string, any> = {
+        creator_id: creatorId,
         product_id: productId,
         amount_cents: totalAmount,
         status: "completed",
@@ -294,6 +303,8 @@ export async function POST(request: Request) {
         stripe_payment_intent_id: session.payment_intent as string,
         receipt_token: receiptToken,
         buyer_email: buyerEmail || null,
+        platform_fee_amount_cents: applicationFeeAmount,
+        plan_used: planUsed,
       }
 
       if (buyerId) {

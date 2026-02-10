@@ -409,7 +409,6 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
                       </>
                     ) : (
                       <>
-                        <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1"><circle cx="512" cy="512" r="512" fill="#fff" opacity="0.2" /></svg>
                         Connect Stripe
                         <ChevronRight className="ml-1 h-4 w-4" />
                       </>
