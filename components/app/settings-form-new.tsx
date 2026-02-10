@@ -805,6 +805,8 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   const [showStripeManage, setShowStripeManage] = useState(false)
 
   const [activeTab, setActiveTab] = useState<TabId>(initialTab)
+  const tabNavRef = useRef<HTMLDivElement>(null)
+  const activeTabRef = useRef<HTMLButtonElement>(null)
   const [isTabLoading, setIsTabLoading] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -1128,6 +1130,16 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     await supabase.from("profiles").update({ avatar_url: null }).eq("id", profile.id)
     router.refresh()
   }
+
+  // Auto-scroll tab nav to active tab on mobile
+  useEffect(() => {
+    if (activeTabRef.current && tabNavRef.current) {
+      const container = tabNavRef.current
+      const activeEl = activeTabRef.current
+      const scrollLeft = activeEl.offsetLeft - container.offsetWidth / 2 + activeEl.offsetWidth / 2
+      container.scrollTo({ left: scrollLeft, behavior: "smooth" })
+    }
+  }, [activeTab])
 
   // Tab change with skeleton loading animation
   const handleTabChange = (newTab: TabId) => {
@@ -1572,7 +1584,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
         </MobileBottomSheet>
 
         {/* Pill-shaped Tab Navigation - Hidden scrollbar, fixed height to prevent layout shift */}
-        <div className="mb-6 sm:mb-8 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        <div ref={tabNavRef} className="mb-6 sm:mb-8 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           <div className="flex gap-1 p-1 w-fit h-[44px] sm:h-[48px] items-center">
             {TABS.map((tab) => {
               const Icon = tab.icon
@@ -1585,6 +1597,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               return (
                 <button
                   key={tab.id}
+                  ref={activeTab === tab.id ? activeTabRef : undefined}
                   onClick={() => handleTabChange(tab.id)}
                   className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full text-[13px] sm:text-[14px] font-medium transition-colors whitespace-nowrap cursor-pointer border ${
                     activeTab === tab.id
@@ -1666,7 +1679,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   <div className="flex items-center gap-3 min-w-0">
                     <Wallet className="h-5 w-5 text-white shrink-0" />
                     <p className="text-[13px] sm:text-[14px] font-medium text-white">
-                      Get paid — Connect your payouts to receive payments.
+                      Get paid - Connect Stripe
                     </p>
                   </div>
                   <button
