@@ -2794,23 +2794,21 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               {domains.some((d) => d.status !== "active") && (
                 <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
                   <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-3">DNS Setup Instructions</h3>
-                  <p className="text-[13px] text-[#6b7280] mb-4">To connect your domain, add these DNS records at your domain registrar:</p>
+                  <p className="text-[13px] text-[#6b7280] mb-4">Go to your domain registrar (Hostinger, GoDaddy, Namecheap, etc.) and add <span className="font-semibold">one</span> of these DNS records:</p>
 
                   <div className="space-y-4">
-                    {/* CNAME Record */}
+                    {/* Option A: A Record */}
                     <div className="bg-[#f9fafb] rounded-xl p-4">
-                      <p className="text-[12px] font-semibold text-[#374151] mb-3">Step 1: Add CNAME Record</p>
+                      <p className="text-[12px] font-semibold text-[#374151] mb-3">Option A: Add an A Record (Recommended)</p>
                       <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2 text-[12px]">
-                            <span className="text-[#6b7280] w-14">Type:</span>
-                            <span className="font-mono font-medium text-[#1a1a2e]">CNAME</span>
-                          </div>
+                        <div className="flex items-center gap-2 text-[12px]">
+                          <span className="text-[#6b7280] w-14">Type:</span>
+                          <span className="font-mono font-medium text-[#1a1a2e]">A</span>
                         </div>
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2 text-[12px]">
                             <span className="text-[#6b7280] w-14">Name:</span>
-                            <span className="font-mono font-medium text-[#1a1a2e]">@ or www</span>
+                            <span className="font-mono font-medium text-[#1a1a2e]">@</span>
                           </div>
                           <button onClick={() => copyToClipboard("@")} className="text-[11px] text-[#7c3aed] hover:text-[#6d28d9] cursor-pointer flex items-center gap-1">
                             {copiedValue === "@" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
@@ -2820,50 +2818,48 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2 text-[12px]">
                             <span className="text-[#6b7280] w-14">Value:</span>
-                            <span className="font-mono font-medium text-[#7c3aed]">cname.storelib.com</span>
+                            <span className="font-mono font-medium text-[#7c3aed]">76.76.21.21</span>
                           </div>
-                          <button onClick={() => copyToClipboard("cname.storelib.com")} className="text-[11px] text-[#7c3aed] hover:text-[#6d28d9] cursor-pointer flex items-center gap-1">
-                            {copiedValue === "cname.storelib.com" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                            {copiedValue === "cname.storelib.com" ? "Copied" : "Copy"}
+                          <button onClick={() => copyToClipboard("76.76.21.21")} className="text-[11px] text-[#7c3aed] hover:text-[#6d28d9] cursor-pointer flex items-center gap-1">
+                            {copiedValue === "76.76.21.21" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                            {copiedValue === "76.76.21.21" ? "Copied" : "Copy"}
                           </button>
                         </div>
                       </div>
                     </div>
 
-                    {/* TXT Verification */}
-                    {domains.filter((d) => d.status !== "active").map((d) => (
-                      <div key={d.id} className="bg-[#f9fafb] rounded-xl p-4">
-                        <p className="text-[12px] font-semibold text-[#374151] mb-3">Step 2: Add TXT Record for {d.domain}</p>
-                        <div className="space-y-2">
+                    {/* Option B: CNAME Record */}
+                    <div className="bg-[#f9fafb] rounded-xl p-4">
+                      <p className="text-[12px] font-semibold text-[#374151] mb-3">Option B: Add a CNAME Record</p>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-[12px]">
+                          <span className="text-[#6b7280] w-14">Type:</span>
+                          <span className="font-mono font-medium text-[#1a1a2e]">CNAME</span>
+                        </div>
+                        <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2 text-[12px]">
-                            <span className="text-[#6b7280] w-14">Type:</span>
-                            <span className="font-mono font-medium text-[#1a1a2e]">TXT</span>
+                            <span className="text-[#6b7280] w-14">Name:</span>
+                            <span className="font-mono font-medium text-[#1a1a2e]">www</span>
                           </div>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2 text-[12px]">
-                              <span className="text-[#6b7280] w-14">Name:</span>
-                              <span className="font-mono font-medium text-[#1a1a2e]">_storelib</span>
-                            </div>
-                            <button onClick={() => copyToClipboard("_storelib")} className="text-[11px] text-[#7c3aed] hover:text-[#6d28d9] cursor-pointer flex items-center gap-1">
-                              {copiedValue === "_storelib" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                              {copiedValue === "_storelib" ? "Copied" : "Copy"}
-                            </button>
+                          <button onClick={() => copyToClipboard("www")} className="text-[11px] text-[#7c3aed] hover:text-[#6d28d9] cursor-pointer flex items-center gap-1">
+                            {copiedValue === "www" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                            {copiedValue === "www" ? "Copied" : "Copy"}
+                          </button>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-[12px]">
+                            <span className="text-[#6b7280] w-14">Value:</span>
+                            <span className="font-mono font-medium text-[#7c3aed]">cname.vercel-dns.com</span>
                           </div>
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex items-start gap-2 text-[12px] min-w-0">
-                              <span className="text-[#6b7280] w-14 shrink-0">Value:</span>
-                              <span className="font-mono font-medium text-[#7c3aed] break-all text-[11px]">{d.verification_token}</span>
-                            </div>
-                            <button onClick={() => copyToClipboard(d.verification_token)} className="text-[11px] text-[#7c3aed] hover:text-[#6d28d9] cursor-pointer flex items-center gap-1 shrink-0">
-                              {copiedValue === d.verification_token ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                              {copiedValue === d.verification_token ? "Copied" : "Copy"}
-                            </button>
-                          </div>
+                          <button onClick={() => copyToClipboard("cname.vercel-dns.com")} className="text-[11px] text-[#7c3aed] hover:text-[#6d28d9] cursor-pointer flex items-center gap-1">
+                            {copiedValue === "cname.vercel-dns.com" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                            {copiedValue === "cname.vercel-dns.com" ? "Copied" : "Copy"}
+                          </button>
                         </div>
                       </div>
-                    ))}
+                    </div>
 
-                    <p className="text-[12px] text-[#9ca3af]">DNS changes can take up to 48 hours to propagate. After adding the records, click &quot;Verify&quot; to check.</p>
+                    <p className="text-[12px] text-[#9ca3af]">After adding the DNS record, click &quot;Verify&quot; to check. DNS changes can take up to 48 hours to propagate.</p>
                   </div>
                 </div>
               )}
