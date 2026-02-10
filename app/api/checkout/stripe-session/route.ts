@@ -121,7 +121,7 @@ export async function POST(request: Request) {
       )
     }
 
-    if (product.creator.stripe_onboarding_status !== "enabled") {
+    if (product.creator.stripe_onboarding_status !== "connected") {
       console.error("[v0] Seller Stripe onboarding not enabled:", product.creator.stripe_onboarding_status)
       return NextResponse.json(
         { error: "Seller payment setup is incomplete. Please contact the seller." },

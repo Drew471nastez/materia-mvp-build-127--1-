@@ -14,26 +14,16 @@ function tryCreateAdminClient() {
 export async function GET() {
   try {
     const supabase = await createClient()
-    const adminSupabase = tryCreateAdminClient()
-    const dbClient = adminSupabase || supabase
+    const dbClient = tryCreateAdminClient() || supabase
 
     const {
       data: { user },
     } = await supabase.auth.getUser()
 
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-    const { data: creator, error: creatorError } = await supabase
-      .from("creators")
-      .select("*")
-      .eq("user_id", user.id)
-      .single()
-
-    if (creatorError || !creator) {
-      return NextResponse.json({ error: "Creator profile not found" }, { status: 404 })
-    }
+    const { data: creator } = await supabase.from("creators").select("*").eq("user_id", user.id).single()
+    if (!creator) return NextResponse.json({ error: "Creator profile not found" }, { status: 404 })
 
     const stripeAccountId = (creator as any).stripe_account_id || null
     if (!stripeAccountId) {
@@ -42,6 +32,7 @@ export async function GET() {
         status: "not_connected",
         chargesEnabled: false,
         payoutsEnabled: false,
+        detailsSubmitted: false,
       })
     }
 
@@ -49,70 +40,55 @@ export async function GET() {
     try {
       account = await stripe.accounts.retrieve(stripeAccountId)
     } catch {
-      console.warn(`Stripe account ${stripeAccountId} not found. Clearing stale reference.`)
-      try {
-        await dbClient
-          .from("creators")
-          .update({
-            stripe_account_id: null,
-            stripe_onboarding_status: "pending",
-          })
-          .eq("id", creator.id)
-      } catch (dbErr) {
-        console.warn("Failed to clear stale account ref:", dbErr)
-      }
+      await dbClient
+        .from("creators")
+        .update({
+          stripe_account_id: null,
+          stripe_onboarding_status: "not_connected",
+          charges_enabled: false,
+          payouts_enabled: false,
+          details_submitted: false,
+          stripe_connected_at: null,
+        })
+        .eq("id", creator.id)
 
       return NextResponse.json({
         connected: false,
         status: "not_connected",
         chargesEnabled: false,
         payoutsEnabled: false,
+        detailsSubmitted: false,
       })
     }
 
-    const chargesEnabled = account.charges_enabled || false
-    const payoutsEnabled = account.payouts_enabled || false
-    const isComplete = chargesEnabled && payoutsEnabled
+    const chargesEnabled = !!account.charges_enabled
+    const payoutsEnabled = !!account.payouts_enabled
+    const detailsSubmitted = !!account.details_submitted
+    const connected = chargesEnabled && payoutsEnabled && detailsSubmitted
+    const status = connected ? "connected" : "pending"
 
-    let newStatus = "not_connected"
-    if (isComplete) {
-      newStatus = "enabled"
-    } else if (chargesEnabled || payoutsEnabled) {
-      newStatus = "restricted"
-    } else {
-      newStatus = "pending"
-    }
-
-    // Update DB with latest status
-    try {
-      await dbClient
-        .from("creators")
-        .update({
-          stripe_onboarding_status: newStatus,
-          charges_enabled: chargesEnabled,
-          payouts_enabled: payoutsEnabled,
-        })
-        .eq("id", creator.id)
-    } catch (dbErr) {
-      console.warn("Failed to update creator capabilities:", dbErr)
-    }
-
-    const maskedAccountId = `acct_****${stripeAccountId.slice(-4)}`
+    await dbClient
+      .from("creators")
+      .update({
+        stripe_onboarding_status: status,
+        charges_enabled: chargesEnabled,
+        payouts_enabled: payoutsEnabled,
+        details_submitted: detailsSubmitted,
+        stripe_connected_at: connected ? new Date().toISOString() : null,
+      })
+      .eq("id", creator.id)
 
     return NextResponse.json({
-      connected: isComplete,
-      status: newStatus,
-      accountId: maskedAccountId,
+      connected,
+      status,
+      accountId: `acct_****${stripeAccountId.slice(-4)}`,
       fullAccountId: stripeAccountId,
       chargesEnabled,
       payoutsEnabled,
-      detailsSubmitted: account.details_submitted,
+      detailsSubmitted,
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error("[Stripe Connect Status Error]", error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to fetch Stripe Connect status" },
-      { status: 500 },
-    )
+    return NextResponse.json({ error: error.message || "Failed to fetch Stripe Connect status" }, { status: 500 })
   }
 }

@@ -13,65 +13,35 @@ function tryCreateAdminClient() {
 export async function POST() {
   try {
     const supabase = await createClient()
-    const adminSupabase = tryCreateAdminClient()
-    const dbClient = adminSupabase || supabase
+    const dbClient = tryCreateAdminClient() || supabase
 
-    // Check authentication
     const {
       data: { user },
     } = await supabase.auth.getUser()
 
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-    // Get creator profile
-    const { data: creator, error: creatorError } = await supabase
-      .from("creators")
-      .select("*")
-      .eq("user_id", user.id)
-      .single()
+    const { data: creator } = await supabase.from("creators").select("id, stripe_account_id").eq("user_id", user.id).single()
 
-    if (creatorError || !creator) {
-      return NextResponse.json({ error: "Creator profile not found" }, { status: 404 })
-    }
-
-    const stripeAccountId = (creator as any).stripe_account_id || null
-    if (!stripeAccountId) {
+    if (!creator?.stripe_account_id) {
       return NextResponse.json({ error: "No Stripe account connected" }, { status: 400 })
     }
 
-    // Clear Stripe Connect data (but keep historical orders)
-    try {
-      await dbClient
-        .from("creators")
-        .update({
-          stripe_account_id: null,
-          stripe_onboarding_status: "pending",
-        })
-        .eq("id", creator.id)
-    } catch (dbErr) {
-      console.warn("Failed to clear stripe_account_id:", dbErr)
-    }
-
-    // Log disconnection event
-    try {
-      await dbClient.from("payment_connection_events").insert({
-        creator_id: creator.id,
-        provider: "stripe",
-        event_type: "disconnected",
-        metadata: { previous_account_id: stripeAccountId },
+    await dbClient
+      .from("creators")
+      .update({
+        stripe_account_id: null,
+        stripe_onboarding_status: "not_connected",
+        charges_enabled: false,
+        payouts_enabled: false,
+        details_submitted: false,
+        stripe_connected_at: null,
       })
-    } catch (logErr) {
-      console.warn("Failed to log disconnect event:", logErr)
-    }
+      .eq("id", creator.id)
 
     return NextResponse.json({ success: true })
-  } catch (error) {
+  } catch (error: any) {
     console.error("[Stripe Connect Disconnect Error]", error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to disconnect Stripe" },
-      { status: 500 },
-    )
+    return NextResponse.json({ error: error.message || "Failed to disconnect Stripe" }, { status: 500 })
   }
 }

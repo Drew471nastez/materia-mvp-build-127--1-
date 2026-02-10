@@ -144,7 +144,7 @@ export default async function SalesPage() {
       initialSummary={initialSummary}
       initialOrders={initialOrders}
       currency={creator.default_currency || "USD"}
-      stripeConnected={creator.stripe_onboarding_status === "enabled"}
+      stripeConnected={creator.stripe_onboarding_status === "connected"}
       storeName="Storelib"
       sellerName={profile?.display_name || "Seller"}
     />
