@@ -11,12 +11,14 @@ interface UpgradePageClientProps {
   plans: any[]
   currentPlanId: string
   hasActiveSubscription: boolean
+  pendingPlanId?: string | null
 }
 
 export function UpgradePageClient({
   plans,
   currentPlanId,
   hasActiveSubscription,
+  pendingPlanId,
 }: UpgradePageClientProps) {
   const router = useRouter()
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "annual">("monthly")
@@ -28,7 +30,7 @@ export function UpgradePageClient({
   }
 
   const handleUpgrade = async (planId: string) => {
-    if (planId === currentPlanId || loading) return
+    if (planId === currentPlanId || planId === pendingPlanId || loading) return
     setLoading(planId)
     setError(null)
 
@@ -185,6 +187,7 @@ export function UpgradePageClient({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
           {plans.map((plan: any) => {
             const isCurrentPlan = plan.id === currentPlanId
+            const isPendingPlan = plan.id === pendingPlanId
             const isFree = plan.id === "free"
             const isPro = plan.id === "pro"
             const currentPlan = plans.find((p: any) => p.id === currentPlanId)
@@ -192,6 +195,7 @@ export function UpgradePageClient({
             const monthlyPrice = plan.price_cents / 100
             const annualPrice = Math.round(monthlyPrice * 0.65 * 100) / 100
             const displayPrice = billingPeriod === "annual" && !isFree ? annualPrice : monthlyPrice
+            const isDisabled = isCurrentPlan || isPendingPlan || loading !== null
 
             return (
               <div
@@ -245,21 +249,25 @@ export function UpgradePageClient({
 
                 <button
                   onClick={() => handleUpgrade(plan.id)}
-                  disabled={isCurrentPlan || loading !== null}
-                  className={`w-full h-12 text-[14px] font-semibold rounded-xl transition-all duration-200 flex items-center justify-center gap-2 mb-6 ${
+                  disabled={isDisabled}
+                  className={`w-full h-12 text-[14px] font-semibold rounded-xl transition-all duration-200 flex items-center justify-center gap-2 mb-6 cursor-pointer ${
                     isCurrentPlan
                       ? isPro
                         ? "bg-white/20 text-white/80 cursor-default"
                         : "bg-[#f3f4f6] text-[#9ca3af] cursor-default"
-                      : isPro
-                        ? "bg-[#7c3aed] hover:bg-[#6d28d9] text-white shadow-lg shadow-[#7c3aed]/25 hover:shadow-[#7c3aed]/40"
-                        : "bg-[#7c3aed] hover:bg-[#6d28d9] text-white"
+                      : isPendingPlan
+                        ? "bg-[#f3f4f6] text-[#6b7280] cursor-default"
+                        : isPro
+                          ? "bg-[#7c3aed] hover:bg-[#6d28d9] text-white shadow-lg shadow-[#7c3aed]/25 hover:shadow-[#7c3aed]/40 active:scale-[0.98]"
+                          : "bg-[#7c3aed] hover:bg-[#6d28d9] text-white active:scale-[0.98]"
                   }`}
                 >
                   {loading === plan.id ? (
                     <><Loader2 className="h-4 w-4 animate-spin" />Processing...</>
                   ) : isCurrentPlan ? (
                     "Current Plan"
+                  ) : isPendingPlan ? (
+                    "Downgrade Scheduled"
                   ) : isDowngrade ? (
                     `Downgrade to ${plan.name}`
                   ) : hasActiveSubscription ? (

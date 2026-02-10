@@ -66,6 +66,7 @@ export default async function UpgradePage() {
   let plans = FALLBACK_PLANS
   let currentPlanId = "free"
   let hasActiveSubscription = false
+  let pendingPlanId: string | null = null
 
   try {
     const { data: creator } = await supabase
@@ -106,6 +107,8 @@ export default async function UpgradePage() {
           const priceId = activeSub.items.data[0]?.price?.id
           const planId = priceId ? getPlanIdFromPriceId(priceId) : (activeSub.metadata?.plan_id || null)
           currentPlanId = planId || creator.subscription_plan_id || "free"
+          // Check for pending downgrade
+          pendingPlanId = activeSub.metadata?.pending_plan_id || null
         } else {
           currentPlanId = creator.subscription_plan_id || "free"
         }
@@ -134,6 +137,7 @@ export default async function UpgradePage() {
       plans={plans}
       currentPlanId={currentPlanId}
       hasActiveSubscription={hasActiveSubscription}
+      pendingPlanId={pendingPlanId}
     />
   )
 }

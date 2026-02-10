@@ -159,12 +159,13 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "No active subscription found" }, { status: 400 })
       }
 
+      // Always retrieve subscription to check for existing schedules
+      const stripeSub = await stripe.subscriptions.retrieve(
+        subscriptionRecord.stripe_subscription_id,
+        { expand: ["latest_invoice"] }
+      ) as any
+
       if (previewOnly) {
-        // Preview: show that subscription will cancel at period end
-        const stripeSub = await stripe.subscriptions.retrieve(
-          subscriptionRecord.stripe_subscription_id,
-          { expand: ["latest_invoice"] }
-        ) as any
         const { periodEnd } = getSubscriptionPeriod(stripeSub)
         return NextResponse.json({
           success: true,
@@ -175,10 +176,32 @@ export async function POST(request: Request) {
         })
       }
 
-      // Cancel at period end (user keeps features until then)
+      // Release any existing subscription schedule first (e.g. from a pending Pro→Growth downgrade)
+      const existingScheduleId = stripeSub.schedule
+        ? (typeof stripeSub.schedule === "string" ? stripeSub.schedule : stripeSub.schedule.id)
+        : null
+
+      if (existingScheduleId) {
+        console.log("[Change] Releasing existing schedule before canceling to free:", existingScheduleId)
+        try {
+          await stripe.subscriptionSchedules.release(existingScheduleId)
+        } catch (releaseErr: any) {
+          console.warn("[Change] Could not release schedule:", releaseErr.message)
+          try {
+            await stripe.subscriptionSchedules.cancel(existingScheduleId)
+          } catch (cancelErr: any) {
+            console.warn("[Change] Could not cancel schedule either:", cancelErr.message)
+          }
+        }
+      }
+
+      // Now safe to cancel at period end
       const canceledSub = await stripe.subscriptions.update(
         subscriptionRecord.stripe_subscription_id,
-        { cancel_at_period_end: true }
+        {
+          cancel_at_period_end: true,
+          metadata: { ...stripeSub.metadata, pending_plan_id: "" },
+        }
       )
 
       // Get the period end from the canceled subscription
@@ -188,6 +211,7 @@ export async function POST(request: Request) {
         .from("subscriptions")
         .update({
           cancel_at_period_end: true,
+          pending_plan_id: null,
           updated_at: new Date().toISOString(),
         })
         .eq("id", subscriptionRecord.id)

@@ -298,16 +298,11 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                   </span>
                 </div>
 
-                {/* Pending downgrade banner */}
+                {/* Pending downgrade info */}
                 {pendingPlan && subscription?.current_period_end && (
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 mb-4">
-                    <p className="text-[13px] font-medium text-amber-900">
-                      Switching to {pendingPlan.name} on {formatDate(subscription.current_period_end)}
-                    </p>
-                    <p className="text-[12px] text-amber-700 mt-1">
-                      Next payment: ${(pendingPlan.price_cents / 100).toFixed(2)}/month
-                    </p>
-                  </div>
+                  <p className="text-[12px] text-[#6b7280] mb-3">
+                    Switching to {pendingPlan.name} on {formatDate(subscription.current_period_end)} &middot; ${(pendingPlan.price_cents / 100).toFixed(2)}/mo
+                  </p>
                 )}
 
                 <div className="mb-4">
@@ -549,13 +544,13 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
       )}
 
       {/* Upgrade Confirmation Modal */}
-      {/* Fixed notification toast at top of screen */}
+      {/* Fixed notification toast */}
       {notification && (
         <div className="fixed top-0 left-0 right-0 z-[200] flex justify-center pointer-events-none">
-          <div className={`mx-4 mt-4 max-w-lg w-full pointer-events-auto bg-[#1a1a2e] text-white rounded-xl shadow-2xl px-5 py-3.5 flex items-center gap-3 transition-all duration-300 ease-out ${notification.visible ? "translate-y-0 opacity-100" : "-translate-y-4 opacity-0"}`}>
-            {notification.type === "success" ? <CheckCircle className="h-5 w-5 shrink-0 text-emerald-400" /> : <AlertCircle className="h-5 w-5 shrink-0 text-red-400" />}
-            <p className="text-[13px] font-medium flex-1">{notification.message}</p>
-            <button onClick={dismissNotification} className="shrink-0 text-white/60 hover:text-white transition-colors cursor-pointer"><X className="h-4 w-4" /></button>
+          <div className={`mt-3 pointer-events-auto bg-[#18181b] text-white rounded-lg shadow-lg px-4 py-2.5 flex items-center gap-2.5 transition-all duration-300 ease-out ${notification.visible ? "translate-y-0 opacity-100" : "-translate-y-3 opacity-0"}`}>
+            {notification.type === "success" ? <Check className="h-3.5 w-3.5 shrink-0 text-white" strokeWidth={2.5} /> : <X className="h-3.5 w-3.5 shrink-0 text-red-400" strokeWidth={2.5} />}
+            <p className="text-[12px] font-medium">{notification.message}</p>
+            <button onClick={dismissNotification} className="shrink-0 text-white/40 hover:text-white transition-colors cursor-pointer ml-1"><X className="h-3.5 w-3.5" /></button>
           </div>
         </div>
       )}
@@ -886,31 +881,23 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
           const isDisabled = isCurrentPlan || isPendingPlan || loading !== null
 
           return (
-            <div key={plan.id} className={`relative rounded-2xl p-6 flex flex-col transition-all duration-200 ${isPendingPlan ? "bg-white border-2 border-amber-300 shadow-sm ring-1 ring-amber-200" : isPro ? "bg-[#1a1a2e] text-white shadow-xl border-2 border-[#7c3aed]/30" : "bg-white border-2 border-[#e5e7eb] hover:border-[#d1d5db] shadow-sm hover:shadow-md"}`}>
-              {isPro && !isPendingPlan && (
+            <div key={plan.id} className={`relative rounded-2xl p-6 flex flex-col transition-all duration-200 ${isPro ? "bg-[#1a1a2e] text-white shadow-xl border-2 border-[#7c3aed]/30" : "bg-white border-2 border-[#e5e7eb] hover:border-[#d1d5db] shadow-sm hover:shadow-md"}`}>
+              {isPro && (
                 <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
                   <span className="inline-flex items-center gap-1 px-3.5 py-1 bg-[#7c3aed] rounded-full text-[11px] font-bold text-white shadow-lg">Popular</span>
                 </div>
               )}
-              {isPendingPlan && (
-                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
-                  <span className="inline-flex items-center gap-1 px-3.5 py-1 bg-amber-500 rounded-full text-[11px] font-bold text-white shadow-lg">
-                    <Clock className="h-3 w-3" />
-                    Scheduled
-                  </span>
-                </div>
-              )}
               <div className="mb-4">
-                <h3 className={`text-[18px] font-bold mb-1 ${isPro && !isPendingPlan ? "text-white" : "text-[#1a1a2e]"}`}>{plan.name}</h3>
-                <p className={`text-[12px] leading-relaxed ${isPro && !isPendingPlan ? "text-white/70" : "text-[#6b7280]"}`}>{descriptions[plan.id] || ""}</p>
+                <h3 className={`text-[18px] font-bold mb-1 ${isPro ? "text-white" : "text-[#1a1a2e]"}`}>{plan.name}</h3>
+                <p className={`text-[12px] leading-relaxed ${isPro ? "text-white/70" : "text-[#6b7280]"}`}>{descriptions[plan.id] || ""}</p>
               </div>
               <div className="mb-5">
                 {isFree ? (
-                  <div className={`text-[32px] font-bold leading-none ${isPro && !isPendingPlan ? "text-white" : "text-[#1a1a2e]"}`}>$0</div>
+                  <div className={`text-[32px] font-bold leading-none ${isPro ? "text-white" : "text-[#1a1a2e]"}`}>$0</div>
                 ) : (
                   <div className="flex items-baseline gap-1">
-                    <span className={`text-[32px] font-bold leading-none ${isPro && !isPendingPlan ? "text-white" : "text-[#1a1a2e]"}`}>${monthlyPrice % 1 === 0 ? monthlyPrice.toFixed(0) : monthlyPrice.toFixed(2)}</span>
-                    <span className={`text-[14px] ${isPro && !isPendingPlan ? "text-white/60" : "text-[#9ca3af]"}`}>/mo</span>
+                    <span className={`text-[32px] font-bold leading-none ${isPro ? "text-white" : "text-[#1a1a2e]"}`}>${monthlyPrice % 1 === 0 ? monthlyPrice.toFixed(0) : monthlyPrice.toFixed(2)}</span>
+                    <span className={`text-[14px] ${isPro ? "text-white/60" : "text-[#9ca3af]"}`}>/mo</span>
                   </div>
                 )}
               </div>
@@ -921,17 +908,17 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
                   isCurrentPlan
                     ? isPro ? "bg-white/20 text-white/80 cursor-default" : "bg-[#f3f4f6] text-[#9ca3af] cursor-default"
                     : isPendingPlan
-                      ? "bg-amber-100 text-amber-700 cursor-default"
+                      ? "bg-[#f3f4f6] text-[#6b7280] cursor-default"
                       : isPro ? "bg-[#7c3aed] hover:bg-[#6d28d9] text-white shadow-lg shadow-[#7c3aed]/25" : "bg-[#7c3aed] hover:bg-[#6d28d9] text-white"
                 }`}
               >
-                {loading === plan.id ? <><Loader2 className="h-4 w-4 animate-spin" />Processing...</> : isPendingPlan ? <><Clock className="h-3.5 w-3.5" />{buttonLabel}</> : buttonLabel}
+                {loading === plan.id ? <><Loader2 className="h-4 w-4 animate-spin" />Processing...</> : buttonLabel}
               </button>
               <ul className="space-y-2.5 flex-1">
                 {(featureLists[plan.id]?.(plan) || plan.features || []).map((feature: string, idx: number) => (
-                  <li key={idx} className={`flex items-start gap-2 text-[12px] ${isPro && !isPendingPlan ? "text-white/80" : "text-[#374151]"}`}>
-                    <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${isPro && !isPendingPlan ? "bg-[#7c3aed]/30" : "bg-[#ede9fe]"}`}>
-                      <Check className={`h-2.5 w-2.5 ${isPro && !isPendingPlan ? "text-[#a78bfa]" : "text-[#7c3aed]"}`} strokeWidth={3} />
+                  <li key={idx} className={`flex items-start gap-2 text-[12px] ${isPro ? "text-white/80" : "text-[#374151]"}`}>
+                    <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${isPro ? "bg-[#7c3aed]/30" : "bg-[#ede9fe]"}`}>
+                      <Check className={`h-2.5 w-2.5 ${isPro ? "text-[#a78bfa]" : "text-[#7c3aed]"}`} strokeWidth={3} />
                     </div>
                     <span>{feature}</span>
                   </li>

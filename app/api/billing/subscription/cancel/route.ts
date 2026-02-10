@@ -60,11 +60,35 @@ export async function POST() {
       )
     }
 
-    // Cancel subscription at period end in Stripe
+    // Release any existing subscription schedule first (e.g. from a pending downgrade)
+    const stripeSub = await stripe.subscriptions.retrieve(
+      subscription.stripe_subscription_id
+    ) as any
+
+    const existingScheduleId = stripeSub.schedule
+      ? (typeof stripeSub.schedule === "string" ? stripeSub.schedule : stripeSub.schedule.id)
+      : null
+
+    if (existingScheduleId) {
+      console.log("[Cancel] Releasing existing schedule:", existingScheduleId)
+      try {
+        await stripe.subscriptionSchedules.release(existingScheduleId)
+      } catch (releaseErr: any) {
+        console.warn("[Cancel] Could not release schedule:", releaseErr.message)
+        try {
+          await stripe.subscriptionSchedules.cancel(existingScheduleId)
+        } catch (cancelErr: any) {
+          console.warn("[Cancel] Could not cancel schedule either:", cancelErr.message)
+        }
+      }
+    }
+
+    // Now safe to cancel subscription at period end in Stripe
     const canceledSubscription = await stripe.subscriptions.update(
       subscription.stripe_subscription_id,
       {
         cancel_at_period_end: true,
+        metadata: { ...stripeSub.metadata, pending_plan_id: "" },
       }
     )
 
