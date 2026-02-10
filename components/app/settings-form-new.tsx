@@ -913,6 +913,25 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     if (activeTab === "payments" || activeTab === "general") loadStripeStatus()
   }, [activeTab, loadStripeStatus])
 
+  // Fetch domains - defined here (before the URL params useEffect) to avoid TDZ in production builds
+  const fetchDomains = useCallback(async () => {
+    setDomainsLoading(true)
+    try {
+      const res = await fetch("/api/domains")
+      const data = await res.json()
+      if (data.domains) setDomains(data.domains)
+    } catch (err) {
+      console.error("Failed to fetch domains:", err)
+    } finally {
+      setDomainsLoading(false)
+    }
+  }, [])
+
+  // Fetch domains on mount so quick links can use the custom domain
+  useEffect(() => {
+    fetchDomains()
+  }, [fetchDomains])
+
   // Handle URL parameters for tab navigation and Stripe Connect return/refresh
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -1157,24 +1176,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     }
   }, [activeTab])
 
-  // Fetch domains when switching to domains tab or on mount (for quick links)
-  const fetchDomains = useCallback(async () => {
-    setDomainsLoading(true)
-    try {
-      const res = await fetch("/api/domains")
-      const data = await res.json()
-      if (data.domains) setDomains(data.domains)
-    } catch (err) {
-      console.error("Failed to fetch domains:", err)
-    } finally {
-      setDomainsLoading(false)
-    }
-  }, [])
-
-  // Fetch domains on mount so quick links can use the custom domain
-  useEffect(() => {
-    fetchDomains()
-  }, [fetchDomains])
+  // fetchDomains moved above the URL params useEffect to avoid TDZ
 
   const addDomain = async () => {
     if (!domainInput.trim()) return
