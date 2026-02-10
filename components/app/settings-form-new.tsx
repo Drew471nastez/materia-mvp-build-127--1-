@@ -12,7 +12,7 @@ import {
   CreditCard, Store, Shield, Settings, Wallet,
   Camera, ExternalLink, ChevronRight, Globe,
   User, Palette, Link2, FileText, Search, ChevronLeft, Upload, Pencil,
-  ToggleLeft, LogOut, Trash2, Languages, Info, ChevronDown
+  ToggleLeft, LogOut, Trash2, Languages, Info, ChevronDown, CheckCircle, Clock
 } from "lucide-react"
 import type { Profile, Creator } from "@/lib/types"
 import { isValidUsername } from "@/lib/reserved-words"
@@ -183,10 +183,11 @@ const TABS = [
   { id: "billing", label: "Billing", icon: CreditCard },
   { id: "privacy", label: "Privacy", icon: ToggleLeft },
   { id: "stores", label: "Stores", icon: Store },
+  { id: "domains", label: "Domains", icon: Globe },
 ] as const
 
 type TabId = typeof TABS[number]["id"]
-const TAB_IDS: TabId[] = ["general", "security", "privacy", "payments", "stores", "billing"]
+const TAB_IDS: TabId[] = ["general", "security", "privacy", "payments", "stores", "billing", "domains"]
 
 interface SettingsFormProps {
   profile: Profile & {
@@ -815,6 +816,16 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   const [connectHelpUrl, setConnectHelpUrl] = useState<string | null>(null)
   const [usernameError, setUsernameError] = useState<string | null>(null)
 
+  // Domain state
+  const [domains, setDomains] = useState<any[]>([])
+  const [domainsLoading, setDomainsLoading] = useState(false)
+  const [domainInput, setDomainInput] = useState("")
+  const [domainAdding, setDomainAdding] = useState(false)
+  const [domainError, setDomainError] = useState<string | null>(null)
+  const [domainVerifying, setDomainVerifying] = useState<string | null>(null)
+  const [domainRemoving, setDomainRemoving] = useState<string | null>(null)
+  const [recommendedDomain, setRecommendedDomain] = useState("")
+
   // Avatar fallback order: Profile (manually set) → Store Builder → OnePage → Google → Initials
   // Filter out placeholder URLs to match layout.tsx logic for sidebar consistency
   const isValidAvatarUrl = (url: string | null | undefined): boolean => {
@@ -1141,6 +1152,91 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     }
   }, [activeTab])
 
+  // Fetch domains when switching to domains tab
+  const fetchDomains = useCallback(async () => {
+    setDomainsLoading(true)
+    try {
+      const res = await fetch("/api/domains")
+      const data = await res.json()
+      if (data.domains) setDomains(data.domains)
+    } catch (err) {
+      console.error("Failed to fetch domains:", err)
+    } finally {
+      setDomainsLoading(false)
+    }
+  }, [])
+
+  const addDomain = async () => {
+    if (!domainInput.trim()) return
+    setDomainAdding(true)
+    setDomainError(null)
+    try {
+      const res = await fetch("/api/domains", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ domain: domainInput.trim() }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setDomainError(data.error || "Failed to add domain")
+        return
+      }
+      setDomains((prev) => [data.domain, ...prev])
+      setDomainInput("")
+      setDomainError(null)
+    } catch (err) {
+      setDomainError("Failed to add domain")
+    } finally {
+      setDomainAdding(false)
+    }
+  }
+
+  const verifyDomain = async (domainId: string) => {
+    setDomainVerifying(domainId)
+    try {
+      const res = await fetch("/api/domains/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ domainId }),
+      })
+      const data = await res.json()
+      if (data.verified) {
+        setDomains((prev) => prev.map((d) => d.id === domainId ? { ...d, status: "active", verified_at: new Date().toISOString() } : d))
+      } else {
+        setDomainError(data.message || "Verification failed")
+      }
+    } catch (err) {
+      setDomainError("Verification failed")
+    } finally {
+      setDomainVerifying(null)
+    }
+  }
+
+  const removeDomain = async (domainId: string) => {
+    setDomainRemoving(domainId)
+    try {
+      const res = await fetch("/api/domains", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ domainId }),
+      })
+      if (res.ok) {
+        setDomains((prev) => prev.filter((d) => d.id !== domainId))
+      }
+    } catch (err) {
+      console.error("Failed to remove domain:", err)
+    } finally {
+      setDomainRemoving(null)
+    }
+  }
+
+  // Set recommended domain based on username
+  useEffect(() => {
+    if (username) {
+      setRecommendedDomain(`${username.toLowerCase()}.com`)
+    }
+  }, [username])
+
   // Tab change with skeleton loading animation
   const handleTabChange = (newTab: TabId) => {
     if (newTab === activeTab) return
@@ -1151,6 +1247,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     }
     setIsTabLoading(true)
     setActiveTab(newTab)
+    if (newTab === "domains") fetchDomains()
     setTimeout(() => {
       setIsTabLoading(false)
     }, 160)
@@ -1593,6 +1690,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                               tab.id === "privacy" ? t("settings.privacy") :
                               tab.id === "billing" ? t("settings.billing") :
                               tab.id === "payments" ? t("settings.payments") :
+                              tab.id === "domains" ? "Domains" :
                               t("settings.stores")
               return (
                 <button
@@ -2517,6 +2615,250 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
             </div>
           )}
+
+          {/* Domains Tab */}
+          {!isTabLoading && activeTab === "domains" && (
+            <div className="space-y-4 sm:space-y-6">
+              {/* Recommended Domain */}
+              {recommendedDomain && domains.every((d) => d.domain !== recommendedDomain) && (
+                <div className="bg-gradient-to-r from-[#fdf2f8] to-[#faf5ff] rounded-2xl p-4 sm:p-6 border border-[#f3e8ff] shadow-sm">
+                  <p className="text-[11px] font-bold text-[#ec4899] uppercase tracking-wider mb-2">Recommended</p>
+                  <div className="flex items-center justify-between gap-4">
+                    <p className="text-[20px] sm:text-[24px] font-bold text-[#1a1a2e]">{recommendedDomain}</p>
+                    <button
+                      onClick={() => { setDomainInput(recommendedDomain); addDomain() }}
+                      className="shrink-0 h-10 px-5 text-[13px] font-semibold text-white bg-gradient-to-r from-[#ec4899] to-[#8b5cf6] rounded-xl hover:shadow-lg transition-all cursor-pointer"
+                    >
+                      Claim
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Connect Your Domain Card */}
+              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
+                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1">Connect your own domain</h3>
+                <p className="text-[13px] text-[#6b7280] mb-4">Connect a custom domain to your store and OnePage. Your store will be available at <span className="font-medium">yourdomain.com</span> and your OnePage at <span className="font-medium">yourdomain.com/links</span>.</p>
+
+                <div className="flex gap-2">
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#9ca3af]" />
+                    <input
+                      type="text"
+                      value={domainInput}
+                      onChange={(e) => { setDomainInput(e.target.value); setDomainError(null) }}
+                      onKeyDown={(e) => e.key === "Enter" && addDomain()}
+                      placeholder="Search for a different domain"
+                      className="w-full h-11 pl-10 pr-4 text-[14px] border border-[#e5e7eb] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#8b5cf6] focus:border-[#8b5cf6] transition-colors"
+                    />
+                  </div>
+                  <button
+                    onClick={addDomain}
+                    disabled={domainAdding || !domainInput.trim()}
+                    className="h-11 px-5 text-[13px] font-semibold text-white bg-[#7c3aed] rounded-xl hover:bg-[#6d28d9] transition-colors disabled:opacity-50 cursor-pointer flex items-center gap-2"
+                  >
+                    {domainAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                    Connect
+                  </button>
+                </div>
+
+                {domainError && (
+                  <div className="mt-3 flex items-center gap-2 text-[12px] text-red-600">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                    {domainError}
+                  </div>
+                )}
+
+                <p className="mt-3 text-[12px] text-[#9ca3af]">Already own a domain you want to connect? Enter it above.</p>
+              </div>
+
+              {/* Connected Domains List */}
+              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
+                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">Your Domains</h3>
+
+                {domainsLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-5 w-5 animate-spin text-[#7c3aed]" />
+                  </div>
+                ) : domains.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Globe className="h-10 w-10 text-[#d1d5db] mx-auto mb-3" />
+                    <p className="text-[13px] text-[#6b7280] mb-1">No domains connected yet</p>
+                    <p className="text-[12px] text-[#9ca3af]">Add a custom domain above to get started</p>
+                  </div>
+                ) : (
+                  <>
+                    {/* Table Header - Desktop */}
+                    <div className="hidden sm:grid sm:grid-cols-[1fr_120px_140px_100px] gap-4 pb-3 border-b border-[#e5e7eb]">
+                      <p className="text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider">Domain Name</p>
+                      <p className="text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider">Status</p>
+                      <p className="text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider">Date Added</p>
+                      <p className="text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider text-right">Action</p>
+                    </div>
+
+                    {domains.map((d) => (
+                      <div key={d.id}>
+                        {/* Desktop Row */}
+                        <div className="hidden sm:grid sm:grid-cols-[1fr_120px_140px_100px] gap-4 items-center py-4 border-b border-[#f3f4f6] last:border-0">
+                          <p className="text-[14px] font-medium text-[#1a1a2e]">{d.domain}</p>
+                          <div>
+                            {d.status === "active" ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[11px] font-semibold rounded-full">
+                                <CheckCircle className="h-3 w-3" /> Connected
+                              </span>
+                            ) : d.status === "verifying" ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-700 text-[11px] font-semibold rounded-full">
+                                <Loader2 className="h-3 w-3 animate-spin" /> Verifying
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-100 text-gray-600 text-[11px] font-semibold rounded-full">
+                                <Clock className="h-3 w-3" /> Pending
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[13px] text-[#6b7280]">
+                            {new Date(d.created_at).toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" })}
+                          </p>
+                          <div className="flex items-center gap-2 justify-end">
+                            {d.status !== "active" && (
+                              <button
+                                onClick={() => verifyDomain(d.id)}
+                                disabled={domainVerifying === d.id}
+                                className="text-[12px] font-medium text-[#7c3aed] hover:text-[#6d28d9] cursor-pointer disabled:opacity-50"
+                              >
+                                {domainVerifying === d.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Verify"}
+                              </button>
+                            )}
+                            <button
+                              onClick={() => removeDomain(d.id)}
+                              disabled={domainRemoving === d.id}
+                              className="text-[12px] font-medium text-[#6b7280] hover:text-red-600 border border-[#e5e7eb] hover:border-red-200 px-3 py-1.5 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                            >
+                              {domainRemoving === d.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Remove"}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Mobile Card */}
+                        <div className="sm:hidden bg-[#f9fafb] rounded-xl p-4 border border-[#e5e7eb] mb-3">
+                          <div className="flex items-start justify-between mb-2">
+                            <p className="text-[14px] font-semibold text-[#1a1a2e]">{d.domain}</p>
+                            {d.status === "active" ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[11px] font-semibold rounded-full">
+                                <CheckCircle className="h-3 w-3" /> Connected
+                              </span>
+                            ) : d.status === "verifying" ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-700 text-[11px] font-semibold rounded-full">
+                                <Loader2 className="h-3 w-3 animate-spin" /> Verifying
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-100 text-gray-600 text-[11px] font-semibold rounded-full">
+                                <Clock className="h-3 w-3" /> Pending
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[12px] text-[#9ca3af] mb-3">Added {new Date(d.created_at).toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" })}</p>
+                          <div className="flex items-center gap-2">
+                            {d.status !== "active" && (
+                              <button
+                                onClick={() => verifyDomain(d.id)}
+                                disabled={domainVerifying === d.id}
+                                className="flex-1 h-9 text-[12px] font-medium text-[#7c3aed] bg-[#f5f3ff] rounded-lg hover:bg-[#ede9fe] transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1"
+                              >
+                                {domainVerifying === d.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Verify DNS"}
+                              </button>
+                            )}
+                            <button
+                              onClick={() => removeDomain(d.id)}
+                              disabled={domainRemoving === d.id}
+                              className="h-9 px-4 text-[12px] font-medium text-[#6b7280] border border-[#e5e7eb] rounded-lg hover:text-red-600 hover:border-red-200 transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1"
+                            >
+                              {domainRemoving === d.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Remove"}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )}
+              </div>
+
+              {/* DNS Setup Instructions */}
+              {domains.some((d) => d.status !== "active") && (
+                <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
+                  <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-3">DNS Setup Instructions</h3>
+                  <p className="text-[13px] text-[#6b7280] mb-4">To connect your domain, add these DNS records at your domain registrar:</p>
+
+                  <div className="space-y-4">
+                    {/* CNAME Record */}
+                    <div className="bg-[#f9fafb] rounded-xl p-4">
+                      <p className="text-[12px] font-semibold text-[#374151] mb-2">Step 1: Add CNAME Record</p>
+                      <div className="grid grid-cols-[80px_1fr] gap-2 text-[12px]">
+                        <span className="text-[#6b7280]">Type:</span>
+                        <span className="font-mono text-[#1a1a2e]">CNAME</span>
+                        <span className="text-[#6b7280]">Name:</span>
+                        <span className="font-mono text-[#1a1a2e]">@ or www</span>
+                        <span className="text-[#6b7280]">Value:</span>
+                        <span className="font-mono text-[#7c3aed]">cname.storelib.com</span>
+                      </div>
+                    </div>
+
+                    {/* TXT Verification */}
+                    {domains.filter((d) => d.status !== "active").map((d) => (
+                      <div key={d.id} className="bg-[#f9fafb] rounded-xl p-4">
+                        <p className="text-[12px] font-semibold text-[#374151] mb-2">Step 2: Add TXT Record for {d.domain}</p>
+                        <div className="grid grid-cols-[80px_1fr] gap-2 text-[12px]">
+                          <span className="text-[#6b7280]">Type:</span>
+                          <span className="font-mono text-[#1a1a2e]">TXT</span>
+                          <span className="text-[#6b7280]">Name:</span>
+                          <span className="font-mono text-[#1a1a2e]">_storelib</span>
+                          <span className="text-[#6b7280]">Value:</span>
+                          <span className="font-mono text-[#7c3aed] break-all text-[11px]">{d.verification_token}</span>
+                        </div>
+                      </div>
+                    ))}
+
+                    <p className="text-[12px] text-[#9ca3af]">DNS changes can take up to 48 hours to propagate. After adding the records, click &quot;Verify&quot; to check.</p>
+                  </div>
+                </div>
+              )}
+
+              {/* How It Works */}
+              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
+                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-3">How Custom Domains Work</h3>
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="w-6 h-6 rounded-full bg-[#f5f3ff] flex items-center justify-center shrink-0 mt-0.5">
+                      <span className="text-[11px] font-bold text-[#7c3aed]">1</span>
+                    </div>
+                    <div>
+                      <p className="text-[13px] font-medium text-[#374151]">Your Store</p>
+                      <p className="text-[12px] text-[#6b7280]"><span className="font-mono">{username}.storelib.com</span> → <span className="font-mono">yourdomain.com</span></p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-6 h-6 rounded-full bg-[#f5f3ff] flex items-center justify-center shrink-0 mt-0.5">
+                      <span className="text-[11px] font-bold text-[#7c3aed]">2</span>
+                    </div>
+                    <div>
+                      <p className="text-[13px] font-medium text-[#374151]">Your OnePage</p>
+                      <p className="text-[12px] text-[#6b7280]"><span className="font-mono">{username}.storelib.com/links</span> → <span className="font-mono">yourdomain.com/links</span></p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-6 h-6 rounded-full bg-[#f5f3ff] flex items-center justify-center shrink-0 mt-0.5">
+                      <span className="text-[11px] font-bold text-[#7c3aed]">3</span>
+                    </div>
+                    <div>
+                      <p className="text-[13px] font-medium text-[#374151]">Marketplace Links Stay</p>
+                      <p className="text-[12px] text-[#6b7280]">Traffic from the marketplace still uses <span className="font-mono">{username}.storelib.com</span></p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
         </form>
       </div>
 

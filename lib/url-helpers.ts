@@ -159,6 +159,40 @@ export function getLinksUrlDisplay(username: string): string {
 }
 
 /**
+ * Get the store URL with custom domain support
+ * @param username - The seller's username
+ * @param customDomain - Optional custom domain (e.g., "theirdomain.com")
+ * @returns Full URL like "https://theirdomain.com" or falls back to subdomain
+ */
+export function getStoreUrlWithCustomDomain(username: string, customDomain?: string | null): string {
+  if (customDomain) return `https://${customDomain}`
+  return getStoreUrl(username)
+}
+
+/**
+ * Get the links URL with custom domain support
+ * @param username - The seller's username
+ * @param customDomain - Optional custom domain
+ * @returns Full URL like "https://theirdomain.com/links" or falls back to subdomain
+ */
+export function getLinksUrlWithCustomDomain(username: string, customDomain?: string | null): string {
+  if (customDomain) return `https://${customDomain}/links`
+  return getLinksUrl(username)
+}
+
+/**
+ * Get the product URL with custom domain support
+ * @param username - The seller's username
+ * @param productSlug - The product slug
+ * @param customDomain - Optional custom domain
+ * @returns Full URL like "https://theirdomain.com/p/product-slug"
+ */
+export function getProductUrlWithCustomDomain(username: string, productSlug: string, customDomain?: string | null): string {
+  if (customDomain) return `https://${customDomain}/p/${productSlug}`
+  return getProductUrl(username, productSlug)
+}
+
+/**
  * Check if the current URL is a seller subdomain
  * @param host - The current host (e.g., from window.location.host)
  * @returns The username if on a subdomain, null otherwise

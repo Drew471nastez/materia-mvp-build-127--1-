@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import {
   Settings, Shield, ToggleLeft, Wallet, Store, CreditCard,
   Check, Loader2, Download, FileText, Clock, CheckCircle, XCircle, AlertCircle,
-  Rocket, Lock, Pencil, ExternalLink, X, ArrowUpRight,
+  Rocket, Lock, Pencil, ExternalLink, X, ArrowUpRight, ChevronDown, Globe,
 } from "lucide-react"
 import { useLanguage } from "@/lib/i18n"
 
@@ -17,6 +17,7 @@ const TABS = [
   { id: "billing", label: "Billing", icon: CreditCard },
   { id: "privacy", label: "Privacy", icon: ToggleLeft },
   { id: "stores", label: "Stores", icon: Store },
+  { id: "domains", label: "Domains", icon: Globe },
 ] as const
 
 type TabId = typeof TABS[number]["id"]
@@ -42,6 +43,7 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
   const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null)
   const [showUpgradeModal, setShowUpgradeModal] = useState<{ planId: string; planName: string; priceCents: number } | null>(null)
   const [upgradeLoading, setUpgradeLoading] = useState(false)
+  const [showAllInvoices, setShowAllInvoices] = useState(false)
   const [upgradePreview, setUpgradePreview] = useState<{ amountDueTodayCents: number; nextBillingDate: string; nextAmountCents: number; type: "upgrade" | "downgrade" } | null>(null)
 
   // Refs for auto-scrolling tab navigation on mobile
@@ -488,23 +490,37 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
               </div>
             ) : (
               <>
-                {/* Mobile view - cards, clickable */}
-                <div className="block sm:hidden space-y-3">
-                  {liveInvoices.map((invoice: any) => (
-                    <button key={invoice.id} onClick={() => setSelectedInvoice(invoice)} className="w-full text-left bg-[#f9fafb] rounded-xl p-4 border border-[#e5e7eb] hover:border-[#d1d5db] hover:shadow-sm transition-all cursor-pointer">
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <div className="text-[14px] font-semibold text-[#1a1a2e]">{formatAmount(invoice.amount_cents)}</div>
-                          <div className="text-[12px] text-[#6b7280] mt-0.5">{formatDate(invoice.created_at)}</div>
-                        </div>
-                        {getStatusBadge(invoice.status)}
-                      </div>
-                      <p className="text-[12px] text-[#6b7280]">{invoice.description || "Subscription"}</p>
+                {/* Mobile view - cards, clickable, max 3 with See More */}
+                <div className="block sm:hidden">
+                  <div className="relative space-y-3">
+                    {(showAllInvoices ? liveInvoices : liveInvoices.slice(0, 3)).map((invoice: any, idx: number) => {
+                      const isLastVisible = !showAllInvoices && idx === 2 && liveInvoices.length > 3
+                      return (
+                        <button key={invoice.id} onClick={() => setSelectedInvoice(invoice)} className={`w-full text-left bg-[#f9fafb] rounded-xl p-4 border border-[#e5e7eb] hover:border-[#d1d5db] hover:shadow-sm transition-all cursor-pointer ${isLastVisible ? "opacity-40" : ""}`}>
+                          <div className="flex items-start justify-between mb-2">
+                            <div>
+                              <div className="text-[14px] font-semibold text-[#1a1a2e]">{formatAmount(invoice.amount_cents)}</div>
+                              <div className="text-[12px] text-[#6b7280] mt-0.5">{formatDate(invoice.created_at)}</div>
+                            </div>
+                            {getStatusBadge(invoice.status)}
+                          </div>
+                          <p className="text-[12px] text-[#6b7280]">{invoice.description || "Subscription"}</p>
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {liveInvoices.length > 3 && (
+                    <button
+                      onClick={() => setShowAllInvoices(!showAllInvoices)}
+                      className="w-full mt-3 flex items-center justify-center gap-1.5 h-10 text-[13px] font-medium text-[#7c3aed] bg-[#f5f3ff] hover:bg-[#ede9fe] rounded-xl transition-colors cursor-pointer"
+                    >
+                      {showAllInvoices ? "Show Less" : `See More (${liveInvoices.length - 3})`}
+                      <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${showAllInvoices ? "rotate-180" : ""}`} />
                     </button>
-                  ))}
+                  )}
                 </div>
 
-                {/* Desktop table view - rows clickable */}
+                {/* Desktop table view - rows clickable, max 5 with See More */}
                 <div className="hidden sm:block overflow-x-auto">
                   <table className="w-full">
                     <thead>
@@ -517,24 +533,36 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                       </tr>
                     </thead>
                     <tbody>
-                      {liveInvoices.map((invoice: any) => (
-                        <tr key={invoice.id} onClick={() => setSelectedInvoice(invoice)} className="border-b border-[#f3f4f6] last:border-0 hover:bg-[#f5f3ff]/30 transition-colors cursor-pointer">
-                          <td className="py-4 text-[13px] text-[#374151]">{formatDate(invoice.created_at)}</td>
-                          <td className="py-4 text-[13px] text-[#374151]">{invoice.description || (invoice.period_start && invoice.period_end ? `${formatDate(invoice.period_start)} - ${formatDate(invoice.period_end)}` : "Subscription")}</td>
-                          <td className="py-4 text-[13px] font-medium text-[#1a1a2e]">{formatAmount(invoice.amount_cents)}</td>
-                          <td className="py-4">{getStatusBadge(invoice.status)}</td>
-                          <td className="py-4 text-right">
-                            {invoice.invoice_pdf_url && (
-                              <a href={invoice.invoice_pdf_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-1.5 text-[12px] font-medium text-[#7c3aed] hover:text-[#6d28d9] transition-colors cursor-pointer">
-                                <Download className="h-3.5 w-3.5" />
-                                Download
-                              </a>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
+                      {(showAllInvoices ? liveInvoices : liveInvoices.slice(0, 5)).map((invoice: any, idx: number) => {
+                        const isLastVisible = !showAllInvoices && idx === 4 && liveInvoices.length > 5
+                        return (
+                          <tr key={invoice.id} onClick={() => setSelectedInvoice(invoice)} className={`border-b border-[#f3f4f6] last:border-0 hover:bg-[#f5f3ff]/30 transition-colors cursor-pointer ${isLastVisible ? "opacity-40" : ""}`}>
+                            <td className="py-4 text-[13px] text-[#374151]">{formatDate(invoice.created_at)}</td>
+                            <td className="py-4 text-[13px] text-[#374151]">{invoice.description || (invoice.period_start && invoice.period_end ? `${formatDate(invoice.period_start)} - ${formatDate(invoice.period_end)}` : "Subscription")}</td>
+                            <td className="py-4 text-[13px] font-medium text-[#1a1a2e]">{formatAmount(invoice.amount_cents)}</td>
+                            <td className="py-4">{getStatusBadge(invoice.status)}</td>
+                            <td className="py-4 text-right">
+                              {invoice.invoice_pdf_url && (
+                                <a href={invoice.invoice_pdf_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-1.5 text-[12px] font-medium text-[#7c3aed] hover:text-[#6d28d9] transition-colors cursor-pointer">
+                                  <Download className="h-3.5 w-3.5" />
+                                  Download
+                                </a>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
                     </tbody>
                   </table>
+                  {liveInvoices.length > 5 && (
+                    <button
+                      onClick={() => setShowAllInvoices(!showAllInvoices)}
+                      className="w-full mt-3 flex items-center justify-center gap-1.5 h-10 text-[13px] font-medium text-[#7c3aed] bg-[#f5f3ff] hover:bg-[#ede9fe] rounded-xl transition-colors cursor-pointer"
+                    >
+                      {showAllInvoices ? "Show Less" : `See More (${liveInvoices.length - 5})`}
+                      <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${showAllInvoices ? "rotate-180" : ""}`} />
+                    </button>
+                  )}
                 </div>
               </>
             )}
