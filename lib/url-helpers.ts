@@ -246,6 +246,38 @@ export function isSellerPage(pathname: string, host?: string): boolean {
 }
 
 /**
+ * Check if the current host is a custom domain (not storelib.com or its subdomains)
+ * Custom domains are seller-owned domains like "materiabuilder.store"
+ * @param host - The current host (e.g., from window.location.host)
+ * @returns true if the host is a custom domain
+ */
+export function isCustomDomain(host: string): boolean {
+  if (!host) return false
+
+  const hostWithoutPort = host.split(":")[0]
+
+  // Not a custom domain if it's localhost/development
+  if (hostWithoutPort === "localhost" || hostWithoutPort === "127.0.0.1") {
+    return false
+  }
+
+  const mainDomain = getMainDomain()
+
+  // Not a custom domain if it's the main domain itself
+  if (hostWithoutPort === mainDomain) {
+    return false
+  }
+
+  // Not a custom domain if it's a subdomain of the main domain
+  if (hostWithoutPort.endsWith(`.${mainDomain}`)) {
+    return false
+  }
+
+  // Everything else is a custom domain
+  return true
+}
+
+/**
  * Check if we're on a links/onepage
  * @param pathname - Current pathname
  * @param host - Current host
