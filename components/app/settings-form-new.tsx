@@ -799,7 +799,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false)
   const [isMobileViewport, setIsMobileViewport] = useState(false)
 
-  const [stripeStatus, setStripeStatus] = useState<{ connected: boolean; status: string; chargesEnabled?: boolean; payoutsEnabled?: boolean; accountId?: string | null }>({ connected: false, status: "not_connected" })
+  const [stripeStatus, setStripeStatus] = useState<{ connected: boolean; status: string; chargesEnabled?: boolean; payoutsEnabled?: boolean; detailsSubmitted?: boolean; accountId?: string | null }>({ connected: false, status: "not_connected" })
   const [stripeStatusLoading, setStripeStatusLoading] = useState(false)
   const [stripeBusy, setStripeBusy] = useState<"connect" | "disconnect" | null>(null)
   const [showStripeManage, setShowStripeManage] = useState(false)
@@ -919,6 +919,22 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     } catch (err) {
       console.error("Stripe Connect fetch error:", err)
       setError("Network error. Please check your connection and try again.")
+      setTimeout(() => setError(null), 5000)
+    } finally {
+      setStripeBusy(null)
+    }
+  }
+
+
+  const manageStripe = async () => {
+    setStripeBusy("connect")
+    try {
+      const res = await fetch("/api/stripe/connect/login-link", { method: "POST" })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.error || "Failed to open Stripe dashboard")
+      if (data?.url) window.location.href = data.url
+    } catch (err: any) {
+      setError(err?.message || "Something went wrong. Try again.")
       setTimeout(() => setError(null), 5000)
     } finally {
       setStripeBusy(null)
@@ -2241,7 +2257,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                       <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="text-[15px] sm:text-[16px] font-semibold text-[#1a1a2e]">Stripe</h3>
                         <span className={`px-1.5 py-0.5 font-medium rounded-full flex items-center gap-1 ${isMobileViewport ? "text-[8px]" : "text-[10px]"} ${stripeStatus.connected ? "bg-emerald-500 text-white" : "bg-amber-100 text-amber-700 border border-amber-200"}`}>
-                          <Check className="h-3 w-3" /> {stripeStatus.connected ? "Connected" : stripeStatusLoading ? "Checking" : "Not connected"}
+                          <Check className="h-3 w-3" /> {stripeStatus.connected ? "Connected" : stripeStatus.status === "pending" ? "Pending" : stripeStatusLoading ? "Checking" : "Not connected"}
                         </span>
                       </div>
                       <p className="text-[13px] sm:text-[14px] text-[#6b7280] mt-0.5">Connect to accept payments from Credit/Debit cards</p>
@@ -2261,6 +2277,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <button type="button" onClick={connectStripe} disabled={stripeBusy !== null} className="h-9 px-3 rounded-lg bg-[#8b5cf6] text-white text-[13px] hover:bg-[#7c3aed] disabled:opacity-60 cursor-pointer">{stripeBusy === "connect" ? "Connecting..." : stripeStatus.connected ? "Reconnect Stripe" : "Connect Stripe"}</button>
+                      <button type="button" onClick={manageStripe} disabled={stripeBusy !== null || !stripeStatus.connected} className="h-9 px-3 rounded-lg border border-[#e5e7eb] text-[13px] text-[#374151] hover:bg-[#f3f4f6] disabled:opacity-60 cursor-pointer">Manage</button>
                       <button type="button" onClick={disconnectStripe} disabled={stripeBusy !== null || !stripeStatus.connected} className="h-9 px-3 rounded-lg border border-[#e5e7eb] text-[13px] text-[#374151] hover:bg-[#f3f4f6] disabled:opacity-60 cursor-pointer">{stripeBusy === "disconnect" ? "Disconnecting..." : "Disconnect"}</button>
                     </div>
                   </div>

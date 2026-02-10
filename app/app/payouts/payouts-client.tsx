@@ -111,6 +111,7 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [isConnecting, setIsConnecting] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [statusLoading, setStatusLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
@@ -144,13 +145,12 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
   const currency = creator.default_currency || "USD"
   const supabase = createClient()
 
-  const isStripeConnected = creator.stripe_onboarding_status === "enabled"
-  const isStripePending = creator.stripe_onboarding_status === "pending" || creator.stripe_onboarding_status === "restricted"
+  const isStripeConnected = creator.stripe_onboarding_status === "connected"
+  const isStripePending = creator.stripe_onboarding_status === "pending"
 
   // Fetch Stripe connection status
   const fetchConnectionStatus = async () => {
-    if (!creator.stripe_account_id) return
-
+    setStatusLoading(true)
     try {
       const response = await fetch("/api/stripe/connect/status")
       if (response.ok) {
@@ -159,6 +159,8 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
       }
     } catch (err) {
       console.error("Error fetching connection status:", err)
+    } finally {
+      setStatusLoading(false)
     }
   }
 
@@ -373,12 +375,14 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
               <div className="flex-1 space-y-3">
                 <div>
                   <h3 className="text-[16px] font-semibold text-[#1a1a2e]">
-                    {isStripePending ? "Complete your Stripe setup" : "Connect Stripe to receive payouts"}
+                    {statusLoading ? "Checking payout connection..." : isStripePending ? "Complete your Stripe setup" : "Get paid — Connect your payouts to receive payments."}
                   </h3>
                   <p className="text-[14px] text-[#6b7280] mt-1">
-                    {isStripePending
-                      ? "Your Stripe account needs additional verification to enable payouts."
-                      : "Connect your bank account through Stripe to start receiving payments from your sales."}
+                    {statusLoading
+                      ? "Loading Stripe status..."
+                      : isStripePending
+                        ? "Your Stripe account needs additional verification to enable payouts."
+                        : "Connect your bank account through Stripe to start receiving payments from your sales."}
                   </p>
                 </div>
                 {isStripePending && (
@@ -405,6 +409,7 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
                       </>
                     ) : (
                       <>
+                        <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1"><circle cx="512" cy="512" r="512" fill="#fff" opacity="0.2" /></svg>
                         Connect Stripe
                         <ChevronRight className="ml-1 h-4 w-4" />
                       </>

@@ -11,6 +11,13 @@ export const runtime = "nodejs"
 
 const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
+function planIdFromPriceId(priceId?: string): "free" | "growth" | "pro" {
+  if (!priceId) return "free"
+  if (priceId === process.env.PRICE_GROWTH_MONTHLY) return "growth"
+  if (priceId === process.env.PRICE_PRO_MONTHLY) return "pro"
+  return "free"
+}
+
 export async function POST(request: Request) {
   console.log("[Webhook] Received")
 
@@ -518,10 +525,12 @@ export async function POST(request: Request) {
         return NextResponse.json({ received: true, message: "No existing subscription" })
       }
 
-      // Determine plan from subscription items
-      let planId = existingSubscription.plan_id
+      const currentPriceId = subscription.items.data[0]?.price?.id
+      let planId = planIdFromPriceId(currentPriceId)
       const metadata = subscription.metadata || {}
-      if (metadata.plan_id) {
+      if (metadata.pending_plan_id && subscription.status === "active") {
+        planId = metadata.pending_plan_id
+      } else if (metadata.plan_id) {
         planId = metadata.plan_id
       }
 
@@ -533,6 +542,7 @@ export async function POST(request: Request) {
           current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
           current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
           cancel_at_period_end: subscription.cancel_at_period_end,
+          pending_plan_id: metadata.pending_plan_id && subscription.status !== "active" ? metadata.pending_plan_id : null,
           canceled_at: subscription.canceled_at ? new Date(subscription.canceled_at * 1000).toISOString() : null,
           updated_at: new Date().toISOString(),
         })
@@ -545,6 +555,13 @@ export async function POST(request: Request) {
           subscription_status: subscription.status,
         })
         .eq("id", existingSubscription.creator_id)
+
+
+      if (subscription.status === "active" && metadata.pending_plan_id) {
+        await stripe.subscriptions.update(subscription.id, {
+          metadata: { ...metadata, pending_plan_id: "" },
+        })
+      }
 
       console.log("[Subscription] Updated successfully")
     } catch (error) {
@@ -700,16 +717,17 @@ export async function POST(request: Request) {
       if (creator) {
         const chargesEnabled = account.charges_enabled || false
         const payoutsEnabled = account.payouts_enabled || false
-        let onboardingStatus = "pending"
-        if (chargesEnabled && payoutsEnabled) onboardingStatus = "enabled"
-        else if (chargesEnabled || payoutsEnabled) onboardingStatus = "restricted"
+        const detailsSubmitted = account.details_submitted || false
+        const onboardingStatus = chargesEnabled && payoutsEnabled && detailsSubmitted ? "connected" : "pending"
 
         await supabaseAdmin
           .from("creators")
           .update({
             charges_enabled: chargesEnabled,
             payouts_enabled: payoutsEnabled,
+            details_submitted: detailsSubmitted,
             stripe_onboarding_status: onboardingStatus,
+            stripe_connected_at: onboardingStatus === "connected" ? new Date().toISOString() : null,
           })
           .eq("id", creator.id)
 

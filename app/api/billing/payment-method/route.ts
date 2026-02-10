@@ -2,10 +2,11 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { stripe, getOrCreateStripeCustomer } from "@/lib/stripe"
 
-export async function DELETE() {
+const SUBSCRIBED_STATUSES = new Set(["active", "trialing", "past_due"])
+
+export async function DELETE(request: Request) {
   try {
     const supabase = await createClient()
-
     const {
       data: { user },
       error: authError,
@@ -17,7 +18,7 @@ export async function DELETE() {
 
     const { data: creator } = await supabase
       .from("creators")
-      .select("id, stripe_customer_id, subscription_plan_id")
+      .select("id, stripe_customer_id, slug, username")
       .eq("user_id", user.id)
       .single()
 
@@ -25,75 +26,95 @@ export async function DELETE() {
       return NextResponse.json({ error: "Creator not found" }, { status: 404 })
     }
 
-    if (!creator.stripe_customer_id) {
-      return NextResponse.json({ error: "No payment method found" }, { status: 404 })
+    const body = await request.json().catch(() => ({}))
+    const paymentMethodId = typeof body?.paymentMethodId === "string" ? body.paymentMethodId : null
+
+    const customerId = await getOrCreateStripeCustomer({
+      creatorId: creator.id,
+      existingCustomerId: creator.stripe_customer_id,
+      email: user.email,
+      userId: user.id,
+      username: creator.username || creator.slug || "creator",
+    })
+
+    const customer = await stripe.customers.retrieve(customerId)
+    if ((customer as any).deleted) {
+      return NextResponse.json({ error: "Stripe customer not found" }, { status: 404 })
     }
 
-    // Validate the customer exists on current Stripe keys
-    let customerId = creator.stripe_customer_id
-    try {
-      await stripe.customers.retrieve(customerId)
-    } catch {
-      return NextResponse.json({ error: "No payment method found" }, { status: 404 })
-    }
-
-    // Fetch payment methods directly from Stripe
     const paymentMethods = await stripe.paymentMethods.list({
       customer: customerId,
       type: "card",
       limit: 10,
     })
 
-    if (paymentMethods.data.length === 0) {
+    const targetPm = paymentMethodId
+      ? paymentMethods.data.find((pm) => pm.id === paymentMethodId)
+      : paymentMethods.data[0]
+
+    if (!targetPm) {
       return NextResponse.json({ error: "No payment method found" }, { status: 404 })
     }
 
-    // Check if user has an active subscription — if so, warn them
-    const activeSubs = await stripe.subscriptions.list({
+    const defaultPm = typeof customer.invoice_settings.default_payment_method === "string"
+      ? customer.invoice_settings.default_payment_method
+      : customer.invoice_settings.default_payment_method?.id || null
+
+    const isDefault = defaultPm === targetPm.id
+
+    const subscriptions = await stripe.subscriptions.list({
       customer: customerId,
-      status: "active",
-      limit: 1,
+      limit: 20,
     })
 
-    if (activeSubs.data.length > 0 && paymentMethods.data.length <= 1) {
-      // Only one card and they have an active subscription — still allow but warn
-      // We allow removal but Stripe may still charge via the subscription's default
-    }
+    const activeOrTrialingSubscription = subscriptions.data.find((sub) => SUBSCRIBED_STATUSES.has(sub.status))
 
-    // Detach all payment methods from Stripe
-    for (const pm of paymentMethods.data) {
-      try {
-        await stripe.paymentMethods.detach(pm.id)
-      } catch (err) {
-        console.error(`Error detaching payment method ${pm.id}:`, err)
+    if (isDefault && activeOrTrialingSubscription) {
+      const replacement = paymentMethods.data.find((pm) => pm.id !== targetPm.id)
+      if (!replacement) {
+        return NextResponse.json(
+          { error: "Add a new payment method first to keep your subscription active." },
+          { status: 400 },
+        )
       }
-    }
 
-    // Clear default payment method on the Stripe customer
-    try {
       await stripe.customers.update(customerId, {
-        invoice_settings: { default_payment_method: "" },
+        invoice_settings: { default_payment_method: replacement.id },
       })
-    } catch (err) {
-      console.error("Error clearing customer default payment method:", err)
     }
 
-    // Also clean up Supabase payment_methods table if records exist
-    try {
-      await supabase
-        .from("payment_methods")
-        .delete()
-        .eq("creator_id", creator.id)
-    } catch {
-      // Table might not exist or no records — that's fine
+    if (isDefault && !activeOrTrialingSubscription) {
+      const replacement = paymentMethods.data.find((pm) => pm.id !== targetPm.id)
+      await stripe.customers.update(customerId, {
+        invoice_settings: { default_payment_method: replacement?.id ?? null },
+      })
     }
 
-    return NextResponse.json({ success: true })
+    await stripe.paymentMethods.detach(targetPm.id)
+
+    const refreshedCustomer = await stripe.customers.retrieve(customerId)
+    const refreshedMethods = await stripe.paymentMethods.list({
+      customer: customerId,
+      type: "card",
+      limit: 10,
+    })
+    const refreshedDefaultPm = typeof refreshedCustomer.invoice_settings.default_payment_method === "string"
+      ? refreshedCustomer.invoice_settings.default_payment_method
+      : refreshedCustomer.invoice_settings.default_payment_method?.id || null
+
+    return NextResponse.json({
+      success: true,
+      defaultPaymentMethodId: refreshedDefaultPm,
+      paymentMethods: refreshedMethods.data.map((pm) => ({
+        id: pm.id,
+        brand: pm.card?.brand || "unknown",
+        last4: pm.card?.last4 || "0000",
+        expMonth: pm.card?.exp_month || 0,
+        expYear: pm.card?.exp_year || 0,
+      })),
+    })
   } catch (error: any) {
     console.error("Error in DELETE /api/billing/payment-method:", error)
-    return NextResponse.json(
-      { error: error.message || "Failed to remove payment method" },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: error.message || "Failed to remove payment method" }, { status: 500 })
   }
 }

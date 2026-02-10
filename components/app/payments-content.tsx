@@ -246,7 +246,7 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
               <div>
                 <p className="text-sm font-medium">Status</p>
                 <div className="mt-1 flex items-center gap-2">
-                  {connectionStatus?.status === "enabled" ? (
+                  {connectionStatus?.status === "connected" ? (
                     <>
                       <Badge variant="default" className="bg-green-600">
                         Fully Enabled
@@ -255,7 +255,7 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
                         <span className="text-xs text-muted-foreground">{connectionStatus.accountId}</span>
                       )}
                     </>
-                  ) : connectionStatus?.status === "restricted" ? (
+                  ) : connectionStatus?.status === "pending" ? (
                     <Badge variant="destructive">Restricted</Badge>
                   ) : connectionStatus?.status === "pending" ? (
                     <Badge variant="secondary">Pending Verification</Badge>
@@ -286,7 +286,7 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         Connecting...
                       </>
-                    ) : connectionStatus?.status === "pending" || connectionStatus?.status === "restricted" ? (
+                    ) : connectionStatus?.status === "pending" || connectionStatus?.status === "pending" ? (
                       "Complete Setup"
                     ) : (
                       "Connect Stripe"

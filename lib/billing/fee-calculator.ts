@@ -34,6 +34,7 @@ export async function calculatePlatformFee(
     .from("creators")
     .select(`
       subscription_plan_id,
+      subscription_status,
       subscription_plans (
         id,
         name,
@@ -56,6 +57,16 @@ export async function calculatePlatformFee(
   }
 
   const plan = creator.subscription_plans as unknown as SubscriptionPlan
+
+  const creatorSubscriptionStatus = (creator as any).subscription_status
+  if (creatorSubscriptionStatus && !["active", "trialing"].includes(creatorSubscriptionStatus)) {
+    return calculateFeeWithPlan(amountCents, {
+      id: "free",
+      name: "Free",
+      fee_percent: 0.06,
+      fee_fixed_cents: 25,
+    })
+  }
 
   if (!plan) {
     // No plan found, use free plan defaults

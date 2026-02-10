@@ -43,6 +43,7 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
   const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null)
   const [showUpgradeModal, setShowUpgradeModal] = useState<{ planId: string; planName: string; priceCents: number } | null>(null)
   const [upgradeLoading, setUpgradeLoading] = useState(false)
+  const [upgradePreview, setUpgradePreview] = useState<{ amountDueTodayCents: number; nextBillingDate: string; nextAmountCents: number; type: "upgrade" | "downgrade" } | null>(null)
 
   useEffect(() => {
     const success = searchParams.get("success")
@@ -127,7 +128,11 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
   const handleRemovePayment = async () => {
     setRemovingPayment(true)
     try {
-      const response = await fetch("/api/billing/payment-method", { method: "DELETE" })
+      const response = await fetch("/api/billing/payment-method", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paymentMethodId: initialData.paymentMethod?.stripe_payment_method_id || null }),
+      })
       if (!response.ok) {
         const error = await response.json()
         throw new Error(error.error || "Failed to remove payment method")
@@ -139,6 +144,32 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
       showNotification("error", error.message || "Failed to remove payment method")
     } finally {
       setRemovingPayment(false)
+    }
+  }
+
+
+  const openUpgradeModal = async (planId: string, planName: string, priceCents: number) => {
+    setShowUpgradeModal({ planId, planName, priceCents })
+    setUpgradePreview(null)
+
+    if (!isSubscribed) return
+
+    try {
+      const response = await fetch("/api/billing/subscription/change", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newPlanId: planId, previewOnly: true }),
+      })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || "Failed to preview plan change")
+      setUpgradePreview({
+        amountDueTodayCents: result.amountDueTodayCents || 0,
+        nextBillingDate: result.nextBillingDate,
+        nextAmountCents: result.nextAmountCents || 0,
+        type: result.type,
+      })
+    } catch (error: any) {
+      showNotification("error", error.message || "Failed to preview plan change")
     }
   }
 
@@ -279,9 +310,9 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                     </a>
                   )}
                   {/* Growth plan -> Upgrade to Pro */}
-                  {currentPlan.id === "growth" && isSubscribed && !subscription.cancel_at_period_end && nextUpgradePlan && (
+                  {currentPlan.id === "growth" && nextUpgradePlan && (
                     <button
-                      onClick={() => setShowUpgradeModal({ planId: nextUpgradePlan.id, planName: nextUpgradePlan.name, priceCents: nextUpgradePlan.price_cents })}
+                      onClick={() => openUpgradeModal(nextUpgradePlan.id, nextUpgradePlan.name, nextUpgradePlan.price_cents)}
                       className="h-10 px-5 text-[13px] font-semibold text-white bg-[#7c3aed] rounded-xl hover:bg-[#6d28d9] active:bg-[#5b21b6] transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2 cursor-pointer"
                     >
                       <ArrowUpRight className="h-4 w-4" />
@@ -398,7 +429,7 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
               <p className="text-[13px] text-amber-600 mb-4">Your subscription ends on <span className="font-medium">{formatDateLong(subscription.current_period_end)}</span>.</p>
             )}
             {!isSubscribed && (
-              <p className="text-[13px] text-[#6b7280] mb-4">No active subscription.</p>
+              <p className="text-[13px] text-[#6b7280] mb-4">{isSubscribed ? "Active subscription" : "No active subscription."}</p>
             )}
 
             {initialData.invoices.length === 0 ? (
@@ -470,7 +501,7 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
             setLoading={setLoading}
             showNotification={showNotification}
             router={router}
-            onUpgradeClick={(planId, planName, priceCents) => setShowUpgradeModal({ planId, planName, priceCents })}
+            onUpgradeClick={(planId, planName, priceCents) => openUpgradeModal(planId, planName, priceCents)}
           />
         </div>
       </div>
@@ -501,6 +532,7 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
           subscription={subscription}
           isSubscribed={!!isSubscribed}
           loading={upgradeLoading}
+          preview={upgradePreview}
           onConfirm={async () => {
             setUpgradeLoading(true)
             try {
@@ -523,7 +555,7 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
               setUpgradeLoading(false)
             }
           }}
-          onClose={() => setShowUpgradeModal(null)}
+          onClose={() => { setShowUpgradeModal(null); setUpgradePreview(null) }}
         />
       )}
     </div>
@@ -642,27 +674,17 @@ function InvoiceContent({ invoice, formatDate, formatAmount, getStatusBadge, cur
 /* ============================================================
    Upgrade Confirmation Modal
    ============================================================ */
-function UpgradeConfirmModal({ planId, planName, priceCents, currentPlan, subscription, isSubscribed, loading, onConfirm, onClose }: {
-  planId: string; planName: string; priceCents: number; currentPlan: any; subscription: any; isSubscribed: boolean; loading: boolean; onConfirm: () => void; onClose: () => void
+function UpgradeConfirmModal({ planId, planName, priceCents, currentPlan, subscription, isSubscribed, loading, preview, onConfirm, onClose }: {
+  planId: string; planName: string; priceCents: number; currentPlan: any; subscription: any; isSubscribed: boolean; loading: boolean;
+  preview: { amountDueTodayCents: number; nextBillingDate: string; nextAmountCents: number; type: "upgrade" | "downgrade" } | null;
+  onConfirm: () => void; onClose: () => void
 }) {
   const isUpgrade = priceCents > currentPlan.price_cents
   const isDowngrade = priceCents < currentPlan.price_cents
 
-  // Calculate proration estimate for upgrades
-  let prorationEstimate = ""
-  let nextChargeText = ""
-  if (isUpgrade && isSubscribed && subscription?.current_period_end) {
-    const periodEnd = new Date(subscription.current_period_end).getTime()
-    const now = Date.now()
-    const periodStart = subscription.current_period_start ? new Date(subscription.current_period_start).getTime() : now
-    const totalPeriod = periodEnd - periodStart
-    const remainingPeriod = periodEnd - now
-    const fraction = totalPeriod > 0 ? Math.max(0, remainingPeriod / totalPeriod) : 0
-    const priceDiff = priceCents - currentPlan.price_cents
-    const proratedAmount = Math.round(priceDiff * fraction)
-    prorationEstimate = `$${(proratedAmount / 100).toFixed(2)}`
-    nextChargeText = `Your next charge will be $${(priceCents / 100).toFixed(2)} on ${new Date(subscription.current_period_end).toLocaleDateString("en-US", { month: "long", day: "numeric" })}.`
-  }
+  const nextChargeText = preview?.nextBillingDate
+    ? `Your next charge will be $${((preview?.nextAmountCents || priceCents) / 100).toFixed(2)} on ${new Date(preview.nextBillingDate).toLocaleDateString("en-US", { month: "long", day: "numeric" })}.`
+    : ""
 
   return (
     <div className="fixed inset-0 z-[110] bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4" onClick={onClose}>
@@ -675,7 +697,7 @@ function UpgradeConfirmModal({ planId, planName, priceCents, currentPlan, subscr
           {isUpgrade && isSubscribed && (
             <div className="bg-[#f5f3ff] border border-[#ede9fe] rounded-xl p-4 mb-4 space-y-2">
               <p className="text-[13px] text-[#374151]">
-                You&apos;ll be charged <span className="font-semibold text-[#7c3aed]">{prorationEstimate}</span> today for the remaining time in your current billing cycle.
+                You&apos;ll be charged <span className="font-semibold text-[#7c3aed]">${((preview?.amountDueTodayCents || 0) / 100).toFixed(2)}</span> today for the remaining time in your current billing cycle.
               </p>
               {nextChargeText && <p className="text-[13px] text-[#6b7280]">{nextChargeText}</p>}
             </div>
