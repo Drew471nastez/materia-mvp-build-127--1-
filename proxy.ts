@@ -108,11 +108,15 @@ async function resolveCustomDomain(host: string): Promise<string | null> {
   try {
     const supabase = createClient(supabaseUrl, supabaseKey)
 
+    // Strip www. prefix for lookup - domains are stored without www in the database
+    const lookupDomain = hostWithoutPort.replace(/^www\./, "")
+
+    // Match active or ssl_provisioning (DNS is verified for both)
     const { data: domainRecord } = await supabase
       .from("custom_domains")
       .select("creator_id")
-      .eq("domain", hostWithoutPort)
-      .eq("status", "active")
+      .eq("domain", lookupDomain)
+      .in("status", ["active", "ssl_provisioning"])
       .single()
 
     if (!domainRecord) return null

@@ -13,12 +13,15 @@ export async function GET(request: Request) {
 
     const supabase = createAdminClient()
 
-    // Look up the domain
+    // Strip www. prefix for lookup - domains are stored without www
+    const lookupDomain = domain.toLowerCase().replace(/^www\./, "")
+
+    // Look up the domain - match active or ssl_provisioning (DNS is verified for both)
     const { data: domainRecord } = await supabase
       .from("custom_domains")
       .select("creator_id, domain, status")
-      .eq("domain", domain.toLowerCase())
-      .eq("status", "active")
+      .eq("domain", lookupDomain)
+      .in("status", ["active", "ssl_provisioning"])
       .single()
 
     if (!domainRecord) {

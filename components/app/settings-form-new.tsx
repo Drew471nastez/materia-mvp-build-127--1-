@@ -1210,8 +1210,13 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
         body: JSON.stringify({ domainId }),
       })
       const data = await res.json()
-      if (data.verified) {
-        setDomains((prev) => prev.map((d) => d.id === domainId ? { ...d, status: "active", verified_at: new Date().toISOString() } : d))
+      if (data.verified && data.sslPending) {
+        // DNS verified but SSL certificate is still being issued
+        setDomains((prev) => prev.map((d) => d.id === domainId ? { ...d, status: "ssl_provisioning", verified_at: new Date().toISOString(), ssl_status: "provisioning" } : d))
+        setDomainError(data.message || "DNS verified! SSL certificate is being issued. Check back in a few minutes.")
+      } else if (data.verified) {
+        // Fully connected with SSL
+        setDomains((prev) => prev.map((d) => d.id === domainId ? { ...d, status: "active", verified_at: new Date().toISOString(), ssl_status: "active" } : d))
       } else {
         setDomainError(data.message || "Verification failed")
       }
@@ -2725,6 +2730,10 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                               <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[11px] font-semibold rounded-full">
                                 <CheckCircle className="h-3 w-3" /> Connected
                               </span>
+                            ) : d.status === "ssl_provisioning" ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 text-[11px] font-semibold rounded-full">
+                                <Loader2 className="h-3 w-3 animate-spin" /> Issuing SSL
+                              </span>
                             ) : d.status === "verifying" ? (
                               <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-700 text-[11px] font-semibold rounded-full">
                                 <Loader2 className="h-3 w-3 animate-spin" /> Verifying
@@ -2766,6 +2775,10 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                               <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[11px] font-semibold rounded-full">
                                 <CheckCircle className="h-3 w-3" /> Connected
                               </span>
+                            ) : d.status === "ssl_provisioning" ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 text-[11px] font-semibold rounded-full">
+                                <Loader2 className="h-3 w-3 animate-spin" /> Issuing SSL
+                              </span>
                             ) : d.status === "verifying" ? (
                               <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-700 text-[11px] font-semibold rounded-full">
                                 <Loader2 className="h-3 w-3 animate-spin" /> Verifying
@@ -2806,23 +2819,21 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               {domains.some((d) => d.status !== "active") && (
                 <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
                   <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-3">DNS Setup Instructions</h3>
-                  <p className="text-[13px] text-[#6b7280] mb-4">To connect your domain, add these DNS records at your domain registrar:</p>
+                  <p className="text-[13px] text-[#6b7280] mb-4">To connect your domain, add these DNS records at your domain registrar (e.g. Cloudflare, GoDaddy, Namecheap):</p>
 
                   <div className="space-y-4">
-                    {/* CNAME Record */}
+                    {/* A Record for apex domain */}
                     <div className="bg-[#f9fafb] rounded-xl p-4">
-                      <p className="text-[12px] font-semibold text-[#374151] mb-3">Step 1: Add CNAME Record</p>
+                      <p className="text-[12px] font-semibold text-[#374151] mb-3">Step 1: A Record (apex domain — yourdomain.com)</p>
                       <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2 text-[12px]">
-                            <span className="text-[#6b7280] w-14">Type:</span>
-                            <span className="font-mono font-medium text-[#1a1a2e]">CNAME</span>
-                          </div>
+                        <div className="flex items-center gap-2 text-[12px]">
+                          <span className="text-[#6b7280] w-14">Type:</span>
+                          <span className="font-mono font-medium text-[#1a1a2e]">A</span>
                         </div>
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2 text-[12px]">
                             <span className="text-[#6b7280] w-14">Name:</span>
-                            <span className="font-mono font-medium text-[#1a1a2e]">@ or www</span>
+                            <span className="font-mono font-medium text-[#1a1a2e]">@</span>
                           </div>
                           <button onClick={() => copyToClipboard("@")} className="text-[11px] text-[#7c3aed] hover:text-[#6d28d9] cursor-pointer flex items-center gap-1">
                             {copiedValue === "@" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
@@ -2832,20 +2843,51 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2 text-[12px]">
                             <span className="text-[#6b7280] w-14">Value:</span>
-                            <span className="font-mono font-medium text-[#7c3aed]">cname.storelib.com</span>
+                            <span className="font-mono font-medium text-[#7c3aed]">76.76.21.21</span>
                           </div>
-                          <button onClick={() => copyToClipboard("cname.storelib.com")} className="text-[11px] text-[#7c3aed] hover:text-[#6d28d9] cursor-pointer flex items-center gap-1">
-                            {copiedValue === "cname.storelib.com" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                            {copiedValue === "cname.storelib.com" ? "Copied" : "Copy"}
+                          <button onClick={() => copyToClipboard("76.76.21.21")} className="text-[11px] text-[#7c3aed] hover:text-[#6d28d9] cursor-pointer flex items-center gap-1">
+                            {copiedValue === "76.76.21.21" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                            {copiedValue === "76.76.21.21" ? "Copied" : "Copy"}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* CNAME Record for www */}
+                    <div className="bg-[#f9fafb] rounded-xl p-4">
+                      <p className="text-[12px] font-semibold text-[#374151] mb-3">Step 2: CNAME Record (www subdomain)</p>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-[12px]">
+                          <span className="text-[#6b7280] w-14">Type:</span>
+                          <span className="font-mono font-medium text-[#1a1a2e]">CNAME</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-[12px]">
+                            <span className="text-[#6b7280] w-14">Name:</span>
+                            <span className="font-mono font-medium text-[#1a1a2e]">www</span>
+                          </div>
+                          <button onClick={() => copyToClipboard("www")} className="text-[11px] text-[#7c3aed] hover:text-[#6d28d9] cursor-pointer flex items-center gap-1">
+                            {copiedValue === "www" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                            {copiedValue === "www" ? "Copied" : "Copy"}
+                          </button>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-[12px]">
+                            <span className="text-[#6b7280] w-14">Value:</span>
+                            <span className="font-mono font-medium text-[#7c3aed]">cname.vercel-dns.com</span>
+                          </div>
+                          <button onClick={() => copyToClipboard("cname.vercel-dns.com")} className="text-[11px] text-[#7c3aed] hover:text-[#6d28d9] cursor-pointer flex items-center gap-1">
+                            {copiedValue === "cname.vercel-dns.com" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                            {copiedValue === "cname.vercel-dns.com" ? "Copied" : "Copy"}
                           </button>
                         </div>
                       </div>
                     </div>
 
                     {/* TXT Verification */}
-                    {domains.filter((d) => d.status !== "active").map((d) => (
+                    {domains.filter((d) => d.status !== "active" && d.status !== "ssl_provisioning").map((d) => (
                       <div key={d.id} className="bg-[#f9fafb] rounded-xl p-4">
-                        <p className="text-[12px] font-semibold text-[#374151] mb-3">Step 2: Add TXT Record for {d.domain}</p>
+                        <p className="text-[12px] font-semibold text-[#374151] mb-3">Step 3: TXT Record for verification ({d.domain})</p>
                         <div className="space-y-2">
                           <div className="flex items-center gap-2 text-[12px]">
                             <span className="text-[#6b7280] w-14">Type:</span>
@@ -2875,7 +2917,21 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                       </div>
                     ))}
 
-                    <p className="text-[12px] text-[#9ca3af]">DNS changes can take up to 48 hours to propagate. After adding the records, click &quot;Verify&quot; to check.</p>
+                    {/* SSL Provisioning notice */}
+                    {domains.some((d) => d.status === "ssl_provisioning") && (
+                      <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
+                        <p className="text-[13px] font-medium text-blue-800 mb-1">SSL certificate is being issued</p>
+                        <p className="text-[12px] text-blue-600">Your DNS is correctly configured. An SSL certificate is being provisioned automatically. This usually takes 1-10 minutes. Click &quot;Verify&quot; again to check.</p>
+                      </div>
+                    )}
+
+                    {/* Cloudflare tip */}
+                    <div className="bg-amber-50/60 rounded-xl p-4 border border-amber-100">
+                      <p className="text-[12px] font-semibold text-amber-800 mb-1">Using Cloudflare?</p>
+                      <p className="text-[11px] text-amber-700">Set the DNS records to &quot;DNS only&quot; (grey cloud icon, not orange proxy). Set SSL mode to &quot;Full (strict)&quot;. The orange proxy can block SSL certificate issuance.</p>
+                    </div>
+
+                    <p className="text-[12px] text-[#9ca3af]">DNS changes can take up to 48 hours to propagate. After adding the records, click &quot;Verify&quot; to check. Make sure to remove any conflicting A, AAAA, or CNAME records for your domain.</p>
                   </div>
                 </div>
               )}

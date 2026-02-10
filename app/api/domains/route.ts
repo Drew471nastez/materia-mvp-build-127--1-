@@ -68,6 +68,52 @@ async function removeDomainFromVercel(domain: string): Promise<void> {
   }
 }
 
+/**
+ * Get domain configuration from Vercel (includes SSL status)
+ */
+export async function getVercelDomainConfig(domain: string): Promise<{
+  configured: boolean
+  sslReady: boolean
+  error?: string
+  misconfigured?: boolean
+}> {
+  if (!VERCEL_TOKEN || !VERCEL_PROJECT_ID) {
+    return { configured: true, sslReady: true } // Skip check if Vercel not configured
+  }
+
+  try {
+    const url = VERCEL_TEAM_ID
+      ? `https://api.vercel.com/v6/domains/${domain}/config?teamId=${VERCEL_TEAM_ID}`
+      : `https://api.vercel.com/v6/domains/${domain}/config`
+
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${VERCEL_TOKEN}` },
+    })
+
+    if (!res.ok) {
+      return { configured: false, sslReady: false, error: "Could not check domain configuration" }
+    }
+
+    const data = await res.json()
+
+    // Check if domain is misconfigured (wrong DNS records)
+    const misconfigured = data.misconfigured === true
+
+    // Check if SSL certificate is ready
+    // Vercel returns certs array with issued certificates
+    const sslReady = !misconfigured && data.misconfigured === false
+
+    return {
+      configured: !misconfigured,
+      sslReady,
+      misconfigured,
+    }
+  } catch (err) {
+    console.error("Vercel domain config check error:", err)
+    return { configured: false, sslReady: false, error: "Network error checking domain" }
+  }
+}
+
 // GET - List creator's domains
 export async function GET() {
   try {
@@ -122,7 +168,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Domain is required" }, { status: 400 })
     }
 
-    // Clean and validate domain
+    // Clean and validate domain - strip www prefix
     const cleanDomain = domain.toLowerCase().replace(/^(https?:\/\/)?(www\.)?/, "").replace(/\/.*$/, "").trim()
 
     if (!cleanDomain || !cleanDomain.includes(".") || cleanDomain.length < 4) {
@@ -158,11 +204,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "This domain is already connected to another account" }, { status: 400 })
     }
 
-    // Add domain to Vercel project first
-    const vercelResult = await addDomainToVercel(cleanDomain)
-    if (!vercelResult.success) {
-      return NextResponse.json({ error: vercelResult.error || "Failed to register domain" }, { status: 500 })
+    // Add BOTH apex and www domain to Vercel project
+    // This ensures SSL certificates are provisioned for both variants
+    const apexResult = await addDomainToVercel(cleanDomain)
+    if (!apexResult.success) {
+      return NextResponse.json({ error: apexResult.error || "Failed to register domain" }, { status: 500 })
     }
+
+    // Also add www variant - Vercel will handle redirect from www to apex (or vice versa)
+    const wwwDomain = `www.${cleanDomain}`
+    await addDomainToVercel(wwwDomain) // Don't block on www failure
 
     // Generate verification token
     const verificationToken = `storelib-verify-${crypto.randomBytes(16).toString("hex")}`
@@ -180,8 +231,9 @@ export async function POST(request: Request) {
 
     if (error) {
       console.error("Error adding domain:", error)
-      // Try to clean up Vercel domain if DB insert failed
+      // Try to clean up Vercel domains if DB insert failed
       await removeDomainFromVercel(cleanDomain)
+      await removeDomainFromVercel(wwwDomain)
       return NextResponse.json({ error: "Failed to add domain" }, { status: 500 })
     }
 
@@ -237,9 +289,10 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Failed to remove domain" }, { status: 500 })
     }
 
-    // Remove from Vercel project
+    // Remove both apex and www from Vercel project
     if (domainRecord?.domain) {
       await removeDomainFromVercel(domainRecord.domain)
+      await removeDomainFromVercel(`www.${domainRecord.domain}`)
     }
 
     return NextResponse.json({ success: true })
