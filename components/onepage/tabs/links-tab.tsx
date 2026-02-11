@@ -727,6 +727,7 @@ export function LinksTab() {
   const [touchDragOffsetY, setTouchDragOffsetY] = useState(0)
   const [showDeleteSocialNotification, setShowDeleteSocialNotification] = useState(false)
   const [showAddBlockNotification, setShowAddBlockNotification] = useState(false)
+  const [showUpdateSocialNotification, setShowUpdateSocialNotification] = useState(false)
   
   // Name/Bio edit state
   const [showNameBioModal, setShowNameBioModal] = useState(false)
@@ -1473,6 +1474,17 @@ export function LinksTab() {
     }, 220)
   }
 
+  const focusAndScrollToBlock = (blockId: string) => {
+    setSelectedBlockId(blockId)
+    requestAnimationFrame(() => {
+      const blockEl = document.querySelector(`[data-block-id="${blockId}"]`) as HTMLElement | null
+      if (!blockEl) return
+      blockEl.scrollIntoView({ behavior: "smooth", block: "center" })
+      const clickable = blockEl.querySelector("button, [role='button']") as HTMLElement | null
+      clickable?.focus?.({ preventScroll: true })
+    })
+  }
+
   const handleAddBlock = (type: OnePageBlockType, preset?: { label: string; url: string }) => {
     // If adding to a group, handle differently
     if (addToGroupId) {
@@ -1522,6 +1534,7 @@ export function LinksTab() {
         updateBlock(addToGroupId, { data: { ...groupData, children: newChildren } })
       }
       closeAddSheet()
+      focusAndScrollToBlock(addToGroupId)
       setShowAddBlockNotification(false)
       requestAnimationFrame(() => setShowAddBlockNotification(true))
       return
@@ -1560,8 +1573,9 @@ export function LinksTab() {
       })
     }
     closeAddSheet()
+    if (newBlock?.id) focusAndScrollToBlock(newBlock.id)
     setShowAddBlockNotification(false)
-      requestAnimationFrame(() => setShowAddBlockNotification(true))
+    requestAnimationFrame(() => setShowAddBlockNotification(true))
   }
 
   // Handler to move a child block from a group back to the main blocks list
@@ -2721,8 +2735,13 @@ export function LinksTab() {
                       <Button
                         className="flex-1 bg-blue-500 hover:bg-blue-600 rounded-xl h-[58px] w-full sm:w-auto"
                         onClick={() => {
+                          const wasExisting = !!social_links?.[selectedSocial as keyof typeof social_links]
                           setSocialUrl(normalizeUrlInput(socialUrl))
                           handleAddSocial()
+                          if (wasExisting) {
+                            setShowUpdateSocialNotification(false)
+                            requestAnimationFrame(() => setShowUpdateSocialNotification(true))
+                          }
                         }}
                         disabled={!socialUrl}
                       >
@@ -2773,6 +2792,12 @@ export function LinksTab() {
         show={showAddBlockNotification}
         message="New block added"
         duration={4000}
+        position="top"
+      />
+      <SaveNotification
+        show={showUpdateSocialNotification}
+        message="Updated"
+        duration={3000}
         position="top"
       />
 
@@ -3423,60 +3448,64 @@ export function LinksTab() {
 
                     setImageUploading(true)
                     try {
-                      const formData = new FormData()
-                      formData.append('file', file)
-                      formData.append('type', (imageFieldType === 'digital_product_file' || imageFieldType === 'pdf_file') ? 'digital' : 'image')
+                      const supabase = createClient()
+                      const bucket = 'lead-form-files'
+                      const extension = file.name.split('.').pop() || 'bin'
+                      const folder = imageFieldType === 'digital_product_file' || imageFieldType === 'pdf_file' ? 'digital' : 'images'
+                      const filePath = `${folder}/${imageBlockId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`
 
-                      const response = await fetch('/api/onepage/upload-file', {
-                        method: 'POST',
-                        body: formData,
-                      })
+                      const { error: uploadError } = await supabase.storage
+                        .from(bucket)
+                        .upload(filePath, file, {
+                          upsert: false,
+                          cacheControl: '3600',
+                          contentType: file.type || undefined,
+                        })
 
-                      if (response.ok) {
-                        const { url } = await response.json()
-                        const block = onepage.draft_blocks.find(b => b.id === imageBlockId)
-                        if (block) {
-                          if (imageFieldType === 'digital_product_file') {
-                            updateBlock(imageBlockId, {
-                              data: {
-                                ...block.data,
-                                digital_product_file_url: url,
-                                digital_product_title: file.name.replace(/\.[^/.]+$/, ""),
-                                enable_digital_product: true, // Enable digital product delivery when file is uploaded
-                              }
-                            })
-                          } else if (imageFieldType === 'product_image') {
-                            updateBlock(imageBlockId, {
-                              data: {
-                                ...block.data,
-                                product_image: url,
-                              }
-                            })
-                          } else if (imageFieldType === 'pdf_file') {
-                            updateBlock(imageBlockId, {
-                              data: {
-                                ...block.data,
-                                pdf_file_url: url,
-                                title: block.data.title || file.name.replace(/\.[^/.]+$/, ""),
-                              }
-                            })
-                          } else if (imageFieldType === 'thumbnail_url') {
-                            updateBlock(imageBlockId, {
-                              data: {
-                                ...block.data,
-                                thumbnail_url: url,
-                              }
-                            })
-                          }
+                      if (uploadError) throw uploadError
+
+                      const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath)
+                      const url = urlData.publicUrl
+
+                      const block = onepage.draft_blocks.find(b => b.id === imageBlockId)
+                      if (block) {
+                        if (imageFieldType === 'digital_product_file') {
+                          updateBlock(imageBlockId, {
+                            data: {
+                              ...block.data,
+                              digital_product_file_url: url,
+                              digital_product_title: file.name.replace(/\.[^/.]+$/, ""),
+                              enable_digital_product: true,
+                            }
+                          })
+                        } else if (imageFieldType === 'product_image') {
+                          updateBlock(imageBlockId, {
+                            data: {
+                              ...block.data,
+                              product_image: url,
+                            }
+                          })
+                        } else if (imageFieldType === 'pdf_file') {
+                          updateBlock(imageBlockId, {
+                            data: {
+                              ...block.data,
+                              pdf_file_url: url,
+                              title: block.data.title || file.name.replace(/\.[^/.]+$/, ""),
+                            }
+                          })
+                        } else if (imageFieldType === 'thumbnail_url') {
+                          updateBlock(imageBlockId, {
+                            data: {
+                              ...block.data,
+                              thumbnail_url: url,
+                            }
+                          })
                         }
-                        setShowImageLibrary(false)
-                        setImageBlockId(null)
-                        setImageFieldType(null)
-                      } else {
-                        const errorData = await response.json()
-                        console.error('Upload failed:', errorData.error)
-                        alert('Upload failed: ' + (errorData.error || 'Unknown error'))
                       }
+
+                      setShowImageLibrary(false)
+                      setImageBlockId(null)
+                      setImageFieldType(null)
                     } catch (error) {
                       console.error('Upload failed:', error)
                       alert('Upload failed. Please try again.')

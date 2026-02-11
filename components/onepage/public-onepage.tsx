@@ -2205,11 +2205,11 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
       {/* Spotify Modal - clean, compact, responsive design */}
       {spotifyModalOpen && spotifyModalData && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm"
           onClick={() => setSpotifyModalOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl w-[min(92vw,460px)] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            className="bg-white w-full h-[100svh] sm:h-auto sm:rounded-2xl sm:w-[min(92vw,460px)] overflow-y-auto shadow-2xl animate-in fade-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -2300,11 +2300,11 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
       {/* Apple Music Modal - clean, compact, responsive design */}
       {appleMusicModalOpen && appleMusicModalData && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm"
           onClick={() => setAppleMusicModalOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl w-[min(92vw,460px)] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            className="bg-white w-full h-[100svh] sm:h-auto sm:rounded-2xl sm:w-[min(92vw,460px)] overflow-y-auto shadow-2xl animate-in fade-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}

@@ -196,6 +196,8 @@ function EditorLayout() {
   const [isSavingForNav, setIsSavingForNav] = useState(false)
   const [showProUpgradeDialog, setShowProUpgradeDialog] = useState(false)
   const [saveToastSequence, setSaveToastSequence] = useState(0)
+  const [historyToastSequence, setHistoryToastSequence] = useState(0)
+  const [historyToastMessage, setHistoryToastMessage] = useState("Updated")
 
   // =====================================================
   // ONBOARDING STATE - Fetch directly from database
@@ -515,6 +517,18 @@ function EditorLayout() {
 
   const isSaveDisabled = saveState === "saving" || (saveState === "saved" && !isDirty) || !isDirty
 
+  const handleUndoClick = () => {
+    undo()
+    setHistoryToastMessage("Undone")
+    setHistoryToastSequence((v) => v + 1)
+  }
+
+  const handleRedoClick = () => {
+    redo()
+    setHistoryToastMessage("Redone")
+    setHistoryToastSequence((v) => v + 1)
+  }
+
   return (
     <div
       className="flex flex-col bg-gray-50/50 fixed left-0 right-0 bottom-0 top-[68px] md:inset-y-0 md:left-64 md:top-0"
@@ -525,6 +539,14 @@ function EditorLayout() {
         show={saveToastSequence > 0}
         message="Changes saved"
         duration={4000}
+        position="top"
+      />
+      <SaveNotification
+        key={`history-${historyToastSequence}`}
+        show={historyToastSequence > 0}
+        message={historyToastMessage}
+        duration={2200}
+        position="top"
       />
       {/* Header - ALWAYS visible with solid background */}
       <header className="flex items-center justify-between border-b bg-white px-3 sm:px-4 md:px-6 h-[56px] sm:h-[60px] shrink-0 relative z-30 gap-2 overflow-hidden">
@@ -535,7 +557,7 @@ function EditorLayout() {
               variant="ghost"
               size="icon"
               className="h-8 w-8 cursor-pointer hover:bg-gray-100 transition-colors"
-              onClick={undo}
+              onClick={handleUndoClick}
               disabled={!canUndo}
               title="Undo"
             >
@@ -545,7 +567,7 @@ function EditorLayout() {
               variant="ghost"
               size="icon"
               className="h-8 w-8 cursor-pointer hover:bg-gray-100 transition-colors"
-              onClick={redo}
+              onClick={handleRedoClick}
               disabled={!canRedo}
               title="Redo"
             >

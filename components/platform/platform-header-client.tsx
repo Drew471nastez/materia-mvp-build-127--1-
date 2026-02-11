@@ -922,7 +922,7 @@ export function PlatformHeaderClient() {
     <>
       <div className="relative z-40 w-full bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/90 pt-[env(safe-area-inset-top)]">
       {/* Homepage and Features Page Announcement Bar — Beta Countdown */}
-      {(pathname === "/" || pathname === "/features") && (
+      {(pathname === "/" || pathname === "/features" || pathname === "/pricing" || isBlogRoute) && (
         <LaunchCountdownBar onCanonicalNav={onCanonicalNav} />
       )}
     <header className="w-full bg-white border-b border-gray-200">
@@ -959,10 +959,10 @@ export function PlatformHeaderClient() {
                       href={item.href}
                       onClick={(e) => onCanonicalNav(e, item.href)}
                       className={cn(
-                        "px-4 py-2 text-[15px] font-medium transition-all",
+                        "px-4 py-2 text-[15px] font-medium rounded-full border transition-[background-color,border-color,color,transform] duration-180 ease-out",
                         item.active
-                          ? "rounded-full border border-gray-300 bg-gray-50 text-black"
-                          : "text-gray-700 hover:text-black",
+                          ? "border-gray-300 bg-gray-50 text-black shadow-[inset_0_0_0_1px_rgba(0,0,0,0.02)]"
+                          : "border-transparent text-gray-700 hover:text-black hover:bg-gray-50/80 hover:border-gray-200/70 active:scale-[0.98]",
                       )}
                     >
                       {item.label}
