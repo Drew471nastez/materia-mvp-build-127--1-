@@ -1645,7 +1645,8 @@ export function PhonePreview({ className }: PhonePreviewProps) {
           onClick={() => setSpotifyModalOpen(false)}
         >
           <div
-            className="bg-white w-full h-full overflow-y-auto shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            className="bg-white w-full h-full overflow-y-auto shadow-2xl will-change-transform animate-in slide-in-from-bottom-3 fade-in zoom-in-[0.97] duration-[350ms] ease-out"
+            style={{ transform: 'translateZ(0)' }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -1740,7 +1741,8 @@ export function PhonePreview({ className }: PhonePreviewProps) {
           onClick={() => setAppleMusicModalOpen(false)}
         >
           <div
-            className="bg-white w-full h-full overflow-y-auto shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            className="bg-white w-full h-full overflow-y-auto shadow-2xl will-change-transform animate-in slide-in-from-bottom-3 fade-in zoom-in-[0.97] duration-[350ms] ease-out"
+            style={{ transform: 'translateZ(0)' }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -2405,7 +2407,8 @@ export function MobilePreviewContent() {
           onClick={() => setSpotifyModalOpen(false)}
         >
           <div
-            className="bg-white w-full h-full overflow-y-auto shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            className="bg-white w-full h-full overflow-y-auto shadow-2xl will-change-transform animate-in slide-in-from-bottom-3 fade-in zoom-in-[0.97] duration-[350ms] ease-out"
+            style={{ transform: 'translateZ(0)' }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -2489,7 +2492,8 @@ export function MobilePreviewContent() {
           onClick={() => setAppleMusicModalOpen(false)}
         >
           <div
-            className="bg-white w-full h-full overflow-y-auto shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            className="bg-white w-full h-full overflow-y-auto shadow-2xl will-change-transform animate-in slide-in-from-bottom-3 fade-in zoom-in-[0.97] duration-[350ms] ease-out"
+            style={{ transform: 'translateZ(0)' }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}

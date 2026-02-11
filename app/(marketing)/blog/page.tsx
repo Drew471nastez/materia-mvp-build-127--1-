@@ -100,19 +100,19 @@ export default function BlogPage() {
                       {featuredPost.excerpt}
                     </p>
 
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                      <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-sm text-neutral-500">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex flex-wrap items-center gap-3 text-sm text-neutral-500">
                         <div className="flex items-center gap-1.5">
-                          <Calendar className="w-4 h-4" />
-                          <span>{featuredPost.date}</span>
+                          <Calendar className="w-4 h-4 shrink-0" />
+                          <span className="whitespace-nowrap">{featuredPost.date}</span>
                         </div>
                         <div className="flex items-center gap-1.5">
-                          <Clock className="w-4 h-4" />
-                          <span>{featuredPost.readTime}</span>
+                          <Clock className="w-4 h-4 shrink-0" />
+                          <span className="whitespace-nowrap">{featuredPost.readTime}</span>
                         </div>
                       </div>
 
-                      <span className="inline-flex items-center gap-2 text-sm font-semibold text-violet-600 group-hover:text-violet-700 transition-colors">
+                      <span className="inline-flex items-center gap-2 text-sm font-semibold text-violet-600 group-hover:text-violet-700 transition-colors whitespace-nowrap shrink-0">
                         Read article
                         <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                       </span>

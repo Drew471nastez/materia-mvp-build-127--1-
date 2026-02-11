@@ -2205,11 +2205,13 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
       {/* Spotify Modal - clean, compact, responsive design */}
       {spotifyModalOpen && spotifyModalData && (
         <div
-          className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm"
+          className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-300 ease-out"
+          style={{ backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
           onClick={() => setSpotifyModalOpen(false)}
         >
           <div
-            className="bg-white w-full h-[100svh] sm:h-auto sm:rounded-2xl sm:w-[min(92vw,460px)] overflow-y-auto shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            className="bg-white w-full h-[100svh] sm:h-auto sm:rounded-2xl sm:w-[min(92vw,460px)] overflow-y-auto shadow-2xl will-change-transform animate-in slide-in-from-bottom-4 fade-in zoom-in-[0.97] duration-[350ms] ease-out"
+            style={{ transform: 'translateZ(0)' }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -2300,11 +2302,13 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
       {/* Apple Music Modal - clean, compact, responsive design */}
       {appleMusicModalOpen && appleMusicModalData && (
         <div
-          className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm"
+          className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-300 ease-out"
+          style={{ backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
           onClick={() => setAppleMusicModalOpen(false)}
         >
           <div
-            className="bg-white w-full h-[100svh] sm:h-auto sm:rounded-2xl sm:w-[min(92vw,460px)] overflow-y-auto shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            className="bg-white w-full h-[100svh] sm:h-auto sm:rounded-2xl sm:w-[min(92vw,460px)] overflow-y-auto shadow-2xl will-change-transform animate-in slide-in-from-bottom-4 fade-in zoom-in-[0.97] duration-[350ms] ease-out"
+            style={{ transform: 'translateZ(0)' }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -6116,11 +6120,13 @@ function PublicBlockRenderer({
             {/* Calendly Modal - Clean light UI */}
             {showCalendlyModal && calendlyUrl && (
               <div
-                className="fixed inset-0 z-[9999] flex items-center justify-center p-0 sm:p-4 md:p-6 lg:p-8 bg-black/60 sm:bg-black/50 animate-in fade-in duration-300 ease-out"
+                className="fixed inset-0 z-[9999] flex items-center justify-center p-0 sm:p-4 md:p-6 lg:p-8 animate-in fade-in duration-300 ease-out"
+                style={{ backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
                 onClick={handleCloseCalendly}
               >
                 <div
-                  className="relative w-full h-full sm:h-[85vh] sm:max-h-[720px] max-w-lg bg-white sm:rounded-3xl flex flex-col shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-2 duration-300 ease-out"
+                  className="relative w-full h-full sm:h-[85vh] sm:max-h-[720px] max-w-lg bg-white sm:rounded-3xl flex flex-col shadow-2xl will-change-transform animate-in slide-in-from-bottom-4 fade-in zoom-in-[0.97] duration-[350ms] ease-out"
+                style={{ transform: 'translateZ(0)' }}
                   onClick={(e) => e.stopPropagation()}
                 >
                   {/* Top Bar */}
@@ -6192,7 +6198,8 @@ function PublicBlockRenderer({
               onClick={handleCloseCalendly}
             >
               <div
-                className="relative w-full h-full sm:h-[85vh] sm:max-h-[720px] max-w-lg bg-white sm:rounded-3xl flex flex-col shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-2 duration-300 ease-out"
+                className="relative w-full h-full sm:h-[85vh] sm:max-h-[720px] max-w-lg bg-white sm:rounded-3xl flex flex-col shadow-2xl will-change-transform animate-in slide-in-from-bottom-4 fade-in zoom-in-[0.97] duration-[350ms] ease-out"
+                style={{ transform: 'translateZ(0)' }}
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Top Bar */}

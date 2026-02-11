@@ -130,7 +130,7 @@ export default function BlogPostPage() {
         <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
       </div>
 
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 -mt-6 sm:-mt-8 animate-in fade-in-0 slide-in-from-bottom-1 duration-500">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 animate-in fade-in-0 slide-in-from-bottom-1 duration-500">
         {/* Back link */}
         <Link
           href="/blog"
@@ -218,14 +218,14 @@ export default function BlogPostPage() {
           </div>
 
           {/* CTA */}
-          <div className="mt-12 p-8 bg-gradient-to-r from-violet-50 to-purple-50 rounded-2xl border border-violet-100">
-            <h3 className="text-xl font-bold text-neutral-900 mb-2">Ready to start selling?</h3>
-            <p className="text-neutral-600 mb-4">
+          <div className="mt-12 p-6 sm:p-8 bg-gradient-to-r from-violet-50 to-purple-50 rounded-2xl border border-violet-100">
+            <h3 className="text-lg sm:text-xl font-bold text-neutral-900 mb-2">Ready to start selling?</h3>
+            <p className="text-sm sm:text-base text-neutral-600 mb-5">
               Create your free Storelib store and start earning from your digital products today.
             </p>
             <Link
               href="/signup"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold bg-violet-600 text-white hover:bg-violet-700 transition-colors"
+              className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3 rounded-xl text-sm font-semibold bg-violet-600 text-white hover:bg-violet-700 transition-colors"
             >
               Get Started Free
               <ArrowRight className="w-4 h-4" />
@@ -233,7 +233,7 @@ export default function BlogPostPage() {
           </div>
 
           {/* Prev/Next navigation */}
-          <div className="mt-12 pt-8 border-t border-neutral-200 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="mt-12 pt-8 border-t border-neutral-200 grid grid-cols-2 gap-3 sm:gap-4">
             {prevSlug ? (
               <Link
                 href={`/blog/${prevSlug}`}

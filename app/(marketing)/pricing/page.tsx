@@ -1,184 +1,339 @@
 "use client"
 
 import Link from "next/link"
-import { Check, Sparkles, ShieldCheck, Zap, ArrowRight } from "lucide-react"
+import { Check, Sparkles, ShieldCheck, ArrowRight, Star, Globe, BarChart3, CreditCard, Palette, Bot, Download } from "lucide-react"
 
 const pricingPlans = [
   {
+    id: "free",
     name: "Free",
     price: "$0",
-    period: "/mo",
+    period: "",
+    periodLabel: "Free forever",
     subtitle: "Best for first-time creators",
     description: "Launch your page, sell your first products, and start collecting leads.",
     features: [
       "6% + $0.25 per transaction",
-      "Unlimited links and products",
-      "Basic OnePage customization",
-      "Up to 500 email captures / month",
+      "Unlimited digital products",
+      "Basic OnePage features",
+      "500 emails / month",
       "Community support",
     ],
-    cta: "Start free",
+    cta: "Start Free",
     href: "/signup",
     highlight: false,
-    badge: "For starters",
+    badge: null,
   },
   {
+    id: "growth",
     name: "Growth",
     price: "$29",
     period: "/mo",
+    periodLabel: null,
     subtitle: "Most popular for active creators",
     description: "Lower fees, better conversion tools, and stronger branding controls.",
     features: [
       "3% + $0.25 per transaction",
-      "Custom domain + verified badge",
-      "Advanced OnePage design controls",
-      "Lead capture automations",
-      "Up to 5,000 email captures / month",
+      "Unlimited digital products",
+      "Premium OnePage features",
+      "Custom domain",
+      "Verified badge",
+      "2,000 emails / month",
       "Priority chat support",
     ],
     cta: "Choose Growth",
     href: "/signup",
     highlight: true,
-    badge: "Most popular",
+    badge: "Most Popular",
   },
   {
+    id: "pro",
     name: "Professional",
     price: "$99",
     period: "/mo",
+    periodLabel: null,
     subtitle: "For teams and high-volume stores",
     description: "The full Storelib stack with the lowest fees and highest support priority.",
     features: [
       "1.5% + $0.25 per transaction",
-      "Everything in Growth",
-      "Team access + advanced controls",
-      "Premium analytics and exports",
-      "Unlimited email captures",
+      "Unlimited digital products",
+      "Premium OnePage features",
+      "Custom domain",
+      "Verified badge",
+      "5,000 emails / month",
       "Dedicated priority support",
+      "Advanced analytics & exports",
     ],
     cta: "Go Professional",
     href: "/signup",
     highlight: false,
-    badge: "Scale fast",
+    badge: "Recommended",
   },
 ]
 
 const comparisonRows = [
-  ["Transaction fee", "6%", "3%", "1.5%"],
-  ["Custom domain", "—", "Included", "Included"],
-  ["Verified badge", "—", "Included", "Included"],
-  ["Email captures / month", "500", "5,000", "Unlimited"],
-  ["Support", "Community", "Priority", "Dedicated priority"],
+  { feature: "Transaction fee", free: "6% + $0.25", growth: "3% + $0.25", pro: "1.5% + $0.25" },
+  { feature: "Digital products", free: "Unlimited", growth: "Unlimited", pro: "Unlimited" },
+  { feature: "Custom domain", free: false, growth: true, pro: true },
+  { feature: "Verified badge", free: false, growth: true, pro: true },
+  { feature: "Email captures / month", free: "500", growth: "2,000", pro: "5,000" },
+  { feature: "OnePage features", free: "Basic", growth: "Premium", pro: "Premium" },
+  { feature: "Analytics", free: "Basic", growth: "Advanced", pro: "Premium + exports" },
+  { feature: "Support", free: "Community", growth: "Priority chat", pro: "Dedicated priority" },
+]
+
+const platformFeatures = [
+  { icon: CreditCard, title: "Secure Payments", description: "Accept payments globally with Stripe. Credit cards, Apple Pay, Google Pay." },
+  { icon: Download, title: "Instant Delivery", description: "Automatic file delivery after purchase. Customers get instant access." },
+  { icon: Palette, title: "Beautiful Storefronts", description: "Customizable OnePage storefronts that reflect your brand. No coding." },
+  { icon: BarChart3, title: "Analytics Dashboard", description: "Track sales, views, and revenue in real-time. Data-driven decisions." },
+  { icon: Globe, title: "Custom Domains", description: "Connect your own domain for a fully branded experience." },
+  { icon: Bot, title: "AI-Powered Tools", description: "Smart product descriptions, pricing optimization, and recommendations." },
+]
+
+const faqs = [
+  { q: "Can I switch plans anytime?", a: "Yes. Upgrade, downgrade, or cancel at any time. Changes take effect at the next billing cycle." },
+  { q: "What payment methods do you support?", a: "We use Stripe to process payments. Your customers can pay with credit cards, Apple Pay, Google Pay, and more." },
+  { q: "Is there a contract or commitment?", a: "No contracts. All plans are month-to-month. Cancel anytime with no penalties." },
+  { q: "What happens to my products if I downgrade?", a: "Your products stay live. You just lose access to premium features until you upgrade again." },
 ]
 
 export default function PricingPage() {
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_#faf5ff_0%,_#ffffff_45%)] px-4 py-12 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-6xl space-y-10">
-        <section className="text-center space-y-4 animate-in fade-in-0 slide-in-from-bottom-1 duration-500">
-          <div className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-violet-50 px-4 py-1.5 text-sm font-medium text-violet-700">
-            <Sparkles className="h-4 w-4" />
-            Clear pricing. No hidden surprises.
+    <div className="min-h-screen bg-white">
+      {/* Hero Section */}
+      <section className="relative pt-16 sm:pt-20 pb-12 overflow-hidden">
+        <div className="absolute top-10 left-10 w-72 h-72 bg-violet-100/30 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 right-10 w-64 h-64 bg-pink-100/20 rounded-full blur-3xl" />
+        <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 text-center">
+          <div className="animate-in fade-in-0 slide-in-from-bottom-1 duration-500">
+            <div className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-violet-50 px-4 py-1.5 text-sm font-medium text-violet-700 mb-6">
+              <Sparkles className="h-4 w-4" />
+              Clear pricing. No hidden surprises.
+            </div>
+            <h1 className="text-[32px] sm:text-[42px] lg:text-[48px] font-bold text-[#1a1a2e] tracking-tight mb-4">
+              Pricing built for creators at every stage
+            </h1>
+            <p className="text-[15px] sm:text-[17px] text-[#6b7280] max-w-2xl mx-auto">
+              Start free, then upgrade only when your growth demands it. Every plan includes the core Storelib experience.
+            </p>
           </div>
-          <h1 className="text-4xl font-bold tracking-tight text-[#141b34] sm:text-5xl">
-            Pricing built for creators at every stage
-          </h1>
-          <p className="mx-auto max-w-2xl text-base text-slate-600 sm:text-lg">
-            Start free, then upgrade only when your growth demands it. Every plan includes the core Storelib experience.
-          </p>
-        </section>
+        </div>
+      </section>
 
-        <section className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-          {pricingPlans.map((plan) => (
-            <article
-              key={plan.name}
-              className={`relative rounded-3xl border bg-white p-6 shadow-sm transition-all duration-200 ${
-                plan.highlight
-                  ? "border-violet-300 shadow-[0_16px_50px_-22px_rgba(109,40,217,0.45)] ring-1 ring-violet-200/60"
-                  : "border-slate-200"
-              }`}
-            >
-              <div className="mb-5 flex items-center justify-between">
-                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${plan.highlight ? "bg-violet-600 text-white" : "bg-slate-100 text-slate-700"}`}>
-                  {plan.badge}
-                </span>
-                {plan.highlight && <Zap className="h-4 w-4 text-violet-600" />}
-              </div>
-
-              <h2 className="text-2xl font-bold text-[#141b34]">{plan.name}</h2>
-              <p className="mt-1 text-sm font-medium text-slate-500">{plan.subtitle}</p>
-
-              <div className="mt-5 flex items-end gap-1">
-                <span className="text-4xl font-bold text-[#141b34]">{plan.price}</span>
-                <span className="mb-1 text-sm text-slate-500">{plan.period}</span>
-              </div>
-
-              <p className="mt-4 text-sm leading-relaxed text-slate-600">{plan.description}</p>
-
-              <ul className="mt-6 space-y-3">
-                {plan.features.map((feature) => (
-                  <li key={feature} className="flex items-start gap-3 text-sm text-slate-700">
-                    <span className={`mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full ${plan.highlight ? "bg-violet-600" : "bg-violet-100"}`}>
-                      <Check className={`h-3.5 w-3.5 ${plan.highlight ? "text-white" : "text-violet-700"}`} />
-                    </span>
-                    <span>{feature}</span>
-                  </li>
-                ))}
-              </ul>
-
-              <Link
-                href={plan.href}
-                className={`mt-7 inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition-colors ${
+      {/* Pricing Cards - matching /upgrade page style */}
+      <section className="pb-16 sm:pb-20">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
+            {pricingPlans.map((plan) => (
+              <div
+                key={plan.id}
+                className={`relative rounded-2xl p-6 sm:p-7 flex flex-col transition-all duration-200 ${
                   plan.highlight
-                    ? "bg-violet-600 text-white hover:bg-violet-700"
-                    : "bg-slate-900 text-white hover:bg-slate-800"
+                    ? "bg-white border border-[#7c3aed]/25 shadow-[0_0_24px_-6px_rgba(124,58,237,0.12)] hover:shadow-[0_0_32px_-6px_rgba(124,58,237,0.18)] ring-1 ring-[#7c3aed]/5 scale-[1.02]"
+                    : "bg-white border-2 border-[#e5e7eb] hover:border-[#d1d5db] shadow-sm hover:shadow-md"
                 }`}
               >
-                {plan.cta}
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </article>
-          ))}
-        </section>
+                {plan.badge === "Most Popular" && (
+                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
+                    <span className="inline-flex items-center gap-1 px-3.5 py-1 bg-[#7c3aed] rounded-full text-[11px] font-bold text-white shadow-lg">
+                      Most Popular
+                    </span>
+                  </div>
+                )}
+                {plan.badge === "Recommended" && (
+                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
+                    <span className="inline-flex items-center gap-1 px-3.5 py-1 bg-[#1a1a2e] rounded-full text-[11px] font-bold text-white shadow-lg">
+                      <Star className="h-3 w-3 fill-white" />
+                      Recommended
+                    </span>
+                  </div>
+                )}
 
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8">
-          <div className="mb-6 flex items-center gap-2 text-[#141b34]">
-            <ShieldCheck className="h-5 w-5 text-violet-600" />
-            <h3 className="text-xl font-semibold">Plan comparison</h3>
+                <div className="mb-5">
+                  <h3 className="text-[20px] font-bold mb-1.5 text-[#1a1a2e]">
+                    {plan.name}
+                  </h3>
+                  <p className="text-[13px] leading-relaxed text-[#6b7280]">
+                    {plan.description}
+                  </p>
+                </div>
+
+                <div className="mb-6">
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-[40px] font-bold leading-none text-[#1a1a2e]">
+                      {plan.price}
+                    </span>
+                    {plan.period && (
+                      <span className="text-[15px] text-[#9ca3af]">{plan.period}</span>
+                    )}
+                  </div>
+                  {plan.periodLabel && (
+                    <p className="text-[13px] mt-1.5 text-[#9ca3af]">{plan.periodLabel}</p>
+                  )}
+                </div>
+
+                <Link
+                  href={plan.href}
+                  className={`w-full h-12 text-[14px] font-semibold rounded-xl transition-all duration-200 flex items-center justify-center gap-2 mb-6 ${
+                    plan.highlight
+                      ? "bg-[#7c3aed] hover:bg-[#6d28d9] text-white"
+                      : "bg-[#1a1a2e] hover:bg-[#0f1325] text-white"
+                  }`}
+                >
+                  {plan.cta}
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+
+                <ul className="space-y-3 flex-1">
+                  {plan.features.map((feature) => (
+                    <li key={feature} className="flex items-start gap-2.5 text-[13px] text-[#374151]">
+                      <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${plan.highlight ? "bg-[#7c3aed]" : "bg-[#ede9fe]"}`}>
+                        <Check className={`h-3 w-3 ${plan.highlight ? "text-white" : "text-[#7c3aed]"}`} strokeWidth={3} />
+                      </div>
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
           </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 text-slate-500">
-                  <th className="px-3 py-3 font-medium">Feature</th>
-                  <th className="px-3 py-3 font-medium">Free</th>
-                  <th className="px-3 py-3 font-medium">Growth</th>
-                  <th className="px-3 py-3 font-medium">Professional</th>
-                </tr>
-              </thead>
-              <tbody>
-                {comparisonRows.map((row) => (
-                  <tr key={row[0]} className="border-b border-slate-100 last:border-0">
-                    <td className="px-3 py-3 font-medium text-[#141b34]">{row[0]}</td>
-                    <td className="px-3 py-3 text-slate-600">{row[1]}</td>
-                    <td className="px-3 py-3 text-slate-600">{row[2]}</td>
-                    <td className="px-3 py-3 text-slate-600">{row[3]}</td>
+        </div>
+      </section>
+
+      {/* Plan Comparison Table */}
+      <section className="pb-16 sm:pb-20">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6">
+          <div className="rounded-2xl border border-[#e5e7eb] bg-white p-5 sm:p-8">
+            <div className="mb-6 flex items-center gap-2 text-[#1a1a2e]">
+              <ShieldCheck className="h-5 w-5 text-[#7c3aed]" />
+              <h3 className="text-xl font-semibold">Plan comparison</h3>
+            </div>
+            <div className="overflow-x-auto -mx-2">
+              <table className="min-w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-[#e5e7eb]">
+                    <th className="px-3 py-3 font-medium text-[#6b7280]">Feature</th>
+                    <th className="px-3 py-3 font-medium text-[#6b7280]">Free</th>
+                    <th className="px-3 py-3 font-medium text-[#7c3aed]">Growth</th>
+                    <th className="px-3 py-3 font-medium text-[#6b7280]">Professional</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {comparisonRows.map((row) => (
+                    <tr key={row.feature} className="border-b border-[#f3f4f6] last:border-0">
+                      <td className="px-3 py-3 font-medium text-[#1a1a2e] text-[13px]">{row.feature}</td>
+                      {(["free", "growth", "pro"] as const).map((planKey) => {
+                        const val = row[planKey]
+                        return (
+                          <td key={planKey} className="px-3 py-3 text-[13px] text-[#374151]">
+                            {val === true ? (
+                              <div className="w-5 h-5 rounded-full bg-[#ede9fe] flex items-center justify-center">
+                                <Check className="h-3 w-3 text-[#7c3aed]" strokeWidth={3} />
+                              </div>
+                            ) : val === false ? (
+                              <span className="text-[#d1d5db]">&mdash;</span>
+                            ) : (
+                              val
+                            )}
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        <section className="rounded-3xl border border-violet-200 bg-violet-50/60 p-6 text-center sm:p-8">
-          <h3 className="text-2xl font-bold text-[#141b34]">Need a custom plan for your team?</h3>
-          <p className="mx-auto mt-2 max-w-2xl text-slate-600">
-            If you run an agency or enterprise brand, we can build a custom setup for your products, automations, and support needs.
+      {/* Platform Features Grid */}
+      <section className="pb-16 sm:pb-20 bg-[#faf5ff]/40">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-16 sm:pt-20">
+          <div className="text-center mb-10">
+            <h2 className="text-[26px] sm:text-[32px] font-bold text-[#1a1a2e] mb-3">
+              Everything you need to sell digital products
+            </h2>
+            <p className="text-[15px] text-[#6b7280] max-w-2xl mx-auto">
+              Every plan includes the core Storelib platform. Powerful tools to create, sell, and grow.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {platformFeatures.map((feature) => {
+              const Icon = feature.icon
+              return (
+                <div
+                  key={feature.title}
+                  className="p-5 rounded-2xl bg-white border border-[#e5e7eb] hover:border-[#d1d5db] hover:shadow-md transition-all duration-200"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center mb-3">
+                    <Icon className="w-5 h-5 text-white" />
+                  </div>
+                  <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1">{feature.title}</h3>
+                  <p className="text-[13px] text-[#6b7280] leading-relaxed">{feature.description}</p>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ Section */}
+      <section className="pb-16 sm:pb-20">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6">
+          <div className="text-center mb-10">
+            <h2 className="text-[26px] sm:text-[32px] font-bold text-[#1a1a2e] mb-3">
+              Frequently asked questions
+            </h2>
+          </div>
+          <div className="space-y-4">
+            {faqs.map((faq) => (
+              <div key={faq.q} className="rounded-2xl border border-[#e5e7eb] p-5 sm:p-6">
+                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-2">{faq.q}</h3>
+                <p className="text-[13px] text-[#6b7280] leading-relaxed">{faq.a}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="pb-16 sm:pb-20">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6">
+          <div className="rounded-2xl border border-violet-200 bg-violet-50/60 p-8 sm:p-12 text-center">
+            <h3 className="text-[24px] sm:text-[28px] font-bold text-[#1a1a2e] mb-3">
+              Ready to start selling?
+            </h3>
+            <p className="text-[15px] text-[#6b7280] max-w-xl mx-auto mb-6">
+              Join thousands of creators selling digital products on Storelib. Start free, upgrade when you're ready.
+            </p>
+            <Link
+              href="/signup"
+              className="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl bg-[#7c3aed] text-white text-[15px] font-semibold hover:bg-[#6d28d9] transition-colors"
+            >
+              Get Started Free
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Custom plan */}
+      <section className="pb-16 sm:pb-20">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 text-center">
+          <p className="text-[13px] text-[#9ca3af] mb-3">
+            Need a custom plan for your agency or enterprise team?
           </p>
-          <Link href="/contact" className="mt-5 inline-flex rounded-xl bg-[#141b34] px-6 py-3 text-sm font-semibold text-white hover:bg-[#0f1325]">
+          <Link
+            href="/contact"
+            className="inline-flex items-center gap-2 text-[14px] font-semibold text-[#7c3aed] hover:text-[#6d28d9] transition-colors"
+          >
             Talk to sales
+            <ArrowRight className="h-4 w-4" />
           </Link>
-        </section>
-      </div>
+        </div>
+      </section>
     </div>
   )
 }

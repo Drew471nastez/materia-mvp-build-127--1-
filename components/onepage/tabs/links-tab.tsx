@@ -728,6 +728,8 @@ export function LinksTab() {
   const [showDeleteSocialNotification, setShowDeleteSocialNotification] = useState(false)
   const [showAddBlockNotification, setShowAddBlockNotification] = useState(false)
   const [showUpdateSocialNotification, setShowUpdateSocialNotification] = useState(false)
+  const [showBlockRemovedNotification, setShowBlockRemovedNotification] = useState(false)
+  const [showBlockArchivedNotification, setShowBlockArchivedNotification] = useState(false)
   
   // Name/Bio edit state
   const [showNameBioModal, setShowNameBioModal] = useState(false)
@@ -1783,13 +1785,15 @@ export function LinksTab() {
       const scrollEl = autoScrollElementRef.current || getScrollableAncestor(touchedElement || dragSourceElRef.current)
       if (scrollEl) {
         const rect = scrollEl.getBoundingClientRect()
-        const zone = 110
+        const zone = 140
         let nextVelocity = 0
 
         if (touch.clientY < rect.top + zone) {
-          nextVelocity = -Math.max(2, (zone - (touch.clientY - rect.top)) * 0.4)
+          const proximity = (zone - (touch.clientY - rect.top)) / zone
+          nextVelocity = -Math.max(1, proximity * proximity * 18)
         } else if (touch.clientY > rect.bottom - zone) {
-          nextVelocity = Math.max(2, (zone - (rect.bottom - touch.clientY)) * 0.4)
+          const proximity = (zone - (rect.bottom - touch.clientY)) / zone
+          nextVelocity = Math.max(1, proximity * proximity * 18)
         }
 
         const changedTarget = autoScrollElementRef.current !== scrollEl
@@ -2137,8 +2141,8 @@ export function LinksTab() {
                 block={block}
                 isSelected={selectedBlockId === block.id}
                 onSelect={() => setSelectedBlockId(selectedBlockId === block.id ? null : block.id)}
-                onRemove={() => removeBlock(block.id)}
-                onArchive={() => archiveBlock(block.id)}
+                onRemove={() => { removeBlock(block.id); setShowBlockRemovedNotification(false); requestAnimationFrame(() => setShowBlockRemovedNotification(true)) }}
+                onArchive={() => { archiveBlock(block.id); setShowBlockArchivedNotification(false); requestAnimationFrame(() => setShowBlockArchivedNotification(true)) }}
                 onMoveUp={() => {
                   // Prevent social_row from moving above header when Hero layout
                   const headerLayout = (onepage.theme as any)?.header_layout || "classic"
@@ -2731,9 +2735,9 @@ export function LinksTab() {
                       )}
                     </div>
 
-                    <div className="flex flex-col sm:flex-row gap-2 pt-2">
+                    <div className="flex flex-col gap-2 pt-2">
                       <Button
-                        className="flex-1 bg-blue-500 hover:bg-blue-600 rounded-xl h-[58px] w-full sm:w-auto"
+                        className="bg-blue-500 hover:bg-blue-600 rounded-xl h-[52px] w-full text-[15px] font-semibold"
                         onClick={() => {
                           const wasExisting = !!social_links?.[selectedSocial as keyof typeof social_links]
                           setSocialUrl(normalizeUrlInput(socialUrl))
@@ -2749,7 +2753,7 @@ export function LinksTab() {
                       </Button>
                       <Button
                         variant="outline"
-                        className="flex-1 rounded-xl h-[58px] w-full sm:w-auto"
+                        className="rounded-xl h-[52px] w-full text-[15px] font-semibold"
                         onClick={() => closeSocialSheet()}
                       >
                         Back
@@ -2757,7 +2761,7 @@ export function LinksTab() {
                       {social_links?.[selectedSocial as keyof typeof social_links] && (
                         <Button
                           variant="outline"
-                          className="rounded-xl h-[58px] text-red-600 hover:text-red-700 hover:bg-red-50 sm:w-auto w-full justify-center"
+                          className="rounded-xl h-[52px] w-full text-red-600 hover:text-red-700 hover:bg-red-50 text-[15px] font-semibold justify-center"
                           onClick={() => {
                             handleRemoveSocial(selectedSocial)
                             setShowDeleteSocialNotification(false)
@@ -2797,6 +2801,19 @@ export function LinksTab() {
       <SaveNotification
         show={showUpdateSocialNotification}
         message="Updated"
+        duration={3000}
+        position="top"
+      />
+      <SaveNotification
+        show={showBlockRemovedNotification}
+        message="Block removed"
+        duration={3000}
+        icon={DeletedIcon}
+        position="top"
+      />
+      <SaveNotification
+        show={showBlockArchivedNotification}
+        message="Block archived"
         duration={3000}
         position="top"
       />
@@ -3448,24 +3465,41 @@ export function LinksTab() {
 
                     setImageUploading(true)
                     try {
-                      const supabase = createClient()
-                      const bucket = 'lead-form-files'
-                      const extension = file.name.split('.').pop() || 'bin'
                       const folder = imageFieldType === 'digital_product_file' || imageFieldType === 'pdf_file' ? 'digital' : 'images'
-                      const filePath = `${folder}/${imageBlockId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`
 
-                      const { error: uploadError } = await supabase.storage
-                        .from(bucket)
-                        .upload(filePath, file, {
-                          upsert: false,
-                          cacheControl: '3600',
-                          contentType: file.type || undefined,
-                        })
+                      // Use signed upload URL to bypass FUNCTION_PAYLOAD_TOO_LARGE
+                      const signedRes = await fetch('/api/onepage/signed-upload-url', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          fileName: file.name,
+                          contentType: file.type || 'application/octet-stream',
+                          fileSize: file.size,
+                          folder,
+                        }),
+                      })
 
-                      if (uploadError) throw uploadError
+                      if (!signedRes.ok) {
+                        const err = await signedRes.json()
+                        throw new Error(err.error || 'Failed to get upload URL')
+                      }
 
-                      const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath)
-                      const url = urlData.publicUrl
+                      const { signedUrl, publicUrl } = await signedRes.json()
+
+                      // Upload directly to Supabase Storage using the signed URL
+                      const uploadRes = await fetch(signedUrl, {
+                        method: 'PUT',
+                        headers: {
+                          'Content-Type': file.type || 'application/octet-stream',
+                        },
+                        body: file,
+                      })
+
+                      if (!uploadRes.ok) {
+                        throw new Error('Upload failed')
+                      }
+
+                      const url = publicUrl
 
                       const block = onepage.draft_blocks.find(b => b.id === imageBlockId)
                       if (block) {
@@ -4694,13 +4728,14 @@ function BlockItem({
   return (
     <div
       className={cn(
-        "border rounded-xl bg-white transition-all relative",
+        "border rounded-xl bg-white relative",
         isSelected ? "ring-1 ring-gray-400 border-gray-300" : "hover:border-gray-300",
         !block.enabled && "opacity-50",
-        isDragging && "opacity-95 scale-[1.01] shadow-2xl z-20",
+        isDragging ? "opacity-[0.97] scale-[1.03] shadow-[0_12px_40px_-8px_rgba(0,0,0,0.25)] z-50 border-violet-300 ring-1 ring-violet-200" : "transition-all duration-200",
         canAcceptDrop && "ring-2 ring-violet-500 border-violet-400 bg-violet-50/50"
       )}
-      style={isDragging ? { transform: `translateY(${dragOffsetY}px)` } : undefined}
+      style={isDragging ? { transform: `translateY(${dragOffsetY}px) translateZ(0)`, willChange: 'transform', transition: 'box-shadow 200ms, scale 200ms' } : undefined}
+      data-block-id={block.id}
     >
       {/* Drop zone indicator for group blocks */}
       {canAcceptDrop && (
@@ -4722,7 +4757,7 @@ function BlockItem({
       >
         {!isHeaderBlock && (
           <div
-            className={cn("cursor-grab text-gray-300 hover:text-gray-400 active:cursor-grabbing select-none p-1 -m-1 md:p-0 md:m-0", isDragging ? "touch-none" : "touch-manipulation")}
+            className={cn("cursor-grab text-gray-300 hover:text-gray-400 active:cursor-grabbing select-none p-2 -m-2 md:p-1 md:-m-1 rounded-lg active:bg-gray-100", isDragging ? "touch-none" : "touch-manipulation")}
             onTouchStart={(e) => {
               if (onTouchDragStart) {
                 e.stopPropagation()
