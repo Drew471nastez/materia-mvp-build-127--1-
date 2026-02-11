@@ -1646,7 +1646,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
           onClick={() => setSpotifyModalOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-[240px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            className="bg-white rounded-2xl w-full max-w-[290px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -1669,15 +1669,18 @@ export function PhonePreview({ className }: PhonePreviewProps) {
 
             {/* Spotify Embed */}
             <div className="p-2.5">
-              <iframe
-                src={spotifyModalData.embedUrl}
-                width="100%"
-                height="152"
-                frameBorder="0"
-                allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                loading="lazy"
-                className="rounded-lg"
-              />
+              <div className="w-full overflow-hidden rounded-lg bg-black/5">
+                <iframe
+                  src={spotifyModalData.embedUrl}
+                  width="100%"
+                  height="300"
+                  frameBorder="0"
+                  allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                  loading="lazy"
+                  scrolling="no"
+                  className="block w-full"
+                />
+              </div>
             </div>
 
             {/* Streaming Services - if show_streaming mode */}
@@ -1739,7 +1742,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
           onClick={() => setAppleMusicModalOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-[240px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            className="bg-white rounded-2xl w-full max-w-[290px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -1768,17 +1771,20 @@ export function PhonePreview({ className }: PhonePreviewProps) {
 
             {/* Apple Music Embed */}
             <div className="p-2.5">
-              <iframe
-                src={appleMusicModalData.embedUrl}
-                width="100%"
-                height="175"
-                frameBorder="0"
-                allow="autoplay *; encrypted-media *; fullscreen *; clipboard-write"
-                sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"
-                loading="lazy"
-                className="rounded-lg bg-transparent"
-                style={{ overflow: 'hidden', background: 'transparent' }}
-              />
+              <div className="w-full overflow-hidden rounded-lg bg-black/5">
+                <iframe
+                  src={appleMusicModalData.embedUrl}
+                  width="100%"
+                  height="330"
+                  frameBorder="0"
+                  scrolling="no"
+                  allow="autoplay *; encrypted-media *; fullscreen *; clipboard-write"
+                  sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"
+                  loading="lazy"
+                  className="block w-full bg-transparent"
+                  style={{ overflow: 'hidden', background: 'transparent' }}
+                />
+              </div>
             </div>
 
             {/* Footer - Open in Apple Music button */}
@@ -2402,7 +2408,7 @@ export function MobilePreviewContent() {
           onClick={() => setSpotifyModalOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-[240px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            className="bg-white rounded-2xl w-full max-w-[290px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -2425,15 +2431,18 @@ export function MobilePreviewContent() {
 
             {/* Spotify Embed */}
             <div className="p-2.5">
-              <iframe
-                src={spotifyModalData.embedUrl}
-                width="100%"
-                height="152"
-                frameBorder="0"
-                allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                loading="lazy"
-                className="rounded-lg"
-              />
+              <div className="w-full overflow-hidden rounded-lg bg-black/5">
+                <iframe
+                  src={spotifyModalData.embedUrl}
+                  width="100%"
+                  height="300"
+                  frameBorder="0"
+                  scrolling="no"
+                  allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                  loading="lazy"
+                  className="block w-full"
+                />
+              </div>
             </div>
 
             {/* Streaming Services - if show_streaming mode */}
@@ -2484,7 +2493,7 @@ export function MobilePreviewContent() {
           onClick={() => setAppleMusicModalOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-[240px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            className="bg-white rounded-2xl w-full max-w-[290px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -2513,17 +2522,20 @@ export function MobilePreviewContent() {
 
             {/* Apple Music Embed */}
             <div className="p-2.5">
-              <iframe
-                src={appleMusicModalData.embedUrl}
-                width="100%"
-                height="175"
-                frameBorder="0"
-                allow="autoplay *; encrypted-media *; fullscreen *; clipboard-write"
-                sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"
-                loading="lazy"
-                className="rounded-lg bg-transparent"
-                style={{ overflow: 'hidden', background: 'transparent' }}
-              />
+              <div className="w-full overflow-hidden rounded-lg bg-black/5">
+                <iframe
+                  src={appleMusicModalData.embedUrl}
+                  width="100%"
+                  height="330"
+                  frameBorder="0"
+                  scrolling="no"
+                  allow="autoplay *; encrypted-media *; fullscreen *; clipboard-write"
+                  sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"
+                  loading="lazy"
+                  className="block w-full bg-transparent"
+                  style={{ overflow: 'hidden', background: 'transparent' }}
+                />
+              </div>
             </div>
 
             {/* Footer - Open in Apple Music button */}

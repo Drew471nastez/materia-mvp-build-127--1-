@@ -2209,7 +2209,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           onClick={() => setSpotifyModalOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-[360px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            className="bg-white rounded-2xl w-[min(92vw,460px)] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -2232,15 +2232,18 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
 
             {/* Spotify Embed - compact height */}
             <div className="p-3">
-              <iframe
-                src={spotifyModalData.embedUrl}
-                width="100%"
-                height="152"
-                frameBorder="0"
-                allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                loading="lazy"
-                className="rounded-lg"
-              />
+              <div className="w-full overflow-hidden rounded-xl bg-black/5">
+                <iframe
+                  src={spotifyModalData.embedUrl}
+                  width="100%"
+                  height="352"
+                  frameBorder="0"
+                  scrolling="no"
+                  allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                  loading="lazy"
+                  className="block w-full"
+                />
+              </div>
             </div>
 
             {/* Streaming Services - text only, no icons */}
@@ -2301,7 +2304,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           onClick={() => setAppleMusicModalOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-[360px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            className="bg-white rounded-2xl w-[min(92vw,460px)] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -2328,19 +2331,22 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
               </button>
             </div>
 
-            {/* Apple Music Embed - compact height */}
+            {/* Apple Music Embed - responsive */}
             <div className="p-3">
-              <iframe
-                src={appleMusicModalData.embedUrl}
-                width="100%"
-                height="175"
-                frameBorder="0"
-                allow="autoplay *; encrypted-media *; fullscreen *; clipboard-write"
-                sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"
-                loading="lazy"
-                className="rounded-lg"
-                style={{ overflow: 'hidden', background: 'transparent' }}
-              />
+              <div className="w-full overflow-hidden rounded-xl bg-black/5">
+                <iframe
+                  src={appleMusicModalData.embedUrl}
+                  width="100%"
+                  height="360"
+                  frameBorder="0"
+                  scrolling="no"
+                  allow="autoplay *; encrypted-media *; fullscreen *; clipboard-write"
+                  sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"
+                  loading="lazy"
+                  className="block w-full"
+                  style={{ overflow: 'hidden', background: 'transparent' }}
+                />
+              </div>
             </div>
 
             {/* Open in Apple Music button */}
@@ -4859,13 +4865,25 @@ function PublicBlockRenderer({
       }
 
       // Handle download click - triggers direct download
-      const handleDownloadClick = () => {
-        if (downloadLink) {
-          // Create a temporary anchor element to trigger download
+      const handleDownloadClick = async () => {
+        if (!downloadLink) return
+
+        try {
+          const response = await fetch(downloadLink)
+          const blob = await response.blob()
+          const objectUrl = URL.createObjectURL(blob)
+          const link = document.createElement('a')
+          link.href = objectUrl
+          link.download = data.digital_product_title || 'download'
+          document.body.appendChild(link)
+          link.click()
+          document.body.removeChild(link)
+          URL.revokeObjectURL(objectUrl)
+        } catch (error) {
+          // Fallback to direct navigation if fetch-to-blob fails
           const link = document.createElement('a')
           link.href = downloadLink
           link.download = data.digital_product_title || 'download'
-          link.target = '_blank'
           document.body.appendChild(link)
           link.click()
           document.body.removeChild(link)
