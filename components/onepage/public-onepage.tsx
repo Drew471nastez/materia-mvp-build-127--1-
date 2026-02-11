@@ -795,8 +795,8 @@ function ShareButton({
       >
         <div
           className={cn(
-            "absolute inset-0 transition-[background-color,backdrop-filter] duration-300 ease-out",
-            isOpen ? "bg-black/40 backdrop-blur-sm" : "bg-black/0 backdrop-blur-0",
+            "absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300 ease-out",
+            isOpen ? "opacity-100" : "opacity-0",
           )}
           onClick={() => setIsOpen(false)}
         />
@@ -804,8 +804,8 @@ function ShareButton({
         {/* Share Modal - content */}
         <div
           className={cn(
-            "relative z-10 w-[calc(100%-32px)] max-w-[380px] max-h-[90vh] overflow-y-auto rounded-[28px] overflow-x-hidden transition-transform duration-300 ease-out",
-            isOpen ? "scale-100" : "scale-95",
+            "relative z-10 w-[calc(100%-32px)] max-w-[380px] max-h-[90vh] overflow-y-auto rounded-[28px] overflow-x-hidden transition-[opacity,transform] duration-300 ease-out",
+            isOpen ? "opacity-100 scale-100" : "opacity-0 scale-95",
           )}
           style={{
             background: "#ffffff",
@@ -2147,21 +2147,21 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         {safeTheme.background_type === "image" && safeTheme.background_image_url && (
           <div
             style={{
-              position: "fixed",
+              position: "absolute",
               top: 0,
               left: 0,
               right: 0,
               bottom: 0,
-              width: "100vw",
-              height: "100vh",
+              width: "100%",
+              height: "100%",
               backgroundImage: `url(${safeTheme.background_image_url})`,
               backgroundSize: "cover",
               backgroundPosition: "center",
-              backgroundAttachment: "fixed",
               zIndex: 0,
               filter: `brightness(${(safeTheme as any).image_brightness || 100}%) blur(${(safeTheme as any).image_blur || 0}px)`,
               transform: "translateZ(0)",
               willChange: "transform",
+              pointerEvents: "none",
             }}
           />
         )}
@@ -2171,7 +2171,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           <video
             src={(safeTheme as any).background_video_url}
             style={{
-              position: "fixed",
+              position: "absolute",
               top: "-50px",
               left: "-50px",
               right: "-50px",
@@ -2181,6 +2181,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
               objectFit: "cover",
               zIndex: 0,
               filter: `brightness(${(safeTheme as any).video_brightness || 100}%)`,
+              pointerEvents: "none",
             }}
             autoPlay
             loop

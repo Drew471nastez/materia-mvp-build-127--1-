@@ -491,8 +491,8 @@ function ShareButtonPreview({
         {/* Backdrop */}
         <div
           className={cn(
-            "absolute inset-0 transition-[background-color,backdrop-filter] duration-300 ease-out",
-            isOpen ? "bg-black/40 backdrop-blur-sm" : "bg-black/0 backdrop-blur-0",
+            "absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300 ease-out",
+            isOpen ? "opacity-100" : "opacity-0",
           )}
           onClick={() => setIsOpen(false)}
         />
@@ -500,8 +500,8 @@ function ShareButtonPreview({
         {/* Modal - centered within phone preview */}
         <div
           className={cn(
-            "relative z-10 rounded-2xl overflow-hidden transition-transform duration-300 ease-out",
-            isOpen ? "scale-100" : "scale-95",
+            "relative z-10 rounded-2xl overflow-hidden transition-[opacity,transform] duration-300 ease-out",
+            isOpen ? "opacity-100 scale-100" : "opacity-0 scale-95",
           )}
           style={{
             width: scale === "small" ? 200 : 260,
