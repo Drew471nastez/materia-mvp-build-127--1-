@@ -325,7 +325,7 @@ export async function POST(request: Request) {
       console.error("Error adding domain:", error)
       // Try to clean up Vercel domains if DB insert failed
       await removeDomainFromVercel(cleanDomain)
-      await removeDomainFromVercel(wwwDomain)
+      await removeDomainFromVercel(`www.${cleanDomain}`)
       return NextResponse.json({ error: "Failed to add domain" }, { status: 500 })
     }
 
