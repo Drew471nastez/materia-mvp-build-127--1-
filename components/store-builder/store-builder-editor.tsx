@@ -287,8 +287,8 @@ function EditorLayout({
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Sidebar - fixed width, internal scroll */}
         <div
-          className="relative flex-shrink-0 border-r border-border bg-background flex flex-col h-full"
-          style={{ width: sidebarWidth }}
+          className="relative flex-shrink-0 border-r border-border bg-background flex flex-col h-full overflow-hidden"
+          style={{ width: sidebarWidth, minWidth: MIN_SIDEBAR_WIDTH }}
         >
           {/* Sidebar content - scrollable */}
           <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">

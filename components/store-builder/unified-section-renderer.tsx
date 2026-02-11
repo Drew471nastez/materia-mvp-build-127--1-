@@ -2802,7 +2802,7 @@ export function UnifiedShopHeader({
               style={{
                 width: `${avatarSize}px`,
                 height: `${avatarSize}px`,
-                borderWidth: "1.5px",
+                borderWidth: "2px",
                 borderStyle: "solid",
                 borderColor: settings.profileImageBorderColor || "#e5e7eb",
               }}

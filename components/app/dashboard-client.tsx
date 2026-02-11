@@ -30,6 +30,7 @@ import {
   Share2,
   Blocks,
   BarChart3,
+  Globe,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { useLanguage } from "@/lib/i18n"
@@ -2074,6 +2075,25 @@ export function DashboardClient({
                   <ArrowRight className="h-4 w-4 text-[#d1d5db] group-hover:text-[#8b5cf6] group-hover:translate-x-0.5 transition-all" />
                 </div>
                 <p className="text-[13px] text-[#6b7280] mt-0.5">{t("dashboard.viewAnalyticsDesc")}</p>
+              </div>
+            </Link>
+
+            {/* Add Custom Domain card */}
+            <Link
+              href="/app/settings?tab=domains"
+              className="group flex items-center gap-5 bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#8b5cf6]/30 hover:shadow-[0_4px_12px_rgba(139,92,246,0.08)] transition-all duration-200"
+            >
+              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-[#e0e7ff] to-[#c7d2fe]">
+                <Globe className="h-6 w-6 text-[#6366f1]" />
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <p className="text-[15px] font-semibold text-[#1a1a2e] group-hover:text-[#8b5cf6] transition-colors">
+                    Add Custom Domain
+                  </p>
+                  <ArrowRight className="h-4 w-4 text-[#d1d5db] group-hover:text-[#8b5cf6] group-hover:translate-x-0.5 transition-all" />
+                </div>
+                <p className="text-[13px] text-[#6b7280] mt-0.5">Connect your own domain to your store</p>
               </div>
             </Link>
           </div>

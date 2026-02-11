@@ -24,7 +24,7 @@ import {
 } from "lucide-react"
 import { useState, useEffect, useCallback, useRef } from "react"
 import type { OnePage } from "@/lib/onepage/types"
-import { getLinksUrl } from "@/lib/url-helpers"
+import { getLinksUrl, getLinksUrlWithCustomDomain } from "@/lib/url-helpers"
 import {
   Dialog,
   DialogContent,
@@ -203,6 +203,18 @@ function EditorLayout() {
   // =====================================================
   
   const [showOnboarding, setShowOnboarding] = useState(false) // Start with false, check DB
+  const [connectedDomain, setConnectedDomain] = useState<string | null>(null)
+
+  // Fetch custom domain on mount
+  useEffect(() => {
+    fetch("/api/domains")
+      .then((res) => res.json())
+      .then((data) => {
+        const active = data.domains?.find((d: any) => d.status === "active")
+        if (active) setConnectedDomain(active.domain)
+      })
+      .catch(() => {})
+  }, [])
 
   const [onboardingChecked, setOnboardingChecked] = useState(false) // Track if we've checked
   const completedThisSessionRef = useRef(false)
@@ -457,7 +469,7 @@ function EditorLayout() {
     )
   }
 
-  const pageUrl = getLinksUrl(onepage.slug)
+  const pageUrl = connectedDomain ? getLinksUrlWithCustomDomain(onepage.slug, connectedDomain) : getLinksUrl(onepage.slug)
 
   const copyLink = async () => {
     await navigator.clipboard.writeText(pageUrl)

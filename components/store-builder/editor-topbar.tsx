@@ -30,7 +30,7 @@ import {
 import type { PageType } from "@/lib/store-builder/types"
 import { cn } from "@/lib/utils"
 import { UnsavedChangesDialog } from "./unsaved-changes-dialog"
-import { getStoreUrl, getProductUrl } from "@/lib/url-helpers"
+import { getStoreUrl, getProductUrl, getStoreUrlWithCustomDomain, getProductUrlWithCustomDomain } from "@/lib/url-helpers"
 
 interface EditorTopbarProps {
   creatorSlug: string
@@ -64,8 +64,20 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null)
   const [pendingBrowserBack, setPendingBrowserBack] = useState(false)
   const [isNavigating, setIsNavigating] = useState(false)
+  const [connectedDomain, setConnectedDomain] = useState<string | null>(null)
 
   const hasUnsavedChanges = saveState === "unsaved"
+
+  // Fetch custom domain on mount
+  useEffect(() => {
+    fetch("/api/domains")
+      .then((res) => res.json())
+      .then((data) => {
+        const active = data.domains?.find((d: any) => d.status === "active")
+        if (active) setConnectedDomain(active.domain)
+      })
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     window.dispatchEvent(new CustomEvent("storebuilder-navigation-loading", { detail: { isNavigating } }))
@@ -74,17 +86,16 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
     }
   }, [isNavigating])
 
-  // Get the live store URL based on current page type (uses subdomain format)
+  // Get the live store URL based on current page type (uses subdomain or custom domain)
   const getLiveStoreUrl = () => {
     if (currentPageType === "product" && selectedProductId) {
       const product = products.find((p) => p.id === selectedProductId)
       if (product) {
-        // Use slug if available, otherwise use ID
         const productSlug = (product as any).slug || selectedProductId
-        return getProductUrl(creatorSlug, productSlug)
+        return connectedDomain ? getProductUrlWithCustomDomain(creatorSlug, productSlug, connectedDomain) : getProductUrl(creatorSlug, productSlug)
       }
     }
-    return getStoreUrl(creatorSlug)
+    return connectedDomain ? getStoreUrlWithCustomDomain(creatorSlug, connectedDomain) : getStoreUrl(creatorSlug)
   }
 
   // Handle browser back button with popstate
@@ -328,7 +339,7 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
         {/* Page Switcher */}
         <Select value={currentPageType} onValueChange={(value) => setCurrentPageType(value as PageType)}>
           <SelectTrigger
-            className={cn("h-9 border-border bg-background shrink-0", isMobile ? "w-[140px]" : "w-[200px]")}
+            className={cn("h-9 border-border bg-background shrink-0 cursor-pointer", isMobile ? "w-[140px]" : "w-[200px]")}
           >
             <SelectValue>
               <span className="truncate" title={pageLabel}>

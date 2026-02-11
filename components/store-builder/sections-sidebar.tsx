@@ -480,7 +480,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
 
   const [showProductSelector, setShowProductSelector] = useState(false)
   const [productSearchQuery, setProductSearchQuery] = useState("")
-  const [settingsTab, setSettingsTab] = useState<"basic" | "seo" | "badge" | "theme" | "social">("basic")
+  const [settingsTab, setSettingsTab] = useState<"basic" | "seo" | "badge" | "theme" | "social" | "domain">("basic")
 
   // ✅ Safety: if old configs ever saved Reviews as hidden, force it back on.
   useEffect(() => {
@@ -575,6 +575,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
       { id: "social" as const, label: "Social Media", icon: Share2 },
       { id: "seo" as const, label: "SEO", icon: Globe },
       { id: "badge" as const, label: "Verified Badge", icon: BadgeCheck },
+      { id: "domain" as const, label: "Custom Domain", icon: ExternalLink },
     ]
 
     // Theme tab is available for all page types (shop and product)
@@ -601,7 +602,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                 <button
                   onClick={() => setSettingsTab(tab.id)}
                   className={cn(
-                    "flex items-center gap-2 w-full rounded-lg px-3 py-2.5 transition-all text-left",
+                    "flex items-center gap-2 w-full rounded-lg px-3 py-2.5 transition-all text-left cursor-pointer",
                     settingsTab === tab.id
                       ? "bg-purple-50 border border-purple-500 dark:bg-purple-950/20"
                       : "hover:bg-muted/50 border border-transparent"
@@ -1114,6 +1115,54 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
               </div>
               </>
             )}
+
+            {/* Custom Domain Content */}
+            {settingsTab === "domain" && (
+              <div className="space-y-4">
+                <div className="bg-purple-50 dark:bg-purple-950/20 rounded-xl p-4 border border-purple-100 dark:border-purple-800">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-9 h-9 rounded-lg bg-purple-100 dark:bg-purple-900 flex items-center justify-center">
+                      <Globe className="h-4.5 w-4.5 text-purple-600 dark:text-purple-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">Custom Domain</p>
+                      <p className="text-xs text-muted-foreground">Use your own domain for your store</p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
+                    Connect a custom domain so visitors see <span className="font-mono font-medium text-purple-600">yourdomain.com</span> instead of <span className="font-mono text-muted-foreground">username.storelib.com</span>
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">Domain settings are managed in your account settings. Click below to open the Domains configuration page.</p>
+                  <Button
+                    variant="outline"
+                    className="w-full gap-2 cursor-pointer"
+                    onClick={() => {
+                      if (window.confirm("You may have unsaved changes. Open domain settings in a new tab?")) {
+                        window.open("/app/settings?tab=domains", "_blank")
+                      }
+                    }}
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Open Domain Settings
+                  </Button>
+                </div>
+
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <p className="text-xs font-medium text-muted-foreground mb-1.5">What you get:</p>
+                  <ul className="space-y-1.5">
+                    {["Custom URL for your store", "SSL certificate included", "Works with your OnePage too"].map((item) => (
+                      <li key={item} className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Check className="h-3 w-3 text-purple-500 shrink-0" />
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -1601,7 +1650,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
       <div className="border-t border-border p-3 shrink-0 bg-background">
         <button
           onClick={openAddSectionModal}
-          className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-sky-600 hover:bg-sky-50 dark:text-sky-400 dark:hover:bg-sky-950/20 transition-colors"
+          className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-purple-600 hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-950/20 transition-colors cursor-pointer"
         >
           <Plus className="h-4 w-4" />
           Add section
@@ -1870,7 +1919,7 @@ function ShopHeaderSettingsForm({
 
         <div className="flex items-center gap-4">
           <div
-            className="relative w-20 h-20 rounded-full overflow-hidden border-2 border-border cursor-pointer group shrink-0"
+            className="relative w-20 h-20 rounded-full overflow-hidden border-[3px] border-border cursor-pointer group shrink-0"
             onClick={handleAvatarFileSelect}
           >
             {settings.avatarUrl ? (
