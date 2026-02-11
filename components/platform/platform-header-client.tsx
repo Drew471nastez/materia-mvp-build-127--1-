@@ -925,8 +925,8 @@ export function PlatformHeaderClient() {
     <header className="w-full bg-white border-b border-gray-200">
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
         <div className="flex h-[68px] md:h-[81px] items-center justify-between gap-4 md:py-[3px]">
-          {/* Desktop Homepage Layout - same style for /, /features, /pricing, /about, /blog */}
-          {pathname === "/" || pathname === "/features" || pathname === "/pricing" || pathname === "/about" || pathname === "/blog" ? (
+          {/* Desktop Homepage Layout - same style for /, /features, /pricing, /blog */}
+          {pathname === "/" || pathname === "/features" || pathname === "/pricing" || pathname === "/blog" ? (
             <>
               {/* Homepage Desktop Header */}
               <div className="hidden md:flex items-center justify-between w-full">
@@ -956,9 +956,6 @@ export function PlatformHeaderClient() {
                   </Link>
                   <Link href="/features" className="px-4 py-2 rounded-full text-[15px] font-medium text-gray-900 hover:text-black border border-gray-200 hover:border-gray-300 transition-colors">
                     Features
-                  </Link>
-                  <Link href="/about" className="px-4 py-2 rounded-full text-[15px] font-medium text-gray-900 hover:text-black border border-gray-200 hover:border-gray-300 transition-colors">
-                    About
                   </Link>
                 </nav>
 
@@ -1783,7 +1780,7 @@ export function PlatformHeaderClient() {
           )}
 
           {/* Logged-in User Profile Section - On Homepage and Marketing Pages */}
-          {user && (pathname === "/" || pathname === "/features" || pathname === "/pricing" || pathname === "/about" || pathname === "/blog") && (
+          {user && (pathname === "/" || pathname === "/features" || pathname === "/pricing" || pathname === "/blog") && (
             <div className="mb-4 pb-4 border-b border-gray-200">
               {/* Profile Info */}
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl mb-3">
@@ -1823,7 +1820,7 @@ export function PlatformHeaderClient() {
           )}
 
           {/* Menu Links - On Homepage and Marketing Pages */}
-          {(pathname === "/" || pathname === "/features" || pathname === "/pricing" || pathname === "/about" || pathname === "/blog") && (
+          {(pathname === "/" || pathname === "/features" || pathname === "/pricing" || pathname === "/blog") && (
             <div className="mb-4 pb-4 border-b border-gray-200 mt-4">
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2 pt-2">Menu</h3>
               <div className="space-y-0.5">
@@ -1859,19 +1856,11 @@ export function PlatformHeaderClient() {
                   <span>Features</span>
                   <ChevronRight className="h-5 w-5 text-gray-400" />
                 </Link>
-                <Link
-                  href="/about"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
-                >
-                  <span>About</span>
-                  <ChevronRight className="h-5 w-5 text-gray-400" />
-                </Link>
               </div>
             </div>
           )}
 
-          {isDiscoverProductContext && pathname !== "/" && pathname !== "/features" && pathname !== "/pricing" && pathname !== "/about" && pathname !== "/blog" && (
+          {isDiscoverProductContext && pathname !== "/" && pathname !== "/features" && pathname !== "/pricing" && pathname !== "/blog" && (
             <div className="mb-3">
               <button
                 type="button"
@@ -1888,7 +1877,7 @@ export function PlatformHeaderClient() {
           )}
 
           {/* Subcategory View with animation - Only show Browse Categories on non-homepage pages */}
-          {pathname !== "/" && pathname !== "/features" && pathname !== "/pricing" && pathname !== "/about" && pathname !== "/blog" && expandedCategory ? (
+          {pathname !== "/" && pathname !== "/features" && pathname !== "/pricing" && pathname !== "/blog" && expandedCategory ? (
             <div className="animate-in slide-in-from-right-4 fade-in duration-300 ease-out">
               <button
                 type="button"
@@ -1945,7 +1934,7 @@ export function PlatformHeaderClient() {
                 )
               })()}
             </div>
-          ) : pathname !== "/" && pathname !== "/features" && pathname !== "/pricing" && pathname !== "/about" && pathname !== "/blog" ? (
+          ) : pathname !== "/" && pathname !== "/features" && pathname !== "/pricing" && pathname !== "/blog" ? (
             /* Main Categories List - Only show on non-homepage pages */
             <div className="animate-in slide-in-from-left-4 fade-in duration-300 ease-out">
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Browse Categories</h3>

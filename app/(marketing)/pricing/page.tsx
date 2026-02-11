@@ -102,8 +102,8 @@ export default function PricingPage() {
               <div
                 className={`h-full bg-white rounded-2xl p-8 flex flex-col ${
                   plan.highlighted
-                    ? "border-2 border-[#7c3aed]/40 shadow-[0_0_30px_-5px_rgba(124,58,237,0.15)] ring-1 ring-[#7c3aed]/10 scale-[1.02]"
-                    : "border-2 border-[#e5e7eb] shadow-sm"
+                    ? "border border-[#7c3aed]/25 shadow-[0_0_24px_-6px_rgba(124,58,237,0.12)] ring-1 ring-[#7c3aed]/5 scale-[1.02]"
+                    : "border border-[#e5e7eb] shadow-sm"
                 }`}
               >
                 {/* Plan Name */}
