@@ -728,6 +728,8 @@ export function LinksTab() {
   const [showDeleteSocialNotification, setShowDeleteSocialNotification] = useState(false)
   const [showAddBlockNotification, setShowAddBlockNotification] = useState(false)
   const [showUpdateSocialNotification, setShowUpdateSocialNotification] = useState(false)
+  const [showBlockRemovedNotification, setShowBlockRemovedNotification] = useState(false)
+  const [showBlockArchivedNotification, setShowBlockArchivedNotification] = useState(false)
   
   // Name/Bio edit state
   const [showNameBioModal, setShowNameBioModal] = useState(false)
@@ -1626,6 +1628,18 @@ export function LinksTab() {
     updateSocialLinks({ [platform]: null } as Partial<OnePageSocialLinks>)
   }
 
+  const handleRemoveBlockWithToast = (blockId: string) => {
+    removeBlock(blockId)
+    setShowBlockRemovedNotification(false)
+    requestAnimationFrame(() => setShowBlockRemovedNotification(true))
+  }
+
+  const handleArchiveBlockWithToast = (blockId: string) => {
+    archiveBlock(blockId)
+    setShowBlockArchivedNotification(false)
+    requestAnimationFrame(() => setShowBlockArchivedNotification(true))
+  }
+
   // Drag handlers
   const handleDragStart = (e: React.DragEvent, blockId: string) => {
     setDraggedBlockId(blockId)
@@ -1637,6 +1651,26 @@ export function LinksTab() {
     e.preventDefault()
     if (draggedBlockId && draggedBlockId !== blockId) {
       setDragOverBlockId(blockId)
+    }
+
+    const pointerY = e.clientY
+    const viewportTop = 0
+    const viewportBottom = window.innerHeight
+    const edgeZone = 120
+
+    let velocity = 0
+    if (pointerY < viewportTop + edgeZone) {
+      velocity = -Math.max(2, (edgeZone - (pointerY - viewportTop)) * 0.35)
+    } else if (pointerY > viewportBottom - edgeZone) {
+      velocity = Math.max(2, (edgeZone - (viewportBottom - pointerY)) * 0.35)
+    }
+
+    autoScrollElementRef.current = document.scrollingElement as HTMLElement
+    autoScrollVelocityRef.current = velocity
+    if (velocity === 0) {
+      cancelAnimationFrame(autoScrollTimerRef.current)
+    } else {
+      runAutoScrollLoop()
     }
   }
 
@@ -1703,6 +1737,9 @@ export function LinksTab() {
   }
 
   const handleDragEnd = () => {
+    cancelAnimationFrame(autoScrollTimerRef.current)
+    autoScrollVelocityRef.current = 0
+    autoScrollElementRef.current = null
     setDraggedBlockId(null)
     setDragOverBlockId(null)
   }
@@ -2137,8 +2174,8 @@ export function LinksTab() {
                 block={block}
                 isSelected={selectedBlockId === block.id}
                 onSelect={() => setSelectedBlockId(selectedBlockId === block.id ? null : block.id)}
-                onRemove={() => removeBlock(block.id)}
-                onArchive={() => archiveBlock(block.id)}
+                onRemove={() => handleRemoveBlockWithToast(block.id)}
+                onArchive={() => handleArchiveBlockWithToast(block.id)}
                 onMoveUp={() => {
                   // Prevent social_row from moving above header when Hero layout
                   const headerLayout = (onepage.theme as any)?.header_layout || "classic"
@@ -2757,7 +2794,7 @@ export function LinksTab() {
                       {social_links?.[selectedSocial as keyof typeof social_links] && (
                         <Button
                           variant="outline"
-                          className="rounded-xl h-[58px] text-red-600 hover:text-red-700 hover:bg-red-50 sm:w-auto w-full justify-center"
+                          className="flex-1 rounded-xl h-[58px] text-red-600 hover:text-red-700 hover:bg-red-50 sm:w-auto w-full justify-center"
                           onClick={() => {
                             handleRemoveSocial(selectedSocial)
                             setShowDeleteSocialNotification(false)
@@ -2797,6 +2834,18 @@ export function LinksTab() {
       <SaveNotification
         show={showUpdateSocialNotification}
         message="Updated"
+        duration={3000}
+        position="top"
+      />
+      <SaveNotification
+        show={showBlockRemovedNotification}
+        message="Block removed"
+        duration={3000}
+        position="top"
+      />
+      <SaveNotification
+        show={showBlockArchivedNotification}
+        message="Block archived"
         duration={3000}
         position="top"
       />

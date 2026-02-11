@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { Check, Sparkles, ShieldCheck, Zap, ArrowRight } from "lucide-react"
 
 const pricingPlans = [
@@ -68,6 +69,31 @@ const comparisonRows = [
   ["Verified badge", "—", "Included", "Included"],
   ["Email captures / month", "500", "5,000", "Unlimited"],
   ["Support", "Community", "Priority", "Dedicated priority"],
+]
+
+const showcaseLogos = [
+  { src: "/images/blog/digital-products-2026.svg", alt: "Creator showcase 1" },
+  { src: "/images/blog/transaction-fees.svg", alt: "Creator showcase 2" },
+  { src: "/images/blog/digital-products-2026.svg", alt: "Creator showcase 3" },
+  { src: "/images/blog/transaction-fees.svg", alt: "Creator showcase 4" },
+]
+
+const growthCards = [
+  {
+    title: "Enhanced customization",
+    text: "From colors and fonts to layout details, make your page feel fully on-brand.",
+    bg: "bg-[#e8c6ef]",
+  },
+  {
+    title: "Extended analytics",
+    text: "Track clicks, conversions and growth patterns so you can optimize with confidence.",
+    bg: "bg-[#d7ef2c]",
+  },
+  {
+    title: "Email & SMS integrations",
+    text: "Collect leads and keep your audience warm with high-intent lifecycle messaging.",
+    bg: "bg-[#9e0024] text-white",
+  },
 ]
 
 export default function PricingPage() {
@@ -177,6 +203,35 @@ export default function PricingPage() {
           <Link href="/contact" className="mt-5 inline-flex rounded-xl bg-[#141b34] px-6 py-3 text-sm font-semibold text-white hover:bg-[#0f1325]">
             Talk to sales
           </Link>
+        </section>
+
+        <section className="space-y-8 py-4">
+          <div className="text-center space-y-3">
+            <h3 className="text-4xl font-bold text-[#141b34]">The only link in bio trusted by millions</h3>
+            <p className="mx-auto max-w-3xl text-slate-600">Use one Storelib page to share everything you create across Instagram, TikTok, X, YouTube and more.</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {showcaseLogos.map((logo, i) => (
+              <div key={i} className="relative h-36 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                <Image src={logo.src} alt={logo.alt} fill className="object-cover" sizes="(max-width: 768px) 50vw, 25vw" />
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="rounded-3xl bg-[#deb8e8] px-4 py-10 sm:px-8">
+          <div className="mx-auto max-w-5xl text-center">
+            <h3 className="text-4xl font-bold text-[#4a2275]">Your growth starts here.</h3>
+            <p className="mx-auto mt-3 max-w-2xl text-[#4a2275]/85">Manage social posts, grow your list, and get conversion insights in one place.</p>
+          </div>
+          <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-3">
+            {growthCards.map((card) => (
+              <article key={card.title} className={`rounded-3xl p-6 ${card.bg}`}>
+                <h4 className="text-2xl font-bold">{card.title}</h4>
+                <p className="mt-3 text-sm leading-relaxed opacity-90">{card.text}</p>
+              </article>
+            ))}
+          </div>
         </section>
       </div>
     </div>

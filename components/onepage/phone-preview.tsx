@@ -1641,11 +1641,11 @@ export function PhonePreview({ className }: PhonePreviewProps) {
       {/* Spotify Modal - Popup style inside phone preview */}
       {spotifyModalOpen && spotifyModalData && (
         <div
-          className="absolute inset-0 z-[40] flex items-center justify-center p-0 bg-black/65 backdrop-blur-sm"
+          className="absolute inset-0 z-[40] flex items-center justify-center p-0 bg-black/65 backdrop-blur-sm transition-opacity duration-300"
           onClick={() => setSpotifyModalOpen(false)}
         >
           <div
-            className="bg-white w-full h-full overflow-y-auto shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            className="bg-white w-full h-full overflow-y-auto shadow-2xl animate-in fade-in zoom-in-95 duration-250 transform-gpu will-change-transform"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -1736,11 +1736,11 @@ export function PhonePreview({ className }: PhonePreviewProps) {
       {/* Apple Music Modal - Popup style inside phone preview */}
       {appleMusicModalOpen && appleMusicModalData && (
         <div
-          className="absolute inset-0 z-[40] flex items-center justify-center p-0 bg-black/65 backdrop-blur-sm"
+          className="absolute inset-0 z-[40] flex items-center justify-center p-0 bg-black/65 backdrop-blur-sm transition-opacity duration-300"
           onClick={() => setAppleMusicModalOpen(false)}
         >
           <div
-            className="bg-white w-full h-full overflow-y-auto shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            className="bg-white w-full h-full overflow-y-auto shadow-2xl animate-in fade-in zoom-in-95 duration-250 transform-gpu will-change-transform"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -2401,11 +2401,11 @@ export function MobilePreviewContent() {
       {/* Spotify Modal - Popup style inside phone preview */}
       {spotifyModalOpen && spotifyModalData && (
         <div
-          className="absolute inset-0 z-[40] flex items-center justify-center p-0 bg-black/65 backdrop-blur-sm"
+          className="absolute inset-0 z-[40] flex items-center justify-center p-0 bg-black/65 backdrop-blur-sm transition-opacity duration-300"
           onClick={() => setSpotifyModalOpen(false)}
         >
           <div
-            className="bg-white w-full h-full overflow-y-auto shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            className="bg-white w-full h-full overflow-y-auto shadow-2xl animate-in fade-in zoom-in-95 duration-250 transform-gpu will-change-transform"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -2485,11 +2485,11 @@ export function MobilePreviewContent() {
       {/* Apple Music Modal - Popup style inside phone preview */}
       {appleMusicModalOpen && appleMusicModalData && (
         <div
-          className="absolute inset-0 z-[40] flex items-center justify-center p-0 bg-black/65 backdrop-blur-sm"
+          className="absolute inset-0 z-[40] flex items-center justify-center p-0 bg-black/65 backdrop-blur-sm transition-opacity duration-300"
           onClick={() => setAppleMusicModalOpen(false)}
         >
           <div
-            className="bg-white w-full h-full overflow-y-auto shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            className="bg-white w-full h-full overflow-y-auto shadow-2xl animate-in fade-in zoom-in-95 duration-250 transform-gpu will-change-transform"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}

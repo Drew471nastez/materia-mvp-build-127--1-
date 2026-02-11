@@ -13,62 +13,13 @@ type Props = {
   presets?: string[]
 }
 
-const DEFAULT_PRESETS = [
-  "#000000", "#ffffff", "#7c3aed", "#8b5cf6", "#ec4899", "#ef4444", "#f59e0b", "#22c55e", "#14b8a6", "#3b82f6", "#6366f1", "#6b7280",
-]
-
+const DEFAULT_PRESETS = ["#111827", "#7c3aed", "#ec4899", "#22c55e", "#3b82f6"]
 const hexRegex = /^#[0-9A-Fa-f]{6}$/
 
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value))
-}
-
-function hexToHsl(hex: string) {
-  const safe = hexRegex.test(hex) ? hex : "#7c3aed"
-  const r = parseInt(safe.slice(1, 3), 16) / 255
-  const g = parseInt(safe.slice(3, 5), 16) / 255
-  const b = parseInt(safe.slice(5, 7), 16) / 255
-
-  const max = Math.max(r, g, b)
-  const min = Math.min(r, g, b)
-  let h = 0
-  let s = 0
-  const l = (max + min) / 2
-
-  if (max !== min) {
-    const d = max - min
-    s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
-    switch (max) {
-      case r:
-        h = (g - b) / d + (g < b ? 6 : 0)
-        break
-      case g:
-        h = (b - r) / d + 2
-        break
-      case b:
-        h = (r - g) / d + 4
-        break
-    }
-    h /= 6
-  }
-
-  return {
-    h: Math.round(h * 360),
-    s: Math.round(s * 100),
-    l: Math.round(l * 100),
-  }
-}
-
 function hslToHex(h: number, s: number, l: number) {
-  const hh = clamp(h, 0, 360) / 360
-  const ss = clamp(s, 0, 100) / 100
-  const ll = clamp(l, 0, 100) / 100
-
-  if (ss === 0) {
-    const gray = Math.round(ll * 255)
-    const val = gray.toString(16).padStart(2, "0")
-    return `#${val}${val}${val}`
-  }
+  const hh = h / 360
+  const ss = s / 100
+  const ll = l / 100
 
   const q = ll < 0.5 ? ll * (1 + ss) : ll + ss - ll * ss
   const p = 2 * ll - q
@@ -94,11 +45,10 @@ export function MobileColorPicker({ value, onChange, label = "Choose color", cla
   const [mounted, setMounted] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [open, setOpen] = useState(false)
+  const [renderSheet, setRenderSheet] = useState(false)
+  const [isClosing, setIsClosing] = useState(false)
   const [hex, setHex] = useState(value)
-
-  const [hue, setHue] = useState(0)
-  const [sat, setSat] = useState(0)
-  const [light, setLight] = useState(0)
+  const [dragColor, setDragColor] = useState(value)
 
   useEffect(() => {
     setMounted(true)
@@ -108,22 +58,54 @@ export function MobileColorPicker({ value, onChange, label = "Choose color", cla
     return () => window.removeEventListener("resize", update)
   }, [])
 
+  useEffect(() => setHex(value), [value])
+
   useEffect(() => {
-    setHex(value)
-    const next = hexToHsl(value)
-    setHue(next.h)
-    setSat(next.s)
-    setLight(next.l)
-  }, [value])
+    if (open) {
+      setRenderSheet(true)
+      setIsClosing(false)
+    } else if (renderSheet) {
+      setIsClosing(true)
+      const t = setTimeout(() => {
+        setRenderSheet(false)
+        setIsClosing(false)
+      }, 260)
+      return () => clearTimeout(t)
+    }
+  }, [open, renderSheet])
 
   const validHex = useMemo(() => (hexRegex.test(hex) ? hex : null), [hex])
-  const generatedHex = useMemo(() => hslToHex(hue, sat, light), [hue, sat, light])
 
-  const sheet = mounted && open && isMobile
+  const applyFromPoint = (clientX: number, clientY: number, target: HTMLElement) => {
+    const rect = target.getBoundingClientRect()
+    const x = Math.max(0, Math.min(rect.width, clientX - rect.left))
+    const y = Math.max(0, Math.min(rect.height, clientY - rect.top))
+
+    const hue = (x / rect.width) * 360
+    const lightness = 100 - (y / rect.height) * 100
+    const color = hslToHex(hue, 90, Math.max(8, Math.min(92, lightness)))
+
+    setDragColor(color)
+    setHex(color)
+    onChange(color)
+  }
+
+  const sheet = mounted && renderSheet && isMobile
     ? createPortal(
         <div className="fixed inset-0 z-[150] md:hidden">
-          <button className="absolute inset-0 bg-black/40 backdrop-blur-[2px] transition-opacity" onClick={() => setOpen(false)} />
-          <div className="absolute inset-x-0 bottom-0 rounded-t-3xl bg-white shadow-2xl animate-in slide-in-from-bottom-4 duration-300">
+          <button
+            className={cn(
+              "absolute inset-0 bg-black/40 backdrop-blur-[2px] transition-opacity duration-250",
+              isClosing ? "opacity-0" : "opacity-100",
+            )}
+            onClick={() => setOpen(false)}
+          />
+          <div
+            className={cn(
+              "absolute inset-x-0 bottom-0 rounded-t-3xl bg-white shadow-2xl transition-transform duration-250 ease-out will-change-transform",
+              isClosing ? "translate-y-full" : "translate-y-0",
+            )}
+          >
             <div className="mx-auto mt-2 mb-3 h-1.5 w-12 rounded-full bg-gray-300" />
             <div className="flex items-center justify-between px-4 pb-2">
               <h4 className="text-sm font-semibold text-gray-900">{label}</h4>
@@ -131,44 +113,49 @@ export function MobileColorPicker({ value, onChange, label = "Choose color", cla
                 <X className="h-4 w-4 text-gray-500" />
               </button>
             </div>
-            <div className="px-4 pb-5 space-y-4">
-              <div className="rounded-2xl border border-gray-200 p-3 space-y-3">
-                <div className="h-12 rounded-xl border border-gray-200" style={{ backgroundColor: generatedHex }} />
-                <div className="space-y-2">
-                  <label className="text-xs font-medium text-gray-500">Hue</label>
-                  <input type="range" min={0} max={360} value={hue} onChange={(e) => setHue(Number(e.target.value))} className="w-full accent-violet-600" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-medium text-gray-500">Saturation</label>
-                  <input type="range" min={0} max={100} value={sat} onChange={(e) => setSat(Number(e.target.value))} className="w-full accent-violet-600" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-medium text-gray-500">Lightness</label>
-                  <input type="range" min={0} max={100} value={light} onChange={(e) => setLight(Number(e.target.value))} className="w-full accent-violet-600" />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => { onChange(generatedHex); setHex(generatedHex) }}
-                  className="h-11 w-full rounded-xl bg-black text-white text-sm font-medium"
-                >
-                  Use this color
-                </button>
-              </div>
 
-              <div className="grid grid-cols-6 gap-2">
-                {presets.map((c) => (
+            <div className="px-4 pb-5 space-y-4">
+              <div className="flex items-center gap-3">
+                {presets.slice(0, 5).map((c) => (
                   <button
                     key={c}
                     type="button"
-                    onClick={() => { onChange(c); setHex(c) }}
-                    className={cn("h-10 w-full rounded-xl border-2", value.toLowerCase() === c.toLowerCase() ? "border-gray-900" : "border-gray-200")}
+                    onClick={() => {
+                      onChange(c)
+                      setHex(c)
+                      setDragColor(c)
+                    }}
+                    className={cn(
+                      "h-11 w-11 rounded-full border-2 transition-transform",
+                      value.toLowerCase() === c.toLowerCase() ? "border-gray-900 scale-105" : "border-gray-200",
+                    )}
                     style={{ backgroundColor: c }}
                   />
                 ))}
               </div>
 
+              <div
+                className="relative h-44 rounded-2xl border border-gray-200 overflow-hidden touch-none"
+                style={{
+                  background:
+                    "linear-gradient(to right, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000), linear-gradient(to top, #000, transparent 55%, #fff)",
+                }}
+                onPointerDown={(e) => {
+                  ;(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
+                  applyFromPoint(e.clientX, e.clientY, e.currentTarget)
+                }}
+                onPointerMove={(e) => {
+                  if (e.buttons !== 1) return
+                  applyFromPoint(e.clientX, e.clientY, e.currentTarget)
+                }}
+              >
+                <div className="absolute right-3 top-3 rounded-full px-2 py-1 text-[11px] font-medium bg-black/60 text-white">
+                  Touch to pick
+                </div>
+              </div>
+
               <div className="flex items-center gap-3">
-                <div className="h-11 w-11 rounded-xl border border-gray-200" style={{ backgroundColor: validHex || value }} />
+                <div className="h-11 w-11 rounded-xl border border-gray-200" style={{ backgroundColor: validHex || dragColor || value }} />
                 <input
                   value={hex}
                   onChange={(e) => setHex(e.target.value)}

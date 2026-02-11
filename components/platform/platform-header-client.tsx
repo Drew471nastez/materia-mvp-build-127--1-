@@ -1549,7 +1549,7 @@ export function PlatformHeaderClient() {
         </div>
 
         {/* Mobile Search Bar Trigger - hidden on homepage, shown on /explore and other pages */}
-        {pathname !== "/" && (
+        {pathname !== "/" && !isMarketingNavRoute && (
           <div className="md:hidden pt-2 pb-1.5 border-t border-gray-100">
             <button
               type="button"

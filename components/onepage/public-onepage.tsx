@@ -2205,11 +2205,11 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
       {/* Spotify Modal - clean, compact, responsive design */}
       {spotifyModalOpen && spotifyModalData && (
         <div
-          className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm"
+          className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm transition-opacity duration-300"
           onClick={() => setSpotifyModalOpen(false)}
         >
           <div
-            className="bg-white w-full h-[100svh] sm:h-auto sm:rounded-2xl sm:w-[min(92vw,460px)] overflow-y-auto shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            className="bg-white w-full h-[100svh] sm:h-auto sm:rounded-2xl sm:w-[min(92vw,460px)] overflow-y-auto shadow-2xl animate-in fade-in zoom-in-95 duration-250 transform-gpu will-change-transform"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -2300,11 +2300,11 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
       {/* Apple Music Modal - clean, compact, responsive design */}
       {appleMusicModalOpen && appleMusicModalData && (
         <div
-          className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm"
+          className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm transition-opacity duration-300"
           onClick={() => setAppleMusicModalOpen(false)}
         >
           <div
-            className="bg-white w-full h-[100svh] sm:h-auto sm:rounded-2xl sm:w-[min(92vw,460px)] overflow-y-auto shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            className="bg-white w-full h-[100svh] sm:h-auto sm:rounded-2xl sm:w-[min(92vw,460px)] overflow-y-auto shadow-2xl animate-in fade-in zoom-in-95 duration-250 transform-gpu will-change-transform"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -2371,7 +2371,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           onClick={() => setQuickCheckoutModalOpen(false)}
         >
           {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" />
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300 animate-in fade-in duration-200" />
 
           {/* Modal */}
           <div

@@ -130,20 +130,20 @@ export default function BlogPostPage() {
         <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
       </div>
 
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 -mt-6 sm:-mt-8 animate-in fade-in-0 slide-in-from-bottom-1 duration-500">
-        {/* Back link */}
-        <Link
-          href="/blog"
-          className="inline-flex items-center gap-2 text-sm text-neutral-500 hover:text-neutral-700 transition-colors mb-6"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to Blog
-        </Link>
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 mt-0 sm:-mt-8 pt-3 sm:pt-0 animate-in fade-in-0 slide-in-from-bottom-1 duration-500">
+        <div className="mb-5 flex flex-wrap items-center gap-3">
+          <Link
+            href="/blog"
+            className="inline-flex items-center gap-2 rounded-full bg-white/90 px-3.5 py-2 text-sm text-neutral-600 hover:text-neutral-800 border border-neutral-200 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Blog
+          </Link>
 
-        {/* Category badge */}
-        <span className="inline-block px-3 py-1 rounded-full text-xs font-medium bg-violet-100 text-violet-700 mb-4">
-          {post.category}
-        </span>
+          <span className="inline-flex px-3 py-2 rounded-full text-xs font-medium bg-violet-100 text-violet-700 border border-violet-200">
+            {post.category}
+          </span>
+        </div>
 
         {/* Title */}
         <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-neutral-900 tracking-tight mb-4 leading-tight">
