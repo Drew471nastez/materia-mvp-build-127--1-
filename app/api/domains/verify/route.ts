@@ -164,6 +164,7 @@ export async function POST(request: Request) {
         verified: false,
         message: "DNS records not found yet. Please add the required DNS records and try again. DNS changes can take up to 48 hours to propagate.",
         hints,
+        records: { aRecord: aRecordVerified, cname: cnameVerified, txt: txtVerified },
       })
     }
 
@@ -198,6 +199,7 @@ export async function POST(request: Request) {
       return NextResponse.json({
         verified: true,
         message: "Domain verified successfully! Your custom domain is now active with SSL.",
+        records: { aRecord: aRecordVerified, cname: cnameVerified, txt: txtVerified },
       })
     } else {
       // DNS points correctly but SSL is still provisioning
@@ -214,6 +216,7 @@ export async function POST(request: Request) {
         verified: true,
         sslPending: true,
         message: "DNS verified! SSL certificate is being issued by our hosting provider. This usually takes 1-10 minutes.",
+        records: { aRecord: aRecordVerified, cname: cnameVerified, txt: txtVerified },
       })
     }
   } catch (error) {

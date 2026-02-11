@@ -187,6 +187,49 @@ async function checkDomainRedirect(host: string): Promise<{ redirectTo: string; 
   }
 }
 
+/**
+ * Look up the username of the creator who owns (or owned) a custom domain.
+ * Checks custom_domains in ANY status so we can redirect even for removed/pending domains.
+ */
+async function lookupDomainOwnerUsername(host: string): Promise<string | null> {
+  const hostWithoutPort = host.split(":")[0]
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (!supabaseUrl || !supabaseKey) return null
+
+  try {
+    const supabase = createClient(supabaseUrl, supabaseKey)
+    const lookupDomain = hostWithoutPort.replace(/^www\./, "")
+
+    const { data: domainRecord } = await supabase
+      .from("custom_domains")
+      .select("creator_id")
+      .eq("domain", lookupDomain)
+      .limit(1)
+      .maybeSingle()
+
+    if (!domainRecord) return null
+
+    const { data: creator } = await supabase
+      .from("creators")
+      .select("user_id")
+      .eq("id", domainRecord.creator_id)
+      .single()
+
+    if (!creator) return null
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("username")
+      .eq("id", creator.user_id)
+      .single()
+
+    return profile?.username || null
+  } catch {
+    return null
+  }
+}
+
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl
   const host = request.headers.get("host") || ""
@@ -235,7 +278,15 @@ export async function proxy(request: NextRequest) {
         return NextResponse.redirect(redirectUrl, { status: domainRedirect.httpCode })
       }
 
-      // No redirect entry either — fallback to main site
+      // No redirect entry — try to find the creator who owned this domain and redirect to their subdomain
+      const fallbackUsername = await lookupDomainOwnerUsername(host)
+      if (fallbackUsername) {
+        const fallbackUrl = new URL(`https://${fallbackUsername}.${MAIN_DOMAIN}`)
+        fallbackUrl.pathname = pathname
+        fallbackUrl.search = search
+        return NextResponse.redirect(fallbackUrl, { status: 302 })
+      }
+      // Truly unknown domain — fallback to main site
       const fallbackUrl = new URL(`https://${MAIN_DOMAIN}`)
       fallbackUrl.pathname = pathname
       fallbackUrl.search = search

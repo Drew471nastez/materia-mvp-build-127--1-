@@ -1006,7 +1006,7 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
           const isGrowth = plan.id === "growth"
 
           return (
-            <div key={plan.id} className={`relative rounded-2xl p-6 flex flex-col transition-all duration-200 ${isGrowth ? "bg-white border-2 border-[#7c3aed]/40 shadow-md hover:shadow-lg ring-1 ring-[#7c3aed]/10" : "bg-white border-2 border-[#e5e7eb] hover:border-[#d1d5db] shadow-sm hover:shadow-md"}`}>
+            <div key={plan.id} className={`relative rounded-2xl p-6 flex flex-col transition-all duration-200 ${isGrowth ? "bg-[#faf8ff] border-2 border-[#7c3aed]/40 shadow-md hover:shadow-lg ring-1 ring-[#7c3aed]/10" : "bg-white border-2 border-[#e5e7eb] hover:border-[#d1d5db] shadow-sm hover:shadow-md"}`}>
               {isGrowth && (
                 <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
                   <span className="inline-flex items-center gap-1 px-3.5 py-1 bg-[#7c3aed] rounded-full text-[11px] font-bold text-white shadow-lg">Most Popular</span>
