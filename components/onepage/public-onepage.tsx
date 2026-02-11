@@ -804,7 +804,7 @@ function ShareButton({
         {/* Share Modal - content */}
         <div
           className={cn(
-            "relative z-10 w-[calc(100%-32px)] max-w-[380px] max-h-[90vh] overflow-y-auto rounded-[28px] overflow-x-hidden transform-gpu transition-[opacity,transform] duration-250 ease-out will-change-[opacity,transform]",
+            "relative z-10 w-[calc(100%-32px)] max-w-[380px] max-h-[90vh] overflow-y-auto overscroll-contain rounded-[28px] overflow-x-hidden transform-gpu transition-[opacity,transform] duration-250 ease-out will-change-[opacity,transform]",
             isOpen ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-[0.985] translate-y-1",
           )}
           style={{
@@ -2210,7 +2210,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           onClick={() => setSpotifyModalOpen(false)}
         >
           <div
-            className="bg-white w-full h-[100svh] sm:h-auto sm:rounded-2xl sm:w-[min(92vw,460px)] overflow-y-auto shadow-2xl will-change-transform animate-in slide-in-from-bottom-4 fade-in zoom-in-[0.97] duration-[350ms] ease-out"
+            className="bg-white w-full h-[100svh] sm:h-auto sm:rounded-2xl sm:w-[min(92vw,460px)] overflow-y-auto overscroll-contain shadow-2xl will-change-transform animate-in slide-in-from-bottom-4 fade-in zoom-in-[0.97] duration-[350ms] ease-out"
             style={{ transform: 'translateZ(0)' }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -2307,7 +2307,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           onClick={() => setAppleMusicModalOpen(false)}
         >
           <div
-            className="bg-white w-full h-[100svh] sm:h-auto sm:rounded-2xl sm:w-[min(92vw,460px)] overflow-y-auto shadow-2xl will-change-transform animate-in slide-in-from-bottom-4 fade-in zoom-in-[0.97] duration-[350ms] ease-out"
+            className="bg-white w-full h-[100svh] sm:h-auto sm:rounded-2xl sm:w-[min(92vw,460px)] overflow-y-auto overscroll-contain shadow-2xl will-change-transform animate-in slide-in-from-bottom-4 fade-in zoom-in-[0.97] duration-[350ms] ease-out"
             style={{ transform: 'translateZ(0)' }}
             onClick={(e) => e.stopPropagation()}
           >

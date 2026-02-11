@@ -2,6 +2,18 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
+// Increase body size limit for file uploads (default is ~4MB)
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+}
+
+// Runtime must be nodejs for large file handling
+export const runtime = "nodejs"
+// Allow up to 60 seconds for upload processing
+export const maxDuration = 60
+
 const BUCKET_NAME = "lead-form-files"
 const MAX_DIGITAL_FILE_SIZE = 4 * 1024 * 1024 * 1024 // 4GB
 const MAX_IMAGE_FILE_SIZE = 5 * 1024 * 1024 // 5MB
@@ -78,14 +90,14 @@ export async function POST(request: NextRequest) {
     const { data: uploadData, error: uploadError } = await adminSupabase.storage
       .from(BUCKET_NAME)
       .upload(fileName, fileBuffer, {
-        contentType: file.type,
+        contentType: file.type || 'application/octet-stream',
         cacheControl: "31536000", // Cache for 1 year
-        upsert: false,
+        upsert: true,
       })
 
     if (uploadError) {
       console.error("Upload error:", uploadError)
-      return NextResponse.json({ error: "Failed to upload file" }, { status: 500 })
+      return NextResponse.json({ error: `Failed to upload file: ${uploadError.message}` }, { status: 500 })
     }
 
     // Get the public URL

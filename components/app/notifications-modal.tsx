@@ -249,7 +249,7 @@ export function NotificationsModal({
       </div>
 
       {/* Notifications list */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto overscroll-contain">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center h-full py-12 px-4">
             <Loader2 className="w-8 h-8 text-neutral-400 animate-spin mb-4" />
@@ -317,7 +317,7 @@ export function NotificationsModal({
           <X className="w-4 h-4 text-neutral-500" />
         </button>
       </div>
-      <div className="max-h-[420px] overflow-y-auto">
+      <div className="max-h-[420px] overflow-y-auto overscroll-contain">
         <NotificationsContent />
       </div>
     </div>

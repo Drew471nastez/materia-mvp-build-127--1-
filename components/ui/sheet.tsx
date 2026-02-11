@@ -56,13 +56,47 @@ function SheetContent({
   hideCloseButton?: boolean
   overlayClassName?: string
 }) {
+  const contentRef = React.useRef<HTMLDivElement>(null)
+
+  // Prevent pull-to-refresh on mobile when sheet is open
+  React.useEffect(() => {
+    const prevOverscroll = document.documentElement.style.overscrollBehavior
+    const prevBodyOverscroll = document.body.style.overscrollBehavior
+    document.documentElement.style.overscrollBehavior = 'none'
+    document.body.style.overscrollBehavior = 'none'
+
+    const handleTouchMove = (e: TouchEvent) => {
+      const target = e.target as HTMLElement
+      // Allow scrolling inside scrollable children, block everything else
+      let el: HTMLElement | null = target
+      while (el && el !== document.body) {
+        const style = window.getComputedStyle(el)
+        const isScrollable =
+          (style.overflowY === 'auto' || style.overflowY === 'scroll') &&
+          el.scrollHeight > el.clientHeight
+        if (isScrollable) return // allow scrolling inside scrollable content
+        el = el.parentElement
+      }
+      e.preventDefault()
+    }
+
+    document.addEventListener('touchmove', handleTouchMove, { passive: false })
+
+    return () => {
+      document.documentElement.style.overscrollBehavior = prevOverscroll
+      document.body.style.overscrollBehavior = prevBodyOverscroll
+      document.removeEventListener('touchmove', handleTouchMove)
+    }
+  }, [])
+
   return (
     <SheetPortal>
       <SheetOverlay className={overlayClassName} />
       <SheetPrimitive.Content
+        ref={contentRef}
         data-slot="sheet-content"
         className={cn(
-          'bg-background data-[state=open]:animate-in data-[state=closed]:animate-out fixed z-50 flex flex-col gap-4 shadow-lg transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-500',
+          'bg-background data-[state=open]:animate-in data-[state=closed]:animate-out fixed z-50 flex flex-col gap-4 shadow-lg transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-500 overscroll-contain',
           side === 'right' &&
             'data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right inset-y-0 right-0 h-full w-3/4 border-l sm:max-w-sm',
           side === 'left' &&

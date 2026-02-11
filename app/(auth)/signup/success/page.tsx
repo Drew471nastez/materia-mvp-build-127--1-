@@ -33,16 +33,30 @@ export default function SignupSuccessPage() {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
 
   // Check if user already completed onboarding - database is the source of truth
+  // Uses auth state listener + retry to handle post-OAuth session delays
   useEffect(() => {
-    const checkOnboardingStatus = async () => {
-      const supabase = createClient()
+    const supabase = createClient()
+    let cancelled = false
+    let retryTimer: ReturnType<typeof setTimeout> | null = null
+
+    const checkOnboardingStatus = async (retryCount = 0) => {
+      if (cancelled) return
+
       const { data: { user } } = await supabase.auth.getUser()
 
       if (!user) {
-        // Not logged in - redirect to login
-        router.replace("/login")
+        // Session might not be ready yet after OAuth redirect
+        // Retry up to 5 times with 1s delay before giving up
+        if (retryCount < 5) {
+          retryTimer = setTimeout(() => checkOnboardingStatus(retryCount + 1), 1000)
+          return
+        }
+        // After retries, redirect to login
+        if (!cancelled) router.replace("/login")
         return
       }
+
+      if (cancelled) return
 
       // Check database for creator record with onboarding completed
       const { data: creator } = await supabase
@@ -51,8 +65,9 @@ export default function SignupSuccessPage() {
         .eq("user_id", user.id)
         .maybeSingle()
 
+      if (cancelled) return
+
       if (creator?.onboarding_completed === true) {
-        // Already completed onboarding - redirect to /app
         window.location.replace("/app")
         return
       }
@@ -64,13 +79,14 @@ export default function SignupSuccessPage() {
         .eq("id", user.id)
         .maybeSingle()
 
-      // If profile has welcome_completed and is NOT a creator, they're a buyer
+      if (cancelled) return
+
       if (profile?.welcome_completed === true && profile?.is_creator === false) {
         router.replace("/library")
         return
       }
 
-      // Check for action=become-creator to auto-start onboarding (from "Start selling" button)
+      // Check for action=become-creator to auto-start onboarding
       const action = searchParams.get("action")
       if (action === "become-creator") {
         setIsCheckingAuth(false)
@@ -82,7 +98,21 @@ export default function SignupSuccessPage() {
       setIsCheckingAuth(false)
     }
 
+    // Listen for auth state changes (handles delayed session after OAuth)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+        checkOnboardingStatus()
+      }
+    })
+
+    // Also try immediately
     checkOnboardingStatus()
+
+    return () => {
+      cancelled = true
+      subscription.unsubscribe()
+      if (retryTimer) clearTimeout(retryTimer)
+    }
   }, [router, searchParams])
 
   const handleChoice = async (choice: "creator" | "buyer") => {

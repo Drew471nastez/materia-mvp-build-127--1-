@@ -1735,22 +1735,98 @@ export function LinksTab() {
     setDragOverBlockId(null)
   }
 
-  // Touch drag handlers for mobile devices
-  const getScrollableAncestor = useCallback((node: HTMLElement | null) => {
-    // First, try to find the explicit scroll container for the links tab
-    const explicit = document.querySelector('[data-scroll-container="links-tab"]') as HTMLElement | null
-    if (explicit && explicit.scrollHeight > explicit.clientHeight) return explicit
+  // ============================================================
+  // DRAG-AND-DROP AUTO-SCROLL SYSTEM (touch + mouse)
+  // ============================================================
 
-    // Walk up from the node to find any scrollable ancestor
-    let current: HTMLElement | null = node
+  // Find the scroll container for the editor
+  const findScrollContainer = useCallback((): HTMLElement | null => {
+    // Try the explicit data attribute first
+    const explicit = document.querySelector('[data-scroll-container="links-tab"]') as HTMLElement | null
+    if (explicit) return explicit
+    // Fallback: walk from any block element
+    const anyBlock = document.querySelector('[data-block-id]') as HTMLElement | null
+    let current: HTMLElement | null = anyBlock
     while (current && current !== document.body) {
-      const { overflowY } = window.getComputedStyle(current)
-      const canScroll = (overflowY === "auto" || overflowY === "scroll") && current.scrollHeight > current.clientHeight
-      if (canScroll) return current
+      const style = window.getComputedStyle(current)
+      if ((style.overflowY === 'auto' || style.overflowY === 'scroll') && current.scrollHeight > current.clientHeight) {
+        return current
+      }
       current = current.parentElement
     }
-    // Fallback to document scrolling element (window scroll)
-    return (document.scrollingElement || document.documentElement) as HTMLElement
+    return null
+  }, [])
+
+  const autoScrollActiveRef = useRef(false)
+
+  // Compute auto-scroll velocity based on pointer position relative to scroll container
+  const computeScrollVelocity = useCallback((clientY: number, scrollEl: HTMLElement): number => {
+    const rect = scrollEl.getBoundingClientRect()
+    const viewportH = window.innerHeight
+
+    // Effective visible bounds of the scroll container
+    const top = Math.max(rect.top, 0)
+    const bottom = Math.min(rect.bottom, viewportH)
+    const visibleHeight = bottom - top
+
+    if (visibleHeight <= 0) return 0
+
+    // Zone size: 20% of visible height, clamped between 60-120px
+    const zone = Math.max(60, Math.min(120, visibleHeight * 0.2))
+
+    // Distance from top/bottom edges
+    const distFromTop = clientY - top
+    const distFromBottom = bottom - clientY
+
+    if (distFromTop < zone && distFromTop >= 0) {
+      // Scroll UP: closer to top = faster
+      const proximity = 1 - (distFromTop / zone)
+      return -Math.max(2, proximity * proximity * 20)
+    } else if (distFromBottom < zone && distFromBottom >= 0) {
+      // Scroll DOWN: closer to bottom = faster
+      const proximity = 1 - (distFromBottom / zone)
+      return Math.max(2, proximity * proximity * 20)
+    }
+
+    return 0
+  }, [])
+
+  // Animation loop: runs every frame while dragging, applies scroll velocity
+  const runAutoScrollLoop = useCallback(() => {
+    if (autoScrollActiveRef.current) return
+    autoScrollActiveRef.current = true
+
+    const tick = () => {
+      if (!autoScrollActiveRef.current) {
+        autoScrollTimerRef.current = 0
+        return
+      }
+
+      const scrollEl = autoScrollElementRef.current
+      const speed = autoScrollVelocityRef.current
+
+      if (scrollEl && speed !== 0) {
+        const prevScrollTop = scrollEl.scrollTop
+        scrollEl.scrollTop += speed
+        // Verify scroll actually happened (not at bounds)
+        if (scrollEl.scrollTop !== prevScrollTop) {
+          // Scroll succeeded - continue
+        }
+      }
+
+      autoScrollTimerRef.current = requestAnimationFrame(tick)
+    }
+
+    autoScrollTimerRef.current = requestAnimationFrame(tick)
+  }, [])
+
+  const stopAutoScroll = useCallback(() => {
+    autoScrollActiveRef.current = false
+    if (autoScrollTimerRef.current) {
+      cancelAnimationFrame(autoScrollTimerRef.current)
+      autoScrollTimerRef.current = 0
+    }
+    autoScrollVelocityRef.current = 0
   }, [])
 
   const handleTouchDragStart = useCallback((blockId: string, touchY?: number) => {
@@ -1759,7 +1835,10 @@ export function LinksTab() {
 
     const sourceBlock = document.querySelector(`[data-block-id="${blockId}"]`) as HTMLElement | null
     dragSourceElRef.current = sourceBlock
-    autoScrollElementRef.current = getScrollableAncestor(sourceBlock)
+
+    // Find and cache scroll container immediately
+    const scrollEl = findScrollContainer()
+    autoScrollElementRef.current = scrollEl
 
     touchStartYRef.current = touchY ?? 0
     touchCurrentYRef.current = touchY ?? 0
@@ -1769,34 +1848,15 @@ export function LinksTab() {
 
     setTouchDragId(blockId)
     setDraggedBlockId(blockId)
-  }, [sortedBlocks, getScrollableAncestor])
 
-  // Continuously running auto-scroll loop while dragging
-  const autoScrollActiveRef = useRef(false)
-  const runAutoScrollLoop = useCallback(() => {
-    if (autoScrollActiveRef.current) return // already running
-    autoScrollActiveRef.current = true
-
-    const tick = () => {
-      const scrollEl = autoScrollElementRef.current
-      const speed = autoScrollVelocityRef.current
-
-      if (!scrollEl || !autoScrollActiveRef.current) {
-        autoScrollActiveRef.current = false
-        autoScrollTimerRef.current = 0
-        return
-      }
-
-      if (speed !== 0) {
-        scrollEl.scrollTop += speed
-      }
-
-      autoScrollTimerRef.current = requestAnimationFrame(tick)
+    // Start the auto-scroll loop immediately
+    if (scrollEl) {
+      autoScrollVelocityRef.current = 0
+      runAutoScrollLoop()
     }
+  }, [sortedBlocks, findScrollContainer, runAutoScrollLoop])
 
-    autoScrollTimerRef.current = requestAnimationFrame(tick)
-  }, [])
-
+  // Touch move + touch end event handlers
   useEffect(() => {
     if (!touchDragId) return
 
@@ -1806,12 +1866,10 @@ export function LinksTab() {
       touchCurrentYRef.current = touch.clientY
       setTouchDragOffsetY(touch.clientY - touchStartYRef.current)
 
-      // Find target block element under touch point
+      // Find target block under touch point
       const elements = document.elementsFromPoint(touch.clientX, touch.clientY)
       let targetId: string | null = null
-      let touchedElement: HTMLElement | null = null
       for (const el of elements) {
-        if (!touchedElement) touchedElement = el as HTMLElement
         const blockEl = (el as HTMLElement).closest('[data-block-id]') as HTMLElement | null
         if (blockEl && blockEl.dataset.blockId !== touchDragId) {
           targetId = blockEl.dataset.blockId || null
@@ -1822,46 +1880,15 @@ export function LinksTab() {
       touchOverIdRef.current = targetId
       setDragOverBlockId(targetId)
 
-      // Auto-scroll using viewport edges for reliable behavior
-      const scrollEl = autoScrollElementRef.current || getScrollableAncestor(touchedElement || dragSourceElRef.current)
+      // Update auto-scroll velocity based on touch position
+      const scrollEl = autoScrollElementRef.current
       if (scrollEl) {
-        autoScrollElementRef.current = scrollEl
-
-        // Use both viewport edges and scroll container edges
-        const viewportH = window.innerHeight
-        const rect = scrollEl.getBoundingClientRect()
-        const zone = 140
-        let nextVelocity = 0
-
-        // Top edge - use viewport top or scroll container top, whichever is larger
-        const effectiveTop = Math.max(0, rect.top)
-        const effectiveBottom = Math.min(viewportH, rect.bottom)
-
-        if (touch.clientY < effectiveTop + zone && touch.clientY < viewportH * 0.2 + effectiveTop) {
-          const proximity = Math.min(1, (zone - (touch.clientY - effectiveTop)) / zone)
-          nextVelocity = -Math.max(3, proximity * proximity * 28)
-        } else if (touch.clientY > effectiveBottom - zone && touch.clientY > effectiveBottom - viewportH * 0.2) {
-          const proximity = Math.min(1, (zone - (effectiveBottom - touch.clientY)) / zone)
-          nextVelocity = Math.max(3, proximity * proximity * 28)
-        }
-
-        autoScrollVelocityRef.current = nextVelocity
-
-        // Start the loop if not already running and we need scrolling
-        if (nextVelocity !== 0 && !autoScrollActiveRef.current) {
-          runAutoScrollLoop()
-        }
+        autoScrollVelocityRef.current = computeScrollVelocity(touch.clientY, scrollEl)
       }
     }
 
     const handleTouchEnd = () => {
-      // Cancel auto-scroll cleanly
-      autoScrollActiveRef.current = false
-      if (autoScrollTimerRef.current) {
-        cancelAnimationFrame(autoScrollTimerRef.current)
-        autoScrollTimerRef.current = 0
-      }
-      autoScrollVelocityRef.current = 0
+      stopAutoScroll()
       autoScrollElementRef.current = null
       dragSourceElRef.current = null
       setTouchDragOffsetY(0)
@@ -1905,12 +1932,7 @@ export function LinksTab() {
     document.addEventListener('touchcancel', handleTouchEnd)
 
     return () => {
-      autoScrollActiveRef.current = false
-      if (autoScrollTimerRef.current) {
-        cancelAnimationFrame(autoScrollTimerRef.current)
-        autoScrollTimerRef.current = 0
-      }
-      autoScrollVelocityRef.current = 0
+      stopAutoScroll()
       autoScrollElementRef.current = null
       dragSourceElRef.current = null
       setTouchDragOffsetY(0)
@@ -1918,17 +1940,57 @@ export function LinksTab() {
       document.removeEventListener('touchend', handleTouchEnd)
       document.removeEventListener('touchcancel', handleTouchEnd)
     }
-  }, [touchDragId, sortedBlocks, reorderBlocks, onepage, getScrollableAncestor, runAutoScrollLoop])
+  }, [touchDragId, sortedBlocks, reorderBlocks, onepage, computeScrollVelocity, stopAutoScroll])
 
+  // Desktop mouse/HTML5 drag auto-scroll
+  useEffect(() => {
+    if (!draggedBlockId || touchDragId) return // Only for mouse drag (not touch)
 
+    const scrollEl = findScrollContainer()
+    if (!scrollEl) return
+    autoScrollElementRef.current = scrollEl
+    autoScrollVelocityRef.current = 0
+    runAutoScrollLoop()
+
+    const handleDragOverScroll = (e: DragEvent) => {
+      autoScrollVelocityRef.current = computeScrollVelocity(e.clientY, scrollEl)
+    }
+
+    const handleMouseMove = (e: MouseEvent) => {
+      autoScrollVelocityRef.current = computeScrollVelocity(e.clientY, scrollEl)
+    }
+
+    const handleDragEndOrDrop = () => {
+      stopAutoScroll()
+      autoScrollElementRef.current = null
+    }
+
+    document.addEventListener('dragover', handleDragOverScroll)
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleDragEndOrDrop)
+    document.addEventListener('drop', handleDragEndOrDrop)
+    document.addEventListener('dragend', handleDragEndOrDrop)
+
+    return () => {
+      stopAutoScroll()
+      autoScrollElementRef.current = null
+      document.removeEventListener('dragover', handleDragOverScroll)
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleDragEndOrDrop)
+      document.removeEventListener('drop', handleDragEndOrDrop)
+      document.removeEventListener('dragend', handleDragEndOrDrop)
+    }
+  }, [draggedBlockId, touchDragId, findScrollContainer, computeScrollVelocity, runAutoScrollLoop, stopAutoScroll])
+
+  // Prevent pull-to-refresh and bounce during drag
   useEffect(() => {
     if (!touchDragId) return
-    const prev = document.body.style.overscrollBehaviorY
+    const prevOverscroll = document.body.style.overscrollBehaviorY
     const prevTouch = document.body.style.touchAction
     document.body.style.overscrollBehaviorY = "none"
     document.body.style.touchAction = "none"
     return () => {
-      document.body.style.overscrollBehaviorY = prev
+      document.body.style.overscrollBehaviorY = prevOverscroll
       document.body.style.touchAction = prevTouch
     }
   }, [touchDragId])
@@ -3525,43 +3587,67 @@ export function LinksTab() {
                     setImageUploading(true)
                     try {
                       const folder = imageFieldType === 'digital_product_file' || imageFieldType === 'pdf_file' ? 'digital' : 'images'
+                      const SMALL_FILE_LIMIT = 4 * 1024 * 1024 // 4MB
 
-                      // Use signed upload URL to bypass FUNCTION_PAYLOAD_TOO_LARGE
-                      const signedRes = await fetch('/api/onepage/signed-upload-url', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          fileName: file.name,
-                          contentType: file.type || 'application/octet-stream',
-                          fileSize: file.size,
-                          folder,
-                        }),
-                      })
+                      let url: string
 
-                      if (!signedRes.ok) {
-                        const err = await signedRes.json()
-                        throw new Error(err.error || 'Failed to get upload URL')
+                      if (file.size < SMALL_FILE_LIMIT) {
+                        // Small files: use FormData via server API route (most reliable)
+                        const formData = new FormData()
+                        formData.append('file', file)
+                        formData.append('type', folder === 'digital' ? 'digital' : 'image')
+
+                        const uploadRes = await fetch('/api/onepage/upload-file', {
+                          method: 'POST',
+                          body: formData,
+                        })
+
+                        if (!uploadRes.ok) {
+                          const err = await uploadRes.json().catch(() => ({ error: 'Upload failed' }))
+                          throw new Error(err.error || 'Upload failed')
+                        }
+
+                        const result = await uploadRes.json()
+                        url = result.url
+                      } else {
+                        // Large files: use signed URL + Supabase JS client uploadToSignedUrl
+                        // This avoids sending file bytes through the API route (FUNCTION_PAYLOAD_TOO_LARGE)
+                        const { createClient: createBrowserClient } = await import('@/lib/supabase/client')
+                        const supabase = createBrowserClient()
+
+                        // Step 1: Get signed upload token from server
+                        const signedRes = await fetch('/api/onepage/signed-upload-url', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            fileName: file.name,
+                            contentType: file.type || 'application/octet-stream',
+                            fileSize: file.size,
+                            folder,
+                          }),
+                        })
+
+                        if (!signedRes.ok) {
+                          const err = await signedRes.json().catch(() => ({ error: 'Failed to get upload URL' }))
+                          throw new Error(err.error || 'Failed to get upload URL')
+                        }
+
+                        const { token, path: storagePath, publicUrl } = await signedRes.json()
+
+                        // Step 2: Upload using Supabase JS client (handles TUS protocol correctly)
+                        const { error: uploadError } = await supabase.storage
+                          .from('lead-form-files')
+                          .uploadToSignedUrl(storagePath, token, file, {
+                            contentType: file.type || 'application/octet-stream',
+                            upsert: true,
+                          })
+
+                        if (uploadError) {
+                          throw new Error(`Upload failed: ${uploadError.message}`)
+                        }
+
+                        url = publicUrl
                       }
-
-                      const { signedUrl, token, path: storagePath, publicUrl } = await signedRes.json()
-
-                      // Upload directly to Supabase Storage using the signed URL
-                      // The signedUrl already contains auth - just PUT the file body
-                      const uploadRes = await fetch(signedUrl, {
-                        method: 'PUT',
-                        headers: {
-                          'Content-Type': file.type || 'application/octet-stream',
-                          'x-upsert': 'true',
-                        },
-                        body: file,
-                      })
-
-                      if (!uploadRes.ok) {
-                        const errText = await uploadRes.text().catch(() => 'Upload failed')
-                        throw new Error(`Upload failed: ${errText}`)
-                      }
-
-                      const url = publicUrl
 
                       const block = onepage.draft_blocks.find(b => b.id === imageBlockId)
                       if (block) {

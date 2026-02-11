@@ -65,6 +65,36 @@ function DialogContent({
   disableDefaultAnimations?: boolean
   disableOverlayDefaultAnimations?: boolean
 }) {
+  // Prevent pull-to-refresh on mobile when dialog is open
+  React.useEffect(() => {
+    const prevOverscroll = document.documentElement.style.overscrollBehavior
+    const prevBodyOverscroll = document.body.style.overscrollBehavior
+    document.documentElement.style.overscrollBehavior = 'none'
+    document.body.style.overscrollBehavior = 'none'
+
+    const handleTouchMove = (e: TouchEvent) => {
+      const target = e.target as HTMLElement
+      let el: HTMLElement | null = target
+      while (el && el !== document.body) {
+        const style = window.getComputedStyle(el)
+        const isScrollable =
+          (style.overflowY === 'auto' || style.overflowY === 'scroll') &&
+          el.scrollHeight > el.clientHeight
+        if (isScrollable) return
+        el = el.parentElement
+      }
+      e.preventDefault()
+    }
+
+    document.addEventListener('touchmove', handleTouchMove, { passive: false })
+
+    return () => {
+      document.documentElement.style.overscrollBehavior = prevOverscroll
+      document.body.style.overscrollBehavior = prevBodyOverscroll
+      document.removeEventListener('touchmove', handleTouchMove)
+    }
+  }, [])
+
   return (
     <DialogPortal data-slot="dialog-portal">
       <DialogOverlay
@@ -75,8 +105,8 @@ function DialogContent({
         data-slot="dialog-content"
         className={cn(
           disableDefaultAnimations
-            ? 'bg-background fixed top-[50%] left-[50%] z-[2147483639] grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg sm:max-w-lg'
-            : 'bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-[2147483639] grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 sm:max-w-lg',
+            ? 'bg-background fixed top-[50%] left-[50%] z-[2147483639] grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg sm:max-w-lg overscroll-contain'
+            : 'bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-[2147483639] grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 sm:max-w-lg overscroll-contain',
           className,
         )}
         {...props}

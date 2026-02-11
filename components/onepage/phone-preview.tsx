@@ -1645,7 +1645,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
           onClick={() => setSpotifyModalOpen(false)}
         >
           <div
-            className="bg-white w-full h-full overflow-y-auto shadow-2xl will-change-transform animate-in slide-in-from-bottom-3 fade-in zoom-in-[0.97] duration-[350ms] ease-out"
+            className="bg-white w-full h-full overflow-y-auto overscroll-contain shadow-2xl will-change-transform animate-in slide-in-from-bottom-3 fade-in zoom-in-[0.97] duration-[350ms] ease-out"
             style={{ transform: 'translateZ(0)' }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -1741,7 +1741,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
           onClick={() => setAppleMusicModalOpen(false)}
         >
           <div
-            className="bg-white w-full h-full overflow-y-auto shadow-2xl will-change-transform animate-in slide-in-from-bottom-3 fade-in zoom-in-[0.97] duration-[350ms] ease-out"
+            className="bg-white w-full h-full overflow-y-auto overscroll-contain shadow-2xl will-change-transform animate-in slide-in-from-bottom-3 fade-in zoom-in-[0.97] duration-[350ms] ease-out"
             style={{ transform: 'translateZ(0)' }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -2407,7 +2407,7 @@ export function MobilePreviewContent() {
           onClick={() => setSpotifyModalOpen(false)}
         >
           <div
-            className="bg-white w-full h-full overflow-y-auto shadow-2xl will-change-transform animate-in slide-in-from-bottom-3 fade-in zoom-in-[0.97] duration-[350ms] ease-out"
+            className="bg-white w-full h-full overflow-y-auto overscroll-contain shadow-2xl will-change-transform animate-in slide-in-from-bottom-3 fade-in zoom-in-[0.97] duration-[350ms] ease-out"
             style={{ transform: 'translateZ(0)' }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -2492,7 +2492,7 @@ export function MobilePreviewContent() {
           onClick={() => setAppleMusicModalOpen(false)}
         >
           <div
-            className="bg-white w-full h-full overflow-y-auto shadow-2xl will-change-transform animate-in slide-in-from-bottom-3 fade-in zoom-in-[0.97] duration-[350ms] ease-out"
+            className="bg-white w-full h-full overflow-y-auto overscroll-contain shadow-2xl will-change-transform animate-in slide-in-from-bottom-3 fade-in zoom-in-[0.97] duration-[350ms] ease-out"
             style={{ transform: 'translateZ(0)' }}
             onClick={(e) => e.stopPropagation()}
           >

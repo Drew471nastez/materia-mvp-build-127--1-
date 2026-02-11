@@ -329,7 +329,7 @@ function MobileBottomSheet({
               <X className="h-4 w-4" />
             </button>
           </div>
-          <div className="p-4 max-h-[70vh] overflow-y-auto">{children}</div>
+          <div className="p-4 max-h-[70vh] overflow-y-auto overscroll-contain">{children}</div>
         </div>
       </div>
       {/* Mobile Bottom Sheet */}
@@ -352,7 +352,7 @@ function MobileBottomSheet({
             <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
           </button>
         </div>
-        <div className="px-4 pb-4 overflow-y-auto max-h-[calc(90vh-60px)]">
+        <div className="px-4 pb-4 overflow-y-auto overscroll-contain max-h-[calc(90vh-60px)]">
           <h3 className="text-[16px] font-semibold text-[#1a1a2e] mb-4">{title}</h3>
           {children}
         </div>
