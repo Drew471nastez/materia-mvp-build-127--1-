@@ -674,6 +674,7 @@ function EditorLayout() {
             "flex-1 bg-white overflow-y-auto",
             showMobilePreview ? "hidden" : "block"
           )}
+          data-scroll-container="links-tab"
           style={{ scrollbarWidth: 'thin' }}
         >
   <div
@@ -760,7 +761,9 @@ function EditorLayout() {
 
       {/* Link Modal - Fully Responsive */}
       <Dialog open={showLinkModal} onOpenChange={setShowLinkModal}>
-        <DialogContent className="fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] w-[92vw] sm:w-[420px] max-w-[420px] p-0 gap-0 overflow-hidden rounded-2xl border bg-background shadow-lg">
+        <DialogContent
+          overlayClassName="backdrop-blur-sm transition-[backdrop-filter] duration-300"
+          className="fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] w-[92vw] sm:w-[420px] max-w-[420px] p-0 gap-0 overflow-hidden rounded-2xl border bg-background shadow-lg duration-300">
           <DialogHeader className="p-4 sm:p-5 border-b bg-background relative">
             <DialogTitle className="text-base sm:text-lg font-semibold text-center">Share your OnePage</DialogTitle>
           </DialogHeader>

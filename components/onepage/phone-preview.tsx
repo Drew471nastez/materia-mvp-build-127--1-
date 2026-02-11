@@ -735,6 +735,12 @@ const SocialIconsSVG: Record<string, React.FC<{ size?: number; color?: string }>
       <path d="M141.537 88.9883C140.71 88.5919 139.87 88.2104 139.019 87.8451C137.537 60.5382 122.616 44.905 97.5619 44.745C97.4484 44.7443 97.3355 44.7443 97.222 44.7443C82.2364 44.7443 69.7731 51.1409 62.102 62.7807L75.881 72.2328C81.6116 63.5383 90.6052 61.6848 97.2286 61.6848C97.3051 61.6848 97.3819 61.6848 97.4576 61.6855C105.707 61.7381 111.932 64.1366 115.961 68.814C118.893 72.2193 120.854 76.925 121.825 82.8638C114.511 81.6207 106.601 81.2385 98.145 81.7233C74.3247 83.0954 59.0111 96.9879 60.0396 116.292C60.5615 125.084 64.8569 132.827 72.0518 138.095C78.0037 142.425 85.7883 144.669 93.8627 144.267C104.67 143.762 113.294 139.372 119.426 131.257C123.968 125.209 126.839 117.661 128.011 108.524C134.151 112.138 138.711 116.852 140.818 122.579C144.283 131.969 144.493 147.389 132.112 159.684C121.329 170.391 108.196 175.168 90.4863 175.313C71.1024 175.146 56.413 169.087 46.743 157.33C37.7196 146.384 33.0206 130.727 32.8218 110.728L32.8218 81.2724C33.0206 61.2734 37.7196 45.6164 46.743 34.6699C56.413 22.9131 71.1024 16.8538 90.4863 16.687C109.996 16.8551 124.983 22.969 135.077 34.8069C139.98 40.5571 143.818 47.559 146.498 55.5601L163.044 50.2802C159.626 40.0171 154.589 31.1436 147.971 23.8628C134.709 9.04939 116.136 1.41406 90.5517 1.18164L90.4209 1.18111C64.9526 1.41299 46.6603 9.0918 33.6384 23.9936C22.3006 36.9827 16.2393 54.9747 16.0037 77.5368V77.5752L16 110.766L16.0037 114.463V114.501C16.2393 137.063 22.3006 155.055 33.6384 168.044C46.6603 182.946 64.9526 190.625 90.4209 190.857L90.5517 190.856C113.049 190.674 129.763 184.282 143.474 170.655C161.387 152.86 160.887 130.625 155.586 117.281C151.64 107.259 143.663 99.0028 132.122 93.3506C131.667 91.8653 131.16 90.3969 130.603 88.9554L141.537 88.9883ZM98.4405 127.461C88.1005 127.987 77.7615 123.461 77.2019 114.047C76.7685 106.846 81.9377 97.7908 99.0178 96.8022C101.279 96.6754 103.499 96.6135 105.678 96.6135C111.478 96.6135 116.931 97.1398 121.955 98.1592C120.066 117.743 109.748 126.885 98.4405 127.461Z" />
     </svg>
   ),
+  email: ({ size = 20, color = "currentColor" }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect width="20" height="16" x="2" y="4" rx="2" />
+      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+    </svg>
+  ),
 }
 
 // Background Pattern Component for rendering pattern overlays
@@ -742,8 +748,11 @@ function BackgroundPattern({
   pattern,
   color,
   opacity = "medium",
-}: { pattern: string; color: string; opacity?: "low" | "medium" | "hard" | "very_hard" }) {
+  instanceId = "",
+}: { pattern: string; color: string; opacity?: "low" | "medium" | "hard" | "very_hard"; instanceId?: string }) {
   const opacityValue = opacity === "low" ? 0.4 : opacity === "hard" ? 1 : opacity === "very_hard" ? 1.5 : 0.7
+  // Unique ID suffix to prevent SVG pattern ID collisions when multiple instances exist in DOM
+  const pid = instanceId ? `${pattern}-${instanceId}` : pattern
   const patternSVGs: Record<string, React.ReactNode> = {
     grid: (
       <svg
@@ -752,11 +761,11 @@ function BackgroundPattern({
         xmlns="http://www.w3.org/2000/svg"
       >
         <defs>
-          <pattern id={`bg-grid-${pattern}`} width="20" height="20" patternUnits="userSpaceOnUse">
+          <pattern id={`bg-grid-${pid}`} width="20" height="20" patternUnits="userSpaceOnUse">
             <path d="M 20 0 L 0 0 0 20" fill="none" stroke={color} strokeWidth="1" />
           </pattern>
         </defs>
-        <rect width="100%" height="100%" fill={`url(#bg-grid-${pattern})`} />
+        <rect width="100%" height="100%" fill={`url(#bg-grid-${pid})`} />
       </svg>
     ),
     dots: (
@@ -766,11 +775,11 @@ function BackgroundPattern({
         xmlns="http://www.w3.org/2000/svg"
       >
         <defs>
-          <pattern id={`bg-dots-${pattern}`} width="16" height="16" patternUnits="userSpaceOnUse">
+          <pattern id={`bg-dots-${pid}`} width="16" height="16" patternUnits="userSpaceOnUse">
             <circle cx="8" cy="8" r="2" fill={color} />
           </pattern>
         </defs>
-        <rect width="100%" height="100%" fill={`url(#bg-dots-${pattern})`} />
+        <rect width="100%" height="100%" fill={`url(#bg-dots-${pid})`} />
       </svg>
     ),
     waves: (
@@ -780,11 +789,11 @@ function BackgroundPattern({
         xmlns="http://www.w3.org/2000/svg"
       >
         <defs>
-          <pattern id={`bg-waves-${pattern}`} width="50" height="25" patternUnits="userSpaceOnUse">
+          <pattern id={`bg-waves-${pid}`} width="50" height="25" patternUnits="userSpaceOnUse">
             <path d="M0 12.5 Q12.5 0, 25 12.5 T50 12.5" fill="none" stroke={color} strokeWidth="2" />
           </pattern>
         </defs>
-        <rect width="100%" height="100%" fill={`url(#bg-waves-${pattern})`} />
+        <rect width="100%" height="100%" fill={`url(#bg-waves-${pid})`} />
       </svg>
     ),
     zigzag: (
@@ -794,11 +803,11 @@ function BackgroundPattern({
         xmlns="http://www.w3.org/2000/svg"
       >
         <defs>
-          <pattern id={`bg-zigzag-${pattern}`} width="20" height="12" patternUnits="userSpaceOnUse">
+          <pattern id={`bg-zigzag-${pid}`} width="20" height="12" patternUnits="userSpaceOnUse">
             <path d="M0 6 L5 0 L10 6 L15 0 L20 6" fill="none" stroke={color} strokeWidth="1.5" />
           </pattern>
         </defs>
-        <rect width="100%" height="100%" fill={`url(#bg-zigzag-${pattern})`} />
+        <rect width="100%" height="100%" fill={`url(#bg-zigzag-${pid})`} />
       </svg>
     ),
     diagonal: (
@@ -808,11 +817,11 @@ function BackgroundPattern({
         xmlns="http://www.w3.org/2000/svg"
       >
         <defs>
-          <pattern id={`bg-diagonal-${pattern}`} width="10" height="10" patternUnits="userSpaceOnUse">
+          <pattern id={`bg-diagonal-${pid}`} width="10" height="10" patternUnits="userSpaceOnUse">
             <path d="M0 10 L10 0" fill="none" stroke={color} strokeWidth="1" />
           </pattern>
         </defs>
-        <rect width="100%" height="100%" fill={`url(#bg-diagonal-${pattern})`} />
+        <rect width="100%" height="100%" fill={`url(#bg-diagonal-${pid})`} />
       </svg>
     ),
     morph: (
@@ -824,7 +833,7 @@ function BackgroundPattern({
         preserveAspectRatio="xMidYMid slice"
       >
         <defs>
-          <pattern id={`bg-morph-${pattern}`} width="200" height="200" patternUnits="userSpaceOnUse">
+          <pattern id={`bg-morph-${pid}`} width="200" height="200" patternUnits="userSpaceOnUse">
             <path
               d="M40 20 Q60 40, 40 60 Q20 80, 40 100 Q60 80, 80 100 Q100 120, 80 140 Q60 120, 40 140 Q20 160, 40 180"
               fill="none"
@@ -853,7 +862,7 @@ function BackgroundPattern({
             <rect x="10" y="100" width="15" height="2" fill={color} opacity="0.35" rx="1" />
           </pattern>
         </defs>
-        <rect width="100%" height="100%" fill={`url(#bg-morph-${pattern})`} />
+        <rect width="100%" height="100%" fill={`url(#bg-morph-${pid})`} />
       </svg>
     ),
     organic: (
@@ -865,7 +874,7 @@ function BackgroundPattern({
         preserveAspectRatio="xMidYMid slice"
       >
         <defs>
-          <pattern id={`bg-organic-${pattern}`} width="200" height="200" patternUnits="userSpaceOnUse">
+          <pattern id={`bg-organic-${pid}`} width="200" height="200" patternUnits="userSpaceOnUse">
             <path d="M30 40 Q50 20, 70 40 Q90 60, 70 80 Q50 100, 30 80 Q10 60, 30 40" fill={color} opacity="0.35" />
             <path
               d="M120 30 Q150 25, 160 50 Q170 80, 140 90 Q110 95, 100 70 Q95 45, 120 30"
@@ -889,7 +898,7 @@ function BackgroundPattern({
             />
           </pattern>
         </defs>
-        <rect width="100%" height="100%" fill={`url(#bg-organic-${pattern})`} />
+        <rect width="100%" height="100%" fill={`url(#bg-organic-${pid})`} />
       </svg>
     ),
     flowmaze: (
@@ -901,7 +910,7 @@ function BackgroundPattern({
         preserveAspectRatio="xMidYMid slice"
       >
         <defs>
-          <pattern id={`bg-flowmaze-${pattern}`} width="400" height="400" patternUnits="userSpaceOnUse">
+          <pattern id={`bg-flowmaze-${pid}`} width="400" height="400" patternUnits="userSpaceOnUse">
             <path d="M20 50 Q60 20, 100 50 Q140 80, 120 130 Q100 180, 60 170 Q20 160, 30 120 Q40 80, 80 90 Q120 100, 140 140 Q160 180, 130 220 Q100 260, 60 240 Q20 220, 40 180" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity="0.5" />
             <path d="M180 30 Q220 10, 260 40 Q300 70, 280 120 Q260 170, 220 150 Q180 130, 200 90 Q220 50, 260 70 Q300 90, 320 140 Q340 190, 300 230 Q260 270, 220 250 Q180 230, 200 190 Q220 150, 270 170 Q320 190, 340 240" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity="0.45" />
             <path d="M350 50 Q390 30, 400 80 Q395 130, 360 120 Q320 110, 340 70 Q360 30, 400 50" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity="0.4" />
@@ -912,7 +921,7 @@ function BackgroundPattern({
             <path d="M380 280 Q400 320, 380 360 Q360 400, 320 380 Q280 360, 310 320 Q340 280, 380 300" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round" opacity="0.4" />
           </pattern>
         </defs>
-        <rect width="100%" height="100%" fill={`url(#bg-flowmaze-${pattern})`} />
+        <rect width="100%" height="100%" fill={`url(#bg-flowmaze-${pid})`} />
       </svg>
     ),
     topographic: (
@@ -924,7 +933,7 @@ function BackgroundPattern({
         preserveAspectRatio="xMidYMid slice"
       >
         <defs>
-          <pattern id={`bg-topographic-${pattern}`} width="300" height="300" patternUnits="userSpaceOnUse">
+          <pattern id={`bg-topographic-${pid}`} width="300" height="300" patternUnits="userSpaceOnUse">
             <ellipse cx="100" cy="100" rx="90" ry="80" fill="none" stroke={color} strokeWidth="1.5" opacity="0.3" />
             <ellipse cx="100" cy="100" rx="70" ry="62" fill="none" stroke={color} strokeWidth="1.5" opacity="0.35" />
             <ellipse cx="100" cy="100" rx="50" ry="44" fill="none" stroke={color} strokeWidth="1.5" opacity="0.4" />
@@ -942,7 +951,7 @@ function BackgroundPattern({
             <ellipse cx="250" cy="50" rx="8" ry="12" fill="none" stroke={color} strokeWidth="1.5" opacity="0.48" />
           </pattern>
         </defs>
-        <rect width="100%" height="100%" fill={`url(#bg-topographic-${pattern})`} />
+        <rect width="100%" height="100%" fill={`url(#bg-topographic-${pid})`} />
       </svg>
     ),
     stars: (
@@ -1489,6 +1498,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
                   pattern={(theme as any).background_pattern}
                   color={(theme as any).pattern_color || "#00000090"}
                   opacity={(theme as any).pattern_opacity || "medium"}
+                  instanceId="phone"
                 />
               </div>
             )}
@@ -2274,6 +2284,7 @@ export function MobilePreviewContent() {
                 pattern={(theme as any).background_pattern}
                 color={(theme as any).pattern_color || "#00000090"}
                 opacity={(theme as any).pattern_opacity || "medium"}
+                instanceId="mobile"
               />
             </div>
           )}

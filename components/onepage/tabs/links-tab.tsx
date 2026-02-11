@@ -705,6 +705,11 @@ export function LinksTab() {
   // Drag state
   const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null)
   const [dragOverBlockId, setDragOverBlockId] = useState<string | null>(null)
+
+  // Touch drag state for mobile
+  const [touchDragId, setTouchDragId] = useState<string | null>(null)
+  const touchOverIdRef = useRef<string | null>(null)
+  const autoScrollTimerRef = useRef<number>(0)
   
   // Name/Bio edit state
   const [showNameBioModal, setShowNameBioModal] = useState(false)
@@ -1678,6 +1683,110 @@ export function LinksTab() {
     setDragOverBlockId(null)
   }
 
+  // Touch drag handlers for mobile devices
+  const handleTouchDragStart = useCallback((blockId: string) => {
+    const block = sortedBlocks.find(b => b.id === blockId)
+    if (!block || block.type === "header") return
+    setTouchDragId(blockId)
+    setDraggedBlockId(blockId)
+  }, [sortedBlocks])
+
+  useEffect(() => {
+    if (!touchDragId) return
+
+    const handleTouchMove = (e: TouchEvent) => {
+      e.preventDefault()
+      const touch = e.touches[0]
+
+      // Find target block element under touch point
+      const elements = document.elementsFromPoint(touch.clientX, touch.clientY)
+      let targetId: string | null = null
+      for (const el of elements) {
+        const blockEl = (el as HTMLElement).closest('[data-block-id]') as HTMLElement | null
+        if (blockEl && blockEl.dataset.blockId !== touchDragId) {
+          targetId = blockEl.dataset.blockId || null
+          break
+        }
+      }
+
+      touchOverIdRef.current = targetId
+      setDragOverBlockId(targetId)
+
+      // Auto-scroll the editor tab content container
+      const scrollEl = document.querySelector('[data-scroll-container="links-tab"]') as HTMLElement
+        || document.querySelector('.flex-1.overflow-y-auto:not(.hidden)') as HTMLElement
+      if (scrollEl) {
+        const rect = scrollEl.getBoundingClientRect()
+        const zone = 80
+
+        cancelAnimationFrame(autoScrollTimerRef.current)
+
+        if (touch.clientY < rect.top + zone) {
+          const speed = Math.max(2, (zone - (touch.clientY - rect.top)) * 0.35)
+          const tick = () => {
+            scrollEl.scrollTop -= speed
+            autoScrollTimerRef.current = requestAnimationFrame(tick)
+          }
+          autoScrollTimerRef.current = requestAnimationFrame(tick)
+        } else if (touch.clientY > rect.bottom - zone) {
+          const speed = Math.max(2, (zone - (rect.bottom - touch.clientY)) * 0.35)
+          const tick = () => {
+            scrollEl.scrollTop += speed
+            autoScrollTimerRef.current = requestAnimationFrame(tick)
+          }
+          autoScrollTimerRef.current = requestAnimationFrame(tick)
+        }
+      }
+    }
+
+    const handleTouchEnd = () => {
+      cancelAnimationFrame(autoScrollTimerRef.current)
+
+      const targetId = touchOverIdRef.current
+      if (touchDragId && targetId && touchDragId !== targetId) {
+        const draggedIdx = sortedBlocks.findIndex(b => b.id === touchDragId)
+        const targetIdx = sortedBlocks.findIndex(b => b.id === targetId)
+
+        if (draggedIdx !== -1 && targetIdx !== -1) {
+          // Check hero layout constraints for social_row
+          const draggedBlock = sortedBlocks[draggedIdx]
+          const headerLayout = (onepage.theme as any)?.header_layout || "classic"
+          if (headerLayout === "hero" && draggedBlock?.type === "social_row") {
+            const headerIdx = sortedBlocks.findIndex(b => b.type === "header")
+            if (headerIdx !== -1 && targetIdx <= headerIdx) {
+              setTouchDragId(null)
+              touchOverIdRef.current = null
+              setDraggedBlockId(null)
+              setDragOverBlockId(null)
+              return
+            }
+          }
+
+          const newOrder = [...sortedBlocks]
+          const [removed] = newOrder.splice(draggedIdx, 1)
+          newOrder.splice(targetIdx, 0, removed)
+          reorderBlocks(newOrder.map((b, i) => ({ ...b, sort_order: i })))
+        }
+      }
+
+      setTouchDragId(null)
+      touchOverIdRef.current = null
+      setDraggedBlockId(null)
+      setDragOverBlockId(null)
+    }
+
+    document.addEventListener('touchmove', handleTouchMove, { passive: false })
+    document.addEventListener('touchend', handleTouchEnd)
+    document.addEventListener('touchcancel', handleTouchEnd)
+
+    return () => {
+      cancelAnimationFrame(autoScrollTimerRef.current)
+      document.removeEventListener('touchmove', handleTouchMove)
+      document.removeEventListener('touchend', handleTouchEnd)
+      document.removeEventListener('touchcancel', handleTouchEnd)
+    }
+  }, [touchDragId, sortedBlocks, reorderBlocks, onepage])
+
   const filteredCategories = searchQuery
     ? blockCategories.map((cat) => ({
         ...cat,
@@ -1925,6 +2034,7 @@ export function LinksTab() {
         {sortedBlocks.map((block, index) => (
           <React.Fragment key={block.id}>
             <div
+              data-block-id={block.id}
               onDragOver={(e) => handleDragOver(e, block.id)}
               onDragLeave={handleDragLeave}
               onDrop={(e) => handleDrop(e, block.id)}
@@ -1977,6 +2087,7 @@ export function LinksTab() {
                   setShowStreamingUrlModal(true)
                 }}
                 onDragStart={(e) => handleDragStart(e, block.id)}
+                onTouchDragStart={handleTouchDragStart}
                 isDragging={draggedBlockId === block.id}
                 isDropTarget={dragOverBlockId === block.id}
                 draggedBlockType={draggedBlockId ? sortedBlocks.find(b => b.id === draggedBlockId)?.type : null}
@@ -4136,6 +4247,7 @@ interface BlockItemProps {
   onUrlChangeWithAutoFetch?: (blockId: string, url: string) => void
   onOpenStreamingModal?: (platform: string, index: number, data: LinkButtonBlockData, updateFn: (data: Partial<LinkButtonBlockData>) => void) => void
   onDragStart?: (e: React.DragEvent) => void
+  onTouchDragStart?: (blockId: string) => void
   isDragging?: boolean
   isDropTarget?: boolean
   draggedBlockType?: OnePageBlockType | null
@@ -4163,6 +4275,7 @@ function BlockItem({
   onUrlChangeWithAutoFetch,
   onOpenStreamingModal,
   onDragStart,
+  onTouchDragStart,
   isDragging,
   isDropTarget,
   draggedBlockType,
@@ -4466,7 +4579,15 @@ function BlockItem({
         onDragStart={!isHeaderBlock ? onDragStart : undefined}
       >
         {!isHeaderBlock && (
-          <div className="cursor-grab text-gray-300 hover:text-gray-400 active:cursor-grabbing pointer-events-none">
+          <div
+            className="cursor-grab text-gray-300 hover:text-gray-400 active:cursor-grabbing touch-none select-none p-1 -m-1 md:p-0 md:m-0"
+            onTouchStart={(e) => {
+              if (onTouchDragStart) {
+                e.stopPropagation()
+                onTouchDragStart(block.id)
+              }
+            }}
+          >
             <GripVertical className="h-5 w-5" />
           </div>
         )}
