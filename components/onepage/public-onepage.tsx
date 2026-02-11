@@ -789,13 +789,13 @@ function ShareButton({
       {/* Share Modal - backdrop + centered wrapper */}
       <div
         className={cn(
-          "fixed inset-0 z-[60] flex items-center justify-center transition-opacity duration-300",
-          isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none",
+          "fixed inset-0 z-[60] flex items-center justify-center",
+          isOpen ? "pointer-events-auto" : "pointer-events-none",
         )}
       >
         <div
           className={cn(
-            "absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300 ease-out",
+            "absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-250 ease-out will-change-[opacity]",
             isOpen ? "opacity-100" : "opacity-0",
           )}
           onClick={() => setIsOpen(false)}
@@ -804,8 +804,8 @@ function ShareButton({
         {/* Share Modal - content */}
         <div
           className={cn(
-            "relative z-10 w-[calc(100%-32px)] max-w-[380px] max-h-[90vh] overflow-y-auto rounded-[28px] overflow-x-hidden transition-[opacity,transform] duration-300 ease-out",
-            isOpen ? "opacity-100 scale-100" : "opacity-0 scale-95",
+            "relative z-10 w-[calc(100%-32px)] max-w-[380px] max-h-[90vh] overflow-y-auto rounded-[28px] overflow-x-hidden transform-gpu transition-[opacity,transform] duration-250 ease-out will-change-[opacity,transform]",
+            isOpen ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-[0.985] translate-y-1",
           )}
           style={{
             background: "#ffffff",

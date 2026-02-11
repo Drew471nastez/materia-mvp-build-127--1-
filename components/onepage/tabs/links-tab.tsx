@@ -712,6 +712,7 @@ export function LinksTab() {
   const autoScrollTimerRef = useRef<number>(0)
   const autoScrollVelocityRef = useRef(0)
   const autoScrollElementRef = useRef<HTMLElement | null>(null)
+  const dragSourceElRef = useRef<HTMLElement | null>(null)
   
   // Name/Bio edit state
   const [showNameBioModal, setShowNameBioModal] = useState(false)
@@ -1686,13 +1687,6 @@ export function LinksTab() {
   }
 
   // Touch drag handlers for mobile devices
-  const handleTouchDragStart = useCallback((blockId: string) => {
-    const block = sortedBlocks.find(b => b.id === blockId)
-    if (!block || block.type === "header") return
-    setTouchDragId(blockId)
-    setDraggedBlockId(blockId)
-  }, [sortedBlocks])
-
   const getScrollableAncestor = useCallback((node: HTMLElement | null) => {
     let current: HTMLElement | null = node
     while (current && current !== document.body) {
@@ -1704,6 +1698,18 @@ export function LinksTab() {
     const fallback = document.scrollingElement as HTMLElement | null
     return fallback
   }, [])
+
+  const handleTouchDragStart = useCallback((blockId: string) => {
+    const block = sortedBlocks.find(b => b.id === blockId)
+    if (!block || block.type === "header") return
+
+    const sourceBlock = document.querySelector(`[data-block-id="${blockId}"]`) as HTMLElement | null
+    dragSourceElRef.current = sourceBlock
+    autoScrollElementRef.current = getScrollableAncestor(sourceBlock)
+
+    setTouchDragId(blockId)
+    setDraggedBlockId(blockId)
+  }, [sortedBlocks, getScrollableAncestor])
 
   const runAutoScrollLoop = useCallback(() => {
     cancelAnimationFrame(autoScrollTimerRef.current)
@@ -1745,7 +1751,7 @@ export function LinksTab() {
       setDragOverBlockId(targetId)
 
       // Auto-scroll nearest scroll container (or page)
-      const scrollEl = getScrollableAncestor(touchedElement)
+      const scrollEl = autoScrollElementRef.current || getScrollableAncestor(touchedElement || dragSourceElRef.current)
       if (scrollEl) {
         const rect = scrollEl.getBoundingClientRect()
         const zone = 110
@@ -1775,6 +1781,7 @@ export function LinksTab() {
       cancelAnimationFrame(autoScrollTimerRef.current)
       autoScrollVelocityRef.current = 0
       autoScrollElementRef.current = null
+      dragSourceElRef.current = null
 
       const targetId = touchOverIdRef.current
       if (touchDragId && targetId && touchDragId !== targetId) {
@@ -1817,6 +1824,7 @@ export function LinksTab() {
       cancelAnimationFrame(autoScrollTimerRef.current)
       autoScrollVelocityRef.current = 0
       autoScrollElementRef.current = null
+      dragSourceElRef.current = null
       document.removeEventListener('touchmove', handleTouchMove)
       document.removeEventListener('touchend', handleTouchEnd)
       document.removeEventListener('touchcancel', handleTouchEnd)
@@ -1854,7 +1862,7 @@ export function LinksTab() {
   const activeSocials = Object.entries(social_links || {}).filter(([_, url]) => url)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-scroll-container="links-tab" style={{ touchAction: "manipulation" }}>
       {/* Profile Header with Real SVG Icons */}
       <div className="flex items-center gap-4 pt-[8px] sm:pt-0 pb-5 border-b">
         <div className="relative group cursor-pointer" onClick={() => setShowAvatarEditModal(true)}>
