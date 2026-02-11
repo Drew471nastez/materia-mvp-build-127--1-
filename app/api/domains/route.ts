@@ -70,6 +70,7 @@ async function removeDomainFromVercel(domain: string): Promise<void> {
 
 /**
  * Get domain configuration from Vercel (includes SSL status)
+ * Uses multiple methods: Vercel API, HTTPS probe, and project domain check
  */
 export async function getVercelDomainConfig(domain: string): Promise<{
   configured: boolean
@@ -81,6 +82,44 @@ export async function getVercelDomainConfig(domain: string): Promise<{
     return { configured: true, sslReady: true } // Skip check if Vercel not configured
   }
 
+  // Method 1: Try an actual HTTPS probe - most reliable way to check SSL
+  try {
+    const probeRes = await fetch(`https://${domain}`, {
+      method: "HEAD",
+      redirect: "manual",
+      signal: AbortSignal.timeout(5000),
+    })
+    // Any response (even 3xx, 4xx, 5xx) means SSL is working
+    if (probeRes.status > 0) {
+      return { configured: true, sslReady: true }
+    }
+  } catch {
+    // HTTPS probe failed - SSL might not be ready yet, fall through to Vercel API
+  }
+
+  // Method 2: Check Vercel project domain endpoint for verification status
+  try {
+    const projectUrl = VERCEL_TEAM_ID
+      ? `https://api.vercel.com/v9/projects/${VERCEL_PROJECT_ID}/domains/${domain}?teamId=${VERCEL_TEAM_ID}`
+      : `https://api.vercel.com/v9/projects/${VERCEL_PROJECT_ID}/domains/${domain}`
+
+    const projectRes = await fetch(projectUrl, {
+      headers: { Authorization: `Bearer ${VERCEL_TOKEN}` },
+      signal: AbortSignal.timeout(5000),
+    })
+
+    if (projectRes.ok) {
+      const projectData = await projectRes.json()
+      // If Vercel says the domain is verified on the project, SSL is ready or will be very soon
+      if (projectData.verified === true) {
+        return { configured: true, sslReady: true }
+      }
+    }
+  } catch {
+    // Project domain check failed, fall through
+  }
+
+  // Method 3: Fallback to domain config endpoint
   try {
     const url = VERCEL_TEAM_ID
       ? `https://api.vercel.com/v6/domains/${domain}/config?teamId=${VERCEL_TEAM_ID}`
@@ -88,31 +127,26 @@ export async function getVercelDomainConfig(domain: string): Promise<{
 
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${VERCEL_TOKEN}` },
+      signal: AbortSignal.timeout(5000),
     })
 
     if (!res.ok) {
-      return { configured: false, sslReady: false, error: "Could not check domain configuration" }
+      // If Vercel API errors out, don't block - DNS was already verified
+      return { configured: true, sslReady: false, error: "Could not check domain configuration" }
     }
 
     const data = await res.json()
-
-    // Check if domain is misconfigured (wrong DNS records)
     const misconfigured = data.misconfigured === true
-
-    // Check if SSL certificate is ready
-    // Vercel's config endpoint: misconfigured=false means DNS is correct AND SSL is provisioned
-    // Also check for explicit certs array if present, and acceptedChallenges
-    const hasValidCerts = Array.isArray(data.certs) && data.certs.length > 0
-    const sslReady = !misconfigured && (hasValidCerts || data.misconfigured === false)
 
     return {
       configured: !misconfigured,
-      sslReady,
+      sslReady: !misconfigured,
       misconfigured,
     }
   } catch (err) {
     console.error("Vercel domain config check error:", err)
-    return { configured: false, sslReady: false, error: "Network error checking domain" }
+    // Network error - don't block domain activation, DNS was already verified
+    return { configured: true, sslReady: false, error: "Network error checking domain" }
   }
 }
 

@@ -111,11 +111,17 @@ export async function POST(request: Request) {
       })
     }
 
-    // DNS is verified - now check if Vercel has the domain configured and SSL ready
+    // DNS is verified - now check if Vercel has SSL ready
     const vercelConfig = await getVercelDomainConfig(domainRecord.domain)
 
-    if (vercelConfig.sslReady) {
-      // Fully connected - DNS verified AND SSL certificate is active
+    // Time-based fallback: if domain has been in ssl_provisioning for >15 min,
+    // DNS is verified so Vercel will have provisioned SSL by now - mark active
+    const wasProvisioningLongEnough = domainRecord.status === "ssl_provisioning" &&
+      domainRecord.verified_at &&
+      (Date.now() - new Date(domainRecord.verified_at).getTime()) > 15 * 60 * 1000
+
+    if (vercelConfig.sslReady || wasProvisioningLongEnough) {
+      // Fully connected - DNS verified AND SSL certificate is active (or timed out)
       await supabase
         .from("custom_domains")
         .update({
@@ -135,7 +141,7 @@ export async function POST(request: Request) {
         .from("custom_domains")
         .update({
           status: "ssl_provisioning",
-          verified_at: new Date().toISOString(),
+          verified_at: domainRecord.verified_at || new Date().toISOString(),
           ssl_status: "provisioning",
         })
         .eq("id", domainId)
@@ -143,7 +149,7 @@ export async function POST(request: Request) {
       return NextResponse.json({
         verified: true,
         sslPending: true,
-        message: "DNS verified! SSL certificate is being issued by our hosting provider. This usually takes 1-10 minutes. Please check back shortly.",
+        message: "DNS verified! SSL certificate is being issued by our hosting provider. This usually takes 1-10 minutes.",
       })
     }
   } catch (error) {

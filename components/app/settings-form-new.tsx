@@ -932,13 +932,16 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     fetchDomains()
   }, [fetchDomains])
 
-  // Auto-poll SSL provisioning domains every 15s until they become active or timeout (10 min)
+  // Auto-poll SSL provisioning domains every 10s until they become active
   useEffect(() => {
     const sslDomains = domains.filter((d) => d.status === "ssl_provisioning")
     if (sslDomains.length === 0) return
 
-    const interval = setInterval(async () => {
+    let cancelled = false
+
+    const checkSsl = async () => {
       for (const d of sslDomains) {
+        if (cancelled) return
         try {
           const res = await fetch("/api/domains/verify", {
             method: "POST",
@@ -947,23 +950,23 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
           })
           const data = await res.json()
           if (data.verified && !data.sslPending) {
-            // SSL is now active - update domain status
             setDomains((prev) => prev.map((dom) => dom.id === d.id ? { ...dom, status: "active", ssl_status: "active" } : dom))
           }
         } catch {
-          // Ignore polling errors silently
+          // Ignore polling errors
         }
       }
-    }, 15000)
+    }
 
-    // Timeout after 10 minutes - stop polling and show a helpful message
-    const timeout = setTimeout(() => {
-      clearInterval(interval)
-    }, 600000)
+    // Immediate first check (after 2s to avoid double-checking on initial verify)
+    const initialTimeout = setTimeout(checkSsl, 2000)
+    // Then poll every 10 seconds
+    const interval = setInterval(checkSsl, 10000)
 
     return () => {
+      cancelled = true
+      clearTimeout(initialTimeout)
       clearInterval(interval)
-      clearTimeout(timeout)
     }
   }, [domains])
 
@@ -2861,7 +2864,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   <div className="space-y-4">
                     {/* A Record for apex domain */}
                     <div className="bg-[#f9fafb] rounded-xl p-4">
-                      <p className="text-[12px] font-semibold text-[#374151] mb-3">Step 1: A Record (apex domain — yourdomain.com)</p>
+                      <p className="text-[12px] font-semibold text-[#374151] mb-2">Step 1: A Record <span className="font-normal text-[#6b7280]">— apex domain ({domains.find((d) => d.status !== "active")?.domain || "yourdomain.com"})</span></p>
                       <div className="space-y-2">
                         <div className="flex items-center gap-2 text-[12px]">
                           <span className="text-[#6b7280] w-14">Type:</span>
@@ -2892,7 +2895,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
                     {/* CNAME Record for www */}
                     <div className="bg-[#f9fafb] rounded-xl p-4">
-                      <p className="text-[12px] font-semibold text-[#374151] mb-3">Step 2: CNAME Record (www subdomain)</p>
+                      <p className="text-[12px] font-semibold text-[#374151] mb-2">Step 2: CNAME Record <span className="font-normal text-[#6b7280]">— www subdomain (www.{domains.find((d) => d.status !== "active")?.domain || "yourdomain.com"})</span></p>
                       <div className="space-y-2">
                         <div className="flex items-center gap-2 text-[12px]">
                           <span className="text-[#6b7280] w-14">Type:</span>
@@ -2968,7 +2971,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                       <p className="text-[11px] text-amber-700">Set the DNS records to &quot;DNS only&quot; (grey cloud icon, not orange proxy). Set SSL mode to &quot;Full (strict)&quot;. The orange proxy can block SSL certificate issuance.</p>
                     </div>
 
-                    <p className="text-[12px] text-[#9ca3af]">DNS changes can take up to 48 hours to propagate. After adding the records, click &quot;Verify&quot; to check. Make sure to remove any conflicting A, AAAA, or CNAME records for your domain.</p>
+                    <p className="text-[11px] text-[#b0b5bd] leading-relaxed">DNS propagation may take a few minutes to 48 hours. Click &quot;Verify&quot; after adding records. Remove any conflicting A, AAAA, or CNAME records.</p>
                   </div>
                 </div>
               )}
