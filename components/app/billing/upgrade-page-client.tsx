@@ -172,7 +172,7 @@ export function UpgradePageClient({
                 key={plan.id}
                 className={`relative rounded-2xl p-6 sm:p-7 flex flex-col transition-all duration-200 ${
                   isGrowth
-                    ? "bg-[#faf8ff] border-2 border-[#7c3aed]/40 shadow-md hover:shadow-lg ring-1 ring-[#7c3aed]/10 scale-[1.02]"
+                    ? "bg-white border-2 border-[#7c3aed]/40 shadow-[0_0_30px_-5px_rgba(124,58,237,0.15)] hover:shadow-[0_0_40px_-5px_rgba(124,58,237,0.22)] ring-1 ring-[#7c3aed]/10 scale-[1.02]"
                     : "bg-white border-2 border-[#e5e7eb] hover:border-[#d1d5db] shadow-sm hover:shadow-md"
                 }`}
               >
