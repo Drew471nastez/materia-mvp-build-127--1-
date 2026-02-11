@@ -165,7 +165,11 @@ export function getLinksUrlDisplay(username: string): string {
  * @returns Full URL like "https://theirdomain.com" or falls back to subdomain
  */
 export function getStoreUrlWithCustomDomain(username: string, customDomain?: string | null): string {
-  if (customDomain) return `https://${customDomain}`
+  if (customDomain) {
+    // Always use www as canonical host for custom domains (prevents SSL issues)
+    const domain = customDomain.startsWith("www.") ? customDomain : `www.${customDomain}`
+    return `https://${domain}`
+  }
   return getStoreUrl(username)
 }
 
@@ -173,10 +177,13 @@ export function getStoreUrlWithCustomDomain(username: string, customDomain?: str
  * Get the links URL with custom domain support
  * @param username - The seller's username
  * @param customDomain - Optional custom domain
- * @returns Full URL like "https://theirdomain.com/links" or falls back to subdomain
+ * @returns Full URL like "https://www.theirdomain.com/links" or falls back to subdomain
  */
 export function getLinksUrlWithCustomDomain(username: string, customDomain?: string | null): string {
-  if (customDomain) return `https://${customDomain}/links`
+  if (customDomain) {
+    const domain = customDomain.startsWith("www.") ? customDomain : `www.${customDomain}`
+    return `https://${domain}/links`
+  }
   return getLinksUrl(username)
 }
 
@@ -185,10 +192,13 @@ export function getLinksUrlWithCustomDomain(username: string, customDomain?: str
  * @param username - The seller's username
  * @param productSlug - The product slug
  * @param customDomain - Optional custom domain
- * @returns Full URL like "https://theirdomain.com/p/product-slug"
+ * @returns Full URL like "https://www.theirdomain.com/p/product-slug"
  */
 export function getProductUrlWithCustomDomain(username: string, productSlug: string, customDomain?: string | null): string {
-  if (customDomain) return `https://${customDomain}/p/${productSlug}`
+  if (customDomain) {
+    const domain = customDomain.startsWith("www.") ? customDomain : `www.${customDomain}`
+    return `https://${domain}/p/${productSlug}`
+  }
   return getProductUrl(username, productSlug)
 }
 

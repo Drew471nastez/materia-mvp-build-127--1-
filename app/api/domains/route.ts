@@ -49,11 +49,12 @@ async function addDomainToVercel(domain: string): Promise<{ success: boolean; er
 }
 
 /**
- * Add www domain as redirect to apex on Vercel
- * This tells Vercel to redirect www.domain.com → domain.com at the edge,
- * and provision SSL certs for both. Prevents ERR_SSL_PROTOCOL_ERROR.
+ * Set up canonical www redirect on Vercel:
+ * - www.domain.com = primary (serves content, SSL cert)
+ * - domain.com = redirects to www.domain.com (301, edge-level)
+ * Vercel provisions SSL certs for both hosts. Prevents ERR_SSL_PROTOCOL_ERROR.
  */
-async function addWwwRedirectToVercel(apexDomain: string): Promise<void> {
+async function setupCanonicalWwwOnVercel(apexDomain: string): Promise<void> {
   if (!VERCEL_TOKEN || !VERCEL_PROJECT_ID) return
 
   try {
@@ -61,8 +62,18 @@ async function addWwwRedirectToVercel(apexDomain: string): Promise<void> {
       ? `https://api.vercel.com/v10/projects/${VERCEL_PROJECT_ID}/domains?teamId=${VERCEL_TEAM_ID}`
       : `https://api.vercel.com/v10/projects/${VERCEL_PROJECT_ID}/domains`
 
-    // Add www variant with redirect to apex — Vercel handles this at the edge
-    // including SSL cert provisioning for www
+    // 1. Register www.domain.com as the primary content-serving domain
+    await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${VERCEL_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name: `www.${apexDomain}` }),
+    })
+
+    // 2. Register apex domain.com with redirect to www — Vercel handles at edge
+    // Vercel provisions SSL cert for apex so the redirect works over HTTPS
     await fetch(url, {
       method: "POST",
       headers: {
@@ -70,8 +81,8 @@ async function addWwwRedirectToVercel(apexDomain: string): Promise<void> {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        name: `www.${apexDomain}`,
-        redirect: apexDomain,
+        name: apexDomain,
+        redirect: `www.${apexDomain}`,
         redirectStatusCode: 301,
       }),
     })
@@ -281,16 +292,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "This domain is already connected to another account" }, { status: 400 })
     }
 
-    // Add BOTH apex and www domain to Vercel project
-    // This ensures SSL certificates are provisioned for both variants
-    const apexResult = await addDomainToVercel(cleanDomain)
-    if (!apexResult.success) {
-      return NextResponse.json({ error: apexResult.error || "Failed to register domain" }, { status: 500 })
+    // Register www as primary domain and apex as redirect → www
+    // www is canonical because Vercel provisions SSL more reliably for CNAME-based hosts.
+    // Apex uses A record (76.76.21.21) and redirects to www at the Vercel edge.
+    const wwwResult = await addDomainToVercel(`www.${cleanDomain}`)
+    if (!wwwResult.success) {
+      // Fallback: try adding apex directly
+      const apexResult = await addDomainToVercel(cleanDomain)
+      if (!apexResult.success) {
+        return NextResponse.json({ error: apexResult.error || "Failed to register domain" }, { status: 500 })
+      }
     }
 
-    // Add www variant as a redirect to apex — Vercel provisions SSL for both
-    // and handles www → apex redirect at the edge. Prevents ERR_SSL_PROTOCOL_ERROR.
-    await addWwwRedirectToVercel(cleanDomain)
+    // Set up canonical redirect: apex → www (Vercel provisions SSL for both)
+    await setupCanonicalWwwOnVercel(cleanDomain)
 
     // Generate verification token
     const verificationToken = `storelib-verify-${crypto.randomBytes(16).toString("hex")}`

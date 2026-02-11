@@ -27,18 +27,18 @@ async function ensureDomainOnVercel(domain: string): Promise<void> {
       ? `https://api.vercel.com/v10/projects/${VERCEL_PROJECT_ID}/domains?teamId=${VERCEL_TEAM_ID}`
       : `https://api.vercel.com/v10/projects/${VERCEL_PROJECT_ID}/domains`
 
-    // Re-add apex domain to ensure Vercel has it and is issuing certs
+    // 1. Register www.domain.com as primary (canonical, serves content)
     await fetch(url, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${VERCEL_TOKEN}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ name: domain }),
+      body: JSON.stringify({ name: `www.${domain}` }),
     })
 
-    // Add www variant as redirect to apex — Vercel provisions SSL for both
-    // and redirects www → apex at the edge. Prevents ERR_SSL_PROTOCOL_ERROR.
+    // 2. Register apex domain.com with redirect to www (Vercel edge-level)
+    // Vercel provisions SSL for both hosts. Apex 301 → www at the edge.
     await fetch(url, {
       method: "POST",
       headers: {
@@ -46,8 +46,8 @@ async function ensureDomainOnVercel(domain: string): Promise<void> {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        name: `www.${domain}`,
-        redirect: domain,
+        name: domain,
+        redirect: `www.${domain}`,
         redirectStatusCode: 301,
       }),
     })
@@ -112,16 +112,27 @@ export async function POST(request: Request) {
       // TXT lookup failed - that's ok, might use CNAME or A record instead
     }
 
-    // Check CNAME record - accept both cname.vercel-dns.com and cname.storelib.com
+    // Check CNAME record on www subdomain (canonical host)
+    // Accept both cname.vercel-dns.com and cname.storelib.com
     try {
-      const cnameRecords = await resolveCname(domainRecord.domain)
+      const cnameRecords = await resolveCname(`www.${domainRecord.domain}`)
       cnameVerified = cnameRecords.some((r) => {
         const lower = r.toLowerCase().replace(/\.$/, "")
         return lower === "cname.vercel-dns.com" ||
                lower === "cname.storelib.com"
       })
     } catch {
-      // CNAME lookup failed - apex domains can't have CNAME, check A record
+      // CNAME lookup on www failed — try apex (some configs use apex CNAME via ALIAS)
+      try {
+        const cnameRecords = await resolveCname(domainRecord.domain)
+        cnameVerified = cnameRecords.some((r) => {
+          const lower = r.toLowerCase().replace(/\.$/, "")
+          return lower === "cname.vercel-dns.com" ||
+                 lower === "cname.storelib.com"
+        })
+      } catch {
+        // Apex can't have CNAME on most registrars, check A record instead
+      }
     }
 
     // Check A record for Vercel IP (76.76.21.21) - needed for apex domains
@@ -161,16 +172,19 @@ export async function POST(request: Request) {
     // check/issue SSL certificates. Critical for fixing ERR_SSL_PROTOCOL_ERROR.
     await ensureDomainOnVercel(domainRecord.domain)
 
-    // Now check if Vercel has SSL ready
-    const vercelConfig = await getVercelDomainConfig(domainRecord.domain)
+    // Check SSL on BOTH www (canonical) and apex
+    // www is canonical — check it first. If www works, domain is ready.
+    const wwwConfig = await getVercelDomainConfig(`www.${domainRecord.domain}`)
+    const apexConfig = wwwConfig.sslReady ? wwwConfig : await getVercelDomainConfig(domainRecord.domain)
+    const sslReady = wwwConfig.sslReady || apexConfig.sslReady
 
     // Time-based fallback: if domain has been in ssl_provisioning for >5 min,
-    // DNS is verified so Vercel will have provisioned SSL by now - mark active
+    // DNS is verified so Vercel should have provisioned SSL by now
     const wasProvisioningLongEnough = domainRecord.status === "ssl_provisioning" &&
       domainRecord.verified_at &&
       (Date.now() - new Date(domainRecord.verified_at).getTime()) > 5 * 60 * 1000
 
-    if (vercelConfig.sslReady || wasProvisioningLongEnough) {
+    if (sslReady || wasProvisioningLongEnough) {
       // Fully connected - DNS verified AND SSL certificate is active (or timed out)
       await supabase
         .from("custom_domains")

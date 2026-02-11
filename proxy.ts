@@ -157,12 +157,13 @@ export async function proxy(request: NextRequest) {
       hostWithoutPort !== MAIN_DOMAIN &&
       !hostWithoutPort.endsWith(`.${MAIN_DOMAIN}`)
 
-    // Canonical redirect: www.custom-domain.com → custom-domain.com (apex)
+    // Canonical redirect: apex custom-domain.com → www.custom-domain.com
     // This prevents mixed apex/www confusion that causes ERR_SSL_PROTOCOL_ERROR
-    // by ensuring only ONE host is canonical. Browser caches the redirect permanently (301).
-    if (isExternalDomain && hostWithoutPort.startsWith("www.")) {
-      const apexDomain = hostWithoutPort.replace(/^www\./, "")
-      const canonicalUrl = new URL(`https://${apexDomain}`)
+    // by ensuring only ONE host (www) is canonical. Browser caches the redirect permanently (301).
+    // www is chosen as canonical because Vercel provisions SSL more reliably for CNAME-based hosts.
+    if (isExternalDomain && !hostWithoutPort.startsWith("www.")) {
+      const wwwDomain = `www.${hostWithoutPort}`
+      const canonicalUrl = new URL(`https://${wwwDomain}`)
       canonicalUrl.pathname = pathname
       canonicalUrl.search = search
       return NextResponse.redirect(canonicalUrl, { status: 301 })
