@@ -2205,89 +2205,6 @@ export function MobilePreviewContent() {
           animation: isAnimatedGradient ? "gradientShiftFrame 10s ease-in-out infinite" : undefined,
         }}
       >
-        {/* Background overlays - absolute positioned, don't scroll */}
-        {theme.background_type === "image" && theme.background_image_url && (
-          <div
-            style={{
-              position: "absolute",
-              top: "-50px",
-              left: "-50px",
-              right: "-50px",
-              bottom: "-50px",
-              backgroundImage: `url(${theme.background_image_url})`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-              zIndex: 0,
-              pointerEvents: "none",
-              filter: `brightness(${(theme as any).image_brightness || 100}%) blur(${(theme as any).image_blur || 0}px)`,
-            }}
-          />
-        )}
-
-        {/* Video background */}
-        {theme.background_type === "video" && (theme as any).background_video_url && (
-          <video
-            src={(theme as any).background_video_url}
-            style={{
-              position: "absolute",
-              top: "-50px",
-              left: "-50px",
-              right: "-50px",
-              bottom: "-50px",
-              width: "calc(100% + 100px)",
-              height: "calc(100% + 100px)",
-              objectFit: "cover",
-              zIndex: 0,
-              pointerEvents: "none",
-              filter: `brightness(${(theme as any).video_brightness || 100}%)`,
-            }}
-            autoPlay
-            loop
-            muted
-            playsInline
-          />
-        )}
-
-        {/* Noise overlay for gradient backgrounds */}
-        {theme.background_type === "gradient" && (theme as any).gradient_noise && (
-          <svg
-            className="absolute inset-0 w-full h-full pointer-events-none"
-            style={{ mixBlendMode: "overlay", zIndex: 1, opacity: (((theme as any).noise_strength || 15) / 100) * 2 }}
-          >
-            <filter id="mobile-noise-gradient">
-              <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch" />
-            </filter>
-            <rect width="100%" height="100%" filter="url(#mobile-noise-gradient)" />
-          </svg>
-        )}
-
-        {/* Noise overlay for image backgrounds */}
-        {theme.background_type === "image" && (theme as any).image_noise && (
-          <svg
-            className="absolute inset-0 w-full h-full pointer-events-none"
-            style={{ mixBlendMode: "overlay", zIndex: 1, opacity: (((theme as any).noise_strength || 15) / 100) * 2 }}
-          >
-            <filter id="mobile-noise-image">
-              <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch" />
-            </filter>
-            <rect width="100%" height="100%" filter="url(#mobile-noise-image)" />
-          </svg>
-        )}
-
-        {/* Pattern overlay for mobile */}
-        {(theme.background_type === "solid" || theme.background_type === "gradient") &&
-          (theme as any).background_pattern &&
-          (theme as any).background_pattern !== "none" && (
-            <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 1 }}>
-              <BackgroundPattern
-                pattern={(theme as any).background_pattern}
-                color={(theme as any).pattern_color || "#00000090"}
-                opacity={(theme as any).pattern_opacity || "medium"}
-                instanceId="mobile"
-              />
-            </div>
-          )}
-
         {/* Share Button - absolute, stays above scroll, doesn't scroll with content */}
         {settings?.share_enabled !== false && (
           <ShareButtonPreview
@@ -2323,6 +2240,84 @@ export function MobilePreviewContent() {
           className="absolute inset-0 overflow-y-auto overflow-x-hidden"
           style={{ zIndex: 2 }}
         >
+        <div className="relative" style={{ minHeight: "100vh" }}>
+          {theme.background_type === "image" && theme.background_image_url && (
+            <div
+              style={{
+                position: "absolute",
+                top: "-50px",
+                left: "-50px",
+                right: "-50px",
+                bottom: "-50px",
+                backgroundImage: `url(${theme.background_image_url})`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+                zIndex: 0,
+                pointerEvents: "none",
+                filter: `brightness(${(theme as any).image_brightness || 100}%) blur(${(theme as any).image_blur || 0}px)`,
+              }}
+            />
+          )}
+
+          {theme.background_type === "video" && (theme as any).background_video_url && (
+            <video
+              src={(theme as any).background_video_url}
+              style={{
+                position: "absolute",
+                top: "-50px",
+                left: "-50px",
+                right: "-50px",
+                bottom: "-50px",
+                width: "calc(100% + 100px)",
+                height: "calc(100% + 100px)",
+                objectFit: "cover",
+                zIndex: 0,
+                pointerEvents: "none",
+                filter: `brightness(${(theme as any).video_brightness || 100}%)`,
+              }}
+              autoPlay
+              loop
+              muted
+              playsInline
+            />
+          )}
+
+          {theme.background_type === "gradient" && (theme as any).gradient_noise && (
+            <svg
+              className="absolute inset-0 w-full h-full pointer-events-none"
+              style={{ mixBlendMode: "overlay", zIndex: 1, opacity: (((theme as any).noise_strength || 15) / 100) * 2 }}
+            >
+              <filter id="mobile-noise-gradient">
+                <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch" />
+              </filter>
+              <rect width="100%" height="100%" filter="url(#mobile-noise-gradient)" />
+            </svg>
+          )}
+
+          {theme.background_type === "image" && (theme as any).image_noise && (
+            <svg
+              className="absolute inset-0 w-full h-full pointer-events-none"
+              style={{ mixBlendMode: "overlay", zIndex: 1, opacity: (((theme as any).noise_strength || 15) / 100) * 2 }}
+            >
+              <filter id="mobile-noise-image">
+                <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch" />
+              </filter>
+              <rect width="100%" height="100%" filter="url(#mobile-noise-image)" />
+            </svg>
+          )}
+
+          {(theme.background_type === "solid" || theme.background_type === "gradient") &&
+            (theme as any).background_pattern &&
+            (theme as any).background_pattern !== "none" && (
+              <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 1 }}>
+                <BackgroundPattern
+                  pattern={(theme as any).background_pattern}
+                  color={(theme as any).pattern_color || "#00000090"}
+                  opacity={(theme as any).pattern_opacity || "medium"}
+                  instanceId="mobile"
+                />
+              </div>
+            )}
 
         <div
           className="relative z-10 w-full max-w-md mx-auto px-5 py-8 pb-5 flex flex-col"
@@ -2392,6 +2387,7 @@ export function MobilePreviewContent() {
                 Report
               </a>
             </div>
+          </div>
           </div>
         </div>
         {/* Close inner scroll container */}

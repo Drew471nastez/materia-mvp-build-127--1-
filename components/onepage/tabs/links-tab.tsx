@@ -710,6 +710,8 @@ export function LinksTab() {
   const [touchDragId, setTouchDragId] = useState<string | null>(null)
   const touchOverIdRef = useRef<string | null>(null)
   const autoScrollTimerRef = useRef<number>(0)
+  const autoScrollVelocityRef = useRef(0)
+  const autoScrollElementRef = useRef<HTMLElement | null>(null)
   
   // Name/Bio edit state
   const [showNameBioModal, setShowNameBioModal] = useState(false)
@@ -1691,6 +1693,34 @@ export function LinksTab() {
     setDraggedBlockId(blockId)
   }, [sortedBlocks])
 
+  const getScrollableAncestor = useCallback((node: HTMLElement | null) => {
+    let current: HTMLElement | null = node
+    while (current && current !== document.body) {
+      const { overflowY } = window.getComputedStyle(current)
+      const canScroll = (overflowY === "auto" || overflowY === "scroll") && current.scrollHeight > current.clientHeight
+      if (canScroll) return current
+      current = current.parentElement
+    }
+    const fallback = document.scrollingElement as HTMLElement | null
+    return fallback
+  }, [])
+
+  const runAutoScrollLoop = useCallback(() => {
+    cancelAnimationFrame(autoScrollTimerRef.current)
+
+    const tick = () => {
+      const scrollEl = autoScrollElementRef.current
+      const speed = autoScrollVelocityRef.current
+
+      if (!scrollEl || speed === 0) return
+
+      scrollEl.scrollTop += speed
+      autoScrollTimerRef.current = requestAnimationFrame(tick)
+    }
+
+    autoScrollTimerRef.current = requestAnimationFrame(tick)
+  }, [])
+
   useEffect(() => {
     if (!touchDragId) return
 
@@ -1701,7 +1731,9 @@ export function LinksTab() {
       // Find target block element under touch point
       const elements = document.elementsFromPoint(touch.clientX, touch.clientY)
       let targetId: string | null = null
+      let touchedElement: HTMLElement | null = null
       for (const el of elements) {
+        if (!touchedElement) touchedElement = el as HTMLElement
         const blockEl = (el as HTMLElement).closest('[data-block-id]') as HTMLElement | null
         if (blockEl && blockEl.dataset.blockId !== touchDragId) {
           targetId = blockEl.dataset.blockId || null
@@ -1712,35 +1744,37 @@ export function LinksTab() {
       touchOverIdRef.current = targetId
       setDragOverBlockId(targetId)
 
-      // Auto-scroll the editor tab content container
-      const scrollEl = document.querySelector('[data-scroll-container="links-tab"]') as HTMLElement
-        || document.querySelector('.flex-1.overflow-y-auto:not(.hidden)') as HTMLElement
+      // Auto-scroll nearest scroll container (or page)
+      const scrollEl = getScrollableAncestor(touchedElement)
       if (scrollEl) {
         const rect = scrollEl.getBoundingClientRect()
-        const zone = 80
-
-        cancelAnimationFrame(autoScrollTimerRef.current)
+        const zone = 110
+        let nextVelocity = 0
 
         if (touch.clientY < rect.top + zone) {
-          const speed = Math.max(2, (zone - (touch.clientY - rect.top)) * 0.35)
-          const tick = () => {
-            scrollEl.scrollTop -= speed
-            autoScrollTimerRef.current = requestAnimationFrame(tick)
-          }
-          autoScrollTimerRef.current = requestAnimationFrame(tick)
+          nextVelocity = -Math.max(2, (zone - (touch.clientY - rect.top)) * 0.4)
         } else if (touch.clientY > rect.bottom - zone) {
-          const speed = Math.max(2, (zone - (rect.bottom - touch.clientY)) * 0.35)
-          const tick = () => {
-            scrollEl.scrollTop += speed
-            autoScrollTimerRef.current = requestAnimationFrame(tick)
-          }
-          autoScrollTimerRef.current = requestAnimationFrame(tick)
+          nextVelocity = Math.max(2, (zone - (rect.bottom - touch.clientY)) * 0.4)
+        }
+
+        const changedTarget = autoScrollElementRef.current !== scrollEl
+        const changedVelocity = autoScrollVelocityRef.current !== nextVelocity
+
+        autoScrollElementRef.current = scrollEl
+        autoScrollVelocityRef.current = nextVelocity
+
+        if (nextVelocity === 0) {
+          cancelAnimationFrame(autoScrollTimerRef.current)
+        } else if (changedTarget || changedVelocity) {
+          runAutoScrollLoop()
         }
       }
     }
 
     const handleTouchEnd = () => {
       cancelAnimationFrame(autoScrollTimerRef.current)
+      autoScrollVelocityRef.current = 0
+      autoScrollElementRef.current = null
 
       const targetId = touchOverIdRef.current
       if (touchDragId && targetId && touchDragId !== targetId) {
@@ -1781,11 +1815,13 @@ export function LinksTab() {
 
     return () => {
       cancelAnimationFrame(autoScrollTimerRef.current)
+      autoScrollVelocityRef.current = 0
+      autoScrollElementRef.current = null
       document.removeEventListener('touchmove', handleTouchMove)
       document.removeEventListener('touchend', handleTouchEnd)
       document.removeEventListener('touchcancel', handleTouchEnd)
     }
-  }, [touchDragId, sortedBlocks, reorderBlocks, onepage])
+  }, [touchDragId, sortedBlocks, reorderBlocks, onepage, getScrollableAncestor, runAutoScrollLoop])
 
   const filteredCategories = searchQuery
     ? blockCategories.map((cat) => ({

@@ -2144,60 +2144,62 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           animation: isAnimatedGradient ? "gradientShiftLive 10s ease-in-out infinite" : undefined,
         }}
       >
-        {safeTheme.background_type === "image" && safeTheme.background_image_url && (
-          <div
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              width: "100%",
-              height: "100%",
-              backgroundImage: `url(${safeTheme.background_image_url})`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-              zIndex: 0,
-              filter: `brightness(${(safeTheme as any).image_brightness || 100}%) blur(${(safeTheme as any).image_blur || 0}px)`,
-              transform: "translateZ(0)",
-              willChange: "transform",
-              pointerEvents: "none",
-            }}
-          />
-        )}
+        <div className="relative min-h-screen">
+          {safeTheme.background_type === "image" && safeTheme.background_image_url && (
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                width: "100%",
+                height: "100%",
+                backgroundImage: `url(${safeTheme.background_image_url})`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+                zIndex: 0,
+                filter: `brightness(${(safeTheme as any).image_brightness || 100}%) blur(${(safeTheme as any).image_blur || 0}px)`,
+                transform: "translateZ(0)",
+                willChange: "transform",
+                pointerEvents: "none",
+              }}
+            />
+          )}
 
-        {/* Video background for mobile */}
-        {safeTheme.background_type === "video" && (safeTheme as any).background_video_url && (
-          <video
-            src={(safeTheme as any).background_video_url}
-            style={{
-              position: "absolute",
-              top: "-50px",
-              left: "-50px",
-              right: "-50px",
-              bottom: "-50px",
-              width: "calc(100% + 100px)",
-              height: "calc(100% + 100px)",
-              objectFit: "cover",
-              zIndex: 0,
-              filter: `brightness(${(safeTheme as any).video_brightness || 100}%)`,
-              pointerEvents: "none",
-            }}
-            autoPlay
-            loop
-            muted
-            playsInline
-          />
-        )}
+          {/* Video background for mobile */}
+          {safeTheme.background_type === "video" && (safeTheme as any).background_video_url && (
+            <video
+              src={(safeTheme as any).background_video_url}
+              style={{
+                position: "absolute",
+                top: "-50px",
+                left: "-50px",
+                right: "-50px",
+                bottom: "-50px",
+                width: "calc(100% + 100px)",
+                height: "calc(100% + 100px)",
+                objectFit: "cover",
+                zIndex: 0,
+                filter: `brightness(${(safeTheme as any).video_brightness || 100}%)`,
+                pointerEvents: "none",
+              }}
+              autoPlay
+              loop
+              muted
+              playsInline
+            />
+          )}
 
-        {/* Noise overlays for mobile */}
-        {safeTheme.background_type === "gradient" && (safeTheme as any).gradient_noise && <NoiseOverlay />}
-        {safeTheme.background_type === "image" && (safeTheme as any).image_noise && <NoiseOverlay />}
-        {/* Pattern overlay for mobile */}
-        {(safeTheme.background_type === "solid" || safeTheme.background_type === "gradient") && (
-          <BackgroundPatternOverlay idPrefix="mobile" />
-        )}
-        <PageContent />
+          {/* Noise overlays for mobile */}
+          {safeTheme.background_type === "gradient" && (safeTheme as any).gradient_noise && <NoiseOverlay />}
+          {safeTheme.background_type === "image" && (safeTheme as any).image_noise && <NoiseOverlay />}
+          {/* Pattern overlay for mobile */}
+          {(safeTheme.background_type === "solid" || safeTheme.background_type === "gradient") && (
+            <BackgroundPatternOverlay idPrefix="mobile" />
+          )}
+          <PageContent />
+        </div>
       </div>
       
       {/* Spotify Modal - clean, compact, responsive design */}
