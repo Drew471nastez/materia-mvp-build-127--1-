@@ -1568,7 +1568,7 @@ export function DashboardClient({
               )}
             </div>
             {/* Live Indicator Pill - Desktop */}
-            <div className="flex items-center gap-1.5 px-3 py-2 bg-[#f3f4f6] rounded-lg">
+            <button onClick={() => router.push("/app/live")} className="flex items-center gap-1.5 px-3 py-2 bg-[#f3f4f6] rounded-lg hover:bg-[#ebebef] transition-colors cursor-pointer">
               <div
                 className={`w-2 h-2 rounded-full ${
                   liveVisitors > 0
@@ -1582,13 +1582,13 @@ export function DashboardClient({
               <span className={`text-[13px] font-medium ${liveVisitors > 0 ? "text-emerald-600" : "text-gray-500"}`}>
                 {liveVisitors} {t("dashboard.liveVisitors")}
               </span>
-            </div>
+            </button>
           </div>
 
           {/* Mobile: Live Indicator + Timeframe Button */}
           <div className="md:hidden flex items-center gap-2">
             {/* Live Indicator Pill - Mobile */}
-            <div className="flex items-center gap-1.5 px-2.5 py-2 bg-[#f3f4f6] rounded-xl h-[38px]">
+            <button onClick={() => router.push("/app/live")} className="flex items-center gap-1.5 px-2.5 py-2 bg-[#f3f4f6] rounded-xl h-[38px] hover:bg-[#ebebef] transition-colors cursor-pointer">
               <div
                 className={`w-2 h-2 rounded-full ${
                   liveVisitors > 0
@@ -1602,7 +1602,7 @@ export function DashboardClient({
               <span className={`text-[12px] font-medium ${liveVisitors > 0 ? "text-emerald-600" : "text-gray-500"}`}>
                 {liveVisitors} {t("dashboard.liveVisitors")}
               </span>
-            </div>
+            </button>
             <button
               onClick={() => setIsMobileSheetOpen(true)}
               className="w-fit inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#e5e7eb] rounded-xl text-[13px] font-medium text-[#374151] shadow-sm h-[38px]"
