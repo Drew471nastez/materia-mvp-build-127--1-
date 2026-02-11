@@ -575,7 +575,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
       { id: "social" as const, label: "Social Media", icon: Share2 },
       { id: "seo" as const, label: "SEO", icon: Globe },
       { id: "badge" as const, label: "Verified Badge", icon: BadgeCheck },
-      { id: "domain" as const, label: "Custom Domain", icon: ExternalLink },
+      { id: "domain" as const, label: "Custom Domain", icon: Globe },
     ]
 
     // Theme tab is available for all page types (shop and product)
@@ -604,7 +604,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                   className={cn(
                     "flex items-center gap-2 w-full rounded-lg px-3 py-2.5 transition-all text-left cursor-pointer",
                     settingsTab === tab.id
-                      ? "bg-purple-50 border border-purple-500 dark:bg-purple-950/20"
+                      ? "bg-[#f3f4f6] border border-[#d1d5db] dark:bg-zinc-800 dark:border-zinc-600"
                       : "hover:bg-muted/50 border border-transparent"
                   )}
                 >
@@ -612,7 +612,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                     className={cn(
                       "flex h-8 w-8 items-center justify-center rounded-md shrink-0",
                       settingsTab === tab.id
-                        ? "bg-purple-100 text-purple-600 dark:bg-purple-900 dark:text-purple-400"
+                        ? "bg-[#e5e7eb] text-[#374151] dark:bg-zinc-700 dark:text-zinc-200"
                         : "bg-muted text-muted-foreground"
                     )}
                   >
@@ -1138,15 +1138,16 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                   <p className="text-xs text-muted-foreground">Domain settings are managed in your account settings. Click below to open the Domains configuration page.</p>
                   <Button
                     variant="outline"
-                    className="w-full gap-2 cursor-pointer"
+                    className="w-full gap-2 cursor-pointer h-10 text-sm font-semibold border-[#d1d5db] hover:bg-[#f3f4f6] hover:border-[#9ca3af] transition-all"
                     onClick={() => {
                       if (window.confirm("You may have unsaved changes. Open domain settings in a new tab?")) {
                         window.open("/app/settings?tab=domains", "_blank")
                       }
                     }}
                   >
-                    <ExternalLink className="h-4 w-4" />
+                    <Globe className="h-4 w-4" />
                     Open Domain Settings
+                    <ExternalLink className="h-3 w-3 ml-auto opacity-50" />
                   </Button>
                 </div>
 

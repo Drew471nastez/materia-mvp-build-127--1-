@@ -15,7 +15,7 @@ export async function resolveCustomDomain(domain: string): Promise<{
       .from("custom_domains")
       .select("creator_id")
       .eq("domain", domain.toLowerCase())
-      .eq("status", "active")
+      .in("status", ["active", "ssl_provisioning"])
       .single()
 
     if (!domainRecord) return null

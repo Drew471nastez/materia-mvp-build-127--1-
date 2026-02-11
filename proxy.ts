@@ -111,12 +111,12 @@ async function resolveCustomDomain(host: string): Promise<string | null> {
     // Strip www. prefix for lookup - domains are stored without www in the database
     const lookupDomain = hostWithoutPort.replace(/^www\./, "")
 
-    // Match active or ssl_provisioning (DNS is verified for both)
+    // Match active, ssl_provisioning, or pending (if request arrives, DNS is working)
     const { data: domainRecord } = await supabase
       .from("custom_domains")
-      .select("creator_id")
+      .select("creator_id, status")
       .eq("domain", lookupDomain)
-      .in("status", ["active", "ssl_provisioning"])
+      .in("status", ["active", "ssl_provisioning", "pending", "verifying"])
       .single()
 
     if (!domainRecord) return null
@@ -151,10 +151,23 @@ export async function proxy(request: NextRequest) {
 
   // If no subdomain match, check if it's a custom domain
   if (!username) {
+    const hostWithoutPort = host.split(":")[0]
+    const isExternalDomain = hostWithoutPort !== "localhost" &&
+      hostWithoutPort !== "127.0.0.1" &&
+      hostWithoutPort !== MAIN_DOMAIN &&
+      !hostWithoutPort.endsWith(`.${MAIN_DOMAIN}`)
+
     const customDomainUsername = await resolveCustomDomain(host)
     if (customDomainUsername) {
       username = customDomainUsername
       isCustomDomain = true
+    } else if (isExternalDomain && !isReservedPath(pathname)) {
+      // Custom domain not resolved — fallback to main site
+      // This handles cases where domain is in DB but inactive, or lookup failed
+      const fallbackUrl = new URL(`https://${MAIN_DOMAIN}`)
+      fallbackUrl.pathname = pathname
+      fallbackUrl.search = search
+      return NextResponse.redirect(fallbackUrl, { status: 302 })
     }
   }
 

@@ -171,8 +171,8 @@ export function UpgradePageClient({
               <div
                 key={plan.id}
                 className={`relative rounded-2xl p-6 sm:p-7 flex flex-col transition-all duration-200 ${
-                  isPro
-                    ? "bg-[#1a1a2e] text-white shadow-xl border-2 border-[#7c3aed]/30 scale-[1.02]"
+                  isGrowth
+                    ? "bg-white border-2 border-[#7c3aed]/40 shadow-md hover:shadow-lg ring-1 ring-[#7c3aed]/10 scale-[1.02]"
                     : "bg-white border-2 border-[#e5e7eb] hover:border-[#d1d5db] shadow-sm hover:shadow-md"
                 }`}
               >
@@ -185,7 +185,7 @@ export function UpgradePageClient({
                 )}
                 {isPro && (
                   <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
-                    <span className="inline-flex items-center gap-1 px-3.5 py-1 bg-[#7c3aed] rounded-full text-[11px] font-bold text-white shadow-lg">
+                    <span className="inline-flex items-center gap-1 px-3.5 py-1 bg-[#1a1a2e] rounded-full text-[11px] font-bold text-white shadow-lg">
                       <Star className="h-3 w-3 fill-white" />
                       Recommended
                     </span>
@@ -193,10 +193,10 @@ export function UpgradePageClient({
                 )}
 
                 <div className="mb-5">
-                  <h3 className={`text-[20px] font-bold mb-1.5 ${isPro ? "text-white" : "text-[#1a1a2e]"}`}>
+                  <h3 className={`text-[20px] font-bold mb-1.5 ${"text-[#1a1a2e]"}`}>
                     {plan.name}
                   </h3>
-                  <p className={`text-[13px] leading-relaxed ${isPro ? "text-white/70" : "text-[#6b7280]"}`}>
+                  <p className={`text-[13px] leading-relaxed ${"text-[#6b7280]"}`}>
                     {descriptions[plan.id] || ""}
                   </p>
                 </div>
@@ -204,16 +204,16 @@ export function UpgradePageClient({
                 <div className="mb-6">
                   {isFree ? (
                     <>
-                      <div className={`text-[40px] font-bold leading-none ${isPro ? "text-white" : "text-[#1a1a2e]"}`}>$0</div>
-                      <p className={`text-[13px] mt-1.5 ${isPro ? "text-white/60" : "text-[#9ca3af]"}`}>Free forever</p>
+                      <div className={`text-[40px] font-bold leading-none ${"text-[#1a1a2e]"}`}>$0</div>
+                      <p className={`text-[13px] mt-1.5 ${"text-[#9ca3af]"}`}>Free forever</p>
                     </>
                   ) : (
                     <>
                       <div className="flex items-baseline gap-1">
-                        <span className={`text-[40px] font-bold leading-none ${isPro ? "text-white" : "text-[#1a1a2e]"}`}>
+                        <span className={`text-[40px] font-bold leading-none ${"text-[#1a1a2e]"}`}>
                           ${displayPrice % 1 === 0 ? displayPrice.toFixed(0) : displayPrice.toFixed(2)}
                         </span>
-                        <span className={`text-[15px] ${isPro ? "text-white/60" : "text-[#9ca3af]"}`}>/mo</span>
+                        <span className={`text-[15px] ${"text-[#9ca3af]"}`}>/mo</span>
                       </div>
                     </>
                   )}
@@ -224,14 +224,10 @@ export function UpgradePageClient({
                   disabled={isDisabled}
                   className={`w-full h-12 text-[14px] font-semibold rounded-xl transition-all duration-200 flex items-center justify-center gap-2 mb-6 cursor-pointer ${
                     isCurrentPlan
-                      ? isPro
-                        ? "bg-white/20 text-white/80 cursor-default"
-                        : "bg-[#f3f4f6] text-[#9ca3af] cursor-default"
+                      ? "bg-[#f3f4f6] text-[#9ca3af] cursor-default"
                       : (cancelAtPeriodEnd && isFree) || isPendingPlan
                         ? "bg-[#f3f4f6] text-[#6b7280] cursor-default"
-                        : isPro
-                          ? "bg-[#7c3aed] hover:bg-[#6d28d9] text-white shadow-lg shadow-[#7c3aed]/25 hover:shadow-[#7c3aed]/40 active:scale-[0.98]"
-                          : "bg-[#7c3aed] hover:bg-[#6d28d9] text-white active:scale-[0.98]"
+                        : "bg-[#7c3aed] hover:bg-[#6d28d9] text-white active:scale-[0.98]"
                   }`}
                 >
                   {loading === plan.id ? (
@@ -255,11 +251,9 @@ export function UpgradePageClient({
 
                 <ul className="space-y-3 flex-1">
                   {(featureLists[plan.id] || []).map((feature: string, idx: number) => (
-                    <li key={idx} className={`flex items-start gap-2.5 text-[13px] ${isPro ? "text-white/80" : "text-[#374151]"}`}>
-                      <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
-                        isPro ? "bg-[#7c3aed]/30" : "bg-[#ede9fe]"
-                      }`}>
-                        <Check className={`h-3 w-3 ${isPro ? "text-[#a78bfa]" : "text-[#7c3aed]"}`} strokeWidth={3} />
+                    <li key={idx} className="flex items-start gap-2.5 text-[13px] text-[#374151]">
+                      <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 bg-[#ede9fe]">
+                        <Check className="h-3 w-3 text-[#7c3aed]" strokeWidth={3} />
                       </div>
                       <span>{feature}</span>
                     </li>

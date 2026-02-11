@@ -1006,7 +1006,7 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
           const isGrowth = plan.id === "growth"
 
           return (
-            <div key={plan.id} className={`relative rounded-2xl p-6 flex flex-col transition-all duration-200 ${isPro ? "bg-[#1a1a2e] text-white shadow-xl border-2 border-[#7c3aed]/30" : "bg-white border-2 border-[#e5e7eb] hover:border-[#d1d5db] shadow-sm hover:shadow-md"}`}>
+            <div key={plan.id} className={`relative rounded-2xl p-6 flex flex-col transition-all duration-200 ${isGrowth ? "bg-white border-2 border-[#7c3aed]/40 shadow-md hover:shadow-lg ring-1 ring-[#7c3aed]/10" : "bg-white border-2 border-[#e5e7eb] hover:border-[#d1d5db] shadow-sm hover:shadow-md"}`}>
               {isGrowth && (
                 <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
                   <span className="inline-flex items-center gap-1 px-3.5 py-1 bg-[#7c3aed] rounded-full text-[11px] font-bold text-white shadow-lg">Popular</span>
@@ -1014,20 +1014,20 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
               )}
               {isPro && (
                 <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
-                  <span className="inline-flex items-center gap-1 px-3.5 py-1 bg-[#7c3aed] rounded-full text-[11px] font-bold text-white shadow-lg">Recommended</span>
+                  <span className="inline-flex items-center gap-1 px-3.5 py-1 bg-[#1a1a2e] rounded-full text-[11px] font-bold text-white shadow-lg">Recommended</span>
                 </div>
               )}
               <div className="mb-4">
-                <h3 className={`text-[18px] font-bold mb-1 ${isPro ? "text-white" : "text-[#1a1a2e]"}`}>{plan.name}</h3>
-                <p className={`text-[12px] leading-relaxed ${isPro ? "text-white/70" : "text-[#6b7280]"}`}>{descriptions[plan.id] || ""}</p>
+                <h3 className="text-[18px] font-bold mb-1 text-[#1a1a2e]">{plan.name}</h3>
+                <p className="text-[12px] leading-relaxed text-[#6b7280]">{descriptions[plan.id] || ""}</p>
               </div>
               <div className="mb-5">
                 {isFree ? (
-                  <div className={`text-[32px] font-bold leading-none ${isPro ? "text-white" : "text-[#1a1a2e]"}`}>$0</div>
+                  <div className="text-[32px] font-bold leading-none text-[#1a1a2e]">$0</div>
                 ) : (
                   <div className="flex items-baseline gap-1">
-                    <span className={`text-[32px] font-bold leading-none ${isPro ? "text-white" : "text-[#1a1a2e]"}`}>${monthlyPrice % 1 === 0 ? monthlyPrice.toFixed(0) : monthlyPrice.toFixed(2)}</span>
-                    <span className={`text-[14px] ${isPro ? "text-white/60" : "text-[#9ca3af]"}`}>/mo</span>
+                    <span className="text-[32px] font-bold leading-none text-[#1a1a2e]">${monthlyPrice % 1 === 0 ? monthlyPrice.toFixed(0) : monthlyPrice.toFixed(2)}</span>
+                    <span className="text-[14px] text-[#9ca3af]">/mo</span>
                   </div>
                 )}
               </div>
@@ -1036,19 +1036,19 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
                 disabled={isDisabled}
                 className={`w-full h-11 text-[13px] font-semibold rounded-xl transition-all duration-200 flex items-center justify-center gap-2 mb-5 cursor-pointer ${
                   isCurrentPlan
-                    ? isPro ? "bg-white/20 text-white/80 cursor-default" : "bg-[#f3f4f6] text-[#9ca3af] cursor-default"
+                    ? "bg-[#f3f4f6] text-[#9ca3af] cursor-default"
                     : (isCanceling && isFree) || isPendingPlan
                       ? "bg-[#f3f4f6] text-[#6b7280] cursor-default"
-                      : isPro ? "bg-[#7c3aed] hover:bg-[#6d28d9] text-white shadow-lg shadow-[#7c3aed]/25" : "bg-[#7c3aed] hover:bg-[#6d28d9] text-white"
+                      : "bg-[#7c3aed] hover:bg-[#6d28d9] text-white"
                 }`}
               >
                 {loading === plan.id ? <><Loader2 className="h-4 w-4 animate-spin" />Processing...</> : buttonLabel}
               </button>
               <ul className="space-y-2.5 flex-1">
                 {(featureLists[plan.id] || []).map((feature: string, idx: number) => (
-                  <li key={idx} className={`flex items-start gap-2 text-[12px] ${isPro ? "text-white/80" : "text-[#374151]"}`}>
-                    <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${isPro ? "bg-[#7c3aed]/30" : "bg-[#ede9fe]"}`}>
-                      <Check className={`h-2.5 w-2.5 ${isPro ? "text-[#a78bfa]" : "text-[#7c3aed]"}`} strokeWidth={3} />
+                  <li key={idx} className="flex items-start gap-2 text-[12px] text-[#374151]">
+                    <div className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 mt-0.5 bg-[#ede9fe]">
+                      <Check className="h-2.5 w-2.5 text-[#7c3aed]" strokeWidth={3} />
                     </div>
                     <span>{feature}</span>
                   </li>
@@ -1057,6 +1057,12 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
             </div>
           )
         })}
+      </div>
+      <div className="mt-4 text-center">
+        <a href="/app/settings/billing/upgrade" className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-[#6b7280] hover:text-[#374151] bg-[#f9fafb] hover:bg-[#f3f4f6] border border-[#e5e7eb] rounded-lg transition-colors">
+          More Pricing
+          <ArrowUpRight className="h-3.5 w-3.5" />
+        </a>
       </div>
     </div>
   )

@@ -825,6 +825,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   const [domainVerifying, setDomainVerifying] = useState<string | null>(null)
   const [domainRemoving, setDomainRemoving] = useState<string | null>(null)
   const [copiedValue, setCopiedValue] = useState<string | null>(null)
+  const [domainDescExpanded, setDomainDescExpanded] = useState(false)
 
   // Avatar fallback order: Profile (manually set) → Store Builder → OnePage → Google → Initials
   // Filter out placeholder URLs to match layout.tsx logic for sidebar consistency
@@ -1763,8 +1764,8 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   onClick={() => handleTabChange(tab.id)}
                   className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full text-[13px] sm:text-[14px] font-medium transition-colors whitespace-nowrap cursor-pointer border ${
                     activeTab === tab.id
-                      ? "bg-[#f3f4f6] text-[#1a1a2e] border-[#e5e7eb]"
-                      : "text-[#6b7280] hover:text-[#374151] hover:bg-[#f3f4f6] border-transparent"
+                      ? "bg-[#f3f4f6] text-[#1a1a2e] border-[#d1d5db]"
+                      : "bg-[#f9fafb] text-[#6b7280] hover:text-[#374151] hover:bg-[#f3f4f6] border-transparent"
                   }`}
                 >
                   <Icon className="h-4 w-4" />
@@ -2699,7 +2700,20 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               {/* Connect Your Domain Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
                 <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1">Connect your own domain</h3>
-                <p className="text-[13px] text-[#6b7280] mb-4">Connect a custom domain to your store and OnePage. Your store will be at <span className="font-medium">yourdomain.com</span> and OnePage at <span className="font-medium">yourdomain.com/links</span>.</p>
+                {/* Desktop: full text, Mobile: truncated with View more/less */}
+                <p className="hidden sm:block text-[13px] text-[#6b7280] mb-4">Connect a custom domain to your store and OnePage. Your store will be at <span className="font-medium">yourdomain.com</span> and OnePage at <span className="font-medium">yourdomain.com/links</span>.</p>
+                <div className="sm:hidden mb-4">
+                  <div className={`overflow-hidden transition-all duration-300 ease-in-out ${domainDescExpanded ? "max-h-40" : "max-h-[1.3rem]"}`}>
+                    <p className="text-[13px] text-[#6b7280]">Connect a custom domain to your store and OnePage. Your store will be at <span className="font-medium">yourdomain.com</span> and OnePage at <span className="font-medium">yourdomain.com/links</span>.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setDomainDescExpanded(!domainDescExpanded)}
+                    className="text-[12px] font-medium text-[#7c3aed] mt-1 cursor-pointer"
+                  >
+                    {domainDescExpanded ? "View less" : "...View more"}
+                  </button>
+                </div>
 
                 <div className="flex gap-2">
                   <div className="flex-1 relative">
@@ -2729,6 +2743,22 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                     {domainError}
                   </div>
                 )}
+
+                {/* DNS Provider Quick Links */}
+                <div className="flex items-center gap-3 mt-3">
+                  <span className="text-[11px] text-[#9ca3af]">Get a domain:</span>
+                  <div className="flex items-center gap-2.5">
+                    <a href="https://www.hostinger.com" target="_blank" rel="noopener noreferrer" className="opacity-90 hover:opacity-100 transition-opacity" title="Hostinger">
+                      <svg width="80" height="18" viewBox="0 0 80 18" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8.5 2L5 5.5V8h3V5.5L11 3V8h3V2H8.5z" fill="#374151"/><text x="17" y="13" fontFamily="system-ui,-apple-system,sans-serif" fontSize="11" fontWeight="600" fill="#374151">Hostinger</text></svg>
+                    </a>
+                    <a href="https://www.godaddy.com" target="_blank" rel="noopener noreferrer" className="opacity-90 hover:opacity-100 transition-opacity" title="GoDaddy">
+                      <svg width="70" height="18" viewBox="0 0 70 18" fill="none" xmlns="http://www.w3.org/2000/svg"><text x="0" y="13" fontFamily="system-ui,-apple-system,sans-serif" fontSize="11" fontWeight="700" fill="#374151">GoDaddy</text></svg>
+                    </a>
+                    <a href="https://www.namecheap.com" target="_blank" rel="noopener noreferrer" className="opacity-90 hover:opacity-100 transition-opacity" title="Namecheap">
+                      <svg width="82" height="18" viewBox="0 0 82 18" fill="none" xmlns="http://www.w3.org/2000/svg"><text x="0" y="13" fontFamily="system-ui,-apple-system,sans-serif" fontSize="11" fontWeight="600" fill="#374151">Namecheap</text></svg>
+                    </a>
+                  </div>
+                </div>
 
                 {/* Suggested Domains */}
                 {suggestedDomains.length > 0 && domains.length === 0 && (
@@ -3014,18 +3044,13 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   return (
                     <div className="space-y-3">
                       {[
-                        { icon: <Store className="h-4 w-4 text-[#7c3aed]" />, title: "Your Store", from: `${username}.storelib.com`, to: displayDomain },
-                        { icon: <Link2 className="h-4 w-4 text-[#7c3aed]" />, title: "Your OnePage", from: `${username}.storelib.com/links`, to: `${displayDomain}/links` },
-                        { icon: <Globe className="h-4 w-4 text-[#7c3aed]" />, title: "Product Pages", from: `${username}.storelib.com/p/...`, to: `${displayDomain}/p/...` },
+                        { title: "Your Store", from: `${username}.storelib.com`, to: displayDomain },
+                        { title: "Your OnePage", from: `${username}.storelib.com/links`, to: `${displayDomain}/links` },
+                        { title: "Product Pages", from: `${username}.storelib.com/p/...`, to: `${displayDomain}/p/...` },
                       ].map((item, i) => (
                         <div key={i} className="group bg-[#f9fafb] hover:bg-[#f5f3ff]/50 rounded-xl p-3.5 border border-[#e5e7eb] hover:border-[#ede9fe] transition-all duration-200">
-                          <div className="flex items-center gap-3 mb-2">
-                            <div className="w-8 h-8 rounded-lg bg-[#f5f3ff] flex items-center justify-center shrink-0">
-                              {item.icon}
-                            </div>
-                            <p className="text-[13px] font-semibold text-[#374151]">{item.title}</p>
-                          </div>
-                          <div className="flex items-center gap-2 ml-11 flex-wrap">
+                          <p className="text-[13px] font-semibold text-[#374151] mb-2">{item.title}</p>
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-mono text-[11px] bg-[#e5e7eb]/60 text-[#6b7280] px-2 py-0.5 rounded">{item.from}</span>
                             <ChevronRight className="h-3 w-3 text-[#9ca3af] shrink-0" />
                             <span className="font-mono text-[11px] bg-[#ede9fe] text-[#7c3aed] font-medium px-2 py-0.5 rounded">{item.to}</span>

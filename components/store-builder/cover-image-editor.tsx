@@ -127,7 +127,7 @@ export function CoverImageEditor({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100vw-20px)] sm:w-full max-w-xl sm:max-w-2xl p-0 gap-0 overflow-hidden rounded-2xl flex flex-col max-h-[min(680px,calc(100dvh-16px))] sm:max-h-[calc(100dvh-40px)] max-sm:top-1/2 max-sm:left-2.5 max-sm:right-2.5 max-sm:-translate-y-1/2 max-sm:translate-x-0">
+      <DialogContent className="w-[calc(100vw-20px)] sm:w-full max-w-lg sm:max-w-[544px] p-0 gap-0 overflow-hidden rounded-2xl flex flex-col max-h-[min(680px,calc(100dvh-16px))] sm:max-h-[calc(100dvh-40px)] max-sm:top-1/2 max-sm:left-2.5 max-sm:right-2.5 max-sm:-translate-y-1/2 max-sm:translate-x-0">
         <DialogHeader className="px-4 sm:px-5 py-3 border-b shrink-0 bg-white">
           <DialogTitle className="flex items-center gap-2 text-base">
             <Move className="h-4 w-4" />
