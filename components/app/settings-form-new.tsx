@@ -825,6 +825,8 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   const [domainVerifying, setDomainVerifying] = useState<string | null>(null)
   const [domainRemoving, setDomainRemoving] = useState<string | null>(null)
   const [dnsRecordStatus, setDnsRecordStatus] = useState<{ aRecord: boolean; cname: boolean; txt: boolean } | null>(null)
+  const [domainWarnings, setDomainWarnings] = useState<string[]>([])
+  const [domainIssues, setDomainIssues] = useState<string[]>([])
   const [copiedValue, setCopiedValue] = useState<string | null>(null)
 
   // Avatar fallback order: Profile (manually set) → Store Builder → OnePage → Google → Initials
@@ -950,8 +952,12 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
             body: JSON.stringify({ domainId: d.id }),
           })
           const data = await res.json()
+          if (data.warnings?.length) setDomainWarnings(data.warnings)
+          if (data.issues?.length) setDomainIssues(data.issues)
           if (data.verified && !data.sslPending) {
             setDomains((prev) => prev.map((dom) => dom.id === d.id ? { ...dom, status: "active", ssl_status: "active" } : dom))
+            setDomainWarnings([])
+            setDomainIssues([])
           }
         } catch {
           // Ignore polling errors
@@ -1248,6 +1254,8 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
       })
       const data = await res.json()
       if (data.records) setDnsRecordStatus(data.records)
+      if (data.warnings) setDomainWarnings(data.warnings)
+      if (data.issues) setDomainIssues(data.issues)
       if (data.verified && data.sslPending) {
         // DNS verified but SSL certificate is still being issued
         setDomains((prev) => prev.map((d) => d.id === domainId ? { ...d, status: "ssl_provisioning", verified_at: new Date().toISOString(), ssl_status: "provisioning" } : d))
@@ -1255,6 +1263,8 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
       } else if (data.verified) {
         // Fully connected with SSL
         setDomains((prev) => prev.map((d) => d.id === domainId ? { ...d, status: "active", verified_at: new Date().toISOString(), ssl_status: "active" } : d))
+        setDomainWarnings([])
+        setDomainIssues([])
       } else {
         setDomainError(data.message || "Verification failed")
       }
@@ -2735,6 +2745,34 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   <div className="mt-3 flex items-center gap-2 text-[12px] text-red-600">
                     <AlertCircle className="h-3.5 w-3.5 shrink-0" />
                     {domainError}
+                  </div>
+                )}
+
+                {domainIssues.length > 0 && (
+                  <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-xl">
+                    <p className="text-[12px] font-semibold text-red-800 mb-1.5">Issues blocking SSL:</p>
+                    <ul className="space-y-1.5">
+                      {domainIssues.map((issue, i) => (
+                        <li key={i} className="text-[11px] text-red-700 flex items-start gap-2 leading-relaxed">
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1 flex-shrink-0" />
+                          {issue}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {domainWarnings.length > 0 && (
+                  <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                    <p className="text-[12px] font-semibold text-amber-800 mb-1.5">Warnings:</p>
+                    <ul className="space-y-1.5">
+                      {domainWarnings.map((warning, i) => (
+                        <li key={i} className="text-[11px] text-amber-700 flex items-start gap-2 leading-relaxed">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1 flex-shrink-0" />
+                          {warning}
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 )}
 
