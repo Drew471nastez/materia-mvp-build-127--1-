@@ -62,6 +62,7 @@ function BlockToggle({ checked, onCheckedChange }: { checked: boolean; onChecked
 }
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
+import { MobileColorPicker } from "@/components/onepage/mobile-color-picker"
 import {
   Dialog,
   DialogContent,
@@ -713,6 +714,9 @@ export function LinksTab() {
   const autoScrollVelocityRef = useRef(0)
   const autoScrollElementRef = useRef<HTMLElement | null>(null)
   const dragSourceElRef = useRef<HTMLElement | null>(null)
+  const touchStartYRef = useRef(0)
+  const touchCurrentYRef = useRef(0)
+  const [touchDragOffsetY, setTouchDragOffsetY] = useState(0)
   
   // Name/Bio edit state
   const [showNameBioModal, setShowNameBioModal] = useState(false)
@@ -1699,13 +1703,19 @@ export function LinksTab() {
     return fallback
   }, [])
 
-  const handleTouchDragStart = useCallback((blockId: string) => {
+  const handleTouchDragStart = useCallback((blockId: string, touchY?: number) => {
     const block = sortedBlocks.find(b => b.id === blockId)
     if (!block || block.type === "header") return
 
     const sourceBlock = document.querySelector(`[data-block-id="${blockId}"]`) as HTMLElement | null
     dragSourceElRef.current = sourceBlock
     autoScrollElementRef.current = getScrollableAncestor(sourceBlock)
+
+    touchStartYRef.current = touchY ?? 0
+    touchCurrentYRef.current = touchY ?? 0
+    setTouchDragOffsetY(0)
+
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate(8)
 
     setTouchDragId(blockId)
     setDraggedBlockId(blockId)
@@ -1733,6 +1743,8 @@ export function LinksTab() {
     const handleTouchMove = (e: TouchEvent) => {
       e.preventDefault()
       const touch = e.touches[0]
+      touchCurrentYRef.current = touch.clientY
+      setTouchDragOffsetY(touch.clientY - touchStartYRef.current)
 
       // Find target block element under touch point
       const elements = document.elementsFromPoint(touch.clientX, touch.clientY)
@@ -1782,6 +1794,7 @@ export function LinksTab() {
       autoScrollVelocityRef.current = 0
       autoScrollElementRef.current = null
       dragSourceElRef.current = null
+      setTouchDragOffsetY(0)
 
       const targetId = touchOverIdRef.current
       if (touchDragId && targetId && touchDragId !== targetId) {
@@ -1807,6 +1820,7 @@ export function LinksTab() {
           const [removed] = newOrder.splice(draggedIdx, 1)
           newOrder.splice(targetIdx, 0, removed)
           reorderBlocks(newOrder.map((b, i) => ({ ...b, sort_order: i })))
+          if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate(10)
         }
       }
 
@@ -1825,11 +1839,25 @@ export function LinksTab() {
       autoScrollVelocityRef.current = 0
       autoScrollElementRef.current = null
       dragSourceElRef.current = null
+      setTouchDragOffsetY(0)
       document.removeEventListener('touchmove', handleTouchMove)
       document.removeEventListener('touchend', handleTouchEnd)
       document.removeEventListener('touchcancel', handleTouchEnd)
     }
   }, [touchDragId, sortedBlocks, reorderBlocks, onepage, getScrollableAncestor, runAutoScrollLoop])
+
+
+  useEffect(() => {
+    if (!touchDragId) return
+    const prev = document.body.style.overscrollBehaviorY
+    const prevTouch = document.body.style.touchAction
+    document.body.style.overscrollBehaviorY = "none"
+    document.body.style.touchAction = "none"
+    return () => {
+      document.body.style.overscrollBehaviorY = prev
+      document.body.style.touchAction = prevTouch
+    }
+  }, [touchDragId])
 
   const filteredCategories = searchQuery
     ? blockCategories.map((cat) => ({
@@ -1904,7 +1932,7 @@ export function LinksTab() {
               setShowNameBioModal(true)
             }}
             className="text-left group flex items-center gap-1.5 hover:opacity-70 transition-opacity cursor-pointer"
-          >
+    >
             <h2 className="font-semibold">{title || "Your Name"}</h2>
             <Pencil className="h-3 w-3 text-gray-400 opacity-50 group-hover:opacity-100 transition-opacity" />
           </button>
@@ -2133,6 +2161,7 @@ export function LinksTab() {
                 onDragStart={(e) => handleDragStart(e, block.id)}
                 onTouchDragStart={handleTouchDragStart}
                 isDragging={draggedBlockId === block.id}
+                dragOffsetY={draggedBlockId === block.id ? touchDragOffsetY : 0}
                 isDropTarget={dragOverBlockId === block.id}
                 draggedBlockType={draggedBlockId ? sortedBlocks.find(b => b.id === draggedBlockId)?.type : null}
                 onMoveChildToMainList={handleMoveChildToMainList}
@@ -3729,6 +3758,8 @@ export function LinksTab() {
                     if (!isDraggingCrop && !isResizingCrop) return
                     e.preventDefault()
                     const touch = e.touches[0]
+      touchCurrentYRef.current = touch.clientY
+      setTouchDragOffsetY(touch.clientY - touchStartYRef.current)
                     const rect = cropContainerRef.current?.getBoundingClientRect()
                     if (!rect || !touch) return
 
@@ -3828,6 +3859,8 @@ export function LinksTab() {
                       e.preventDefault()
                       e.stopPropagation()
                       const touch = e.touches[0]
+      touchCurrentYRef.current = touch.clientY
+      setTouchDragOffsetY(touch.clientY - touchStartYRef.current)
                       setIsDraggingCrop(true)
                       const rect = (e.target as HTMLElement).getBoundingClientRect()
                       setDragStartCrop({ x: touch.clientX - rect.left, y: touch.clientY - rect.top })
@@ -3865,6 +3898,8 @@ export function LinksTab() {
                               e.preventDefault()
                               e.stopPropagation()
                               const touch = e.touches[0]
+      touchCurrentYRef.current = touch.clientY
+      setTouchDragOffsetY(touch.clientY - touchStartYRef.current)
                               setIsResizingCrop(corner)
                               setDragStartCrop({ x: touch.clientX, y: touch.clientY })
                             }}
@@ -4072,6 +4107,8 @@ export function LinksTab() {
                       e.preventDefault()
                       e.stopPropagation()
                       const touch = e.touches[0]
+      touchCurrentYRef.current = touch.clientY
+      setTouchDragOffsetY(touch.clientY - touchStartYRef.current)
                       setIsDraggingVideoCrop(true)
                       setVideoDragStart({
                         x: touch.clientX,
@@ -4115,6 +4152,8 @@ export function LinksTab() {
                               e.preventDefault()
                               e.stopPropagation()
                               const touch = e.touches[0]
+      touchCurrentYRef.current = touch.clientY
+      setTouchDragOffsetY(touch.clientY - touchStartYRef.current)
                               setIsResizingVideoCrop(corner)
                               setVideoDragStart({ x: touch.clientX, y: touch.clientY, boxX: videoCropBox.x, boxY: videoCropBox.y, boxW: videoCropBox.width, boxH: videoCropBox.height })
                             }}
@@ -4174,6 +4213,8 @@ export function LinksTab() {
                       onTouchMove={(e) => {
                         e.preventDefault()
                         const touch = e.touches[0]
+      touchCurrentYRef.current = touch.clientY
+      setTouchDragOffsetY(touch.clientY - touchStartYRef.current)
                         const container = videoContainerRef.current
                         if (!container || !touch) return
                         const rect = container.getBoundingClientRect()
@@ -4291,8 +4332,9 @@ interface BlockItemProps {
   onUrlChangeWithAutoFetch?: (blockId: string, url: string) => void
   onOpenStreamingModal?: (platform: string, index: number, data: LinkButtonBlockData, updateFn: (data: Partial<LinkButtonBlockData>) => void) => void
   onDragStart?: (e: React.DragEvent) => void
-  onTouchDragStart?: (blockId: string) => void
+  onTouchDragStart?: (blockId: string, touchY?: number) => void
   isDragging?: boolean
+  dragOffsetY?: number
   isDropTarget?: boolean
   draggedBlockType?: OnePageBlockType | null
   onMoveChildToMainList?: (childBlock: OnePageBlock, groupId: string) => void
@@ -4321,6 +4363,7 @@ function BlockItem({
   onDragStart,
   onTouchDragStart,
   isDragging,
+  dragOffsetY = 0,
   isDropTarget,
   draggedBlockType,
   onMoveChildToMainList,
@@ -4600,9 +4643,10 @@ function BlockItem({
         "border rounded-xl bg-white transition-all relative",
         isSelected ? "ring-1 ring-gray-400 border-gray-300" : "hover:border-gray-300",
         !block.enabled && "opacity-50",
-        isDragging && "opacity-50 scale-[0.98]",
+        isDragging && "opacity-95 scale-[1.01] shadow-2xl z-20",
         canAcceptDrop && "ring-2 ring-violet-500 border-violet-400 bg-violet-50/50"
       )}
+      style={isDragging ? { transform: `translateY(${dragOffsetY}px)` } : undefined}
     >
       {/* Drop zone indicator for group blocks */}
       {canAcceptDrop && (
@@ -4624,11 +4668,11 @@ function BlockItem({
       >
         {!isHeaderBlock && (
           <div
-            className="cursor-grab text-gray-300 hover:text-gray-400 active:cursor-grabbing touch-none select-none p-1 -m-1 md:p-0 md:m-0"
+            className={cn("cursor-grab text-gray-300 hover:text-gray-400 active:cursor-grabbing select-none p-1 -m-1 md:p-0 md:m-0", isDragging ? "touch-none" : "touch-manipulation")}
             onTouchStart={(e) => {
               if (onTouchDragStart) {
                 e.stopPropagation()
-                onTouchDragStart(block.id)
+                onTouchDragStart(block.id, e.touches[0]?.clientY)
               }
             }}
           >
@@ -5764,18 +5808,12 @@ function BlockEditor({
               <div className="space-y-2">
                 <Label className="text-xs">Block Background Color</Label>
                 <div className="flex items-center gap-3">
-                  <div className="relative">
-                    <input
-                      type="color"
-                      value={data.block_background_color || "#7c3aed"}
-                      onChange={(e) => updateData({ block_background_color: e.target.value })}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    />
-                    <div
-                      className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer"
-                      style={{ backgroundColor: data.block_background_color || "#7c3aed" }}
-                    />
-                  </div>
+                  <MobileColorPicker
+                    value={data.block_background_color || "#7c3aed"}
+                    onChange={(color) => updateData({ block_background_color: color })}
+                    label="Block background color"
+                    presets={blockBackgroundColorPresets}
+                  />
                   <Input
                     value={data.block_background_color || ""}
                     onChange={(e) => updateData({ block_background_color: e.target.value })}
@@ -5805,18 +5843,12 @@ function BlockEditor({
                 <Label className="text-xs">Text Color</Label>
                 <p className="text-[10px] text-muted-foreground">For title, description, price{data.style === "callout" ? " and button" : ""}</p>
                 <div className="flex items-center gap-3">
-                  <div className="relative">
-                    <input
-                      type="color"
-                      value={data.text_color || "#ffffff"}
-                      onChange={(e) => updateData({ text_color: e.target.value })}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    />
-                    <div
-                      className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer"
-                      style={{ backgroundColor: data.text_color || "#ffffff" }}
-                    />
-                  </div>
+                  <MobileColorPicker
+                    value={data.text_color || "#ffffff"}
+                    onChange={(color) => updateData({ text_color: color })}
+                    label="Text color"
+                    presets={textColorPresets}
+                  />
                   <Input
                     value={data.text_color || ""}
                     onChange={(e) => updateData({ text_color: e.target.value })}
@@ -5847,18 +5879,12 @@ function BlockEditor({
                   <Label className="text-xs">Button Color</Label>
                   <p className="text-[10px] text-muted-foreground">CTA button background</p>
                   <div className="flex items-center gap-3">
-                    <div className="relative">
-                      <input
-                        type="color"
-                        value={data.button_color || "#ffffff"}
-                        onChange={(e) => updateData({ button_color: e.target.value })}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                      />
-                      <div
-                        className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer"
-                        style={{ backgroundColor: data.button_color || "#ffffff" }}
-                      />
-                    </div>
+                    <MobileColorPicker
+                    value={data.button_color || "#ffffff"}
+                    onChange={(color) => updateData({ button_color: color })}
+                    label="Button color"
+                    presets={buttonColorPresets}
+                  />
                     <Input
                       value={data.button_color || ""}
                       onChange={(e) => updateData({ button_color: e.target.value })}
@@ -5889,18 +5915,12 @@ function BlockEditor({
                 <div className="space-y-2">
                   <Label className="text-xs">Button Text Color</Label>
                   <div className="flex items-center gap-3">
-                    <div className="relative">
-                      <input
-                        type="color"
-                        value={data.button_text_color || "#1a1a1a"}
-                        onChange={(e) => updateData({ button_text_color: e.target.value })}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                      />
-                      <div
-                        className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer"
-                        style={{ backgroundColor: data.button_text_color || "#1a1a1a" }}
-                      />
-                    </div>
+                    <MobileColorPicker
+                    value={data.button_text_color || "#1a1a1a"}
+                    onChange={(color) => updateData({ button_text_color: color })}
+                    label="Button text color"
+                    presets={buttonTextColorPresets}
+                  />
                     <Input
                       value={data.button_text_color || ""}
                       onChange={(e) => updateData({ button_text_color: e.target.value })}

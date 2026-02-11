@@ -67,7 +67,7 @@ export default function PricingPage() {
     <div className="min-h-screen bg-gradient-to-b from-white to-[#faf5ff] py-16 px-4 sm:px-6 lg:px-8">
       <div className="max-w-5xl mx-auto">
         {/* Hero Section */}
-        <div className="text-center mb-16">
+        <div className="text-center mb-16 animate-in fade-in-0 slide-in-from-bottom-1 duration-500">
           <h1 className="text-4xl sm:text-5xl font-bold text-[#1a1a2e] mb-4">
             Choose Your Plan
           </h1>
@@ -165,7 +165,7 @@ export default function PricingPage() {
         </div>
 
         {/* Bottom Note */}
-        <div className="text-center">
+        <div className="text-center animate-in fade-in-0 slide-in-from-bottom-1 duration-500">
           <p className="text-[#6b7280] text-sm">
             All plans include core features. Upgrade or downgrade anytime.
           </p>
