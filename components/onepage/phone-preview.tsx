@@ -2194,9 +2194,7 @@ export function MobilePreviewContent() {
       />
       <div
         key={animationKey}
-        ref={scrollContainerRef}
-        onScroll={handleScroll}
-        className="flex-1 overflow-y-auto overflow-x-hidden relative"
+        className="flex-1 relative overflow-hidden"
         style={{
           background:
             theme.background_type === "gradient" && theme.background_gradient
@@ -2207,10 +2205,11 @@ export function MobilePreviewContent() {
           animation: isAnimatedGradient ? "gradientShiftFrame 10s ease-in-out infinite" : undefined,
         }}
       >
+        {/* Background overlays - absolute positioned, don't scroll */}
         {theme.background_type === "image" && theme.background_image_url && (
           <div
             style={{
-              position: "fixed",
+              position: "absolute",
               top: "-50px",
               left: "-50px",
               right: "-50px",
@@ -2230,7 +2229,7 @@ export function MobilePreviewContent() {
           <video
             src={(theme as any).background_video_url}
             style={{
-              position: "fixed",
+              position: "absolute",
               top: "-50px",
               left: "-50px",
               right: "-50px",
@@ -2252,7 +2251,7 @@ export function MobilePreviewContent() {
         {/* Noise overlay for gradient backgrounds */}
         {theme.background_type === "gradient" && (theme as any).gradient_noise && (
           <svg
-            className="fixed inset-0 w-full h-full pointer-events-none"
+            className="absolute inset-0 w-full h-full pointer-events-none"
             style={{ mixBlendMode: "overlay", zIndex: 1, opacity: (((theme as any).noise_strength || 15) / 100) * 2 }}
           >
             <filter id="mobile-noise-gradient">
@@ -2265,7 +2264,7 @@ export function MobilePreviewContent() {
         {/* Noise overlay for image backgrounds */}
         {theme.background_type === "image" && (theme as any).image_noise && (
           <svg
-            className="fixed inset-0 w-full h-full pointer-events-none"
+            className="absolute inset-0 w-full h-full pointer-events-none"
             style={{ mixBlendMode: "overlay", zIndex: 1, opacity: (((theme as any).noise_strength || 15) / 100) * 2 }}
           >
             <filter id="mobile-noise-image">
@@ -2279,7 +2278,7 @@ export function MobilePreviewContent() {
         {(theme.background_type === "solid" || theme.background_type === "gradient") &&
           (theme as any).background_pattern &&
           (theme as any).background_pattern !== "none" && (
-            <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 1 }}>
+            <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 1 }}>
               <BackgroundPattern
                 pattern={(theme as any).background_pattern}
                 color={(theme as any).pattern_color || "#00000090"}
@@ -2289,7 +2288,7 @@ export function MobilePreviewContent() {
             </div>
           )}
 
-        {/* Share Button - conditionally rendered based on share settings */}
+        {/* Share Button - absolute, stays above scroll, doesn't scroll with content */}
         {settings?.share_enabled !== false && (
           <ShareButtonPreview
             sellerName={sellerName}
@@ -2307,7 +2306,7 @@ export function MobilePreviewContent() {
           />
         )}
 
-        {/* Notification Bell - conditionally rendered based on subscribe settings */}
+        {/* Notification Bell - absolute, stays above scroll, doesn't scroll with content */}
         {settings?.subscribe_enabled !== false && (
           <NotificationBell
             sellerName={sellerName}
@@ -2316,6 +2315,14 @@ export function MobilePreviewContent() {
             isVisible={buttonsVisible}
           />
         )}
+
+        {/* Scrollable content container */}
+        <div
+          ref={scrollContainerRef}
+          onScroll={handleScroll}
+          className="absolute inset-0 overflow-y-auto overflow-x-hidden"
+          style={{ zIndex: 2 }}
+        >
 
         <div
           className="relative z-10 w-full max-w-md mx-auto px-5 py-8 pb-5 flex flex-col"
@@ -2387,8 +2394,10 @@ export function MobilePreviewContent() {
             </div>
           </div>
         </div>
+        {/* Close inner scroll container */}
+        </div>
       </div>
-      
+
       {/* Spotify Modal - Popup style inside phone preview */}
       {spotifyModalOpen && spotifyModalData && (
         <div
