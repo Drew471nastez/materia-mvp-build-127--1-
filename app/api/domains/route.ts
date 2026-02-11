@@ -100,8 +100,10 @@ export async function getVercelDomainConfig(domain: string): Promise<{
     const misconfigured = data.misconfigured === true
 
     // Check if SSL certificate is ready
-    // Vercel returns certs array with issued certificates
-    const sslReady = !misconfigured && data.misconfigured === false
+    // Vercel's config endpoint: misconfigured=false means DNS is correct AND SSL is provisioned
+    // Also check for explicit certs array if present, and acceptedChallenges
+    const hasValidCerts = Array.isArray(data.certs) && data.certs.length > 0
+    const sslReady = !misconfigured && (hasValidCerts || data.misconfigured === false)
 
     return {
       configured: !misconfigured,

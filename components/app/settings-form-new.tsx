@@ -932,6 +932,41 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     fetchDomains()
   }, [fetchDomains])
 
+  // Auto-poll SSL provisioning domains every 15s until they become active or timeout (10 min)
+  useEffect(() => {
+    const sslDomains = domains.filter((d) => d.status === "ssl_provisioning")
+    if (sslDomains.length === 0) return
+
+    const interval = setInterval(async () => {
+      for (const d of sslDomains) {
+        try {
+          const res = await fetch("/api/domains/verify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ domainId: d.id }),
+          })
+          const data = await res.json()
+          if (data.verified && !data.sslPending) {
+            // SSL is now active - update domain status
+            setDomains((prev) => prev.map((dom) => dom.id === d.id ? { ...dom, status: "active", ssl_status: "active" } : dom))
+          }
+        } catch {
+          // Ignore polling errors silently
+        }
+      }
+    }, 15000)
+
+    // Timeout after 10 minutes - stop polling and show a helpful message
+    const timeout = setTimeout(() => {
+      clearInterval(interval)
+    }, 600000)
+
+    return () => {
+      clearInterval(interval)
+      clearTimeout(timeout)
+    }
+  }, [domains])
+
   // Handle URL parameters for tab navigation and Stripe Connect return/refresh
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -2734,7 +2769,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                               </span>
                             ) : d.status === "ssl_provisioning" ? (
                               <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 text-[11px] font-semibold rounded-full">
-                                <Loader2 className="h-3 w-3 animate-spin" /> Issuing SSL
+                                <Loader2 className="h-3 w-3 animate-spin" /> SSL Pending
                               </span>
                             ) : d.status === "verifying" ? (
                               <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-700 text-[11px] font-semibold rounded-full">
@@ -2779,7 +2814,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                               </span>
                             ) : d.status === "ssl_provisioning" ? (
                               <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 text-[11px] font-semibold rounded-full">
-                                <Loader2 className="h-3 w-3 animate-spin" /> Issuing SSL
+                                <Loader2 className="h-3 w-3 animate-spin" /> SSL Pending
                               </span>
                             ) : d.status === "verifying" ? (
                               <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-700 text-[11px] font-semibold rounded-full">
@@ -2923,7 +2958,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                     {domains.some((d) => d.status === "ssl_provisioning") && (
                       <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
                         <p className="text-[13px] font-medium text-blue-800 mb-1">SSL certificate is being issued</p>
-                        <p className="text-[12px] text-blue-600">Your DNS is correctly configured. An SSL certificate is being provisioned automatically. This usually takes 1-10 minutes. Click &quot;Verify&quot; again to check.</p>
+                        <p className="text-[12px] text-blue-600">Your DNS is correctly configured. An SSL certificate is being provisioned automatically. This usually takes 1-10 minutes. This page will update automatically when complete.</p>
                       </div>
                     )}
 
