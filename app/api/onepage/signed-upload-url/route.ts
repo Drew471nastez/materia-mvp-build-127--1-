@@ -47,14 +47,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "File too large (max 4GB)" }, { status: 400 })
     }
 
-    // Ensure bucket exists
-    const { data: buckets } = await adminSupabase.storage.listBuckets()
-    const bucketExists = buckets?.some((b) => b.name === BUCKET_NAME)
-    if (!bucketExists) {
-      await adminSupabase.storage.createBucket(BUCKET_NAME, {
-        public: true,
-        fileSizeLimit: MAX_DIGITAL_FILE_SIZE,
-      })
+    // Ensure bucket exists with proper configuration
+    try {
+      const { data: buckets } = await adminSupabase.storage.listBuckets()
+      const existingBucket = buckets?.find((b) => b.name === BUCKET_NAME)
+      if (!existingBucket) {
+        const { error: createErr } = await adminSupabase.storage.createBucket(BUCKET_NAME, {
+          public: true,
+          fileSizeLimit: MAX_DIGITAL_FILE_SIZE,
+        })
+        if (createErr && !createErr.message?.includes('already exists')) {
+          console.error("Bucket creation error:", createErr)
+        }
+      } else if (!existingBucket.public) {
+        // Ensure bucket is public
+        await adminSupabase.storage.updateBucket(BUCKET_NAME, {
+          public: true,
+          fileSizeLimit: MAX_DIGITAL_FILE_SIZE,
+        })
+      }
+    } catch (bucketErr) {
+      console.error("Bucket setup error (continuing):", bucketErr)
     }
 
     // Generate unique path
@@ -62,17 +75,17 @@ export async function POST(request: NextRequest) {
     const subfolder = folder === "digital" ? "digital-products" : "product-images"
     const filePath = `${creator.id}/${subfolder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
 
-    // Create a signed upload URL (valid for 10 minutes)
+    // Create a signed upload URL using admin client (valid for 10 minutes)
     const { data: signedData, error: signedError } = await adminSupabase.storage
       .from(BUCKET_NAME)
       .createSignedUploadUrl(filePath)
 
     if (signedError || !signedData) {
       console.error("Signed URL error:", signedError)
-      return NextResponse.json({ error: "Failed to create upload URL" }, { status: 500 })
+      return NextResponse.json({ error: `Failed to create upload URL: ${signedError?.message || 'Unknown error'}` }, { status: 500 })
     }
 
-    // Also get the public URL for after upload
+    // Get the public URL for after upload
     const { data: urlData } = adminSupabase.storage.from(BUCKET_NAME).getPublicUrl(filePath)
 
     return NextResponse.json({
@@ -83,6 +96,7 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error("Signed upload URL error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    const message = error instanceof Error ? error.message : "Internal server error"
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

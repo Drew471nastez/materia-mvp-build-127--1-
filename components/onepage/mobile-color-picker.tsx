@@ -118,6 +118,9 @@ export function MobileColorPicker({ value, onChange, label = "Choose color", cla
   const openSheet = useCallback(() => {
     setOpen(true)
     setIsVisible(true)
+    // Prevent pull-to-refresh on iOS/Android
+    document.documentElement.style.overscrollBehavior = 'none'
+    document.body.style.overscrollBehavior = 'none'
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         setIsAnimating(true)
@@ -133,6 +136,8 @@ export function MobileColorPicker({ value, onChange, label = "Choose color", cla
     setTimeout(() => {
       setIsVisible(false)
       setOpen(false)
+      document.documentElement.style.overscrollBehavior = ''
+      document.body.style.overscrollBehavior = ''
     }, 380)
   }, [])
 
@@ -247,9 +252,7 @@ export function MobileColorPicker({ value, onChange, label = "Choose color", cla
               willChange: 'transform, opacity',
             }}
           >
-            <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
-              <Check className="h-3 w-3 text-white" strokeWidth={3} />
-            </div>
+            <Check className="h-4 w-4 text-white" strokeWidth={3} />
             <span className="text-[13px] font-semibold text-white">Color applied</span>
           </div>
         </div>,
@@ -284,6 +287,7 @@ export function MobileColorPicker({ value, onChange, label = "Choose color", cla
             {/* Handle */}
             <div
               className="pt-3 pb-1 flex justify-center cursor-grab active:cursor-grabbing touch-none"
+              data-sheet-handle
               onTouchStart={handleSheetTouchStart}
               onTouchMove={handleSheetTouchMove}
               onTouchEnd={handleSheetTouchEnd}
@@ -418,16 +422,9 @@ export function MobileColorPicker({ value, onChange, label = "Choose color", cla
                 <button
                   type="button"
                   onClick={handleApply}
-                  className="h-12 px-5 rounded-2xl bg-violet-600 text-white text-sm font-semibold transition-all active:scale-[0.97] hover:bg-violet-700"
+                  className="h-12 px-6 rounded-2xl bg-violet-600 text-white text-sm font-semibold transition-all active:scale-[0.97] hover:bg-violet-700"
                 >
                   Apply
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDone}
-                  className="h-12 px-5 rounded-2xl bg-gray-900 text-white text-sm font-semibold transition-all active:scale-[0.97] hover:bg-gray-800"
-                >
-                  Done
                 </button>
               </div>
             </div>

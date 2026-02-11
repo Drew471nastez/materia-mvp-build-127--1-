@@ -697,6 +697,32 @@ export function LinksTab() {
     }
   }, [])
 
+  // Prevent pull-to-refresh / overscroll when any bottom sheet is open on mobile
+  const anySheetOpen = showAddModal || showSocialModal || showThumbnailModal
+  useEffect(() => {
+    if (!anySheetOpen || !isMobileModalViewport) return
+
+    // Set overscroll-behavior to contain to prevent pull-to-refresh
+    const prevOverscroll = document.documentElement.style.overscrollBehavior
+    document.documentElement.style.overscrollBehavior = 'none'
+    document.body.style.overscrollBehavior = 'none'
+
+    // Non-passive touchmove listener to allow preventDefault (React touch events are passive)
+    const handleTouch = (e: TouchEvent) => {
+      // If the touch target is inside the bottom sheet drag handle area, prevent default
+      const target = e.target as HTMLElement
+      if (target?.closest?.('[data-sheet-handle]')) {
+        e.preventDefault()
+      }
+    }
+    document.addEventListener('touchmove', handleTouch, { passive: false })
+
+    return () => {
+      document.documentElement.style.overscrollBehavior = prevOverscroll
+      document.body.style.overscrollBehavior = ''
+      document.removeEventListener('touchmove', handleTouch)
+    }
+  }, [anySheetOpen, isMobileModalViewport])
 
   // Streaming service URL modal state
   const [showStreamingUrlModal, setShowStreamingUrlModal] = useState(false)
@@ -1711,6 +1737,11 @@ export function LinksTab() {
 
   // Touch drag handlers for mobile devices
   const getScrollableAncestor = useCallback((node: HTMLElement | null) => {
+    // First, try to find the explicit scroll container for the links tab
+    const explicit = document.querySelector('[data-scroll-container="links-tab"]') as HTMLElement | null
+    if (explicit && explicit.scrollHeight > explicit.clientHeight) return explicit
+
+    // Walk up from the node to find any scrollable ancestor
     let current: HTMLElement | null = node
     while (current && current !== document.body) {
       const { overflowY } = window.getComputedStyle(current)
@@ -1718,8 +1749,8 @@ export function LinksTab() {
       if (canScroll) return current
       current = current.parentElement
     }
-    const fallback = document.scrollingElement as HTMLElement | null
-    return fallback
+    // Fallback to document scrolling element (window scroll)
+    return (document.scrollingElement || document.documentElement) as HTMLElement
   }, [])
 
   const handleTouchDragStart = useCallback((blockId: string, touchY?: number) => {
@@ -1740,19 +1771,26 @@ export function LinksTab() {
     setDraggedBlockId(blockId)
   }, [sortedBlocks, getScrollableAncestor])
 
+  // Continuously running auto-scroll loop while dragging
+  const autoScrollActiveRef = useRef(false)
   const runAutoScrollLoop = useCallback(() => {
-    cancelAnimationFrame(autoScrollTimerRef.current)
+    if (autoScrollActiveRef.current) return // already running
+    autoScrollActiveRef.current = true
 
     const tick = () => {
       const scrollEl = autoScrollElementRef.current
       const speed = autoScrollVelocityRef.current
 
-      if (!scrollEl || speed === 0) {
+      if (!scrollEl || !autoScrollActiveRef.current) {
+        autoScrollActiveRef.current = false
         autoScrollTimerRef.current = 0
         return
       }
 
-      scrollEl.scrollTop += speed
+      if (speed !== 0) {
+        scrollEl.scrollTop += speed
+      }
+
       autoScrollTimerRef.current = requestAnimationFrame(tick)
     }
 
@@ -1787,35 +1825,30 @@ export function LinksTab() {
       // Auto-scroll using viewport edges for reliable behavior
       const scrollEl = autoScrollElementRef.current || getScrollableAncestor(touchedElement || dragSourceElRef.current)
       if (scrollEl) {
+        autoScrollElementRef.current = scrollEl
+
         // Use both viewport edges and scroll container edges
         const viewportH = window.innerHeight
         const rect = scrollEl.getBoundingClientRect()
-        const zone = 120
+        const zone = 140
         let nextVelocity = 0
 
         // Top edge - use viewport top or scroll container top, whichever is larger
         const effectiveTop = Math.max(0, rect.top)
         const effectiveBottom = Math.min(viewportH, rect.bottom)
 
-        if (touch.clientY < effectiveTop + zone) {
+        if (touch.clientY < effectiveTop + zone && touch.clientY < viewportH * 0.2 + effectiveTop) {
           const proximity = Math.min(1, (zone - (touch.clientY - effectiveTop)) / zone)
-          // Accelerate more as we get closer to the edge
-          nextVelocity = -Math.max(2, proximity * proximity * 24)
-        } else if (touch.clientY > effectiveBottom - zone) {
+          nextVelocity = -Math.max(3, proximity * proximity * 28)
+        } else if (touch.clientY > effectiveBottom - zone && touch.clientY > effectiveBottom - viewportH * 0.2) {
           const proximity = Math.min(1, (zone - (effectiveBottom - touch.clientY)) / zone)
-          nextVelocity = Math.max(2, proximity * proximity * 24)
+          nextVelocity = Math.max(3, proximity * proximity * 28)
         }
 
-        const changedTarget = autoScrollElementRef.current !== scrollEl
-        const prevVelocity = autoScrollVelocityRef.current
-
-        autoScrollElementRef.current = scrollEl
         autoScrollVelocityRef.current = nextVelocity
 
-        if (nextVelocity === 0) {
-          cancelAnimationFrame(autoScrollTimerRef.current)
-          autoScrollTimerRef.current = 0
-        } else if (changedTarget || prevVelocity === 0 || Math.abs(prevVelocity - nextVelocity) > 2) {
+        // Start the loop if not already running and we need scrolling
+        if (nextVelocity !== 0 && !autoScrollActiveRef.current) {
           runAutoScrollLoop()
         }
       }
@@ -1823,6 +1856,7 @@ export function LinksTab() {
 
     const handleTouchEnd = () => {
       // Cancel auto-scroll cleanly
+      autoScrollActiveRef.current = false
       if (autoScrollTimerRef.current) {
         cancelAnimationFrame(autoScrollTimerRef.current)
         autoScrollTimerRef.current = 0
@@ -1871,6 +1905,7 @@ export function LinksTab() {
     document.addEventListener('touchcancel', handleTouchEnd)
 
     return () => {
+      autoScrollActiveRef.current = false
       if (autoScrollTimerRef.current) {
         cancelAnimationFrame(autoScrollTimerRef.current)
         autoScrollTimerRef.current = 0
@@ -2317,7 +2352,7 @@ export function LinksTab() {
           } : undefined}
         >
           {isMobileModalViewport && (
-            <div className="pt-3 pb-2 flex justify-center cursor-pointer">
+            <div className="pt-3 pb-2 flex justify-center cursor-pointer" data-sheet-handle>
               <div className="h-1.5 w-10 rounded-full bg-gray-300" />
             </div>
           )}
@@ -2630,7 +2665,7 @@ export function LinksTab() {
           } : undefined}
         >
           {isMobileModalViewport && (
-            <div className="pt-3 pb-2 flex justify-center cursor-pointer">
+            <div className="pt-3 pb-2 flex justify-center cursor-pointer" data-sheet-handle>
               <div className="h-1.5 w-10 rounded-full bg-gray-300" />
             </div>
           )}
@@ -3121,7 +3156,7 @@ export function LinksTab() {
           {!showIconLibraryInModal && (
             <>
               {isMobileModalViewport && (
-                <div className="pt-3 pb-2 flex justify-center cursor-pointer">
+                <div className="pt-3 pb-2 flex justify-center cursor-pointer" data-sheet-handle>
                   <div className="h-1.5 w-10 rounded-full bg-gray-300" />
                 </div>
               )}
@@ -3251,7 +3286,7 @@ export function LinksTab() {
           {showIconLibraryInModal && (
             <>
               {isMobileModalViewport && (
-                <div className="pt-3 pb-2 flex justify-center cursor-pointer">
+                <div className="pt-3 pb-2 flex justify-center cursor-pointer" data-sheet-handle>
                   <div className="h-1.5 w-10 rounded-full bg-gray-300" />
                 </div>
               )}
@@ -3508,18 +3543,22 @@ export function LinksTab() {
                         throw new Error(err.error || 'Failed to get upload URL')
                       }
 
-                      const { token, path, publicUrl } = await signedRes.json()
+                      const { signedUrl, token, path: storagePath, publicUrl } = await signedRes.json()
 
-                      // Upload directly to Supabase Storage using uploadToSignedUrl (handles token correctly)
-                      const supabaseClient = createClient()
-                      const { error: uploadError } = await supabaseClient.storage
-                        .from('lead-form-files')
-                        .uploadToSignedUrl(path, token, file, {
-                          contentType: file.type || 'application/octet-stream',
-                        })
+                      // Upload directly to Supabase Storage using the signed URL
+                      // The signedUrl already contains auth - just PUT the file body
+                      const uploadRes = await fetch(signedUrl, {
+                        method: 'PUT',
+                        headers: {
+                          'Content-Type': file.type || 'application/octet-stream',
+                          'x-upsert': 'true',
+                        },
+                        body: file,
+                      })
 
-                      if (uploadError) {
-                        throw new Error(uploadError.message || 'Upload failed')
+                      if (!uploadRes.ok) {
+                        const errText = await uploadRes.text().catch(() => 'Upload failed')
+                        throw new Error(`Upload failed: ${errText}`)
                       }
 
                       const url = publicUrl
@@ -5027,7 +5066,7 @@ function BlockItem({
               } : undefined}
             >
               {isMobileStatsViewport && (
-                <div className="pt-3 pb-2 flex justify-center cursor-pointer">
+                <div className="pt-3 pb-2 flex justify-center cursor-pointer" data-sheet-handle>
                   <div className="h-1.5 w-10 rounded-full bg-gray-300" />
                 </div>
               )}
