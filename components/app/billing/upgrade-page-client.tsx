@@ -178,14 +178,14 @@ export function UpgradePageClient({
               >
                 {isGrowth && (
                   <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
-                    <span className="inline-flex items-center gap-1 px-3.5 py-1 bg-[#7c3aed] rounded-full text-[11px] font-bold text-white shadow-lg">
+                    <span className="inline-flex items-center gap-1 px-3.5 py-1 bg-[#1a1a2e] rounded-full text-[11px] font-bold text-white shadow-lg">
                       Popular
                     </span>
                   </div>
                 )}
                 {isPro && (
                   <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
-                    <span className="inline-flex items-center gap-1 px-3.5 py-1 bg-[#1a1a2e] rounded-full text-[11px] font-bold text-white shadow-lg">
+                    <span className="inline-flex items-center gap-1 px-3.5 py-1 bg-[#7c3aed] rounded-full text-[11px] font-bold text-white shadow-lg">
                       <Star className="h-3 w-3 fill-white" />
                       Recommended
                     </span>
@@ -193,10 +193,10 @@ export function UpgradePageClient({
                 )}
 
                 <div className="mb-5">
-                  <h3 className={`text-[20px] font-bold mb-1.5 ${"text-[#1a1a2e]"}`}>
+                  <h3 className="text-[20px] font-bold mb-1.5 text-[#1a1a2e]">
                     {plan.name}
                   </h3>
-                  <p className={`text-[13px] leading-relaxed ${"text-[#6b7280]"}`}>
+                  <p className="text-[13px] leading-relaxed text-[#6b7280]">
                     {descriptions[plan.id] || ""}
                   </p>
                 </div>
@@ -204,16 +204,16 @@ export function UpgradePageClient({
                 <div className="mb-6">
                   {isFree ? (
                     <>
-                      <div className={`text-[40px] font-bold leading-none ${"text-[#1a1a2e]"}`}>$0</div>
-                      <p className={`text-[13px] mt-1.5 ${"text-[#9ca3af]"}`}>Free forever</p>
+                      <div className="text-[40px] font-bold leading-none text-[#1a1a2e]">$0</div>
+                      <p className="text-[13px] mt-1.5 text-[#9ca3af]">Free forever</p>
                     </>
                   ) : (
                     <>
                       <div className="flex items-baseline gap-1">
-                        <span className={`text-[40px] font-bold leading-none ${"text-[#1a1a2e]"}`}>
+                        <span className="text-[40px] font-bold leading-none text-[#1a1a2e]">
                           ${displayPrice % 1 === 0 ? displayPrice.toFixed(0) : displayPrice.toFixed(2)}
                         </span>
-                        <span className={`text-[15px] ${"text-[#9ca3af]"}`}>/mo</span>
+                        <span className="text-[15px] text-[#9ca3af]">/mo</span>
                       </div>
                     </>
                   )}
@@ -252,8 +252,8 @@ export function UpgradePageClient({
                 <ul className="space-y-3 flex-1">
                   {(featureLists[plan.id] || []).map((feature: string, idx: number) => (
                     <li key={idx} className="flex items-start gap-2.5 text-[13px] text-[#374151]">
-                      <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 bg-[#ede9fe]">
-                        <Check className="h-3 w-3 text-[#7c3aed]" strokeWidth={3} />
+                      <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${isGrowth ? "bg-[#7c3aed]" : "bg-[#ede9fe]"}`}>
+                        <Check className={`h-3 w-3 ${isGrowth ? "text-white" : "text-[#7c3aed]"}`} strokeWidth={3} />
                       </div>
                       <span>{feature}</span>
                     </li>

@@ -1285,7 +1285,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
               <TooltipTrigger asChild>
                 <button
                   onClick={openGlobalSettings}
-                  className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                  className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
                 >
                   <Settings className="h-4 w-4 settings-gear-animated" />
                 </button>

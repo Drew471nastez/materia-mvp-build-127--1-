@@ -83,18 +83,27 @@ export async function getVercelDomainConfig(domain: string): Promise<{
   }
 
   // Method 1: Try an actual HTTPS probe - most reliable way to check SSL
-  try {
-    const probeRes = await fetch(`https://${domain}`, {
-      method: "HEAD",
-      redirect: "manual",
-      signal: AbortSignal.timeout(5000),
-    })
-    // Any response (even 3xx, 4xx, 5xx) means SSL is working
-    if (probeRes.status > 0) {
-      return { configured: true, sslReady: true }
+  // Retry up to 2 times for transient failures
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const probeRes = await fetch(`https://${domain}`, {
+        method: "HEAD",
+        redirect: "manual",
+        signal: AbortSignal.timeout(6000),
+      })
+      // Any response (even 3xx, 4xx, 5xx) means SSL is working
+      if (probeRes.status > 0) {
+        return { configured: true, sslReady: true }
+      }
+    } catch (probeErr: any) {
+      // If it's an SSL protocol error specifically, SSL isn't ready
+      const errMsg = probeErr?.cause?.code || probeErr?.message || ""
+      if (errMsg.includes("SSL") || errMsg.includes("ERR_TLS") || errMsg.includes("certificate")) {
+        break // Don't retry SSL errors - cert isn't provisioned yet
+      }
+      // For timeout/network errors, retry once
+      if (attempt === 0) continue
     }
-  } catch {
-    // HTTPS probe failed - SSL might not be ready yet, fall through to Vercel API
   }
 
   // Method 2: Check Vercel project domain endpoint for verification status

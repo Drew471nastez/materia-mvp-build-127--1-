@@ -11,6 +11,46 @@ const resolve4 = promisify(dns.resolve4)
 // Vercel's official A record IPs for custom domains
 const VERCEL_IPS = ["76.76.21.21"]
 
+const VERCEL_TOKEN = process.env.VERCEL_TOKEN
+const VERCEL_PROJECT_ID = process.env.VERCEL_PROJECT_ID
+const VERCEL_TEAM_ID = process.env.VERCEL_TEAM_ID
+
+/**
+ * Ensure domain is registered with Vercel (re-register if needed)
+ * This forces Vercel to provision SSL certificates
+ */
+async function ensureDomainOnVercel(domain: string): Promise<void> {
+  if (!VERCEL_TOKEN || !VERCEL_PROJECT_ID) return
+
+  try {
+    const url = VERCEL_TEAM_ID
+      ? `https://api.vercel.com/v10/projects/${VERCEL_PROJECT_ID}/domains?teamId=${VERCEL_TEAM_ID}`
+      : `https://api.vercel.com/v10/projects/${VERCEL_PROJECT_ID}/domains`
+
+    // Re-add both apex and www to ensure Vercel has them and is issuing certs
+    await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${VERCEL_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name: domain }),
+    })
+
+    // Also add www variant
+    await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${VERCEL_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name: `www.${domain}` }),
+    })
+  } catch {
+    // Best effort - don't block verification
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const supabase = await createClient()
@@ -111,14 +151,19 @@ export async function POST(request: Request) {
       })
     }
 
-    // DNS is verified - now check if Vercel has SSL ready
+    // DNS is verified — ensure domain is registered with Vercel for SSL provisioning
+    // This re-registers even if already added (idempotent), which forces Vercel to
+    // check/issue SSL certificates. Critical for fixing ERR_SSL_PROTOCOL_ERROR.
+    await ensureDomainOnVercel(domainRecord.domain)
+
+    // Now check if Vercel has SSL ready
     const vercelConfig = await getVercelDomainConfig(domainRecord.domain)
 
-    // Time-based fallback: if domain has been in ssl_provisioning for >15 min,
+    // Time-based fallback: if domain has been in ssl_provisioning for >5 min,
     // DNS is verified so Vercel will have provisioned SSL by now - mark active
     const wasProvisioningLongEnough = domainRecord.status === "ssl_provisioning" &&
       domainRecord.verified_at &&
-      (Date.now() - new Date(domainRecord.verified_at).getTime()) > 15 * 60 * 1000
+      (Date.now() - new Date(domainRecord.verified_at).getTime()) > 5 * 60 * 1000
 
     if (vercelConfig.sslReady || wasProvisioningLongEnough) {
       // Fully connected - DNS verified AND SSL certificate is active (or timed out)

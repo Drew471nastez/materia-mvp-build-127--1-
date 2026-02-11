@@ -2747,15 +2747,15 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 {/* DNS Provider Quick Links */}
                 <div className="flex items-center gap-3 mt-3">
                   <span className="text-[11px] text-[#9ca3af]">Get a domain:</span>
-                  <div className="flex items-center gap-2.5">
-                    <a href="https://www.hostinger.com" target="_blank" rel="noopener noreferrer" className="opacity-90 hover:opacity-100 transition-opacity" title="Hostinger">
-                      <svg width="80" height="18" viewBox="0 0 80 18" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8.5 2L5 5.5V8h3V5.5L11 3V8h3V2H8.5z" fill="#374151"/><text x="17" y="13" fontFamily="system-ui,-apple-system,sans-serif" fontSize="11" fontWeight="600" fill="#374151">Hostinger</text></svg>
+                  <div className="flex items-center gap-3">
+                    <a href="https://www.hostinger.com" target="_blank" rel="noopener noreferrer" className="opacity-90 hover:opacity-100 transition-opacity cursor-pointer" title="Hostinger">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="#374151" xmlns="http://www.w3.org/2000/svg"><path d="M16.415 0v7.16l5.785 3.384V2.949zM1.8 0v11.237h18.815L14.89 8.09l-7.457-.003V3.024zm14.615 20.894v-5.019l-7.514-.005c.007.033-5.82-3.197-5.82-3.197l19.119.091V24zM1.8 13.551v7.343l5.633 2.949v-6.988z"/></svg>
                     </a>
-                    <a href="https://www.godaddy.com" target="_blank" rel="noopener noreferrer" className="opacity-90 hover:opacity-100 transition-opacity" title="GoDaddy">
-                      <svg width="70" height="18" viewBox="0 0 70 18" fill="none" xmlns="http://www.w3.org/2000/svg"><text x="0" y="13" fontFamily="system-ui,-apple-system,sans-serif" fontSize="11" fontWeight="700" fill="#374151">GoDaddy</text></svg>
+                    <a href="https://www.godaddy.com" target="_blank" rel="noopener noreferrer" className="opacity-90 hover:opacity-100 transition-opacity cursor-pointer" title="GoDaddy">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="#374151" xmlns="http://www.w3.org/2000/svg"><path d="M16.415 0v7.16l5.785 3.384V2.949zM1.8 0v11.237h18.815L14.89 8.09l-7.457-.003V3.024zm14.615 20.894v-5.019l-7.514-.005c.007.033-5.82-3.197-5.82-3.197l19.119.091V24zM1.8 13.551v7.343l5.633 2.949v-6.988z"/></svg>
                     </a>
-                    <a href="https://www.namecheap.com" target="_blank" rel="noopener noreferrer" className="opacity-90 hover:opacity-100 transition-opacity" title="Namecheap">
-                      <svg width="82" height="18" viewBox="0 0 82 18" fill="none" xmlns="http://www.w3.org/2000/svg"><text x="0" y="13" fontFamily="system-ui,-apple-system,sans-serif" fontSize="11" fontWeight="600" fill="#374151">Namecheap</text></svg>
+                    <a href="https://www.namecheap.com" target="_blank" rel="noopener noreferrer" className="opacity-90 hover:opacity-100 transition-opacity cursor-pointer" title="Namecheap">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="#374151" xmlns="http://www.w3.org/2000/svg"><path d="M17.295 17.484c.227.403.57.728.985.931-.309.15-.647.229-.99.232h-3.068a2.26 2.26 0 0 1-1.957-1.143L6.705 6.511a2.27 2.27 0 0 0-.974-.922c.309-.153.652-.233.997-.232h3.05c.81.003 1.558.438 1.959 1.143zm-9.329-7.392L6.269 6.755c-.209-.392-.582-.657-.984-.829-.204.165-.391.35-.522.581-.184.349-4.391 8.648-4.569 8.987a2.245 2.245 0 0 0 4.016 1.999zm15.846-1.593a2.245 2.245 0 0 0-1.162-2.955v-.001a2.2 2.2 0 0 0-.892-.187l-.003-.011c-.816 0-1.569.443-1.965 1.157l-3.749 7.414 1.689 3.323c.213.399.59.664.998.839.252-.2.473-.444.605-.742z"/></svg>
                     </a>
                   </div>
                 </div>
@@ -2807,7 +2807,12 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                       <div key={d.id}>
                         {/* Desktop Row */}
                         <div className="hidden sm:grid sm:grid-cols-[1fr_130px_150px_140px] gap-4 items-center py-4 border-b border-[#f3f4f6] last:border-0">
-                          <p className="text-[14px] font-medium text-[#1a1a2e]">{d.domain}</p>
+                          <div>
+                            <p className="text-[14px] font-medium text-[#1a1a2e]">{d.domain}</p>
+                            {(d.status === "ssl_provisioning" || d.status === "pending" || d.status === "verifying") && (
+                              <p className="text-[11px] text-[#9ca3af] mt-0.5">Fallback: <a href={`https://${username}.storelib.com`} target="_blank" rel="noopener noreferrer" className="text-[#7c3aed] hover:underline">{username}.storelib.com</a></p>
+                            )}
+                          </div>
                           <div className="flex items-center gap-1.5">
                             {d.status === "active" ? (
                               <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[11px] font-semibold rounded-full">
@@ -2888,7 +2893,10 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                               </div>
                             </div>
                           </div>
-                          <p className="text-[12px] text-[#9ca3af] mb-3">Added {new Date(d.created_at).toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" })}</p>
+                          <p className="text-[12px] text-[#9ca3af] mb-1">Added {new Date(d.created_at).toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" })}</p>
+                          {(d.status === "ssl_provisioning" || d.status === "pending" || d.status === "verifying") && (
+                            <p className="text-[11px] text-[#9ca3af] mb-2">Fallback: <a href={`https://${username}.storelib.com`} target="_blank" rel="noopener noreferrer" className="text-[#7c3aed] hover:underline">{username}.storelib.com</a></p>
+                          )}
                           <div className="flex items-center gap-2">
                             {d.status !== "active" && (
                               <button
