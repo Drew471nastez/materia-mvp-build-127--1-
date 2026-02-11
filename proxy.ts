@@ -141,6 +141,52 @@ async function resolveCustomDomain(host: string): Promise<string | null> {
   }
 }
 
+/**
+ * Check if a domain has a redirect entry in domain_redirects table.
+ * Used for old/removed/changed domains - redirects traffic to new domain or fallback subdomain.
+ * Returns the redirect URL and HTTP code if found, null otherwise.
+ */
+async function checkDomainRedirect(host: string): Promise<{ redirectTo: string; httpCode: number } | null> {
+  const hostWithoutPort = host.split(":")[0]
+
+  // Skip known storelib domains and localhost
+  if (
+    hostWithoutPort === "localhost" ||
+    hostWithoutPort === "127.0.0.1" ||
+    hostWithoutPort === MAIN_DOMAIN ||
+    hostWithoutPort.endsWith(`.${MAIN_DOMAIN}`)
+  ) {
+    return null
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (!supabaseUrl || !supabaseKey) return null
+
+  try {
+    const supabase = createClient(supabaseUrl, supabaseKey)
+
+    // Strip www. prefix for lookup
+    const lookupDomain = hostWithoutPort.replace(/^www\./, "")
+
+    const { data: redirect } = await supabase
+      .from("domain_redirects")
+      .select("redirect_to, http_code, keep_until")
+      .eq("domain", lookupDomain)
+      .gt("keep_until", new Date().toISOString())
+      .single()
+
+    if (!redirect) return null
+
+    return {
+      redirectTo: redirect.redirect_to,
+      httpCode: redirect.http_code || 301,
+    }
+  } catch {
+    return null
+  }
+}
+
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl
   const host = request.headers.get("host") || ""
@@ -174,8 +220,22 @@ export async function proxy(request: NextRequest) {
       username = customDomainUsername
       isCustomDomain = true
     } else if (isExternalDomain && !isReservedPath(pathname)) {
-      // Custom domain not resolved — fallback to main site
-      // This handles cases where domain is in DB but inactive, or lookup failed
+      // Domain not actively connected — check redirect memory table
+      // This handles removed/changed domains by redirecting to the new domain or fallback subdomain
+      const domainRedirect = await checkDomainRedirect(host)
+      if (domainRedirect) {
+        const redirectUrl = new URL(domainRedirect.redirectTo)
+        // Preserve path: if old domain was accessed at /links, redirect to newdomain/links
+        if (pathname && pathname !== "/") {
+          redirectUrl.pathname = pathname
+        }
+        if (search) {
+          redirectUrl.search = search
+        }
+        return NextResponse.redirect(redirectUrl, { status: domainRedirect.httpCode })
+      }
+
+      // No redirect entry either — fallback to main site
       const fallbackUrl = new URL(`https://${MAIN_DOMAIN}`)
       fallbackUrl.pathname = pathname
       fallbackUrl.search = search

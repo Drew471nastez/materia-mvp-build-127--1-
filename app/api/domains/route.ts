@@ -292,6 +292,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "This domain is already connected to another account" }, { status: 400 })
     }
 
+    // Check if seller already has an active domain (domain change scenario)
+    // If so, the old domain will become a redirect to the new one
+    const { data: existingActiveDomains } = await supabase
+      .from("custom_domains")
+      .select("id, domain")
+      .eq("creator_id", creator.id)
+      .in("status", ["active", "ssl_provisioning", "pending", "verifying"])
+
     // Register www as primary domain and apex as redirect → www
     // www is canonical because Vercel provisions SSL more reliably for CNAME-based hosts.
     // Apex uses A record (76.76.21.21) and redirects to www at the Vercel edge.
@@ -329,6 +337,36 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Failed to add domain" }, { status: 500 })
     }
 
+    // Domain change: set up redirects from old domain(s) to the new one
+    // Old domains stay attached to Vercel for 30-day grace period
+    if (existingActiveDomains && existingActiveDomains.length > 0) {
+      const keepUntil = new Date()
+      keepUntil.setDate(keepUntil.getDate() + 30)
+
+      for (const oldDomain of existingActiveDomains) {
+        // Create redirect from old domain → new domain
+        await supabase
+          .from("domain_redirects")
+          .upsert({
+            domain: oldDomain.domain,
+            creator_id: creator.id,
+            redirect_to: `https://www.${cleanDomain}`,
+            http_code: 301,
+            reason: "changed",
+            keep_until: keepUntil.toISOString(),
+          }, { onConflict: "domain" })
+
+        // Remove old domain from custom_domains (no longer active)
+        await supabase
+          .from("custom_domains")
+          .delete()
+          .eq("id", oldDomain.id)
+          .eq("creator_id", creator.id)
+
+        // DO NOT remove old domain from Vercel — keep it attached for redirects
+      }
+    }
+
     return NextResponse.json({ domain: newDomain })
   } catch (error) {
     console.error("Domains POST error:", error)
@@ -337,6 +375,8 @@ export async function POST(request: Request) {
 }
 
 // DELETE - Remove a custom domain
+// Instead of immediately removing from Vercel, we keep it attached as a redirect
+// for a grace period (30 days). This prevents DEPLOYMENT_NOT_FOUND for shared links.
 export async function DELETE(request: Request) {
   try {
     const supabase = await createClient()
@@ -362,7 +402,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Creator not found" }, { status: 404 })
     }
 
-    // Get domain name before deleting (for Vercel cleanup)
+    // Get domain record and creator's username for fallback URL
     const { data: domainRecord } = await supabase
       .from("custom_domains")
       .select("domain")
@@ -370,6 +410,54 @@ export async function DELETE(request: Request) {
       .eq("creator_id", creator.id)
       .single()
 
+    if (!domainRecord) {
+      return NextResponse.json({ error: "Domain not found" }, { status: 404 })
+    }
+
+    // Get the seller's username for the fallback redirect URL
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("username")
+      .eq("id", user.id)
+      .single()
+
+    const fallbackUrl = profile?.username
+      ? `https://${profile.username}.storelib.com`
+      : `https://storelib.com`
+
+    // Check if the seller has another active domain (domain change scenario)
+    const { data: otherDomains } = await supabase
+      .from("custom_domains")
+      .select("domain")
+      .eq("creator_id", creator.id)
+      .neq("id", domainId)
+      .in("status", ["active", "ssl_provisioning", "pending", "verifying"])
+      .limit(1)
+
+    // Determine redirect target: new domain if changing, fallback subdomain if removing
+    const redirectTo = otherDomains && otherDomains.length > 0
+      ? `https://www.${otherDomains[0].domain}`
+      : fallbackUrl
+
+    const reason = otherDomains && otherDomains.length > 0 ? "changed" : "removed"
+
+    // Create a redirect memory entry (30-day grace period)
+    // Upsert in case the domain was previously redirected
+    const keepUntil = new Date()
+    keepUntil.setDate(keepUntil.getDate() + 30)
+
+    await supabase
+      .from("domain_redirects")
+      .upsert({
+        domain: domainRecord.domain,
+        creator_id: creator.id,
+        redirect_to: redirectTo,
+        http_code: 301,
+        reason,
+        keep_until: keepUntil.toISOString(),
+      }, { onConflict: "domain" })
+
+    // Delete the domain from custom_domains table
     const { error } = await supabase
       .from("custom_domains")
       .delete()
@@ -381,11 +469,10 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Failed to remove domain" }, { status: 500 })
     }
 
-    // Remove both apex and www from Vercel project
-    if (domainRecord?.domain) {
-      await removeDomainFromVercel(domainRecord.domain)
-      await removeDomainFromVercel(`www.${domainRecord.domain}`)
-    }
+    // DO NOT remove from Vercel yet - keep the domain attached so it can serve redirects.
+    // The domain stays on Vercel for the grace period so traffic hits our middleware
+    // which then redirects to the new domain or fallback subdomain.
+    // A cleanup job should detach domains after keep_until passes.
 
     return NextResponse.json({ success: true })
   } catch (error) {

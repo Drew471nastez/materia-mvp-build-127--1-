@@ -266,7 +266,7 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
   const planBenefits: Record<string, string[]> = {
     free: ["6% + $0.25 per transaction", "Basic OnePage features", "Unlimited Digital Products", "500 emails / month"],
     growth: ["3% + $0.25 per transaction", "Unlimited digital products", "Premium OnePage features", "Custom domain"],
-    pro: ["1.5% + $0.25 per transaction", "Unlimited digital products", "Premium OnePage features", "Custom domain", "Verified badge", "Priority support"],
+    pro: ["1.5% + $0.25 per transaction", "Unlimited digital products", "Premium OnePage features", "Custom domain"],
   }
 
   // Determine the next upgrade target
@@ -1009,12 +1009,12 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
             <div key={plan.id} className={`relative rounded-2xl p-6 flex flex-col transition-all duration-200 ${isGrowth ? "bg-white border-2 border-[#7c3aed]/40 shadow-md hover:shadow-lg ring-1 ring-[#7c3aed]/10" : "bg-white border-2 border-[#e5e7eb] hover:border-[#d1d5db] shadow-sm hover:shadow-md"}`}>
               {isGrowth && (
                 <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
-                  <span className="inline-flex items-center gap-1 px-3.5 py-1 bg-[#1a1a2e] rounded-full text-[11px] font-bold text-white shadow-lg">Popular</span>
+                  <span className="inline-flex items-center gap-1 px-3.5 py-1 bg-[#7c3aed] rounded-full text-[11px] font-bold text-white shadow-lg">Most Popular</span>
                 </div>
               )}
               {isPro && (
                 <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
-                  <span className="inline-flex items-center gap-1 px-3.5 py-1 bg-[#7c3aed] rounded-full text-[11px] font-bold text-white shadow-lg">Recommended</span>
+                  <span className="inline-flex items-center gap-1 px-3.5 py-1 bg-[#1a1a2e] rounded-full text-[11px] font-bold text-white shadow-lg">Recommended</span>
                 </div>
               )}
               <div className="mb-4">

@@ -825,7 +825,6 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   const [domainVerifying, setDomainVerifying] = useState<string | null>(null)
   const [domainRemoving, setDomainRemoving] = useState<string | null>(null)
   const [copiedValue, setCopiedValue] = useState<string | null>(null)
-  const [domainDescExpanded, setDomainDescExpanded] = useState(false)
 
   // Avatar fallback order: Profile (manually set) → Store Builder → OnePage → Google → Initials
   // Filter out placeholder URLs to match layout.tsx logic for sidebar consistency
@@ -1827,13 +1826,13 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
             <div className="space-y-4 sm:space-y-6">
               {/* Purple Announcement Bar — Connect Stripe */}
               {stripeStatusLoading && (
-                <div className="rounded-2xl bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] px-4 sm:px-6 py-3.5 sm:py-4 shadow-sm animate-pulse">
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                <div className="rounded-2xl bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] px-4 sm:px-6 py-3 sm:py-3.5 shadow-sm animate-pulse">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
                       <div className="w-5 h-5 rounded-full bg-white/20 shrink-0" />
-                      <div className="h-4 bg-white/20 rounded w-64" />
+                      <div className="h-4 bg-white/20 rounded w-40 sm:w-64" />
                     </div>
-                    <div className="h-9 w-24 bg-white/20 rounded-lg shrink-0" />
+                    <div className="h-9 w-20 sm:w-24 bg-white/20 rounded-lg shrink-0" />
                   </div>
                 </div>
               )}
@@ -2700,20 +2699,9 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               {/* Connect Your Domain Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
                 <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1">Connect your own domain</h3>
-                {/* Desktop: full text, Mobile: truncated with View more/less */}
+                {/* Desktop: full text, Mobile: shorter text */}
                 <p className="hidden sm:block text-[13px] text-[#6b7280] mb-4">Connect a custom domain to your store and OnePage. Your store will be at <span className="font-medium">yourdomain.com</span> and OnePage at <span className="font-medium">yourdomain.com/links</span>.</p>
-                <div className="sm:hidden mb-4">
-                  <div className={`overflow-hidden transition-all duration-300 ease-in-out ${domainDescExpanded ? "max-h-40" : "max-h-[1.3rem]"}`}>
-                    <p className="text-[13px] text-[#6b7280]">Connect a custom domain to your store and OnePage. Your store will be at <span className="font-medium">yourdomain.com</span> and OnePage at <span className="font-medium">yourdomain.com/links</span>.</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setDomainDescExpanded(!domainDescExpanded)}
-                    className="text-[12px] font-medium text-[#7c3aed] mt-1 cursor-pointer"
-                  >
-                    {domainDescExpanded ? "View less" : "...View more"}
-                  </button>
-                </div>
+                <p className="sm:hidden text-[13px] text-[#6b7280] mb-4">Connect a custom domain to your store and OnePage.</p>
 
                 <div className="flex gap-2">
                   <div className="flex-1 relative">
@@ -2748,13 +2736,13 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 <div className="flex items-center gap-3 mt-3">
                   <span className="text-[11px] text-[#9ca3af]">Get a domain:</span>
                   <div className="flex items-center gap-3">
-                    <a href="https://www.hostinger.com" target="_blank" rel="noopener noreferrer" className="opacity-90 hover:opacity-100 transition-opacity cursor-pointer" title="Hostinger">
+                    <a href="https://www.hostinger.com/domain-name-search" target="_blank" rel="noopener noreferrer" className="opacity-90 hover:opacity-100 transition-opacity cursor-pointer" title="Hostinger">
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="#374151" xmlns="http://www.w3.org/2000/svg"><path d="M16.415 0v7.16l5.785 3.384V2.949zM1.8 0v11.237h18.815L14.89 8.09l-7.457-.003V3.024zm14.615 20.894v-5.019l-7.514-.005c.007.033-5.82-3.197-5.82-3.197l19.119.091V24zM1.8 13.551v7.343l5.633 2.949v-6.988z"/></svg>
                     </a>
-                    <a href="https://www.godaddy.com" target="_blank" rel="noopener noreferrer" className="opacity-90 hover:opacity-100 transition-opacity cursor-pointer" title="GoDaddy">
+                    <a href="https://www.godaddy.com/en/domains" target="_blank" rel="noopener noreferrer" className="opacity-90 hover:opacity-100 transition-opacity cursor-pointer" title="GoDaddy">
                       <svg width="20" height="20" viewBox="0 0 1534 1368" fill="#374151" xmlns="http://www.w3.org/2000/svg"><path fillRule="evenodd" d="M1391.5 968.9C1233.6 1221.8 986.7 1370 767 1367.2c-219.8 2.8-466.6-145.4-624.5-398.4C-71.6 625.8-41 220 210.9 62.4c159.2-99.5 369.2-75.9 555.8 41.8 187.2-117.8 397.1-141.3 556.5-41.8 251.9 157.6 282.2 563.4 68.3 906.5M280.3 929.8q11.3 16.5 23.4 32.3 12.2 15.9 25 31.1 12.8 15.3 26.4 30c-45.4-184.8-5.7-416.6 124.3-624.9Q497 370 516.5 343q19.5-27.1 40.8-52.7t44.3-49.7 47.7-46.6c-17.2-9-34.8-17.1-52.8-24.4-118.2-46.9-229.3-43.9-313.3 8.7-84 52.7-135.5 151.4-145.1 278.1q-1.8 26.9-1.3 53.8.4 27 3.1 53.8 2.7 26.9 7.6 53.4 5 26.5 12.1 52.5 7.9 30 18.2 59.3 10.2 29.3 22.6 57.8 12.4 28.4 26.9 55.8 14.6 27.5 31.1 53.7 10.5 16.9 21.9 33.3m1106.3-312.4q4.8-26.5 7.4-53.3 2.7-26.8 3.1-53.7t-1.4-53.8c-9.6-126.7-61-225.4-145.1-278-84-52.6-195.3-55.7-313.3-8.7q-24.9 10.2-48.8 22.4-24 12.3-46.9 26.5T797.1 249q-21.6 16.1-41.8 33.8c-31.1 27.3-60.2 56.8-86.9 88.2-26.8 31.5-51.2 65-73.1 100-21.9 35.1-41.2 71.7-57.8 109.6-16.5 37.9-30.2 77-41.1 116.9C477.5 767 470.3 839.2 475 911c9.5 126.8 61.1 225.6 145.1 278.1 10.8 6.7 22 12.5 33.5 17.6 11.6 5.1 23.5 9.5 35.6 13s24.5 6.2 37 8.1c12.5 1.8 25.1 2.8 37.7 3h6.5c12.6-.2 25.2-1.2 37.7-3.1 12.5-1.8 24.8-4.5 37-8 12.1-3.6 24-7.9 35.5-13 11.6-5.1 22.8-11 33.6-17.6 83.9-52.5 135.5-151.3 145-278 4.8-71.9-2.4-144.1-21.4-213.6-4.9-19.8-11.4-39-17.9-58.6l-201 125.7c-2.8 1.8-6 3-9.2 3.6-3.3.5-6.7.4-9.9-.3-3.3-.8-6.4-2.2-9.1-4.1-2.7-2-5-4.4-6.7-7.2l-45.5-72.9c-1.8-2.8-3-5.9-3.5-9.2-.6-3.3-.5-6.7.3-9.9.7-3.3 2.1-6.3 4-9 2-2.8 4.4-5.1 7.2-6.8l310.2-194c2.9-1.9 6.2-3.2 9.7-3.7 3.5-.6 7-.4 10.4.5 3.4 1 6.6 2.6 9.3 4.8s4.9 5 6.5 8.2c99.5 190.3 127.1 393.2 86.5 558.8q13.5-14.7 26.4-30 12.8-15.3 24.9-31.2t23.5-32.3q11.3-16.5 21.9-33.4 16.5-26.3 31-53.7 14.6-27.4 27-55.9 12.4-28.4 22.6-57.7t18.2-59.3q7.1-26 12-52.5"/></svg>
                     </a>
-                    <a href="https://www.namecheap.com" target="_blank" rel="noopener noreferrer" className="opacity-90 hover:opacity-100 transition-opacity cursor-pointer" title="Namecheap">
+                    <a href="https://www.namecheap.com/domains/" target="_blank" rel="noopener noreferrer" className="opacity-90 hover:opacity-100 transition-opacity cursor-pointer" title="Namecheap">
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="#374151" xmlns="http://www.w3.org/2000/svg"><path d="M17.295 17.484c.227.403.57.728.985.931-.309.15-.647.229-.99.232h-3.068a2.26 2.26 0 0 1-1.957-1.143L6.705 6.511a2.27 2.27 0 0 0-.974-.922c.309-.153.652-.233.997-.232h3.05c.81.003 1.558.438 1.959 1.143zm-9.329-7.392L6.269 6.755c-.209-.392-.582-.657-.984-.829-.204.165-.391.35-.522.581-.184.349-4.391 8.648-4.569 8.987a2.245 2.245 0 0 0 4.016 1.999zm15.846-1.593a2.245 2.245 0 0 0-1.162-2.955v-.001a2.2 2.2 0 0 0-.892-.187l-.003-.011c-.816 0-1.569.443-1.965 1.157l-3.749 7.414 1.689 3.323c.213.399.59.664.998.839.252-.2.473-.444.605-.742z"/></svg>
                     </a>
                   </div>
