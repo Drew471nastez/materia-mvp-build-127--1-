@@ -262,11 +262,11 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
   const plans = initialData.plans
   const pendingPlan = pendingPlanId && pendingPlanId !== currentPlan.id ? plans.find((p: any) => p.id === pendingPlanId) : null
 
-  // Plan benefits for Current Plan card (simplified - no emails, no unlimited products, no priority support)
+  // Plan benefits for Current Plan card
   const planBenefits: Record<string, string[]> = {
-    free: ["6% + $0.25 per transaction", "Basic OnePage features"],
-    growth: ["3% + $0.25 per transaction", "Premium OnePage features", "Custom domain", "Verified badge"],
-    pro: ["1.5% + $0.25 per transaction", "Premium OnePage features", "Custom domain", "Verified badge"],
+    free: ["6% + $0.25 per transaction", "Basic OnePage features", "Unlimited Digital Products", "500 emails / month"],
+    growth: ["3% + $0.25 per transaction", "Unlimited digital products", "Premium OnePage features", "Custom domain"],
+    pro: ["1.5% + $0.25 per transaction", "Unlimited digital products", "Premium OnePage features", "Custom domain", "Verified badge", "Priority support"],
   }
 
   // Determine the next upgrade target

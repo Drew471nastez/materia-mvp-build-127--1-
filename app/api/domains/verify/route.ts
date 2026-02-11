@@ -27,7 +27,7 @@ async function ensureDomainOnVercel(domain: string): Promise<void> {
       ? `https://api.vercel.com/v10/projects/${VERCEL_PROJECT_ID}/domains?teamId=${VERCEL_TEAM_ID}`
       : `https://api.vercel.com/v10/projects/${VERCEL_PROJECT_ID}/domains`
 
-    // Re-add both apex and www to ensure Vercel has them and is issuing certs
+    // Re-add apex domain to ensure Vercel has it and is issuing certs
     await fetch(url, {
       method: "POST",
       headers: {
@@ -37,14 +37,19 @@ async function ensureDomainOnVercel(domain: string): Promise<void> {
       body: JSON.stringify({ name: domain }),
     })
 
-    // Also add www variant
+    // Add www variant as redirect to apex — Vercel provisions SSL for both
+    // and redirects www → apex at the edge. Prevents ERR_SSL_PROTOCOL_ERROR.
     await fetch(url, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${VERCEL_TOKEN}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ name: `www.${domain}` }),
+      body: JSON.stringify({
+        name: `www.${domain}`,
+        redirect: domain,
+        redirectStatusCode: 301,
+      }),
     })
   } catch {
     // Best effort - don't block verification

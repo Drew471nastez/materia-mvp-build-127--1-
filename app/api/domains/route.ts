@@ -49,6 +49,38 @@ async function addDomainToVercel(domain: string): Promise<{ success: boolean; er
 }
 
 /**
+ * Add www domain as redirect to apex on Vercel
+ * This tells Vercel to redirect www.domain.com → domain.com at the edge,
+ * and provision SSL certs for both. Prevents ERR_SSL_PROTOCOL_ERROR.
+ */
+async function addWwwRedirectToVercel(apexDomain: string): Promise<void> {
+  if (!VERCEL_TOKEN || !VERCEL_PROJECT_ID) return
+
+  try {
+    const url = VERCEL_TEAM_ID
+      ? `https://api.vercel.com/v10/projects/${VERCEL_PROJECT_ID}/domains?teamId=${VERCEL_TEAM_ID}`
+      : `https://api.vercel.com/v10/projects/${VERCEL_PROJECT_ID}/domains`
+
+    // Add www variant with redirect to apex — Vercel handles this at the edge
+    // including SSL cert provisioning for www
+    await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${VERCEL_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: `www.${apexDomain}`,
+        redirect: apexDomain,
+        redirectStatusCode: 301,
+      }),
+    })
+  } catch {
+    // Best effort
+  }
+}
+
+/**
  * Remove a domain from Vercel project
  */
 async function removeDomainFromVercel(domain: string): Promise<void> {
@@ -256,9 +288,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: apexResult.error || "Failed to register domain" }, { status: 500 })
     }
 
-    // Also add www variant - Vercel will handle redirect from www to apex (or vice versa)
-    const wwwDomain = `www.${cleanDomain}`
-    await addDomainToVercel(wwwDomain) // Don't block on www failure
+    // Add www variant as a redirect to apex — Vercel provisions SSL for both
+    // and handles www → apex redirect at the edge. Prevents ERR_SSL_PROTOCOL_ERROR.
+    await addWwwRedirectToVercel(cleanDomain)
 
     // Generate verification token
     const verificationToken = `storelib-verify-${crypto.randomBytes(16).toString("hex")}`

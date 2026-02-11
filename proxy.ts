@@ -157,6 +157,17 @@ export async function proxy(request: NextRequest) {
       hostWithoutPort !== MAIN_DOMAIN &&
       !hostWithoutPort.endsWith(`.${MAIN_DOMAIN}`)
 
+    // Canonical redirect: www.custom-domain.com → custom-domain.com (apex)
+    // This prevents mixed apex/www confusion that causes ERR_SSL_PROTOCOL_ERROR
+    // by ensuring only ONE host is canonical. Browser caches the redirect permanently (301).
+    if (isExternalDomain && hostWithoutPort.startsWith("www.")) {
+      const apexDomain = hostWithoutPort.replace(/^www\./, "")
+      const canonicalUrl = new URL(`https://${apexDomain}`)
+      canonicalUrl.pathname = pathname
+      canonicalUrl.search = search
+      return NextResponse.redirect(canonicalUrl, { status: 301 })
+    }
+
     const customDomainUsername = await resolveCustomDomain(host)
     if (customDomainUsername) {
       username = customDomainUsername
