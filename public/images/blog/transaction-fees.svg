@@ -1,9 +1,39 @@
 <svg width="1200" height="800" viewBox="0 0 1200 800" fill="none" xmlns="http://www.w3.org/2000/svg">
-<defs><linearGradient id="g2" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ec4899"/><stop offset="1" stop-color="#f43f5e"/></linearGradient></defs>
-<rect width="1200" height="800" fill="url(#g2)"/>
-<circle cx="1020" cy="180" r="170" fill="white" fill-opacity="0.12"/>
-<circle cx="180" cy="620" r="210" fill="white" fill-opacity="0.1"/>
-<rect x="170" y="230" width="860" height="340" rx="30" fill="white" fill-opacity="0.2"/>
-<text x="220" y="345" fill="white" font-size="54" font-family="Arial" font-weight="700">Why Low Transaction</text>
-<text x="220" y="415" fill="white" font-size="54" font-family="Arial" font-weight="700">Fees Matter</text>
+<defs>
+<linearGradient id="bg2" x1="0" y1="0" x2="1200" y2="800" gradientUnits="userSpaceOnUse">
+<stop stop-color="#ec4899"/>
+<stop offset="0.5" stop-color="#e11d48"/>
+<stop offset="1" stop-color="#f43f5e"/>
+</linearGradient>
+<linearGradient id="card2" x1="200" y1="200" x2="1000" y2="600" gradientUnits="userSpaceOnUse">
+<stop stop-color="white" stop-opacity="0.22"/>
+<stop offset="1" stop-color="white" stop-opacity="0.06"/>
+</linearGradient>
+</defs>
+<rect width="1200" height="800" fill="url(#bg2)"/>
+<!-- Decorative circles -->
+<circle cx="1050" cy="120" r="180" fill="white" fill-opacity="0.06"/>
+<circle cx="150" cy="680" r="220" fill="white" fill-opacity="0.05"/>
+<circle cx="300" cy="200" r="60" fill="white" fill-opacity="0.08"/>
+<!-- Main card -->
+<rect x="180" y="180" width="840" height="440" rx="32" fill="url(#card2)" stroke="white" stroke-opacity="0.15" stroke-width="1"/>
+<!-- Fee comparison bars -->
+<rect x="240" y="250" width="360" height="48" rx="12" fill="white" fill-opacity="0.15"/>
+<rect x="252" y="260" width="280" height="28" rx="8" fill="white" fill-opacity="0.3"/>
+<text x="544" y="280" fill="white" fill-opacity="0.9" font-size="14" font-family="system-ui, sans-serif" font-weight="600">15%</text>
+<rect x="240" y="310" width="360" height="48" rx="12" fill="white" fill-opacity="0.15"/>
+<rect x="252" y="320" width="200" height="28" rx="8" fill="white" fill-opacity="0.3"/>
+<text x="464" y="340" fill="white" fill-opacity="0.9" font-size="14" font-family="system-ui, sans-serif" font-weight="600">10%</text>
+<rect x="240" y="370" width="360" height="48" rx="12" fill="white" fill-opacity="0.2"/>
+<rect x="252" y="380" width="80" height="28" rx="8" fill="#22c55e" fill-opacity="0.7"/>
+<text x="344" y="400" fill="white" fill-opacity="0.9" font-size="14" font-family="system-ui, sans-serif" font-weight="700">3%</text>
+<!-- Savings indicator -->
+<rect x="680" y="250" width="280" height="180" rx="20" fill="white" fill-opacity="0.15"/>
+<text x="750" y="310" fill="white" fill-opacity="0.6" font-size="16" font-family="system-ui, sans-serif" font-weight="500">You save</text>
+<text x="720" y="370" fill="white" font-size="56" font-family="system-ui, sans-serif" font-weight="800">$3,000</text>
+<text x="740" y="400" fill="white" fill-opacity="0.6" font-size="16" font-family="system-ui, sans-serif" font-weight="500">per year</text>
+<!-- Title text -->
+<text x="240" y="480" fill="white" font-size="48" font-family="system-ui, -apple-system, sans-serif" font-weight="800" letter-spacing="-1">Why Low Transaction</text>
+<text x="240" y="540" fill="white" font-size="48" font-family="system-ui, -apple-system, sans-serif" font-weight="800" letter-spacing="-1">Fees Matter</text>
+<text x="240" y="585" fill="white" fill-opacity="0.7" font-size="22" font-family="system-ui, -apple-system, sans-serif" font-weight="500">Keep more of what you earn</text>
 </svg>

@@ -132,13 +132,15 @@ export default function BlogPostPage() {
 
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 animate-in fade-in-0 slide-in-from-bottom-1 duration-500">
         {/* Back link */}
-        <Link
-          href="/blog"
-          className="inline-flex items-center gap-2 text-sm text-neutral-500 hover:text-neutral-700 transition-colors mb-6"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to Blog
-        </Link>
+        <div className="mb-5">
+          <Link
+            href="/blog"
+            className="inline-flex items-center gap-2 text-sm text-neutral-500 hover:text-neutral-700 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Blog
+          </Link>
+        </div>
 
         {/* Category badge */}
         <span className="inline-block px-3 py-1 rounded-full text-xs font-medium bg-violet-100 text-violet-700 mb-4">

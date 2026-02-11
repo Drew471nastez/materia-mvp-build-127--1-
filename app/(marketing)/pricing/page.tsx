@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Check, Sparkles, ShieldCheck, ArrowRight, Star, Globe, BarChart3, CreditCard, Palette, Bot, Download } from "lucide-react"
+import { Check, ArrowRight, Star, ShieldCheck } from "lucide-react"
 
 const pricingPlans = [
   {
@@ -10,8 +10,7 @@ const pricingPlans = [
     price: "$0",
     period: "",
     periodLabel: "Free forever",
-    subtitle: "Best for first-time creators",
-    description: "Launch your page, sell your first products, and start collecting leads.",
+    description: "Perfect for getting started.",
     features: [
       "6% + $0.25 per transaction",
       "Unlimited digital products",
@@ -30,8 +29,7 @@ const pricingPlans = [
     price: "$29",
     period: "/mo",
     periodLabel: null,
-    subtitle: "Most popular for active creators",
-    description: "Lower fees, better conversion tools, and stronger branding controls.",
+    description: "For creators ready to scale and pay lower fees.",
     features: [
       "3% + $0.25 per transaction",
       "Unlimited digital products",
@@ -52,8 +50,7 @@ const pricingPlans = [
     price: "$99",
     period: "/mo",
     periodLabel: null,
-    subtitle: "For teams and high-volume stores",
-    description: "The full Storelib stack with the lowest fees and highest support priority.",
+    description: "For serious creators who want the lowest fees and priority support.",
     features: [
       "1.5% + $0.25 per transaction",
       "Unlimited digital products",
@@ -82,15 +79,6 @@ const comparisonRows = [
   { feature: "Support", free: "Community", growth: "Priority chat", pro: "Dedicated priority" },
 ]
 
-const platformFeatures = [
-  { icon: CreditCard, title: "Secure Payments", description: "Accept payments globally with Stripe. Credit cards, Apple Pay, Google Pay." },
-  { icon: Download, title: "Instant Delivery", description: "Automatic file delivery after purchase. Customers get instant access." },
-  { icon: Palette, title: "Beautiful Storefronts", description: "Customizable OnePage storefronts that reflect your brand. No coding." },
-  { icon: BarChart3, title: "Analytics Dashboard", description: "Track sales, views, and revenue in real-time. Data-driven decisions." },
-  { icon: Globe, title: "Custom Domains", description: "Connect your own domain for a fully branded experience." },
-  { icon: Bot, title: "AI-Powered Tools", description: "Smart product descriptions, pricing optimization, and recommendations." },
-]
-
 const faqs = [
   { q: "Can I switch plans anytime?", a: "Yes. Upgrade, downgrade, or cancel at any time. Changes take effect at the next billing cycle." },
   { q: "What payment methods do you support?", a: "We use Stripe to process payments. Your customers can pay with credit cards, Apple Pay, Google Pay, and more." },
@@ -102,26 +90,22 @@ export default function PricingPage() {
   return (
     <div className="min-h-screen bg-white">
       {/* Hero Section */}
-      <section className="relative pt-16 sm:pt-20 pb-12 overflow-hidden">
+      <section className="relative pt-16 sm:pt-20 pb-10 overflow-hidden">
         <div className="absolute top-10 left-10 w-72 h-72 bg-violet-100/30 rounded-full blur-3xl" />
         <div className="absolute bottom-0 right-10 w-64 h-64 bg-pink-100/20 rounded-full blur-3xl" />
         <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 text-center">
           <div className="animate-in fade-in-0 slide-in-from-bottom-1 duration-500">
-            <div className="inline-flex items-center gap-2 rounded-full border border-violet-200 bg-violet-50 px-4 py-1.5 text-sm font-medium text-violet-700 mb-6">
-              <Sparkles className="h-4 w-4" />
-              Clear pricing. No hidden surprises.
-            </div>
             <h1 className="text-[32px] sm:text-[42px] lg:text-[48px] font-bold text-[#1a1a2e] tracking-tight mb-4">
-              Pricing built for creators at every stage
+              Pricing
             </h1>
             <p className="text-[15px] sm:text-[17px] text-[#6b7280] max-w-2xl mx-auto">
-              Start free, then upgrade only when your growth demands it. Every plan includes the core Storelib experience.
+              Scale your business with the right plan for you. Start free, upgrade when you're ready.
             </p>
           </div>
         </div>
       </section>
 
-      {/* Pricing Cards - matching /upgrade page style */}
+      {/* Pricing Cards */}
       <section className="pb-16 sm:pb-20">
         <div className="max-w-5xl mx-auto px-4 sm:px-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
@@ -248,37 +232,6 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* Platform Features Grid */}
-      <section className="pb-16 sm:pb-20 bg-[#faf5ff]/40">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-16 sm:pt-20">
-          <div className="text-center mb-10">
-            <h2 className="text-[26px] sm:text-[32px] font-bold text-[#1a1a2e] mb-3">
-              Everything you need to sell digital products
-            </h2>
-            <p className="text-[15px] text-[#6b7280] max-w-2xl mx-auto">
-              Every plan includes the core Storelib platform. Powerful tools to create, sell, and grow.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {platformFeatures.map((feature) => {
-              const Icon = feature.icon
-              return (
-                <div
-                  key={feature.title}
-                  className="p-5 rounded-2xl bg-white border border-[#e5e7eb] hover:border-[#d1d5db] hover:shadow-md transition-all duration-200"
-                >
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center mb-3">
-                    <Icon className="w-5 h-5 text-white" />
-                  </div>
-                  <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1">{feature.title}</h3>
-                  <p className="text-[13px] text-[#6b7280] leading-relaxed">{feature.description}</p>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      </section>
-
       {/* FAQ Section */}
       <section className="pb-16 sm:pb-20">
         <div className="max-w-3xl mx-auto px-4 sm:px-6">
@@ -306,7 +259,7 @@ export default function PricingPage() {
               Ready to start selling?
             </h3>
             <p className="text-[15px] text-[#6b7280] max-w-xl mx-auto mb-6">
-              Join thousands of creators selling digital products on Storelib. Start free, upgrade when you're ready.
+              Join creators selling digital products on Storelib. Start free, no credit card required.
             </p>
             <Link
               href="/signup"
@@ -323,15 +276,8 @@ export default function PricingPage() {
       <section className="pb-16 sm:pb-20">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 text-center">
           <p className="text-[13px] text-[#9ca3af] mb-3">
-            Need a custom plan for your agency or enterprise team?
+            All plans include core features. Upgrade or downgrade anytime.
           </p>
-          <Link
-            href="/contact"
-            className="inline-flex items-center gap-2 text-[14px] font-semibold text-[#7c3aed] hover:text-[#6d28d9] transition-colors"
-          >
-            Talk to sales
-            <ArrowRight className="h-4 w-4" />
-          </Link>
         </div>
       </section>
     </div>

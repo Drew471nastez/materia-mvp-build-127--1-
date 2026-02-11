@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
-import { X } from "lucide-react"
+import { X, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 type Props = {
@@ -78,12 +78,19 @@ export function MobileColorPicker({ value, onChange, label = "Choose color", cla
   const [sat, setSat] = useState(100)
   const [val, setVal] = useState(100)
 
-  // Bottom sheet animation
+  // Bottom sheet animation - GPU accelerated
   const [isVisible, setIsVisible] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
   const [dragY, setDragY] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
   const startYRef = useRef(0)
+  const lastYRef = useRef(0)
+  const lastTimeRef = useRef(0)
+  const velocityRef = useRef(0)
+
+  // Top notification state
+  const [showNotification, setShowNotification] = useState(false)
+  const notificationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Refs for canvas interaction
   const canvasRef = useRef<HTMLDivElement>(null)
@@ -121,29 +128,46 @@ export function MobileColorPicker({ value, onChange, label = "Choose color", cla
   const closeSheet = useCallback(() => {
     setIsAnimating(false)
     setDragY(0)
+    setIsDragging(false)
+    velocityRef.current = 0
     setTimeout(() => {
       setIsVisible(false)
       setOpen(false)
-    }, 350)
+    }, 380)
   }, [])
 
-  // Sheet drag handlers
+  // Sheet drag handlers with velocity tracking
   const handleSheetTouchStart = useCallback((e: React.TouchEvent) => {
     const touch = e.touches[0]
     startYRef.current = touch.clientY
+    lastYRef.current = touch.clientY
+    lastTimeRef.current = Date.now()
+    velocityRef.current = 0
     setIsDragging(true)
   }, [])
 
   const handleSheetTouchMove = useCallback((e: React.TouchEvent) => {
     if (!isDragging) return
-    const diff = e.touches[0].clientY - startYRef.current
-    if (diff > 0) setDragY(diff * 0.8)
+    const currentY = e.touches[0].clientY
+    const diff = currentY - startYRef.current
+    if (diff > 0) {
+      // Track velocity
+      const now = Date.now()
+      const dt = Math.max(1, now - lastTimeRef.current)
+      velocityRef.current = (currentY - lastYRef.current) / dt
+      lastYRef.current = currentY
+      lastTimeRef.current = now
+      // Apply resistance
+      const resisted = diff <= 140 ? diff * 0.85 : 119 + (diff - 140) * 0.35
+      setDragY(resisted)
+    }
   }, [isDragging])
 
   const handleSheetTouchEnd = useCallback(() => {
     if (!isDragging) return
     setIsDragging(false)
-    if (dragY > 80) {
+    // Close if dragged far enough or fast enough
+    if (dragY > 80 || velocityRef.current > 0.5) {
       closeSheet()
     } else {
       setDragY(0)
@@ -177,24 +201,84 @@ export function MobileColorPicker({ value, onChange, label = "Choose color", cla
     setVal(hsv.v)
   }, [onChange])
 
+  // Show top notification
+  const showAppliedNotification = useCallback(() => {
+    if (notificationTimerRef.current) clearTimeout(notificationTimerRef.current)
+    setShowNotification(false)
+    requestAnimationFrame(() => {
+      setShowNotification(true)
+      notificationTimerRef.current = setTimeout(() => {
+        setShowNotification(false)
+      }, 2000)
+    })
+  }, [])
+
+  // Done: close sheet smoothly
+  const handleDone = useCallback(() => {
+    closeSheet()
+  }, [closeSheet])
+
+  // Apply: apply color + show notification
+  const handleApply = useCallback(() => {
+    applyColor(currentHex)
+    showAppliedNotification()
+    closeSheet()
+  }, [applyColor, currentHex, showAppliedNotification, closeSheet])
+
+  // Cleanup
+  useEffect(() => {
+    return () => {
+      if (notificationTimerRef.current) clearTimeout(notificationTimerRef.current)
+    }
+  }, [])
+
+  const notification = mounted
+    ? createPortal(
+        <div
+          className="fixed top-0 left-0 right-0 z-[200] flex justify-center pointer-events-none"
+          style={{ paddingTop: 'max(env(safe-area-inset-top, 12px), 12px)' }}
+        >
+          <div
+            className="pointer-events-auto px-5 py-3 rounded-2xl bg-black/90 backdrop-blur-lg shadow-2xl flex items-center gap-2.5"
+            style={{
+              transform: showNotification ? 'translateY(0)' : 'translateY(-100%)',
+              opacity: showNotification ? 1 : 0,
+              transition: 'transform 350ms cubic-bezier(0.32, 0.72, 0, 1), opacity 350ms cubic-bezier(0.32, 0.72, 0, 1)',
+              willChange: 'transform, opacity',
+            }}
+          >
+            <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
+              <Check className="h-3 w-3 text-white" strokeWidth={3} />
+            </div>
+            <span className="text-[13px] font-semibold text-white">Color applied</span>
+          </div>
+        </div>,
+        document.body,
+      )
+    : null
+
   const sheet = mounted && isVisible && isMobile
     ? createPortal(
-        <div className="fixed inset-0 z-[150] md:hidden">
+        <div className="fixed inset-0 z-[150] md:hidden" style={{ willChange: 'auto' }}>
           {/* Backdrop */}
           <div
             className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
             style={{
               opacity: isAnimating ? 1 : 0,
-              transition: isDragging ? 'none' : 'opacity 350ms cubic-bezier(0.32, 0.72, 0, 1)',
+              transition: isDragging ? 'none' : 'opacity 380ms cubic-bezier(0.32, 0.72, 0, 1)',
+              willChange: 'opacity',
             }}
             onClick={closeSheet}
           />
-          {/* Bottom Sheet */}
+          {/* Bottom Sheet - GPU accelerated */}
           <div
-            className="absolute inset-x-0 bottom-0 rounded-t-[28px] bg-white shadow-2xl will-change-transform"
+            className="absolute inset-x-0 bottom-0 rounded-t-[28px] bg-white shadow-2xl"
             style={{
-              transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)",
-              transition: isDragging ? 'none' : 'transform 350ms cubic-bezier(0.32, 0.72, 0, 1)',
+              transform: isAnimating ? `translate3d(0, ${dragY}px, 0)` : "translate3d(0, 100%, 0)",
+              transition: isDragging ? 'none' : 'transform 380ms cubic-bezier(0.32, 0.72, 0, 1)',
+              willChange: 'transform',
+              backfaceVisibility: 'hidden',
+              WebkitBackfaceVisibility: 'hidden',
             }}
           >
             {/* Handle */}
@@ -212,7 +296,7 @@ export function MobileColorPicker({ value, onChange, label = "Choose color", cla
               <h4 className="text-[15px] font-semibold text-gray-900">{label}</h4>
               <button
                 className="h-8 w-8 rounded-full hover:bg-gray-100 flex items-center justify-center transition-colors"
-                onClick={closeSheet}
+                onClick={handleDone}
               >
                 <X className="h-4 w-4 text-gray-500" />
               </button>
@@ -314,7 +398,7 @@ export function MobileColorPicker({ value, onChange, label = "Choose color", cla
                 </div>
               </div>
 
-              {/* Hex input */}
+              {/* Hex input + buttons */}
               <div className="flex items-center gap-3">
                 <input
                   value={hex}
@@ -333,8 +417,15 @@ export function MobileColorPicker({ value, onChange, label = "Choose color", cla
                 />
                 <button
                   type="button"
-                  onClick={() => applyColor(currentHex)}
-                  className="h-12 px-6 rounded-2xl bg-gray-900 text-white text-sm font-semibold transition-colors hover:bg-gray-800 active:bg-gray-700"
+                  onClick={handleApply}
+                  className="h-12 px-5 rounded-2xl bg-violet-600 text-white text-sm font-semibold transition-all active:scale-[0.97] hover:bg-violet-700"
+                >
+                  Apply
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDone}
+                  className="h-12 px-5 rounded-2xl bg-gray-900 text-white text-sm font-semibold transition-all active:scale-[0.97] hover:bg-gray-800"
                 >
                   Done
                 </button>
@@ -364,6 +455,7 @@ export function MobileColorPicker({ value, onChange, label = "Choose color", cla
           style={{ backgroundColor: value }}
         />
       </div>
+      {notification}
       {sheet}
     </>
   )

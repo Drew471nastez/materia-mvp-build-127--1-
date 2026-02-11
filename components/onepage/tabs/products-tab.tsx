@@ -583,7 +583,9 @@ export function ProductsTab() {
             left: 0,
             right: 0,
             bottom: 0,
-            transform: isAddProductSheetPresented ? `translateY(${addProductSheetDragY}px)` : "translateY(100%)",
+            transform: isAddProductSheetPresented ? `translate3d(0, ${addProductSheetDragY}px, 0)` : "translate3d(0, 100%, 0)",
+            willChange: 'transform',
+            backfaceVisibility: 'hidden' as const,
             transition: isAddProductSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
             maxHeight: '75vh'
           } : undefined}

@@ -1747,7 +1747,10 @@ export function LinksTab() {
       const scrollEl = autoScrollElementRef.current
       const speed = autoScrollVelocityRef.current
 
-      if (!scrollEl || speed === 0) return
+      if (!scrollEl || speed === 0) {
+        autoScrollTimerRef.current = 0
+        return
+      }
 
       scrollEl.scrollTop += speed
       autoScrollTimerRef.current = requestAnimationFrame(tick)
@@ -1781,37 +1784,49 @@ export function LinksTab() {
       touchOverIdRef.current = targetId
       setDragOverBlockId(targetId)
 
-      // Auto-scroll nearest scroll container (or page)
+      // Auto-scroll using viewport edges for reliable behavior
       const scrollEl = autoScrollElementRef.current || getScrollableAncestor(touchedElement || dragSourceElRef.current)
       if (scrollEl) {
+        // Use both viewport edges and scroll container edges
+        const viewportH = window.innerHeight
         const rect = scrollEl.getBoundingClientRect()
-        const zone = 140
+        const zone = 120
         let nextVelocity = 0
 
-        if (touch.clientY < rect.top + zone) {
-          const proximity = (zone - (touch.clientY - rect.top)) / zone
-          nextVelocity = -Math.max(1, proximity * proximity * 18)
-        } else if (touch.clientY > rect.bottom - zone) {
-          const proximity = (zone - (rect.bottom - touch.clientY)) / zone
-          nextVelocity = Math.max(1, proximity * proximity * 18)
+        // Top edge - use viewport top or scroll container top, whichever is larger
+        const effectiveTop = Math.max(0, rect.top)
+        const effectiveBottom = Math.min(viewportH, rect.bottom)
+
+        if (touch.clientY < effectiveTop + zone) {
+          const proximity = Math.min(1, (zone - (touch.clientY - effectiveTop)) / zone)
+          // Accelerate more as we get closer to the edge
+          nextVelocity = -Math.max(2, proximity * proximity * 24)
+        } else if (touch.clientY > effectiveBottom - zone) {
+          const proximity = Math.min(1, (zone - (effectiveBottom - touch.clientY)) / zone)
+          nextVelocity = Math.max(2, proximity * proximity * 24)
         }
 
         const changedTarget = autoScrollElementRef.current !== scrollEl
-        const changedVelocity = autoScrollVelocityRef.current !== nextVelocity
+        const prevVelocity = autoScrollVelocityRef.current
 
         autoScrollElementRef.current = scrollEl
         autoScrollVelocityRef.current = nextVelocity
 
         if (nextVelocity === 0) {
           cancelAnimationFrame(autoScrollTimerRef.current)
-        } else if (changedTarget || changedVelocity) {
+          autoScrollTimerRef.current = 0
+        } else if (changedTarget || prevVelocity === 0 || Math.abs(prevVelocity - nextVelocity) > 2) {
           runAutoScrollLoop()
         }
       }
     }
 
     const handleTouchEnd = () => {
-      cancelAnimationFrame(autoScrollTimerRef.current)
+      // Cancel auto-scroll cleanly
+      if (autoScrollTimerRef.current) {
+        cancelAnimationFrame(autoScrollTimerRef.current)
+        autoScrollTimerRef.current = 0
+      }
       autoScrollVelocityRef.current = 0
       autoScrollElementRef.current = null
       dragSourceElRef.current = null
@@ -1856,7 +1871,10 @@ export function LinksTab() {
     document.addEventListener('touchcancel', handleTouchEnd)
 
     return () => {
-      cancelAnimationFrame(autoScrollTimerRef.current)
+      if (autoScrollTimerRef.current) {
+        cancelAnimationFrame(autoScrollTimerRef.current)
+        autoScrollTimerRef.current = 0
+      }
       autoScrollVelocityRef.current = 0
       autoScrollElementRef.current = null
       dragSourceElRef.current = null
@@ -2291,7 +2309,9 @@ export function LinksTab() {
             left: 0,
             right: 0,
             bottom: 0,
-            transform: isAddSheetPresented ? `translateY(${addSheetDragY}px)` : "translateY(100%)",
+            transform: isAddSheetPresented ? `translate3d(0, ${addSheetDragY}px, 0)` : "translate3d(0, 100%, 0)",
+            willChange: 'transform',
+            backfaceVisibility: 'hidden' as const,
             transition: isAddSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
             maxHeight: '75vh'
           } : undefined}
@@ -2602,8 +2622,10 @@ export function LinksTab() {
             left: 0,
             right: 0,
             bottom: 0,
-            transform: isSocialSheetPresented ? `translateY(${socialSheetDragY}px)` : "translateY(100%)",
+            transform: isSocialSheetPresented ? `translate3d(0, ${socialSheetDragY}px, 0)` : "translate3d(0, 100%, 0)",
             transition: isSocialSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
+            willChange: 'transform',
+            backfaceVisibility: 'hidden',
             maxHeight: '75vh'
           } : undefined}
         >
@@ -2737,7 +2759,7 @@ export function LinksTab() {
 
                     <div className="flex flex-col gap-2 pt-2">
                       <Button
-                        className="bg-blue-500 hover:bg-blue-600 rounded-xl h-[52px] w-full text-[15px] font-semibold"
+                        className="bg-black hover:bg-neutral-800 text-white rounded-xl h-[44px] w-full text-[15px] font-semibold"
                         onClick={() => {
                           const wasExisting = !!social_links?.[selectedSocial as keyof typeof social_links]
                           setSocialUrl(normalizeUrlInput(socialUrl))
@@ -2753,7 +2775,7 @@ export function LinksTab() {
                       </Button>
                       <Button
                         variant="outline"
-                        className="rounded-xl h-[52px] w-full text-[15px] font-semibold"
+                        className="rounded-xl h-[44px] w-full text-[15px] font-semibold"
                         onClick={() => closeSocialSheet()}
                       >
                         Back
@@ -2761,7 +2783,7 @@ export function LinksTab() {
                       {social_links?.[selectedSocial as keyof typeof social_links] && (
                         <Button
                           variant="outline"
-                          className="rounded-xl h-[52px] w-full text-red-600 hover:text-red-700 hover:bg-red-50 text-[15px] font-semibold justify-center"
+                          className="rounded-xl h-[44px] w-full text-red-600 hover:text-red-700 hover:bg-red-50 text-[15px] font-semibold justify-center"
                           onClick={() => {
                             handleRemoveSocial(selectedSocial)
                             setShowDeleteSocialNotification(false)
@@ -3088,7 +3110,9 @@ export function LinksTab() {
             left: 0,
             right: 0,
             bottom: 0,
-            transform: isThumbnailSheetPresented ? `translateY(${thumbnailSheetDragY}px)` : 'translateY(100%)',
+            transform: isThumbnailSheetPresented ? `translate3d(0, ${thumbnailSheetDragY}px, 0)` : 'translate3d(0, 100%, 0)',
+            willChange: 'transform',
+            backfaceVisibility: 'hidden' as const,
             transition: isThumbnailSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
             maxHeight: '75vh'
           } : undefined}
@@ -3454,7 +3478,7 @@ export function LinksTab() {
                   type="file"
                   id="file-upload-input"
                   accept={
-                    imageFieldType === 'digital_product_file' ? '*/*'
+                    imageFieldType === 'digital_product_file' ? undefined
                     : imageFieldType === 'pdf_file' ? '.pdf,application/pdf'
                     : 'image/*'
                   }
@@ -3484,19 +3508,18 @@ export function LinksTab() {
                         throw new Error(err.error || 'Failed to get upload URL')
                       }
 
-                      const { signedUrl, publicUrl } = await signedRes.json()
+                      const { token, path, publicUrl } = await signedRes.json()
 
-                      // Upload directly to Supabase Storage using the signed URL
-                      const uploadRes = await fetch(signedUrl, {
-                        method: 'PUT',
-                        headers: {
-                          'Content-Type': file.type || 'application/octet-stream',
-                        },
-                        body: file,
-                      })
+                      // Upload directly to Supabase Storage using uploadToSignedUrl (handles token correctly)
+                      const supabaseClient = createClient()
+                      const { error: uploadError } = await supabaseClient.storage
+                        .from('lead-form-files')
+                        .uploadToSignedUrl(path, token, file, {
+                          contentType: file.type || 'application/octet-stream',
+                        })
 
-                      if (!uploadRes.ok) {
-                        throw new Error('Upload failed')
+                      if (uploadError) {
+                        throw new Error(uploadError.message || 'Upload failed')
                       }
 
                       const url = publicUrl
@@ -4996,7 +5019,9 @@ function BlockItem({
                 left: 0,
                 right: 0,
                 bottom: 0,
-                transform: isAnimationSheetPresented ? `translateY(${animationSheetDragY}px)` : 'translateY(100%)',
+                transform: isAnimationSheetPresented ? `translate3d(0, ${animationSheetDragY}px, 0)` : 'translate3d(0, 100%, 0)',
+                willChange: 'transform',
+                backfaceVisibility: 'hidden' as const,
                 transition: isAnimationSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
                 maxHeight: '75vh'
               } : undefined}
@@ -5125,7 +5150,9 @@ function BlockItem({
                   left: 0,
                   right: 0,
                   bottom: 0,
-                  transform: isStatsSheetPresented ? `translateY(${statsSheetDragY}px)` : 'translateY(100%)',
+                  transform: isStatsSheetPresented ? `translate3d(0, ${statsSheetDragY}px, 0)` : 'translate3d(0, 100%, 0)',
+                  willChange: 'transform',
+                  backfaceVisibility: 'hidden' as const,
                   transition: isStatsSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
                   maxHeight: '75vh'
                 } : undefined}
