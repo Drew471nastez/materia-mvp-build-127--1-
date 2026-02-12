@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 const BUCKET_NAME = "lead-form-files"
-const MAX_DIGITAL_FILE_SIZE = 4 * 1024 * 1024 * 1024 // 4GB
+const MAX_DIGITAL_FILE_SIZE = 500 * 1024 * 1024 // 500MB
 
 /**
  * POST - Generate a signed upload URL for direct-to-storage uploads.
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (fileSize > MAX_DIGITAL_FILE_SIZE) {
-      return NextResponse.json({ error: "File too large (max 4GB)" }, { status: 400 })
+      return NextResponse.json({ error: "File too large (max 500MB)" }, { status: 400 })
     }
 
     // Ensure bucket exists with proper configuration (4GB, all MIME types, public)
@@ -54,18 +54,18 @@ export async function POST(request: NextRequest) {
       if (!existingBucket) {
         const { error: createErr } = await adminSupabase.storage.createBucket(BUCKET_NAME, {
           public: true,
-          fileSizeLimit: MAX_DIGITAL_FILE_SIZE,
+          fileSizeLimit: 0, // 0 = no file size limit (avoids int32 overflow with large values)
           allowedMimeTypes: null, // null = allow ALL file types
         })
         if (createErr && !createErr.message?.includes('already exists')) {
           console.error("Bucket creation error:", createErr)
         }
       } else {
-        // Always update bucket to ensure correct settings (public, 4GB limit, no MIME restrictions)
+        // Always update bucket to ensure correct settings (public, no size limit, no MIME restrictions)
         await adminSupabase.storage.updateBucket(BUCKET_NAME, {
           public: true,
-          fileSizeLimit: MAX_DIGITAL_FILE_SIZE,
-          allowedMimeTypes: null, // null = allow ALL file types (undefined gets stripped from JSON!)
+          fileSizeLimit: 0, // 0 = no file size limit
+          allowedMimeTypes: null, // null = allow ALL file types
         })
       }
     } catch (bucketErr) {

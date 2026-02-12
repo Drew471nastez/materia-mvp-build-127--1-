@@ -8,7 +8,7 @@ export const runtime = "nodejs"
 export const maxDuration = 300
 
 const BUCKET_NAME = "lead-form-files"
-const MAX_FILE_SIZE = 4 * 1024 * 1024 * 1024 // 4GB
+const MAX_FILE_SIZE = 500 * 1024 * 1024 // 500MB
 
 // Ensure bucket exists with correct settings
 async function ensureBucket(adminSupabase: ReturnType<typeof createAdminClient>) {
@@ -19,7 +19,7 @@ async function ensureBucket(adminSupabase: ReturnType<typeof createAdminClient>)
     if (!existingBucket) {
       const { error: createError } = await adminSupabase.storage.createBucket(BUCKET_NAME, {
         public: true,
-        fileSizeLimit: MAX_FILE_SIZE,
+        fileSizeLimit: 0, // 0 = no file size limit
         allowedMimeTypes: null, // null = allow ALL file types
       })
       if (createError && !createError.message?.includes('already exists')) {
@@ -30,7 +30,7 @@ async function ensureBucket(adminSupabase: ReturnType<typeof createAdminClient>)
       // Always update to ensure correct settings
       const { error: updateError } = await adminSupabase.storage.updateBucket(BUCKET_NAME, {
         public: true,
-        fileSizeLimit: MAX_FILE_SIZE,
+        fileSizeLimit: 0, // 0 = no file size limit
         allowedMimeTypes: null,
       })
       if (updateError) {

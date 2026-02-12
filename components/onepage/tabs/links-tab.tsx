@@ -3656,7 +3656,10 @@ export function LinksTab() {
                         setUploadProgress(5)
 
                         // Upload directly to Supabase storage using signed URL
-                        await new Promise<void>((resolve, reject) => {
+                        // Dynamic timeout: at least 10 min, plus 1s per 100KB for large files
+                        const uploadTimeoutMs = Math.max(600000, Math.ceil(file.size / (100 * 1024)) * 1000)
+
+                        const doXhrUpload = (uploadUrl: string): Promise<void> => new Promise((resolve, reject) => {
                           const xhr = new XMLHttpRequest()
                           xhr.upload.addEventListener('progress', (e) => {
                             if (e.lengthComputable) {
@@ -3669,19 +3672,39 @@ export function LinksTab() {
                               setUploadProgress(100)
                               resolve()
                             } else {
-                              reject(new Error(`Upload failed with status ${xhr.status}. Please try again.`))
+                              let errMsg = `Upload failed (status ${xhr.status}).`
+                              try {
+                                const body = JSON.parse(xhr.responseText)
+                                if (body.error || body.message) {
+                                  errMsg = body.error || body.message
+                                }
+                                if (body.statusCode === '413' || xhr.status === 413) {
+                                  errMsg = 'File is too large for your storage plan. Try a smaller file or upgrade your plan.'
+                                }
+                              } catch { /* ignore parse errors */ }
+                              reject(new Error(errMsg))
                             }
                           })
-                          xhr.addEventListener('error', () => reject(new Error('Network error during upload. Please check your connection.')))
+                          xhr.addEventListener('error', () => reject(new Error('Network error during upload. Check your connection and try again.')))
                           xhr.addEventListener('abort', () => reject(new Error('Upload was cancelled.')))
-                          xhr.addEventListener('timeout', () => reject(new Error('Upload timed out. Please try again with a smaller file or better connection.')))
-                          xhr.timeout = 600000 // 10 minute timeout
+                          xhr.addEventListener('timeout', () => reject(new Error('Upload timed out. Try with a better connection or smaller file.')))
+                          xhr.timeout = uploadTimeoutMs
 
-                          xhr.open('PUT', signedData.signedUrl)
+                          xhr.open('PUT', uploadUrl)
                           xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream')
                           xhr.setRequestHeader('x-upsert', 'true')
                           xhr.send(file)
                         })
+
+                        // Try upload with one automatic retry on transient failure
+                        try {
+                          await doXhrUpload(signedData.signedUrl)
+                        } catch (firstErr) {
+                          console.warn('First upload attempt failed, retrying...', firstErr)
+                          setUploadProgress(3)
+                          await new Promise(r => setTimeout(r, 2000))
+                          await doXhrUpload(signedData.signedUrl)
+                        }
 
                         url = signedData.publicUrl
                       }
@@ -3727,7 +3750,8 @@ export function LinksTab() {
                       setImageFieldType(null)
                     } catch (error) {
                       console.error('Upload failed:', error)
-                      alert('Upload failed. Please try again.')
+                      const errMsg = error instanceof Error ? error.message : 'Upload failed'
+                      alert(`Upload failed: ${errMsg}`)
                     } finally {
                       setImageUploading(false)
                       setTimeout(() => setUploadProgress(0), 500)
@@ -3766,7 +3790,7 @@ export function LinksTab() {
                         : 'Upload image'}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {imageFieldType === 'digital_product_file' ? 'Any file type up to 4GB (audio, video, ZIP, images, docs)'
+                      {imageFieldType === 'digital_product_file' ? 'Any file type up to 500MB (audio, video, ZIP, images, docs)'
                         : imageFieldType === 'pdf_file' ? 'PDF files only'
                         : 'JPG, PNG, GIF up to 10MB'}
                     </p>

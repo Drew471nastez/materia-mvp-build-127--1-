@@ -3149,7 +3149,16 @@ function ImageCarousel({
 
   if (images.length === 0) return null
 
-  const translateX = containerWidth > 0 ? -(currentIndex * stepSize) + dragOffset : 0
+  // For the last dot position, snap so the last image is fully visible (right-aligned)
+  let translateX = 0
+  if (containerWidth > 0) {
+    if (currentIndex >= maxIndex && maxIndex > 0) {
+      const totalContentWidth = images.length * itemWidth + (images.length - 1) * gap
+      translateX = -(totalContentWidth - containerWidth) + dragOffset
+    } else {
+      translateX = -(currentIndex * stepSize) + dragOffset
+    }
+  }
   const dotCount = maxIndex + 1
 
   return (
