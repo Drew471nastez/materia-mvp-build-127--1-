@@ -3693,53 +3693,43 @@ export function LinksTab() {
                         const signedData = await getSignedUrl()
                         setUploadProgress(3)
 
-                        // Step 2: Upload file directly to Supabase Storage using XHR
-                        // This gives us real progress events and bypasses all server size limits
-                        url = await new Promise<string>((resolve, reject) => {
-                          const xhr = new XMLHttpRequest()
+                        // Step 2: Upload file using Supabase client with TUS protocol
+                        // TUS automatically chunks large files into ~6MB pieces, bypassing
+                        // the API gateway body size limit that blocks single large PUT requests
+                        const supabase = createClient()
+                        const uploadBucket = signedData.bucket || 'lead-form-files-v2'
 
-                          xhr.upload.addEventListener('progress', (event) => {
-                            if (event.lengthComputable) {
-                              // Map progress from 3% to 99% (reserving 0-3% for signed URL request)
-                              const pct = Math.round(3 + (event.loaded / event.total) * 96)
-                              setUploadProgress(Math.min(pct, 99))
-                            }
-                          })
+                        // Simulate progress while TUS upload runs (no granular progress from SDK)
+                        let simProgress = 3
+                        const progressInterval = setInterval(() => {
+                          // Slower increment for larger files
+                          const mbSize = file.size / (1024 * 1024)
+                          const increment = Math.max(0.3, 12 / Math.max(mbSize, 1))
+                          simProgress = Math.min(simProgress + increment, 95)
+                          setUploadProgress(Math.round(simProgress))
+                        }, 500)
 
-                          xhr.addEventListener('load', () => {
-                            if (xhr.status >= 200 && xhr.status < 300) {
-                              setUploadProgress(100)
-                              resolve(signedData.publicUrl)
-                            } else {
-                              // Parse Supabase error body for real error message
-                              let errMsg = `Upload failed (status ${xhr.status})`
-                              try {
-                                const body = JSON.parse(xhr.responseText)
-                                errMsg = body.error || body.message || body.statusCode || errMsg
-                              } catch {}
-                              reject(new Error(errMsg))
-                            }
-                          })
+                        try {
+                          const { error: uploadError } = await supabase.storage
+                            .from(uploadBucket)
+                            .upload(signedData.path, file, {
+                              contentType: file.type || 'application/octet-stream',
+                              cacheControl: '31536000',
+                              upsert: true,
+                            })
 
-                          xhr.addEventListener('error', () => reject(new Error('Network error during upload. Check your connection and try again.')))
-                          xhr.addEventListener('abort', () => reject(new Error('Upload was cancelled')))
-                          xhr.addEventListener('timeout', () => reject(new Error('Upload timed out. Try a smaller file or better connection.')))
+                          clearInterval(progressInterval)
 
-                          xhr.open('PUT', signedData.signedUrl)
-                          // Supabase API gateway requires apikey header on all requests
-                          const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-                          if (anonKey) {
-                            xhr.setRequestHeader('apikey', anonKey)
-                            xhr.setRequestHeader('Authorization', `Bearer ${anonKey}`)
+                          if (uploadError) {
+                            throw new Error(`Upload failed: ${uploadError.message}`)
                           }
-                          xhr.setRequestHeader('x-upsert', 'true')
-                          // Send as FormData matching Supabase JS client internals
-                          const formData = new FormData()
-                          formData.append('cacheControl', '31536000')
-                          formData.append('', file, file.name)
-                          xhr.timeout = 600000 // 10 minute timeout for very large files
-                          xhr.send(formData)
-                        })
+
+                          setUploadProgress(100)
+                          url = signedData.publicUrl
+                        } catch (tusErr) {
+                          clearInterval(progressInterval)
+                          throw tusErr
+                        }
 
                         // Notify v2 upload complete (non-blocking, for quota tracking)
                         if (signedData?.assetId || signedData?.path) {
