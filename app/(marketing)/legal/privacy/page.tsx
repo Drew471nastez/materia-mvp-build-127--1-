@@ -1,5 +1,5 @@
 export const metadata = {
-  title: "Privacy Policy | Storelib",
+  title: "Privacy Policy",
   description: "Privacy Policy for Storelib",
 }
 

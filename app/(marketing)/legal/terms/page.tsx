@@ -1,5 +1,5 @@
 export const metadata = {
-  title: "Terms of Service | Storelib",
+  title: "Terms of Service",
   description: "Terms of Service for Storelib",
 }
 

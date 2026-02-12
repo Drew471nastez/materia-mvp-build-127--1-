@@ -25,7 +25,7 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
   const { username } = await params
 
   if (isReservedWord(username)) {
-    return { title: "Page Not Found | Storelib" }
+    return { title: "Page Not Found" }
   }
 
   const supabase = await createClient()
@@ -37,7 +37,7 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
     .maybeSingle()
 
   if (!profile) {
-    return { title: "Creator Not Found | Storelib" }
+    return { title: "Creator Not Found" }
   }
 
   // Fetch creator to get published config for favicon
@@ -72,14 +72,14 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
   }
 
   const siteUrl = `https://${username}.storelib.com`
-  const title = `${profile.display_name || profile.username || "Creator"} | Storelib`
+  const displayTitle = profile.display_name || profile.username || "Creator"
   const description = `Check out ${profile.display_name || profile.username}'s products on Storelib`
 
   return {
-    title,
+    title: displayTitle,
     description,
     openGraph: {
-      title,
+      title: `${displayTitle} | Storelib`,
       description,
       type: "website",
       url: siteUrl,

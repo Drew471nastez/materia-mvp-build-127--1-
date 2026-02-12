@@ -1,19 +1,17 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
 
 const BUCKET_NAME = "lead-form-files"
-const MAX_FILE_SIZE = 500 * 1024 * 1024 // 500MB
 
 /**
  * POST - Fix the lead-form-files bucket configuration.
- * Resets file_size_limit to 500MB (safe int32 value) and allows all MIME types.
+ * Uses direct REST API call to Supabase Storage (bypassing JS client)
+ * to reset file_size_limit to 0 (no limit) and allow all MIME types.
  * This fixes issues caused by the previous 4GB value overflowing int32 in PostgreSQL.
  */
 export async function POST() {
   try {
     const supabase = await createClient()
-    const adminSupabase = createAdminClient()
 
     const {
       data: { user },
@@ -22,49 +20,96 @@ export async function POST() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Try to update the bucket via Storage API
-    const { error: updateErr } = await adminSupabase.storage.updateBucket(BUCKET_NAME, {
-      public: true,
-      fileSizeLimit: MAX_FILE_SIZE,
-      allowedMimeTypes: null,
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+    if (!supabaseUrl || !serviceRoleKey) {
+      return NextResponse.json({ error: "Server configuration error" }, { status: 500 })
+    }
+
+    // Direct REST API call to Supabase Storage to update bucket
+    // This bypasses the JS client which may have issues with the corrupted int32 value
+    const updateRes = await fetch(`${supabaseUrl}/storage/v1/bucket/${BUCKET_NAME}`, {
+      method: "PUT",
+      headers: {
+        "Authorization": `Bearer ${serviceRoleKey}`,
+        "apikey": serviceRoleKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        id: BUCKET_NAME,
+        name: BUCKET_NAME,
+        public: true,
+        file_size_limit: 0, // 0 = no limit
+        allowed_mime_types: null, // null = allow all
+      }),
     })
 
-    if (updateErr) {
-      console.error("[fix-bucket] Storage API update failed:", updateErr)
+    const updateBody = await updateRes.json().catch(() => null)
 
-      // Fallback: try creating the bucket if it doesn't exist
-      const { error: createErr } = await adminSupabase.storage.createBucket(BUCKET_NAME, {
-        public: true,
-        fileSizeLimit: MAX_FILE_SIZE,
-        allowedMimeTypes: null,
-      })
+    if (!updateRes.ok) {
+      console.error("[fix-bucket] Direct REST API update failed:", updateRes.status, updateBody)
 
-      if (createErr && !createErr.message?.includes('already exists')) {
+      // If bucket doesn't exist, try creating it
+      if (updateRes.status === 404 || updateRes.status === 400) {
+        const createRes = await fetch(`${supabaseUrl}/storage/v1/bucket`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${serviceRoleKey}`,
+            "apikey": serviceRoleKey,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            id: BUCKET_NAME,
+            name: BUCKET_NAME,
+            public: true,
+            file_size_limit: 0,
+            allowed_mime_types: null,
+          }),
+        })
+
+        const createBody = await createRes.json().catch(() => null)
+
+        if (!createRes.ok) {
+          return NextResponse.json({
+            error: `Failed to fix bucket via REST API`,
+            updateStatus: updateRes.status,
+            updateBody,
+            createStatus: createRes.status,
+            createBody,
+            sql: `UPDATE storage.buckets SET file_size_limit = 0, allowed_mime_types = NULL WHERE id = '${BUCKET_NAME}';`,
+          }, { status: 500 })
+        }
+      } else {
         return NextResponse.json({
-          error: `Failed to fix bucket: ${updateErr.message}`,
-          sql: `UPDATE storage.buckets SET file_size_limit = ${MAX_FILE_SIZE}, allowed_mime_types = NULL WHERE id = '${BUCKET_NAME}';`,
+          error: `Failed to update bucket: ${updateBody?.message || updateRes.statusText}`,
+          status: updateRes.status,
+          body: updateBody,
+          sql: `UPDATE storage.buckets SET file_size_limit = 0, allowed_mime_types = NULL WHERE id = '${BUCKET_NAME}';`,
         }, { status: 500 })
       }
     }
 
-    // Verify the bucket config
-    const { data: buckets } = await adminSupabase.storage.listBuckets()
-    const bucket = buckets?.find((b) => b.name === BUCKET_NAME)
+    // Verify the bucket config by reading it back
+    const verifyRes = await fetch(`${supabaseUrl}/storage/v1/bucket/${BUCKET_NAME}`, {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${serviceRoleKey}`,
+        "apikey": serviceRoleKey,
+      },
+    })
+    const verifyBody = await verifyRes.json().catch(() => null)
 
     return NextResponse.json({
       success: true,
       message: "Bucket configuration fixed successfully",
-      bucket: {
-        name: bucket?.name,
-        public: bucket?.public,
-        fileSizeLimit: (bucket as any)?.file_size_limit,
-      },
+      bucket: verifyBody,
     })
   } catch (error) {
     console.error("[fix-bucket] Error:", error)
     return NextResponse.json({
       error: error instanceof Error ? error.message : "Internal server error",
-      sql: `UPDATE storage.buckets SET file_size_limit = ${MAX_FILE_SIZE}, allowed_mime_types = NULL WHERE id = '${BUCKET_NAME}';`,
+      sql: `UPDATE storage.buckets SET file_size_limit = 0, allowed_mime_types = NULL WHERE id = '${BUCKET_NAME}';`,
     }, { status: 500 })
   }
 }

@@ -75,7 +75,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 
   if (!onepage) {
-    return { title: slug ? `${slug} | Storelib` : "Page Not Found" }
+    return { title: slug || "Page Not Found" }
   }
 
   const profile = onepage.published_profile as any
@@ -84,7 +84,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   // SEO Title Priority: seo_title > display name > title > "Creator"
   const displayName = profile?.title || onepage.title || "Creator"
   const seoTitle = settings?.seo_title?.trim()
-  const pageTitle = seoTitle || `${displayName} | Storelib`
+  // For browser tab: let the root layout template add "| Storelib"
+  // If user set a custom SEO title, use it as-is (absolute) to avoid template doubling
+  const pageTitle = seoTitle || displayName
+  const ogTitle = seoTitle || `${displayName} | Storelib`
 
   // Favicon
   let faviconUrl = profile?.avatar_url || onepage.avatar_url
@@ -155,13 +158,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: pageTitle,
     description: settings?.seo_description || profile?.bio || undefined,
     openGraph: {
-      title: pageTitle,
+      title: ogTitle,
       description: settings?.seo_description || profile?.bio || undefined,
       images: socialImageUrl ? [socialImageUrl] : undefined,
     },
     twitter: {
       card: socialImageUrl ? "summary_large_image" : "summary",
-      title: pageTitle,
+      title: ogTitle,
       description: settings?.seo_description || profile?.bio || undefined,
       images: socialImageUrl ? [socialImageUrl] : undefined,
     },

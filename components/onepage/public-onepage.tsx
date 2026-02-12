@@ -1971,6 +1971,25 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
         }
+        /* Prevent image copying and dragging */
+        .onepage-live img {
+          -webkit-user-drag: none;
+          -khtml-user-drag: none;
+          -moz-user-drag: none;
+          -o-user-drag: none;
+          user-drag: none;
+          -webkit-user-select: none;
+          -moz-user-select: none;
+          -ms-user-select: none;
+          user-select: none;
+          pointer-events: none;
+        }
+        .onepage-live video {
+          -webkit-user-select: none;
+          -moz-user-select: none;
+          -ms-user-select: none;
+          user-select: none;
+        }
       `,
         }}
       />
@@ -2003,7 +2022,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
 
       {/* Desktop layout - NO internal scrollbar, page scrolls naturally */}
       <div
-        className="hidden md:block min-h-screen w-full relative overflow-hidden"
+        className="onepage-live hidden md:block min-h-screen w-full relative overflow-hidden"
+        onContextMenu={(e) => { if ((e.target as HTMLElement).tagName === 'IMG') e.preventDefault() }}
         style={{
           background: getBackgroundStyle(),
           fontFamily: safeTheme.font_family || "Inter",
@@ -2157,7 +2177,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
 
       {/* Mobile layout (full screen) */}
       <div
-        className="md:hidden min-h-screen w-full relative"
+        className="onepage-live md:hidden min-h-screen w-full relative"
+        onContextMenu={(e) => { if ((e.target as HTMLElement).tagName === 'IMG') e.preventDefault() }}
         style={{
           overflowX: 'clip',
           background: getBackgroundStyle(),

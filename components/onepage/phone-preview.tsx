@@ -1326,10 +1326,30 @@ export function PhonePreview({ className }: PhonePreviewProps) {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
         }
+        /* Prevent image copying and dragging */
+        .onepage-preview img {
+          -webkit-user-drag: none;
+          -khtml-user-drag: none;
+          -moz-user-drag: none;
+          -o-user-drag: none;
+          user-drag: none;
+          -webkit-user-select: none;
+          -moz-user-select: none;
+          -ms-user-select: none;
+          user-select: none;
+          pointer-events: none;
+        }
+        .onepage-preview video {
+          -webkit-user-select: none;
+          -moz-user-select: none;
+          -ms-user-select: none;
+          user-select: none;
+        }
       `,
           }}
         />
       <div
+        className="onepage-preview"
         style={{
           position: "absolute",
           top: 0,
@@ -2211,12 +2231,31 @@ export function MobilePreviewContent() {
           50% { background-position: 100% 50%; }
           100% { background-position: 0% 50%; }
         }
+        /* Prevent image copying and dragging */
+        .onepage-preview img {
+          -webkit-user-drag: none;
+          -khtml-user-drag: none;
+          -moz-user-drag: none;
+          -o-user-drag: none;
+          user-drag: none;
+          -webkit-user-select: none;
+          -moz-user-select: none;
+          -ms-user-select: none;
+          user-select: none;
+          pointer-events: none;
+        }
+        .onepage-preview video {
+          -webkit-user-select: none;
+          -moz-user-select: none;
+          -ms-user-select: none;
+          user-select: none;
+        }
       `,
         }}
       />
       <div
         key={animationKey}
-        className="flex-1 relative overflow-hidden"
+        className="onepage-preview flex-1 relative overflow-hidden"
         style={{
           background:
             theme.background_type === "gradient" && theme.background_gradient

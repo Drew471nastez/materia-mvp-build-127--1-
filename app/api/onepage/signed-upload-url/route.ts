@@ -47,28 +47,54 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "File too large (max 500MB)" }, { status: 400 })
     }
 
-    // Ensure bucket exists with proper configuration (public, 500MB limit, all MIME types)
+    // Ensure bucket exists with proper configuration using direct REST API
+    // This bypasses the JS client to fix corrupted int32 file_size_limit values
     try {
-      const { data: buckets } = await adminSupabase.storage.listBuckets()
-      const existingBucket = buckets?.find((b) => b.name === BUCKET_NAME)
-      if (!existingBucket) {
-        const { error: createErr } = await adminSupabase.storage.createBucket(BUCKET_NAME, {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+
+      // First try to update existing bucket via direct REST API
+      const updateRes = await fetch(`${supabaseUrl}/storage/v1/bucket/${BUCKET_NAME}`, {
+        method: "PUT",
+        headers: {
+          "Authorization": `Bearer ${serviceRoleKey}`,
+          "apikey": serviceRoleKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id: BUCKET_NAME,
+          name: BUCKET_NAME,
           public: true,
-          fileSizeLimit: MAX_DIGITAL_FILE_SIZE,
-          allowedMimeTypes: null, // null = allow ALL file types
-        })
-        if (createErr && !createErr.message?.includes('already exists')) {
-          console.error("[signed-upload] Bucket creation error:", createErr)
-        }
-      } else {
-        // Always update bucket to fix any previous misconfiguration (e.g. int32 overflow from 4GB value)
-        const { error: updateErr } = await adminSupabase.storage.updateBucket(BUCKET_NAME, {
-          public: true,
-          fileSizeLimit: MAX_DIGITAL_FILE_SIZE,
-          allowedMimeTypes: null,
-        })
-        if (updateErr) {
-          console.error("[signed-upload] Bucket update error:", updateErr)
+          file_size_limit: 0, // 0 = no limit (fixes int32 overflow from previous 4GB value)
+          allowed_mime_types: null,
+        }),
+      })
+
+      if (!updateRes.ok) {
+        const updateBody = await updateRes.json().catch(() => null)
+        console.error("[signed-upload] Direct bucket update failed:", updateRes.status, updateBody)
+
+        // If bucket doesn't exist, create it
+        if (updateRes.status === 404 || updateRes.status === 400) {
+          const createRes = await fetch(`${supabaseUrl}/storage/v1/bucket`, {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${serviceRoleKey}`,
+              "apikey": serviceRoleKey,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              id: BUCKET_NAME,
+              name: BUCKET_NAME,
+              public: true,
+              file_size_limit: 0,
+              allowed_mime_types: null,
+            }),
+          })
+          if (!createRes.ok) {
+            const createBody = await createRes.json().catch(() => null)
+            console.error("[signed-upload] Bucket creation failed:", createRes.status, createBody)
+          }
         }
       }
     } catch (bucketErr) {

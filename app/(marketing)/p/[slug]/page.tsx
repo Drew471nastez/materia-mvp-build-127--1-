@@ -99,7 +99,7 @@ export async function generateMetadata({ params }: ProductPageProps) {
   }
 
   if (!product) {
-    return { title: "Product Not Found | Storelib" }
+    return { title: "Product Not Found" }
   }
 
   // Fetch creator's display name and published config for favicon
@@ -135,16 +135,16 @@ export async function generateMetadata({ params }: ProductPageProps) {
   const galleryUrls = product.gallery_urls as string[] | null
   const socialImage = galleryUrls?.[0] || product.thumbnail_url || undefined
 
-  // Title: "Product Name | Seller Name" or "Product Name | Storelib"
-  const titleSuffix = sellerName || "Storelib"
-  const pageTitle = `${product.title} | ${titleSuffix}`
+  // Title: "Product Name | Seller Name" (template adds "| Storelib")
+  const tabTitle = sellerName ? `${product.title} | ${sellerName}` : product.title
+  const ogTitle = `${product.title} | ${sellerName || "Storelib"}`
   const pageDescription = product.description || "Check out this product on Storelib"
 
   return {
-    title: pageTitle,
+    title: tabTitle,
     description: pageDescription,
     openGraph: {
-      title: pageTitle,
+      title: ogTitle,
       description: pageDescription,
       type: "website",
       ...(socialImage && {
@@ -153,7 +153,7 @@ export async function generateMetadata({ params }: ProductPageProps) {
     },
     twitter: {
       card: socialImage ? "summary_large_image" : "summary",
-      title: pageTitle,
+      title: ogTitle,
       description: pageDescription,
       ...(socialImage && {
         images: [socialImage],
