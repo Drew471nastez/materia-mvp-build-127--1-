@@ -217,6 +217,8 @@ export interface ImageItem {
   link_url?: string | null
 }
 
+export type ImageCarouselViewType = "1" | "1.3" | "1.5" | "2"
+
 export interface ImageBlockData {
   // Legacy single image support
   image_url: string
@@ -233,6 +235,7 @@ export interface ImageBlockData {
   // Carousel options
   carousel_autoplay?: boolean
   carousel_interval?: number
+  carousel_view?: ImageCarouselViewType
   // Image options
   image_fit?: "cover" | "contain"
   border_radius?: "none" | "sm" | "md" | "lg" | "full"

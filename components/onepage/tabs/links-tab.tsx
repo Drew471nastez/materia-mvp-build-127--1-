@@ -21,6 +21,7 @@ import {
   type GroupBlockData,
   type GroupLayoutType,
   type CarouselViewType,
+  type ImageCarouselViewType,
   type ProductBlockData,
   type ProductBlockStyle,
   type ProductButtonStyle,
@@ -7744,6 +7745,31 @@ function BlockEditor({
               {data.display_style === 'carousel' && (
                 <>
                   <div className="border-t border-gray-100" />
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium">Carousel View</Label>
+                    <div className="flex gap-2">
+                      {([
+                        { id: "1" as ImageCarouselViewType, label: "1" },
+                        { id: "1.3" as ImageCarouselViewType, label: "1.3" },
+                        { id: "1.5" as ImageCarouselViewType, label: "1.5" },
+                        { id: "2" as ImageCarouselViewType, label: "2" },
+                      ]).map((viewOption) => (
+                        <button
+                          key={viewOption.id}
+                          type="button"
+                          onClick={() => updateData({ carousel_view: viewOption.id })}
+                          className={cn(
+                            "flex-1 py-2 rounded-lg text-xs font-medium transition-all border",
+                            (data.carousel_view || "1") === viewOption.id
+                              ? "border-gray-900 bg-gray-900 text-white"
+                              : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                          )}
+                        >
+                          {viewOption.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   <div className="flex items-center justify-between">
                     <div>
                       <Label className="text-xs font-medium">Autoplay</Label>
