@@ -7,7 +7,7 @@ export const runtime = "nodejs"
 // Allow up to 300 seconds for upload processing
 export const maxDuration = 300
 
-const BUCKET_NAME = "lead-form-files"
+const BUCKET_NAME = process.env.ONEPAGE_LEAD_FILES_BUCKET || "lead-form-files-v2"
 const MAX_FILE_SIZE = 5 * 1024 * 1024 * 1024 // 5GB
 const BUCKET_FILE_SIZE_LIMIT = 5 * 1024 * 1024 * 1024 // 5GB
 

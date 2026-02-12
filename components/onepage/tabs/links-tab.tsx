@@ -3659,7 +3659,7 @@ export function LinksTab() {
                         }
 
                         const uploadWithSignedUrl = async (signedData: { path: string; token: string; publicUrl: string; bucket?: string }) => {
-                          const targetBucket = signedData.bucket || 'lead-form-files'
+                          const targetBucket = signedData.bucket || 'lead-form-files-v2'
                           const { error: uploadError } = await supabase.storage
                             .from(targetBucket)
                             .uploadToSignedUrl(signedData.path, signedData.token, file, {

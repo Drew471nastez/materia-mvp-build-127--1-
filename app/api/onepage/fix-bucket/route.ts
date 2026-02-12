@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 
-const BUCKET_NAME = "lead-form-files"
+const BUCKET_NAME = process.env.ONEPAGE_LEAD_FILES_BUCKET || "lead-form-files-v2"
 
 /**
  * POST - Fix the lead-form-files bucket configuration.
