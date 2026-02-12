@@ -185,6 +185,16 @@ export async function POST(request: NextRequest) {
 
     // Ensure bucket exists and limit is sufficient for this file
     const bucketCheck = await ensureBucket(admin, targetBucket, !isDigital, fileSize)
+
+    // Auto-create RLS policies so browser TUS uploads work (idempotent)
+    let tusReady = false
+    try {
+      await admin.rpc("ensure_storage_rls", { p_bucket_id: targetBucket })
+      tusReady = true
+    } catch (rlsErr) {
+      console.warn("[v2/upload/prepare] ensure_storage_rls RPC not available:", rlsErr)
+    }
+
     if (!bucketCheck.ok) {
       const sql = `UPDATE storage.buckets SET file_size_limit = ${BUCKET_FILE_SIZE_LIMIT}, public = true, allowed_mime_types = NULL WHERE id = '${targetBucket}';`
       console.error(`[v2/upload/prepare] Bucket limit too low: ${bucketCheck.currentLimit} < ${fileSize}. SQL: ${sql}`)
@@ -248,6 +258,7 @@ export async function POST(request: NextRequest) {
       path: filePath,
       publicUrl: urlData.publicUrl,
       bucket: targetBucket,
+      tusReady,
       assetId,
       limits: {
         maxFileSize: planLimits.maxFileSizeBytes,

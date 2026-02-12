@@ -244,6 +244,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Auto-create RLS policies so browser TUS uploads work (idempotent)
+    let tusReady = false
+    try {
+      await adminSupabase.rpc("ensure_storage_rls", { p_bucket_id: BUCKET_NAME })
+      tusReady = true
+    } catch {
+      console.warn("[signed-upload] ensure_storage_rls RPC not available")
+    }
+
     // Get the public URL for after upload
     const { data: urlData } = adminSupabase.storage.from(BUCKET_NAME).getPublicUrl(filePath)
 
@@ -253,6 +262,7 @@ export async function POST(request: NextRequest) {
       path: filePath,
       publicUrl: urlData.publicUrl,
       bucket: BUCKET_NAME,
+      tusReady,
     })
   } catch (error) {
     console.error("Signed upload URL error:", error)

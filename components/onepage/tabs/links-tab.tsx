@@ -3693,42 +3693,101 @@ export function LinksTab() {
                         const signedData = await getSignedUrl()
                         setUploadProgress(3)
 
-                        // Step 2: Upload file using Supabase client with TUS protocol
-                        // TUS automatically chunks large files into ~6MB pieces, bypassing
-                        // the API gateway body size limit that blocks single large PUT requests
-                        const supabase = createClient()
+                        // Step 2: Upload the file
+                        // Strategy A: TUS chunked upload via Supabase client (handles large files)
+                        // Strategy B: Signed URL XHR (fallback for when RLS policies aren't set up)
                         const uploadBucket = signedData.bucket || 'lead-form-files-v2'
+                        let uploaded = false
 
-                        // Simulate progress while TUS upload runs (no granular progress from SDK)
-                        let simProgress = 3
-                        const progressInterval = setInterval(() => {
-                          // Slower increment for larger files
-                          const mbSize = file.size / (1024 * 1024)
-                          const increment = Math.max(0.3, 12 / Math.max(mbSize, 1))
-                          simProgress = Math.min(simProgress + increment, 95)
-                          setUploadProgress(Math.round(simProgress))
-                        }, 500)
+                        // --- Strategy A: TUS via browser Supabase client ---
+                        if (signedData.tusReady !== false) {
+                          try {
+                            const supabase = createClient()
+                            // Ensure the browser client has a valid session
+                            const { data: { session } } = await supabase.auth.getSession()
+                            if (!session) {
+                              await supabase.auth.refreshSession()
+                            }
 
-                        try {
-                          const { error: uploadError } = await supabase.storage
-                            .from(uploadBucket)
-                            .upload(signedData.path, file, {
-                              contentType: file.type || 'application/octet-stream',
-                              cacheControl: '31536000',
-                              upsert: true,
+                            // Simulate progress while TUS runs (SDK doesn't expose granular progress)
+                            let simProgress = 3
+                            const progressInterval = setInterval(() => {
+                              const mbSize = file.size / (1024 * 1024)
+                              const increment = Math.max(0.3, 12 / Math.max(mbSize, 1))
+                              simProgress = Math.min(simProgress + increment, 95)
+                              setUploadProgress(Math.round(simProgress))
+                            }, 500)
+
+                            const { error: tusError } = await supabase.storage
+                              .from(uploadBucket)
+                              .upload(signedData.path, file, {
+                                contentType: file.type || 'application/octet-stream',
+                                cacheControl: '31536000',
+                                upsert: true,
+                              })
+
+                            clearInterval(progressInterval)
+
+                            if (tusError) {
+                              throw tusError
+                            }
+
+                            setUploadProgress(100)
+                            url = signedData.publicUrl
+                            uploaded = true
+                          } catch (tusErr: unknown) {
+                            const msg = tusErr instanceof Error ? tusErr.message : String(tusErr)
+                            console.warn('TUS upload failed, trying signed URL fallback:', msg)
+                            // Only fall back if it's an RLS/auth error — re-throw other errors
+                            if (!msg.includes('security policy') && !msg.includes('row-level') && !msg.includes('Unauthorized') && !msg.includes('JWT')) {
+                              throw new Error(`Upload failed: ${msg}`)
+                            }
+                          }
+                        }
+
+                        // --- Strategy B: Signed URL XHR (single PUT, works without RLS) ---
+                        if (!uploaded && signedData.signedUrl) {
+                          url = await new Promise<string>((resolve, reject) => {
+                            const xhr = new XMLHttpRequest()
+
+                            xhr.upload.addEventListener('progress', (event) => {
+                              if (event.lengthComputable) {
+                                const pct = Math.round(3 + (event.loaded / event.total) * 96)
+                                setUploadProgress(Math.min(pct, 99))
+                              }
                             })
 
-                          clearInterval(progressInterval)
+                            xhr.addEventListener('load', () => {
+                              if (xhr.status >= 200 && xhr.status < 300) {
+                                setUploadProgress(100)
+                                resolve(signedData.publicUrl)
+                              } else {
+                                let errMsg = `Upload failed (status ${xhr.status})`
+                                try {
+                                  const body = JSON.parse(xhr.responseText)
+                                  errMsg = body.error || body.message || body.statusCode || errMsg
+                                } catch {}
+                                reject(new Error(errMsg))
+                              }
+                            })
 
-                          if (uploadError) {
-                            throw new Error(`Upload failed: ${uploadError.message}`)
-                          }
+                            xhr.addEventListener('error', () => reject(new Error('Network error during upload. Check your connection and try again.')))
+                            xhr.addEventListener('abort', () => reject(new Error('Upload was cancelled')))
+                            xhr.addEventListener('timeout', () => reject(new Error('Upload timed out. Try a smaller file or better connection.')))
 
-                          setUploadProgress(100)
-                          url = signedData.publicUrl
-                        } catch (tusErr) {
-                          clearInterval(progressInterval)
-                          throw tusErr
+                            xhr.open('PUT', signedData.signedUrl)
+                            const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+                            if (anonKey) {
+                              xhr.setRequestHeader('apikey', anonKey)
+                              xhr.setRequestHeader('Authorization', `Bearer ${anonKey}`)
+                            }
+                            xhr.setRequestHeader('x-upsert', 'true')
+                            const formData = new FormData()
+                            formData.append('cacheControl', '31536000')
+                            formData.append('', file, file.name)
+                            xhr.timeout = 600000
+                            xhr.send(formData)
+                          })
                         }
 
                         // Notify v2 upload complete (non-blocking, for quota tracking)
@@ -3743,6 +3802,11 @@ export function LinksTab() {
                               fileSize: file.size,
                             }),
                           }).catch(() => {})
+                        }
+
+                        // Safety: if neither strategy set url, something went wrong
+                        if (!url) {
+                          throw new Error('Upload failed. Please try again.')
                         }
                       }
 
