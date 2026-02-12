@@ -265,7 +265,8 @@ export async function POST(req: NextRequest) {
     }
 
     // ---- INSERT EVENT
-    const event = {
+    // Full event with all extended columns
+    const fullEvent = {
       creator_id: payload.creatorId,
       product_id: payload.type === "product" ? payload.productId : null,
       event_type: "view",
@@ -299,7 +300,43 @@ export async function POST(req: NextRequest) {
       created_at: new Date().toISOString(),
     }
 
-    const { error: insertError } = await supabase.from("analytics_events").insert([event])
+    // Try full insert first, fall back to core columns if extended columns don't exist yet
+    let insertError: { message: string } | null = null
+    const { error: fullInsertError } = await supabase.from("analytics_events").insert([fullEvent])
+
+    if (fullInsertError) {
+      // If it's a column-not-found error, retry with only core columns
+      const errMsg = fullInsertError.message || ""
+      if (errMsg.includes("column") || errMsg.includes("undefined") || errMsg.includes("400") || errMsg.includes("Could not find")) {
+        console.warn("[track-view] Full insert failed (missing columns?), retrying with core fields:", errMsg)
+        const coreEvent = {
+          creator_id: payload.creatorId,
+          product_id: payload.type === "product" ? payload.productId : null,
+          event_type: "view",
+          visitor_id: visitorId,
+          session_id: sessionId,
+          referrer_domain: referrerDomain,
+          referrer: payload.referrer || null,
+          page_url: payload.pageUrl || null,
+          utm_source: payload.utm_source || null,
+          utm_medium: payload.utm_medium || null,
+          utm_campaign: payload.utm_campaign || null,
+          device_type: payload.deviceType || null,
+          browser: payload.browser || null,
+          os: payload.os || null,
+          country_code: country.code,
+          country_name: country.name,
+          city,
+          region,
+          created_at: new Date().toISOString(),
+        }
+        const { error: coreInsertError } = await supabase.from("analytics_events").insert([coreEvent])
+        insertError = coreInsertError
+      } else {
+        insertError = fullInsertError
+      }
+    }
+
     if (insertError) {
       console.error("[track-view] insert failed", insertError)
       return NextResponse.json({ ok: false, error: insertError.message }, { status: 500 })

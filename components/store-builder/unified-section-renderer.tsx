@@ -165,8 +165,13 @@ function ShareModal({
   productSlug?: string
 }) {
   const [copied, setCopied] = useState(false)
+  const [shareUrl, setShareUrl] = useState(`/p/${productSlug}`)
 
-  const shareUrl = typeof window !== "undefined" ? `${window.location.origin}/p/${productSlug}` : `/p/${productSlug}`
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setShareUrl(`${window.location.origin}/p/${productSlug}`)
+    }
+  }, [productSlug])
 
   const shareText = `Check out ${productTitle}`
 
