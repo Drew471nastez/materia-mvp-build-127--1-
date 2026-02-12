@@ -403,7 +403,7 @@ function ProgressCircle({ progress, size = 32 }: { progress: number; size?: numb
   )
 }
 
-// Mobile Bottom Sheet for Timeframe Selector with swipe-to-close (only from handle area)
+// Mobile Bottom Sheet for Timeframe Selector with smooth GPU-accelerated swipe-to-close
 function TimeframeBottomSheet({
   isOpen,
   onClose,
@@ -423,8 +423,11 @@ function TimeframeBottomSheet({
   const [isAnimating, setIsAnimating] = useState(false)
   const [dragY, setDragY] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
-  const startY = { current: 0 }
-  const sheetRef = { current: null as HTMLDivElement | null }
+  const startYRef = useRef(0)
+  const lastYRef = useRef(0)
+  const lastTimeRef = useRef(0)
+  const velocityRef = useRef(0)
+  const sheetRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (isOpen && !isVisible) {
@@ -432,7 +435,6 @@ function TimeframeBottomSheet({
       document.body.style.overflow = "hidden"
       document.documentElement.style.overscrollBehavior = 'none'
       document.body.style.overscrollBehavior = 'none'
-      // Use a small delay to ensure DOM is ready for smooth animation
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           setIsAnimating(true)
@@ -446,7 +448,7 @@ function TimeframeBottomSheet({
       const timer = setTimeout(() => {
         setIsVisible(false)
         setDragY(0)
-      }, 400) // Match the longer animation duration
+      }, 400)
       return () => clearTimeout(timer)
     }
     return () => {
@@ -458,24 +460,26 @@ function TimeframeBottomSheet({
 
   const handleClose = () => {
     setIsAnimating(false)
+    setIsDragging(false)
     setDragY(0)
+    velocityRef.current = 0
     setTimeout(() => {
       onClose()
-    }, 400) // Match the longer animation duration
+    }, 400)
   }
 
-  // Only allow drag from the handle area (top 60px of the sheet)
   const handleTouchStart = (e: React.TouchEvent) => {
     const touch = e.touches[0]
     const sheetElement = sheetRef.current
     if (!sheetElement) return
-
     const sheetRect = sheetElement.getBoundingClientRect()
     const touchYInSheet = touch.clientY - sheetRect.top
-
-    // Only start dragging if touch is in the handle area (top 60px)
-    if (touchYInSheet <= 60) {
-      startY.current = touch.clientY
+    // Only start dragging from handle area (top 72px)
+    if (touchYInSheet <= 72) {
+      startYRef.current = touch.clientY
+      lastYRef.current = touch.clientY
+      lastTimeRef.current = Date.now()
+      velocityRef.current = 0
       setIsDragging(true)
     }
   }
@@ -483,18 +487,25 @@ function TimeframeBottomSheet({
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!isDragging) return
     const currentY = e.touches[0].clientY
-    const diff = currentY - startY.current
+    const diff = currentY - startYRef.current
     if (diff > 0) {
-      // Soft resistance for smooth, controlled motion
-      setDragY(diff * 0.8)
+      // Track velocity for flick detection
+      const now = Date.now()
+      const dt = Math.max(1, now - lastTimeRef.current)
+      velocityRef.current = (currentY - lastYRef.current) / dt
+      lastYRef.current = currentY
+      lastTimeRef.current = now
+      // Rubber band resistance matching +Add block
+      const resisted = diff <= 160 ? diff * 0.92 : 147 + (diff - 160) * 0.4
+      setDragY(resisted)
     }
   }
 
   const handleTouchEnd = () => {
     if (!isDragging) return
     setIsDragging(false)
-    // Consistent threshold matching hamburger menu behavior
-    if (dragY > 80) {
+    // Dismiss on threshold drag or fast flick
+    if (dragY > 92 || velocityRef.current > 0.55) {
       handleClose()
     } else {
       setDragY(0)
@@ -505,34 +516,33 @@ function TimeframeBottomSheet({
 
   return (
     <div className="fixed inset-0 z-[100] md:hidden">
-      {/* Backdrop with smooth fade */}
+      {/* Backdrop with smooth fade + blur */}
       <div
-        className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity duration-400 ease-out ${
-          isAnimating ? "opacity-100" : "opacity-0"
-        }`}
-        style={{ transitionDuration: '400ms' }}
+        className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
+        style={{
+          opacity: isAnimating ? 1 : 0,
+          transition: isDragging ? 'none' : 'opacity 400ms cubic-bezier(0.32, 0.72, 0, 1)',
+        }}
         onClick={handleClose}
       />
-      {/* Bottom Sheet with smooth spring-like animation */}
+      {/* Bottom Sheet - GPU accelerated */}
       <div
-        ref={(el) => { sheetRef.current = el }}
+        ref={sheetRef}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
         style={{
-          transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)",
+          transform: isAnimating ? `translate3d(0, ${dragY}px, 0)` : "translate3d(0, 100%, 0)",
           transition: isDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
+          willChange: 'transform',
+          backfaceVisibility: 'hidden',
+          WebkitBackfaceVisibility: 'hidden',
         }}
       >
-        {/* Handle bar area - this is the drag zone */}
-        <div className="pt-3 pb-2">
-          <button
-            onClick={handleClose}
-            className="w-full flex justify-center py-2 cursor-pointer touch-none"
-          >
-            <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
-          </button>
+        {/* Handle bar */}
+        <div className="pt-3 pb-1 flex justify-center cursor-grab active:cursor-grabbing touch-none" data-sheet-handle>
+          <div className="h-[5px] w-10 rounded-full bg-gray-300" />
         </div>
         <div className="px-4 pb-4">
           <h3 className="text-[16px] font-semibold text-[#1a1a2e] mb-4">{t("time.selectPeriod")}</h3>

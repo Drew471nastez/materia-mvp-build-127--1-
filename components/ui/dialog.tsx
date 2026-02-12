@@ -65,12 +65,22 @@ function DialogContent({
   disableDefaultAnimations?: boolean
   disableOverlayDefaultAnimations?: boolean
 }) {
-  // Prevent pull-to-refresh on mobile when dialog is open (all platforms)
+  const portalRef = React.useRef<HTMLDivElement>(null)
+
+  // Prevent pull-to-refresh ONLY inside the dialog portal (never blocks normal page interactions)
   React.useEffect(() => {
     const prevHtmlOverscroll = document.documentElement.style.overscrollBehavior
     const prevBodyOverscroll = document.body.style.overscrollBehavior
     document.documentElement.style.overscrollBehavior = 'none'
     document.body.style.overscrollBehavior = 'none'
+
+    const portal = portalRef.current
+    if (!portal) {
+      return () => {
+        document.documentElement.style.overscrollBehavior = prevHtmlOverscroll
+        document.body.style.overscrollBehavior = prevBodyOverscroll
+      }
+    }
 
     let startY = 0
 
@@ -83,73 +93,64 @@ function DialogContent({
       const currentY = e.touches[0].clientY
       const deltaY = currentY - startY
 
-      // Walk up the DOM to find the nearest scrollable ancestor
+      // Walk up DOM to find nearest scrollable ancestor
       let el: HTMLElement | null = target
-      while (el && el !== document.documentElement) {
+      while (el && el !== portal && el !== document.documentElement) {
         const style = window.getComputedStyle(el)
         const overflowY = style.overflowY
         const isScrollable =
           (overflowY === 'auto' || overflowY === 'scroll') &&
           el.scrollHeight > el.clientHeight
         if (isScrollable) {
-          // Pulling down at the top of a scrollable element → block (pull-to-refresh)
-          if (deltaY > 0 && el.scrollTop <= 0) {
-            e.preventDefault()
-            return
-          }
-          // Pulling up at the bottom → block (overscroll bounce)
-          if (deltaY < 0 && el.scrollTop + el.clientHeight >= el.scrollHeight - 1) {
-            e.preventDefault()
-            return
-          }
-          // Normal scrolling within scrollable content → allow
-          return
+          if (deltaY > 0 && el.scrollTop <= 0) { e.preventDefault(); return }
+          if (deltaY < 0 && el.scrollTop + el.clientHeight >= el.scrollHeight - 1) { e.preventDefault(); return }
+          return // normal scroll
         }
         el = el.parentElement
       }
-
-      // No scrollable ancestor found → prevent (blocks pull-to-refresh on non-scrollable content)
       e.preventDefault()
     }
 
-    document.addEventListener('touchstart', handleTouchStart, { passive: true })
-    document.addEventListener('touchmove', handleTouchMove, { passive: false })
+    portal.addEventListener('touchstart', handleTouchStart, { passive: true })
+    portal.addEventListener('touchmove', handleTouchMove, { passive: false })
 
     return () => {
       document.documentElement.style.overscrollBehavior = prevHtmlOverscroll
       document.body.style.overscrollBehavior = prevBodyOverscroll
-      document.removeEventListener('touchstart', handleTouchStart)
-      document.removeEventListener('touchmove', handleTouchMove)
+      portal.removeEventListener('touchstart', handleTouchStart)
+      portal.removeEventListener('touchmove', handleTouchMove)
     }
   }, [])
 
   return (
     <DialogPortal data-slot="dialog-portal">
-      <DialogOverlay
-        className={overlayClassName}
-        disableDefaultAnimations={disableOverlayDefaultAnimations ?? disableDefaultAnimations}
-      />
-      <DialogPrimitive.Content
-        data-slot="dialog-content"
-        className={cn(
-          disableDefaultAnimations
-            ? 'bg-background fixed top-[50%] left-[50%] z-[2147483639] grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg sm:max-w-lg overscroll-contain'
-            : 'bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-[2147483639] grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 sm:max-w-lg overscroll-contain',
-          className,
-        )}
-        {...props}
-      >
-        {children}
-        {showCloseButton && (
-          <DialogPrimitive.Close
-            data-slot="dialog-close"
-            className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
-          >
-            <XIcon />
-            <span className="sr-only">Close</span>
-          </DialogPrimitive.Close>
-        )}
-      </DialogPrimitive.Content>
+      <div ref={portalRef} style={{ display: 'contents' }}>
+        <DialogOverlay
+          className={overlayClassName}
+          disableDefaultAnimations={disableOverlayDefaultAnimations ?? disableDefaultAnimations}
+        />
+        <DialogPrimitive.Content
+          data-slot="dialog-content"
+          className={cn(
+            disableDefaultAnimations
+              ? 'bg-background fixed top-[50%] left-[50%] z-[2147483639] grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg sm:max-w-lg overscroll-contain'
+              : 'bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-[2147483639] grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 sm:max-w-lg overscroll-contain',
+            className,
+          )}
+          {...props}
+        >
+          {children}
+          {showCloseButton && (
+            <DialogPrimitive.Close
+              data-slot="dialog-close"
+              className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+            >
+              <XIcon />
+              <span className="sr-only">Close</span>
+            </DialogPrimitive.Close>
+          )}
+        </DialogPrimitive.Content>
+      </div>
     </DialogPortal>
   )
 }
