@@ -219,6 +219,8 @@ function BlockEditor({ block }: { block: OnePageBlock }) {
   const [showFilePickerModal, setShowFilePickerModal] = useState(false)
   const [imageUploading, setImageUploading] = useState(false)
   const [fileUploading, setFileUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [uploadError, setUploadError] = useState<string | null>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const buttonTextMenuRef = useRef<HTMLDivElement>(null)
@@ -270,33 +272,77 @@ function BlockEditor({ block }: { block: OnePageBlock }) {
     }
   }
 
-  // Handle file upload for digital product
+  // Handle file upload for digital product — uses signed URL for direct-to-Supabase upload
+  // This bypasses the server for the file payload, so large files (100MB+) won't timeout
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
     setFileUploading(true)
-    try {
-      const formData = new FormData()
-      formData.append('file', file)
+    setUploadProgress(0)
+    setUploadError(null)
 
-      const response = await fetch('/api/onepage/seller-avatar', {
+    try {
+      // Step 1: Get a signed upload URL from our API (small JSON request)
+      const signedRes = await fetch('/api/onepage/signed-upload-url', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileName: file.name,
+          contentType: file.type || 'application/octet-stream',
+          fileSize: file.size,
+          folder: 'digital',
+        }),
       })
 
-      if (response.ok) {
-        const { url } = await response.json()
-        updateData({
-          digital_product_file_url: url,
-          digital_product_title: file.name.replace(/\.[^/.]+$/, ""),
-        })
-        setShowFilePickerModal(false)
+      if (!signedRes.ok) {
+        const err = await signedRes.json().catch(() => ({ error: 'Failed to get upload URL' }))
+        throw new Error(err.error || 'Failed to get upload URL')
       }
+
+      const { signedUrl, publicUrl } = await signedRes.json()
+
+      // Step 2: Upload file directly to Supabase Storage using XHR for progress
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
+
+        xhr.upload.addEventListener('progress', (event) => {
+          if (event.lengthComputable) {
+            const pct = Math.round((event.loaded / event.total) * 100)
+            setUploadProgress(pct)
+          }
+        })
+
+        xhr.addEventListener('load', () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve()
+          } else {
+            reject(new Error(`Upload failed with status ${xhr.status}`))
+          }
+        })
+
+        xhr.addEventListener('error', () => reject(new Error('Network error during upload')))
+        xhr.addEventListener('abort', () => reject(new Error('Upload was cancelled')))
+        xhr.addEventListener('timeout', () => reject(new Error('Upload timed out')))
+
+        xhr.open('PUT', signedUrl)
+        xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream')
+        xhr.timeout = 600000 // 10 minute timeout for large files
+        xhr.send(file)
+      })
+
+      // Step 3: Update block data with the public URL
+      updateData({
+        digital_product_file_url: publicUrl,
+        digital_product_title: file.name.replace(/\.[^/.]+$/, ""),
+      })
+      setShowFilePickerModal(false)
     } catch (error) {
       console.error('File upload failed:', error)
+      setUploadError(error instanceof Error ? error.message : 'Upload failed')
     } finally {
       setFileUploading(false)
+      setUploadProgress(0)
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }
@@ -752,7 +798,9 @@ function BlockEditor({ block }: { block: OnePageBlock }) {
           </Dialog>
 
           {/* File Picker Modal */}
-          <Dialog open={showFilePickerModal} onOpenChange={setShowFilePickerModal}>
+          <Dialog open={showFilePickerModal} onOpenChange={(open) => {
+            if (!fileUploading) setShowFilePickerModal(open)
+          }}>
             <DialogContent className="p-0 gap-0 overflow-hidden rounded-2xl w-[calc(100%-32px)] sm:max-w-[416px]">
               <DialogHeader className="p-4 border-b">
                 <DialogTitle className="text-base font-semibold">
@@ -761,7 +809,7 @@ function BlockEditor({ block }: { block: OnePageBlock }) {
               </DialogHeader>
               <div className="p-4 space-y-3">
                 {/* Current file preview */}
-                {data.digital_product_file_url && (
+                {data.digital_product_file_url && !fileUploading && (
                   <div className="flex items-center gap-3 pb-3 border-b">
                     <div className="w-12 h-12 rounded-lg bg-violet-100 flex items-center justify-center">
                       <FileText className="w-6 h-6 text-violet-600" />
@@ -777,34 +825,63 @@ function BlockEditor({ block }: { block: OnePageBlock }) {
                   </div>
                 )}
 
-                {/* Upload option */}
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={fileUploading}
-                  className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors text-left border"
-                >
-                  <div className="w-10 h-10 rounded-lg bg-violet-50 flex items-center justify-center">
-                    {fileUploading ? (
-                      <Loader2 className="w-5 h-5 text-violet-600 animate-spin" />
-                    ) : (
-                      <Upload className="w-5 h-5 text-violet-600" />
-                    )}
+                {/* Upload progress */}
+                {fileUploading && (
+                  <div className="space-y-3 py-2">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-violet-50 flex items-center justify-center">
+                        <Loader2 className="w-5 h-5 text-violet-600 animate-spin" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium">Uploading...</p>
+                        <p className="text-xs text-muted-foreground">{uploadProgress}% complete</p>
+                      </div>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                      <div
+                        className="bg-violet-600 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${uploadProgress}%` }}
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium">
-                      {data.digital_product_file_url ? "Replace file" : "Upload file"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">PDF, ZIP, or any file type</p>
-                  </div>
-                </button>
+                )}
 
-                {/* Remove file */}
-                {data.digital_product_file_url && (
+                {/* Upload error */}
+                {uploadError && !fileUploading && (
+                  <div className="flex items-center gap-3 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700">
+                    <X className="w-4 h-4 shrink-0" />
+                    <p className="text-sm">{uploadError}</p>
+                  </div>
+                )}
+
+                {/* Upload option */}
+                {!fileUploading && (
                   <button
                     type="button"
                     onClick={() => {
-                      updateData({ 
+                      setUploadError(null)
+                      fileInputRef.current?.click()
+                    }}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors text-left border"
+                  >
+                    <div className="w-10 h-10 rounded-lg bg-violet-50 flex items-center justify-center">
+                      <Upload className="w-5 h-5 text-violet-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">
+                        {data.digital_product_file_url ? "Replace file" : "Upload file"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">PDF, MP3, ZIP, or any file up to 5GB</p>
+                    </div>
+                  </button>
+                )}
+
+                {/* Remove file */}
+                {data.digital_product_file_url && !fileUploading && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      updateData({
                         digital_product_file_url: null,
                         digital_product_title: null,
                         digital_product_thumbnail: null,
