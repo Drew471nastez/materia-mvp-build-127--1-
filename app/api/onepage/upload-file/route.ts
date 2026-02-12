@@ -11,74 +11,24 @@ const BUCKET_NAME = process.env.ONEPAGE_LEAD_FILES_BUCKET || "lead-form-files-v2
 const MAX_FILE_SIZE = 5 * 1024 * 1024 * 1024 // 5GB
 const BUCKET_FILE_SIZE_LIMIT = 5 * 1024 * 1024 * 1024 // 5GB
 
-// Ensure bucket exists with correct settings using direct REST API
+// Validate bucket state with admin API only.
+// Avoid REST update/create here to prevent false-positive 400 setup failures.
 async function ensureBucket() {
   try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-
-    // Direct REST API call to enforce explicit 5GB object limit
-    const updateRes = await fetch(`${supabaseUrl}/storage/v1/bucket/${BUCKET_NAME}`, {
-      method: "PUT",
-      headers: {
-        "Authorization": `Bearer ${serviceRoleKey}`,
-        "apikey": serviceRoleKey,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        id: BUCKET_NAME,
-        name: BUCKET_NAME,
-        public: true,
-        file_size_limit: BUCKET_FILE_SIZE_LIMIT,
-        allowed_mime_types: null,
-      }),
-    })
-
-    if (!updateRes.ok) {
-      const body = await updateRes.json().catch(() => null)
-      console.error("[upload-file] Direct bucket update failed:", updateRes.status, body)
-
-      if (updateRes.status === 404) {
-        const createRes = await fetch(`${supabaseUrl}/storage/v1/bucket`, {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${serviceRoleKey}`,
-            "apikey": serviceRoleKey,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            id: BUCKET_NAME,
-            name: BUCKET_NAME,
-            public: true,
-            file_size_limit: BUCKET_FILE_SIZE_LIMIT,
-            allowed_mime_types: null,
-          }),
-        })
-        if (!createRes.ok) {
-          const createBody = await createRes.json().catch(() => null)
-          console.error("[upload-file] Bucket creation failed:", createRes.status, createBody)
-          if (createRes.status === 404) {
-            return false
-          }
-        }
-      }
-    }
-
-    const verifyRes = await fetch(`${supabaseUrl}/storage/v1/bucket/${BUCKET_NAME}`, {
-      method: "GET",
-      headers: {
-        "Authorization": `Bearer ${serviceRoleKey}`,
-        "apikey": serviceRoleKey,
-      },
-    })
-
-    if (!verifyRes.ok) {
-      console.error("[upload-file] Bucket verify failed:", verifyRes.status)
+    const adminSupabase = createAdminClient()
+    const { data: buckets, error } = await adminSupabase.storage.listBuckets()
+    if (error) {
+      console.warn("[upload-file] listBuckets failed, continuing:", error.message)
       return true
     }
 
-    const verifyBody = await verifyRes.json().catch(() => null) as { file_size_limit?: number | null } | null
-    const liveLimit = typeof verifyBody?.file_size_limit === 'number' ? verifyBody.file_size_limit : null
+    const bucket = buckets?.find((b) => b.id === BUCKET_NAME || b.name === BUCKET_NAME) as { file_size_limit?: number | null } | undefined
+    if (!bucket) {
+      console.error("[upload-file] Bucket not found:", BUCKET_NAME)
+      return false
+    }
+
+    const liveLimit = typeof bucket.file_size_limit === 'number' ? bucket.file_size_limit : null
     if (liveLimit !== null && liveLimit > 0 && liveLimit < BUCKET_FILE_SIZE_LIMIT) {
       console.error("[upload-file] Bucket size limit is still too low:", liveLimit)
       return false
