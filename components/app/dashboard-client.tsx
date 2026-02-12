@@ -430,6 +430,8 @@ function TimeframeBottomSheet({
     if (isOpen && !isVisible) {
       setIsVisible(true)
       document.body.style.overflow = "hidden"
+      document.documentElement.style.overscrollBehavior = 'none'
+      document.body.style.overscrollBehavior = 'none'
       // Use a small delay to ensure DOM is ready for smooth animation
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -439,6 +441,8 @@ function TimeframeBottomSheet({
     } else if (!isOpen && isVisible) {
       setIsAnimating(false)
       document.body.style.overflow = ""
+      document.documentElement.style.overscrollBehavior = ''
+      document.body.style.overscrollBehavior = ''
       const timer = setTimeout(() => {
         setIsVisible(false)
         setDragY(0)
@@ -447,6 +451,8 @@ function TimeframeBottomSheet({
     }
     return () => {
       document.body.style.overflow = ""
+      document.documentElement.style.overscrollBehavior = ''
+      document.body.style.overscrollBehavior = ''
     }
   }, [isOpen, isVisible])
 
@@ -586,15 +592,21 @@ function QuickAccessBottomSheet({
     if (isOpen && !isVisible) {
       setIsVisible(true)
       document.body.style.overflow = "hidden"
+      document.documentElement.style.overscrollBehavior = 'none'
+      document.body.style.overscrollBehavior = 'none'
       requestAnimationFrame(() => requestAnimationFrame(() => setIsAnimating(true)))
     } else if (!isOpen && isVisible) {
       setIsAnimating(false)
       document.body.style.overflow = ""
+      document.documentElement.style.overscrollBehavior = ''
+      document.body.style.overscrollBehavior = ''
       const timer = setTimeout(() => setIsVisible(false), 400)
       return () => clearTimeout(timer)
     }
     return () => {
       document.body.style.overflow = ""
+      document.documentElement.style.overscrollBehavior = ''
+      document.body.style.overscrollBehavior = ''
     }
   }, [isOpen, isVisible])
 

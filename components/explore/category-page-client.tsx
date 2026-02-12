@@ -333,16 +333,20 @@ function MobileFilterSheet({
     if (isOpen && !isVisible) {
       setIsVisible(true)
       document.body.style.overflow = "hidden"
+      document.documentElement.style.overscrollBehavior = 'none'
+      document.body.style.overscrollBehavior = 'none'
       requestAnimationFrame(() => {
         requestAnimationFrame(() => { setIsAnimating(true) })
       })
     } else if (!isOpen && isVisible) {
       setIsAnimating(false)
       document.body.style.overflow = ""
+      document.documentElement.style.overscrollBehavior = ''
+      document.body.style.overscrollBehavior = ''
       const timer = setTimeout(() => { setIsVisible(false); setDragY(0) }, 400)
       return () => clearTimeout(timer)
     }
-    return () => { document.body.style.overflow = "" }
+    return () => { document.body.style.overflow = ""; document.documentElement.style.overscrollBehavior = ''; document.body.style.overscrollBehavior = '' }
   }, [isOpen, isVisible])
 
   const handleClose = () => {
@@ -518,16 +522,20 @@ function MobileSubcategorySheet({
     if (isOpen && !isVisible) {
       setIsVisible(true)
       document.body.style.overflow = "hidden"
+      document.documentElement.style.overscrollBehavior = 'none'
+      document.body.style.overscrollBehavior = 'none'
       requestAnimationFrame(() => {
         requestAnimationFrame(() => { setIsAnimating(true) })
       })
     } else if (!isOpen && isVisible) {
       setIsAnimating(false)
       document.body.style.overflow = ""
+      document.documentElement.style.overscrollBehavior = ''
+      document.body.style.overscrollBehavior = ''
       const timer = setTimeout(() => { setIsVisible(false); setDragY(0) }, 400)
       return () => clearTimeout(timer)
     }
-    return () => { document.body.style.overflow = "" }
+    return () => { document.body.style.overflow = ""; document.documentElement.style.overscrollBehavior = ''; document.body.style.overscrollBehavior = '' }
   }, [isOpen, isVisible])
 
   const handleClose = () => {
@@ -655,16 +663,20 @@ function DesktopSubcategoryModal({
     if (isOpen && !isVisible) {
       setIsVisible(true)
       document.body.style.overflow = "hidden"
+      document.documentElement.style.overscrollBehavior = 'none'
+      document.body.style.overscrollBehavior = 'none'
       requestAnimationFrame(() => {
         requestAnimationFrame(() => { setIsAnimating(true) })
       })
     } else if (!isOpen && isVisible) {
       setIsAnimating(false)
       document.body.style.overflow = ""
+      document.documentElement.style.overscrollBehavior = ''
+      document.body.style.overscrollBehavior = ''
       const timer = setTimeout(() => { setIsVisible(false) }, 300)
       return () => clearTimeout(timer)
     }
-    return () => { document.body.style.overflow = "" }
+    return () => { document.body.style.overflow = ""; document.documentElement.style.overscrollBehavior = ''; document.body.style.overscrollBehavior = '' }
   }, [isOpen, isVisible])
 
   const handleClose = () => {

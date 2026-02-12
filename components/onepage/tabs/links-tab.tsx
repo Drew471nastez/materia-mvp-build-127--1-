@@ -702,25 +702,67 @@ export function LinksTab() {
   useEffect(() => {
     if (!anySheetOpen || !isMobileModalViewport) return
 
-    // Set overscroll-behavior to contain to prevent pull-to-refresh
-    const prevOverscroll = document.documentElement.style.overscrollBehavior
+    // Set overscroll-behavior to none to prevent pull-to-refresh
+    const prevHtmlOverscroll = document.documentElement.style.overscrollBehavior
+    const prevBodyOverscroll = document.body.style.overscrollBehavior
     document.documentElement.style.overscrollBehavior = 'none'
     document.body.style.overscrollBehavior = 'none'
 
-    // Non-passive touchmove listener to allow preventDefault (React touch events are passive)
-    const handleTouch = (e: TouchEvent) => {
-      // If the touch target is inside the bottom sheet drag handle area, prevent default
+    let startY = 0
+
+    const handleTouchStart = (e: TouchEvent) => {
+      startY = e.touches[0].clientY
+    }
+
+    // Non-passive touchmove listener to prevent pull-to-refresh (all platforms)
+    const handleTouchMove = (e: TouchEvent) => {
       const target = e.target as HTMLElement
+
+      // Always block on drag handles
       if (target?.closest?.('[data-sheet-handle]')) {
         e.preventDefault()
+        return
       }
+
+      const currentY = e.touches[0].clientY
+      const deltaY = currentY - startY
+
+      // Walk up DOM to find scrollable ancestor
+      let el: HTMLElement | null = target
+      while (el && el !== document.documentElement) {
+        const style = window.getComputedStyle(el)
+        const overflowY = style.overflowY
+        const isScrollable =
+          (overflowY === 'auto' || overflowY === 'scroll') &&
+          el.scrollHeight > el.clientHeight
+        if (isScrollable) {
+          // Pulling down at top → block pull-to-refresh
+          if (deltaY > 0 && el.scrollTop <= 0) {
+            e.preventDefault()
+            return
+          }
+          // Pulling up at bottom → block overscroll bounce
+          if (deltaY < 0 && el.scrollTop + el.clientHeight >= el.scrollHeight - 1) {
+            e.preventDefault()
+            return
+          }
+          return // normal scroll → allow
+        }
+        el = el.parentElement
+      }
+
+      // No scrollable parent → block pull-to-refresh
+      e.preventDefault()
     }
-    document.addEventListener('touchmove', handleTouch, { passive: false })
+
+    document.addEventListener('touchstart', handleTouchStart, { passive: true })
+    document.addEventListener('touchmove', handleTouchMove, { passive: false })
 
     return () => {
-      document.documentElement.style.overscrollBehavior = prevOverscroll
-      document.body.style.overscrollBehavior = ''
-      document.removeEventListener('touchmove', handleTouch)
+      document.documentElement.style.overscrollBehavior = prevHtmlOverscroll
+      document.body.style.overscrollBehavior = prevBodyOverscroll
+      document.removeEventListener('touchstart', handleTouchStart)
+      document.removeEventListener('touchmove', handleTouchMove)
     }
   }, [anySheetOpen, isMobileModalViewport])
 

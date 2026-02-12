@@ -356,6 +356,8 @@ function MobileFilterSheet({
     if (isOpen && !isVisible) {
       setIsVisible(true)
       document.body.style.overflow = "hidden"
+      document.documentElement.style.overscrollBehavior = 'none'
+      document.body.style.overscrollBehavior = 'none'
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           setIsAnimating(true)
@@ -364,6 +366,8 @@ function MobileFilterSheet({
     } else if (!isOpen && isVisible) {
       setIsAnimating(false)
       document.body.style.overflow = ""
+      document.documentElement.style.overscrollBehavior = ''
+      document.body.style.overscrollBehavior = ''
       const timer = setTimeout(() => {
         setIsVisible(false)
         setDragY(0)
@@ -372,6 +376,8 @@ function MobileFilterSheet({
     }
     return () => {
       document.body.style.overflow = ""
+      document.documentElement.style.overscrollBehavior = ''
+      document.body.style.overscrollBehavior = ''
     }
   }, [isOpen, isVisible])
 
@@ -563,6 +569,8 @@ function CategorySelectorModal({
       setIsVisible(true)
       setExpandedCategory(null)
       document.body.style.overflow = "hidden"
+      document.documentElement.style.overscrollBehavior = 'none'
+      document.body.style.overscrollBehavior = 'none'
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           setIsAnimating(true)
@@ -571,6 +579,8 @@ function CategorySelectorModal({
     } else if (!isOpen && isVisible) {
       setIsAnimating(false)
       document.body.style.overflow = ""
+      document.documentElement.style.overscrollBehavior = ''
+      document.body.style.overscrollBehavior = ''
       const timer = setTimeout(() => {
         setIsVisible(false)
         setDragY(0)
@@ -580,6 +590,8 @@ function CategorySelectorModal({
     }
     return () => {
       document.body.style.overflow = ""
+      document.documentElement.style.overscrollBehavior = ''
+      document.body.style.overscrollBehavior = ''
     }
   }, [isOpen, isVisible])
 

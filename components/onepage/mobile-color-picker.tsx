@@ -115,9 +115,17 @@ export function MobileColorPicker({ value, onChange, label = "Choose color", cla
   const currentHex = useMemo(() => hsvToHex(hue, sat, val), [hue, sat, val])
   const validHex = useMemo(() => (hexRegex.test(hex) ? hex : null), [hex])
 
+  // Store previous overscroll values for proper restoration
+  const prevOverscrollRef = useRef({ html: '', body: '' })
+
   const openSheet = useCallback(() => {
     setOpen(true)
     setIsVisible(true)
+    // Save current values before overriding
+    prevOverscrollRef.current = {
+      html: document.documentElement.style.overscrollBehavior,
+      body: document.body.style.overscrollBehavior,
+    }
     // Prevent pull-to-refresh on iOS/Android
     document.documentElement.style.overscrollBehavior = 'none'
     document.body.style.overscrollBehavior = 'none'
@@ -136,8 +144,9 @@ export function MobileColorPicker({ value, onChange, label = "Choose color", cla
     setTimeout(() => {
       setIsVisible(false)
       setOpen(false)
-      document.documentElement.style.overscrollBehavior = ''
-      document.body.style.overscrollBehavior = ''
+      // Restore previous values instead of empty string
+      document.documentElement.style.overscrollBehavior = prevOverscrollRef.current.html
+      document.body.style.overscrollBehavior = prevOverscrollRef.current.body
     }, 380)
   }, [])
 

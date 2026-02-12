@@ -65,32 +65,60 @@ function DialogContent({
   disableDefaultAnimations?: boolean
   disableOverlayDefaultAnimations?: boolean
 }) {
-  // Prevent pull-to-refresh on mobile when dialog is open
+  // Prevent pull-to-refresh on mobile when dialog is open (all platforms)
   React.useEffect(() => {
-    const prevOverscroll = document.documentElement.style.overscrollBehavior
+    const prevHtmlOverscroll = document.documentElement.style.overscrollBehavior
     const prevBodyOverscroll = document.body.style.overscrollBehavior
     document.documentElement.style.overscrollBehavior = 'none'
     document.body.style.overscrollBehavior = 'none'
 
+    let startY = 0
+
+    const handleTouchStart = (e: TouchEvent) => {
+      startY = e.touches[0].clientY
+    }
+
     const handleTouchMove = (e: TouchEvent) => {
       const target = e.target as HTMLElement
+      const currentY = e.touches[0].clientY
+      const deltaY = currentY - startY
+
+      // Walk up the DOM to find the nearest scrollable ancestor
       let el: HTMLElement | null = target
-      while (el && el !== document.body) {
+      while (el && el !== document.documentElement) {
         const style = window.getComputedStyle(el)
+        const overflowY = style.overflowY
         const isScrollable =
-          (style.overflowY === 'auto' || style.overflowY === 'scroll') &&
+          (overflowY === 'auto' || overflowY === 'scroll') &&
           el.scrollHeight > el.clientHeight
-        if (isScrollable) return
+        if (isScrollable) {
+          // Pulling down at the top of a scrollable element → block (pull-to-refresh)
+          if (deltaY > 0 && el.scrollTop <= 0) {
+            e.preventDefault()
+            return
+          }
+          // Pulling up at the bottom → block (overscroll bounce)
+          if (deltaY < 0 && el.scrollTop + el.clientHeight >= el.scrollHeight - 1) {
+            e.preventDefault()
+            return
+          }
+          // Normal scrolling within scrollable content → allow
+          return
+        }
         el = el.parentElement
       }
+
+      // No scrollable ancestor found → prevent (blocks pull-to-refresh on non-scrollable content)
       e.preventDefault()
     }
 
+    document.addEventListener('touchstart', handleTouchStart, { passive: true })
     document.addEventListener('touchmove', handleTouchMove, { passive: false })
 
     return () => {
-      document.documentElement.style.overscrollBehavior = prevOverscroll
+      document.documentElement.style.overscrollBehavior = prevHtmlOverscroll
       document.body.style.overscrollBehavior = prevBodyOverscroll
+      document.removeEventListener('touchstart', handleTouchStart)
       document.removeEventListener('touchmove', handleTouchMove)
     }
   }, [])

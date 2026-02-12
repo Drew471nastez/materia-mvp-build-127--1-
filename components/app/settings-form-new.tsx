@@ -242,6 +242,8 @@ function MobileBottomSheet({
       const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth
       document.body.style.overflow = "hidden"
       document.body.style.paddingRight = `${scrollbarWidth}px`
+      document.documentElement.style.overscrollBehavior = 'none'
+      document.body.style.overscrollBehavior = 'none'
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           setIsAnimating(true)
@@ -252,6 +254,8 @@ function MobileBottomSheet({
       const timer = setTimeout(() => {
         document.body.style.overflow = ""
         document.body.style.paddingRight = ""
+        document.documentElement.style.overscrollBehavior = ''
+        document.body.style.overscrollBehavior = ''
         setIsVisible(false)
         setDragY(0)
       }, 400)
@@ -260,6 +264,8 @@ function MobileBottomSheet({
     return () => {
       document.body.style.overflow = ""
       document.body.style.paddingRight = ""
+      document.documentElement.style.overscrollBehavior = ''
+      document.body.style.overscrollBehavior = ''
     }
   }, [isOpen, isVisible])
 

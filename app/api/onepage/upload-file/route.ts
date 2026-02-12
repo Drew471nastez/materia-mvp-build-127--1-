@@ -16,7 +16,7 @@ export const maxDuration = 60
 
 const BUCKET_NAME = "lead-form-files"
 const MAX_DIGITAL_FILE_SIZE = 4 * 1024 * 1024 * 1024 // 4GB
-const MAX_IMAGE_FILE_SIZE = 5 * 1024 * 1024 // 5MB
+const MAX_IMAGE_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 
 // POST - Upload a file for lead form (product images and digital products)
 export async function POST(request: NextRequest) {
@@ -47,34 +47,34 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 })
     }
 
-    // Validate file type for images
-    if (fileType === 'image' && !file.type.startsWith("image/")) {
-      return NextResponse.json({ error: "File must be an image" }, { status: 400 })
-    }
-
-    // Validate file size (max 4GB for digital files, 5MB for images)
+    // Validate file size (max 4GB for digital files, 10MB for images)
     const maxSize = fileType === 'digital' ? MAX_DIGITAL_FILE_SIZE : MAX_IMAGE_FILE_SIZE
     if (file.size > maxSize) {
       return NextResponse.json({
-        error: `File size must be less than ${fileType === 'digital' ? '4GB' : '5MB'}`
+        error: `File size must be less than ${fileType === 'digital' ? '4GB' : '10MB'}`
       }, { status: 400 })
     }
 
     // Ensure bucket exists using admin client
     const { data: buckets } = await adminSupabase.storage.listBuckets()
-    const bucketExists = buckets?.some((b) => b.name === BUCKET_NAME)
+    const existingBucket = buckets?.find((b) => b.name === BUCKET_NAME)
 
-    if (!bucketExists) {
-      // Create bucket with public access
+    if (!existingBucket) {
+      // Create bucket with public access, all MIME types allowed
       const { error: createError } = await adminSupabase.storage.createBucket(BUCKET_NAME, {
         public: true,
         fileSizeLimit: MAX_DIGITAL_FILE_SIZE,
       })
 
-      if (createError) {
+      if (createError && !createError.message?.includes('already exists')) {
         console.error("Error creating bucket:", createError)
-        // Continue anyway - might be a permissions issue but bucket might exist
       }
+    } else if (!existingBucket.public) {
+      // Ensure bucket is public if it exists but isn't public
+      await adminSupabase.storage.updateBucket(BUCKET_NAME, {
+        public: true,
+        fileSizeLimit: MAX_DIGITAL_FILE_SIZE,
+      })
     }
 
     // Generate unique filename

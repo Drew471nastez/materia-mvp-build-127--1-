@@ -899,13 +899,15 @@ function MobileBottomSheet({ isOpen, onClose, title, children }: { isOpen: boole
     if (isOpen && !isVisible) {
       setIsVisible(true)
       document.body.style.overflow = "hidden"
+      document.documentElement.style.overscrollBehavior = 'none'
+      document.body.style.overscrollBehavior = 'none'
       requestAnimationFrame(() => { requestAnimationFrame(() => { setIsAnimating(true) }) })
     } else if (!isOpen && isVisible) {
       setIsAnimating(false)
-      const timer = setTimeout(() => { document.body.style.overflow = ""; setIsVisible(false); setDragY(0) }, 400)
+      const timer = setTimeout(() => { document.body.style.overflow = ""; document.documentElement.style.overscrollBehavior = ''; document.body.style.overscrollBehavior = ''; setIsVisible(false); setDragY(0) }, 400)
       return () => clearTimeout(timer)
     }
-    return () => { document.body.style.overflow = "" }
+    return () => { document.body.style.overflow = ""; document.documentElement.style.overscrollBehavior = ''; document.body.style.overscrollBehavior = '' }
   }, [isOpen, isVisible])
 
   const handleClose = () => { setIsAnimating(false); setDragY(0); setTimeout(onClose, 400) }
@@ -932,7 +934,7 @@ function MobileBottomSheet({ isOpen, onClose, title, children }: { isOpen: boole
           <h3 className="text-[16px] font-semibold text-[#1a1a2e]">{title}</h3>
           <button onClick={handleClose} className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center text-[#6b7280] hover:bg-[#e5e7eb] cursor-pointer"><X className="h-4 w-4" /></button>
         </div>
-        <div className="p-5 overflow-y-auto max-h-[70vh]">{children}</div>
+        <div className="p-5 overflow-y-auto max-h-[70vh] overscroll-contain">{children}</div>
       </div>
     </div>
   )

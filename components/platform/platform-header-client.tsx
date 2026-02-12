@@ -360,6 +360,8 @@ function MobileBottomSheet({
     if (isOpen && !isVisible) {
       setIsVisible(true)
       document.body.style.overflow = "hidden"
+      document.documentElement.style.overscrollBehavior = 'none'
+      document.body.style.overscrollBehavior = 'none'
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           setIsAnimating(true)
@@ -368,6 +370,8 @@ function MobileBottomSheet({
     } else if (!isOpen && isVisible) {
       setIsAnimating(false)
       document.body.style.overflow = ""
+      document.documentElement.style.overscrollBehavior = ''
+      document.body.style.overscrollBehavior = ''
       const timer = setTimeout(() => {
         setIsVisible(false)
         setDragY(0)
@@ -376,6 +380,8 @@ function MobileBottomSheet({
     }
     return () => {
       document.body.style.overflow = ""
+      document.documentElement.style.overscrollBehavior = ''
+      document.body.style.overscrollBehavior = ''
     }
   }, [isOpen, isVisible])
 
