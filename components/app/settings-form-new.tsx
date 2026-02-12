@@ -483,6 +483,21 @@ function ImageCropModal({
   const [imageSize, setImageSize] = useState({ width: 0, height: 0 })
   const containerRef = useRef<HTMLDivElement>(null)
 
+  // Prevent pull-to-refresh when crop modal is open
+  useEffect(() => {
+    if (isOpen) {
+      document.documentElement.style.overscrollBehavior = 'none'
+      document.body.style.overscrollBehavior = 'none'
+    } else {
+      document.documentElement.style.overscrollBehavior = ''
+      document.body.style.overscrollBehavior = ''
+    }
+    return () => {
+      document.documentElement.style.overscrollBehavior = ''
+      document.body.style.overscrollBehavior = ''
+    }
+  }, [isOpen])
+
   useEffect(() => {
     if (tempImageUrl && isOpen) {
       const img = new window.Image()
@@ -729,6 +744,21 @@ function ImageUploadModal({
   onFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void
   fileInputRef: React.RefObject<HTMLInputElement>
 }) {
+  // Prevent pull-to-refresh when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      document.documentElement.style.overscrollBehavior = 'none'
+      document.body.style.overscrollBehavior = 'none'
+    } else {
+      document.documentElement.style.overscrollBehavior = ''
+      document.body.style.overscrollBehavior = ''
+    }
+    return () => {
+      document.documentElement.style.overscrollBehavior = ''
+      document.body.style.overscrollBehavior = ''
+    }
+  }, [isOpen])
+
   if (!isOpen) return null
 
   return (

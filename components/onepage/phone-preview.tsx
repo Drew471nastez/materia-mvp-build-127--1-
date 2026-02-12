@@ -1660,7 +1660,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
           onClick={() => setSpotifyModalOpen(false)}
         >
           <div
-            className="bg-white w-[92%] max-h-[75%] overflow-y-auto overscroll-contain shadow-2xl will-change-transform animate-in zoom-in-95 fade-in duration-[350ms] ease-out rounded-2xl"
+            className="bg-white w-[92%] max-h-[90%] overflow-y-auto overscroll-contain shadow-2xl will-change-transform animate-in zoom-in-95 fade-in duration-[350ms] ease-out rounded-2xl"
             style={{ transform: 'translateZ(0)' }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -1684,16 +1684,16 @@ export function PhonePreview({ className }: PhonePreviewProps) {
 
             {/* Spotify Embed */}
             <div className="p-2.5">
-              <div className="w-full overflow-hidden rounded-lg bg-black/5">
+              <div className="w-full overflow-hidden rounded-lg bg-black/5" style={{ aspectRatio: '1 / 1.15', maxHeight: '352px' }}>
                 <iframe
                   src={spotifyModalData.embedUrl}
                   width="100%"
-                  height="300"
+                  height="100%"
                   frameBorder="0"
                   allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
                   loading="lazy"
                   scrolling="no"
-                  className="block w-full"
+                  className="block w-full h-full"
                 />
               </div>
             </div>
@@ -1756,7 +1756,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
           onClick={() => setAppleMusicModalOpen(false)}
         >
           <div
-            className="bg-white w-[92%] max-h-[75%] overflow-y-auto overscroll-contain shadow-2xl will-change-transform animate-in zoom-in-95 fade-in duration-[350ms] ease-out rounded-2xl"
+            className="bg-white w-[92%] max-h-[90%] overflow-y-auto overscroll-contain shadow-2xl will-change-transform animate-in zoom-in-95 fade-in duration-[350ms] ease-out rounded-2xl"
             style={{ transform: 'translateZ(0)' }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -1786,17 +1786,17 @@ export function PhonePreview({ className }: PhonePreviewProps) {
 
             {/* Apple Music Embed */}
             <div className="p-2.5">
-              <div className="w-full overflow-hidden rounded-lg bg-black/5">
+              <div className="w-full overflow-hidden rounded-lg bg-black/5" style={{ aspectRatio: '1 / 1.25', maxHeight: '370px' }}>
                 <iframe
                   src={appleMusicModalData.embedUrl}
                   width="100%"
-                  height="330"
+                  height="100%"
                   frameBorder="0"
                   scrolling="no"
                   allow="autoplay *; encrypted-media *; fullscreen *; clipboard-write"
                   sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"
                   loading="lazy"
-                  className="block w-full bg-transparent"
+                  className="block w-full h-full bg-transparent"
                   style={{ overflow: 'hidden', background: 'transparent' }}
                 />
               </div>
@@ -2437,7 +2437,7 @@ export function MobilePreviewContent() {
           onClick={() => setSpotifyModalOpen(false)}
         >
           <div
-            className="bg-white w-[92%] max-h-[75%] overflow-y-auto overscroll-contain shadow-2xl will-change-transform animate-in zoom-in-95 fade-in duration-[350ms] ease-out rounded-2xl"
+            className="bg-white w-[92%] max-h-[90%] overflow-y-auto overscroll-contain shadow-2xl will-change-transform animate-in zoom-in-95 fade-in duration-[350ms] ease-out rounded-2xl"
             style={{ transform: 'translateZ(0)' }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -2522,7 +2522,7 @@ export function MobilePreviewContent() {
           onClick={() => setAppleMusicModalOpen(false)}
         >
           <div
-            className="bg-white w-[92%] max-h-[75%] overflow-y-auto overscroll-contain shadow-2xl will-change-transform animate-in zoom-in-95 fade-in duration-[350ms] ease-out rounded-2xl"
+            className="bg-white w-[92%] max-h-[90%] overflow-y-auto overscroll-contain shadow-2xl will-change-transform animate-in zoom-in-95 fade-in duration-[350ms] ease-out rounded-2xl"
             style={{ transform: 'translateZ(0)' }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -2552,17 +2552,17 @@ export function MobilePreviewContent() {
 
             {/* Apple Music Embed */}
             <div className="p-2.5">
-              <div className="w-full overflow-hidden rounded-lg bg-black/5">
+              <div className="w-full overflow-hidden rounded-lg bg-black/5" style={{ aspectRatio: '1 / 1.25', maxHeight: '370px' }}>
                 <iframe
                   src={appleMusicModalData.embedUrl}
                   width="100%"
-                  height="330"
+                  height="100%"
                   frameBorder="0"
                   scrolling="no"
                   allow="autoplay *; encrypted-media *; fullscreen *; clipboard-write"
                   sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"
                   loading="lazy"
-                  className="block w-full bg-transparent"
+                  className="block w-full h-full bg-transparent"
                   style={{ overflow: 'hidden', background: 'transparent' }}
                 />
               </div>

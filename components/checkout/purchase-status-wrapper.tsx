@@ -151,6 +151,21 @@ export function PurchaseStatusWrapper({
     return () => mq.removeEventListener?.("change", update)
   }, [])
 
+  // Prevent pull-to-refresh when mobile download files sheet is open
+  useEffect(() => {
+    if (showDownloadFilesModal && isMobileViewport) {
+      document.documentElement.style.overscrollBehavior = 'none'
+      document.body.style.overscrollBehavior = 'none'
+    } else {
+      document.documentElement.style.overscrollBehavior = ''
+      document.body.style.overscrollBehavior = ''
+    }
+    return () => {
+      document.documentElement.style.overscrollBehavior = ''
+      document.body.style.overscrollBehavior = ''
+    }
+  }, [showDownloadFilesModal, isMobileViewport])
+
   // Determine if PWYW is active (product-level or variant-level)
   // Only active if user does NOT own the current variant
   const isPwywActiveForVariant = selectedVariant?.pay_what_you_want || false
