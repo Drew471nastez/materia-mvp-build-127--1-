@@ -688,7 +688,7 @@ function EmailCaptureEditor({
                 {uploading ? "Uploading..." : "Click to upload or drag and drop"}
               </p>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                Any file type - PDF, ZIP, MP3, video, etc. (up to 5GB)
+                Any file type - PDF, ZIP, MP3, video, etc. (large files supported)
               </p>
             </div>
           )}
