@@ -3633,15 +3633,81 @@ export function LinksTab() {
                         const result = await uploadRes.json()
                         url = result.url
                       } else {
-                        // All digital files + large images: use signed URL for direct-to-storage upload
-                        // The file goes straight from browser → Supabase Storage (never through our server)
+                        // All digital files + large images: upload via server-side proxy
+                        // This bypasses Supabase Storage's TUS protocol and its global file size limit
                         setUploadProgress(1)
 
-                        // Step 1: Get a signed upload URL (small JSON request to server)
-                        const getSignedUrl = async () => {
-                          // Try v2 prepare endpoint first (adds plan limits + quota checks)
-                          try {
-                            const v2Res = await fetch('/api/v2/upload/prepare', {
+                        let uploaded = false
+
+                        // --- Strategy A: Server-side upload (bypasses Supabase's global upload limit) ---
+                        try {
+                          setUploadProgress(2)
+                          const uploadFormData = new FormData()
+                          uploadFormData.append('file', file)
+                          uploadFormData.append('folder', folder)
+
+                          // Simulate progress (server upload doesn't report granular progress)
+                          let simProgress = 3
+                          const progressInterval = setInterval(() => {
+                            const mbSize = file.size / (1024 * 1024)
+                            const increment = Math.max(0.3, 12 / Math.max(mbSize, 1))
+                            simProgress = Math.min(simProgress + increment, 95)
+                            setUploadProgress(Math.round(simProgress))
+                          }, 500)
+
+                          const serverRes = await fetch('/api/v2/upload/server-upload', {
+                            method: 'POST',
+                            body: uploadFormData,
+                          })
+
+                          clearInterval(progressInterval)
+
+                          if (serverRes.ok) {
+                            const result = await serverRes.json()
+                            url = result.url
+                            uploaded = true
+                            setUploadProgress(100)
+                          } else {
+                            const err = await serverRes.json().catch(() => ({ error: 'Server upload failed' }))
+                            // If it's a plan/quota error, don't fall through
+                            if (serverRes.status === 403 || serverRes.status === 413) {
+                              throw new Error(err.error || 'Upload failed')
+                            }
+                            console.warn('Server upload failed, trying direct upload:', err.error)
+                          }
+                        } catch (serverErr: unknown) {
+                          const msg = serverErr instanceof Error ? serverErr.message : String(serverErr)
+                          // Re-throw plan limit, quota, and size errors
+                          if (msg.includes('plan') || msg.includes('quota') || msg.includes('limit') || msg.includes('Dashboard') || msg.includes('exceeds')) {
+                            throw serverErr
+                          }
+                          console.warn('Server upload failed, trying direct:', msg)
+                        }
+
+                        // --- Strategy B: Direct TUS upload via browser Supabase client (fallback) ---
+                        if (!uploaded) {
+                          setUploadProgress(2)
+                          // Get a signed upload URL
+                          const getSignedUrl = async () => {
+                            try {
+                              const v2Res = await fetch('/api/v2/upload/prepare', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  fileName: file.name,
+                                  contentType: file.type || 'application/octet-stream',
+                                  fileSize: file.size,
+                                  folder,
+                                }),
+                              })
+                              if (v2Res.ok) return v2Res.json()
+                              const v2Err = await v2Res.json().catch(() => ({}))
+                              if (v2Res.status === 403 && v2Err.error) throw new Error(v2Err.error)
+                            } catch (v2Error) {
+                              if (v2Error instanceof Error && v2Error.message.includes('plan')) throw v2Error
+                              console.warn('v2 upload prepare failed, falling back:', v2Error)
+                            }
+                            const signedRes = await fetch('/api/onepage/signed-upload-url', {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({
@@ -3651,160 +3717,110 @@ export function LinksTab() {
                                 folder,
                               }),
                             })
-
-                            if (v2Res.ok) {
-                              return v2Res.json()
+                            if (!signedRes.ok) {
+                              const err = await signedRes.json().catch(() => ({ error: 'Failed to prepare upload' }))
+                              throw new Error(err.error || 'Failed to prepare upload')
                             }
-
-                            const v2Err = await v2Res.json().catch(() => ({}))
-                            // If it's a quota/plan limit error, don't fall back - show the error
-                            if (v2Res.status === 403 && v2Err.error) {
-                              throw new Error(v2Err.error)
-                            }
-                          } catch (v2Error) {
-                            // Re-throw quota/limit errors
-                            if (v2Error instanceof Error && v2Error.message.includes('plan')) {
-                              throw v2Error
-                            }
-                            console.warn('v2 upload prepare failed, falling back:', v2Error)
+                            return signedRes.json()
                           }
 
-                          // Fallback: legacy signed-upload-url endpoint
-                          const signedRes = await fetch('/api/onepage/signed-upload-url', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                              fileName: file.name,
-                              contentType: file.type || 'application/octet-stream',
-                              fileSize: file.size,
-                              folder,
-                            }),
-                          })
+                          const signedData = await getSignedUrl()
+                          setUploadProgress(3)
+                          const uploadBucket = signedData.bucket || 'lead-form-files-v2'
 
-                          if (!signedRes.ok) {
-                            const err = await signedRes.json().catch(() => ({ error: 'Failed to prepare upload' }))
-                            throw new Error(err.error || 'Failed to prepare upload')
+                          // TUS upload
+                          if (signedData.tusReady !== false) {
+                            try {
+                              const supabase = createClient()
+                              const { data: { session } } = await supabase.auth.getSession()
+                              if (!session) await supabase.auth.refreshSession()
+
+                              let simProgress = 3
+                              const progressInterval = setInterval(() => {
+                                const mbSize = file.size / (1024 * 1024)
+                                const increment = Math.max(0.3, 12 / Math.max(mbSize, 1))
+                                simProgress = Math.min(simProgress + increment, 95)
+                                setUploadProgress(Math.round(simProgress))
+                              }, 500)
+
+                              const { error: tusError } = await supabase.storage
+                                .from(uploadBucket)
+                                .upload(signedData.path, file, {
+                                  contentType: file.type || 'application/octet-stream',
+                                  cacheControl: '31536000',
+                                  upsert: true,
+                                })
+                              clearInterval(progressInterval)
+                              if (tusError) throw tusError
+                              setUploadProgress(100)
+                              url = signedData.publicUrl
+                              uploaded = true
+                            } catch (tusErr: unknown) {
+                              const msg = tusErr instanceof Error ? tusErr.message : String(tusErr)
+                              console.warn('TUS upload failed, trying signed URL fallback:', msg)
+                              if (!msg.includes('security policy') && !msg.includes('row-level') && !msg.includes('Unauthorized') && !msg.includes('JWT')) {
+                                throw new Error(`Upload failed: ${msg}`)
+                              }
+                            }
                           }
 
-                          return signedRes.json()
-                        }
-
-                        setUploadProgress(2)
-                        const signedData = await getSignedUrl()
-                        setUploadProgress(3)
-
-                        // Step 2: Upload the file
-                        // Strategy A: TUS chunked upload via Supabase client (handles large files)
-                        // Strategy B: Signed URL XHR (fallback for when RLS policies aren't set up)
-                        const uploadBucket = signedData.bucket || 'lead-form-files-v2'
-                        let uploaded = false
-
-                        // --- Strategy A: TUS via browser Supabase client ---
-                        if (signedData.tusReady !== false) {
-                          try {
-                            const supabase = createClient()
-                            // Ensure the browser client has a valid session
-                            const { data: { session } } = await supabase.auth.getSession()
-                            if (!session) {
-                              await supabase.auth.refreshSession()
-                            }
-
-                            // Simulate progress while TUS runs (SDK doesn't expose granular progress)
-                            let simProgress = 3
-                            const progressInterval = setInterval(() => {
-                              const mbSize = file.size / (1024 * 1024)
-                              const increment = Math.max(0.3, 12 / Math.max(mbSize, 1))
-                              simProgress = Math.min(simProgress + increment, 95)
-                              setUploadProgress(Math.round(simProgress))
-                            }, 500)
-
-                            const { error: tusError } = await supabase.storage
-                              .from(uploadBucket)
-                              .upload(signedData.path, file, {
-                                contentType: file.type || 'application/octet-stream',
-                                cacheControl: '31536000',
-                                upsert: true,
+                          // Signed URL XHR fallback
+                          if (!uploaded && signedData.signedUrl) {
+                            url = await new Promise<string>((resolve, reject) => {
+                              const xhr = new XMLHttpRequest()
+                              xhr.upload.addEventListener('progress', (event) => {
+                                if (event.lengthComputable) {
+                                  const pct = Math.round(3 + (event.loaded / event.total) * 96)
+                                  setUploadProgress(Math.min(pct, 99))
+                                }
                               })
+                              xhr.addEventListener('load', () => {
+                                if (xhr.status >= 200 && xhr.status < 300) {
+                                  setUploadProgress(100)
+                                  resolve(signedData.publicUrl)
+                                } else {
+                                  let errMsg = `Upload failed (status ${xhr.status})`
+                                  try {
+                                    const body = JSON.parse(xhr.responseText)
+                                    errMsg = body.error || body.message || body.statusCode || errMsg
+                                  } catch {}
+                                  reject(new Error(errMsg))
+                                }
+                              })
+                              xhr.addEventListener('error', () => reject(new Error('Network error during upload.')))
+                              xhr.addEventListener('abort', () => reject(new Error('Upload was cancelled')))
+                              xhr.addEventListener('timeout', () => reject(new Error('Upload timed out.')))
+                              xhr.open('PUT', signedData.signedUrl)
+                              const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+                              if (anonKey) {
+                                xhr.setRequestHeader('apikey', anonKey)
+                                xhr.setRequestHeader('Authorization', `Bearer ${anonKey}`)
+                              }
+                              xhr.setRequestHeader('x-upsert', 'true')
+                              const xhrForm = new FormData()
+                              xhrForm.append('cacheControl', '31536000')
+                              xhrForm.append('', file, file.name)
+                              xhr.timeout = 600000
+                              xhr.send(xhrForm)
+                            })
+                          }
 
-                            clearInterval(progressInterval)
-
-                            if (tusError) {
-                              throw tusError
-                            }
-
-                            setUploadProgress(100)
-                            url = signedData.publicUrl
-                            uploaded = true
-                          } catch (tusErr: unknown) {
-                            const msg = tusErr instanceof Error ? tusErr.message : String(tusErr)
-                            console.warn('TUS upload failed, trying signed URL fallback:', msg)
-                            // Only fall back if it's an RLS/auth error — re-throw other errors
-                            if (!msg.includes('security policy') && !msg.includes('row-level') && !msg.includes('Unauthorized') && !msg.includes('JWT')) {
-                              throw new Error(`Upload failed: ${msg}`)
-                            }
+                          // Notify upload complete (non-blocking)
+                          if (signedData?.assetId || signedData?.path) {
+                            fetch('/api/v2/upload/complete', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                assetId: signedData.assetId || null,
+                                path: signedData.path,
+                                bucket: signedData.bucket || 'lead-form-files-v2',
+                                fileSize: file.size,
+                              }),
+                            }).catch(() => {})
                           }
                         }
 
-                        // --- Strategy B: Signed URL XHR (single PUT, works without RLS) ---
-                        if (!uploaded && signedData.signedUrl) {
-                          url = await new Promise<string>((resolve, reject) => {
-                            const xhr = new XMLHttpRequest()
-
-                            xhr.upload.addEventListener('progress', (event) => {
-                              if (event.lengthComputable) {
-                                const pct = Math.round(3 + (event.loaded / event.total) * 96)
-                                setUploadProgress(Math.min(pct, 99))
-                              }
-                            })
-
-                            xhr.addEventListener('load', () => {
-                              if (xhr.status >= 200 && xhr.status < 300) {
-                                setUploadProgress(100)
-                                resolve(signedData.publicUrl)
-                              } else {
-                                let errMsg = `Upload failed (status ${xhr.status})`
-                                try {
-                                  const body = JSON.parse(xhr.responseText)
-                                  errMsg = body.error || body.message || body.statusCode || errMsg
-                                } catch {}
-                                reject(new Error(errMsg))
-                              }
-                            })
-
-                            xhr.addEventListener('error', () => reject(new Error('Network error during upload. Check your connection and try again.')))
-                            xhr.addEventListener('abort', () => reject(new Error('Upload was cancelled')))
-                            xhr.addEventListener('timeout', () => reject(new Error('Upload timed out. Try a smaller file or better connection.')))
-
-                            xhr.open('PUT', signedData.signedUrl)
-                            const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-                            if (anonKey) {
-                              xhr.setRequestHeader('apikey', anonKey)
-                              xhr.setRequestHeader('Authorization', `Bearer ${anonKey}`)
-                            }
-                            xhr.setRequestHeader('x-upsert', 'true')
-                            const formData = new FormData()
-                            formData.append('cacheControl', '31536000')
-                            formData.append('', file, file.name)
-                            xhr.timeout = 600000
-                            xhr.send(formData)
-                          })
-                        }
-
-                        // Notify v2 upload complete (non-blocking, for quota tracking)
-                        if (signedData?.assetId || signedData?.path) {
-                          fetch('/api/v2/upload/complete', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                              assetId: signedData.assetId || null,
-                              path: signedData.path,
-                              bucket: signedData.bucket || 'lead-form-files-v2',
-                              fileSize: file.size,
-                            }),
-                          }).catch(() => {})
-                        }
-
-                        // Safety: if neither strategy set url, something went wrong
+                        // Safety: if no strategy set url, something went wrong
                         if (!url) {
                           throw new Error('Upload failed. Please try again.')
                         }
