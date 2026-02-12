@@ -166,24 +166,24 @@ CREATE POLICY "Service role full access download_events"
 -- ============================================================================
 -- Create / update the digital-products private bucket
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-VALUES ('digital-products', 'digital-products', false, 53687091200, NULL)
+VALUES ('digital-products', 'digital-products', false, 2000000000, NULL)
 ON CONFLICT (id) DO UPDATE SET
-  file_size_limit = 53687091200,
+  file_size_limit = 2000000000,
   allowed_mime_types = NULL;
 
 -- Ensure lead-form-files-v2 public bucket
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-VALUES ('lead-form-files-v2', 'lead-form-files-v2', true, 53687091200, NULL)
+VALUES ('lead-form-files-v2', 'lead-form-files-v2', true, 2000000000, NULL)
 ON CONFLICT (id) DO UPDATE SET
   public = true,
-  file_size_limit = 53687091200,
+  file_size_limit = 2000000000,
   allowed_mime_types = NULL;
 
 -- Ensure product-files bucket (legacy support)
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-VALUES ('product-files', 'product-files', false, 53687091200, NULL)
+VALUES ('product-files', 'product-files', false, 2000000000, NULL)
 ON CONFLICT (id) DO UPDATE SET
-  file_size_limit = 53687091200,
+  file_size_limit = 2000000000,
   allowed_mime_types = NULL;
 
 -- Storage policies for digital-products bucket
@@ -246,7 +246,7 @@ GRANT EXECUTE ON FUNCTION public.get_creator_storage_usage(UUID) TO authenticate
 -- Ensure fix_storage_bucket_limit exists (idempotent)
 CREATE OR REPLACE FUNCTION public.fix_storage_bucket_limit(
   p_bucket_id TEXT,
-  p_file_size_limit BIGINT DEFAULT 53687091200
+  p_file_size_limit BIGINT DEFAULT 2000000000
 )
 RETURNS void
 LANGUAGE plpgsql

@@ -6,7 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 const BUCKET_NAME = "product-files"
 
 // Use a very large positive number - 0/null would fall back to Supabase global default (often 50MB)
-const MAX_FILE_SIZE = 53687091200 // 50GB
+const MAX_FILE_SIZE = 2000000000 // ~2GB — must fit int4 for older Supabase projects
 
 // Helper to ensure bucket exists with proper configuration
 async function ensureBucketExists(adminSupabase: ReturnType<typeof createAdminClient>, bucketName: string) {

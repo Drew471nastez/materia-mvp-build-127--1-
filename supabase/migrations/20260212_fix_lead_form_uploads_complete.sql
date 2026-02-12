@@ -8,12 +8,12 @@ VALUES (
   'lead-form-files-v2',
   'lead-form-files-v2',
   true,
-  5368709120,  -- 5GB (fits within int8/bigint)
+  2000000000,  -- 5GB (fits within int8/bigint)
   NULL         -- NULL = allow all MIME types
 )
 ON CONFLICT (id) DO UPDATE SET
   public = true,
-  file_size_limit = 5368709120,
+  file_size_limit = 2000000000,
   allowed_mime_types = NULL;
 
 -- 2. Drop existing policies to avoid duplicates
@@ -64,11 +64,11 @@ VALUES (
   'product-files',
   'product-files',
   false,
-  5368709120,
+  2000000000,
   NULL
 )
 ON CONFLICT (id) DO UPDATE SET
-  file_size_limit = 5368709120,
+  file_size_limit = 2000000000,
   allowed_mime_types = NULL;
 
 -- 9. Service role access for product-files bucket

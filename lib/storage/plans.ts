@@ -5,7 +5,7 @@
 
 export const STORAGE_BUCKET = "digital-products" // single private bucket for all digital files
 export const PUBLIC_BUCKET = "lead-form-files-v2" // public bucket for thumbnails/images
-export const BUCKET_FILE_SIZE_LIMIT = 53687091200 // 50GB bucket-level limit
+export const BUCKET_FILE_SIZE_LIMIT = 2000000000 // ~2GB — must fit int4 (max 2,147,483,647) for older Supabase projects
 
 export type PlanId = "free" | "growth" | "pro"
 

@@ -1,5 +1,5 @@
 -- Set very large file_size_limit on storage buckets to allow uploading any file size.
--- Using 53687091200 (50GB) because:
+-- Using 2000000000 (~2GB, fits int4 max 2,147,483,647) because:
 --   - 0 or NULL falls back to Supabase global default (often 50MB)
 --   - A large positive number overrides the global default
 -- Also clears allowed_mime_types (NULL = allow all file types).
@@ -10,12 +10,12 @@ VALUES (
   'lead-form-files-v2',
   'lead-form-files-v2',
   true,
-  53687091200,
+  2000000000,
   NULL
 )
 ON CONFLICT (id) DO UPDATE SET
   public = true,
-  file_size_limit = 53687091200,
+  file_size_limit = 2000000000,
   allowed_mime_types = NULL;
 
 -- Fix legacy lead-form-files bucket too
@@ -24,12 +24,12 @@ VALUES (
   'lead-form-files',
   'lead-form-files',
   true,
-  53687091200,
+  2000000000,
   NULL
 )
 ON CONFLICT (id) DO UPDATE SET
   public = true,
-  file_size_limit = 53687091200,
+  file_size_limit = 2000000000,
   allowed_mime_types = NULL;
 
 -- Fix product-files bucket
@@ -38,18 +38,18 @@ VALUES (
   'product-files',
   'product-files',
   false,
-  53687091200,
+  2000000000,
   NULL
 )
 ON CONFLICT (id) DO UPDATE SET
-  file_size_limit = 53687091200,
+  file_size_limit = 2000000000,
   allowed_mime_types = NULL;
 
 -- Create an RPC function that the app can call at runtime to force-fix bucket limits.
 -- Uses SECURITY DEFINER to run with the function owner's permissions (can modify storage schema).
 CREATE OR REPLACE FUNCTION public.fix_storage_bucket_limit(
   p_bucket_id text,
-  p_file_size_limit bigint DEFAULT 53687091200
+  p_file_size_limit bigint DEFAULT 2000000000
 )
 RETURNS void
 LANGUAGE plpgsql

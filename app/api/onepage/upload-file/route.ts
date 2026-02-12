@@ -9,7 +9,7 @@ export const maxDuration = 300
 
 const BUCKET_NAME = process.env.ONEPAGE_LEAD_FILES_BUCKET || "lead-form-files-v2"
 // Use a very large positive number - 0/null would fall back to Supabase global default (often 50MB)
-const BUCKET_FILE_SIZE_LIMIT = 53687091200 // 50GB
+const BUCKET_FILE_SIZE_LIMIT = 2000000000 // ~2GB — must fit int4 for older Supabase projects
 
 /**
  * Force-fix bucket configuration. Tries RPC (direct DB), then JS client, then REST API.

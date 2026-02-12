@@ -6,7 +6,7 @@ VALUES (
   'lead-form-files-v2',
   'lead-form-files-v2',
   true,
-  5368709120,
+  2000000000,
   NULL
 )
 ON CONFLICT (id) DO UPDATE SET
