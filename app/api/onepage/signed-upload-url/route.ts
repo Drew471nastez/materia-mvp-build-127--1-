@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "File too large (max 4GB)" }, { status: 400 })
     }
 
-    // Ensure bucket exists with proper configuration
+    // Ensure bucket exists with proper configuration (4GB, all MIME types, public)
     try {
       const { data: buckets } = await adminSupabase.storage.listBuckets()
       const existingBucket = buckets?.find((b) => b.name === BUCKET_NAME)
@@ -55,15 +55,17 @@ export async function POST(request: NextRequest) {
         const { error: createErr } = await adminSupabase.storage.createBucket(BUCKET_NAME, {
           public: true,
           fileSizeLimit: MAX_DIGITAL_FILE_SIZE,
+          allowedMimeTypes: undefined, // Allow ALL file types
         })
         if (createErr && !createErr.message?.includes('already exists')) {
           console.error("Bucket creation error:", createErr)
         }
-      } else if (!existingBucket.public) {
-        // Ensure bucket is public
+      } else {
+        // Always update bucket to ensure correct settings (public, 4GB limit, no MIME restrictions)
         await adminSupabase.storage.updateBucket(BUCKET_NAME, {
           public: true,
           fileSizeLimit: MAX_DIGITAL_FILE_SIZE,
+          allowedMimeTypes: undefined, // Allow ALL file types
         })
       }
     } catch (bucketErr) {

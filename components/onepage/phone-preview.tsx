@@ -1085,6 +1085,21 @@ export function PhonePreview({ className }: PhonePreviewProps) {
 
   const appleMusicModalContextValue = { openAppleMusicModal }
 
+  // Prevent pull-to-refresh when Spotify/Apple Music modals are open
+  useEffect(() => {
+    if (spotifyModalOpen || appleMusicModalOpen) {
+      document.documentElement.style.overscrollBehavior = 'none'
+      document.body.style.overscrollBehavior = 'none'
+    } else {
+      document.documentElement.style.overscrollBehavior = ''
+      document.body.style.overscrollBehavior = ''
+    }
+    return () => {
+      document.documentElement.style.overscrollBehavior = ''
+      document.body.style.overscrollBehavior = ''
+    }
+  }, [spotifyModalOpen, appleMusicModalOpen])
+
   // PDF modal state
   const [pdfModalOpen, setPdfModalOpen] = useState(false)
   const [pdfModalData, setPdfModalData] = useState<{
@@ -1641,11 +1656,11 @@ export function PhonePreview({ className }: PhonePreviewProps) {
       {/* Spotify Modal - Popup style inside phone preview */}
       {spotifyModalOpen && spotifyModalData && (
         <div
-          className="absolute inset-0 z-[40] flex items-end justify-center bg-black/65 backdrop-blur-sm"
+          className="absolute inset-0 z-[40] flex items-center justify-center bg-black/65 backdrop-blur-sm"
           onClick={() => setSpotifyModalOpen(false)}
         >
           <div
-            className="bg-white w-full max-h-[88%] overflow-y-auto overscroll-contain shadow-2xl will-change-transform animate-in slide-in-from-bottom-4 fade-in duration-[350ms] ease-out rounded-t-2xl"
+            className="bg-white w-[92%] max-h-[75%] overflow-y-auto overscroll-contain shadow-2xl will-change-transform animate-in zoom-in-95 fade-in duration-[350ms] ease-out rounded-2xl"
             style={{ transform: 'translateZ(0)' }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -1737,11 +1752,11 @@ export function PhonePreview({ className }: PhonePreviewProps) {
       {/* Apple Music Modal - Popup style inside phone preview */}
       {appleMusicModalOpen && appleMusicModalData && (
         <div
-          className="absolute inset-0 z-[40] flex items-end justify-center bg-black/65 backdrop-blur-sm"
+          className="absolute inset-0 z-[40] flex items-center justify-center bg-black/65 backdrop-blur-sm"
           onClick={() => setAppleMusicModalOpen(false)}
         >
           <div
-            className="bg-white w-full max-h-[88%] overflow-y-auto overscroll-contain shadow-2xl will-change-transform animate-in slide-in-from-bottom-4 fade-in duration-[350ms] ease-out rounded-t-2xl"
+            className="bg-white w-[92%] max-h-[75%] overflow-y-auto overscroll-contain shadow-2xl will-change-transform animate-in zoom-in-95 fade-in duration-[350ms] ease-out rounded-2xl"
             style={{ transform: 'translateZ(0)' }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -1992,6 +2007,21 @@ export function MobilePreviewContent() {
   }, [])
 
   const appleMusicModalContextValue = { openAppleMusicModal }
+
+  // Prevent pull-to-refresh when Spotify/Apple Music modals are open
+  useEffect(() => {
+    if (spotifyModalOpen || appleMusicModalOpen) {
+      document.documentElement.style.overscrollBehavior = 'none'
+      document.body.style.overscrollBehavior = 'none'
+    } else {
+      document.documentElement.style.overscrollBehavior = ''
+      document.body.style.overscrollBehavior = ''
+    }
+    return () => {
+      document.documentElement.style.overscrollBehavior = ''
+      document.body.style.overscrollBehavior = ''
+    }
+  }, [spotifyModalOpen, appleMusicModalOpen])
 
   // PDF modal state
   const [pdfModalOpen, setPdfModalOpen] = useState(false)
@@ -2403,11 +2433,11 @@ export function MobilePreviewContent() {
       {/* Spotify Modal - Popup style inside phone preview */}
       {spotifyModalOpen && spotifyModalData && (
         <div
-          className="absolute inset-0 z-[40] flex items-end justify-center bg-black/65 backdrop-blur-sm"
+          className="absolute inset-0 z-[40] flex items-center justify-center bg-black/65 backdrop-blur-sm"
           onClick={() => setSpotifyModalOpen(false)}
         >
           <div
-            className="bg-white w-full max-h-[88%] overflow-y-auto overscroll-contain shadow-2xl will-change-transform animate-in slide-in-from-bottom-4 fade-in duration-[350ms] ease-out rounded-t-2xl"
+            className="bg-white w-[92%] max-h-[75%] overflow-y-auto overscroll-contain shadow-2xl will-change-transform animate-in zoom-in-95 fade-in duration-[350ms] ease-out rounded-2xl"
             style={{ transform: 'translateZ(0)' }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -2488,11 +2518,11 @@ export function MobilePreviewContent() {
       {/* Apple Music Modal - Popup style inside phone preview */}
       {appleMusicModalOpen && appleMusicModalData && (
         <div
-          className="absolute inset-0 z-[40] flex items-end justify-center bg-black/65 backdrop-blur-sm"
+          className="absolute inset-0 z-[40] flex items-center justify-center bg-black/65 backdrop-blur-sm"
           onClick={() => setAppleMusicModalOpen(false)}
         >
           <div
-            className="bg-white w-full max-h-[88%] overflow-y-auto overscroll-contain shadow-2xl will-change-transform animate-in slide-in-from-bottom-4 fade-in duration-[350ms] ease-out rounded-t-2xl"
+            className="bg-white w-[92%] max-h-[75%] overflow-y-auto overscroll-contain shadow-2xl will-change-transform animate-in zoom-in-95 fade-in duration-[350ms] ease-out rounded-2xl"
             style={{ transform: 'translateZ(0)' }}
             onClick={(e) => e.stopPropagation()}
           >

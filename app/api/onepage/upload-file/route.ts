@@ -53,25 +53,26 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // Ensure bucket exists using admin client
+    // Ensure bucket exists with correct settings (public, 4GB, all MIME types)
     const { data: buckets } = await adminSupabase.storage.listBuckets()
     const existingBucket = buckets?.find((b) => b.name === BUCKET_NAME)
 
     if (!existingBucket) {
-      // Create bucket with public access, all MIME types allowed
       const { error: createError } = await adminSupabase.storage.createBucket(BUCKET_NAME, {
         public: true,
         fileSizeLimit: MAX_FILE_SIZE,
+        allowedMimeTypes: undefined, // Allow ALL file types
       })
 
       if (createError && !createError.message?.includes('already exists')) {
         console.error("Error creating bucket:", createError)
       }
-    } else if (!existingBucket.public) {
-      // Ensure bucket is public if it exists but isn't public
+    } else {
+      // Always update to ensure correct settings (public, 4GB, no MIME restrictions)
       await adminSupabase.storage.updateBucket(BUCKET_NAME, {
         public: true,
         fileSizeLimit: MAX_FILE_SIZE,
+        allowedMimeTypes: undefined, // Allow ALL file types
       })
     }
 
