@@ -3691,6 +3691,32 @@ export function LinksTab() {
                             url = await uploadWithSignedUrl(signedData)
                           }
                           setUploadProgress(100)
+                        } catch (signedUploadError) {
+                          const signedUploadMessage = signedUploadError instanceof Error ? signedUploadError.message : String(signedUploadError)
+                          const shouldFallbackToDirectUpload = isDigitalFile &&
+                            signedUploadMessage.toLowerCase().includes('exceeded the maximum allowed size')
+
+                          if (!shouldFallbackToDirectUpload) {
+                            throw signedUploadError
+                          }
+
+                          // Fallback path: upload through server admin client if signed upload returns object-size error.
+                          const fallbackData = new FormData()
+                          fallbackData.append('file', file)
+                          fallbackData.append('type', 'digital')
+                          const fallbackRes = await fetch('/api/onepage/upload-file', {
+                            method: 'POST',
+                            body: fallbackData,
+                          })
+
+                          if (!fallbackRes.ok) {
+                            const fallbackErr = await fallbackRes.json().catch(() => ({ error: 'Upload failed' }))
+                            throw new Error(fallbackErr.error || 'Upload failed')
+                          }
+
+                          const fallbackResult = await fallbackRes.json()
+                          url = fallbackResult.url
+                          setUploadProgress(100)
                         } finally {
                           clearInterval(progressTimer)
                         }

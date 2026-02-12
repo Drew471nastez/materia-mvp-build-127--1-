@@ -28,7 +28,24 @@ async function ensureBucket() {
       return false
     }
 
-    const liveLimit = typeof bucket.file_size_limit === 'number' ? bucket.file_size_limit : null
+    let liveLimit = typeof bucket.file_size_limit === 'number' ? bucket.file_size_limit : null
+
+    // Self-heal: if limit is too low, try to raise to BUCKET_FILE_SIZE_LIMIT.
+    if (liveLimit !== null && liveLimit > 0 && liveLimit < BUCKET_FILE_SIZE_LIMIT) {
+      const { error: updateError } = await adminSupabase.storage.updateBucket(BUCKET_NAME, {
+        public: true,
+        fileSizeLimit: BUCKET_FILE_SIZE_LIMIT,
+        allowedMimeTypes: null,
+      })
+      if (updateError) {
+        console.error("[upload-file] updateBucket failed:", updateError)
+      } else {
+        const { data: refreshedBuckets } = await adminSupabase.storage.listBuckets()
+        const refreshed = refreshedBuckets?.find((b) => b.id === BUCKET_NAME || b.name === BUCKET_NAME) as { file_size_limit?: number | null } | undefined
+        liveLimit = typeof refreshed?.file_size_limit === 'number' ? refreshed.file_size_limit : liveLimit
+      }
+    }
+
     if (liveLimit !== null && liveLimit > 0 && liveLimit < BUCKET_FILE_SIZE_LIMIT) {
       console.error("[upload-file] Bucket size limit is still too low:", liveLimit)
       return false
