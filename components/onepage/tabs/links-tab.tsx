@@ -3683,6 +3683,38 @@ export function LinksTab() {
                           return signedData.publicUrl
                         }
 
+                        // Fallback: direct upload via supabase.storage.upload() (uses TUS for files > 6MB)
+                        const uploadDirect = async (signedData: { path: string; publicUrl: string; bucket?: string }) => {
+                          const targetBucket = signedData.bucket || 'lead-form-files-v2'
+                          const { error: directError } = await supabase.storage
+                            .from(targetBucket)
+                            .upload(signedData.path, file, {
+                              contentType: file.type || 'application/octet-stream',
+                              upsert: true,
+                            })
+                          if (directError) {
+                            throw new Error(directError.message || 'Direct upload failed')
+                          }
+                          return signedData.publicUrl
+                        }
+
+                        // Fallback: upload through server via FormData
+                        const uploadViaServer = async () => {
+                          const formData = new FormData()
+                          formData.append('file', file)
+                          formData.append('type', folder === 'digital' ? 'digital' : 'image')
+                          const res = await fetch('/api/onepage/upload-file', {
+                            method: 'POST',
+                            body: formData,
+                          })
+                          if (!res.ok) {
+                            const err = await res.json().catch(() => ({ error: 'Server upload failed' }))
+                            throw new Error(err.error || 'Server upload failed')
+                          }
+                          const result = await res.json()
+                          return result.url as string
+                        }
+
                         setUploadProgress(5)
                         const progressTimer = setInterval(() => {
                           setUploadProgress((prev) => Math.min(prev + 4, 95))
@@ -3690,14 +3722,34 @@ export function LinksTab() {
 
                         try {
                           let signedData = await requestSignedUploadData()
+
+                          // Attempt 1: Signed URL upload
                           try {
                             url = await uploadWithSignedUrl(signedData)
                           } catch (firstErr) {
-                            console.warn('First signed upload attempt failed, requesting a new signed URL and retrying...', firstErr)
+                            console.warn('First signed upload attempt failed, retrying with new signed URL...', firstErr)
                             setUploadProgress(8)
                             await new Promise(r => setTimeout(r, 800))
-                            signedData = await requestSignedUploadData()
-                            url = await uploadWithSignedUrl(signedData)
+
+                            // Attempt 2: New signed URL
+                            try {
+                              signedData = await requestSignedUploadData()
+                              url = await uploadWithSignedUrl(signedData)
+                            } catch (secondErr) {
+                              console.warn('Second signed upload failed, trying direct upload (TUS)...', secondErr)
+                              setUploadProgress(12)
+
+                              // Attempt 3: Direct upload via supabase.storage.upload() (TUS for large files)
+                              try {
+                                url = await uploadDirect(signedData)
+                              } catch (directErr) {
+                                console.warn('Direct upload failed, trying server-side upload...', directErr)
+                                setUploadProgress(15)
+
+                                // Attempt 4: Upload through server as last resort
+                                url = await uploadViaServer()
+                              }
+                            }
                           }
                           setUploadProgress(100)
                         } finally {
@@ -3786,7 +3838,7 @@ export function LinksTab() {
                         : 'Upload image'}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {imageFieldType === 'digital_product_file' ? 'Any file type up to 5GB (audio, video, ZIP, images, docs)'
+                      {imageFieldType === 'digital_product_file' ? 'Any file type, no size limit (audio, video, ZIP, images, docs)'
                         : imageFieldType === 'pdf_file' ? 'PDF files only'
                         : 'JPG, PNG, GIF up to 10MB'}
                     </p>

@@ -5,8 +5,8 @@ import { createAdminClient } from "@/lib/supabase/admin"
 // Default bucket for digital product files
 const BUCKET_NAME = "product-files"
 
-// 5GB file size limit for digital products
-const MAX_FILE_SIZE = 5 * 1024 * 1024 * 1024 // 5GB in bytes = 5368709120
+// file_size_limit = 0 means NO limit in Supabase Storage
+const MAX_FILE_SIZE = 0
 
 // Helper to ensure bucket exists with proper configuration
 async function ensureBucketExists(adminSupabase: ReturnType<typeof createAdminClient>, bucketName: string) {
@@ -122,11 +122,6 @@ export async function POST(request: NextRequest) {
 
     if (!product || product.creator_id !== creator.id) {
       return NextResponse.json({ error: "Product not found or access denied" }, { status: 403 })
-    }
-
-    // Check file size (5GB limit)
-    if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json({ error: "File exceeds 5GB limit" }, { status: 400 })
     }
 
     // Ensure bucket exists

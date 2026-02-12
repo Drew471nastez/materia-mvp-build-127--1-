@@ -29,7 +29,7 @@ async function ensureBucketExists(adminSupabase: ReturnType<typeof createAdminCl
       // Create bucket with public access and high file size limit
       const { error: createError } = await adminSupabase.storage.createBucket(bucketName, {
         public: true,
-        fileSizeLimit: 5368709120, // 5GB
+        fileSizeLimit: 0, // 0 = no limit
         allowedMimeTypes: [...ALLOWED_VIDEO_TYPES, 'image/jpeg', 'image/png', 'image/gif', 'image/webp'],
       })
 
@@ -41,7 +41,7 @@ async function ensureBucketExists(adminSupabase: ReturnType<typeof createAdminCl
       try {
         await adminSupabase.storage.updateBucket(bucketName, {
           public: true,
-          fileSizeLimit: 5368709120, // 5GB
+          fileSizeLimit: 0, // 0 = no limit
           allowedMimeTypes: [...ALLOWED_VIDEO_TYPES, 'image/jpeg', 'image/png', 'image/gif', 'image/webp'],
         })
       } catch (updateErr) {

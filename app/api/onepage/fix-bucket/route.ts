@@ -3,7 +3,8 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 const BUCKET_NAME = process.env.ONEPAGE_LEAD_FILES_BUCKET || "lead-form-files-v2"
-const BUCKET_FILE_SIZE_LIMIT = 5368709120 // 5GB
+// file_size_limit = 0 means NO limit in Supabase Storage (check is: limit > 0 && size > limit)
+const BUCKET_FILE_SIZE_LIMIT = 0
 
 /**
  * POST - Fix the lead-form-files bucket configuration.
@@ -35,7 +36,7 @@ export async function POST() {
       const { error: updateErr } = await adminSupabase.storage.updateBucket(BUCKET_NAME, {
         public: true,
         fileSizeLimit: BUCKET_FILE_SIZE_LIMIT,
-        allowedMimeTypes: undefined,
+        allowedMimeTypes: null,
       })
       if (!updateErr) {
         results.push("updateBucket: SUCCESS")
@@ -47,7 +48,7 @@ export async function POST() {
           const { error: createErr } = await adminSupabase.storage.createBucket(BUCKET_NAME, {
             public: true,
             fileSizeLimit: BUCKET_FILE_SIZE_LIMIT,
-            allowedMimeTypes: undefined,
+            allowedMimeTypes: null,
           })
           if (!createErr) {
             results.push("createBucket: SUCCESS")
@@ -127,7 +128,8 @@ export async function POST() {
       // ignore
     }
 
-    const isFixed = verifiedLimit !== null && verifiedLimit >= BUCKET_FILE_SIZE_LIMIT
+    // file_size_limit = 0 means no limit; any non-null value is considered fixed
+    const isFixed = verifiedLimit !== null && (verifiedLimit === 0 || verifiedLimit >= 1073741824)
 
     return NextResponse.json({
       success: isFixed,

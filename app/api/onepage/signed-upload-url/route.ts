@@ -3,8 +3,8 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 const BUCKET_NAME = process.env.ONEPAGE_LEAD_FILES_BUCKET || "lead-form-files-v2"
-const MAX_DIGITAL_FILE_SIZE = 5 * 1024 * 1024 * 1024 // 5GB
-const BUCKET_FILE_SIZE_LIMIT = 5368709120 // 5GB exact
+// file_size_limit = 0 means NO limit in Supabase Storage (check is: limit > 0 && size > limit)
+const BUCKET_FILE_SIZE_LIMIT = 0
 
 /**
  * Force-fix bucket using every method available:
@@ -23,7 +23,7 @@ async function forceFixBucket(): Promise<void> {
     const { error: updateErr } = await adminSupabase.storage.updateBucket(BUCKET_NAME, {
       public: true,
       fileSizeLimit: BUCKET_FILE_SIZE_LIMIT,
-      allowedMimeTypes: undefined,
+      allowedMimeTypes: null,
     })
     if (!updateErr) {
       console.log("[signed-upload] Bucket fixed via updateBucket")
@@ -36,7 +36,7 @@ async function forceFixBucket(): Promise<void> {
       const { error: createErr } = await adminSupabase.storage.createBucket(BUCKET_NAME, {
         public: true,
         fileSizeLimit: BUCKET_FILE_SIZE_LIMIT,
-        allowedMimeTypes: undefined,
+        allowedMimeTypes: null,
       })
       if (!createErr) {
         console.log("[signed-upload] Bucket created via createBucket")
@@ -154,10 +154,6 @@ export async function POST(request: NextRequest) {
 
     if (!fileName || !contentType || !fileSize) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
-    }
-
-    if (fileSize > MAX_DIGITAL_FILE_SIZE) {
-      return NextResponse.json({ error: "File too large (max 5GB)" }, { status: 400 })
     }
 
     // FORCE fix bucket configuration before every upload attempt
