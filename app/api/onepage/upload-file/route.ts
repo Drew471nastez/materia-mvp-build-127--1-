@@ -8,7 +8,7 @@ export const runtime = "nodejs"
 export const maxDuration = 300
 
 const BUCKET_NAME = "lead-form-files"
-const MAX_FILE_SIZE = 500 * 1024 * 1024 // 500MB
+const MAX_FILE_SIZE = 5 * 1024 * 1024 * 1024 // 5GB
 
 // Ensure bucket exists with correct settings using direct REST API
 async function ensureBucket() {
@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json({ error: "File size must be less than 500MB" }, { status: 400 })
+      return NextResponse.json({ error: "File size must be less than 5GB" }, { status: 400 })
     }
 
     // Ensure bucket exists with correct file_size_limit

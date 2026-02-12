@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 const BUCKET_NAME = "lead-form-files"
-const MAX_DIGITAL_FILE_SIZE = 500 * 1024 * 1024 // 500MB
+const MAX_DIGITAL_FILE_SIZE = 5 * 1024 * 1024 * 1024 // 5GB
 
 /**
  * POST - Generate a signed upload URL for direct-to-storage uploads.
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (fileSize > MAX_DIGITAL_FILE_SIZE) {
-      return NextResponse.json({ error: "File too large (max 500MB)" }, { status: 400 })
+      return NextResponse.json({ error: "File too large (max 5GB)" }, { status: 400 })
     }
 
     // Ensure bucket exists with proper configuration using direct REST API

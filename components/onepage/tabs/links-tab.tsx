@@ -3696,17 +3696,49 @@ export function LinksTab() {
                           xhr.send(file)
                         })
 
-                        // Try upload with one automatic retry on transient failure
+                        // Try upload with one automatic retry on transient failure.
+                        // If storage signed-upload still returns a 413, fallback to admin direct upload.
                         try {
                           await doXhrUpload(signedData.signedUrl)
+                          url = signedData.publicUrl
                         } catch (firstErr) {
                           console.warn('First upload attempt failed, retrying...', firstErr)
                           setUploadProgress(3)
                           await new Promise(r => setTimeout(r, 2000))
-                          await doXhrUpload(signedData.signedUrl)
-                        }
 
-                        url = signedData.publicUrl
+                          try {
+                            await doXhrUpload(signedData.signedUrl)
+                            url = signedData.publicUrl
+                          } catch (secondErr) {
+                            const secondErrMsg = secondErr instanceof Error ? secondErr.message : String(secondErr)
+                            const shouldFallbackToDirectUpload = isDigitalFile &&
+                              (secondErrMsg.includes('status 413') || secondErrMsg.toLowerCase().includes('too large'))
+
+                            if (!shouldFallbackToDirectUpload) {
+                              throw secondErr
+                            }
+
+                            console.warn('Signed upload returned a 413. Falling back to direct server upload...', secondErr)
+                            setUploadProgress(10)
+                            const fallbackData = new FormData()
+                            fallbackData.append('file', file)
+                            fallbackData.append('type', 'digital')
+
+                            const fallbackRes = await fetch('/api/onepage/upload-file', {
+                              method: 'POST',
+                              body: fallbackData,
+                            })
+
+                            if (!fallbackRes.ok) {
+                              const fallbackErr = await fallbackRes.json().catch(() => ({ error: 'Upload failed' }))
+                              throw new Error(fallbackErr.error || 'Upload failed')
+                            }
+
+                            const fallbackResult = await fallbackRes.json()
+                            setUploadProgress(100)
+                            url = fallbackResult.url
+                          }
+                        }
                       }
 
                       const block = onepage.draft_blocks.find(b => b.id === imageBlockId)
@@ -3790,7 +3822,7 @@ export function LinksTab() {
                         : 'Upload image'}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {imageFieldType === 'digital_product_file' ? 'Any file type up to 500MB (audio, video, ZIP, images, docs)'
+                      {imageFieldType === 'digital_product_file' ? 'Any file type up to 5GB (audio, video, ZIP, images, docs)'
                         : imageFieldType === 'pdf_file' ? 'PDF files only'
                         : 'JPG, PNG, GIF up to 10MB'}
                     </p>
