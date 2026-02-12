@@ -326,9 +326,13 @@ function BlockEditor({ block }: { block: OnePageBlock }) {
         xhr.addEventListener('timeout', () => reject(new Error('Upload timed out')))
 
         xhr.open('PUT', signedUrl)
-        xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream')
+        xhr.setRequestHeader('x-upsert', 'true')
+        // Send as FormData — Supabase signed upload URLs expect multipart form data
+        const formData = new FormData()
+        formData.append('', file, file.name)
+        // Do NOT set Content-Type manually — browser will set multipart boundary
         xhr.timeout = 600000 // 10 minute timeout for large files
-        xhr.send(file)
+        xhr.send(formData)
       })
 
       // Step 3: Update block data with the public URL
