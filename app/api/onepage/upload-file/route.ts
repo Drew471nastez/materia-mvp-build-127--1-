@@ -9,35 +9,100 @@ export const maxDuration = 300
 
 const BUCKET_NAME = process.env.ONEPAGE_LEAD_FILES_BUCKET || "lead-form-files-v2"
 const MAX_FILE_SIZE = 5 * 1024 * 1024 * 1024 // 5GB
-const BUCKET_FILE_SIZE_LIMIT = 5 * 1024 * 1024 * 1024 // 5GB
+const BUCKET_FILE_SIZE_LIMIT = 5368709120 // 5GB exact
 
-// Validate bucket state with admin API only.
-// Avoid REST update/create here to prevent false-positive 400 setup failures.
-async function ensureBucket() {
+/**
+ * Ensure the storage bucket exists with correct configuration.
+ * Auto-creates or fixes the bucket via direct REST API if needed.
+ */
+async function ensureBucket(): Promise<boolean> {
   try {
     const adminSupabase = createAdminClient()
     const { data: buckets, error } = await adminSupabase.storage.listBuckets()
+
     if (error) {
-      console.warn("[upload-file] listBuckets failed, continuing:", error.message)
-      return true
+      console.warn("[upload-file] listBuckets failed, attempting REST fix:", error.message)
+      return await fixBucketViaRest()
     }
 
-    const bucket = buckets?.find((b) => b.id === BUCKET_NAME || b.name === BUCKET_NAME) as { file_size_limit?: number | null } | undefined
+    const bucket = buckets?.find((b) => b.id === BUCKET_NAME || b.name === BUCKET_NAME) as
+      | { file_size_limit?: number | null }
+      | undefined
+
     if (!bucket) {
-      console.error("[upload-file] Bucket not found:", BUCKET_NAME)
-      return false
+      console.warn("[upload-file] Bucket not found, creating via REST:", BUCKET_NAME)
+      return await fixBucketViaRest()
     }
 
-    const liveLimit = typeof bucket.file_size_limit === 'number' ? bucket.file_size_limit : null
+    const liveLimit = typeof bucket.file_size_limit === "number" ? bucket.file_size_limit : null
     if (liveLimit !== null && liveLimit > 0 && liveLimit < BUCKET_FILE_SIZE_LIMIT) {
-      console.error("[upload-file] Bucket size limit is still too low:", liveLimit)
-      return false
+      console.warn("[upload-file] Bucket size limit too low:", liveLimit, "- fixing via REST")
+      return await fixBucketViaRest()
     }
 
     return true
   } catch (err) {
-    console.error("[upload-file] Bucket setup error:", err)
-    return false
+    console.error("[upload-file] Bucket check error:", err)
+    return await fixBucketViaRest()
+  }
+}
+
+/**
+ * Fix or create bucket using direct Supabase REST API.
+ * This bypasses the JS client which may have issues with certain configurations.
+ */
+async function fixBucketViaRest(): Promise<boolean> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!supabaseUrl || !serviceRoleKey) {
+    console.error("[upload-file] Missing SUPABASE_URL or SERVICE_ROLE_KEY for bucket fix")
+    return true // Optimistically continue - the upload itself will fail if bucket is bad
+  }
+
+  const headers = {
+    Authorization: `Bearer ${serviceRoleKey}`,
+    apikey: serviceRoleKey,
+    "Content-Type": "application/json",
+  }
+
+  const bucketConfig = {
+    id: BUCKET_NAME,
+    name: BUCKET_NAME,
+    public: true,
+    file_size_limit: BUCKET_FILE_SIZE_LIMIT,
+    allowed_mime_types: null,
+  }
+
+  try {
+    // Try update first
+    const updateRes = await fetch(`${supabaseUrl}/storage/v1/bucket/${BUCKET_NAME}`, {
+      method: "PUT",
+      headers,
+      body: JSON.stringify(bucketConfig),
+    })
+
+    if (updateRes.ok) return true
+
+    // If update failed (404 = doesn't exist), try create
+    if (updateRes.status === 404 || updateRes.status === 400) {
+      const createRes = await fetch(`${supabaseUrl}/storage/v1/bucket`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(bucketConfig),
+      })
+
+      if (createRes.ok) return true
+
+      // Check if it's "already exists" (409) which is fine
+      if (createRes.status === 409) return true
+
+      console.error("[upload-file] Failed to create bucket:", createRes.status)
+    }
+
+    return true // Optimistically continue
+  } catch (err) {
+    console.error("[upload-file] REST bucket fix error:", err)
+    return true // Optimistically continue
   }
 }
 
@@ -67,7 +132,13 @@ export async function POST(request: NextRequest) {
       formData = await request.formData()
     } catch (formError) {
       console.error("[upload-file] FormData parse error:", formError)
-      return NextResponse.json({ error: "Failed to parse upload data. File may be too large for direct upload - try the signed URL upload instead." }, { status: 413 })
+      return NextResponse.json(
+        {
+          error:
+            "Failed to parse upload data. File may be too large for direct upload - try the signed URL upload instead.",
+        },
+        { status: 413 },
+      )
     }
 
     const file = formData.get("file") as File
@@ -81,17 +152,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "File size must be less than 5GB" }, { status: 400 })
     }
 
-    // Ensure bucket exists with correct file_size_limit
-    const bucketReady = await ensureBucket()
-    if (!bucketReady) {
-      return NextResponse.json({
-        error: "Upload bucket is not configured for large files. Run the provided SQL migration or /api/onepage/fix-bucket.",
-      }, { status: 500 })
-    }
+    // Ensure bucket exists with correct file_size_limit (auto-fix if needed)
+    await ensureBucket()
 
     // Generate unique filename
     const fileExt = file.name.split(".").pop() || "bin"
-    const subfolder = fileType === 'digital' ? 'digital-products' : 'product-images'
+    const subfolder = fileType === "digital" ? "digital-products" : "product-images"
     const fileName = `${creator.id}/${subfolder}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
 
     // Convert File to buffer for upload
@@ -102,7 +168,7 @@ export async function POST(request: NextRequest) {
     const { data: uploadData, error: uploadError } = await adminSupabase.storage
       .from(BUCKET_NAME)
       .upload(fileName, fileBuffer, {
-        contentType: file.type || 'application/octet-stream',
+        contentType: file.type || "application/octet-stream",
         cacheControl: "31536000",
         upsert: true,
       })
