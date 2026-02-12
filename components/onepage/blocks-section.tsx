@@ -317,7 +317,12 @@ function BlockEditor({ block }: { block: OnePageBlock }) {
           if (xhr.status >= 200 && xhr.status < 300) {
             resolve()
           } else {
-            reject(new Error(`Upload failed with status ${xhr.status}`))
+            let errMsg = `Upload failed (status ${xhr.status})`
+            try {
+              const body = JSON.parse(xhr.responseText)
+              errMsg = body.error || body.message || body.statusCode || errMsg
+            } catch {}
+            reject(new Error(errMsg))
           }
         })
 
@@ -326,11 +331,17 @@ function BlockEditor({ block }: { block: OnePageBlock }) {
         xhr.addEventListener('timeout', () => reject(new Error('Upload timed out')))
 
         xhr.open('PUT', signedUrl)
+        // Supabase API gateway requires apikey header on all requests
+        const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+        if (anonKey) {
+          xhr.setRequestHeader('apikey', anonKey)
+          xhr.setRequestHeader('Authorization', `Bearer ${anonKey}`)
+        }
         xhr.setRequestHeader('x-upsert', 'true')
-        // Send as FormData — Supabase signed upload URLs expect multipart form data
+        // Send as FormData matching Supabase JS client internals
         const formData = new FormData()
+        formData.append('cacheControl', '31536000')
         formData.append('', file, file.name)
-        // Do NOT set Content-Type manually — browser will set multipart boundary
         xhr.timeout = 600000 // 10 minute timeout for large files
         xhr.send(formData)
       })

@@ -3711,7 +3711,13 @@ export function LinksTab() {
                               setUploadProgress(100)
                               resolve(signedData.publicUrl)
                             } else {
-                              reject(new Error(`Storage upload failed (status ${xhr.status}). Please try again.`))
+                              // Parse Supabase error body for real error message
+                              let errMsg = `Upload failed (status ${xhr.status})`
+                              try {
+                                const body = JSON.parse(xhr.responseText)
+                                errMsg = body.error || body.message || body.statusCode || errMsg
+                              } catch {}
+                              reject(new Error(errMsg))
                             }
                           })
 
@@ -3720,11 +3726,17 @@ export function LinksTab() {
                           xhr.addEventListener('timeout', () => reject(new Error('Upload timed out. Try a smaller file or better connection.')))
 
                           xhr.open('PUT', signedData.signedUrl)
+                          // Supabase API gateway requires apikey header on all requests
+                          const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+                          if (anonKey) {
+                            xhr.setRequestHeader('apikey', anonKey)
+                            xhr.setRequestHeader('Authorization', `Bearer ${anonKey}`)
+                          }
                           xhr.setRequestHeader('x-upsert', 'true')
-                          // Send as FormData — Supabase signed upload URLs expect multipart form data
+                          // Send as FormData matching Supabase JS client internals
                           const formData = new FormData()
+                          formData.append('cacheControl', '31536000')
                           formData.append('', file, file.name)
-                          // Do NOT set Content-Type manually — browser will set multipart boundary
                           xhr.timeout = 600000 // 10 minute timeout for very large files
                           xhr.send(formData)
                         })
