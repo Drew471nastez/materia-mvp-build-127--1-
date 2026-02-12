@@ -130,6 +130,25 @@
     @apply bg-background text-foreground;
   }
 
+  /* Make all interactive elements show pointer cursor */
+  button,
+  [role="button"],
+  a,
+  select,
+  summary,
+  label[for],
+  input[type="checkbox"],
+  input[type="radio"],
+  input[type="submit"],
+  input[type="button"],
+  input[type="reset"] {
+    cursor: pointer;
+  }
+  button:disabled,
+  [role="button"][aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+
   /* Global overflow prevention - prevents horizontal scrolling */
   html {
     overflow-x: hidden;

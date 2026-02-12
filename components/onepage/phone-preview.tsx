@@ -1641,11 +1641,11 @@ export function PhonePreview({ className }: PhonePreviewProps) {
       {/* Spotify Modal - Popup style inside phone preview */}
       {spotifyModalOpen && spotifyModalData && (
         <div
-          className="absolute inset-0 z-[40] flex items-center justify-center p-0 bg-black/65 backdrop-blur-sm"
+          className="absolute inset-0 z-[40] flex items-end justify-center bg-black/65 backdrop-blur-sm"
           onClick={() => setSpotifyModalOpen(false)}
         >
           <div
-            className="bg-white w-full h-full overflow-y-auto overscroll-contain shadow-2xl will-change-transform animate-in slide-in-from-bottom-3 fade-in zoom-in-[0.97] duration-[350ms] ease-out"
+            className="bg-white w-full max-h-[88%] overflow-y-auto overscroll-contain shadow-2xl will-change-transform animate-in slide-in-from-bottom-4 fade-in duration-[350ms] ease-out rounded-t-2xl"
             style={{ transform: 'translateZ(0)' }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -1737,11 +1737,11 @@ export function PhonePreview({ className }: PhonePreviewProps) {
       {/* Apple Music Modal - Popup style inside phone preview */}
       {appleMusicModalOpen && appleMusicModalData && (
         <div
-          className="absolute inset-0 z-[40] flex items-center justify-center p-0 bg-black/65 backdrop-blur-sm"
+          className="absolute inset-0 z-[40] flex items-end justify-center bg-black/65 backdrop-blur-sm"
           onClick={() => setAppleMusicModalOpen(false)}
         >
           <div
-            className="bg-white w-full h-full overflow-y-auto overscroll-contain shadow-2xl will-change-transform animate-in slide-in-from-bottom-3 fade-in zoom-in-[0.97] duration-[350ms] ease-out"
+            className="bg-white w-full max-h-[88%] overflow-y-auto overscroll-contain shadow-2xl will-change-transform animate-in slide-in-from-bottom-4 fade-in duration-[350ms] ease-out rounded-t-2xl"
             style={{ transform: 'translateZ(0)' }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -2403,11 +2403,11 @@ export function MobilePreviewContent() {
       {/* Spotify Modal - Popup style inside phone preview */}
       {spotifyModalOpen && spotifyModalData && (
         <div
-          className="absolute inset-0 z-[40] flex items-center justify-center p-0 bg-black/65 backdrop-blur-sm"
+          className="absolute inset-0 z-[40] flex items-end justify-center bg-black/65 backdrop-blur-sm"
           onClick={() => setSpotifyModalOpen(false)}
         >
           <div
-            className="bg-white w-full h-full overflow-y-auto overscroll-contain shadow-2xl will-change-transform animate-in slide-in-from-bottom-3 fade-in zoom-in-[0.97] duration-[350ms] ease-out"
+            className="bg-white w-full max-h-[88%] overflow-y-auto overscroll-contain shadow-2xl will-change-transform animate-in slide-in-from-bottom-4 fade-in duration-[350ms] ease-out rounded-t-2xl"
             style={{ transform: 'translateZ(0)' }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -2488,11 +2488,11 @@ export function MobilePreviewContent() {
       {/* Apple Music Modal - Popup style inside phone preview */}
       {appleMusicModalOpen && appleMusicModalData && (
         <div
-          className="absolute inset-0 z-[40] flex items-center justify-center p-0 bg-black/65 backdrop-blur-sm"
+          className="absolute inset-0 z-[40] flex items-end justify-center bg-black/65 backdrop-blur-sm"
           onClick={() => setAppleMusicModalOpen(false)}
         >
           <div
-            className="bg-white w-full h-full overflow-y-auto overscroll-contain shadow-2xl will-change-transform animate-in slide-in-from-bottom-3 fade-in zoom-in-[0.97] duration-[350ms] ease-out"
+            className="bg-white w-full max-h-[88%] overflow-y-auto overscroll-contain shadow-2xl will-change-transform animate-in slide-in-from-bottom-4 fade-in duration-[350ms] ease-out rounded-t-2xl"
             style={{ transform: 'translateZ(0)' }}
             onClick={(e) => e.stopPropagation()}
           >

@@ -721,7 +721,7 @@ export function DesignTab() {
   return (
     <div className="flex flex-col md:flex-row gap-3 md:gap-4">
       <TooltipProvider delayDuration={0}>
-        <nav className={cn("hidden md:flex shrink-0 flex-col bg-gray-50/80 rounded-2xl p-2 transition-all duration-200", sidebarExpanded ? "w-40" : "w-14")}>
+        <nav className={cn("hidden md:flex shrink-0 flex-col bg-gray-50/80 rounded-2xl p-2 transition-all duration-200 sticky top-0 self-start", sidebarExpanded ? "w-40" : "w-14")}>
           <button onClick={() => setSidebarExpanded(!sidebarExpanded)} className="flex items-center justify-center w-full h-9 mb-2 rounded-xl bg-white border border-gray-200 hover:bg-gray-50 transition-colors">
             {sidebarExpanded ? <ChevronLeft className="h-4 w-4 text-gray-500" /> : <ChevronRight className="h-4 w-4 text-gray-500" />}
           </button>

@@ -1322,6 +1322,36 @@ export function LinksTab() {
     })
   }, []) // Run once on mount
 
+  // Background interval: silently re-fetch thumbnails for Spotify/Apple Music blocks missing them
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!onepage?.draft_blocks) return
+
+      onepage.draft_blocks.forEach((block) => {
+        if (block.type !== 'link_button') return
+        const data = block.data as LinkButtonBlockData
+        if (!data?.url) return
+
+        const url = normalizeUrlInput(data.url)
+        const isSpotify = url.includes('spotify.com')
+        const isAppleMusic = url.includes('music.apple.com')
+
+        if (isSpotify && !data.thumbnail_url && !data.spotify_thumbnail) {
+          // Clear the fetch key so autoFetchThumbnail can retry
+          const fetchKey = `${block.id}:${url}`
+          autoFetchedBlocksRef.current.delete(fetchKey)
+          autoFetchThumbnail(block.id, data.url)
+        } else if (isAppleMusic && !data.thumbnail_url && !data.apple_music_thumbnail) {
+          const fetchKey = `${block.id}:${url}`
+          autoFetchedBlocksRef.current.delete(fetchKey)
+          autoFetchThumbnail(block.id, data.url)
+        }
+      })
+    }, 4000)
+
+    return () => clearInterval(interval)
+  }, [onepage?.draft_blocks, autoFetchThumbnail])
+
   // Handle thumbnail upload for modal
   const handleThumbnailUploadForModal = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
