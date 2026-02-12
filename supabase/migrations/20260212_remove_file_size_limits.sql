@@ -1,20 +1,21 @@
--- Remove file size limits on storage buckets
--- file_size_limit = 0 means NO limit in Supabase Storage
--- (the check is: IF file_size_limit > 0 AND file_size > file_size_limit THEN reject)
--- This allows uploading files of any size (audio, video, ZIP, images, docs, etc.)
+-- Set very large file_size_limit on storage buckets to allow uploading any file size.
+-- Using 53687091200 (50GB) because:
+--   - 0 or NULL falls back to Supabase global default (often 50MB)
+--   - A large positive number overrides the global default
+-- Also clears allowed_mime_types (NULL = allow all file types).
 
--- Fix lead-form-files-v2 bucket: set file_size_limit = 0 (no limit), allow all MIME types
+-- Fix lead-form-files-v2 bucket
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES (
   'lead-form-files-v2',
   'lead-form-files-v2',
   true,
-  0,
+  53687091200,
   NULL
 )
 ON CONFLICT (id) DO UPDATE SET
   public = true,
-  file_size_limit = 0,
+  file_size_limit = 53687091200,
   allowed_mime_types = NULL;
 
 -- Fix legacy lead-form-files bucket too
@@ -23,12 +24,12 @@ VALUES (
   'lead-form-files',
   'lead-form-files',
   true,
-  0,
+  53687091200,
   NULL
 )
 ON CONFLICT (id) DO UPDATE SET
   public = true,
-  file_size_limit = 0,
+  file_size_limit = 53687091200,
   allowed_mime_types = NULL;
 
 -- Fix product-files bucket
@@ -37,9 +38,37 @@ VALUES (
   'product-files',
   'product-files',
   false,
-  0,
+  53687091200,
   NULL
 )
 ON CONFLICT (id) DO UPDATE SET
-  file_size_limit = 0,
+  file_size_limit = 53687091200,
   allowed_mime_types = NULL;
+
+-- Create an RPC function that the app can call at runtime to force-fix bucket limits.
+-- Uses SECURITY DEFINER to run with the function owner's permissions (can modify storage schema).
+CREATE OR REPLACE FUNCTION public.fix_storage_bucket_limit(
+  p_bucket_id text,
+  p_file_size_limit bigint DEFAULT 53687091200
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = storage, public
+AS $$
+BEGIN
+  UPDATE storage.buckets
+  SET file_size_limit = p_file_size_limit,
+      allowed_mime_types = NULL
+  WHERE id = p_bucket_id;
+
+  IF NOT FOUND THEN
+    INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+    VALUES (p_bucket_id, p_bucket_id, true, p_file_size_limit, NULL);
+  END IF;
+END;
+$$;
+
+-- Grant execute permission to service_role and authenticated users
+GRANT EXECUTE ON FUNCTION public.fix_storage_bucket_limit(text, bigint) TO service_role;
+GRANT EXECUTE ON FUNCTION public.fix_storage_bucket_limit(text, bigint) TO authenticated;

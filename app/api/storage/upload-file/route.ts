@@ -5,20 +5,31 @@ import { createAdminClient } from "@/lib/supabase/admin"
 // Default bucket for digital product files
 const BUCKET_NAME = "product-files"
 
-// file_size_limit = 0 means NO limit in Supabase Storage
-const MAX_FILE_SIZE = 0
+// Use a very large positive number - 0/null would fall back to Supabase global default (often 50MB)
+const MAX_FILE_SIZE = 53687091200 // 50GB
 
 // Helper to ensure bucket exists with proper configuration
 async function ensureBucketExists(adminSupabase: ReturnType<typeof createAdminClient>, bucketName: string) {
+  // Try RPC function first (direct database update – most reliable)
+  try {
+    const { error: rpcErr } = await adminSupabase.rpc("fix_storage_bucket_limit", {
+      p_bucket_id: bucketName,
+      p_file_size_limit: MAX_FILE_SIZE,
+    })
+    if (!rpcErr) return true
+  } catch {
+    // RPC function may not exist yet
+  }
+
   try {
     const { data: buckets } = await adminSupabase.storage.listBuckets()
     const bucketExists = buckets?.some((b) => b.name === bucketName)
 
     if (!bucketExists) {
-      // Create bucket (private, not public - files are delivered via signed URLs)
       const { error: createError } = await adminSupabase.storage.createBucket(bucketName, {
         public: false,
-        fileSizeLimit: MAX_FILE_SIZE, // 5GB
+        fileSizeLimit: MAX_FILE_SIZE,
+        allowedMimeTypes: null,
       })
 
       if (createError && !createError.message.includes("already exists")) {
@@ -26,14 +37,13 @@ async function ensureBucketExists(adminSupabase: ReturnType<typeof createAdminCl
         return false
       }
     } else {
-      // Try to update bucket settings
       try {
         await adminSupabase.storage.updateBucket(bucketName, {
           public: false,
-          fileSizeLimit: MAX_FILE_SIZE, // 5GB
+          fileSizeLimit: MAX_FILE_SIZE,
+          allowedMimeTypes: null,
         })
       } catch (updateErr) {
-        // Ignore update errors - bucket config might be fine
         console.log(`Bucket ${bucketName} update skipped:`, updateErr)
       }
     }

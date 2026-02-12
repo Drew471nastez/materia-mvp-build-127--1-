@@ -8,16 +8,31 @@ export const runtime = "nodejs"
 export const maxDuration = 300
 
 const BUCKET_NAME = process.env.ONEPAGE_LEAD_FILES_BUCKET || "lead-form-files-v2"
-// file_size_limit = 0 means NO limit in Supabase Storage (check is: limit > 0 && size > limit)
-const BUCKET_FILE_SIZE_LIMIT = 0
+// Use a very large positive number - 0/null would fall back to Supabase global default (often 50MB)
+const BUCKET_FILE_SIZE_LIMIT = 53687091200 // 50GB
 
 /**
- * Force-fix bucket configuration using admin client + REST API fallback.
+ * Force-fix bucket configuration. Tries RPC (direct DB), then JS client, then REST API.
  */
 async function forceFixBucket(): Promise<void> {
   const adminSupabase = createAdminClient()
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  // Method 0: RPC function (direct database update – most reliable)
+  try {
+    const { error: rpcErr } = await adminSupabase.rpc("fix_storage_bucket_limit", {
+      p_bucket_id: BUCKET_NAME,
+      p_file_size_limit: BUCKET_FILE_SIZE_LIMIT,
+    })
+    if (!rpcErr) {
+      console.log("[upload-file] Bucket fixed via RPC")
+      return
+    }
+    console.warn("[upload-file] RPC failed:", rpcErr.message)
+  } catch {
+    // RPC function may not exist yet
+  }
 
   // Method 1: Admin JS client
   try {
