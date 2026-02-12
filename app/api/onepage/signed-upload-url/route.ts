@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 
 const BUCKET_NAME = "lead-form-files"
 const MAX_DIGITAL_FILE_SIZE = 5 * 1024 * 1024 * 1024 // 5GB
+const BUCKET_FILE_SIZE_LIMIT = 5 * 1024 * 1024 * 1024 // 5GB
 
 /**
  * POST - Generate a signed upload URL for direct-to-storage uploads.
@@ -48,10 +49,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Ensure bucket exists with proper configuration using direct REST API
-    // This bypasses the JS client to fix corrupted int32 file_size_limit values
+    // Fail fast if bucket cannot be configured, so user gets actionable error instead of generic upload failure.
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+    const bucketFixSql = `INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types) VALUES ('${BUCKET_NAME}', '${BUCKET_NAME}', true, ${BUCKET_FILE_SIZE_LIMIT}, NULL) ON CONFLICT (id) DO UPDATE SET public = EXCLUDED.public, file_size_limit = EXCLUDED.file_size_limit, allowed_mime_types = EXCLUDED.allowed_mime_types;`
+
     try {
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
       // First try to update existing bucket via direct REST API
       const updateRes = await fetch(`${supabaseUrl}/storage/v1/bucket/${BUCKET_NAME}`, {
@@ -65,7 +68,7 @@ export async function POST(request: NextRequest) {
           id: BUCKET_NAME,
           name: BUCKET_NAME,
           public: true,
-          file_size_limit: 0, // 0 = no limit (fixes int32 overflow from previous 4GB value)
+          file_size_limit: 5368709120, // 5GB per object (fixes int32 overflow from previous 4GB value)
           allowed_mime_types: null,
         }),
       })
@@ -87,18 +90,37 @@ export async function POST(request: NextRequest) {
               id: BUCKET_NAME,
               name: BUCKET_NAME,
               public: true,
-              file_size_limit: 0,
+              file_size_limit: 5368709120,
               allowed_mime_types: null,
             }),
           })
           if (!createRes.ok) {
             const createBody = await createRes.json().catch(() => null)
             console.error("[signed-upload] Bucket creation failed:", createRes.status, createBody)
+            throw new Error(`Failed to create upload bucket (${createRes.status}). Run SQL: ${bucketFixSql}`)
           }
+        } else {
+          throw new Error(`Failed to update upload bucket (${updateRes.status}). Run SQL: ${bucketFixSql}`)
         }
       }
+
+      const verifyRes = await fetch(`${supabaseUrl}/storage/v1/bucket/${BUCKET_NAME}`, {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${serviceRoleKey}`,
+          "apikey": serviceRoleKey,
+        },
+      })
+      const verifyBody = await verifyRes.json().catch(() => null) as { file_size_limit?: number | null } | null
+      const liveLimit = typeof verifyBody?.file_size_limit === 'number' ? verifyBody.file_size_limit : null
+
+      if (liveLimit !== null && liveLimit > 0 && liveLimit < fileSize) {
+        throw new Error(`Current bucket limit is ${liveLimit} bytes, file is ${fileSize} bytes. Run SQL: ${bucketFixSql}`)
+      }
     } catch (bucketErr) {
-      console.error("[signed-upload] Bucket setup error (continuing):", bucketErr)
+      console.error("[signed-upload] Bucket setup error:", bucketErr)
+      const message = bucketErr instanceof Error ? bucketErr.message : "Failed to configure upload bucket"
+      return NextResponse.json({ error: message }, { status: 500 })
     }
 
     // Generate unique path

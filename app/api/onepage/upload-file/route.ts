@@ -9,6 +9,7 @@ export const maxDuration = 300
 
 const BUCKET_NAME = "lead-form-files"
 const MAX_FILE_SIZE = 5 * 1024 * 1024 * 1024 // 5GB
+const BUCKET_FILE_SIZE_LIMIT = 5 * 1024 * 1024 * 1024 // 5GB
 
 // Ensure bucket exists with correct settings using direct REST API
 async function ensureBucket() {
@@ -16,7 +17,7 @@ async function ensureBucket() {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
-    // Direct REST API call to fix corrupted int32 file_size_limit
+    // Direct REST API call to enforce explicit 5GB object limit
     const updateRes = await fetch(`${supabaseUrl}/storage/v1/bucket/${BUCKET_NAME}`, {
       method: "PUT",
       headers: {
@@ -28,7 +29,7 @@ async function ensureBucket() {
         id: BUCKET_NAME,
         name: BUCKET_NAME,
         public: true,
-        file_size_limit: 0, // 0 = no limit
+        file_size_limit: BUCKET_FILE_SIZE_LIMIT,
         allowed_mime_types: null,
       }),
     })
@@ -49,19 +50,43 @@ async function ensureBucket() {
             id: BUCKET_NAME,
             name: BUCKET_NAME,
             public: true,
-            file_size_limit: 0,
+            file_size_limit: BUCKET_FILE_SIZE_LIMIT,
             allowed_mime_types: null,
           }),
         })
         if (!createRes.ok) {
-          console.error("[upload-file] Bucket creation failed:", createRes.status)
+          const createBody = await createRes.json().catch(() => null)
+          console.error("[upload-file] Bucket creation failed:", createRes.status, createBody)
+          return false
         }
+      } else {
+        return false
       }
     }
+
+    const verifyRes = await fetch(`${supabaseUrl}/storage/v1/bucket/${BUCKET_NAME}`, {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${serviceRoleKey}`,
+        "apikey": serviceRoleKey,
+      },
+    })
+
+    if (!verifyRes.ok) {
+      return false
+    }
+
+    const verifyBody = await verifyRes.json().catch(() => null) as { file_size_limit?: number | null } | null
+    const liveLimit = typeof verifyBody?.file_size_limit === 'number' ? verifyBody.file_size_limit : null
+    if (liveLimit !== null && liveLimit > 0 && liveLimit < BUCKET_FILE_SIZE_LIMIT) {
+      console.error("[upload-file] Bucket size limit is still too low:", liveLimit)
+      return false
+    }
+
     return true
   } catch (err) {
     console.error("[upload-file] Bucket setup error:", err)
-    return true // Continue anyway
+    return false
   }
 }
 
@@ -106,7 +131,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Ensure bucket exists with correct file_size_limit
-    await ensureBucket()
+    const bucketReady = await ensureBucket()
+    if (!bucketReady) {
+      return NextResponse.json({
+        error: "Upload bucket is not configured for large files. Run the provided SQL migration or /api/onepage/fix-bucket.",
+      }, { status: 500 })
+    }
 
     // Generate unique filename
     const fileExt = file.name.split(".").pop() || "bin"
