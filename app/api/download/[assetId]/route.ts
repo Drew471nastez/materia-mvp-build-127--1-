@@ -155,32 +155,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ asse
     return NextResponse.json({ error: "Access denied" }, { status: 403 })
   }
 
-  // Generate signed URL
+  // Generate signed URL using multi-bucket resolver
   try {
-    let storagePath = asset.file_path
+    const { generateSignedDownloadUrl, logDownloadEvent } = await import("@/lib/storage")
+    const signed = await generateSignedDownloadUrl(admin, asset.file_path, SIGNED_URL_EXPIRY_SECONDS)
 
-    if (storagePath.includes("/storage/v1/object/")) {
-      const match = storagePath.match(/\/storage\/v1\/object\/(?:public|sign)\/[^/]+\/(.+?)(?:\?|$)/)
-      if (match) {
-        storagePath = decodeURIComponent(match[1])
-      }
-    }
-
-    let signedUrlResult = await admin.storage
-      .from("product-files")
-      .createSignedUrl(storagePath, SIGNED_URL_EXPIRY_SECONDS, {
-        download: true,
-      })
-
-    if (signedUrlResult.error) {
-      signedUrlResult = await admin.storage
-        .from("digital-assets")
-        .createSignedUrl(storagePath, SIGNED_URL_EXPIRY_SECONDS, {
-          download: true,
-        })
-    }
-
-    if (signedUrlResult.error || !signedUrlResult.data) {
+    if (!signed) {
       return NextResponse.json({ error: "Failed to generate download link" }, { status: 500 })
     }
 
@@ -189,11 +169,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ asse
     const forwardedFor = headersList.get("x-forwarded-for")
     const ip = forwardedFor?.split(",")[0]?.trim() || null
 
-    await admin.from("download_events").insert({
-      entitlement_id: entitlementId,
-      order_id: orderIdForLog,
-      user_agent: userAgent,
-      ip: ip,
+    await logDownloadEvent(admin, {
+      assetId,
+      orderId: orderIdForLog || undefined,
+      entitlementId: entitlementId || undefined,
+      ip,
+      userAgent,
     })
 
     // Log security event
@@ -203,16 +184,16 @@ export async function GET(request: Request, { params }: { params: Promise<{ asse
         event_type: "download_issued",
         ip: ip,
         user_agent: userAgent,
-      })
+      }).catch(() => {})
     }
 
     return NextResponse.json({
       success: true,
-      downloadUrl: signedUrlResult.data.signedUrl,
+      downloadUrl: signed.url,
       fileName: asset.file_name,
     })
   } catch (error) {
-    console.error("[v0] Download error:", error)
+    console.error("[download] Error:", error)
     return NextResponse.json({ error: "Download failed" }, { status: 500 })
   }
 }

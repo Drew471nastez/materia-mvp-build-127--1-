@@ -1,18 +1,24 @@
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { generateSignedDownloadUrl, logDownloadEvent } from "@/lib/storage"
+import { headers } from "next/headers"
 
-// GET - Download digital product files via secure token
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ token: string }> }
-) {
+// GET /api/onepage/download?token=<download_token>
+// Fallback route for token-based downloads via query parameter.
+// The primary route is /api/onepage/download/[token] (dynamic segment).
+export async function GET(request: NextRequest) {
   try {
-    const { token } = await params
+    const { searchParams } = new URL(request.url)
+    const token = searchParams.get("token")
     const adminSupabase = createAdminClient()
+    const headersList = await headers()
 
     if (!token) {
       return NextResponse.json({ error: "Download token required" }, { status: 400 })
     }
+
+    const ip = headersList.get("x-forwarded-for")?.split(",")[0]?.trim() || null
+    const userAgent = headersList.get("user-agent") || null
 
     // Find the download record
     const { data: downloadRecord, error: recordError } = await adminSupabase
@@ -49,7 +55,7 @@ export async function GET(
     // Get digital assets
     const { data: assets, error: assetsError } = await adminSupabase
       .from("digital_assets")
-      .select("id, file_path, file_name")
+      .select("id, file_path, file_name, storage_bucket")
       .eq("product_id", downloadRecord.product_id)
 
     if (assetsError || !assets || assets.length === 0) {
@@ -66,27 +72,23 @@ export async function GET(
       })
       .eq("id", downloadRecord.id)
 
-    // Generate signed URLs for all assets
+    // Generate signed URLs for all assets (tries multiple buckets)
     const downloadLinks = await Promise.all(
       assets.map(async (asset) => {
-        // Check if it's a Supabase storage path
-        if (asset.file_path.startsWith("digital-assets/") || asset.file_path.includes("supabase")) {
-          const { data: signedUrl } = await adminSupabase.storage
-            .from("digital-assets")
-            .createSignedUrl(asset.file_path.replace("digital-assets/", ""), 3600) // 1 hour expiry
+        const signed = await generateSignedDownloadUrl(adminSupabase, asset.file_path)
 
-          return {
-            id: asset.id,
-            fileName: asset.file_name,
-            downloadUrl: signedUrl?.signedUrl || asset.file_path,
-          }
-        }
+        // Log download event
+        await logDownloadEvent(adminSupabase, {
+          assetId: asset.id,
+          downloadToken: token,
+          ip,
+          userAgent,
+        })
 
-        // External URL
         return {
           id: asset.id,
           fileName: asset.file_name,
-          downloadUrl: asset.file_path,
+          downloadUrl: signed?.url || asset.file_path,
         }
       })
     )

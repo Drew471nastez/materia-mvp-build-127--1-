@@ -1,0 +1,39 @@
+/**
+ * Storage module barrel export.
+ * Import from "@/lib/storage" to access all storage utilities.
+ */
+
+export {
+  STORAGE_BUCKET,
+  PUBLIC_BUCKET,
+  BUCKET_FILE_SIZE_LIMIT,
+  type PlanId,
+  type PlanLimits,
+  PLAN_LIMITS,
+  getPlanLimits,
+  ALLOWED_FILE_TYPES,
+  isAllowedFileType,
+  formatBytes,
+} from "./plans"
+
+export {
+  type QuotaInfo,
+  getCreatorStorageUsage,
+  getCreatorQuota,
+  checkUploadAllowed,
+  updateCreatorStorageUsed,
+} from "./quota"
+
+export {
+  validateFile,
+  getFileCategory,
+  sanitizeFileName,
+  generateStoragePath,
+} from "./validation"
+
+export {
+  generateSignedDownloadUrl,
+  logDownloadEvent,
+  checkDownloadRateLimit,
+  validateDownloadToken,
+} from "./download"

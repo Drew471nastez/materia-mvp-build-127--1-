@@ -3648,6 +3648,37 @@ export function LinksTab() {
                         const supabase = createClient()
 
                         const requestSignedUploadData = async () => {
+                          // Try v2 prepare endpoint first (adds plan limits + quota checks)
+                          try {
+                            const v2Res = await fetch('/api/v2/upload/prepare', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                fileName: file.name,
+                                contentType: file.type || 'application/octet-stream',
+                                fileSize: file.size,
+                                folder,
+                              }),
+                            })
+
+                            if (v2Res.ok) {
+                              return v2Res.json()
+                            }
+
+                            const v2Err = await v2Res.json().catch(() => ({}))
+                            // If it's a quota/plan limit error, don't fall back - show the error
+                            if (v2Res.status === 403 && v2Err.error) {
+                              throw new Error(v2Err.error)
+                            }
+                          } catch (v2Error) {
+                            // Re-throw quota/limit errors
+                            if (v2Error instanceof Error && v2Error.message.includes('plan')) {
+                              throw v2Error
+                            }
+                            console.warn('v2 upload prepare failed, falling back:', v2Error)
+                          }
+
+                          // Fallback: legacy signed-upload-url endpoint
                           const signedRes = await fetch('/api/onepage/signed-upload-url', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -3750,6 +3781,19 @@ export function LinksTab() {
                                 url = await uploadViaServer()
                               }
                             }
+                          }
+                          // Notify v2 upload complete (non-blocking, for quota tracking)
+                          if (signedData?.assetId || signedData?.path) {
+                            fetch('/api/v2/upload/complete', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                assetId: signedData.assetId || null,
+                                path: signedData.path,
+                                bucket: signedData.bucket || 'lead-form-files-v2',
+                                fileSize: file.size,
+                              }),
+                            }).catch(() => {})
                           }
                           setUploadProgress(100)
                         } finally {
