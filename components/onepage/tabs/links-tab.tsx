@@ -3786,7 +3786,7 @@ export function LinksTab() {
                         : 'Upload image'}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {imageFieldType === 'digital_product_file' ? 'Any file type (audio, video, ZIP, images, docs)'
+                      {imageFieldType === 'digital_product_file' ? 'Any file type (audio, video, ZIP, images, docs) - no app limit'
                         : imageFieldType === 'pdf_file' ? 'PDF files only'
                         : 'JPG, PNG, GIF up to 10MB'}
                     </p>

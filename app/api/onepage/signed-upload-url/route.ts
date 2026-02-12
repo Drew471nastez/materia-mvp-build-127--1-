@@ -5,8 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 const DEFAULT_BUCKET = "lead-form-files-v2"
 const LEGACY_BUCKET = "lead-form-files"
 const BUCKET_NAME = process.env.ONEPAGE_LEAD_FILES_BUCKET || DEFAULT_BUCKET
-const MAX_DIGITAL_FILE_SIZE = 50 * 1024 * 1024 * 1024 // 50GB project-level guardrail
-const BUCKET_FILE_SIZE_LIMIT = 50 * 1024 * 1024 * 1024
+const BUCKET_FILE_SIZE_LIMIT: number | null = null // null = no per-object bucket cap
 
 function getCandidateBuckets(): string[] {
   return Array.from(new Set([BUCKET_NAME, DEFAULT_BUCKET, LEGACY_BUCKET]))
@@ -22,7 +21,7 @@ async function forceFixBucket(): Promise<void> {
     for (const bucketId of bucketIds) {
       const { error: updateErr } = await adminSupabase.storage.updateBucket(bucketId, {
         public: true,
-        fileSizeLimit: BUCKET_FILE_SIZE_LIMIT,
+        fileSizeLimit: undefined,
         allowedMimeTypes: undefined,
       })
 
@@ -31,7 +30,7 @@ async function forceFixBucket(): Promise<void> {
       if (updateErr.message?.includes("not found") || updateErr.message?.includes("404")) {
         const { error: createErr } = await adminSupabase.storage.createBucket(bucketId, {
           public: true,
-          fileSizeLimit: BUCKET_FILE_SIZE_LIMIT,
+          fileSizeLimit: undefined,
           allowedMimeTypes: undefined,
         })
         if (!createErr || createErr.message?.includes("already exists") || createErr.message?.includes("409")) {
@@ -90,7 +89,7 @@ async function forceFixBucket(): Promise<void> {
             Prefer: "return=minimal",
           },
           body: JSON.stringify({
-            query: `INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types) VALUES ('${bucketId}', '${bucketId}', true, ${BUCKET_FILE_SIZE_LIMIT}, NULL) ON CONFLICT (id) DO UPDATE SET public = true, file_size_limit = ${BUCKET_FILE_SIZE_LIMIT}, allowed_mime_types = NULL;`,
+            query: `INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types) VALUES ('${bucketId}', '${bucketId}', true, NULL, NULL) ON CONFLICT (id) DO UPDATE SET public = true, file_size_limit = NULL, allowed_mime_types = NULL;`,
           }),
         })
       } catch {
@@ -119,20 +118,16 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { fileName, contentType, fileSize, folder } = body as {
+    const { fileName, contentType, folder } = body as {
       fileName: string
       contentType: string
-      fileSize: number
       folder: string
     }
 
-    if (!fileName || !contentType || !fileSize) {
+    if (!fileName || !contentType) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
-    if (fileSize > MAX_DIGITAL_FILE_SIZE) {
-      return NextResponse.json({ error: "File too large (max 50GB)" }, { status: 400 })
-    }
 
     await forceFixBucket()
 
@@ -160,7 +155,6 @@ export async function POST(request: NextRequest) {
       path: filePath,
       publicUrl: urlData.publicUrl,
       bucket: BUCKET_NAME,
-      maxBytes: MAX_DIGITAL_FILE_SIZE,
     })
   } catch (error) {
     console.error("Signed upload URL error:", error)

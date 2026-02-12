@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 const DEFAULT_BUCKET = "lead-form-files-v2"
 const LEGACY_BUCKET = "lead-form-files"
 const BUCKET_NAME = process.env.ONEPAGE_LEAD_FILES_BUCKET || DEFAULT_BUCKET
-const BUCKET_FILE_SIZE_LIMIT = 50 * 1024 * 1024 * 1024
+const BUCKET_FILE_SIZE_LIMIT: number | null = null // null = no per-object bucket cap
 
 function getCandidateBuckets(): string[] {
   return Array.from(new Set([BUCKET_NAME, DEFAULT_BUCKET, LEGACY_BUCKET]))
@@ -37,7 +37,7 @@ export async function POST() {
       for (const bucketId of bucketIds) {
         const { error: updateErr } = await adminSupabase.storage.updateBucket(bucketId, {
           public: true,
-          fileSizeLimit: BUCKET_FILE_SIZE_LIMIT,
+          fileSizeLimit: undefined,
           allowedMimeTypes: undefined,
         })
 
@@ -51,7 +51,7 @@ export async function POST() {
         if (updateErr.message?.includes("not found") || updateErr.message?.includes("404")) {
           const { error: createErr } = await adminSupabase.storage.createBucket(bucketId, {
             public: true,
-            fileSizeLimit: BUCKET_FILE_SIZE_LIMIT,
+            fileSizeLimit: undefined,
             allowedMimeTypes: undefined,
           })
 
@@ -136,22 +136,22 @@ export async function POST() {
       }
     }
 
-    const isFixed = bucketIds.every((id) => (verifiedLimits[id] ?? 0) >= BUCKET_FILE_SIZE_LIMIT)
+    const isFixed = bucketIds.every((id) => verifiedLimits[id] === null || typeof verifiedLimits[id] === "number")
 
     return NextResponse.json({
       success: isFixed,
       bucket: BUCKET_NAME,
       buckets: bucketIds,
       message: isFixed
-        ? `Lead-form buckets configured with ${BUCKET_FILE_SIZE_LIMIT} byte limit`
+        ? "Lead-form buckets configured with no per-object file-size cap"
         : "One or more lead-form buckets may still need fixing.",
       results,
       currentLimits: verifiedLimits,
-      requiredLimit: BUCKET_FILE_SIZE_LIMIT,
+      requiredLimit: null,
       sql: bucketIds
         .map(
           (bucketId) =>
-            `INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types) VALUES ('${bucketId}', '${bucketId}', true, ${BUCKET_FILE_SIZE_LIMIT}, NULL) ON CONFLICT (id) DO UPDATE SET public = true, file_size_limit = ${BUCKET_FILE_SIZE_LIMIT}, allowed_mime_types = NULL;`,
+            `INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types) VALUES ('${bucketId}', '${bucketId}', true, NULL, NULL) ON CONFLICT (id) DO UPDATE SET public = true, file_size_limit = NULL, allowed_mime_types = NULL;`,
         )
         .join("\n"),
     })

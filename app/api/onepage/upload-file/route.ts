@@ -8,8 +8,7 @@ export const maxDuration = 300
 const DEFAULT_BUCKET = "lead-form-files-v2"
 const LEGACY_BUCKET = "lead-form-files"
 const BUCKET_NAME = process.env.ONEPAGE_LEAD_FILES_BUCKET || DEFAULT_BUCKET
-const MAX_FILE_SIZE = 50 * 1024 * 1024 * 1024 // 50GB
-const BUCKET_FILE_SIZE_LIMIT = 50 * 1024 * 1024 * 1024
+const BUCKET_FILE_SIZE_LIMIT: number | null = null // null = no per-object bucket cap
 
 function getCandidateBuckets(): string[] {
   return Array.from(new Set([BUCKET_NAME, DEFAULT_BUCKET, LEGACY_BUCKET]))
@@ -25,7 +24,7 @@ async function forceFixBucket(): Promise<void> {
     for (const bucketId of bucketIds) {
       const { error: updateErr } = await adminSupabase.storage.updateBucket(bucketId, {
         public: true,
-        fileSizeLimit: BUCKET_FILE_SIZE_LIMIT,
+        fileSizeLimit: undefined,
         allowedMimeTypes: undefined,
       })
 
@@ -34,7 +33,7 @@ async function forceFixBucket(): Promise<void> {
       if (updateErr.message?.includes("not found") || updateErr.message?.includes("404")) {
         const { error: createErr } = await adminSupabase.storage.createBucket(bucketId, {
           public: true,
-          fileSizeLimit: BUCKET_FILE_SIZE_LIMIT,
+          fileSizeLimit: undefined,
           allowedMimeTypes: undefined,
         })
         if (!createErr || createErr.message?.includes("already exists") || createErr.message?.includes("409")) {
@@ -121,9 +120,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 })
     }
 
-    if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json({ error: "File size must be less than 50GB" }, { status: 400 })
-    }
 
     await forceFixBucket()
 
@@ -156,7 +152,6 @@ export async function POST(request: NextRequest) {
       url: urlData.publicUrl,
       path: uploadData.path,
       filename: file.name,
-      maxBytes: MAX_FILE_SIZE,
     })
   } catch (error) {
     console.error("[upload-file] Fatal error:", error)
