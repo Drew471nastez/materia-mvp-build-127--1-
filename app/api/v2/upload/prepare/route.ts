@@ -15,89 +15,101 @@ export const runtime = "nodejs"
 export const maxDuration = 60
 
 /**
- * Ensure the target storage bucket exists and has a file_size_limit large enough
- * for the requested upload.  Tries REST API first (no RPC dependency), then JS
- * client, then RPC function.  Verifies the result before returning.
+ * Ensure the target storage bucket exists with NO bucket-level file size limit.
+ * Setting file_size_limit to 0/null disables the bucket check in Supabase Storage,
+ * letting only the project-level global limit apply (which is much higher).
+ *
+ * Tries REST API first, then JS client, then RPC, then direct SQL RPC.
  */
 async function ensureBucket(
   admin: ReturnType<typeof createAdminClient>,
   bucket: string,
   isPublic: boolean,
-  requiredSize: number,
+  _requiredSize: number,
 ): Promise<{ ok: boolean; currentLimit: number | null }> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-  // Helper to read current limit
-  const getLimit = async (): Promise<number | null> => {
-    if (!supabaseUrl || !serviceRoleKey) return null
+  // Helper to read current bucket config
+  const getBucketInfo = async (): Promise<{ exists: boolean; limit: number | null }> => {
+    if (!supabaseUrl || !serviceRoleKey) return { exists: false, limit: null }
     try {
       const r = await fetch(`${supabaseUrl}/storage/v1/bucket/${bucket}`, {
         method: "GET",
         headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey },
       })
-      if (!r.ok) return null
+      if (!r.ok) return { exists: false, limit: null }
       const b = await r.json()
-      return b?.file_size_limit ?? null
+      return { exists: true, limit: b?.file_size_limit ?? null }
     } catch {
-      return null
+      return { exists: false, limit: null }
     }
   }
 
-  // Already sufficient?
-  const existing = await getLimit()
-  if (existing !== null && existing >= requiredSize) {
-    return { ok: true, currentLimit: existing }
+  const info = await getBucketInfo()
+
+  // null/0 = no bucket-level limit = OK (only global limit applies)
+  if (info.exists && (info.limit === null || info.limit === 0)) {
+    return { ok: true, currentLimit: null }
   }
 
-  // Method 1: REST API (no id/name in PUT body)
+  // Bucket exists but has a restrictive limit — remove it (set to 0)
+  // Or bucket doesn't exist — create it with no limit
   if (supabaseUrl && serviceRoleKey) {
     const headers = {
       Authorization: `Bearer ${serviceRoleKey}`,
       apikey: serviceRoleKey,
       "Content-Type": "application/json",
     }
+
+    // Method 1: REST API — set file_size_limit to 0 (disables bucket-level check)
     try {
-      const r = await fetch(`${supabaseUrl}/storage/v1/bucket/${bucket}`, {
-        method: "PUT",
-        headers,
-        body: JSON.stringify({ public: isPublic, file_size_limit: BUCKET_FILE_SIZE_LIMIT, allowed_mime_types: null }),
-      })
-      if (!r.ok && (r.status === 404 || r.status === 400)) {
-        await fetch(`${supabaseUrl}/storage/v1/bucket`, {
-          method: "POST",
-          headers,
-          body: JSON.stringify({ id: bucket, name: bucket, public: isPublic, file_size_limit: BUCKET_FILE_SIZE_LIMIT, allowed_mime_types: null }),
-        }).catch(() => {})
+      if (info.exists) {
         await fetch(`${supabaseUrl}/storage/v1/bucket/${bucket}`, {
           method: "PUT",
           headers,
-          body: JSON.stringify({ public: isPublic, file_size_limit: BUCKET_FILE_SIZE_LIMIT, allowed_mime_types: null }),
-        }).catch(() => {})
+          body: JSON.stringify({ public: isPublic, file_size_limit: 0, allowed_mime_types: null }),
+        })
+      } else {
+        await fetch(`${supabaseUrl}/storage/v1/bucket`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ id: bucket, name: bucket, public: isPublic, file_size_limit: 0, allowed_mime_types: null }),
+        })
       }
     } catch { /* continue */ }
-    const afterRest = await getLimit()
-    if (afterRest !== null && afterRest >= requiredSize) return { ok: true, currentLimit: afterRest }
+
+    const after1 = await getBucketInfo()
+    if (after1.exists && (after1.limit === null || after1.limit === 0)) {
+      return { ok: true, currentLimit: null }
+    }
   }
 
-  // Method 2: JS admin client
+  // Method 2: JS admin client — set fileSizeLimit to 0
   try {
-    await admin.storage.updateBucket(bucket, { public: isPublic, fileSizeLimit: BUCKET_FILE_SIZE_LIMIT })
-  } catch {
-    try {
-      await admin.storage.createBucket(bucket, { public: isPublic, fileSizeLimit: BUCKET_FILE_SIZE_LIMIT })
-    } catch { /* bucket exists */ }
+    if (info.exists) {
+      await admin.storage.updateBucket(bucket, { public: isPublic, fileSizeLimit: 0 as unknown as string })
+    } else {
+      await admin.storage.createBucket(bucket, { public: isPublic, fileSizeLimit: 0 as unknown as string })
+    }
+  } catch { /* continue */ }
+  const after2 = await getBucketInfo()
+  if (after2.exists && (after2.limit === null || after2.limit === 0)) {
+    return { ok: true, currentLimit: null }
   }
-  const afterJs = await getLimit()
-  if (afterJs !== null && afterJs >= requiredSize) return { ok: true, currentLimit: afterJs }
 
-  // Method 3: RPC function
+  // Method 3: RPC — direct SQL to NULL out the limit
   try {
-    await admin.rpc("fix_storage_bucket_limit", { p_bucket_id: bucket, p_file_size_limit: BUCKET_FILE_SIZE_LIMIT })
+    await admin.rpc("fix_storage_bucket_limit", { p_bucket_id: bucket, p_file_size_limit: 0 })
   } catch { /* RPC may not exist */ }
 
-  const final = await getLimit()
-  return { ok: final !== null && final >= requiredSize, currentLimit: final }
+  const after3 = await getBucketInfo()
+  if (after3.exists && (after3.limit === null || after3.limit === 0)) {
+    return { ok: true, currentLimit: null }
+  }
+
+  // If we still have a limit, report the current value
+  return { ok: false, currentLimit: after3.limit }
 }
 
 /**
@@ -196,10 +208,10 @@ export async function POST(request: NextRequest) {
     }
 
     if (!bucketCheck.ok) {
-      const sql = `UPDATE storage.buckets SET file_size_limit = ${BUCKET_FILE_SIZE_LIMIT}, public = true, allowed_mime_types = NULL WHERE id = '${targetBucket}';`
-      console.error(`[v2/upload/prepare] Bucket limit too low: ${bucketCheck.currentLimit} < ${fileSize}. SQL: ${sql}`)
+      const sql = `UPDATE storage.buckets SET file_size_limit = NULL WHERE id = '${targetBucket}';`
+      console.error(`[v2/upload/prepare] Bucket limit still set: ${bucketCheck.currentLimit}. Run SQL: ${sql}`)
       return NextResponse.json(
-        { error: `Storage bucket limit (${bucketCheck.currentLimit || "unknown"} bytes) is too small for this ${fileSize} byte file. Run this SQL in your Supabase SQL Editor: ${sql}` },
+        { error: `Storage bucket file_size_limit is ${bucketCheck.currentLimit} bytes — run this SQL in Supabase SQL Editor to remove it: ${sql}` },
         { status: 507 },
       )
     }

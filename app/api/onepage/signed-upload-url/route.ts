@@ -3,174 +3,88 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 const BUCKET_NAME = process.env.ONEPAGE_LEAD_FILES_BUCKET || "lead-form-files-v2"
-// Must fit int4 (max 2,147,483,647) — older Supabase projects use int4 for file_size_limit
-const BUCKET_FILE_SIZE_LIMIT = 2000000000 // ~2GB
 
 export const runtime = "nodejs"
 export const maxDuration = 300
 
 /**
- * Check the bucket's actual file_size_limit via REST API.
+ * Ensure the bucket exists with NO bucket-level file size limit.
+ * Setting file_size_limit to 0/null disables the bucket check in Supabase Storage,
+ * letting only the project-level global limit apply.
  */
-async function getBucketLimit(): Promise<number | null> {
+async function ensureBucketNoLimit(): Promise<{ ok: boolean; currentLimit: number | null }> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!supabaseUrl || !serviceRoleKey) return null
+  if (!supabaseUrl || !serviceRoleKey) return { ok: true, currentLimit: null }
 
-  try {
-    const res = await fetch(`${supabaseUrl}/storage/v1/bucket/${BUCKET_NAME}`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${serviceRoleKey}`,
-        apikey: serviceRoleKey,
-      },
-    })
-    if (!res.ok) return null
-    const body = await res.json()
-    return body?.file_size_limit ?? null
-  } catch {
-    return null
-  }
-}
-
-/**
- * Force-fix bucket using every method available. Returns whether the bucket
- * limit is now sufficient for the requested file size.
- */
-async function forceFixBucket(requiredSize: number): Promise<{ ok: boolean; currentLimit: number | null }> {
-  // Check current limit first — skip fix if already sufficient
-  const existingLimit = await getBucketLimit()
-  if (existingLimit !== null && existingLimit >= requiredSize) {
-    return { ok: true, currentLimit: existingLimit }
+  const headers = {
+    Authorization: `Bearer ${serviceRoleKey}`,
+    apikey: serviceRoleKey,
+    "Content-Type": "application/json",
   }
 
-  const adminSupabase = createAdminClient()
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  const logs: string[] = []
-
-  // --- Method 1: REST API PUT (most reliable — no dependency on RPC function) ---
-  if (supabaseUrl && serviceRoleKey) {
-    const headers = {
-      Authorization: `Bearer ${serviceRoleKey}`,
-      apikey: serviceRoleKey,
-      "Content-Type": "application/json",
-    }
-
+  const getBucketInfo = async (): Promise<{ exists: boolean; limit: number | null }> => {
     try {
-      // PUT body should only contain updatable fields (no id/name)
-      const updateRes = await fetch(`${supabaseUrl}/storage/v1/bucket/${BUCKET_NAME}`, {
+      const r = await fetch(`${supabaseUrl}/storage/v1/bucket/${BUCKET_NAME}`, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey },
+      })
+      if (!r.ok) return { exists: false, limit: null }
+      const b = await r.json()
+      return { exists: true, limit: b?.file_size_limit ?? null }
+    } catch {
+      return { exists: false, limit: null }
+    }
+  }
+
+  const info = await getBucketInfo()
+
+  // null/0 = no bucket-level limit = OK
+  if (info.exists && (info.limit === null || info.limit === 0)) {
+    return { ok: true, currentLimit: null }
+  }
+
+  // Try to remove the limit (set to 0)
+  const adminSupabase = createAdminClient()
+
+  // Method 1: REST API
+  try {
+    if (info.exists) {
+      await fetch(`${supabaseUrl}/storage/v1/bucket/${BUCKET_NAME}`, {
         method: "PUT",
         headers,
-        body: JSON.stringify({
-          public: true,
-          file_size_limit: BUCKET_FILE_SIZE_LIMIT,
-          allowed_mime_types: null,
-        }),
+        body: JSON.stringify({ public: true, file_size_limit: 0, allowed_mime_types: null }),
       })
-
-      if (updateRes.ok) {
-        logs.push("REST PUT: OK")
-      } else {
-        const body = await updateRes.json().catch(() => ({}))
-        logs.push(`REST PUT ${updateRes.status}: ${body?.message || body?.error || ""}`)
-
-        // Bucket doesn't exist — create it
-        if (updateRes.status === 404 || updateRes.status === 400) {
-          const createRes = await fetch(`${supabaseUrl}/storage/v1/bucket`, {
-            method: "POST",
-            headers,
-            body: JSON.stringify({
-              id: BUCKET_NAME,
-              name: BUCKET_NAME,
-              public: true,
-              file_size_limit: BUCKET_FILE_SIZE_LIMIT,
-              allowed_mime_types: null,
-            }),
-          })
-          const createBody = await createRes.json().catch(() => ({}))
-          if (createRes.ok || createRes.status === 409) {
-            logs.push("REST POST (create): OK")
-            // After create, do a PUT to set the limit (create might ignore file_size_limit)
-            await fetch(`${supabaseUrl}/storage/v1/bucket/${BUCKET_NAME}`, {
-              method: "PUT",
-              headers,
-              body: JSON.stringify({
-                public: true,
-                file_size_limit: BUCKET_FILE_SIZE_LIMIT,
-                allowed_mime_types: null,
-              }),
-            }).catch(() => {})
-          } else {
-            logs.push(`REST POST ${createRes.status}: ${createBody?.message || ""}`)
-          }
-        }
-      }
-    } catch (e) {
-      logs.push(`REST error: ${e instanceof Error ? e.message : String(e)}`)
-    }
-
-    // Check if REST fixed it
-    const afterRest = await getBucketLimit()
-    if (afterRest !== null && afterRest >= requiredSize) {
-      console.log("[signed-upload] Bucket fixed via REST.", logs.join("; "))
-      return { ok: true, currentLimit: afterRest }
-    }
-  }
-
-  // --- Method 2: Admin JS client updateBucket ---
-  try {
-    const { error: updateErr } = await adminSupabase.storage.updateBucket(BUCKET_NAME, {
-      public: true,
-      fileSizeLimit: BUCKET_FILE_SIZE_LIMIT,
-    })
-    if (!updateErr) {
-      logs.push("updateBucket: OK")
     } else {
-      logs.push(`updateBucket: ${updateErr.message}`)
-      if (updateErr.message?.includes("not found") || updateErr.message?.includes("404")) {
-        const { error: createErr } = await adminSupabase.storage.createBucket(BUCKET_NAME, {
-          public: true,
-          fileSizeLimit: BUCKET_FILE_SIZE_LIMIT,
-        })
-        if (!createErr) {
-          logs.push("createBucket: OK")
-        } else {
-          logs.push(`createBucket: ${createErr.message}`)
-        }
-      }
+      await fetch(`${supabaseUrl}/storage/v1/bucket`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ id: BUCKET_NAME, name: BUCKET_NAME, public: true, file_size_limit: 0, allowed_mime_types: null }),
+      })
     }
-  } catch (e) {
-    logs.push(`JS client: ${e instanceof Error ? e.message : String(e)}`)
-  }
+  } catch { /* continue */ }
+  const after1 = await getBucketInfo()
+  if (after1.exists && (after1.limit === null || after1.limit === 0)) return { ok: true, currentLimit: null }
 
-  // Check again
-  const afterJs = await getBucketLimit()
-  if (afterJs !== null && afterJs >= requiredSize) {
-    console.log("[signed-upload] Bucket fixed via JS client.", logs.join("; "))
-    return { ok: true, currentLimit: afterJs }
-  }
-
-  // --- Method 3: RPC function (requires migration to have been applied) ---
+  // Method 2: JS client
   try {
-    const { error: rpcErr } = await adminSupabase.rpc("fix_storage_bucket_limit", {
-      p_bucket_id: BUCKET_NAME,
-      p_file_size_limit: BUCKET_FILE_SIZE_LIMIT,
-    })
-    if (!rpcErr) {
-      logs.push("RPC: OK")
-    } else {
-      logs.push(`RPC: ${rpcErr.message}`)
-    }
-  } catch (e) {
-    logs.push(`RPC error: ${e instanceof Error ? e.message : String(e)}`)
+    await adminSupabase.storage.updateBucket(BUCKET_NAME, { public: true, fileSizeLimit: 0 as unknown as string })
+  } catch {
+    try {
+      await adminSupabase.storage.createBucket(BUCKET_NAME, { public: true, fileSizeLimit: 0 as unknown as string })
+    } catch { /* exists */ }
   }
+  const after2 = await getBucketInfo()
+  if (after2.exists && (after2.limit === null || after2.limit === 0)) return { ok: true, currentLimit: null }
 
-  // Final check
-  const finalLimit = await getBucketLimit()
-  const ok = finalLimit !== null && finalLimit >= requiredSize
-  console.log(`[signed-upload] Bucket fix ${ok ? "succeeded" : "FAILED"}.`, logs.join("; "), "limit:", finalLimit)
-  return { ok, currentLimit: finalLimit }
+  // Method 3: RPC direct SQL
+  try {
+    await adminSupabase.rpc("fix_storage_bucket_limit", { p_bucket_id: BUCKET_NAME, p_file_size_limit: 0 })
+  } catch { /* may not exist */ }
+  const after3 = await getBucketInfo()
+  if (after3.exists && (after3.limit === null || after3.limit === 0)) return { ok: true, currentLimit: null }
+
+  return { ok: false, currentLimit: after3.limit }
 }
 
 /**
@@ -210,18 +124,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
-    // Fix bucket configuration and VERIFY it worked before proceeding
-    const bucketFix = await forceFixBucket(fileSize)
+    // Ensure bucket has no file_size_limit (let global project limit handle it)
+    const bucketFix = await ensureBucketNoLimit()
 
     if (!bucketFix.ok) {
-      const sql = `UPDATE storage.buckets SET file_size_limit = ${BUCKET_FILE_SIZE_LIMIT}, public = true, allowed_mime_types = NULL WHERE id = '${BUCKET_NAME}';`
-      console.error(
-        `[signed-upload] Bucket limit too low for ${fileSize} byte file. Current limit: ${bucketFix.currentLimit}. Run this SQL in Supabase dashboard: ${sql}`,
-      )
+      const sql = `UPDATE storage.buckets SET file_size_limit = NULL WHERE id = '${BUCKET_NAME}';`
+      console.error(`[signed-upload] Bucket limit still set: ${bucketFix.currentLimit}. Run SQL: ${sql}`)
       return NextResponse.json(
-        {
-          error: `Storage bucket limit is ${bucketFix.currentLimit || "unknown"} bytes but file is ${fileSize} bytes. Please contact support or run this SQL in your Supabase SQL Editor: ${sql}`,
-        },
+        { error: `Storage bucket file_size_limit is ${bucketFix.currentLimit} bytes — run this SQL in Supabase SQL Editor to remove it: ${sql}` },
         { status: 507 },
       )
     }
