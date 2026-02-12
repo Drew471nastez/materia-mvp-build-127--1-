@@ -15,8 +15,7 @@ export const runtime = "nodejs"
 export const maxDuration = 60
 
 const BUCKET_NAME = "lead-form-files"
-const MAX_DIGITAL_FILE_SIZE = 4 * 1024 * 1024 * 1024 // 4GB
-const MAX_IMAGE_FILE_SIZE = 10 * 1024 * 1024 // 10MB
+const MAX_FILE_SIZE = 4 * 1024 * 1024 * 1024 // 4GB - all file types
 
 // POST - Upload a file for lead form (product images and digital products)
 export async function POST(request: NextRequest) {
@@ -47,11 +46,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 })
     }
 
-    // Validate file size (max 4GB for digital files, 10MB for images)
-    const maxSize = fileType === 'digital' ? MAX_DIGITAL_FILE_SIZE : MAX_IMAGE_FILE_SIZE
-    if (file.size > maxSize) {
+    // Validate file size (max 4GB for all file types)
+    if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json({
-        error: `File size must be less than ${fileType === 'digital' ? '4GB' : '10MB'}`
+        error: 'File size must be less than 4GB'
       }, { status: 400 })
     }
 
@@ -63,7 +61,7 @@ export async function POST(request: NextRequest) {
       // Create bucket with public access, all MIME types allowed
       const { error: createError } = await adminSupabase.storage.createBucket(BUCKET_NAME, {
         public: true,
-        fileSizeLimit: MAX_DIGITAL_FILE_SIZE,
+        fileSizeLimit: MAX_FILE_SIZE,
       })
 
       if (createError && !createError.message?.includes('already exists')) {
@@ -73,7 +71,7 @@ export async function POST(request: NextRequest) {
       // Ensure bucket is public if it exists but isn't public
       await adminSupabase.storage.updateBucket(BUCKET_NAME, {
         public: true,
-        fileSizeLimit: MAX_DIGITAL_FILE_SIZE,
+        fileSizeLimit: MAX_FILE_SIZE,
       })
     }
 

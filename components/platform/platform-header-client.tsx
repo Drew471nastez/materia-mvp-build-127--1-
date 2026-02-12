@@ -231,6 +231,9 @@ function MobileTopSheet({
   useEffect(() => {
     if (isOpen && !isVisible) {
       setIsVisible(true)
+      // Prevent pull-to-refresh while sheet is open
+      document.documentElement.style.overscrollBehavior = 'none'
+      document.body.style.overscrollBehavior = 'none'
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           setIsAnimating(true)
@@ -241,6 +244,9 @@ function MobileTopSheet({
       const timer = setTimeout(() => {
         setIsVisible(false)
         setDragY(0)
+        // Restore pull-to-refresh after sheet fully closes
+        document.documentElement.style.overscrollBehavior = ''
+        document.body.style.overscrollBehavior = ''
       }, 400)
       return () => clearTimeout(timer)
     }
@@ -251,6 +257,9 @@ function MobileTopSheet({
     setDragY(0)
     setTimeout(() => {
       onClose()
+      // Restore pull-to-refresh
+      document.documentElement.style.overscrollBehavior = ''
+      document.body.style.overscrollBehavior = ''
     }, 400)
   }
 

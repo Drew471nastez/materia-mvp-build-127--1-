@@ -609,6 +609,7 @@ export function LinksTab() {
   const [imageBlockId, setImageBlockId] = useState<string | null>(null)
   const [imageFieldType, setImageFieldType] = useState<string | null>(null)
   const [imageUploading, setImageUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
   const [showArchiveView, setShowArchiveView] = useState(false)
   const [isMobileModalViewport, setIsMobileModalViewport] = useState(false)
   const [addSheetDragY, setAddSheetDragY] = useState(0)
@@ -3591,6 +3592,7 @@ export function LinksTab() {
                     if (!file || !imageBlockId) return
 
                     setImageUploading(true)
+                    setUploadProgress(0)
                     try {
                       const folder = imageFieldType === 'digital_product_file' || imageFieldType === 'pdf_file' ? 'digital' : 'images'
                       const SMALL_FILE_LIMIT = 4 * 1024 * 1024 // 4MB
@@ -3603,25 +3605,32 @@ export function LinksTab() {
                         formData.append('file', file)
                         formData.append('type', folder === 'digital' ? 'digital' : 'image')
 
+                        // Simulated progress for small files (they upload quickly)
+                        let simProgress = 0
+                        const simInterval = setInterval(() => {
+                          simProgress = Math.min(simProgress + 12, 90)
+                          setUploadProgress(simProgress)
+                        }, 150)
+
                         const uploadRes = await fetch('/api/onepage/upload-file', {
                           method: 'POST',
                           body: formData,
                         })
+
+                        clearInterval(simInterval)
 
                         if (!uploadRes.ok) {
                           const err = await uploadRes.json().catch(() => ({ error: 'Upload failed' }))
                           throw new Error(err.error || 'Upload failed')
                         }
 
+                        setUploadProgress(100)
                         const result = await uploadRes.json()
                         url = result.url
                       } else {
-                        // Large files: use signed URL + Supabase JS client uploadToSignedUrl
-                        // This avoids sending file bytes through the API route (FUNCTION_PAYLOAD_TOO_LARGE)
-                        const { createClient: createBrowserClient } = await import('@/lib/supabase/client')
-                        const supabase = createBrowserClient()
-
+                        // Large files: use signed URL with XHR for real progress tracking
                         // Step 1: Get signed upload token from server
+                        setUploadProgress(2)
                         const signedRes = await fetch('/api/onepage/signed-upload-url', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
@@ -3638,19 +3647,35 @@ export function LinksTab() {
                           throw new Error(err.error || 'Failed to get upload URL')
                         }
 
-                        const { token, path: storagePath, publicUrl } = await signedRes.json()
+                        const { signedUrl, publicUrl } = await signedRes.json()
+                        setUploadProgress(5)
 
-                        // Step 2: Upload using Supabase JS client (handles TUS protocol correctly)
-                        const { error: uploadError } = await supabase.storage
-                          .from('lead-form-files')
-                          .uploadToSignedUrl(storagePath, token, file, {
-                            contentType: file.type || 'application/octet-stream',
-                            upsert: true,
+                        // Step 2: Upload via XHR for real progress tracking
+                        await new Promise<void>((resolve, reject) => {
+                          const xhr = new XMLHttpRequest()
+                          xhr.upload.addEventListener('progress', (e) => {
+                            if (e.lengthComputable) {
+                              const pct = Math.round((e.loaded / e.total) * 93) + 5 // 5-98%
+                              setUploadProgress(pct)
+                            }
                           })
+                          xhr.addEventListener('load', () => {
+                            if (xhr.status >= 200 && xhr.status < 300) {
+                              setUploadProgress(100)
+                              resolve()
+                            } else {
+                              reject(new Error(`Upload failed with status ${xhr.status}`))
+                            }
+                          })
+                          xhr.addEventListener('error', () => reject(new Error('Upload failed')))
+                          xhr.addEventListener('abort', () => reject(new Error('Upload aborted')))
 
-                        if (uploadError) {
-                          throw new Error(`Upload failed: ${uploadError.message}`)
-                        }
+                          // Use the full signed URL directly from Supabase
+                          xhr.open('PUT', signedUrl)
+                          xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream')
+                          xhr.setRequestHeader('x-upsert', 'true')
+                          xhr.send(file)
+                        })
 
                         url = publicUrl
                       }
@@ -3699,6 +3724,7 @@ export function LinksTab() {
                       alert('Upload failed. Please try again.')
                     } finally {
                       setImageUploading(false)
+                      setTimeout(() => setUploadProgress(0), 500)
                     }
                     e.target.value = ''
                   }}
@@ -3708,22 +3734,26 @@ export function LinksTab() {
                   htmlFor="file-upload-input"
                   className={cn(
                     "flex items-center gap-4 p-4 rounded-xl border-2 border-dashed border-gray-300 transition-colors",
-                    imageUploading ? "opacity-50 cursor-wait" : "hover:border-violet-400 cursor-pointer"
+                    imageUploading ? "pointer-events-none" : "hover:border-violet-400 cursor-pointer"
                   )}
                 >
                   <div className={cn(
-                    "w-12 h-12 rounded-xl flex items-center justify-center",
+                    "w-12 h-12 rounded-xl flex items-center justify-center relative",
                     imageFieldType === 'pdf_file' ? "bg-red-100" : "bg-violet-100"
                   )}>
                     {imageUploading ? (
-                      <Loader2 className={cn("h-6 w-6 animate-spin", imageFieldType === 'pdf_file' ? "text-red-600" : "text-violet-600")} />
+                      <svg className="w-10 h-10" viewBox="0 0 36 36">
+                        <circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" strokeWidth="2.5" className={cn("opacity-20", imageFieldType === 'pdf_file' ? "text-red-600" : "text-violet-600")} />
+                        <circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className={cn(imageFieldType === 'pdf_file' ? "text-red-600" : "text-violet-600")} style={{ strokeDasharray: `${2 * Math.PI * 15}`, strokeDashoffset: `${2 * Math.PI * 15 * (1 - uploadProgress / 100)}`, transform: 'rotate(-90deg)', transformOrigin: '50% 50%', transition: 'stroke-dashoffset 0.3s ease' }} />
+                        <text x="18" y="19.5" textAnchor="middle" className={cn("text-[8px] font-semibold fill-current", imageFieldType === 'pdf_file' ? "text-red-600" : "text-violet-600")}>{uploadProgress}%</text>
+                      </svg>
                     ) : (
                       <Upload className={cn("h-6 w-6", imageFieldType === 'pdf_file' ? "text-red-600" : "text-violet-600")} />
                     )}
                   </div>
                   <div className="flex-1 text-left">
                     <p className="font-medium">
-                      {imageUploading ? 'Uploading...'
+                      {imageUploading ? `Uploading... ${uploadProgress}%`
                         : imageFieldType === 'digital_product_file' ? 'Upload file'
                         : imageFieldType === 'pdf_file' ? 'Upload PDF'
                         : imageFieldType === 'thumbnail_url' ? 'Upload thumbnail'
@@ -3732,7 +3762,7 @@ export function LinksTab() {
                     <p className="text-sm text-muted-foreground">
                       {imageFieldType === 'digital_product_file' ? 'Any file type up to 4GB (audio, video, ZIP, images, docs)'
                         : imageFieldType === 'pdf_file' ? 'PDF files only'
-                        : 'JPG, PNG, GIF up to 5MB'}
+                        : 'JPG, PNG, GIF up to 10MB'}
                     </p>
                   </div>
                 </label>
