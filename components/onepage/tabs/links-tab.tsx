@@ -610,6 +610,7 @@ export function LinksTab() {
   const [imageFieldType, setImageFieldType] = useState<string | null>(null)
   const [imageUploading, setImageUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
+  const [isDragOver, setIsDragOver] = useState(false)
   const [showArchiveView, setShowArchiveView] = useState(false)
   const [isMobileModalViewport, setIsMobileModalViewport] = useState(false)
   const [addSheetDragY, setAddSheetDragY] = useState(0)
@@ -3590,6 +3591,7 @@ export function LinksTab() {
                   onChange={async (e) => {
                     const file = e.target.files?.[0]
                     if (!file || !imageBlockId) return
+                    if (imageUploading) return // Guard against concurrent uploads
 
                     setImageUploading(true)
                     setUploadProgress(0)
@@ -3650,65 +3652,34 @@ export function LinksTab() {
                         const signedData = await signedRes.json()
                         setUploadProgress(5)
 
-                        // Step 2: Try XHR first for progress tracking, fall back to Supabase client
-                        let xhrSucceeded = false
-                        try {
-                          await new Promise<void>((resolve, reject) => {
-                            const xhr = new XMLHttpRequest()
-                            xhr.upload.addEventListener('progress', (e) => {
-                              if (e.lengthComputable) {
-                                const pct = Math.round((e.loaded / e.total) * 93) + 5 // 5-98%
-                                setUploadProgress(pct)
-                              }
-                            })
-                            xhr.addEventListener('load', () => {
-                              if (xhr.status >= 200 && xhr.status < 300) {
-                                setUploadProgress(100)
-                                resolve()
-                              } else {
-                                reject(new Error(`Upload failed with status ${xhr.status}`))
-                              }
-                            })
-                            xhr.addEventListener('error', () => reject(new Error('XHR error')))
-                            xhr.addEventListener('abort', () => reject(new Error('Upload aborted')))
-
-                            xhr.open('PUT', signedData.signedUrl)
-                            xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream')
-                            xhr.setRequestHeader('x-upsert', 'true')
-                            xhr.send(file)
+                        // Step 2: Upload directly to Supabase storage using signed URL
+                        // Use XHR for real progress tracking (same-origin Supabase upload)
+                        await new Promise<void>((resolve, reject) => {
+                          const xhr = new XMLHttpRequest()
+                          xhr.upload.addEventListener('progress', (e) => {
+                            if (e.lengthComputable) {
+                              const pct = Math.round((e.loaded / e.total) * 93) + 5 // 5-98%
+                              setUploadProgress(pct)
+                            }
                           })
-                          xhrSucceeded = true
-                        } catch {
-                          // XHR failed (CORS or network), fall back to Supabase client
-                          console.warn('XHR upload failed, falling back to Supabase client')
-                        }
+                          xhr.addEventListener('load', () => {
+                            if (xhr.status >= 200 && xhr.status < 300) {
+                              setUploadProgress(100)
+                              resolve()
+                            } else {
+                              reject(new Error(`Upload failed (status ${xhr.status}). Please check your file and try again.`))
+                            }
+                          })
+                          xhr.addEventListener('error', () => reject(new Error('Network error during upload. Please check your connection and try again.')))
+                          xhr.addEventListener('abort', () => reject(new Error('Upload was cancelled.')))
+                          xhr.addEventListener('timeout', () => reject(new Error('Upload timed out. Please try again.')))
+                          xhr.timeout = 600000 // 10 minute timeout for large files
 
-                        if (!xhrSucceeded) {
-                          // Fallback: use Supabase JS client with simulated progress
-                          const { createClient: createBrowserClient } = await import('@/lib/supabase/client')
-                          const supabase = createBrowserClient()
-
-                          // Simulated progress for fallback
-                          let simProg = 10
-                          const simInt = setInterval(() => {
-                            simProg = Math.min(simProg + 2, 90)
-                            setUploadProgress(simProg)
-                          }, 500)
-
-                          const { error: uploadError } = await supabase.storage
-                            .from('lead-form-files')
-                            .uploadToSignedUrl(signedData.path, signedData.token, file, {
-                              contentType: file.type || 'application/octet-stream',
-                              upsert: true,
-                            })
-
-                          clearInterval(simInt)
-
-                          if (uploadError) {
-                            throw new Error(`Upload failed: ${uploadError.message}`)
-                          }
-                          setUploadProgress(100)
-                        }
+                          xhr.open('PUT', signedData.signedUrl)
+                          xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream')
+                          xhr.setRequestHeader('x-upsert', 'true')
+                          xhr.send(file)
+                        })
 
                         url = signedData.publicUrl
                       }
@@ -3963,16 +3934,41 @@ export function LinksTab() {
             <DialogTitle className="text-lg font-semibold flex-1 text-center pr-8">Upload media</DialogTitle>
           </DialogHeader>
           <div className="p-5">
-            <div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed border-gray-300 rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer hover:border-gray-400 transition-colors">
-              <Upload className="h-12 w-12 text-gray-300 mb-4" />
-              <p className="font-medium text-gray-600">Select file to upload,</p>
-              <p className="font-medium text-gray-600">or drag-and-drop file</p>
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragOver(true) }}
+              onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragOver(true) }}
+              onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setIsDragOver(false) }}
+              onDrop={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                setIsDragOver(false)
+                const file = e.dataTransfer.files?.[0]
+                if (!file || !file.type.startsWith('image/')) return
+                const url = URL.createObjectURL(file)
+                setTempImageUrl(url)
+                setTempImageFile(file)
+                setShowAvatarUploadModal(false)
+                setShowAvatarCropModal(true)
+              }}
+              className={cn(
+                "border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer transition-all duration-200",
+                isDragOver
+                  ? "border-violet-500 bg-violet-50 scale-[1.02]"
+                  : "border-gray-300 hover:border-gray-400"
+              )}
+            >
+              <Upload className={cn("h-12 w-12 mb-4 transition-colors", isDragOver ? "text-violet-500" : "text-gray-300")} />
+              <p className={cn("font-medium transition-colors", isDragOver ? "text-violet-600" : "text-gray-600")}>
+                {isDragOver ? "Drop image here" : "Select file to upload,"}
+              </p>
+              {!isDragOver && <p className="font-medium text-gray-600">or drag-and-drop file</p>}
               <p className="text-sm text-gray-400 mt-2">Please upload an image</p>
             </div>
-            <input 
-              ref={fileInputRef} 
-              type="file" 
-              accept="image/*" 
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
               onChange={(e) => {
                 const file = e.target.files?.[0]
                 if (!file) return
@@ -3981,8 +3977,8 @@ export function LinksTab() {
                 setTempImageFile(file)
                 setShowAvatarUploadModal(false)
                 setShowAvatarCropModal(true)
-              }} 
-              className="hidden" 
+              }}
+              className="hidden"
             />
           </div>
         </DialogContent>

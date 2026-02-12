@@ -1510,6 +1510,13 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
     ...settings,
   }
 
+  // Track whether initial block animations have completed to prevent retrigger on modal close
+  const [hasBlocksAnimated, setHasBlocksAnimated] = useState(false)
+  useEffect(() => {
+    const timer = setTimeout(() => setHasBlocksAnimated(true), (safeBlocks?.length || 0) * 50 + 500)
+    return () => clearTimeout(timer)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Animated gradient - only when explicitly enabled
   const isAnimatedGradient = safeTheme.background_type === "gradient" && safeTheme.animated_gradient === true
 
@@ -1872,8 +1879,8 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           .map((block, index) => (
             <div
               key={block.id}
-              className="w-full animate-in fade-in slide-in-from-bottom-2 duration-300 fill-mode-both"
-              style={{ animationDelay: `${index * 50}ms` }}
+              className={cn("w-full", !hasBlocksAnimated && "animate-in fade-in slide-in-from-bottom-2 duration-300 fill-mode-both")}
+              style={!hasBlocksAnimated ? { animationDelay: `${index * 50}ms` } : undefined}
             >
               <PublicBlockRenderer
                 block={block}
@@ -3425,9 +3432,8 @@ function PublicBlockRenderer({
         const isGradientBg = theme.background_type === "gradient"
         const fadeColor = getGradientBottomColor()
 
-        // MOBILE: 30% taller hero (aspect ratio 4/3 instead of 16/9)
-        // DESKTOP: 15% shorter than before (aspect ratio 7/5 instead of 6/5)
-        const aspectRatio = isDesktop ? "7/5" : "4/3"
+        // Desktop: +10% taller (14/11 vs old 7/5), Mobile: +20% taller (10/9 vs old 4/3)
+        const aspectRatio = isDesktop ? "14/11" : "10/9"
         const heroMargin = isDesktop ? "-mx-7 -mt-0" : "-mx-5 -mt-8"
         const heroWidth = isDesktop ? "w-[calc(100%+56px)]" : "w-[calc(100%+40px)]"
 

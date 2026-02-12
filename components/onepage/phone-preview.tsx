@@ -3433,8 +3433,8 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
 
         const heroMargin = scale === "small" ? "-mx-4 -mt-[45px]" : "-mx-5 -mt-8"
         const heroWidth = scale === "small" ? "w-[calc(100%+32px)]" : "w-[calc(100%+40px)]"
-        // 10% taller on desktop editor preview (small scale = desktop preview)
-        const heroAspect = scale === "small" ? "11/10" : "4/3"
+        // Desktop/preview: ~10% taller (1/1 vs old 11/10), Mobile: ~20% taller (10/9 vs old 4/3)
+        const heroAspect = scale === "small" ? "1/1" : "10/9"
 
         return (
           <div className={cn(heroWidth, "relative mb-2", heroMargin)}>
