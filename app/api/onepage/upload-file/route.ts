@@ -55,36 +55,49 @@ async function forceFixBucket(): Promise<void> {
     // Fall through to REST
   }
 
-  // Method 2: Direct REST API
+  // Method 2: Direct REST API (no id/name in PUT body — they cause errors)
   if (supabaseUrl && serviceRoleKey) {
     const headers = {
       Authorization: `Bearer ${serviceRoleKey}`,
       apikey: serviceRoleKey,
       "Content-Type": "application/json",
     }
-    const config = {
-      id: BUCKET_NAME,
-      name: BUCKET_NAME,
-      public: true,
-      file_size_limit: BUCKET_FILE_SIZE_LIMIT,
-      allowed_mime_types: null,
-    }
 
     try {
       const updateRes = await fetch(`${supabaseUrl}/storage/v1/bucket/${BUCKET_NAME}`, {
         method: "PUT",
         headers,
-        body: JSON.stringify(config),
+        body: JSON.stringify({
+          public: true,
+          file_size_limit: BUCKET_FILE_SIZE_LIMIT,
+          allowed_mime_types: null,
+        }),
       })
       if (updateRes.ok) return
 
       if (updateRes.status === 404 || updateRes.status === 400) {
-        const createRes = await fetch(`${supabaseUrl}/storage/v1/bucket`, {
+        await fetch(`${supabaseUrl}/storage/v1/bucket`, {
           method: "POST",
           headers,
-          body: JSON.stringify(config),
+          body: JSON.stringify({
+            id: BUCKET_NAME,
+            name: BUCKET_NAME,
+            public: true,
+            file_size_limit: BUCKET_FILE_SIZE_LIMIT,
+            allowed_mime_types: null,
+          }),
+        }).catch(() => {})
+        // PUT again after create to ensure limit is set
+        const retryRes = await fetch(`${supabaseUrl}/storage/v1/bucket/${BUCKET_NAME}`, {
+          method: "PUT",
+          headers,
+          body: JSON.stringify({
+            public: true,
+            file_size_limit: BUCKET_FILE_SIZE_LIMIT,
+            allowed_mime_types: null,
+          }),
         })
-        if (createRes.ok || createRes.status === 409) return
+        if (retryRes.ok) return
       }
     } catch {
       // continue

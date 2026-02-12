@@ -88,8 +88,6 @@ export async function POST() {
         method: "PUT",
         headers,
         body: JSON.stringify({
-          id: BUCKET_NAME,
-          name: BUCKET_NAME,
           public: true,
           file_size_limit: BUCKET_FILE_SIZE_LIMIT,
           allowed_mime_types: null,
