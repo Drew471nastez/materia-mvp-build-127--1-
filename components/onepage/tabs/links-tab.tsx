@@ -3635,6 +3635,15 @@ export function LinksTab() {
                       } else {
                         // All digital files + large images: use signed URL for direct-to-storage upload
                         // This bypasses server body size limits entirely
+                        setUploadProgress(1)
+
+                        // Pre-fix bucket configuration before attempting upload
+                        try {
+                          await fetch('/api/onepage/fix-bucket', { method: 'POST' })
+                        } catch {
+                          // Non-critical, signed-upload-url also fixes bucket
+                        }
+
                         setUploadProgress(2)
                         const supabase = createClient()
 

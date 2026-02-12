@@ -12,97 +12,68 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024 * 1024 // 5GB
 const BUCKET_FILE_SIZE_LIMIT = 5368709120 // 5GB exact
 
 /**
- * Ensure the storage bucket exists with correct configuration.
- * Auto-creates or fixes the bucket via direct REST API if needed.
+ * Force-fix bucket configuration using admin client + REST API fallback.
  */
-async function ensureBucket(): Promise<boolean> {
-  try {
-    const adminSupabase = createAdminClient()
-    const { data: buckets, error } = await adminSupabase.storage.listBuckets()
-
-    if (error) {
-      console.warn("[upload-file] listBuckets failed, attempting REST fix:", error.message)
-      return await fixBucketViaRest()
-    }
-
-    const bucket = buckets?.find((b) => b.id === BUCKET_NAME || b.name === BUCKET_NAME) as
-      | { file_size_limit?: number | null }
-      | undefined
-
-    if (!bucket) {
-      console.warn("[upload-file] Bucket not found, creating via REST:", BUCKET_NAME)
-      return await fixBucketViaRest()
-    }
-
-    const liveLimit = typeof bucket.file_size_limit === "number" ? bucket.file_size_limit : null
-    if (liveLimit !== null && liveLimit > 0 && liveLimit < BUCKET_FILE_SIZE_LIMIT) {
-      console.warn("[upload-file] Bucket size limit too low:", liveLimit, "- fixing via REST")
-      return await fixBucketViaRest()
-    }
-
-    return true
-  } catch (err) {
-    console.error("[upload-file] Bucket check error:", err)
-    return await fixBucketViaRest()
-  }
-}
-
-/**
- * Fix or create bucket using direct Supabase REST API.
- * This bypasses the JS client which may have issues with certain configurations.
- */
-async function fixBucketViaRest(): Promise<boolean> {
+async function forceFixBucket(): Promise<void> {
+  const adminSupabase = createAdminClient()
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!supabaseUrl || !serviceRoleKey) {
-    console.error("[upload-file] Missing SUPABASE_URL or SERVICE_ROLE_KEY for bucket fix")
-    return true // Optimistically continue - the upload itself will fail if bucket is bad
-  }
 
-  const headers = {
-    Authorization: `Bearer ${serviceRoleKey}`,
-    apikey: serviceRoleKey,
-    "Content-Type": "application/json",
-  }
-
-  const bucketConfig = {
-    id: BUCKET_NAME,
-    name: BUCKET_NAME,
-    public: true,
-    file_size_limit: BUCKET_FILE_SIZE_LIMIT,
-    allowed_mime_types: null,
-  }
-
+  // Method 1: Admin JS client
   try {
-    // Try update first
-    const updateRes = await fetch(`${supabaseUrl}/storage/v1/bucket/${BUCKET_NAME}`, {
-      method: "PUT",
-      headers,
-      body: JSON.stringify(bucketConfig),
+    const { error: updateErr } = await adminSupabase.storage.updateBucket(BUCKET_NAME, {
+      public: true,
+      fileSizeLimit: BUCKET_FILE_SIZE_LIMIT,
+      allowedMimeTypes: undefined,
     })
+    if (!updateErr) return
 
-    if (updateRes.ok) return true
-
-    // If update failed (404 = doesn't exist), try create
-    if (updateRes.status === 404 || updateRes.status === 400) {
-      const createRes = await fetch(`${supabaseUrl}/storage/v1/bucket`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(bucketConfig),
+    if (updateErr.message?.includes("not found") || updateErr.message?.includes("404")) {
+      const { error: createErr } = await adminSupabase.storage.createBucket(BUCKET_NAME, {
+        public: true,
+        fileSizeLimit: BUCKET_FILE_SIZE_LIMIT,
+        allowedMimeTypes: undefined,
       })
+      if (!createErr || createErr.message?.includes("already exists")) return
+    }
+  } catch {
+    // Fall through to REST
+  }
 
-      if (createRes.ok) return true
-
-      // Check if it's "already exists" (409) which is fine
-      if (createRes.status === 409) return true
-
-      console.error("[upload-file] Failed to create bucket:", createRes.status)
+  // Method 2: Direct REST API
+  if (supabaseUrl && serviceRoleKey) {
+    const headers = {
+      Authorization: `Bearer ${serviceRoleKey}`,
+      apikey: serviceRoleKey,
+      "Content-Type": "application/json",
+    }
+    const config = {
+      id: BUCKET_NAME,
+      name: BUCKET_NAME,
+      public: true,
+      file_size_limit: BUCKET_FILE_SIZE_LIMIT,
+      allowed_mime_types: null,
     }
 
-    return true // Optimistically continue
-  } catch (err) {
-    console.error("[upload-file] REST bucket fix error:", err)
-    return true // Optimistically continue
+    try {
+      const updateRes = await fetch(`${supabaseUrl}/storage/v1/bucket/${BUCKET_NAME}`, {
+        method: "PUT",
+        headers,
+        body: JSON.stringify(config),
+      })
+      if (updateRes.ok) return
+
+      if (updateRes.status === 404 || updateRes.status === 400) {
+        const createRes = await fetch(`${supabaseUrl}/storage/v1/bucket`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(config),
+        })
+        if (createRes.ok || createRes.status === 409) return
+      }
+    } catch {
+      // continue
+    }
   }
 }
 
@@ -112,7 +83,6 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient()
     const adminSupabase = createAdminClient()
 
-    // Get the current user
     const {
       data: { user },
     } = await supabase.auth.getUser()
@@ -152,8 +122,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "File size must be less than 5GB" }, { status: 400 })
     }
 
-    // Ensure bucket exists with correct file_size_limit (auto-fix if needed)
-    await ensureBucket()
+    // Force fix bucket before upload
+    await forceFixBucket()
 
     // Generate unique filename
     const fileExt = file.name.split(".").pop() || "bin"
