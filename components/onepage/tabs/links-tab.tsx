@@ -3634,20 +3634,11 @@ export function LinksTab() {
                         url = result.url
                       } else {
                         // All digital files + large images: use signed URL for direct-to-storage upload
-                        // This bypasses server body size limits entirely
+                        // The file goes straight from browser → Supabase Storage (never through our server)
                         setUploadProgress(1)
 
-                        // Pre-fix bucket configuration before attempting upload
-                        try {
-                          await fetch('/api/onepage/fix-bucket', { method: 'POST' })
-                        } catch {
-                          // Non-critical, signed-upload-url also fixes bucket
-                        }
-
-                        setUploadProgress(2)
-                        const supabase = createClient()
-
-                        const requestSignedUploadData = async () => {
+                        // Step 1: Get a signed upload URL (small JSON request to server)
+                        const getSignedUrl = async () => {
                           // Try v2 prepare endpoint first (adds plan limits + quota checks)
                           try {
                             const v2Res = await fetch('/api/v2/upload/prepare', {
@@ -3698,106 +3689,54 @@ export function LinksTab() {
                           return signedRes.json()
                         }
 
-                        const uploadWithSignedUrl = async (signedData: { path: string; token: string; publicUrl: string; bucket?: string }) => {
-                          const targetBucket = signedData.bucket || 'lead-form-files-v2'
-                          const { error: uploadError } = await supabase.storage
-                            .from(targetBucket)
-                            .uploadToSignedUrl(signedData.path, signedData.token, file, {
-                              contentType: file.type || 'application/octet-stream',
-                              upsert: true,
-                            })
+                        setUploadProgress(2)
+                        const signedData = await getSignedUrl()
+                        setUploadProgress(3)
 
-                          if (uploadError) {
-                            throw new Error(uploadError.message || 'Upload failed')
-                          }
+                        // Step 2: Upload file directly to Supabase Storage using XHR
+                        // This gives us real progress events and bypasses all server size limits
+                        url = await new Promise<string>((resolve, reject) => {
+                          const xhr = new XMLHttpRequest()
 
-                          return signedData.publicUrl
-                        }
-
-                        // Fallback: direct upload via supabase.storage.upload() (uses TUS for files > 6MB)
-                        const uploadDirect = async (signedData: { path: string; publicUrl: string; bucket?: string }) => {
-                          const targetBucket = signedData.bucket || 'lead-form-files-v2'
-                          const { error: directError } = await supabase.storage
-                            .from(targetBucket)
-                            .upload(signedData.path, file, {
-                              contentType: file.type || 'application/octet-stream',
-                              upsert: true,
-                            })
-                          if (directError) {
-                            throw new Error(directError.message || 'Direct upload failed')
-                          }
-                          return signedData.publicUrl
-                        }
-
-                        // Fallback: upload through server via FormData
-                        const uploadViaServer = async () => {
-                          const formData = new FormData()
-                          formData.append('file', file)
-                          formData.append('type', folder === 'digital' ? 'digital' : 'image')
-                          const res = await fetch('/api/onepage/upload-file', {
-                            method: 'POST',
-                            body: formData,
-                          })
-                          if (!res.ok) {
-                            const err = await res.json().catch(() => ({ error: 'Server upload failed' }))
-                            throw new Error(err.error || 'Server upload failed')
-                          }
-                          const result = await res.json()
-                          return result.url as string
-                        }
-
-                        setUploadProgress(5)
-                        const progressTimer = setInterval(() => {
-                          setUploadProgress((prev) => Math.min(prev + 4, 95))
-                        }, 300)
-
-                        try {
-                          let signedData = await requestSignedUploadData()
-
-                          // Attempt 1: Signed URL upload
-                          try {
-                            url = await uploadWithSignedUrl(signedData)
-                          } catch (firstErr) {
-                            console.warn('First signed upload attempt failed, retrying with new signed URL...', firstErr)
-                            setUploadProgress(8)
-                            await new Promise(r => setTimeout(r, 800))
-
-                            // Attempt 2: New signed URL
-                            try {
-                              signedData = await requestSignedUploadData()
-                              url = await uploadWithSignedUrl(signedData)
-                            } catch (secondErr) {
-                              console.warn('Second signed upload failed, trying direct upload (TUS)...', secondErr)
-                              setUploadProgress(12)
-
-                              // Attempt 3: Direct upload via supabase.storage.upload() (TUS for large files)
-                              try {
-                                url = await uploadDirect(signedData)
-                              } catch (directErr) {
-                                console.warn('Direct upload failed, trying server-side upload...', directErr)
-                                setUploadProgress(15)
-
-                                // Attempt 4: Upload through server as last resort
-                                url = await uploadViaServer()
-                              }
+                          xhr.upload.addEventListener('progress', (event) => {
+                            if (event.lengthComputable) {
+                              // Map progress from 3% to 99% (reserving 0-3% for signed URL request)
+                              const pct = Math.round(3 + (event.loaded / event.total) * 96)
+                              setUploadProgress(Math.min(pct, 99))
                             }
-                          }
-                          // Notify v2 upload complete (non-blocking, for quota tracking)
-                          if (signedData?.assetId || signedData?.path) {
-                            fetch('/api/v2/upload/complete', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({
-                                assetId: signedData.assetId || null,
-                                path: signedData.path,
-                                bucket: signedData.bucket || 'lead-form-files-v2',
-                                fileSize: file.size,
-                              }),
-                            }).catch(() => {})
-                          }
-                          setUploadProgress(100)
-                        } finally {
-                          clearInterval(progressTimer)
+                          })
+
+                          xhr.addEventListener('load', () => {
+                            if (xhr.status >= 200 && xhr.status < 300) {
+                              setUploadProgress(100)
+                              resolve(signedData.publicUrl)
+                            } else {
+                              reject(new Error(`Storage upload failed (status ${xhr.status}). Please try again.`))
+                            }
+                          })
+
+                          xhr.addEventListener('error', () => reject(new Error('Network error during upload. Check your connection and try again.')))
+                          xhr.addEventListener('abort', () => reject(new Error('Upload was cancelled')))
+                          xhr.addEventListener('timeout', () => reject(new Error('Upload timed out. Try a smaller file or better connection.')))
+
+                          xhr.open('PUT', signedData.signedUrl)
+                          xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream')
+                          xhr.timeout = 600000 // 10 minute timeout for very large files
+                          xhr.send(file)
+                        })
+
+                        // Notify v2 upload complete (non-blocking, for quota tracking)
+                        if (signedData?.assetId || signedData?.path) {
+                          fetch('/api/v2/upload/complete', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              assetId: signedData.assetId || null,
+                              path: signedData.path,
+                              bucket: signedData.bucket || 'lead-form-files-v2',
+                              fileSize: file.size,
+                            }),
+                          }).catch(() => {})
                         }
                       }
 
