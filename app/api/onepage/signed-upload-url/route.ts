@@ -124,6 +124,7 @@ export async function POST(request: NextRequest) {
       token: signedData.token,
       path: filePath,
       publicUrl: urlData.publicUrl,
+      bucket: BUCKET_NAME,
     })
   } catch (error) {
     console.error("Signed upload URL error:", error)
