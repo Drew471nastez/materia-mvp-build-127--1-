@@ -62,6 +62,8 @@ function BlockToggle({ checked, onCheckedChange }: { checked: boolean; onChecked
 }
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
+import { MobileColorPicker } from "@/components/onepage/mobile-color-picker"
+import { DeletedIcon, SaveNotification } from "@/components/ui/save-notification"
 import {
   Dialog,
   DialogContent,
@@ -547,10 +549,16 @@ function getBlockPreviewData(block: OnePageBlock) {
   }
 }
 
+
+function normalizeUrlInput(value: string): string {
+  return value.trim().replace(/\s+/g, "")
+}
+
 // Helper to detect YouTube URLs
 function isYouTubeUrl(url: string): boolean {
   if (!url) return false
-  return url.includes('youtube.com') || url.includes('youtu.be')
+  const normalizedUrl = normalizeUrlInput(url)
+  return normalizedUrl.includes('youtube.com') || normalizedUrl.includes('youtu.be')
 }
 
 // Helper to detect if YouTube URL is a channel/profile (not video)
@@ -565,7 +573,8 @@ function isYouTubeChannelUrl(url: string): boolean {
 // Helper to detect Spotify URLs
 function isSpotifyUrl(url: string): boolean {
   if (!url) return false
-  return url.includes('spotify.com') || url.includes('open.spotify.com')
+  const normalizedUrl = normalizeUrlInput(url)
+  return normalizedUrl.includes('spotify.com') || normalizedUrl.includes('open.spotify.com')
 }
 
 export function LinksTab() {
@@ -710,6 +719,17 @@ export function LinksTab() {
   const [touchDragId, setTouchDragId] = useState<string | null>(null)
   const touchOverIdRef = useRef<string | null>(null)
   const autoScrollTimerRef = useRef<number>(0)
+  const autoScrollVelocityRef = useRef(0)
+  const autoScrollElementRef = useRef<HTMLElement | null>(null)
+  const dragSourceElRef = useRef<HTMLElement | null>(null)
+  const touchStartYRef = useRef(0)
+  const touchCurrentYRef = useRef(0)
+  const [touchDragOffsetY, setTouchDragOffsetY] = useState(0)
+  const [showDeleteSocialNotification, setShowDeleteSocialNotification] = useState(false)
+  const [showAddBlockNotification, setShowAddBlockNotification] = useState(false)
+  const [showUpdateSocialNotification, setShowUpdateSocialNotification] = useState(false)
+  const [showBlockRemovedNotification, setShowBlockRemovedNotification] = useState(false)
+  const [showBlockArchivedNotification, setShowBlockArchivedNotification] = useState(false)
   
   // Name/Bio edit state
   const [showNameBioModal, setShowNameBioModal] = useState(false)
@@ -995,7 +1015,10 @@ export function LinksTab() {
   }))
 
   // Auto-fetch thumbnail for social media links (Spotify, YouTube, etc.)
-  const autoFetchThumbnail = useCallback(async (blockId: string, url: string) => {
+  const autoFetchThumbnail = useCallback(async (blockId: string, rawUrl: string) => {
+    const url = normalizeUrlInput(rawUrl)
+    if (!url) return
+
     // Skip if URL is empty or block already has a custom thumbnail
     const block = onepage?.draft_blocks.find(b => b.id === blockId)
     if (!block || block.type !== 'link_button') return
@@ -1016,15 +1039,13 @@ export function LinksTab() {
           const apiResponse = await fetch(`/api/onepage/spotify?url=${encodeURIComponent(url)}`)
           if (apiResponse.ok) {
             const spotifyData = await apiResponse.json()
-            // Convert to high quality image (640x640 instead of 300x300)
             thumbnailUrl = spotifyData.thumbnailUrl?.replace('ab67616d00001e02', 'ab67616d0000b273') || spotifyData.thumbnailUrl
-            // Also store Spotify metadata for display
             const currentData = onepage?.draft_blocks.find(b => b.id === blockId)?.data as LinkButtonBlockData
             if (currentData) {
               updateBlock(blockId, {
                 data: {
                   ...currentData,
-                  url, // Always preserve the URL that was passed in
+                  url,
                   thumbnail_url: thumbnailUrl || currentData.thumbnail_url,
                   icon: thumbnailUrl ? null : currentData.icon,
                   spotify_title: spotifyData.title || null,
@@ -1034,11 +1055,10 @@ export function LinksTab() {
                   spotify_show_metadata: currentData.spotify_show_metadata !== false ? true : false
                 }
               })
-              return // Skip the generic thumbnail update below
+              return
             }
           }
-        } catch (e) {
-          // Fallback to oEmbed if our API fails
+        } catch {
           const response = await fetch(`https://open.spotify.com/oembed?url=${encodeURIComponent(url)}`)
           if (response.ok) {
             const data = await response.json()
@@ -1057,11 +1077,9 @@ export function LinksTab() {
           videoId = match ? match[1] : null
         }
         if (videoId) {
-          // Use maximum resolution thumbnail
           thumbnailUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`
         }
       }
-      // SoundCloud - fetch from our API for full metadata
       else if (url.includes('soundcloud.com/')) {
         try {
           const apiResponse = await fetch(`/api/onepage/soundcloud?url=${encodeURIComponent(url)}`)
@@ -1073,7 +1091,7 @@ export function LinksTab() {
               updateBlock(blockId, {
                 data: {
                   ...currentData,
-                  url, // Always preserve the URL that was passed in
+                  url,
                   thumbnail_url: thumbnailUrl || currentData.thumbnail_url,
                   icon: thumbnailUrl ? null : currentData.icon,
                   soundcloud_title: soundcloudData.title || null,
@@ -1083,11 +1101,10 @@ export function LinksTab() {
                   soundcloud_show_metadata: currentData.soundcloud_show_metadata !== false ? true : false
                 }
               })
-              return // Skip the generic thumbnail update below
+              return
             }
           }
-        } catch (e) {
-          // Fallback to oEmbed if our API fails
+        } catch {
           const response = await fetch(`https://soundcloud.com/oembed?format=json&url=${encodeURIComponent(url)}`)
           if (response.ok) {
             const data = await response.json()
@@ -1095,7 +1112,6 @@ export function LinksTab() {
           }
         }
       }
-      // Apple Music - fetch from our API for full metadata
       else if (url.includes('music.apple.com/')) {
         try {
           const apiResponse = await fetch(`/api/onepage/apple-music?url=${encodeURIComponent(url)}`)
@@ -1107,7 +1123,7 @@ export function LinksTab() {
               updateBlock(blockId, {
                 data: {
                   ...currentData,
-                  url, // Always preserve the URL that was passed in
+                  url,
                   thumbnail_url: thumbnailUrl || currentData.thumbnail_url,
                   icon: thumbnailUrl ? null : currentData.icon,
                   apple_music_title: appleMusicData.title || null,
@@ -1119,14 +1135,13 @@ export function LinksTab() {
                   apple_music_streaming_services: appleMusicData.streamingServices || []
                 }
               })
-              return // Skip the generic thumbnail update below
+              return
             }
           }
         } catch (e) {
           console.error('Apple Music fetch error:', e)
         }
       }
-      // Vimeo oEmbed
       else if (url.includes('vimeo.com/')) {
         const response = await fetch(`https://vimeo.com/api/oembed.json?url=${encodeURIComponent(url)}`)
         if (response.ok) {
@@ -1134,17 +1149,14 @@ export function LinksTab() {
           thumbnailUrl = data.thumbnail_url
         }
       }
-      // TikTok video detection - video URLs contain /video/
       else if (url.includes('tiktok.com') && (url.includes('/video/') || url.includes('vm.tiktok.com'))) {
         try {
-          // Use TikTok oEmbed API via proxy to get video info
           const response = await fetch(`/api/onepage/tiktok?url=${encodeURIComponent(url)}`)
           if (response.ok) {
             const tiktokData = await response.json()
             thumbnailUrl = tiktokData.thumbnailUrl
             const currentData = onepage?.draft_blocks.find(b => b.id === blockId)?.data as LinkButtonBlockData
             if (currentData) {
-              // Extract video ID from URL
               const videoIdMatch = url.match(/video\/(\d+)/)
               const videoId = videoIdMatch ? videoIdMatch[1] : null
               updateBlock(blockId, {
@@ -1158,7 +1170,7 @@ export function LinksTab() {
                   tiktok_show_embed: true
                 }
               })
-              return // Skip the generic thumbnail update below
+              return
             }
           }
         } catch (e) {
@@ -1166,14 +1178,13 @@ export function LinksTab() {
         }
       }
 
-      // Update block if we got a thumbnail
       if (thumbnailUrl) {
         const currentData = onepage?.draft_blocks.find(b => b.id === blockId)?.data as LinkButtonBlockData
         if (currentData) {
           updateBlock(blockId, {
             data: {
               ...currentData,
-              url, // Always preserve the URL that was passed in
+              url,
               thumbnail_url: thumbnailUrl,
               icon: null
             }
@@ -1186,15 +1197,15 @@ export function LinksTab() {
   }, [onepage?.draft_blocks, updateBlock])
 
   // Handle URL change with auto-fetch
-  const handleUrlChangeWithAutoFetch = useCallback((blockId: string, url: string) => {
+  const handleUrlChangeWithAutoFetch = useCallback((blockId: string, rawUrl: string) => {
+    const normalizedUrl = normalizeUrlInput(rawUrl)
     const currentData = onepage?.draft_blocks.find(b => b.id === blockId)?.data as LinkButtonBlockData
     if (currentData) {
-      // If URL is empty or too short, clear all thumbnail/metadata
-      if (!url || url.length < 10) {
+      if (!normalizedUrl || normalizedUrl.length < 10) {
         updateBlock(blockId, {
           data: {
             ...currentData,
-            url,
+            url: normalizedUrl,
             thumbnail_url: null,
             icon: null,
             spotify_title: null,
@@ -1219,26 +1230,25 @@ export function LinksTab() {
         return
       }
 
-      // Check if URL changed to a different type - clear old data
-      const wasSpotify = currentData.url?.includes('spotify.com')
-      const isSpotify = url.includes('spotify.com')
-      const wasYouTube = currentData.url?.includes('youtube.com') || currentData.url?.includes('youtu.be')
-      const isYouTube = url.includes('youtube.com') || url.includes('youtu.be')
-      const wasSoundCloud = currentData.url?.includes('soundcloud.com')
-      const isSoundCloud = url.includes('soundcloud.com')
-      const wasAppleMusic = currentData.url?.includes('music.apple.com')
-      const isAppleMusic = url.includes('music.apple.com')
-      const wasTikTok = currentData.url?.includes('tiktok.com')
-      const isTikTok = url.includes('tiktok.com')
+      const previousUrl = normalizeUrlInput(currentData.url || '')
+      const wasSpotify = previousUrl.includes('spotify.com')
+      const isSpotify = normalizedUrl.includes('spotify.com')
+      const wasYouTube = previousUrl.includes('youtube.com') || previousUrl.includes('youtu.be')
+      const isYouTube = normalizedUrl.includes('youtube.com') || normalizedUrl.includes('youtu.be')
+      const wasSoundCloud = previousUrl.includes('soundcloud.com')
+      const isSoundCloud = normalizedUrl.includes('soundcloud.com')
+      const wasAppleMusic = previousUrl.includes('music.apple.com')
+      const isAppleMusic = normalizedUrl.includes('music.apple.com')
+      const wasTikTok = previousUrl.includes('tiktok.com')
+      const isTikTok = normalizedUrl.includes('tiktok.com')
 
-      // If switching between platforms, clear existing data and fetch new
       const platformChanged = (wasSpotify !== isSpotify) || (wasYouTube !== isYouTube) || (wasSoundCloud !== isSoundCloud) || (wasAppleMusic !== isAppleMusic) || (wasTikTok !== isTikTok)
-      
+
       if (platformChanged) {
         updateBlock(blockId, {
           data: {
             ...currentData,
-            url,
+            url: normalizedUrl,
             thumbnail_url: null,
             icon: null,
             spotify_title: null,
@@ -1261,21 +1271,19 @@ export function LinksTab() {
           }
         })
       } else {
-        updateBlock(blockId, { data: { ...currentData, url } })
+        updateBlock(blockId, { data: { ...currentData, url: normalizedUrl } })
       }
     }
 
-    // Debounce the auto-fetch - faster response (400ms)
-    if (url.length > 10 && (url.startsWith('http://') || url.startsWith('https://') || url.includes('spotify.com') || url.includes('youtube.com') || url.includes('soundcloud.com') || url.includes('music.apple.com') || url.includes('tiktok.com'))) {
-      // Use a shorter delay for faster response
+    if (normalizedUrl.length > 10 && (normalizedUrl.startsWith('http://') || normalizedUrl.startsWith('https://') || normalizedUrl.includes('spotify.com') || normalizedUrl.includes('youtube.com') || normalizedUrl.includes('soundcloud.com') || normalizedUrl.includes('music.apple.com') || normalizedUrl.includes('tiktok.com'))) {
       const timeoutId = setTimeout(() => {
-        autoFetchThumbnail(blockId, url)
-      }, 400)
+        autoFetchThumbnail(blockId, normalizedUrl)
+      }, 220)
       return () => clearTimeout(timeoutId)
     }
   }, [autoFetchThumbnail, onepage?.draft_blocks, updateBlock])
 
-  // Effect to ensure thumbnails are fetched for existing Spotify/YouTube URLs without thumbnails
+// Effect to ensure thumbnails are fetched for existing Spotify/YouTube URLs without thumbnails
   useEffect(() => {
     if (!onepage?.draft_blocks) return
 
@@ -1287,10 +1295,11 @@ export function LinksTab() {
       // Skip if user has set a custom icon (not auto-fetched)
       if (data.icon) return
 
-      const isSpotify = data.url.includes('spotify.com')
-      const isYouTube = data.url.includes('youtube.com') || data.url.includes('youtu.be')
-      const isSoundCloud = data.url.includes('soundcloud.com')
-      const isAppleMusic = data.url.includes('music.apple.com')
+      const normalizedUrl = normalizeUrlInput(data.url || '')
+      const isSpotify = normalizedUrl.includes('spotify.com')
+      const isYouTube = normalizedUrl.includes('youtube.com') || normalizedUrl.includes('youtu.be')
+      const isSoundCloud = normalizedUrl.includes('soundcloud.com')
+      const isAppleMusic = normalizedUrl.includes('music.apple.com')
 
       // If it's a Spotify URL without thumbnail/metadata, fetch it
       if (isSpotify && !data.thumbnail_url && !data.spotify_title) {
@@ -1414,7 +1423,7 @@ export function LinksTab() {
       setSearchQuery("")
       setInsertAfterId(null)
       setAddToGroupId(null)
-    }, 400)
+    }, 220)
   }
 
   const closeSocialSheet = () => {
@@ -1440,7 +1449,7 @@ export function LinksTab() {
       setSocialUrl("")
       setSearchQuery("")
       setSocialUrlError(null)
-    }, 400)
+    }, 220)
   }
 
   const closeThumbnailSheet = () => {
@@ -1464,7 +1473,18 @@ export function LinksTab() {
       setShowIconLibraryInModal(false)
       setIconSearchQuery("")
       setIconCategory("all")
-    }, 400)
+    }, 220)
+  }
+
+  const focusAndScrollToBlock = (blockId: string) => {
+    setSelectedBlockId(blockId)
+    requestAnimationFrame(() => {
+      const blockEl = document.querySelector(`[data-block-id="${blockId}"]`) as HTMLElement | null
+      if (!blockEl) return
+      blockEl.scrollIntoView({ behavior: "smooth", block: "center" })
+      const clickable = blockEl.querySelector("button, [role='button']") as HTMLElement | null
+      clickable?.focus?.({ preventScroll: true })
+    })
   }
 
   const handleAddBlock = (type: OnePageBlockType, preset?: { label: string; url: string }) => {
@@ -1516,6 +1536,9 @@ export function LinksTab() {
         updateBlock(addToGroupId, { data: { ...groupData, children: newChildren } })
       }
       closeAddSheet()
+      focusAndScrollToBlock(addToGroupId)
+      setShowAddBlockNotification(false)
+      requestAnimationFrame(() => setShowAddBlockNotification(true))
       return
     }
 
@@ -1552,6 +1575,9 @@ export function LinksTab() {
       })
     }
     closeAddSheet()
+    if (newBlock?.id) focusAndScrollToBlock(newBlock.id)
+    setShowAddBlockNotification(false)
+    requestAnimationFrame(() => setShowAddBlockNotification(true))
   }
 
   // Handler to move a child block from a group back to the main blocks list
@@ -1602,6 +1628,18 @@ export function LinksTab() {
     updateSocialLinks({ [platform]: null } as Partial<OnePageSocialLinks>)
   }
 
+  const handleRemoveBlockWithToast = (blockId: string) => {
+    removeBlock(blockId)
+    setShowBlockRemovedNotification(false)
+    requestAnimationFrame(() => setShowBlockRemovedNotification(true))
+  }
+
+  const handleArchiveBlockWithToast = (blockId: string) => {
+    archiveBlock(blockId)
+    setShowBlockArchivedNotification(false)
+    requestAnimationFrame(() => setShowBlockArchivedNotification(true))
+  }
+
   // Drag handlers
   const handleDragStart = (e: React.DragEvent, blockId: string) => {
     setDraggedBlockId(blockId)
@@ -1613,6 +1651,26 @@ export function LinksTab() {
     e.preventDefault()
     if (draggedBlockId && draggedBlockId !== blockId) {
       setDragOverBlockId(blockId)
+    }
+
+    const pointerY = e.clientY
+    const viewportTop = 0
+    const viewportBottom = window.innerHeight
+    const edgeZone = 120
+
+    let velocity = 0
+    if (pointerY < viewportTop + edgeZone) {
+      velocity = -Math.max(2, (edgeZone - (pointerY - viewportTop)) * 0.35)
+    } else if (pointerY > viewportBottom - edgeZone) {
+      velocity = Math.max(2, (edgeZone - (viewportBottom - pointerY)) * 0.35)
+    }
+
+    autoScrollElementRef.current = document.scrollingElement as HTMLElement
+    autoScrollVelocityRef.current = velocity
+    if (velocity === 0) {
+      cancelAnimationFrame(autoScrollTimerRef.current)
+    } else {
+      runAutoScrollLoop()
     }
   }
 
@@ -1679,17 +1737,59 @@ export function LinksTab() {
   }
 
   const handleDragEnd = () => {
+    cancelAnimationFrame(autoScrollTimerRef.current)
+    autoScrollVelocityRef.current = 0
+    autoScrollElementRef.current = null
     setDraggedBlockId(null)
     setDragOverBlockId(null)
   }
 
   // Touch drag handlers for mobile devices
-  const handleTouchDragStart = useCallback((blockId: string) => {
+  const getScrollableAncestor = useCallback((node: HTMLElement | null) => {
+    let current: HTMLElement | null = node
+    while (current && current !== document.body) {
+      const { overflowY } = window.getComputedStyle(current)
+      const canScroll = (overflowY === "auto" || overflowY === "scroll") && current.scrollHeight > current.clientHeight
+      if (canScroll) return current
+      current = current.parentElement
+    }
+    const fallback = document.scrollingElement as HTMLElement | null
+    return fallback
+  }, [])
+
+  const handleTouchDragStart = useCallback((blockId: string, touchY?: number) => {
     const block = sortedBlocks.find(b => b.id === blockId)
     if (!block || block.type === "header") return
+
+    const sourceBlock = document.querySelector(`[data-block-id="${blockId}"]`) as HTMLElement | null
+    dragSourceElRef.current = sourceBlock
+    autoScrollElementRef.current = getScrollableAncestor(sourceBlock)
+
+    touchStartYRef.current = touchY ?? 0
+    touchCurrentYRef.current = touchY ?? 0
+    setTouchDragOffsetY(0)
+
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate(8)
+
     setTouchDragId(blockId)
     setDraggedBlockId(blockId)
-  }, [sortedBlocks])
+  }, [sortedBlocks, getScrollableAncestor])
+
+  const runAutoScrollLoop = useCallback(() => {
+    cancelAnimationFrame(autoScrollTimerRef.current)
+
+    const tick = () => {
+      const scrollEl = autoScrollElementRef.current
+      const speed = autoScrollVelocityRef.current
+
+      if (!scrollEl || speed === 0) return
+
+      scrollEl.scrollTop += speed
+      autoScrollTimerRef.current = requestAnimationFrame(tick)
+    }
+
+    autoScrollTimerRef.current = requestAnimationFrame(tick)
+  }, [])
 
   useEffect(() => {
     if (!touchDragId) return
@@ -1697,11 +1797,15 @@ export function LinksTab() {
     const handleTouchMove = (e: TouchEvent) => {
       e.preventDefault()
       const touch = e.touches[0]
+      touchCurrentYRef.current = touch.clientY
+      setTouchDragOffsetY(touch.clientY - touchStartYRef.current)
 
       // Find target block element under touch point
       const elements = document.elementsFromPoint(touch.clientX, touch.clientY)
       let targetId: string | null = null
+      let touchedElement: HTMLElement | null = null
       for (const el of elements) {
+        if (!touchedElement) touchedElement = el as HTMLElement
         const blockEl = (el as HTMLElement).closest('[data-block-id]') as HTMLElement | null
         if (blockEl && blockEl.dataset.blockId !== touchDragId) {
           targetId = blockEl.dataset.blockId || null
@@ -1712,35 +1816,39 @@ export function LinksTab() {
       touchOverIdRef.current = targetId
       setDragOverBlockId(targetId)
 
-      // Auto-scroll the editor tab content container
-      const scrollEl = document.querySelector('[data-scroll-container="links-tab"]') as HTMLElement
-        || document.querySelector('.flex-1.overflow-y-auto:not(.hidden)') as HTMLElement
+      // Auto-scroll nearest scroll container (or page)
+      const scrollEl = autoScrollElementRef.current || getScrollableAncestor(touchedElement || dragSourceElRef.current)
       if (scrollEl) {
         const rect = scrollEl.getBoundingClientRect()
-        const zone = 80
-
-        cancelAnimationFrame(autoScrollTimerRef.current)
+        const zone = 110
+        let nextVelocity = 0
 
         if (touch.clientY < rect.top + zone) {
-          const speed = Math.max(2, (zone - (touch.clientY - rect.top)) * 0.35)
-          const tick = () => {
-            scrollEl.scrollTop -= speed
-            autoScrollTimerRef.current = requestAnimationFrame(tick)
-          }
-          autoScrollTimerRef.current = requestAnimationFrame(tick)
+          nextVelocity = -Math.max(2, (zone - (touch.clientY - rect.top)) * 0.4)
         } else if (touch.clientY > rect.bottom - zone) {
-          const speed = Math.max(2, (zone - (rect.bottom - touch.clientY)) * 0.35)
-          const tick = () => {
-            scrollEl.scrollTop += speed
-            autoScrollTimerRef.current = requestAnimationFrame(tick)
-          }
-          autoScrollTimerRef.current = requestAnimationFrame(tick)
+          nextVelocity = Math.max(2, (zone - (rect.bottom - touch.clientY)) * 0.4)
+        }
+
+        const changedTarget = autoScrollElementRef.current !== scrollEl
+        const changedVelocity = autoScrollVelocityRef.current !== nextVelocity
+
+        autoScrollElementRef.current = scrollEl
+        autoScrollVelocityRef.current = nextVelocity
+
+        if (nextVelocity === 0) {
+          cancelAnimationFrame(autoScrollTimerRef.current)
+        } else if (changedTarget || changedVelocity) {
+          runAutoScrollLoop()
         }
       }
     }
 
     const handleTouchEnd = () => {
       cancelAnimationFrame(autoScrollTimerRef.current)
+      autoScrollVelocityRef.current = 0
+      autoScrollElementRef.current = null
+      dragSourceElRef.current = null
+      setTouchDragOffsetY(0)
 
       const targetId = touchOverIdRef.current
       if (touchDragId && targetId && touchDragId !== targetId) {
@@ -1766,6 +1874,7 @@ export function LinksTab() {
           const [removed] = newOrder.splice(draggedIdx, 1)
           newOrder.splice(targetIdx, 0, removed)
           reorderBlocks(newOrder.map((b, i) => ({ ...b, sort_order: i })))
+          if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate(10)
         }
       }
 
@@ -1781,11 +1890,28 @@ export function LinksTab() {
 
     return () => {
       cancelAnimationFrame(autoScrollTimerRef.current)
+      autoScrollVelocityRef.current = 0
+      autoScrollElementRef.current = null
+      dragSourceElRef.current = null
+      setTouchDragOffsetY(0)
       document.removeEventListener('touchmove', handleTouchMove)
       document.removeEventListener('touchend', handleTouchEnd)
       document.removeEventListener('touchcancel', handleTouchEnd)
     }
-  }, [touchDragId, sortedBlocks, reorderBlocks, onepage])
+  }, [touchDragId, sortedBlocks, reorderBlocks, onepage, getScrollableAncestor, runAutoScrollLoop])
+
+
+  useEffect(() => {
+    if (!touchDragId) return
+    const prev = document.body.style.overscrollBehaviorY
+    const prevTouch = document.body.style.touchAction
+    document.body.style.overscrollBehaviorY = "none"
+    document.body.style.touchAction = "none"
+    return () => {
+      document.body.style.overscrollBehaviorY = prev
+      document.body.style.touchAction = prevTouch
+    }
+  }, [touchDragId])
 
   const filteredCategories = searchQuery
     ? blockCategories.map((cat) => ({
@@ -1818,7 +1944,7 @@ export function LinksTab() {
   const activeSocials = Object.entries(social_links || {}).filter(([_, url]) => url)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-scroll-container="links-tab" style={{ touchAction: "manipulation" }}>
       {/* Profile Header with Real SVG Icons */}
       <div className="flex items-center gap-4 pt-[8px] sm:pt-0 pb-5 border-b">
         <div className="relative group cursor-pointer" onClick={() => setShowAvatarEditModal(true)}>
@@ -1860,7 +1986,7 @@ export function LinksTab() {
               setShowNameBioModal(true)
             }}
             className="text-left group flex items-center gap-1.5 hover:opacity-70 transition-opacity cursor-pointer"
-          >
+    >
             <h2 className="font-semibold">{title || "Your Name"}</h2>
             <Pencil className="h-3 w-3 text-gray-400 opacity-50 group-hover:opacity-100 transition-opacity" />
           </button>
@@ -2048,8 +2174,8 @@ export function LinksTab() {
                 block={block}
                 isSelected={selectedBlockId === block.id}
                 onSelect={() => setSelectedBlockId(selectedBlockId === block.id ? null : block.id)}
-                onRemove={() => removeBlock(block.id)}
-                onArchive={() => archiveBlock(block.id)}
+                onRemove={() => handleRemoveBlockWithToast(block.id)}
+                onArchive={() => handleArchiveBlockWithToast(block.id)}
                 onMoveUp={() => {
                   // Prevent social_row from moving above header when Hero layout
                   const headerLayout = (onepage.theme as any)?.header_layout || "classic"
@@ -2089,6 +2215,7 @@ export function LinksTab() {
                 onDragStart={(e) => handleDragStart(e, block.id)}
                 onTouchDragStart={handleTouchDragStart}
                 isDragging={draggedBlockId === block.id}
+                dragOffsetY={draggedBlockId === block.id ? touchDragOffsetY : 0}
                 isDropTarget={dragOverBlockId === block.id}
                 draggedBlockType={draggedBlockId ? sortedBlocks.find(b => b.id === draggedBlockId)?.type : null}
                 onMoveChildToMainList={handleMoveChildToMainList}
@@ -2622,7 +2749,7 @@ export function LinksTab() {
                       <Input
                         value={socialUrl}
                         onChange={(e) => {
-                          setSocialUrl(e.target.value)
+                          setSocialUrl(normalizeUrlInput(e.target.value))
                           if (socialUrlError) setSocialUrlError(null)
                         }}
                         placeholder={platform?.placeholder}
@@ -2642,33 +2769,45 @@ export function LinksTab() {
                     </div>
 
                     <div className="flex flex-col sm:flex-row gap-2 pt-2">
-                      {social_links?.[selectedSocial as keyof typeof social_links] && (
-                        <Button
-                          variant="outline"
-                          className="rounded-xl text-red-600 hover:text-red-700 hover:bg-red-50 sm:w-auto w-full justify-center"
-                          onClick={() => {
-                            handleRemoveSocial(selectedSocial)
-                            setSelectedSocial(null)
-                            setSocialUrlError(null)
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
                       <Button
-                        variant="outline"
-                        className="flex-1 rounded-xl w-full sm:w-auto"
-                        onClick={() => setSelectedSocial(null)}
-                      >
-                        Back
-                      </Button>
-                      <Button
-                        className="flex-1 bg-blue-500 hover:bg-blue-600 rounded-xl w-full sm:w-auto"
-                        onClick={handleAddSocial}
+                        className="flex-1 bg-blue-500 hover:bg-blue-600 rounded-xl h-[58px] w-full sm:w-auto"
+                        onClick={() => {
+                          const wasExisting = !!social_links?.[selectedSocial as keyof typeof social_links]
+                          setSocialUrl(normalizeUrlInput(socialUrl))
+                          handleAddSocial()
+                          if (wasExisting) {
+                            setShowUpdateSocialNotification(false)
+                            requestAnimationFrame(() => setShowUpdateSocialNotification(true))
+                          }
+                        }}
                         disabled={!socialUrl}
                       >
                         {social_links?.[selectedSocial as keyof typeof social_links] ? "Update" : "Add"}
                       </Button>
+                      <Button
+                        variant="outline"
+                        className="flex-1 rounded-xl h-[58px] w-full sm:w-auto"
+                        onClick={() => closeSocialSheet()}
+                      >
+                        Back
+                      </Button>
+                      {social_links?.[selectedSocial as keyof typeof social_links] && (
+                        <Button
+                          variant="outline"
+                          className="flex-1 rounded-xl h-[58px] text-red-600 hover:text-red-700 hover:bg-red-50 sm:w-auto w-full justify-center"
+                          onClick={() => {
+                            handleRemoveSocial(selectedSocial)
+                            setShowDeleteSocialNotification(false)
+                            requestAnimationFrame(() => setShowDeleteSocialNotification(true))
+                            setSelectedSocial(null)
+                            setSocialUrlError(null)
+                            closeSocialSheet()
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete
+                        </Button>
+                      )}
                     </div>
                   </>
                 )
@@ -2677,6 +2816,39 @@ export function LinksTab() {
           )}
         </DialogContent>
       </Dialog>
+
+
+      <SaveNotification
+        show={showDeleteSocialNotification}
+        message="Deleted"
+        duration={3000}
+        icon={DeletedIcon}
+        position="top"
+      />
+      <SaveNotification
+        show={showAddBlockNotification}
+        message="New block added"
+        duration={4000}
+        position="top"
+      />
+      <SaveNotification
+        show={showUpdateSocialNotification}
+        message="Updated"
+        duration={3000}
+        position="top"
+      />
+      <SaveNotification
+        show={showBlockRemovedNotification}
+        message="Block removed"
+        duration={3000}
+        position="top"
+      />
+      <SaveNotification
+        show={showBlockArchivedNotification}
+        message="Block archived"
+        duration={3000}
+        position="top"
+      />
 
       {/* Streaming Service URL Modal */}
       <Dialog open={showStreamingUrlModal} onOpenChange={(open) => {
@@ -3325,60 +3497,64 @@ export function LinksTab() {
 
                     setImageUploading(true)
                     try {
-                      const formData = new FormData()
-                      formData.append('file', file)
-                      formData.append('type', (imageFieldType === 'digital_product_file' || imageFieldType === 'pdf_file') ? 'digital' : 'image')
+                      const supabase = createClient()
+                      const bucket = 'lead-form-files'
+                      const extension = file.name.split('.').pop() || 'bin'
+                      const folder = imageFieldType === 'digital_product_file' || imageFieldType === 'pdf_file' ? 'digital' : 'images'
+                      const filePath = `${folder}/${imageBlockId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`
 
-                      const response = await fetch('/api/onepage/upload-file', {
-                        method: 'POST',
-                        body: formData,
-                      })
+                      const { error: uploadError } = await supabase.storage
+                        .from(bucket)
+                        .upload(filePath, file, {
+                          upsert: false,
+                          cacheControl: '3600',
+                          contentType: file.type || undefined,
+                        })
 
-                      if (response.ok) {
-                        const { url } = await response.json()
-                        const block = onepage.draft_blocks.find(b => b.id === imageBlockId)
-                        if (block) {
-                          if (imageFieldType === 'digital_product_file') {
-                            updateBlock(imageBlockId, {
-                              data: {
-                                ...block.data,
-                                digital_product_file_url: url,
-                                digital_product_title: file.name.replace(/\.[^/.]+$/, ""),
-                                enable_digital_product: true, // Enable digital product delivery when file is uploaded
-                              }
-                            })
-                          } else if (imageFieldType === 'product_image') {
-                            updateBlock(imageBlockId, {
-                              data: {
-                                ...block.data,
-                                product_image: url,
-                              }
-                            })
-                          } else if (imageFieldType === 'pdf_file') {
-                            updateBlock(imageBlockId, {
-                              data: {
-                                ...block.data,
-                                pdf_file_url: url,
-                                title: block.data.title || file.name.replace(/\.[^/.]+$/, ""),
-                              }
-                            })
-                          } else if (imageFieldType === 'thumbnail_url') {
-                            updateBlock(imageBlockId, {
-                              data: {
-                                ...block.data,
-                                thumbnail_url: url,
-                              }
-                            })
-                          }
+                      if (uploadError) throw uploadError
+
+                      const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath)
+                      const url = urlData.publicUrl
+
+                      const block = onepage.draft_blocks.find(b => b.id === imageBlockId)
+                      if (block) {
+                        if (imageFieldType === 'digital_product_file') {
+                          updateBlock(imageBlockId, {
+                            data: {
+                              ...block.data,
+                              digital_product_file_url: url,
+                              digital_product_title: file.name.replace(/\.[^/.]+$/, ""),
+                              enable_digital_product: true,
+                            }
+                          })
+                        } else if (imageFieldType === 'product_image') {
+                          updateBlock(imageBlockId, {
+                            data: {
+                              ...block.data,
+                              product_image: url,
+                            }
+                          })
+                        } else if (imageFieldType === 'pdf_file') {
+                          updateBlock(imageBlockId, {
+                            data: {
+                              ...block.data,
+                              pdf_file_url: url,
+                              title: block.data.title || file.name.replace(/\.[^/.]+$/, ""),
+                            }
+                          })
+                        } else if (imageFieldType === 'thumbnail_url') {
+                          updateBlock(imageBlockId, {
+                            data: {
+                              ...block.data,
+                              thumbnail_url: url,
+                            }
+                          })
                         }
-                        setShowImageLibrary(false)
-                        setImageBlockId(null)
-                        setImageFieldType(null)
-                      } else {
-                        const errorData = await response.json()
-                        console.error('Upload failed:', errorData.error)
-                        alert('Upload failed: ' + (errorData.error || 'Unknown error'))
                       }
+
+                      setShowImageLibrary(false)
+                      setImageBlockId(null)
+                      setImageFieldType(null)
                     } catch (error) {
                       console.error('Upload failed:', error)
                       alert('Upload failed. Please try again.')
@@ -3415,7 +3591,7 @@ export function LinksTab() {
                         : 'Upload image'}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {imageFieldType === 'digital_product_file' ? 'PDF, ZIP, or any file type'
+                      {imageFieldType === 'digital_product_file' ? 'Any file type up to 4GB (audio, video, ZIP, images, docs)'
                         : imageFieldType === 'pdf_file' ? 'PDF files only'
                         : 'JPG, PNG, GIF up to 5MB'}
                     </p>
@@ -3685,6 +3861,8 @@ export function LinksTab() {
                     if (!isDraggingCrop && !isResizingCrop) return
                     e.preventDefault()
                     const touch = e.touches[0]
+      touchCurrentYRef.current = touch.clientY
+      setTouchDragOffsetY(touch.clientY - touchStartYRef.current)
                     const rect = cropContainerRef.current?.getBoundingClientRect()
                     if (!rect || !touch) return
 
@@ -3784,6 +3962,8 @@ export function LinksTab() {
                       e.preventDefault()
                       e.stopPropagation()
                       const touch = e.touches[0]
+      touchCurrentYRef.current = touch.clientY
+      setTouchDragOffsetY(touch.clientY - touchStartYRef.current)
                       setIsDraggingCrop(true)
                       const rect = (e.target as HTMLElement).getBoundingClientRect()
                       setDragStartCrop({ x: touch.clientX - rect.left, y: touch.clientY - rect.top })
@@ -3821,6 +4001,8 @@ export function LinksTab() {
                               e.preventDefault()
                               e.stopPropagation()
                               const touch = e.touches[0]
+      touchCurrentYRef.current = touch.clientY
+      setTouchDragOffsetY(touch.clientY - touchStartYRef.current)
                               setIsResizingCrop(corner)
                               setDragStartCrop({ x: touch.clientX, y: touch.clientY })
                             }}
@@ -4028,6 +4210,8 @@ export function LinksTab() {
                       e.preventDefault()
                       e.stopPropagation()
                       const touch = e.touches[0]
+      touchCurrentYRef.current = touch.clientY
+      setTouchDragOffsetY(touch.clientY - touchStartYRef.current)
                       setIsDraggingVideoCrop(true)
                       setVideoDragStart({
                         x: touch.clientX,
@@ -4071,6 +4255,8 @@ export function LinksTab() {
                               e.preventDefault()
                               e.stopPropagation()
                               const touch = e.touches[0]
+      touchCurrentYRef.current = touch.clientY
+      setTouchDragOffsetY(touch.clientY - touchStartYRef.current)
                               setIsResizingVideoCrop(corner)
                               setVideoDragStart({ x: touch.clientX, y: touch.clientY, boxX: videoCropBox.x, boxY: videoCropBox.y, boxW: videoCropBox.width, boxH: videoCropBox.height })
                             }}
@@ -4130,6 +4316,8 @@ export function LinksTab() {
                       onTouchMove={(e) => {
                         e.preventDefault()
                         const touch = e.touches[0]
+      touchCurrentYRef.current = touch.clientY
+      setTouchDragOffsetY(touch.clientY - touchStartYRef.current)
                         const container = videoContainerRef.current
                         if (!container || !touch) return
                         const rect = container.getBoundingClientRect()
@@ -4247,8 +4435,9 @@ interface BlockItemProps {
   onUrlChangeWithAutoFetch?: (blockId: string, url: string) => void
   onOpenStreamingModal?: (platform: string, index: number, data: LinkButtonBlockData, updateFn: (data: Partial<LinkButtonBlockData>) => void) => void
   onDragStart?: (e: React.DragEvent) => void
-  onTouchDragStart?: (blockId: string) => void
+  onTouchDragStart?: (blockId: string, touchY?: number) => void
   isDragging?: boolean
+  dragOffsetY?: number
   isDropTarget?: boolean
   draggedBlockType?: OnePageBlockType | null
   onMoveChildToMainList?: (childBlock: OnePageBlock, groupId: string) => void
@@ -4277,6 +4466,7 @@ function BlockItem({
   onDragStart,
   onTouchDragStart,
   isDragging,
+  dragOffsetY = 0,
   isDropTarget,
   draggedBlockType,
   onMoveChildToMainList,
@@ -4404,7 +4594,7 @@ function BlockItem({
     if (statsSheetCloseTimerRef.current) clearTimeout(statsSheetCloseTimerRef.current)
     statsSheetCloseTimerRef.current = setTimeout(() => {
       setShowStatsModal(false)
-    }, 400)
+    }, 220)
   }, [showStatsModal, isMobileStatsViewport])
 
   const closeAnimationSheet = useCallback(() => {
@@ -4422,7 +4612,7 @@ function BlockItem({
     if (animationSheetCloseTimerRef.current) clearTimeout(animationSheetCloseTimerRef.current)
     animationSheetCloseTimerRef.current = setTimeout(() => {
       setShowAnimationSheet(false)
-    }, 400)
+    }, 220)
   }, [showAnimationSheet, isMobileStatsViewport])
 
   // Fetch stats when modal is opened or timeframe changes
@@ -4556,9 +4746,10 @@ function BlockItem({
         "border rounded-xl bg-white transition-all relative",
         isSelected ? "ring-1 ring-gray-400 border-gray-300" : "hover:border-gray-300",
         !block.enabled && "opacity-50",
-        isDragging && "opacity-50 scale-[0.98]",
+        isDragging && "opacity-95 scale-[1.01] shadow-2xl z-20",
         canAcceptDrop && "ring-2 ring-violet-500 border-violet-400 bg-violet-50/50"
       )}
+      style={isDragging ? { transform: `translateY(${dragOffsetY}px)` } : undefined}
     >
       {/* Drop zone indicator for group blocks */}
       {canAcceptDrop && (
@@ -4580,11 +4771,11 @@ function BlockItem({
       >
         {!isHeaderBlock && (
           <div
-            className="cursor-grab text-gray-300 hover:text-gray-400 active:cursor-grabbing touch-none select-none p-1 -m-1 md:p-0 md:m-0"
+            className={cn("cursor-grab text-gray-300 hover:text-gray-400 active:cursor-grabbing select-none p-1 -m-1 md:p-0 md:m-0", isDragging ? "touch-none" : "touch-manipulation")}
             onTouchStart={(e) => {
               if (onTouchDragStart) {
                 e.stopPropagation()
-                onTouchDragStart(block.id)
+                onTouchDragStart(block.id, e.touches[0]?.clientY)
               }
             }}
           >
@@ -5720,18 +5911,12 @@ function BlockEditor({
               <div className="space-y-2">
                 <Label className="text-xs">Block Background Color</Label>
                 <div className="flex items-center gap-3">
-                  <div className="relative">
-                    <input
-                      type="color"
-                      value={data.block_background_color || "#7c3aed"}
-                      onChange={(e) => updateData({ block_background_color: e.target.value })}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    />
-                    <div
-                      className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer"
-                      style={{ backgroundColor: data.block_background_color || "#7c3aed" }}
-                    />
-                  </div>
+                  <MobileColorPicker
+                    value={data.block_background_color || "#7c3aed"}
+                    onChange={(color) => updateData({ block_background_color: color })}
+                    label="Block background color"
+                    presets={blockBackgroundColorPresets}
+                  />
                   <Input
                     value={data.block_background_color || ""}
                     onChange={(e) => updateData({ block_background_color: e.target.value })}
@@ -5761,18 +5946,12 @@ function BlockEditor({
                 <Label className="text-xs">Text Color</Label>
                 <p className="text-[10px] text-muted-foreground">For title, description, price{data.style === "callout" ? " and button" : ""}</p>
                 <div className="flex items-center gap-3">
-                  <div className="relative">
-                    <input
-                      type="color"
-                      value={data.text_color || "#ffffff"}
-                      onChange={(e) => updateData({ text_color: e.target.value })}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    />
-                    <div
-                      className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer"
-                      style={{ backgroundColor: data.text_color || "#ffffff" }}
-                    />
-                  </div>
+                  <MobileColorPicker
+                    value={data.text_color || "#ffffff"}
+                    onChange={(color) => updateData({ text_color: color })}
+                    label="Text color"
+                    presets={textColorPresets}
+                  />
                   <Input
                     value={data.text_color || ""}
                     onChange={(e) => updateData({ text_color: e.target.value })}
@@ -5803,18 +5982,12 @@ function BlockEditor({
                   <Label className="text-xs">Button Color</Label>
                   <p className="text-[10px] text-muted-foreground">CTA button background</p>
                   <div className="flex items-center gap-3">
-                    <div className="relative">
-                      <input
-                        type="color"
-                        value={data.button_color || "#ffffff"}
-                        onChange={(e) => updateData({ button_color: e.target.value })}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                      />
-                      <div
-                        className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer"
-                        style={{ backgroundColor: data.button_color || "#ffffff" }}
-                      />
-                    </div>
+                    <MobileColorPicker
+                    value={data.button_color || "#ffffff"}
+                    onChange={(color) => updateData({ button_color: color })}
+                    label="Button color"
+                    presets={buttonColorPresets}
+                  />
                     <Input
                       value={data.button_color || ""}
                       onChange={(e) => updateData({ button_color: e.target.value })}
@@ -5845,18 +6018,12 @@ function BlockEditor({
                 <div className="space-y-2">
                   <Label className="text-xs">Button Text Color</Label>
                   <div className="flex items-center gap-3">
-                    <div className="relative">
-                      <input
-                        type="color"
-                        value={data.button_text_color || "#1a1a1a"}
-                        onChange={(e) => updateData({ button_text_color: e.target.value })}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                      />
-                      <div
-                        className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer"
-                        style={{ backgroundColor: data.button_text_color || "#1a1a1a" }}
-                      />
-                    </div>
+                    <MobileColorPicker
+                    value={data.button_text_color || "#1a1a1a"}
+                    onChange={(color) => updateData({ button_text_color: color })}
+                    label="Button text color"
+                    presets={buttonTextColorPresets}
+                  />
                     <Input
                       value={data.button_text_color || ""}
                       onChange={(e) => updateData({ button_text_color: e.target.value })}

@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 const BUCKET_NAME = "lead-form-files"
+const MAX_DIGITAL_FILE_SIZE = 4 * 1024 * 1024 * 1024 // 4GB
+const MAX_IMAGE_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 
 // POST - Upload a file for lead form (product images and digital products)
 export async function POST(request: NextRequest) {
@@ -38,11 +40,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "File must be an image" }, { status: 400 })
     }
 
-    // Validate file size (max 50MB for digital files, 5MB for images)
-    const maxSize = fileType === 'digital' ? 50 * 1024 * 1024 : 5 * 1024 * 1024
+    // Validate file size (max 4GB for digital files, 5MB for images)
+    const maxSize = fileType === 'digital' ? MAX_DIGITAL_FILE_SIZE : MAX_IMAGE_FILE_SIZE
     if (file.size > maxSize) {
       return NextResponse.json({
-        error: `File size must be less than ${fileType === 'digital' ? '50MB' : '5MB'}`
+        error: `File size must be less than ${fileType === 'digital' ? '4GB' : '5MB'}`
       }, { status: 400 })
     }
 
@@ -54,7 +56,7 @@ export async function POST(request: NextRequest) {
       // Create bucket with public access
       const { error: createError } = await adminSupabase.storage.createBucket(BUCKET_NAME, {
         public: true,
-        fileSizeLimit: 50 * 1024 * 1024, // 50MB max
+        fileSizeLimit: MAX_DIGITAL_FILE_SIZE,
       })
 
       if (createError) {

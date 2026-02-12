@@ -10,6 +10,7 @@ import { createPortal } from "react-dom"
 import type { User } from "@supabase/supabase-js"
 import { createClient } from "@/lib/supabase/client"
 import { extractUsernameFromHost, getCanonicalSiteUrl } from "@/lib/url-helpers"
+import { cn } from "@/lib/utils"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -860,6 +861,8 @@ export function PlatformHeaderClient() {
 
   const showCategories = pathname === "/explore" || pathname.startsWith("/explore")
   const isDiscoverProductContext = pathname.startsWith("/p/") && searchParams.get("layout") === "discover" && searchParams.get("recommended") === "1"
+  const isBlogRoute = pathname === "/blog" || pathname.startsWith('/blog/')
+  const isMarketingNavRoute = pathname === "/" || pathname === "/features" || pathname === "/pricing" || isBlogRoute
 
   const canonicalBaseUrl = useMemo(() => getCanonicalSiteUrl(), [])
 
@@ -919,14 +922,14 @@ export function PlatformHeaderClient() {
     <>
       <div className="relative z-40 w-full bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/90 pt-[env(safe-area-inset-top)]">
       {/* Homepage and Features Page Announcement Bar — Beta Countdown */}
-      {(pathname === "/" || pathname === "/features") && (
+      {(pathname === "/" || pathname === "/features" || pathname === "/pricing" || isBlogRoute) && (
         <LaunchCountdownBar onCanonicalNav={onCanonicalNav} />
       )}
     <header className="w-full bg-white border-b border-gray-200">
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
         <div className="flex h-[68px] md:h-[81px] items-center justify-between gap-4 md:py-[3px]">
           {/* Desktop Homepage Layout - same style for /, /features, /pricing, /blog */}
-          {pathname === "/" || pathname === "/features" || pathname === "/pricing" || pathname === "/blog" ? (
+          {isMarketingNavRoute ? (
             <>
               {/* Homepage Desktop Header */}
               <div className="hidden md:flex items-center justify-between w-full">
@@ -945,18 +948,26 @@ export function PlatformHeaderClient() {
 
                 {/* Center - Nav Links (show for all users) */}
                 <nav className="flex items-center gap-2">
-                  <Link href="/explore" onClick={(e) => onCanonicalNav(e, "/explore")} className="px-4 py-2 rounded-full text-[15px] font-medium text-gray-900 hover:text-black border border-gray-200 hover:border-gray-300 transition-colors">
-                    Discover
-                  </Link>
-                  <Link href="/blog" className="px-4 py-2 rounded-full text-[15px] font-medium text-gray-900 hover:text-black border border-gray-200 hover:border-gray-300 transition-colors">
-                    Blog
-                  </Link>
-                  <Link href="/pricing" className="px-4 py-2 rounded-full text-[15px] font-medium text-gray-900 hover:text-black border border-gray-200 hover:border-gray-300 transition-colors">
-                    Pricing
-                  </Link>
-                  <Link href="/features" className="px-4 py-2 rounded-full text-[15px] font-medium text-gray-900 hover:text-black border border-gray-200 hover:border-gray-300 transition-colors">
-                    Features
-                  </Link>
+                  {[
+                    { href: "/explore", label: "Discover", active: pathname.startsWith('/explore') },
+                    { href: "/blog", label: "Blog", active: isBlogRoute },
+                    { href: "/pricing", label: "Pricing", active: pathname === '/pricing' },
+                    { href: "/features", label: "Features", active: pathname === '/features' },
+                  ].map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={(e) => onCanonicalNav(e, item.href)}
+                      className={cn(
+                        "px-4 py-2 text-[15px] font-medium rounded-full border transition-[background-color,border-color,color,transform] duration-180 ease-out",
+                        item.active
+                          ? "border-gray-300 bg-gray-50 text-black shadow-[inset_0_0_0_1px_rgba(0,0,0,0.02)]"
+                          : "border-transparent text-gray-700 hover:text-black hover:bg-gray-50/80 hover:border-gray-200/70 active:scale-[0.98]",
+                      )}
+                    >
+                      {item.label}
+                    </Link>
+                  ))}
                 </nav>
 
                 {/* Right - Actions */}
@@ -1538,7 +1549,7 @@ export function PlatformHeaderClient() {
         </div>
 
         {/* Mobile Search Bar Trigger - hidden on homepage, shown on /explore and other pages */}
-        {pathname !== "/" && (
+        {pathname !== "/" && !isMarketingNavRoute && (
           <div className="md:hidden pt-2 pb-1.5 border-t border-gray-100">
             <button
               type="button"
@@ -1780,7 +1791,7 @@ export function PlatformHeaderClient() {
           )}
 
           {/* Logged-in User Profile Section - On Homepage and Marketing Pages */}
-          {user && (pathname === "/" || pathname === "/features" || pathname === "/pricing" || pathname === "/blog") && (
+          {user && isMarketingNavRoute && (
             <div className="mb-4 pb-4 border-b border-gray-200">
               {/* Profile Info */}
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl mb-3">
@@ -1820,7 +1831,7 @@ export function PlatformHeaderClient() {
           )}
 
           {/* Menu Links - On Homepage and Marketing Pages */}
-          {(pathname === "/" || pathname === "/features" || pathname === "/pricing" || pathname === "/blog") && (
+          {isMarketingNavRoute && (
             <div className="mb-4 pb-4 border-b border-gray-200 mt-4">
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2 pt-2">Menu</h3>
               <div className="space-y-0.5">
@@ -1860,7 +1871,7 @@ export function PlatformHeaderClient() {
             </div>
           )}
 
-          {isDiscoverProductContext && pathname !== "/" && pathname !== "/features" && pathname !== "/pricing" && pathname !== "/blog" && (
+          {isDiscoverProductContext && !isMarketingNavRoute && (
             <div className="mb-3">
               <button
                 type="button"
@@ -1877,7 +1888,7 @@ export function PlatformHeaderClient() {
           )}
 
           {/* Subcategory View with animation - Only show Browse Categories on non-homepage pages */}
-          {pathname !== "/" && pathname !== "/features" && pathname !== "/pricing" && pathname !== "/blog" && expandedCategory ? (
+          {!isMarketingNavRoute && expandedCategory ? (
             <div className="animate-in slide-in-from-right-4 fade-in duration-300 ease-out">
               <button
                 type="button"
@@ -1934,7 +1945,7 @@ export function PlatformHeaderClient() {
                 )
               })()}
             </div>
-          ) : pathname !== "/" && pathname !== "/features" && pathname !== "/pricing" && pathname !== "/blog" ? (
+          ) : !isMarketingNavRoute ? (
             /* Main Categories List - Only show on non-homepage pages */
             <div className="animate-in slide-in-from-left-4 fade-in duration-300 ease-out">
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Browse Categories</h3>

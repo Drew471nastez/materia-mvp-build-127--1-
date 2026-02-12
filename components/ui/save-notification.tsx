@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Check } from "lucide-react"
+import { Check, Trash2 } from "lucide-react"
+import type { ReactNode } from "react"
 import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
 
@@ -9,12 +10,16 @@ interface SaveNotificationProps {
   show: boolean
   message?: string
   duration?: number
+  icon?: ReactNode
+  position?: "top" | "bottom"
 }
 
 export function SaveNotification({
   show,
   message = "Changes saved",
-  duration = 3000
+  duration = 3000,
+  icon,
+  position,
 }: SaveNotificationProps) {
   const [isVisible, setIsVisible] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
@@ -55,12 +60,14 @@ export function SaveNotification({
     }
   }, [show, duration])
 
+  const resolvedPosition = position || (isMobile ? "bottom" : "top")
+
   if (!isVisible || !isMounted) return null
 
   return createPortal(
     <div className={cn(
       "fixed left-0 right-0 z-[2147483647] flex justify-center px-4 pointer-events-none",
-      isMobile ? "bottom-16" : "top-4"
+      resolvedPosition === "bottom" ? "bottom-16" : "top-4"
     )}>
       <div
         className={cn(
@@ -77,7 +84,7 @@ export function SaveNotification({
           transition: 'all 600ms cubic-bezier(0.16, 1, 0.3, 1)'
         }}
       >
-        <Check className="w-4 h-4 text-white flex-shrink-0" strokeWidth={2.5} />
+        {icon || <Check className="w-4 h-4 text-white flex-shrink-0" strokeWidth={2.5} />}
         <span className="text-sm font-medium truncate">{message}</span>
       </div>
     </div>
@@ -85,3 +92,5 @@ export function SaveNotification({
     document.body
   )
 }
+
+export const DeletedIcon = <Trash2 className="w-4 h-4 text-white flex-shrink-0" strokeWidth={2.2} />

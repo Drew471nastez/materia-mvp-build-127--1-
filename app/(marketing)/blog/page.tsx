@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import Link from "next/link"
 import { Calendar, Clock, ArrowRight, BookOpen, TrendingUp } from "lucide-react"
 
@@ -16,6 +17,7 @@ const BLOG_POSTS = [
     readTime: "5 min read",
     gradient: "from-violet-500 to-purple-500",
     featured: true,
+    image: "/images/blog/digital-products-2026.svg",
   },
   {
     id: 2,
@@ -29,6 +31,7 @@ const BLOG_POSTS = [
     readTime: "4 min read",
     gradient: "from-pink-500 to-rose-500",
     featured: false,
+    image: "/images/blog/transaction-fees.svg",
   },
 ]
 
@@ -44,7 +47,7 @@ export default function BlogPage() {
         <div className="absolute bottom-0 right-10 w-72 h-72 bg-pink-100/30 rounded-full blur-3xl" />
 
         <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
+          <div className="text-center animate-in fade-in-0 slide-in-from-bottom-1 duration-500">
             <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium bg-violet-100 text-violet-700 mb-6">
               Insights & Updates
             </span>
@@ -68,10 +71,11 @@ export default function BlogPage() {
               <article className="bg-white rounded-2xl border border-neutral-200 overflow-hidden hover:shadow-xl hover:border-neutral-300 transition-all duration-300">
                 <div className="grid md:grid-cols-2">
                   {/* Gradient image area */}
-                  <div className={`h-64 md:h-full min-h-[280px] bg-gradient-to-br ${featuredPost.gradient} relative`}>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="text-white/20 text-8xl font-bold select-none">01</div>
-                    </div>
+                  <div className={`h-60 sm:h-64 md:h-full min-h-[240px] sm:min-h-[280px] bg-gradient-to-br ${featuredPost.gradient} relative overflow-hidden`}>
+                    {featuredPost.image && (
+                      <Image src={featuredPost.image} alt={featuredPost.title} fill className="object-cover opacity-90 group-hover:scale-105 transition-transform duration-700" sizes="(max-width: 768px) 100vw, 50vw" />
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
                     <div className="absolute top-4 left-4">
                       <span className="px-3 py-1 rounded-full text-xs font-semibold bg-white/20 text-white backdrop-blur-sm">
                         Featured
@@ -80,7 +84,7 @@ export default function BlogPage() {
                   </div>
 
                   {/* Content */}
-                  <div className="p-8 flex flex-col justify-center">
+                  <div className="p-5 sm:p-6 md:p-8 flex flex-col justify-center animate-in fade-in-0 slide-in-from-bottom-1 duration-500">
                     <div className="flex items-center gap-2 mb-4">
                       <featuredPost.categoryIcon className="w-4 h-4 text-violet-500" />
                       <span className="text-xs font-medium text-violet-600 uppercase tracking-wider">
@@ -96,8 +100,8 @@ export default function BlogPage() {
                       {featuredPost.excerpt}
                     </p>
 
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4 text-sm text-neutral-500">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                      <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-sm text-neutral-500">
                         <div className="flex items-center gap-1.5">
                           <Calendar className="w-4 h-4" />
                           <span>{featuredPost.date}</span>

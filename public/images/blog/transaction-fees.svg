@@ -1,0 +1,9 @@
+<svg width="1200" height="800" viewBox="0 0 1200 800" fill="none" xmlns="http://www.w3.org/2000/svg">
+<defs><linearGradient id="g2" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ec4899"/><stop offset="1" stop-color="#f43f5e"/></linearGradient></defs>
+<rect width="1200" height="800" fill="url(#g2)"/>
+<circle cx="1020" cy="180" r="170" fill="white" fill-opacity="0.12"/>
+<circle cx="180" cy="620" r="210" fill="white" fill-opacity="0.1"/>
+<rect x="170" y="230" width="860" height="340" rx="30" fill="white" fill-opacity="0.2"/>
+<text x="220" y="345" fill="white" font-size="54" font-family="Arial" font-weight="700">Why Low Transaction</text>
+<text x="220" y="415" fill="white" font-size="54" font-family="Arial" font-weight="700">Fees Matter</text>
+</svg>

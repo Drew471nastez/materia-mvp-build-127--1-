@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Slider as BaseSlider } from "@/components/ui/slider"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
+import { MobileColorPicker } from "@/components/onepage/mobile-color-picker"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   ImageIcon,
@@ -1207,6 +1208,10 @@ function HeaderSection() {
     if (layout === "hero" && (theme as any).background_pattern && (theme as any).background_pattern !== "none") {
       return // Silently block - pattern takes precedence
     }
+    if (layout === "hero") {
+      updateTheme({ header_layout: layout, laser_glow_enabled: false } as any)
+      return
+    }
     updateTheme({ header_layout: layout } as any)
   }
 
@@ -2089,6 +2094,7 @@ function HeaderSection() {
       </div>
 
       {/* Laser Glow Avatar */}
+      {effectiveLayout !== "hero" ? (
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -2105,10 +2111,12 @@ function HeaderSection() {
             <div className="space-y-2">
               <Label className="text-xs text-muted-foreground">Glow Color</Label>
               <div className="flex items-center gap-3">
-                <div className="relative">
-                  <input type="color" value={(theme as any).laser_glow_color || "#3b82f6"} onChange={(e) => updateTheme({ laser_glow_color: e.target.value } as any)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                  <div className="w-10 h-10 rounded-lg border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: (theme as any).laser_glow_color || "#3b82f6" }} />
-                </div>
+                <MobileColorPicker
+                  value={(theme as any).laser_glow_color || "#3b82f6"}
+                  onChange={(color) => updateTheme({ laser_glow_color: color } as any)}
+                  label="Laser glow color"
+                  className="w-10 h-10"
+                />
                 <Input value={(theme as any).laser_glow_color || "#3b82f6"} onChange={(e) => updateTheme({ laser_glow_color: e.target.value } as any)} placeholder="#3b82f6" className="h-10 rounded-lg flex-1 font-mono text-sm" />
               </div>
             </div>
@@ -2138,6 +2146,9 @@ function HeaderSection() {
           </div>
         )}
       </div>
+      ) : (
+        <p className="text-xs text-muted-foreground bg-gray-50 p-2 rounded-lg">Laser Glow Avatar is unavailable while Profile image layout is set to Hero.</p>
+      )}
 
       <div className="space-y-2">
         <Label className="text-sm font-medium">Display Name</Label>
@@ -2343,18 +2354,11 @@ function HeaderSection() {
       <div className="space-y-2">
         <Label className="text-sm font-medium">Title color</Label>
         <div className="flex items-center gap-3">
-          <div className="relative">
-            <input
-              type="color"
-              value={(theme as any).title_color || theme.text_color}
-              onChange={(e) => updateTheme({ title_color: e.target.value } as any)}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-            />
-            <div
-              className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer"
-              style={{ backgroundColor: (theme as any).title_color || theme.text_color }}
-            />
-          </div>
+          <MobileColorPicker
+            value={(theme as any).title_color || theme.text_color}
+            onChange={(color) => updateTheme({ title_color: color } as any)}
+            label="Title color"
+          />
           <Input
             value={(theme as any).title_color || theme.text_color}
             onChange={(e) => updateTheme({ title_color: e.target.value } as any)}
@@ -3165,10 +3169,11 @@ function WallpaperSection() {
           <div className="space-y-2">
             <Label className="text-sm font-medium">Background color</Label>
             <div className="flex items-center gap-3">
-              <div className="relative">
-                <input type="color" value={theme.background_color} onChange={(e) => updateTheme({ background_color: e.target.value })} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                <div className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: theme.background_color }} />
-              </div>
+              <MobileColorPicker
+                value={theme.background_color}
+                onChange={(color) => updateTheme({ background_color: color })}
+                label="Background color"
+              />
               <Input value={theme.background_color} onChange={(e) => updateTheme({ background_color: e.target.value })} placeholder="#ffffff" className="h-12 rounded-xl flex-1 font-mono text-sm" />
             </div>
             <div className="flex gap-2 pt-1">
@@ -3214,10 +3219,11 @@ function WallpaperSection() {
             <div className="space-y-2">
               <Label className="text-sm font-medium">Pattern color</Label>
               <div className="flex items-center gap-3">
-                <div className="relative">
-                  <input type="color" value={(theme as any).pattern_color?.replace(/[0-9a-f]{2}$/i, '') || "#000000"} onChange={(e) => updateTheme({ pattern_color: e.target.value + "90" } as any)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                  <div className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: (theme as any).pattern_color || "#00000090" }} />
-                </div>
+                <MobileColorPicker
+                  value={(theme as any).pattern_color?.replace(/[0-9a-f]{2}$/i, '') || "#000000"}
+                  onChange={(color) => updateTheme({ pattern_color: color + "90" } as any)}
+                  label="Pattern color"
+                />
                 <Input value={(theme as any).pattern_color || "#00000090"} onChange={(e) => { const val = e.target.value; const normalized = val.match(/^#[0-9a-f]{6}/i) ? val.slice(0, 7) + "90" : val; updateTheme({ pattern_color: normalized } as any) }} placeholder="#00000090" className="h-12 rounded-xl flex-1 font-mono text-sm" />
               </div>
               <div className="flex gap-2 pt-1">
@@ -3311,20 +3317,24 @@ function WallpaperSection() {
                   <div className="space-y-1.5">
                     <span className="text-xs text-muted-foreground">Start color</span>
                     <div className="flex items-center gap-2">
-                      <div className="relative">
-                        <input type="color" value={gradientInfo.color1} onChange={(e) => handleGradientChange(gradientInfo.direction, e.target.value, gradientInfo.color2)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                        <div className="w-10 h-10 rounded-lg border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: gradientInfo.color1 }} />
-                      </div>
+                      <MobileColorPicker
+                        value={gradientInfo.color1}
+                        onChange={(color) => handleGradientChange(gradientInfo.direction, color, gradientInfo.color2)}
+                        label="Gradient start color"
+                        className="w-10 h-10"
+                      />
                       <Input value={gradientInfo.color1} onChange={(e) => handleGradientChange(gradientInfo.direction, e.target.value, gradientInfo.color2)} className="flex-1 font-mono text-xs h-10 rounded-lg" />
                     </div>
                   </div>
                   <div className="space-y-1.5">
                     <span className="text-xs text-muted-foreground">End color</span>
                     <div className="flex items-center gap-2">
-                      <div className="relative">
-                        <input type="color" value={gradientInfo.color2} onChange={(e) => handleGradientChange(gradientInfo.direction, gradientInfo.color1, e.target.value)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                        <div className="w-10 h-10 rounded-lg border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: gradientInfo.color2 }} />
-                      </div>
+                      <MobileColorPicker
+                        value={gradientInfo.color2}
+                        onChange={(color) => handleGradientChange(gradientInfo.direction, gradientInfo.color1, color)}
+                        label="Gradient end color"
+                        className="w-10 h-10"
+                      />
                       <Input value={gradientInfo.color2} onChange={(e) => handleGradientChange(gradientInfo.direction, gradientInfo.color1, e.target.value)} className="flex-1 font-mono text-xs h-10 rounded-lg" />
                     </div>
                   </div>
@@ -3444,10 +3454,11 @@ function WallpaperSection() {
             <div className="space-y-2">
               <Label className="text-sm font-medium">Pattern color</Label>
               <div className="flex items-center gap-3">
-                <div className="relative">
-                  <input type="color" value={(theme as any).pattern_color?.replace(/[0-9a-f]{2}$/i, '') || "#ffffff"} onChange={(e) => updateTheme({ pattern_color: e.target.value + "90" } as any)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                  <div className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: (theme as any).pattern_color || "#ffffff90" }} />
-                </div>
+                <MobileColorPicker
+                  value={(theme as any).pattern_color?.replace(/[0-9a-f]{2}$/i, '') || "#ffffff"}
+                  onChange={(color) => updateTheme({ pattern_color: color + "90" } as any)}
+                  label="Pattern color"
+                />
                 <Input value={(theme as any).pattern_color || "#ffffff90"} onChange={(e) => { const val = e.target.value; const normalized = val.match(/^#[0-9a-f]{6}/i) ? val.slice(0, 7) + "90" : val; updateTheme({ pattern_color: normalized } as any) }} placeholder="#ffffff90" className="h-12 rounded-xl flex-1 font-mono text-sm" />
               </div>
               <div className="flex gap-2 pt-1">
@@ -3996,10 +4007,11 @@ function TextSection() {
       <div className="space-y-2">
         <Label className="text-sm font-medium">Title color</Label>
         <div className="flex items-center gap-3">
-          <div className="relative">
-            <input type="color" value={(theme as any).title_color || theme.text_color} onChange={(e) => updateTheme({ title_color: e.target.value } as any)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-            <div className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: (theme as any).title_color || theme.text_color }} />
-          </div>
+          <MobileColorPicker
+            value={(theme as any).title_color || theme.text_color}
+            onChange={(color) => updateTheme({ title_color: color } as any)}
+            label="Title color"
+          />
           <Input value={(theme as any).title_color || theme.text_color} onChange={(e) => updateTheme({ title_color: e.target.value } as any)} placeholder="#000000" className="h-12 rounded-xl flex-1 font-mono text-sm" />
         </div>
         <div className="flex gap-2 pt-1">
@@ -4012,10 +4024,11 @@ function TextSection() {
       <div className="space-y-2">
         <Label className="text-sm font-medium">Text color</Label>
         <div className="flex items-center gap-3">
-          <div className="relative">
-            <input type="color" value={theme.text_color} onChange={(e) => updateTheme({ text_color: e.target.value })} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-            <div className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: theme.text_color }} />
-          </div>
+          <MobileColorPicker
+            value={theme.text_color}
+            onChange={(color) => updateTheme({ text_color: color })}
+            label="Text color"
+          />
           <Input value={theme.text_color} onChange={(e) => updateTheme({ text_color: e.target.value })} placeholder="#000000" className="h-12 rounded-xl flex-1 font-mono text-sm" />
         </div>
         <div className="flex gap-2 pt-1">
@@ -4027,10 +4040,11 @@ function TextSection() {
       <div className="space-y-2">
         <Label className="text-sm font-medium">Secondary text color</Label>
         <div className="flex items-center gap-3">
-          <div className="relative">
-            <input type="color" value={theme.secondary_text_color || theme.text_color} onChange={(e) => updateTheme({ secondary_text_color: e.target.value })} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-            <div className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: theme.secondary_text_color || theme.text_color }} />
-          </div>
+          <MobileColorPicker
+            value={theme.secondary_text_color || theme.text_color}
+            onChange={(color) => updateTheme({ secondary_text_color: color })}
+            label="Secondary text color"
+          />
           <Input value={theme.secondary_text_color || theme.text_color} onChange={(e) => updateTheme({ secondary_text_color: e.target.value })} placeholder="#000000" className="h-12 rounded-xl flex-1 font-mono text-sm" />
         </div>
         <div className="flex gap-2 pt-1">
@@ -4098,10 +4112,11 @@ function ButtonsSection() {
       <div className="space-y-2">
         <Label className="text-sm font-medium">Button color</Label>
         <div className="flex items-center gap-3">
-          <div className="relative">
-            <input type="color" value={theme.button_color} onChange={(e) => updateTheme({ button_color: e.target.value })} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-            <div className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: theme.button_color }} />
-          </div>
+          <MobileColorPicker
+            value={theme.button_color}
+            onChange={(color) => updateTheme({ button_color: color })}
+            label="Button color"
+          />
           <Input value={theme.button_color} onChange={(e) => updateTheme({ button_color: e.target.value })} placeholder="#000000" className="h-12 rounded-xl flex-1 font-mono text-sm" />
         </div>
         <div className="flex gap-2 pt-1">
@@ -4114,10 +4129,11 @@ function ButtonsSection() {
       <div className="space-y-2">
         <Label className="text-sm font-medium">Button text color</Label>
         <div className="flex items-center gap-3">
-          <div className="relative">
-            <input type="color" value={theme.button_text_color} onChange={(e) => updateTheme({ button_text_color: e.target.value })} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-            <div className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: theme.button_text_color }} />
-          </div>
+          <MobileColorPicker
+            value={theme.button_text_color}
+            onChange={(color) => updateTheme({ button_text_color: color })}
+            label="Button text color"
+          />
           <Input value={theme.button_text_color} onChange={(e) => updateTheme({ button_text_color: e.target.value })} placeholder="#ffffff" className="h-12 rounded-xl flex-1 font-mono text-sm" />
         </div>
         <div className="flex gap-2 pt-1">
@@ -4156,10 +4172,11 @@ function ButtonsSection() {
         <div className="space-y-2">
           <Label className="text-sm font-medium">Shadow color</Label>
           <div className="flex items-center gap-3">
-            <div className="relative">
-              <input type="color" value={(theme as any).button_shadow_color || "#000000"} onChange={(e) => updateTheme({ button_shadow_color: e.target.value } as any)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-              <div className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: (theme as any).button_shadow_color || "#000000" }} />
-            </div>
+            <MobileColorPicker
+              value={(theme as any).button_shadow_color || "#000000"}
+              onChange={(color) => updateTheme({ button_shadow_color: color } as any)}
+              label="Button shadow color"
+            />
             <Input value={(theme as any).button_shadow_color || "#000000"} onChange={(e) => updateTheme({ button_shadow_color: e.target.value } as any)} placeholder="#000000" className="h-12 rounded-xl flex-1 font-mono text-sm" />
           </div>
         </div>
@@ -4179,10 +4196,11 @@ function ButtonsSection() {
       <div className="space-y-2">
         <Label className="text-sm font-medium">Border color</Label>
         <div className="flex items-center gap-3">
-          <div className="relative">
-            <input type="color" value={theme.button_border_color} onChange={(e) => updateTheme({ button_border_color: e.target.value })} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-            <div className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: theme.button_border_color }} />
-          </div>
+          <MobileColorPicker
+            value={theme.button_border_color}
+            onChange={(color) => updateTheme({ button_border_color: color })}
+            label="Button border color"
+          />
           <Input value={theme.button_border_color} onChange={(e) => updateTheme({ button_border_color: e.target.value })} placeholder="#000000" className="h-12 rounded-xl flex-1 font-mono text-sm" />
         </div>
         <div className="flex gap-2 pt-1">
@@ -4255,10 +4273,11 @@ function SocialsSection() {
       <div className="space-y-2">
         <Label className="text-sm font-medium">Icon color</Label>
         <div className="flex items-center gap-3">
-          <div className="relative">
-            <input type="color" value={socialColor} onChange={(e) => updateTheme({ social_icon_color: e.target.value } as any)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-            <div className="w-12 h-12 rounded-xl border-2 border-gray-200 shadow-sm cursor-pointer" style={{ backgroundColor: socialColor }} />
-          </div>
+          <MobileColorPicker
+            value={socialColor}
+            onChange={(color) => updateTheme({ social_icon_color: color } as any)}
+            label="Social icon color"
+          />
           <Input value={socialColor} onChange={(e) => updateTheme({ social_icon_color: e.target.value } as any)} placeholder="#000000" className="h-12 rounded-xl flex-1 font-mono text-sm" />
         </div>
         <div className="flex gap-2 pt-1">

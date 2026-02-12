@@ -484,15 +484,15 @@ function ShareButtonPreview({
       {/* Share Modal - positioned within phone preview */}
       <div
         className={cn(
-          "absolute inset-0 z-40 flex items-center justify-center transition-opacity duration-300",
-          isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none",
+          "absolute inset-0 z-40 flex items-center justify-center",
+          isOpen ? "pointer-events-auto" : "pointer-events-none",
         )}
       >
         {/* Backdrop */}
         <div
           className={cn(
-            "absolute inset-0 transition-[background-color,backdrop-filter] duration-300 ease-out",
-            isOpen ? "bg-black/40 backdrop-blur-sm" : "bg-black/0 backdrop-blur-0",
+            "absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-250 ease-out will-change-[opacity]",
+            isOpen ? "opacity-100" : "opacity-0",
           )}
           onClick={() => setIsOpen(false)}
         />
@@ -500,8 +500,8 @@ function ShareButtonPreview({
         {/* Modal - centered within phone preview */}
         <div
           className={cn(
-            "relative z-10 rounded-2xl overflow-hidden transition-transform duration-300 ease-out",
-            isOpen ? "scale-100" : "scale-95",
+            "relative z-10 rounded-2xl overflow-hidden transform-gpu transition-[opacity,transform] duration-250 ease-out will-change-[opacity,transform]",
+            isOpen ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-[0.985] translate-y-1",
           )}
           style={{
             width: scale === "small" ? 200 : 260,
@@ -1641,12 +1641,11 @@ export function PhonePreview({ className }: PhonePreviewProps) {
       {/* Spotify Modal - Popup style inside phone preview */}
       {spotifyModalOpen && spotifyModalData && (
         <div
-          className="absolute inset-[10px] z-[50] flex items-center justify-center p-2 bg-black/60 backdrop-blur-sm"
-          style={{ borderRadius: "34px" }}
+          className="absolute inset-0 z-[40] flex items-center justify-center p-0 bg-black/65 backdrop-blur-sm transition-opacity duration-300"
           onClick={() => setSpotifyModalOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-[240px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            className="bg-white w-full h-full overflow-y-auto shadow-2xl animate-in fade-in zoom-in-95 duration-250 transform-gpu will-change-transform"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -1669,15 +1668,18 @@ export function PhonePreview({ className }: PhonePreviewProps) {
 
             {/* Spotify Embed */}
             <div className="p-2.5">
-              <iframe
-                src={spotifyModalData.embedUrl}
-                width="100%"
-                height="152"
-                frameBorder="0"
-                allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                loading="lazy"
-                className="rounded-lg"
-              />
+              <div className="w-full overflow-hidden rounded-lg bg-black/5">
+                <iframe
+                  src={spotifyModalData.embedUrl}
+                  width="100%"
+                  height="300"
+                  frameBorder="0"
+                  allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                  loading="lazy"
+                  scrolling="no"
+                  className="block w-full"
+                />
+              </div>
             </div>
 
             {/* Streaming Services - if show_streaming mode */}
@@ -1734,12 +1736,11 @@ export function PhonePreview({ className }: PhonePreviewProps) {
       {/* Apple Music Modal - Popup style inside phone preview */}
       {appleMusicModalOpen && appleMusicModalData && (
         <div
-          className="absolute inset-[10px] z-[50] flex items-center justify-center p-2 bg-black/60 backdrop-blur-sm"
-          style={{ borderRadius: "34px" }}
+          className="absolute inset-0 z-[40] flex items-center justify-center p-0 bg-black/65 backdrop-blur-sm transition-opacity duration-300"
           onClick={() => setAppleMusicModalOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-[240px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            className="bg-white w-full h-full overflow-y-auto shadow-2xl animate-in fade-in zoom-in-95 duration-250 transform-gpu will-change-transform"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -1768,17 +1769,20 @@ export function PhonePreview({ className }: PhonePreviewProps) {
 
             {/* Apple Music Embed */}
             <div className="p-2.5">
-              <iframe
-                src={appleMusicModalData.embedUrl}
-                width="100%"
-                height="175"
-                frameBorder="0"
-                allow="autoplay *; encrypted-media *; fullscreen *; clipboard-write"
-                sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"
-                loading="lazy"
-                className="rounded-lg bg-transparent"
-                style={{ overflow: 'hidden', background: 'transparent' }}
-              />
+              <div className="w-full overflow-hidden rounded-lg bg-black/5">
+                <iframe
+                  src={appleMusicModalData.embedUrl}
+                  width="100%"
+                  height="330"
+                  frameBorder="0"
+                  scrolling="no"
+                  allow="autoplay *; encrypted-media *; fullscreen *; clipboard-write"
+                  sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"
+                  loading="lazy"
+                  className="block w-full bg-transparent"
+                  style={{ overflow: 'hidden', background: 'transparent' }}
+                />
+              </div>
             </div>
 
             {/* Footer - Open in Apple Music button */}
@@ -2205,89 +2209,6 @@ export function MobilePreviewContent() {
           animation: isAnimatedGradient ? "gradientShiftFrame 10s ease-in-out infinite" : undefined,
         }}
       >
-        {/* Background overlays - absolute positioned, don't scroll */}
-        {theme.background_type === "image" && theme.background_image_url && (
-          <div
-            style={{
-              position: "absolute",
-              top: "-50px",
-              left: "-50px",
-              right: "-50px",
-              bottom: "-50px",
-              backgroundImage: `url(${theme.background_image_url})`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-              zIndex: 0,
-              pointerEvents: "none",
-              filter: `brightness(${(theme as any).image_brightness || 100}%) blur(${(theme as any).image_blur || 0}px)`,
-            }}
-          />
-        )}
-
-        {/* Video background */}
-        {theme.background_type === "video" && (theme as any).background_video_url && (
-          <video
-            src={(theme as any).background_video_url}
-            style={{
-              position: "absolute",
-              top: "-50px",
-              left: "-50px",
-              right: "-50px",
-              bottom: "-50px",
-              width: "calc(100% + 100px)",
-              height: "calc(100% + 100px)",
-              objectFit: "cover",
-              zIndex: 0,
-              pointerEvents: "none",
-              filter: `brightness(${(theme as any).video_brightness || 100}%)`,
-            }}
-            autoPlay
-            loop
-            muted
-            playsInline
-          />
-        )}
-
-        {/* Noise overlay for gradient backgrounds */}
-        {theme.background_type === "gradient" && (theme as any).gradient_noise && (
-          <svg
-            className="absolute inset-0 w-full h-full pointer-events-none"
-            style={{ mixBlendMode: "overlay", zIndex: 1, opacity: (((theme as any).noise_strength || 15) / 100) * 2 }}
-          >
-            <filter id="mobile-noise-gradient">
-              <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch" />
-            </filter>
-            <rect width="100%" height="100%" filter="url(#mobile-noise-gradient)" />
-          </svg>
-        )}
-
-        {/* Noise overlay for image backgrounds */}
-        {theme.background_type === "image" && (theme as any).image_noise && (
-          <svg
-            className="absolute inset-0 w-full h-full pointer-events-none"
-            style={{ mixBlendMode: "overlay", zIndex: 1, opacity: (((theme as any).noise_strength || 15) / 100) * 2 }}
-          >
-            <filter id="mobile-noise-image">
-              <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch" />
-            </filter>
-            <rect width="100%" height="100%" filter="url(#mobile-noise-image)" />
-          </svg>
-        )}
-
-        {/* Pattern overlay for mobile */}
-        {(theme.background_type === "solid" || theme.background_type === "gradient") &&
-          (theme as any).background_pattern &&
-          (theme as any).background_pattern !== "none" && (
-            <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 1 }}>
-              <BackgroundPattern
-                pattern={(theme as any).background_pattern}
-                color={(theme as any).pattern_color || "#00000090"}
-                opacity={(theme as any).pattern_opacity || "medium"}
-                instanceId="mobile"
-              />
-            </div>
-          )}
-
         {/* Share Button - absolute, stays above scroll, doesn't scroll with content */}
         {settings?.share_enabled !== false && (
           <ShareButtonPreview
@@ -2323,6 +2244,84 @@ export function MobilePreviewContent() {
           className="absolute inset-0 overflow-y-auto overflow-x-hidden"
           style={{ zIndex: 2 }}
         >
+        <div className="relative" style={{ minHeight: "100vh" }}>
+          {theme.background_type === "image" && theme.background_image_url && (
+            <div
+              style={{
+                position: "absolute",
+                top: "-50px",
+                left: "-50px",
+                right: "-50px",
+                bottom: "-50px",
+                backgroundImage: `url(${theme.background_image_url})`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+                zIndex: 0,
+                pointerEvents: "none",
+                filter: `brightness(${(theme as any).image_brightness || 100}%) blur(${(theme as any).image_blur || 0}px)`,
+              }}
+            />
+          )}
+
+          {theme.background_type === "video" && (theme as any).background_video_url && (
+            <video
+              src={(theme as any).background_video_url}
+              style={{
+                position: "absolute",
+                top: "-50px",
+                left: "-50px",
+                right: "-50px",
+                bottom: "-50px",
+                width: "calc(100% + 100px)",
+                height: "calc(100% + 100px)",
+                objectFit: "cover",
+                zIndex: 0,
+                pointerEvents: "none",
+                filter: `brightness(${(theme as any).video_brightness || 100}%)`,
+              }}
+              autoPlay
+              loop
+              muted
+              playsInline
+            />
+          )}
+
+          {theme.background_type === "gradient" && (theme as any).gradient_noise && (
+            <svg
+              className="absolute inset-0 w-full h-full pointer-events-none"
+              style={{ mixBlendMode: "overlay", zIndex: 1, opacity: (((theme as any).noise_strength || 15) / 100) * 2 }}
+            >
+              <filter id="mobile-noise-gradient">
+                <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch" />
+              </filter>
+              <rect width="100%" height="100%" filter="url(#mobile-noise-gradient)" />
+            </svg>
+          )}
+
+          {theme.background_type === "image" && (theme as any).image_noise && (
+            <svg
+              className="absolute inset-0 w-full h-full pointer-events-none"
+              style={{ mixBlendMode: "overlay", zIndex: 1, opacity: (((theme as any).noise_strength || 15) / 100) * 2 }}
+            >
+              <filter id="mobile-noise-image">
+                <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="4" stitchTiles="stitch" />
+              </filter>
+              <rect width="100%" height="100%" filter="url(#mobile-noise-image)" />
+            </svg>
+          )}
+
+          {(theme.background_type === "solid" || theme.background_type === "gradient") &&
+            (theme as any).background_pattern &&
+            (theme as any).background_pattern !== "none" && (
+              <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 1 }}>
+                <BackgroundPattern
+                  pattern={(theme as any).background_pattern}
+                  color={(theme as any).pattern_color || "#00000090"}
+                  opacity={(theme as any).pattern_opacity || "medium"}
+                  instanceId="mobile"
+                />
+              </div>
+            )}
 
         <div
           className="relative z-10 w-full max-w-md mx-auto px-5 py-8 pb-5 flex flex-col"
@@ -2393,6 +2392,7 @@ export function MobilePreviewContent() {
               </a>
             </div>
           </div>
+          </div>
         </div>
         {/* Close inner scroll container */}
         </div>
@@ -2401,12 +2401,11 @@ export function MobilePreviewContent() {
       {/* Spotify Modal - Popup style inside phone preview */}
       {spotifyModalOpen && spotifyModalData && (
         <div
-          className="absolute inset-[10px] z-[50] flex items-center justify-center p-2 bg-black/60 backdrop-blur-sm"
-          style={{ borderRadius: "34px" }}
+          className="absolute inset-0 z-[40] flex items-center justify-center p-0 bg-black/65 backdrop-blur-sm transition-opacity duration-300"
           onClick={() => setSpotifyModalOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-[240px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            className="bg-white w-full h-full overflow-y-auto shadow-2xl animate-in fade-in zoom-in-95 duration-250 transform-gpu will-change-transform"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -2429,15 +2428,18 @@ export function MobilePreviewContent() {
 
             {/* Spotify Embed */}
             <div className="p-2.5">
-              <iframe
-                src={spotifyModalData.embedUrl}
-                width="100%"
-                height="152"
-                frameBorder="0"
-                allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                loading="lazy"
-                className="rounded-lg"
-              />
+              <div className="w-full overflow-hidden rounded-lg bg-black/5">
+                <iframe
+                  src={spotifyModalData.embedUrl}
+                  width="100%"
+                  height="300"
+                  frameBorder="0"
+                  scrolling="no"
+                  allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                  loading="lazy"
+                  className="block w-full"
+                />
+              </div>
             </div>
 
             {/* Streaming Services - if show_streaming mode */}
@@ -2483,12 +2485,11 @@ export function MobilePreviewContent() {
       {/* Apple Music Modal - Popup style inside phone preview */}
       {appleMusicModalOpen && appleMusicModalData && (
         <div
-          className="absolute inset-[10px] z-[50] flex items-center justify-center p-2 bg-black/60 backdrop-blur-sm"
-          style={{ borderRadius: "34px" }}
+          className="absolute inset-0 z-[40] flex items-center justify-center p-0 bg-black/65 backdrop-blur-sm transition-opacity duration-300"
           onClick={() => setAppleMusicModalOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-[240px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            className="bg-white w-full h-full overflow-y-auto shadow-2xl animate-in fade-in zoom-in-95 duration-250 transform-gpu will-change-transform"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -2517,17 +2518,20 @@ export function MobilePreviewContent() {
 
             {/* Apple Music Embed */}
             <div className="p-2.5">
-              <iframe
-                src={appleMusicModalData.embedUrl}
-                width="100%"
-                height="175"
-                frameBorder="0"
-                allow="autoplay *; encrypted-media *; fullscreen *; clipboard-write"
-                sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"
-                loading="lazy"
-                className="rounded-lg bg-transparent"
-                style={{ overflow: 'hidden', background: 'transparent' }}
-              />
+              <div className="w-full overflow-hidden rounded-lg bg-black/5">
+                <iframe
+                  src={appleMusicModalData.embedUrl}
+                  width="100%"
+                  height="330"
+                  frameBorder="0"
+                  scrolling="no"
+                  allow="autoplay *; encrypted-media *; fullscreen *; clipboard-write"
+                  sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"
+                  loading="lazy"
+                  className="block w-full bg-transparent"
+                  style={{ overflow: 'hidden', background: 'transparent' }}
+                />
+              </div>
             </div>
 
             {/* Footer - Open in Apple Music button */}

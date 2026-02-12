@@ -789,14 +789,14 @@ function ShareButton({
       {/* Share Modal - backdrop + centered wrapper */}
       <div
         className={cn(
-          "fixed inset-0 z-[60] flex items-center justify-center transition-opacity duration-300",
-          isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none",
+          "fixed inset-0 z-[60] flex items-center justify-center",
+          isOpen ? "pointer-events-auto" : "pointer-events-none",
         )}
       >
         <div
           className={cn(
-            "absolute inset-0 transition-[background-color,backdrop-filter] duration-300 ease-out",
-            isOpen ? "bg-black/40 backdrop-blur-sm" : "bg-black/0 backdrop-blur-0",
+            "absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-250 ease-out will-change-[opacity]",
+            isOpen ? "opacity-100" : "opacity-0",
           )}
           onClick={() => setIsOpen(false)}
         />
@@ -804,8 +804,8 @@ function ShareButton({
         {/* Share Modal - content */}
         <div
           className={cn(
-            "relative z-10 w-[calc(100%-32px)] max-w-[380px] max-h-[90vh] overflow-y-auto rounded-[28px] overflow-x-hidden transition-transform duration-300 ease-out",
-            isOpen ? "scale-100" : "scale-95",
+            "relative z-10 w-[calc(100%-32px)] max-w-[380px] max-h-[90vh] overflow-y-auto rounded-[28px] overflow-x-hidden transform-gpu transition-[opacity,transform] duration-250 ease-out will-change-[opacity,transform]",
+            isOpen ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-[0.985] translate-y-1",
           )}
           style={{
             background: "#ffffff",
@@ -2144,69 +2144,72 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           animation: isAnimatedGradient ? "gradientShiftLive 10s ease-in-out infinite" : undefined,
         }}
       >
-        {safeTheme.background_type === "image" && safeTheme.background_image_url && (
-          <div
-            style={{
-              position: "fixed",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              width: "100vw",
-              height: "100vh",
-              backgroundImage: `url(${safeTheme.background_image_url})`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-              backgroundAttachment: "fixed",
-              zIndex: 0,
-              filter: `brightness(${(safeTheme as any).image_brightness || 100}%) blur(${(safeTheme as any).image_blur || 0}px)`,
-              transform: "translateZ(0)",
-              willChange: "transform",
-            }}
-          />
-        )}
+        <div className="relative min-h-screen">
+          {safeTheme.background_type === "image" && safeTheme.background_image_url && (
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                width: "100%",
+                height: "100%",
+                backgroundImage: `url(${safeTheme.background_image_url})`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+                zIndex: 0,
+                filter: `brightness(${(safeTheme as any).image_brightness || 100}%) blur(${(safeTheme as any).image_blur || 0}px)`,
+                transform: "translateZ(0)",
+                willChange: "transform",
+                pointerEvents: "none",
+              }}
+            />
+          )}
 
-        {/* Video background for mobile */}
-        {safeTheme.background_type === "video" && (safeTheme as any).background_video_url && (
-          <video
-            src={(safeTheme as any).background_video_url}
-            style={{
-              position: "fixed",
-              top: "-50px",
-              left: "-50px",
-              right: "-50px",
-              bottom: "-50px",
-              width: "calc(100% + 100px)",
-              height: "calc(100% + 100px)",
-              objectFit: "cover",
-              zIndex: 0,
-              filter: `brightness(${(safeTheme as any).video_brightness || 100}%)`,
-            }}
-            autoPlay
-            loop
-            muted
-            playsInline
-          />
-        )}
+          {/* Video background for mobile */}
+          {safeTheme.background_type === "video" && (safeTheme as any).background_video_url && (
+            <video
+              src={(safeTheme as any).background_video_url}
+              style={{
+                position: "absolute",
+                top: "-50px",
+                left: "-50px",
+                right: "-50px",
+                bottom: "-50px",
+                width: "calc(100% + 100px)",
+                height: "calc(100% + 100px)",
+                objectFit: "cover",
+                zIndex: 0,
+                filter: `brightness(${(safeTheme as any).video_brightness || 100}%)`,
+                pointerEvents: "none",
+              }}
+              autoPlay
+              loop
+              muted
+              playsInline
+            />
+          )}
 
-        {/* Noise overlays for mobile */}
-        {safeTheme.background_type === "gradient" && (safeTheme as any).gradient_noise && <NoiseOverlay />}
-        {safeTheme.background_type === "image" && (safeTheme as any).image_noise && <NoiseOverlay />}
-        {/* Pattern overlay for mobile */}
-        {(safeTheme.background_type === "solid" || safeTheme.background_type === "gradient") && (
-          <BackgroundPatternOverlay idPrefix="mobile" />
-        )}
-        <PageContent />
+          {/* Noise overlays for mobile */}
+          {safeTheme.background_type === "gradient" && (safeTheme as any).gradient_noise && <NoiseOverlay />}
+          {safeTheme.background_type === "image" && (safeTheme as any).image_noise && <NoiseOverlay />}
+          {/* Pattern overlay for mobile */}
+          {(safeTheme.background_type === "solid" || safeTheme.background_type === "gradient") && (
+            <BackgroundPatternOverlay idPrefix="mobile" />
+          )}
+          <PageContent />
+        </div>
       </div>
       
       {/* Spotify Modal - clean, compact, responsive design */}
       {spotifyModalOpen && spotifyModalData && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm transition-opacity duration-300"
           onClick={() => setSpotifyModalOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-[360px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            className="bg-white w-full h-[100svh] sm:h-auto sm:rounded-2xl sm:w-[min(92vw,460px)] overflow-y-auto shadow-2xl animate-in fade-in zoom-in-95 duration-250 transform-gpu will-change-transform"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -2229,15 +2232,18 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
 
             {/* Spotify Embed - compact height */}
             <div className="p-3">
-              <iframe
-                src={spotifyModalData.embedUrl}
-                width="100%"
-                height="152"
-                frameBorder="0"
-                allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                loading="lazy"
-                className="rounded-lg"
-              />
+              <div className="w-full overflow-hidden rounded-xl bg-black/5">
+                <iframe
+                  src={spotifyModalData.embedUrl}
+                  width="100%"
+                  height="352"
+                  frameBorder="0"
+                  scrolling="no"
+                  allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                  loading="lazy"
+                  className="block w-full"
+                />
+              </div>
             </div>
 
             {/* Streaming Services - text only, no icons */}
@@ -2294,11 +2300,11 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
       {/* Apple Music Modal - clean, compact, responsive design */}
       {appleMusicModalOpen && appleMusicModalData && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm transition-opacity duration-300"
           onClick={() => setAppleMusicModalOpen(false)}
         >
           <div
-            className="bg-white rounded-2xl w-full max-w-[360px] overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+            className="bg-white w-full h-[100svh] sm:h-auto sm:rounded-2xl sm:w-[min(92vw,460px)] overflow-y-auto shadow-2xl animate-in fade-in zoom-in-95 duration-250 transform-gpu will-change-transform"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
@@ -2325,19 +2331,22 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
               </button>
             </div>
 
-            {/* Apple Music Embed - compact height */}
+            {/* Apple Music Embed - responsive */}
             <div className="p-3">
-              <iframe
-                src={appleMusicModalData.embedUrl}
-                width="100%"
-                height="175"
-                frameBorder="0"
-                allow="autoplay *; encrypted-media *; fullscreen *; clipboard-write"
-                sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"
-                loading="lazy"
-                className="rounded-lg"
-                style={{ overflow: 'hidden', background: 'transparent' }}
-              />
+              <div className="w-full overflow-hidden rounded-xl bg-black/5">
+                <iframe
+                  src={appleMusicModalData.embedUrl}
+                  width="100%"
+                  height="360"
+                  frameBorder="0"
+                  scrolling="no"
+                  allow="autoplay *; encrypted-media *; fullscreen *; clipboard-write"
+                  sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"
+                  loading="lazy"
+                  className="block w-full"
+                  style={{ overflow: 'hidden', background: 'transparent' }}
+                />
+              </div>
             </div>
 
             {/* Open in Apple Music button */}
@@ -2362,7 +2371,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
           onClick={() => setQuickCheckoutModalOpen(false)}
         >
           {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" />
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300 animate-in fade-in duration-200" />
 
           {/* Modal */}
           <div
@@ -4856,13 +4865,25 @@ function PublicBlockRenderer({
       }
 
       // Handle download click - triggers direct download
-      const handleDownloadClick = () => {
-        if (downloadLink) {
-          // Create a temporary anchor element to trigger download
+      const handleDownloadClick = async () => {
+        if (!downloadLink) return
+
+        try {
+          const response = await fetch(downloadLink)
+          const blob = await response.blob()
+          const objectUrl = URL.createObjectURL(blob)
+          const link = document.createElement('a')
+          link.href = objectUrl
+          link.download = data.digital_product_title || 'download'
+          document.body.appendChild(link)
+          link.click()
+          document.body.removeChild(link)
+          URL.revokeObjectURL(objectUrl)
+        } catch (error) {
+          // Fallback to direct navigation if fetch-to-blob fails
           const link = document.createElement('a')
           link.href = downloadLink
           link.download = data.digital_product_title || 'download'
-          link.target = '_blank'
           document.body.appendChild(link)
           link.click()
           document.body.removeChild(link)

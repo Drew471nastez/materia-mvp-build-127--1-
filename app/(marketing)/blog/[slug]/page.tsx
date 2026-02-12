@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import Link from "next/link"
 import { useParams } from "next/navigation"
 import { Calendar, Clock, ArrowLeft, ArrowRight } from "lucide-react"
@@ -12,6 +13,7 @@ const BLOG_POSTS: Record<string, {
   readTime: string
   gradient: string
   content: string[]
+  image: string
 }> = {
   "how-to-start-selling-digital-products-2026": {
     title: "How to Start Selling Digital Products in 2026",
@@ -21,6 +23,7 @@ const BLOG_POSTS: Record<string, {
     date: "January 15, 2026",
     readTime: "5 min read",
     gradient: "from-violet-500 to-purple-500",
+    image: "/images/blog/digital-products-2026.svg",
     content: [
       "The digital product economy is booming. In 2026, more creators than ever are turning their skills into passive income streams by selling digital products online. Whether you create templates, courses, ebooks, presets, software tools, or design assets — there's never been a better time to get started.",
       "## Why Digital Products?",
@@ -56,6 +59,7 @@ const BLOG_POSTS: Record<string, {
     date: "February 3, 2026",
     readTime: "4 min read",
     gradient: "from-pink-500 to-rose-500",
+    image: "/images/blog/transaction-fees.svg",
     content: [
       "When you're evaluating platforms to sell your digital products, one number matters more than almost anything else: the transaction fee. It might seem like a small detail, but over time, those percentages add up to a massive difference in your earnings.",
       "## The Math Behind Transaction Fees",
@@ -98,7 +102,7 @@ export default function BlogPostPage() {
   if (!post) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
+        <div className="text-center animate-in fade-in-0 slide-in-from-bottom-1 duration-500">
           <h1 className="text-2xl font-bold text-neutral-900 mb-2">Post not found</h1>
           <p className="text-neutral-600 mb-6">The blog post you're looking for doesn't exist.</p>
           <Link
@@ -121,22 +125,25 @@ export default function BlogPostPage() {
   return (
     <div className="min-h-screen bg-white">
       {/* Hero */}
-      <div className={`h-48 sm:h-64 bg-gradient-to-br ${post.gradient}`} />
+      <div className={`relative h-44 sm:h-64 md:h-72 bg-gradient-to-br ${post.gradient} overflow-hidden`}>
+        <Image src={post.image} alt={post.title} fill className="object-cover opacity-90" sizes="100vw" priority />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+      </div>
 
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8">
-        {/* Back link */}
-        <Link
-          href="/blog"
-          className="inline-flex items-center gap-2 text-sm text-neutral-500 hover:text-neutral-700 transition-colors mb-6"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to Blog
-        </Link>
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 mt-0 sm:-mt-8 pt-3 sm:pt-0 animate-in fade-in-0 slide-in-from-bottom-1 duration-500">
+        <div className="mb-5 flex flex-wrap items-center gap-3">
+          <Link
+            href="/blog"
+            className="inline-flex items-center gap-2 rounded-full bg-white/90 px-3.5 py-2 text-sm text-neutral-600 hover:text-neutral-800 border border-neutral-200 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Blog
+          </Link>
 
-        {/* Category badge */}
-        <span className="inline-block px-3 py-1 rounded-full text-xs font-medium bg-violet-100 text-violet-700 mb-4">
-          {post.category}
-        </span>
+          <span className="inline-flex px-3 py-2 rounded-full text-xs font-medium bg-violet-100 text-violet-700 border border-violet-200">
+            {post.category}
+          </span>
+        </div>
 
         {/* Title */}
         <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-neutral-900 tracking-tight mb-4 leading-tight">
@@ -226,7 +233,7 @@ export default function BlogPostPage() {
           </div>
 
           {/* Prev/Next navigation */}
-          <div className="mt-12 pt-8 border-t border-neutral-200 grid grid-cols-2 gap-4">
+          <div className="mt-12 pt-8 border-t border-neutral-200 grid grid-cols-1 sm:grid-cols-2 gap-4">
             {prevSlug ? (
               <Link
                 href={`/blog/${prevSlug}`}
