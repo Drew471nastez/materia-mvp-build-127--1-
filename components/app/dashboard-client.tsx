@@ -36,6 +36,7 @@ import { createClient } from "@/lib/supabase/client"
 import { useLanguage } from "@/lib/i18n"
 import { getLinksUrl, getStoreUrl } from "@/lib/url-helpers"
 import { useToast } from "@/hooks/use-toast"
+import { DashboardDynamicBanner, type BannerContext } from "@/components/app/dashboard-banner"
 
 interface SetupStep {
   id: string
@@ -108,6 +109,8 @@ interface DashboardClientProps {
   initialTotalRevenue?: number
   creatorHandle?: string
   connectedDomain?: string | null
+  currentPlan?: "free" | "growth" | "pro"
+  productCount?: number
 }
 
 function ChainLinkIcon({ className = "w-4 h-4", stroke = "#ffffff" }: { className?: string; stroke?: string }) {
@@ -774,6 +777,8 @@ export function DashboardClient({
   initialTotalRevenue = 0,
   creatorHandle = "",
   connectedDomain = null,
+  currentPlan = "free",
+  productCount = 0,
 }: DashboardClientProps) {
   const [timeframe, setTimeframe] = useState("last_7_days")
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
@@ -1954,43 +1959,21 @@ export function DashboardClient({
           </div>
         </div>
 
-        {/* Storelib Promotional Banner - Responsive for all devices */}
-        <div className="mb-8">
-          <div
-            className="relative overflow-hidden rounded-2xl"
-            style={{
-              backgroundImage: `url('https://images.unsplash.com/photo-1541367777708-7905fe3296c0?w=1200&h=300&fit=crop')`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-            }}
-          >
-            <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-black/30" />
-            <div className="relative z-10 px-5 py-5 sm:px-8 sm:py-6">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-[13px] sm:text-[15px] font-semibold text-white">Storelib Editions</span>
-                <span className="text-white/60 hidden sm:inline">|</span>
-                <span className="text-[13px] sm:text-[15px] text-white/90 hidden sm:inline">Winter '26</span>
-              </div>
-              <p className="text-[16px] sm:text-[20px] font-medium text-white mb-3 sm:mb-4">{t("dashboard.commerceRenaissance")}</p>
-              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                <Link
-                  href="/editions"
-                  className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 bg-white rounded-lg text-[12px] sm:text-[13px] font-semibold text-[#1a1a2e] hover:bg-white/90 transition-colors"
-                >
-                  {t("dashboard.exploreUpdates")}
-                </Link>
-                <Link
-                  href="/editions"
-                  className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-[12px] sm:text-[13px] font-medium text-white hover:bg-white/20 transition-colors"
-                >
-                  <ExternalLink className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                  <span className="hidden sm:inline">/editions</span>
-                  <span className="sm:hidden">View</span>
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
+        {/* Dynamic Contextual Banner */}
+        <DashboardDynamicBanner
+          context={{
+            hasProducts,
+            productCount,
+            totalOrders: initialTotalOrders,
+            totalRevenue: initialTotalRevenue,
+            isStripeConnected: hasPayouts,
+            hasCustomDomain: !!connectedDomain,
+            currentPlan,
+            setupComplete: allCompleted,
+            creatorHandle,
+            connectedDomain,
+          }}
+        />
 
         {/* Main Content Grid - Store Setup + Quick Actions */}
         <div className="grid gap-6 lg:grid-cols-[370px_1fr]">

@@ -89,6 +89,14 @@ export default async function AppDashboard() {
   // First sale check
   const hasFirstSale = totalOrders > 0
 
+  // Determine current subscription plan
+  const subscriptionPlanId = creator.subscription_plan_id || "free"
+  const subscriptionStatus = creator.subscription_status
+  const isSubscriptionActive = subscriptionStatus && ["active", "trialing"].includes(subscriptionStatus)
+  const currentPlan: "free" | "growth" | "pro" = isSubscriptionActive && subscriptionPlanId !== "free"
+    ? (subscriptionPlanId as "growth" | "pro")
+    : "free"
+
   // Setup checklist - 6 steps with concise tooltips
   const setupSteps = [
     {
@@ -162,6 +170,8 @@ export default async function AppDashboard() {
       initialTotalRevenue={totalRevenue}
       creatorHandle={profile?.username || creator.slug || ""}
       connectedDomain={activeDomain?.domain || null}
+      currentPlan={currentPlan}
+      productCount={products?.length || 0}
     />
   )
 }
