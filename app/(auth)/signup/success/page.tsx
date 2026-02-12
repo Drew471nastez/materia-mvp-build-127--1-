@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import Image from "next/image"
 import { cn } from "@/lib/utils"
 import { Loader2 } from "lucide-react"
 import { CreatorOnboardingModal } from "@/components/app/creator-onboarding-modal"
 import { createClient } from "@/lib/supabase/client"
+import { CountdownBanner } from "@/components/auth/countdown-banner"
 
 // Store/Creator icon - matches UserIcon style
 const StoreIcon = () => (
@@ -51,8 +51,19 @@ export default function SignupSuccessPage() {
           retryTimer = setTimeout(() => checkOnboardingStatus(retryCount + 1), 1000)
           return
         }
-        // After retries, redirect to login
-        if (!cancelled) router.replace("/login")
+        // After retries, try a hard reload first to force-refresh the session
+        // Only redirect to login as a last resort to avoid redirect loops
+        if (!cancelled) {
+          const reloadAttempted = sessionStorage.getItem("storelib_success_reload")
+          if (!reloadAttempted) {
+            sessionStorage.setItem("storelib_success_reload", "1")
+            window.location.reload()
+            return
+          }
+          sessionStorage.removeItem("storelib_success_reload")
+          // Use window.location to do a hard navigation (avoids Next.js client-side loop)
+          window.location.href = "/login"
+        }
         return
       }
 
@@ -314,16 +325,11 @@ export default function SignupSuccessPage() {
           </div>
         </div>
 
-        {/* Right side - Image (same as signup page) */}
-        <div className="relative hidden lg:block lg:w-1/2">
-          <Image
-            src="/images/design-mode/banner-signup-desktop-Dq7usIXX.webp"
-            alt="Signup banner"
-            fill
-            className="object-cover"
-            priority
-          />
-        </div>
+        {/* Right side - Blurred image with countdown */}
+        <CountdownBanner
+          imageSrc="/images/design-mode/banner-signup-desktop-Dq7usIXX.webp"
+          imageAlt="Signup banner"
+        />
       </div>
 
       {/* Creator Onboarding Modal */}

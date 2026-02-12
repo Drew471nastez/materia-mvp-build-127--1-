@@ -82,12 +82,23 @@ function AuthCompleteContent() {
         const { data: { user } } = await supabase.auth.getUser()
 
         if (!user) {
-          router.push("/login")
+          // Use hard navigation to avoid client-side redirect loops
+          window.location.href = "/login"
           return
         }
 
-        // Check if user has completed welcome
-        const welcomeShown = localStorage.getItem("storelib_welcome_shown")
+        // Check DB for user status (more reliable than localStorage)
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("welcome_completed, is_creator")
+          .eq("id", user.id)
+          .maybeSingle()
+
+        if (profile?.welcome_completed) {
+          localStorage.setItem("storelib_welcome_shown", "true")
+        }
+
+        const welcomeShown = profile?.welcome_completed || localStorage.getItem("storelib_welcome_shown")
         if (!welcomeShown) {
           router.push("/signup/success")
           return

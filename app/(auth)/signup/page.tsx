@@ -9,8 +9,8 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useEffect, Suspense, useRef } from "react"
 import { Eye, EyeOff } from "lucide-react"
-import Image from "next/image"
 import { getCanonicalSiteUrl } from "@/lib/url-helpers"
+import { CountdownBanner } from "@/components/auth/countdown-banner"
 
 function SignUpFormContent() {
   const [email, setEmail] = useState("")
@@ -23,7 +23,6 @@ function SignUpFormContent() {
   const [isRedirecting, setIsRedirecting] = useState(false)
   const [showPasswordField, setShowPasswordField] = useState(false)
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
-  const [isBannerLoaded, setIsBannerLoaded] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [googleOnlyEmail, setGoogleOnlyEmail] = useState<string | null>(null)
   const redirectTimeoutRef = useRef<number | null>(null)
@@ -61,20 +60,44 @@ function SignUpFormContent() {
     return res.json()
   }
 
-  // Check if user is already authenticated - redirect to /explore if so
+  // Check if user is already authenticated - redirect if so
+  // Includes loop detection to prevent infinite redirect cycles
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        // Loop detection: track rapid redirects to /signup
+        const now = Date.now()
+        const lastTs = parseInt(sessionStorage.getItem("storelib_signup_ts") || "0")
+        const hitCount = parseInt(sessionStorage.getItem("storelib_signup_hits") || "0")
+
+        if (now - lastTs < 6000) {
+          const newHits = hitCount + 1
+          sessionStorage.setItem("storelib_signup_hits", String(newHits))
+          sessionStorage.setItem("storelib_signup_ts", String(now))
+
+          if (newHits >= 3) {
+            console.warn("[signup] Redirect loop detected, showing signup form")
+            sessionStorage.removeItem("storelib_signup_hits")
+            sessionStorage.removeItem("storelib_signup_ts")
+            setIsCheckingAuth(false)
+            return
+          }
+        } else {
+          sessionStorage.setItem("storelib_signup_hits", "1")
+          sessionStorage.setItem("storelib_signup_ts", String(now))
+        }
+
         const supabase = createClient()
         const { data: { user } } = await supabase.auth.getUser()
 
         if (user) {
-          // User is already logged in, redirect to explore
           router.replace("/explore")
           return
         }
+
+        sessionStorage.removeItem("storelib_signup_hits")
+        sessionStorage.removeItem("storelib_signup_ts")
       } catch (error) {
-        // Ignore errors, just show the signup form
         console.error("Auth check error:", error)
       } finally {
         setIsCheckingAuth(false)
@@ -456,17 +479,10 @@ function SignUpFormContent() {
         </div>
       </div>
 
-      <div className="relative hidden lg:block lg:w-1/2">
-        {!isBannerLoaded && <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-neutral-100 via-neutral-200 to-neutral-100" />}
-        <Image
-          src="/images/design-mode/banner-signup-desktop-Dq7usIXX.webp"
-          alt="Signup banner"
-          fill
-          className="object-cover transition-opacity duration-500"
-          onLoad={() => setIsBannerLoaded(true)}
-          priority
-        />
-      </div>
+      <CountdownBanner
+        imageSrc="/images/design-mode/banner-signup-desktop-Dq7usIXX.webp"
+        imageAlt="Signup banner"
+      />
     </div>
   )
 }
