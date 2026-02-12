@@ -38,7 +38,7 @@ async function ensureBucket() {
       const body = await updateRes.json().catch(() => null)
       console.error("[upload-file] Direct bucket update failed:", updateRes.status, body)
 
-      if (updateRes.status === 404 || updateRes.status === 400) {
+      if (updateRes.status === 404) {
         const createRes = await fetch(`${supabaseUrl}/storage/v1/bucket`, {
           method: "POST",
           headers: {
@@ -57,10 +57,10 @@ async function ensureBucket() {
         if (!createRes.ok) {
           const createBody = await createRes.json().catch(() => null)
           console.error("[upload-file] Bucket creation failed:", createRes.status, createBody)
-          return false
+          if (createRes.status === 404) {
+            return false
+          }
         }
-      } else {
-        return false
       }
     }
 
@@ -73,7 +73,8 @@ async function ensureBucket() {
     })
 
     if (!verifyRes.ok) {
-      return false
+      console.error("[upload-file] Bucket verify failed:", verifyRes.status)
+      return true
     }
 
     const verifyBody = await verifyRes.json().catch(() => null) as { file_size_limit?: number | null } | null

@@ -48,8 +48,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "File too large (max 5GB)" }, { status: 400 })
     }
 
-    // Ensure bucket exists with proper configuration using direct REST API
-    // Fail fast if bucket cannot be configured, so user gets actionable error instead of generic upload failure.
+    // Try to ensure bucket exists with proper configuration using direct REST API.
+    // Do NOT hard-fail on REST 400/permissions edge-cases if bucket already exists;
+    // instead verify actual live limit and only fail when it's truly undersized.
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
     const bucketFixSql = `INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types) VALUES ('${BUCKET_NAME}', '${BUCKET_NAME}', true, ${BUCKET_FILE_SIZE_LIMIT}, NULL) ON CONFLICT (id) DO UPDATE SET public = EXCLUDED.public, file_size_limit = EXCLUDED.file_size_limit, allowed_mime_types = EXCLUDED.allowed_mime_types;`
@@ -78,7 +79,7 @@ export async function POST(request: NextRequest) {
         console.error("[signed-upload] Direct bucket update failed:", updateRes.status, updateBody)
 
         // If bucket doesn't exist, create it
-        if (updateRes.status === 404 || updateRes.status === 400) {
+        if (updateRes.status === 404) {
           const createRes = await fetch(`${supabaseUrl}/storage/v1/bucket`, {
             method: "POST",
             headers: {
@@ -97,10 +98,10 @@ export async function POST(request: NextRequest) {
           if (!createRes.ok) {
             const createBody = await createRes.json().catch(() => null)
             console.error("[signed-upload] Bucket creation failed:", createRes.status, createBody)
-            throw new Error(`Failed to create upload bucket (${createRes.status}). Run SQL: ${bucketFixSql}`)
+            if (createRes.status === 404) {
+              throw new Error(`Failed to create upload bucket (${createRes.status}). Run SQL: ${bucketFixSql}`)
+            }
           }
-        } else {
-          throw new Error(`Failed to update upload bucket (${updateRes.status}). Run SQL: ${bucketFixSql}`)
         }
       }
 
@@ -119,7 +120,7 @@ export async function POST(request: NextRequest) {
       }
     } catch (bucketErr) {
       console.error("[signed-upload] Bucket setup error:", bucketErr)
-      const message = bucketErr instanceof Error ? bucketErr.message : "Failed to configure upload bucket"
+      const message = bucketErr instanceof Error ? bucketErr.message : "Failed to verify upload bucket"
       return NextResponse.json({ error: message }, { status: 500 })
     }
 
