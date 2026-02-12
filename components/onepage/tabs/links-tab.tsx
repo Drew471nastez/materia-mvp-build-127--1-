@@ -3597,18 +3597,20 @@ export function LinksTab() {
                     setImageUploading(true)
                     setUploadProgress(0)
                     try {
-                      const folder = imageFieldType === 'digital_product_file' || imageFieldType === 'pdf_file' ? 'digital' : 'images'
-                      const SMALL_FILE_LIMIT = 4 * 1024 * 1024 // 4MB
+                      const isDigitalFile = imageFieldType === 'digital_product_file' || imageFieldType === 'pdf_file'
+                      const folder = isDigitalFile ? 'digital' : 'images'
+                      // Use signed URL upload for digital files (any size) and large image files
+                      // Direct upload only for small image/thumbnail files (< 2MB)
+                      const DIRECT_UPLOAD_LIMIT = 2 * 1024 * 1024 // 2MB
 
                       let url: string
 
-                      if (file.size < SMALL_FILE_LIMIT) {
-                        // Small files: use FormData via server API route (most reliable)
+                      if (!isDigitalFile && file.size < DIRECT_UPLOAD_LIMIT) {
+                        // Small image/thumbnail files: use FormData via server API route
                         const formData = new FormData()
                         formData.append('file', file)
-                        formData.append('type', folder === 'digital' ? 'digital' : 'image')
+                        formData.append('type', 'image')
 
-                        // Simulated progress for small files (they upload quickly)
                         let simProgress = 0
                         const simInterval = setInterval(() => {
                           simProgress = Math.min(simProgress + 12, 90)
@@ -3631,8 +3633,8 @@ export function LinksTab() {
                         const result = await uploadRes.json()
                         url = result.url
                       } else {
-                        // Large files: use signed URL for direct-to-storage upload
-                        // Step 1: Get signed upload token from server
+                        // All digital files + large images: use signed URL for direct-to-storage upload
+                        // This bypasses server body size limits entirely
                         setUploadProgress(2)
                         const signedRes = await fetch('/api/onepage/signed-upload-url', {
                           method: 'POST',
@@ -3646,15 +3648,14 @@ export function LinksTab() {
                         })
 
                         if (!signedRes.ok) {
-                          const err = await signedRes.json().catch(() => ({ error: 'Failed to get upload URL' }))
-                          throw new Error(err.error || 'Failed to get upload URL')
+                          const err = await signedRes.json().catch(() => ({ error: 'Failed to prepare upload' }))
+                          throw new Error(err.error || 'Failed to prepare upload')
                         }
 
                         const signedData = await signedRes.json()
                         setUploadProgress(5)
 
-                        // Step 2: Upload directly to Supabase storage using signed URL
-                        // Use XHR for real progress tracking (same-origin Supabase upload)
+                        // Upload directly to Supabase storage using signed URL
                         await new Promise<void>((resolve, reject) => {
                           const xhr = new XMLHttpRequest()
                           xhr.upload.addEventListener('progress', (e) => {
@@ -3668,13 +3669,13 @@ export function LinksTab() {
                               setUploadProgress(100)
                               resolve()
                             } else {
-                              reject(new Error(`Upload failed (status ${xhr.status}). Please check your file and try again.`))
+                              reject(new Error(`Upload failed with status ${xhr.status}. Please try again.`))
                             }
                           })
-                          xhr.addEventListener('error', () => reject(new Error('Network error during upload. Please check your connection and try again.')))
+                          xhr.addEventListener('error', () => reject(new Error('Network error during upload. Please check your connection.')))
                           xhr.addEventListener('abort', () => reject(new Error('Upload was cancelled.')))
-                          xhr.addEventListener('timeout', () => reject(new Error('Upload timed out. Please try again.')))
-                          xhr.timeout = 600000 // 10 minute timeout for large files
+                          xhr.addEventListener('timeout', () => reject(new Error('Upload timed out. Please try again with a smaller file or better connection.')))
+                          xhr.timeout = 600000 // 10 minute timeout
 
                           xhr.open('PUT', signedData.signedUrl)
                           xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream')

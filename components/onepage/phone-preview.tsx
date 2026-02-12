@@ -3025,7 +3025,7 @@ function ImageCarousel({
   const autoplayPausedRef = useRef(false)
 
   const view = parseFloat(carouselView) || 1
-  const gap = view > 1 ? 6 : 0
+  const gap = view > 1 ? 6 : 4 // Always have a small gap between images
   const maxIndex = Math.max(0, images.length - Math.ceil(view))
 
   // Measure container width
@@ -3040,22 +3040,31 @@ function ImageCarousel({
   }, [])
 
   const itemWidth = containerWidth > 0
-    ? (view <= 1 ? containerWidth : (containerWidth - gap * (Math.ceil(view) - 1)) / view)
+    ? (containerWidth - gap * (Math.ceil(view) - 1)) / view
     : 0
   const stepSize = itemWidth + gap
 
-  // Auto-advance slides
+  // Track if autoplay triggered last transition for smoother animation
+  const [isAutoplayTransition, setIsAutoplayTransition] = useState(false)
+
+  // Auto-advance slides with slower, smoother transitions
   useEffect(() => {
     if (!autoplay || isHovered || images.length <= 1) return
     const interval = setInterval(() => {
       if (!autoplayPausedRef.current) {
+        setIsAutoplayTransition(true)
         setCurrentIndex(prev => prev >= maxIndex ? 0 : prev + 1)
+        // Reset autoplay flag after transition completes
+        setTimeout(() => setIsAutoplayTransition(false), 700)
       }
-    }, 4000)
+    }, 5000)
     return () => clearInterval(interval)
   }, [autoplay, isHovered, images.length, maxIndex])
 
   // Touch handlers - full control, no native scroll fighting
+  const rafRef = useRef<number | null>(null)
+  const lastDragOffsetRef = useRef(0)
+
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     touchStartRef.current = {
       x: e.touches[0].clientX,
@@ -3064,6 +3073,7 @@ function ImageCarousel({
     }
     directionLockRef.current = null
     autoplayPausedRef.current = true
+    lastDragOffsetRef.current = 0
   }, [])
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
@@ -3073,7 +3083,7 @@ function ImageCarousel({
 
     // Lock direction on first significant movement
     if (!directionLockRef.current) {
-      if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
+      if (Math.abs(dx) > 6 || Math.abs(dy) > 6) {
         directionLockRef.current = Math.abs(dx) >= Math.abs(dy) ? 'h' : 'v'
       }
       return
@@ -3081,27 +3091,33 @@ function ImageCarousel({
 
     if (directionLockRef.current === 'h') {
       e.preventDefault()
-      setIsDragging(true)
+      if (!isDragging) setIsDragging(true)
       // Rubber band effect at edges
       let offset = dx
       if ((currentIndex <= 0 && dx > 0) || (currentIndex >= maxIndex && dx < 0)) {
         offset = dx * 0.25
       }
-      setDragOffset(offset)
+      // Use rAF for 60fps smooth drag updates
+      lastDragOffsetRef.current = offset
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
+      rafRef.current = requestAnimationFrame(() => {
+        setDragOffset(lastDragOffsetRef.current)
+      })
     }
-  }, [currentIndex, maxIndex])
+  }, [currentIndex, maxIndex, isDragging])
 
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current)
     if (!touchStartRef.current) return
 
     if (directionLockRef.current === 'h') {
       const dx = e.changedTouches[0].clientX - touchStartRef.current.x
       const dt = Date.now() - touchStartRef.current.time
       const velocity = Math.abs(dx) / dt
-      const threshold = stepSize > 0 ? stepSize * 0.2 : 50
+      const threshold = stepSize > 0 ? stepSize * 0.15 : 40
 
-      // Only advance ONE slide per swipe
-      if (velocity > 0.3 || Math.abs(dx) > threshold) {
+      // Only advance ONE slide per swipe - lower threshold for snappier feel
+      if (velocity > 0.25 || Math.abs(dx) > threshold) {
         if (dx < 0 && currentIndex < maxIndex) {
           setCurrentIndex(prev => prev + 1)
         } else if (dx > 0 && currentIndex > 0) {
@@ -3154,9 +3170,13 @@ function ImageCarousel({
         <div
           style={{
             display: 'flex',
-            gap: gap > 0 ? `${gap}px` : undefined,
+            gap: `${gap}px`,
             transform: `translate3d(${translateX}px, 0, 0)`,
-            transition: isDragging ? 'none' : 'transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+            transition: isDragging
+              ? 'none'
+              : isAutoplayTransition
+                ? 'transform 0.65s cubic-bezier(0.4, 0, 0.2, 1)' // Slower, smoother for autoplay
+                : 'transform 0.4s cubic-bezier(0.22, 0.68, 0, 1.0)', // Snappy spring for manual swipe
             willChange: 'transform',
           }}
         >
@@ -4485,7 +4505,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
 
       // Single display or only one image
       if (data.display_style === 'single' || images.length === 1) {
-        return <div className="w-full py-px">{renderImage(images[0], 0)}</div>
+        return <div className="w-full py-1">{renderImage(images[0], 0)}</div>
       }
 
       // Grid display
@@ -4493,7 +4513,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
         const cols = data.grid_columns || 2
         return (
           <div
-            className="w-full grid gap-2 py-px"
+            className="w-full grid gap-2 py-1"
             style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}
           >
             {images.map((img, idx) => renderImage(img, idx))}
@@ -4504,7 +4524,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
       // Carousel display with navigation dots and smooth scroll (disabled inside group blocks)
       if (data.display_style === 'carousel' && !isInsideGroup) {
         return (
-          <div className="w-full pt-px pb-[3px]">
+          <div className="w-full pt-1 pb-[6px]">
             <ImageCarousel
               images={images}
               renderImage={renderImage}
@@ -4519,11 +4539,11 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
 
       // If carousel is requested but inside group, show single image instead
       if (data.display_style === 'carousel' && isInsideGroup) {
-        return <div className="w-full py-px">{renderImage(images[0], 0)}</div>
+        return <div className="w-full py-1">{renderImage(images[0], 0)}</div>
       }
 
       // Default: single image
-      return <div className="w-full py-px">{renderImage(images[0], 0)}</div>
+      return <div className="w-full py-1">{renderImage(images[0], 0)}</div>
     }
 
     case "divider": {
