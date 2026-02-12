@@ -47,29 +47,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "File too large (max 500MB)" }, { status: 400 })
     }
 
-    // Ensure bucket exists with proper configuration (4GB, all MIME types, public)
+    // Ensure bucket exists with proper configuration (public, 500MB limit, all MIME types)
     try {
       const { data: buckets } = await adminSupabase.storage.listBuckets()
       const existingBucket = buckets?.find((b) => b.name === BUCKET_NAME)
       if (!existingBucket) {
         const { error: createErr } = await adminSupabase.storage.createBucket(BUCKET_NAME, {
           public: true,
-          fileSizeLimit: 0, // 0 = no file size limit (avoids int32 overflow with large values)
+          fileSizeLimit: MAX_DIGITAL_FILE_SIZE,
           allowedMimeTypes: null, // null = allow ALL file types
         })
         if (createErr && !createErr.message?.includes('already exists')) {
-          console.error("Bucket creation error:", createErr)
+          console.error("[signed-upload] Bucket creation error:", createErr)
         }
       } else {
-        // Always update bucket to ensure correct settings (public, no size limit, no MIME restrictions)
-        await adminSupabase.storage.updateBucket(BUCKET_NAME, {
+        // Always update bucket to fix any previous misconfiguration (e.g. int32 overflow from 4GB value)
+        const { error: updateErr } = await adminSupabase.storage.updateBucket(BUCKET_NAME, {
           public: true,
-          fileSizeLimit: 0, // 0 = no file size limit
-          allowedMimeTypes: null, // null = allow ALL file types
+          fileSizeLimit: MAX_DIGITAL_FILE_SIZE,
+          allowedMimeTypes: null,
         })
+        if (updateErr) {
+          console.error("[signed-upload] Bucket update error:", updateErr)
+        }
       }
     } catch (bucketErr) {
-      console.error("Bucket setup error (continuing):", bucketErr)
+      console.error("[signed-upload] Bucket setup error (continuing):", bucketErr)
     }
 
     // Generate unique path

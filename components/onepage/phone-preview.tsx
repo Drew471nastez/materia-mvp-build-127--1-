@@ -1398,20 +1398,6 @@ export function PhonePreview({ className }: PhonePreviewProps) {
             backgroundColor: "#000",
           }}
         >
-          {/* Dynamic Island */}
-          <div
-            style={{
-              position: "absolute",
-              top: "10px",
-              left: "50%",
-              transform: "translateX(-50%)",
-              width: "84px",
-              height: "25px",
-              backgroundColor: "#000",
-              borderRadius: "9999px",
-              zIndex: 50,
-            }}
-          />
 
           {/* Background base layer - stays fixed while content scrolls */}
           <div

@@ -19,7 +19,7 @@ async function ensureBucket(adminSupabase: ReturnType<typeof createAdminClient>)
     if (!existingBucket) {
       const { error: createError } = await adminSupabase.storage.createBucket(BUCKET_NAME, {
         public: true,
-        fileSizeLimit: 0, // 0 = no file size limit
+        fileSizeLimit: MAX_FILE_SIZE,
         allowedMimeTypes: null, // null = allow ALL file types
       })
       if (createError && !createError.message?.includes('already exists')) {
@@ -27,10 +27,10 @@ async function ensureBucket(adminSupabase: ReturnType<typeof createAdminClient>)
         return false
       }
     } else {
-      // Always update to ensure correct settings
+      // Always update to fix any previous misconfiguration
       const { error: updateError } = await adminSupabase.storage.updateBucket(BUCKET_NAME, {
         public: true,
-        fileSizeLimit: 0, // 0 = no file size limit
+        fileSizeLimit: MAX_FILE_SIZE,
         allowedMimeTypes: null,
       })
       if (updateError) {
