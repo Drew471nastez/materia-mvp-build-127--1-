@@ -3052,7 +3052,7 @@ function PublicImageCarousel({
       if (!autoplayPausedRef.current) {
         setIsAutoplayTransition(true)
         setCurrentIndex(prev => prev >= maxIndex ? 0 : prev + 1)
-        setTimeout(() => setIsAutoplayTransition(false), 700)
+        setTimeout(() => setIsAutoplayTransition(false), 900)
       }
     }, 5000)
     return () => clearInterval(interval)
@@ -3172,8 +3172,8 @@ function PublicImageCarousel({
             transition: isDragging
               ? 'none'
               : isAutoplayTransition
-                ? 'transform 0.65s cubic-bezier(0.4, 0, 0.2, 1)' // Slower, smoother for autoplay
-                : 'transform 0.4s cubic-bezier(0.22, 0.68, 0, 1.0)', // Snappy spring for manual swipe
+                ? 'transform 0.8s cubic-bezier(0.4, 0, 0.15, 1)' // Slow, silky smooth for autoplay
+                : 'transform 0.5s cubic-bezier(0.32, 0.72, 0, 1)', // Smooth spring for manual swipe
             willChange: 'transform',
           }}
         >
@@ -4307,11 +4307,11 @@ function PublicBlockRenderer({
               <img
                 src={data.thumbnail_url}
                 alt=""
-                className="w-[37.5px] h-[37.5px] sm:w-[42.5px] sm:h-[42.5px] rounded object-cover shrink-0 absolute left-[20px]"
+                className="w-[32px] h-[32px] sm:w-[36px] sm:h-[36px] rounded object-cover shrink-0 absolute left-[20px]"
               />
             ) : iconPath ? (
               <svg
-                className="w-[37.5px] h-[37.5px] sm:w-[42.5px] sm:h-[42.5px] shrink-0 absolute left-[20px]"
+                className="w-[32px] h-[32px] sm:w-[36px] sm:h-[36px] shrink-0 absolute left-[20px]"
                 viewBox={iconViewBox}
                 fill={isFilledIcon ? "currentColor" : "none"}
                 stroke={isFilledIcon ? "none" : "currentColor"}
@@ -4371,11 +4371,11 @@ function PublicBlockRenderer({
               <img
                 src={data.thumbnail_url}
                 alt=""
-                className="w-[37.5px] h-[37.5px] sm:w-[42.5px] sm:h-[42.5px] rounded object-cover shrink-0 absolute left-[20px]"
+                className="w-[32px] h-[32px] sm:w-[36px] sm:h-[36px] rounded object-cover shrink-0 absolute left-[20px]"
               />
             ) : iconPath ? (
               <svg
-                className="w-[37.5px] h-[37.5px] sm:w-[42.5px] sm:h-[42.5px] shrink-0 absolute left-[20px]"
+                className="w-[32px] h-[32px] sm:w-[36px] sm:h-[36px] shrink-0 absolute left-[20px]"
                 viewBox={iconViewBox}
                 fill={isFilledIcon ? "currentColor" : "none"}
                 stroke={isFilledIcon ? "none" : "currentColor"}
@@ -4444,11 +4444,11 @@ function PublicBlockRenderer({
             <img
               src={data.thumbnail_url}
               alt=""
-              className="w-[37.5px] h-[37.5px] sm:w-[42.5px] sm:h-[42.5px] rounded object-cover shrink-0 absolute left-[20px]"
+              className="w-[32px] h-[32px] sm:w-[36px] sm:h-[36px] rounded object-cover shrink-0 absolute left-[20px]"
             />
           ) : iconPath ? (
             <svg
-              className="w-[37.5px] h-[37.5px] sm:w-[42.5px] sm:h-[42.5px] shrink-0 absolute left-[20px]"
+              className="w-[32px] h-[32px] sm:w-[36px] sm:h-[36px] shrink-0 absolute left-[20px]"
               viewBox={iconViewBox}
               fill={isFilledIcon ? "currentColor" : "none"}
               stroke={isFilledIcon ? "none" : "currentColor"}

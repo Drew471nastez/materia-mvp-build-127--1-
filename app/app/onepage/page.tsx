@@ -3,11 +3,27 @@ import { createClient } from "@/lib/supabase/server"
 import { OnePageEditor } from "@/components/onepage/onepage-editor"
 import type { OnePage } from "@/lib/onepage/types"
 import { defaultTheme, defaultSettings, defaultSocialLinks } from "@/lib/onepage/types"
+import type { Metadata } from "next"
 
 export const dynamic = "force-dynamic"
 
-export const metadata = {
-  title: "OnePage",
+export async function generateMetadata(): Promise<Metadata> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { title: "OnePage" }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("display_name, username")
+      .eq("id", user.id)
+      .single()
+
+    const displayName = profile?.display_name || profile?.username || "OnePage"
+    return { title: displayName }
+  } catch {
+    return { title: "OnePage" }
+  }
 }
 
 export default async function OnePageEditorPage() {

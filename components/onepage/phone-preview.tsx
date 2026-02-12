@@ -3055,7 +3055,7 @@ function ImageCarousel({
         setIsAutoplayTransition(true)
         setCurrentIndex(prev => prev >= maxIndex ? 0 : prev + 1)
         // Reset autoplay flag after transition completes
-        setTimeout(() => setIsAutoplayTransition(false), 700)
+        setTimeout(() => setIsAutoplayTransition(false), 900)
       }
     }, 5000)
     return () => clearInterval(interval)
@@ -3175,8 +3175,8 @@ function ImageCarousel({
             transition: isDragging
               ? 'none'
               : isAutoplayTransition
-                ? 'transform 0.65s cubic-bezier(0.4, 0, 0.2, 1)' // Slower, smoother for autoplay
-                : 'transform 0.4s cubic-bezier(0.22, 0.68, 0, 1.0)', // Snappy spring for manual swipe
+                ? 'transform 0.8s cubic-bezier(0.4, 0, 0.15, 1)' // Slow, silky smooth for autoplay
+                : 'transform 0.5s cubic-bezier(0.32, 0.72, 0, 1)', // Smooth spring for manual swipe
             willChange: 'transform',
           }}
         >
@@ -3344,10 +3344,10 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
           title: "text-[16px]",
           bio: "text-[11px] max-w-[180px]",
           button: "py-[14.5px] px-[12px] text-[12px]",
-          buttonThumb: "w-[25.5px] h-[25.5px]",
-          buttonIcon: 15.5,
+          buttonThumb: "w-[30px] h-[30px]",
+          buttonIcon: 20,
           buttonIconLeft: "12px",
-          buttonTextPadding: "pl-[42px] pr-[42px]",
+          buttonTextPadding: "pl-[46px] pr-[46px]",
           text: "text-[11px]",
           input: "px-[10px] py-[8px] text-[11px]",
           inputBtn: "px-[12px] py-[8px] text-[11px]",
