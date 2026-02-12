@@ -3628,7 +3628,7 @@ export function LinksTab() {
                         const result = await uploadRes.json()
                         url = result.url
                       } else {
-                        // Large files: use signed URL with XHR for real progress tracking
+                        // Large files: use signed URL for direct-to-storage upload
                         // Step 1: Get signed upload token from server
                         setUploadProgress(2)
                         const signedRes = await fetch('/api/onepage/signed-upload-url', {
@@ -3647,37 +3647,70 @@ export function LinksTab() {
                           throw new Error(err.error || 'Failed to get upload URL')
                         }
 
-                        const { signedUrl, publicUrl } = await signedRes.json()
+                        const signedData = await signedRes.json()
                         setUploadProgress(5)
 
-                        // Step 2: Upload via XHR for real progress tracking
-                        await new Promise<void>((resolve, reject) => {
-                          const xhr = new XMLHttpRequest()
-                          xhr.upload.addEventListener('progress', (e) => {
-                            if (e.lengthComputable) {
-                              const pct = Math.round((e.loaded / e.total) * 93) + 5 // 5-98%
-                              setUploadProgress(pct)
-                            }
-                          })
-                          xhr.addEventListener('load', () => {
-                            if (xhr.status >= 200 && xhr.status < 300) {
-                              setUploadProgress(100)
-                              resolve()
-                            } else {
-                              reject(new Error(`Upload failed with status ${xhr.status}`))
-                            }
-                          })
-                          xhr.addEventListener('error', () => reject(new Error('Upload failed')))
-                          xhr.addEventListener('abort', () => reject(new Error('Upload aborted')))
+                        // Step 2: Try XHR first for progress tracking, fall back to Supabase client
+                        let xhrSucceeded = false
+                        try {
+                          await new Promise<void>((resolve, reject) => {
+                            const xhr = new XMLHttpRequest()
+                            xhr.upload.addEventListener('progress', (e) => {
+                              if (e.lengthComputable) {
+                                const pct = Math.round((e.loaded / e.total) * 93) + 5 // 5-98%
+                                setUploadProgress(pct)
+                              }
+                            })
+                            xhr.addEventListener('load', () => {
+                              if (xhr.status >= 200 && xhr.status < 300) {
+                                setUploadProgress(100)
+                                resolve()
+                              } else {
+                                reject(new Error(`Upload failed with status ${xhr.status}`))
+                              }
+                            })
+                            xhr.addEventListener('error', () => reject(new Error('XHR error')))
+                            xhr.addEventListener('abort', () => reject(new Error('Upload aborted')))
 
-                          // Use the full signed URL directly from Supabase
-                          xhr.open('PUT', signedUrl)
-                          xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream')
-                          xhr.setRequestHeader('x-upsert', 'true')
-                          xhr.send(file)
-                        })
+                            xhr.open('PUT', signedData.signedUrl)
+                            xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream')
+                            xhr.setRequestHeader('x-upsert', 'true')
+                            xhr.send(file)
+                          })
+                          xhrSucceeded = true
+                        } catch {
+                          // XHR failed (CORS or network), fall back to Supabase client
+                          console.warn('XHR upload failed, falling back to Supabase client')
+                        }
 
-                        url = publicUrl
+                        if (!xhrSucceeded) {
+                          // Fallback: use Supabase JS client with simulated progress
+                          const { createClient: createBrowserClient } = await import('@/lib/supabase/client')
+                          const supabase = createBrowserClient()
+
+                          // Simulated progress for fallback
+                          let simProg = 10
+                          const simInt = setInterval(() => {
+                            simProg = Math.min(simProg + 2, 90)
+                            setUploadProgress(simProg)
+                          }, 500)
+
+                          const { error: uploadError } = await supabase.storage
+                            .from('lead-form-files')
+                            .uploadToSignedUrl(signedData.path, signedData.token, file, {
+                              contentType: file.type || 'application/octet-stream',
+                              upsert: true,
+                            })
+
+                          clearInterval(simInt)
+
+                          if (uploadError) {
+                            throw new Error(`Upload failed: ${uploadError.message}`)
+                          }
+                          setUploadProgress(100)
+                        }
+
+                        url = signedData.publicUrl
                       }
 
                       const block = onepage.draft_blocks.find(b => b.id === imageBlockId)

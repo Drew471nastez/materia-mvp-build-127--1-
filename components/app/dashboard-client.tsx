@@ -473,9 +473,11 @@ function TimeframeBottomSheet({
     const sheetElement = sheetRef.current
     if (!sheetElement) return
     const sheetRect = sheetElement.getBoundingClientRect()
+    // Allow drag from anywhere above the sheet content area (backdrop + handle + header)
+    // Only block drag if touch is deep inside sheet content (scrollable area)
     const touchYInSheet = touch.clientY - sheetRect.top
-    // Drag from handle area + header (top 100px) - extended for easier grab
-    if (touchYInSheet <= 100) {
+    if (touchYInSheet <= 0 || touchYInSheet <= 100) {
+      // Touch is on backdrop (above sheet) or in handle/header area
       startYRef.current = touch.clientY
       lastYRef.current = touch.clientY
       lastTimeRef.current = Date.now()
@@ -489,13 +491,12 @@ function TimeframeBottomSheet({
     const currentY = e.touches[0].clientY
     const diff = currentY - startYRef.current
     if (diff > 0) {
-      // Track velocity for flick detection
+      e.preventDefault()
       const now = Date.now()
       const dt = Math.max(1, now - lastTimeRef.current)
       velocityRef.current = (currentY - lastYRef.current) / dt
       lastYRef.current = currentY
       lastTimeRef.current = now
-      // Rubber band resistance matching +Add block
       const resisted = diff <= 160 ? diff * 0.92 : 147 + (diff - 160) * 0.4
       setDragY(resisted)
     }
@@ -504,7 +505,6 @@ function TimeframeBottomSheet({
   const handleTouchEnd = () => {
     if (!isDragging) return
     setIsDragging(false)
-    // Dismiss on threshold drag or fast flick
     if (dragY > 92 || velocityRef.current > 0.55) {
       handleClose()
     } else {
@@ -515,7 +515,12 @@ function TimeframeBottomSheet({
   if (!isVisible) return null
 
   return (
-    <div className="fixed inset-0 z-[100] md:hidden">
+    <div
+      className="fixed inset-0 z-[100] md:hidden"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
       {/* Backdrop with smooth fade + blur */}
       <div
         className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
@@ -528,9 +533,6 @@ function TimeframeBottomSheet({
       {/* Bottom Sheet - GPU accelerated */}
       <div
         ref={sheetRef}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
         className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
         style={{
           transform: isAnimating ? `translate3d(0, ${dragY}px, 0)` : "translate3d(0, 100%, 0)",
@@ -540,8 +542,6 @@ function TimeframeBottomSheet({
           WebkitBackfaceVisibility: 'hidden',
         }}
       >
-        {/* Invisible extended touch zone above sheet for easier grab */}
-        <div className="absolute left-0 right-0 h-6 -top-6" />
         {/* Handle bar */}
         <div className="pt-3 pb-1 flex justify-center cursor-grab active:cursor-grabbing touch-none" data-sheet-handle>
           <div className="h-[5px] w-10 rounded-full bg-gray-300" />
@@ -646,8 +646,8 @@ function QuickAccessBottomSheet({
     if (!sheetElement) return
     const sheetRect = sheetElement.getBoundingClientRect()
     const touchYInSheet = touch.clientY - sheetRect.top
-    // Drag from handle area + header (top 100px) - extended for easier grab
-    if (touchYInSheet <= 100) {
+    // Allow drag from backdrop (above sheet) or handle/header area
+    if (touchYInSheet <= 0 || touchYInSheet <= 100) {
       startYRef.current = touch.clientY
       lastYRef.current = touch.clientY
       lastTimeRef.current = Date.now()
@@ -661,6 +661,7 @@ function QuickAccessBottomSheet({
     const currentY = e.touches[0].clientY
     const diff = currentY - startYRef.current
     if (diff > 0) {
+      e.preventDefault()
       const now = Date.now()
       const dt = Math.max(1, now - lastTimeRef.current)
       velocityRef.current = (currentY - lastYRef.current) / dt
@@ -684,7 +685,12 @@ function QuickAccessBottomSheet({
   if (!isVisible) return null
 
   return (
-    <div className="fixed inset-0 z-[110] md:hidden">
+    <div
+      className="fixed inset-0 z-[110] md:hidden"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
         style={{
@@ -695,9 +701,6 @@ function QuickAccessBottomSheet({
       />
       <div
         ref={sheetRef}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
         className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
         style={{
           transform: isAnimating ? `translate3d(0, ${dragY}px, 0)` : "translate3d(0, 100%, 0)",

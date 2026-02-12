@@ -361,7 +361,7 @@ function MobileFilterSheet({
     if (!sheetElement) return
     const sheetRect = sheetElement.getBoundingClientRect()
     const touchYInSheet = touch.clientY - sheetRect.top
-    if (touchYInSheet <= 60) {
+    if (touchYInSheet <= 0 || touchYInSheet <= 100) {
       startY.current = touch.clientY
       setIsDragging(true)
     }
@@ -370,7 +370,7 @@ function MobileFilterSheet({
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!isDragging) return
     const diff = e.touches[0].clientY - startY.current
-    if (diff > 0) setDragY(diff * 0.8)
+    if (diff > 0) { e.preventDefault(); setDragY(diff * 0.8) }
   }
 
   const handleTouchEnd = () => {
@@ -391,7 +391,7 @@ function MobileFilterSheet({
   if (!isVisible) return null
 
   return (
-    <div className="fixed inset-0 z-[100] md:hidden">
+    <div className="fixed inset-0 z-[100] md:hidden" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
       <div
         className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity ease-out ${isAnimating ? "opacity-100" : "opacity-0"}`}
         style={{ transitionDuration: '400ms' }}
@@ -399,9 +399,6 @@ function MobileFilterSheet({
       />
       <div
         ref={sheetRef}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
         className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl flex flex-col"
         style={{
           transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)",
@@ -549,7 +546,8 @@ function MobileSubcategorySheet({
     const el = sheetRef.current
     if (!el) return
     const rect = el.getBoundingClientRect()
-    if (touch.clientY - rect.top <= 60) {
+    const touchYInSheet = touch.clientY - rect.top
+    if (touchYInSheet <= 0 || touchYInSheet <= 100) {
       startY.current = touch.clientY
       setIsDragging(true)
     }
@@ -558,7 +556,7 @@ function MobileSubcategorySheet({
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!isDragging) return
     const diff = e.touches[0].clientY - startY.current
-    if (diff > 0) setDragY(diff * 0.8)
+    if (diff > 0) { e.preventDefault(); setDragY(diff * 0.8) }
   }
 
   const handleTouchEnd = () => {
@@ -571,7 +569,7 @@ function MobileSubcategorySheet({
   if (!isVisible) return null
 
   return (
-    <div className="fixed inset-0 z-[100] md:hidden">
+    <div className="fixed inset-0 z-[100] md:hidden" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
       <div
         className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity ease-out ${isAnimating ? "opacity-100" : "opacity-0"}`}
         style={{ transitionDuration: '400ms' }}
@@ -579,9 +577,6 @@ function MobileSubcategorySheet({
       />
       <div
         ref={sheetRef}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
         className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl flex flex-col"
         style={{
           transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)",

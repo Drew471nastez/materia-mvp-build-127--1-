@@ -410,8 +410,8 @@ function MobileBottomSheet({
     const sheetRect = sheetElement.getBoundingClientRect()
     const touchYInSheet = touch.clientY - sheetRect.top
 
-    // Only start dragging if touch is in the handle area (top 60px)
-    if (touchYInSheet <= 60) {
+    // Only start dragging if touch is in the backdrop or handle/header area
+    if (touchYInSheet <= 0 || touchYInSheet <= 100) {
       startY.current = touch.clientY
       setIsDragging(true)
     }
@@ -422,6 +422,7 @@ function MobileBottomSheet({
     const currentY = e.touches[0].clientY
     const diff = currentY - startY.current
     if (diff > 0) {
+      e.preventDefault()
       setDragY(diff * 0.8)
     }
   }
@@ -439,7 +440,7 @@ function MobileBottomSheet({
   if (!isVisible || !isMounted) return null
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] md:hidden">
+    <div className="fixed inset-0 z-[100] md:hidden" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
       {/* Backdrop */}
       <div
         className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity ease-out ${
@@ -451,9 +452,6 @@ function MobileBottomSheet({
       {/* Bottom Sheet */}
       <div
         ref={sheetRef}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
         className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
         style={{
           transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)",

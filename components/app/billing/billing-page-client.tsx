@@ -915,17 +915,18 @@ function MobileBottomSheet({ isOpen, onClose, title, children }: { isOpen: boole
   const handleTouchStart = (e: React.TouchEvent) => {
     const touch = e.touches[0]; const sheet = sheetRef.current; if (!sheet) return
     const rect = sheet.getBoundingClientRect()
-    if (touch.clientY - rect.top <= 60) { startY.current = touch.clientY; setIsDragging(true) }
+    const touchYInSheet = touch.clientY - rect.top
+    if (touchYInSheet <= 0 || touchYInSheet <= 100) { startY.current = touch.clientY; setIsDragging(true) }
   }
-  const handleTouchMove = (e: React.TouchEvent) => { if (!isDragging) return; const diff = e.touches[0].clientY - startY.current; if (diff > 0) setDragY(diff * 0.8) }
+  const handleTouchMove = (e: React.TouchEvent) => { if (!isDragging) return; const diff = e.touches[0].clientY - startY.current; if (diff > 0) { e.preventDefault(); setDragY(diff * 0.8) } }
   const handleTouchEnd = () => { if (!isDragging) return; setIsDragging(false); if (dragY > 80) handleClose(); else setDragY(0) }
 
   if (!isVisible) return null
 
   return (
-    <div className="fixed inset-0 z-[100]">
+    <div className="fixed inset-0 z-[100]" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
       <div className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity duration-400 ${isAnimating ? "opacity-100" : "opacity-0"}`} onClick={handleClose} />
-      <div ref={sheetRef} onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}
+      <div ref={sheetRef}
         className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl max-h-[85vh] overflow-hidden"
         style={{ transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)", transition: isDragging ? "none" : "transform 400ms cubic-bezier(0.32, 0.72, 0, 1)" }}
       >

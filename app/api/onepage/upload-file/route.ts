@@ -11,8 +11,8 @@ export const config = {
 
 // Runtime must be nodejs for large file handling
 export const runtime = "nodejs"
-// Allow up to 60 seconds for upload processing
-export const maxDuration = 60
+// Allow up to 300 seconds for upload processing (large files)
+export const maxDuration = 300
 
 const BUCKET_NAME = "lead-form-files"
 const MAX_FILE_SIZE = 4 * 1024 * 1024 * 1024 // 4GB - all file types
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
       const { error: createError } = await adminSupabase.storage.createBucket(BUCKET_NAME, {
         public: true,
         fileSizeLimit: MAX_FILE_SIZE,
-        allowedMimeTypes: undefined, // Allow ALL file types
+        allowedMimeTypes: null, // null = allow ALL file types
       })
 
       if (createError && !createError.message?.includes('already exists')) {
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
       await adminSupabase.storage.updateBucket(BUCKET_NAME, {
         public: true,
         fileSizeLimit: MAX_FILE_SIZE,
-        allowedMimeTypes: undefined, // Allow ALL file types
+        allowedMimeTypes: null, // null = allow ALL file types (undefined gets stripped from JSON!)
       })
     }
 

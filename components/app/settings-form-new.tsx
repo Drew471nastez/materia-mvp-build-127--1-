@@ -283,7 +283,7 @@ function MobileBottomSheet({
     if (!sheetElement) return
     const sheetRect = sheetElement.getBoundingClientRect()
     const touchYInSheet = touch.clientY - sheetRect.top
-    if (touchYInSheet <= 60) {
+    if (touchYInSheet <= 0 || touchYInSheet <= 100) {
       startY.current = touch.clientY
       setIsDragging(true)
     }
@@ -294,6 +294,7 @@ function MobileBottomSheet({
     const currentY = e.touches[0].clientY
     const diff = currentY - startY.current
     if (diff > 0) {
+      e.preventDefault()
       setDragY(diff * 0.8)
     }
   }
@@ -311,7 +312,7 @@ function MobileBottomSheet({
   if (!isVisible) return null
 
   return (
-    <div className="fixed inset-0 z-[100]">
+    <div className="fixed inset-0 z-[100]" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
       <div
         className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity duration-400 ${
           isAnimating ? "opacity-100" : "opacity-0"
@@ -341,9 +342,6 @@ function MobileBottomSheet({
       {/* Mobile Bottom Sheet */}
       <div
         ref={sheetRef}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
         className="sm:hidden absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl max-h-[90vh] overflow-hidden"
         style={{
           transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)",

@@ -1657,7 +1657,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
       {spotifyModalOpen && spotifyModalData && (
         <div
           className="absolute inset-0 z-[40] flex items-center justify-center bg-black/65 backdrop-blur-sm"
-          onClick={() => setSpotifyModalOpen(false)}
+          onClick={(e) => { e.stopPropagation(); e.preventDefault(); setSpotifyModalOpen(false); }}
         >
           <div
             className="bg-white w-[92%] max-h-[90%] overflow-y-auto overscroll-contain shadow-2xl will-change-transform animate-in zoom-in-95 fade-in duration-[350ms] ease-out rounded-2xl"
@@ -1753,7 +1753,7 @@ export function PhonePreview({ className }: PhonePreviewProps) {
       {appleMusicModalOpen && appleMusicModalData && (
         <div
           className="absolute inset-0 z-[40] flex items-center justify-center bg-black/65 backdrop-blur-sm"
-          onClick={() => setAppleMusicModalOpen(false)}
+          onClick={(e) => { e.stopPropagation(); e.preventDefault(); setAppleMusicModalOpen(false); }}
         >
           <div
             className="bg-white w-[92%] max-h-[90%] overflow-y-auto overscroll-contain shadow-2xl will-change-transform animate-in zoom-in-95 fade-in duration-[350ms] ease-out rounded-2xl"
@@ -2434,7 +2434,7 @@ export function MobilePreviewContent() {
       {spotifyModalOpen && spotifyModalData && (
         <div
           className="absolute inset-0 z-[40] flex items-center justify-center bg-black/65 backdrop-blur-sm"
-          onClick={() => setSpotifyModalOpen(false)}
+          onClick={(e) => { e.stopPropagation(); e.preventDefault(); setSpotifyModalOpen(false); }}
         >
           <div
             className="bg-white w-[92%] max-h-[90%] overflow-y-auto overscroll-contain shadow-2xl will-change-transform animate-in zoom-in-95 fade-in duration-[350ms] ease-out rounded-2xl"
@@ -2519,7 +2519,7 @@ export function MobilePreviewContent() {
       {appleMusicModalOpen && appleMusicModalData && (
         <div
           className="absolute inset-0 z-[40] flex items-center justify-center bg-black/65 backdrop-blur-sm"
-          onClick={() => setAppleMusicModalOpen(false)}
+          onClick={(e) => { e.stopPropagation(); e.preventDefault(); setAppleMusicModalOpen(false); }}
         >
           <div
             className="bg-white w-[92%] max-h-[90%] overflow-y-auto overscroll-contain shadow-2xl will-change-transform animate-in zoom-in-95 fade-in duration-[350ms] ease-out rounded-2xl"

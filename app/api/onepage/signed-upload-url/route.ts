@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
         const { error: createErr } = await adminSupabase.storage.createBucket(BUCKET_NAME, {
           public: true,
           fileSizeLimit: MAX_DIGITAL_FILE_SIZE,
-          allowedMimeTypes: undefined, // Allow ALL file types
+          allowedMimeTypes: null, // null = allow ALL file types
         })
         if (createErr && !createErr.message?.includes('already exists')) {
           console.error("Bucket creation error:", createErr)
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
         await adminSupabase.storage.updateBucket(BUCKET_NAME, {
           public: true,
           fileSizeLimit: MAX_DIGITAL_FILE_SIZE,
-          allowedMimeTypes: undefined, // Allow ALL file types
+          allowedMimeTypes: null, // null = allow ALL file types (undefined gets stripped from JSON!)
         })
       }
     } catch (bucketErr) {

@@ -1203,6 +1203,21 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
 
   const appleMusicModalContextValue = { openAppleMusicModal }
 
+  // Prevent pull-to-refresh when any modal is open
+  useEffect(() => {
+    if (spotifyModalOpen || appleMusicModalOpen) {
+      document.documentElement.style.overscrollBehavior = 'none'
+      document.body.style.overscrollBehavior = 'none'
+    } else {
+      document.documentElement.style.overscrollBehavior = ''
+      document.body.style.overscrollBehavior = ''
+    }
+    return () => {
+      document.documentElement.style.overscrollBehavior = ''
+      document.body.style.overscrollBehavior = ''
+    }
+  }, [spotifyModalOpen, appleMusicModalOpen])
+
   // PDF modal state - lifted to root level to ensure proper z-index stacking
   const [pdfModalOpen, setPdfModalOpen] = useState(false)
   const [pdfModalData, setPdfModalData] = useState<{
@@ -2207,10 +2222,10 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         <div
           className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-300 ease-out"
           style={{ backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
-          onClick={() => setSpotifyModalOpen(false)}
+          onClick={(e) => { e.stopPropagation(); e.preventDefault(); setSpotifyModalOpen(false); }}
         >
           <div
-            className="bg-white w-full h-[100svh] sm:h-auto sm:rounded-2xl sm:w-[min(92vw,460px)] overflow-y-auto overscroll-contain shadow-2xl will-change-transform animate-in slide-in-from-bottom-4 fade-in zoom-in-[0.97] duration-[350ms] ease-out"
+            className="bg-white w-full rounded-t-2xl sm:rounded-2xl sm:w-[min(92vw,460px)] max-h-[90svh] sm:max-h-[85vh] overflow-y-auto overscroll-contain shadow-2xl will-change-transform animate-in slide-in-from-bottom-4 fade-in zoom-in-[0.97] duration-[350ms] ease-out"
             style={{ transform: 'translateZ(0)' }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -2232,18 +2247,18 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
               </button>
             </div>
 
-            {/* Spotify Embed - compact height */}
+            {/* Spotify Embed - responsive height */}
             <div className="p-3">
-              <div className="w-full overflow-hidden rounded-xl bg-black/5">
+              <div className="w-full overflow-hidden rounded-xl bg-black/5" style={{ aspectRatio: '1 / 0.85', maxHeight: '352px' }}>
                 <iframe
                   src={spotifyModalData.embedUrl}
                   width="100%"
-                  height="352"
+                  height="100%"
                   frameBorder="0"
                   scrolling="no"
                   allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
                   loading="lazy"
-                  className="block w-full"
+                  className="block w-full h-full"
                 />
               </div>
             </div>
@@ -2304,10 +2319,10 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
         <div
           className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-300 ease-out"
           style={{ backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
-          onClick={() => setAppleMusicModalOpen(false)}
+          onClick={(e) => { e.stopPropagation(); e.preventDefault(); setAppleMusicModalOpen(false); }}
         >
           <div
-            className="bg-white w-full h-[100svh] sm:h-auto sm:rounded-2xl sm:w-[min(92vw,460px)] overflow-y-auto overscroll-contain shadow-2xl will-change-transform animate-in slide-in-from-bottom-4 fade-in zoom-in-[0.97] duration-[350ms] ease-out"
+            className="bg-white w-full rounded-t-2xl sm:rounded-2xl sm:w-[min(92vw,460px)] max-h-[90svh] sm:max-h-[85vh] overflow-y-auto overscroll-contain shadow-2xl will-change-transform animate-in slide-in-from-bottom-4 fade-in zoom-in-[0.97] duration-[350ms] ease-out"
             style={{ transform: 'translateZ(0)' }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -2337,17 +2352,17 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
 
             {/* Apple Music Embed - responsive */}
             <div className="p-3">
-              <div className="w-full overflow-hidden rounded-xl bg-black/5">
+              <div className="w-full overflow-hidden rounded-xl bg-black/5" style={{ aspectRatio: '1 / 0.88', maxHeight: '360px' }}>
                 <iframe
                   src={appleMusicModalData.embedUrl}
                   width="100%"
-                  height="360"
+                  height="100%"
                   frameBorder="0"
                   scrolling="no"
                   allow="autoplay *; encrypted-media *; fullscreen *; clipboard-write"
                   sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"
                   loading="lazy"
-                  className="block w-full"
+                  className="block w-full h-full"
                   style={{ overflow: 'hidden', background: 'transparent' }}
                 />
               </div>

@@ -395,7 +395,7 @@ function MobileFilterSheet({
     if (!sheetElement) return
     const sheetRect = sheetElement.getBoundingClientRect()
     const touchYInSheet = touch.clientY - sheetRect.top
-    if (touchYInSheet <= 60) {
+    if (touchYInSheet <= 0 || touchYInSheet <= 100) {
       startY.current = touch.clientY
       setIsDragging(true)
     }
@@ -405,7 +405,7 @@ function MobileFilterSheet({
     if (!isDragging) return
     const currentY = e.touches[0].clientY
     const diff = currentY - startY.current
-    if (diff > 0) setDragY(diff * 0.8)
+    if (diff > 0) { e.preventDefault(); setDragY(diff * 0.8) }
   }
 
   const handleTouchEnd = () => {
@@ -426,7 +426,7 @@ function MobileFilterSheet({
   if (!isVisible) return null
 
   return (
-    <div className="fixed inset-0 z-[100] md:hidden">
+    <div className="fixed inset-0 z-[100] md:hidden" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
       <div
         className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity ease-out ${isAnimating ? "opacity-100" : "opacity-0"}`}
         style={{ transitionDuration: '400ms' }}
@@ -434,9 +434,6 @@ function MobileFilterSheet({
       />
       <div
         ref={sheetRef}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
         className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl flex flex-col"
         style={{
           transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)",
@@ -609,7 +606,7 @@ function CategorySelectorModal({
     if (!sheetElement) return
     const sheetRect = sheetElement.getBoundingClientRect()
     const touchYInSheet = touch.clientY - sheetRect.top
-    if (touchYInSheet <= 60) {
+    if (touchYInSheet <= 0 || touchYInSheet <= 100) {
       startY.current = touch.clientY
       setIsDragging(true)
     }
@@ -619,7 +616,7 @@ function CategorySelectorModal({
     if (!isDragging) return
     const currentY = e.touches[0].clientY
     const diff = currentY - startY.current
-    if (diff > 0) setDragY(diff * 0.8)
+    if (diff > 0) { e.preventDefault(); setDragY(diff * 0.8) }
   }
 
   const handleTouchEnd = () => {
@@ -650,7 +647,7 @@ function CategorySelectorModal({
   if (!isVisible) return null
 
   return (
-    <div className="fixed inset-0 z-[100]">
+    <div className="fixed inset-0 z-[100]" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
       <div
         className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity ease-out ${isAnimating ? "opacity-100" : "opacity-0"}`}
         style={{ transitionDuration: '400ms' }}
@@ -732,9 +729,6 @@ function CategorySelectorModal({
       {/* Mobile Bottom Sheet - 65% screen height */}
       <div
         ref={sheetRef}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
         className="md:hidden absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
         style={{
           transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)",
