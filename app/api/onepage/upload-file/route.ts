@@ -7,61 +7,54 @@ export const runtime = "nodejs"
 // Allow up to 300 seconds for upload processing
 export const maxDuration = 300
 
-const BUCKET_NAME = "lead-form-files"
-const MAX_FILE_SIZE = 500 * 1024 * 1024 // 500MB
+const BUCKET_NAME = process.env.ONEPAGE_LEAD_FILES_BUCKET || "lead-form-files-v2"
+const MAX_FILE_SIZE = 5 * 1024 * 1024 * 1024 // 5GB
+const BUCKET_FILE_SIZE_LIMIT = 5 * 1024 * 1024 * 1024 // 5GB
 
-// Ensure bucket exists with correct settings using direct REST API
+// Validate bucket state with admin API only.
+// Avoid REST update/create here to prevent false-positive 400 setup failures.
 async function ensureBucket() {
   try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+    const adminSupabase = createAdminClient()
+    const { data: buckets, error } = await adminSupabase.storage.listBuckets()
+    if (error) {
+      console.warn("[upload-file] listBuckets failed, continuing:", error.message)
+      return true
+    }
 
-    // Direct REST API call to fix corrupted int32 file_size_limit
-    const updateRes = await fetch(`${supabaseUrl}/storage/v1/bucket/${BUCKET_NAME}`, {
-      method: "PUT",
-      headers: {
-        "Authorization": `Bearer ${serviceRoleKey}`,
-        "apikey": serviceRoleKey,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        id: BUCKET_NAME,
-        name: BUCKET_NAME,
+    const bucket = buckets?.find((b) => b.id === BUCKET_NAME || b.name === BUCKET_NAME) as { file_size_limit?: number | null } | undefined
+    if (!bucket) {
+      console.error("[upload-file] Bucket not found:", BUCKET_NAME)
+      return false
+    }
+
+    let liveLimit = typeof bucket.file_size_limit === 'number' ? bucket.file_size_limit : null
+
+    // Self-heal: if limit is too low, try to raise to BUCKET_FILE_SIZE_LIMIT.
+    if (liveLimit !== null && liveLimit > 0 && liveLimit < BUCKET_FILE_SIZE_LIMIT) {
+      const { error: updateError } = await adminSupabase.storage.updateBucket(BUCKET_NAME, {
         public: true,
-        file_size_limit: 0, // 0 = no limit
-        allowed_mime_types: null,
-      }),
-    })
-
-    if (!updateRes.ok) {
-      const body = await updateRes.json().catch(() => null)
-      console.error("[upload-file] Direct bucket update failed:", updateRes.status, body)
-
-      if (updateRes.status === 404 || updateRes.status === 400) {
-        const createRes = await fetch(`${supabaseUrl}/storage/v1/bucket`, {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${serviceRoleKey}`,
-            "apikey": serviceRoleKey,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            id: BUCKET_NAME,
-            name: BUCKET_NAME,
-            public: true,
-            file_size_limit: 0,
-            allowed_mime_types: null,
-          }),
-        })
-        if (!createRes.ok) {
-          console.error("[upload-file] Bucket creation failed:", createRes.status)
-        }
+        fileSizeLimit: BUCKET_FILE_SIZE_LIMIT,
+        allowedMimeTypes: null,
+      })
+      if (updateError) {
+        console.error("[upload-file] updateBucket failed:", updateError)
+      } else {
+        const { data: refreshedBuckets } = await adminSupabase.storage.listBuckets()
+        const refreshed = refreshedBuckets?.find((b) => b.id === BUCKET_NAME || b.name === BUCKET_NAME) as { file_size_limit?: number | null } | undefined
+        liveLimit = typeof refreshed?.file_size_limit === 'number' ? refreshed.file_size_limit : liveLimit
       }
     }
+
+    if (liveLimit !== null && liveLimit > 0 && liveLimit < BUCKET_FILE_SIZE_LIMIT) {
+      console.error("[upload-file] Bucket size limit is still too low:", liveLimit)
+      return false
+    }
+
     return true
   } catch (err) {
     console.error("[upload-file] Bucket setup error:", err)
-    return true // Continue anyway
+    return false
   }
 }
 
@@ -102,11 +95,16 @@ export async function POST(request: NextRequest) {
     }
 
     if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json({ error: "File size must be less than 500MB" }, { status: 400 })
+      return NextResponse.json({ error: "File size must be less than 5GB" }, { status: 400 })
     }
 
     // Ensure bucket exists with correct file_size_limit
-    await ensureBucket()
+    const bucketReady = await ensureBucket()
+    if (!bucketReady) {
+      return NextResponse.json({
+        error: "Upload bucket is not configured for large files. Run the provided SQL migration or /api/onepage/fix-bucket.",
+      }, { status: 500 })
+    }
 
     // Generate unique filename
     const fileExt = file.name.split(".").pop() || "bin"

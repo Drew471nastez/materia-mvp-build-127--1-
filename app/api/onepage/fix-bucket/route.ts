@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 
-const BUCKET_NAME = "lead-form-files"
+const BUCKET_NAME = process.env.ONEPAGE_LEAD_FILES_BUCKET || "lead-form-files-v2"
 
 /**
  * POST - Fix the lead-form-files bucket configuration.
  * Uses direct REST API call to Supabase Storage (bypassing JS client)
- * to reset file_size_limit to 0 (no limit) and allow all MIME types.
+ * to set file_size_limit to 5GB and allow all MIME types.
  * This fixes issues caused by the previous 4GB value overflowing int32 in PostgreSQL.
  */
 export async function POST() {
@@ -40,7 +40,7 @@ export async function POST() {
         id: BUCKET_NAME,
         name: BUCKET_NAME,
         public: true,
-        file_size_limit: 0, // 0 = no limit
+        file_size_limit: 5368709120, // 5GB per object
         allowed_mime_types: null, // null = allow all
       }),
     })
@@ -63,7 +63,7 @@ export async function POST() {
             id: BUCKET_NAME,
             name: BUCKET_NAME,
             public: true,
-            file_size_limit: 0,
+            file_size_limit: 5368709120,
             allowed_mime_types: null,
           }),
         })
@@ -77,7 +77,7 @@ export async function POST() {
             updateBody,
             createStatus: createRes.status,
             createBody,
-            sql: `UPDATE storage.buckets SET file_size_limit = 0, allowed_mime_types = NULL WHERE id = '${BUCKET_NAME}';`,
+            sql: `UPDATE storage.buckets SET file_size_limit = 5368709120, allowed_mime_types = NULL WHERE id = '${BUCKET_NAME}';`,
           }, { status: 500 })
         }
       } else {
@@ -85,7 +85,7 @@ export async function POST() {
           error: `Failed to update bucket: ${updateBody?.message || updateRes.statusText}`,
           status: updateRes.status,
           body: updateBody,
-          sql: `UPDATE storage.buckets SET file_size_limit = 0, allowed_mime_types = NULL WHERE id = '${BUCKET_NAME}';`,
+          sql: `UPDATE storage.buckets SET file_size_limit = 5368709120, allowed_mime_types = NULL WHERE id = '${BUCKET_NAME}';`,
         }, { status: 500 })
       }
     }
@@ -109,7 +109,7 @@ export async function POST() {
     console.error("[fix-bucket] Error:", error)
     return NextResponse.json({
       error: error instanceof Error ? error.message : "Internal server error",
-      sql: `UPDATE storage.buckets SET file_size_limit = 0, allowed_mime_types = NULL WHERE id = '${BUCKET_NAME}';`,
+      sql: `UPDATE storage.buckets SET file_size_limit = 5368709120, allowed_mime_types = NULL WHERE id = '${BUCKET_NAME}';`,
     }, { status: 500 })
   }
 }

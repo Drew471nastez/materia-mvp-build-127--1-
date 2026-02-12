@@ -3636,77 +3636,90 @@ export function LinksTab() {
                         // All digital files + large images: use signed URL for direct-to-storage upload
                         // This bypasses server body size limits entirely
                         setUploadProgress(2)
-                        const signedRes = await fetch('/api/onepage/signed-upload-url', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                            fileName: file.name,
-                            contentType: file.type || 'application/octet-stream',
-                            fileSize: file.size,
-                            folder,
-                          }),
-                        })
+                        const supabase = createClient()
 
-                        if (!signedRes.ok) {
-                          const err = await signedRes.json().catch(() => ({ error: 'Failed to prepare upload' }))
-                          throw new Error(err.error || 'Failed to prepare upload')
+                        const requestSignedUploadData = async () => {
+                          const signedRes = await fetch('/api/onepage/signed-upload-url', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              fileName: file.name,
+                              contentType: file.type || 'application/octet-stream',
+                              fileSize: file.size,
+                              folder,
+                            }),
+                          })
+
+                          if (!signedRes.ok) {
+                            const err = await signedRes.json().catch(() => ({ error: 'Failed to prepare upload' }))
+                            throw new Error(err.error || 'Failed to prepare upload')
+                          }
+
+                          return signedRes.json()
                         }
 
-                        const signedData = await signedRes.json()
+                        const uploadWithSignedUrl = async (signedData: { path: string; token: string; publicUrl: string; bucket?: string }) => {
+                          const targetBucket = signedData.bucket || 'lead-form-files-v2'
+                          const { error: uploadError } = await supabase.storage
+                            .from(targetBucket)
+                            .uploadToSignedUrl(signedData.path, signedData.token, file, {
+                              contentType: file.type || 'application/octet-stream',
+                              upsert: true,
+                            })
+
+                          if (uploadError) {
+                            throw new Error(uploadError.message || 'Upload failed')
+                          }
+
+                          return signedData.publicUrl
+                        }
+
                         setUploadProgress(5)
+                        const progressTimer = setInterval(() => {
+                          setUploadProgress((prev) => Math.min(prev + 4, 95))
+                        }, 300)
 
-                        // Upload directly to Supabase storage using signed URL
-                        // Dynamic timeout: at least 10 min, plus 1s per 100KB for large files
-                        const uploadTimeoutMs = Math.max(600000, Math.ceil(file.size / (100 * 1024)) * 1000)
-
-                        const doXhrUpload = (uploadUrl: string): Promise<void> => new Promise((resolve, reject) => {
-                          const xhr = new XMLHttpRequest()
-                          xhr.upload.addEventListener('progress', (e) => {
-                            if (e.lengthComputable) {
-                              const pct = Math.round((e.loaded / e.total) * 93) + 5 // 5-98%
-                              setUploadProgress(pct)
-                            }
-                          })
-                          xhr.addEventListener('load', () => {
-                            if (xhr.status >= 200 && xhr.status < 300) {
-                              setUploadProgress(100)
-                              resolve()
-                            } else {
-                              let errMsg = `Upload failed (status ${xhr.status}).`
-                              try {
-                                const body = JSON.parse(xhr.responseText)
-                                if (body.error || body.message) {
-                                  errMsg = body.error || body.message
-                                }
-                                if (body.statusCode === '413' || xhr.status === 413) {
-                                  errMsg = 'File is too large for your storage plan. Try a smaller file or upgrade your plan.'
-                                }
-                              } catch { /* ignore parse errors */ }
-                              reject(new Error(errMsg))
-                            }
-                          })
-                          xhr.addEventListener('error', () => reject(new Error('Network error during upload. Check your connection and try again.')))
-                          xhr.addEventListener('abort', () => reject(new Error('Upload was cancelled.')))
-                          xhr.addEventListener('timeout', () => reject(new Error('Upload timed out. Try with a better connection or smaller file.')))
-                          xhr.timeout = uploadTimeoutMs
-
-                          xhr.open('PUT', uploadUrl)
-                          xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream')
-                          xhr.setRequestHeader('x-upsert', 'true')
-                          xhr.send(file)
-                        })
-
-                        // Try upload with one automatic retry on transient failure
                         try {
-                          await doXhrUpload(signedData.signedUrl)
-                        } catch (firstErr) {
-                          console.warn('First upload attempt failed, retrying...', firstErr)
-                          setUploadProgress(3)
-                          await new Promise(r => setTimeout(r, 2000))
-                          await doXhrUpload(signedData.signedUrl)
-                        }
+                          let signedData = await requestSignedUploadData()
+                          try {
+                            url = await uploadWithSignedUrl(signedData)
+                          } catch (firstErr) {
+                            console.warn('First signed upload attempt failed, requesting a new signed URL and retrying...', firstErr)
+                            setUploadProgress(8)
+                            await new Promise(r => setTimeout(r, 800))
+                            signedData = await requestSignedUploadData()
+                            url = await uploadWithSignedUrl(signedData)
+                          }
+                          setUploadProgress(100)
+                        } catch (signedUploadError) {
+                          const signedUploadMessage = signedUploadError instanceof Error ? signedUploadError.message : String(signedUploadError)
+                          const shouldFallbackToDirectUpload = isDigitalFile &&
+                            signedUploadMessage.toLowerCase().includes('exceeded the maximum allowed size')
 
-                        url = signedData.publicUrl
+                          if (!shouldFallbackToDirectUpload) {
+                            throw signedUploadError
+                          }
+
+                          // Fallback path: upload through server admin client if signed upload returns object-size error.
+                          const fallbackData = new FormData()
+                          fallbackData.append('file', file)
+                          fallbackData.append('type', 'digital')
+                          const fallbackRes = await fetch('/api/onepage/upload-file', {
+                            method: 'POST',
+                            body: fallbackData,
+                          })
+
+                          if (!fallbackRes.ok) {
+                            const fallbackErr = await fallbackRes.json().catch(() => ({ error: 'Upload failed' }))
+                            throw new Error(fallbackErr.error || 'Upload failed')
+                          }
+
+                          const fallbackResult = await fallbackRes.json()
+                          url = fallbackResult.url
+                          setUploadProgress(100)
+                        } finally {
+                          clearInterval(progressTimer)
+                        }
                       }
 
                       const block = onepage.draft_blocks.find(b => b.id === imageBlockId)
@@ -3790,7 +3803,7 @@ export function LinksTab() {
                         : 'Upload image'}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {imageFieldType === 'digital_product_file' ? 'Any file type up to 500MB (audio, video, ZIP, images, docs)'
+                      {imageFieldType === 'digital_product_file' ? 'Any file type up to 5GB (audio, video, ZIP, images, docs)'
                         : imageFieldType === 'pdf_file' ? 'PDF files only'
                         : 'JPG, PNG, GIF up to 10MB'}
                     </p>
