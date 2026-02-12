@@ -96,7 +96,7 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
     },
     twitter: {
       card: socialPreviewImage ? "summary_large_image" : "summary",
-      title,
+      title: `${displayTitle} | Storelib`,
       description,
       images: socialPreviewImage ? [socialPreviewImage] : undefined,
     },
