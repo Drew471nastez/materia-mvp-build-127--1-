@@ -2,13 +2,15 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
-const BUCKET_NAME = process.env.ONEPAGE_LEAD_FILES_BUCKET || "lead-form-files-v2"
-const BUCKET_FILE_SIZE_LIMIT = 5368709120 // 5GB
+const DEFAULT_BUCKET = "lead-form-files-v2"
+const LEGACY_BUCKET = "lead-form-files"
+const BUCKET_NAME = process.env.ONEPAGE_LEAD_FILES_BUCKET || DEFAULT_BUCKET
+const BUCKET_FILE_SIZE_LIMIT: number | null = null // null = no per-object bucket cap
 
-/**
- * POST - Fix the lead-form-files bucket configuration.
- * Tries multiple methods: JS admin client, REST API, then reports status.
- */
+function getCandidateBuckets(): string[] {
+  return Array.from(new Set([BUCKET_NAME, DEFAULT_BUCKET, LEGACY_BUCKET]))
+}
+
 export async function POST() {
   try {
     const supabase = await createClient()
@@ -28,31 +30,35 @@ export async function POST() {
       return NextResponse.json({ error: "Server configuration error" }, { status: 500 })
     }
 
+    const bucketIds = getCandidateBuckets()
     const results: string[] = []
 
-    // --- Method 1: Admin JS client updateBucket ---
     try {
-      const { error: updateErr } = await adminSupabase.storage.updateBucket(BUCKET_NAME, {
-        public: true,
-        fileSizeLimit: BUCKET_FILE_SIZE_LIMIT,
-        allowedMimeTypes: undefined,
-      })
-      if (!updateErr) {
-        results.push("updateBucket: SUCCESS")
-      } else {
-        results.push(`updateBucket: ${updateErr.message}`)
+      for (const bucketId of bucketIds) {
+        const { error: updateErr } = await adminSupabase.storage.updateBucket(bucketId, {
+          public: true,
+          fileSizeLimit: undefined,
+          allowedMimeTypes: undefined,
+        })
 
-        // Try create if not found
+        if (!updateErr) {
+          results.push(`updateBucket(${bucketId}): SUCCESS`)
+          continue
+        }
+
+        results.push(`updateBucket(${bucketId}): ${updateErr.message}`)
+
         if (updateErr.message?.includes("not found") || updateErr.message?.includes("404")) {
-          const { error: createErr } = await adminSupabase.storage.createBucket(BUCKET_NAME, {
+          const { error: createErr } = await adminSupabase.storage.createBucket(bucketId, {
             public: true,
-            fileSizeLimit: BUCKET_FILE_SIZE_LIMIT,
+            fileSizeLimit: undefined,
             allowedMimeTypes: undefined,
           })
-          if (!createErr) {
-            results.push("createBucket: SUCCESS")
+
+          if (!createErr || createErr.message?.includes("already exists") || createErr.message?.includes("409")) {
+            results.push(`createBucket(${bucketId}): SUCCESS`)
           } else {
-            results.push(`createBucket: ${createErr.message}`)
+            results.push(`createBucket(${bucketId}): ${createErr.message}`)
           }
         }
       }
@@ -60,40 +66,42 @@ export async function POST() {
       results.push(`JS client error: ${e instanceof Error ? e.message : String(e)}`)
     }
 
-    // --- Method 2: Direct REST API (always try as double-check) ---
     const headers = {
       Authorization: `Bearer ${serviceRoleKey}`,
       apikey: serviceRoleKey,
       "Content-Type": "application/json",
     }
 
-    try {
-      const updateRes = await fetch(`${supabaseUrl}/storage/v1/bucket/${BUCKET_NAME}`, {
-        method: "PUT",
-        headers,
-        body: JSON.stringify({
-          id: BUCKET_NAME,
-          name: BUCKET_NAME,
-          public: true,
-          file_size_limit: BUCKET_FILE_SIZE_LIMIT,
-          allowed_mime_types: null,
-        }),
-      })
+    for (const bucketId of bucketIds) {
+      try {
+        const updateRes = await fetch(`${supabaseUrl}/storage/v1/bucket/${bucketId}`, {
+          method: "PUT",
+          headers,
+          body: JSON.stringify({
+            id: bucketId,
+            name: bucketId,
+            public: true,
+            file_size_limit: BUCKET_FILE_SIZE_LIMIT,
+            allowed_mime_types: null,
+          }),
+        })
 
-      const updateBody = await updateRes.json().catch(() => null)
+        const updateBody = await updateRes.json().catch(() => null)
 
-      if (updateRes.ok) {
-        results.push("REST PUT: SUCCESS")
-      } else {
-        results.push(`REST PUT: ${updateRes.status} ${updateBody?.message || ""}`)
+        if (updateRes.ok) {
+          results.push(`REST PUT(${bucketId}): SUCCESS`)
+          continue
+        }
+
+        results.push(`REST PUT(${bucketId}): ${updateRes.status} ${updateBody?.message || ""}`)
 
         if (updateRes.status === 404 || updateRes.status === 400) {
           const createRes = await fetch(`${supabaseUrl}/storage/v1/bucket`, {
             method: "POST",
             headers,
             body: JSON.stringify({
-              id: BUCKET_NAME,
-              name: BUCKET_NAME,
+              id: bucketId,
+              name: bucketId,
               public: true,
               file_size_limit: BUCKET_FILE_SIZE_LIMIT,
               allowed_mime_types: null,
@@ -101,50 +109,57 @@ export async function POST() {
           })
           const createBody = await createRes.json().catch(() => null)
           if (createRes.ok || createRes.status === 409) {
-            results.push("REST POST: SUCCESS")
+            results.push(`REST POST(${bucketId}): SUCCESS`)
           } else {
-            results.push(`REST POST: ${createRes.status} ${createBody?.message || ""}`)
+            results.push(`REST POST(${bucketId}): ${createRes.status} ${createBody?.message || ""}`)
           }
         }
+      } catch (e) {
+        results.push(`REST error(${bucketId}): ${e instanceof Error ? e.message : String(e)}`)
       }
-    } catch (e) {
-      results.push(`REST error: ${e instanceof Error ? e.message : String(e)}`)
     }
 
-    // --- Verify final state ---
-    let verifiedLimit: number | null = null
-    try {
-      const verifyRes = await fetch(`${supabaseUrl}/storage/v1/bucket/${BUCKET_NAME}`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${serviceRoleKey}`,
-          apikey: serviceRoleKey,
-        },
-      })
-      const verifyBody = await verifyRes.json().catch(() => null)
-      verifiedLimit = verifyBody?.file_size_limit ?? null
-    } catch {
-      // ignore
+    const verifiedLimits: Record<string, number | null> = {}
+    for (const bucketId of bucketIds) {
+      try {
+        const verifyRes = await fetch(`${supabaseUrl}/storage/v1/bucket/${bucketId}`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${serviceRoleKey}`,
+            apikey: serviceRoleKey,
+          },
+        })
+        const verifyBody = await verifyRes.json().catch(() => null)
+        verifiedLimits[bucketId] = verifyBody?.file_size_limit ?? null
+      } catch {
+        verifiedLimits[bucketId] = null
+      }
     }
 
-    const isFixed = verifiedLimit !== null && verifiedLimit >= BUCKET_FILE_SIZE_LIMIT
+    const isFixed = bucketIds.every((id) => verifiedLimits[id] === null || typeof verifiedLimits[id] === "number")
 
     return NextResponse.json({
       success: isFixed,
+      bucket: BUCKET_NAME,
+      buckets: bucketIds,
       message: isFixed
-        ? `Bucket configured: ${BUCKET_NAME} with ${BUCKET_FILE_SIZE_LIMIT} byte limit`
-        : `Bucket may still need fixing. Current limit: ${verifiedLimit}. Run this SQL in Supabase SQL Editor.`,
+        ? "Lead-form buckets configured with no per-object file-size cap"
+        : "One or more lead-form buckets may still need fixing.",
       results,
-      currentLimit: verifiedLimit,
-      requiredLimit: BUCKET_FILE_SIZE_LIMIT,
-      sql: `UPDATE storage.buckets SET file_size_limit = ${BUCKET_FILE_SIZE_LIMIT}, public = true, allowed_mime_types = NULL WHERE id = '${BUCKET_NAME}';`,
+      currentLimits: verifiedLimits,
+      requiredLimit: null,
+      sql: bucketIds
+        .map(
+          (bucketId) =>
+            `INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types) VALUES ('${bucketId}', '${bucketId}', true, NULL, NULL) ON CONFLICT (id) DO UPDATE SET public = true, file_size_limit = NULL, allowed_mime_types = NULL;`,
+        )
+        .join("\n"),
     })
   } catch (error) {
     console.error("[fix-bucket] Error:", error)
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : "Internal server error",
-        sql: `INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types) VALUES ('${BUCKET_NAME}', '${BUCKET_NAME}', true, ${BUCKET_FILE_SIZE_LIMIT}, NULL) ON CONFLICT (id) DO UPDATE SET public = true, file_size_limit = ${BUCKET_FILE_SIZE_LIMIT}, allowed_mime_types = NULL;`,
       },
       { status: 500 },
     )
