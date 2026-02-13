@@ -524,17 +524,19 @@ export default function NewProductPage() {
   const handleSheetTouchEnd = useCallback((sheetName: string, closer: () => void) => {
     if (sheetSwipeStartY.current === null) return
     sheetSwipeStartY.current = null
+    const activeSheet = sheetSwipeRef.current
     if (sheetSwipeCurrentY.current > 92 || sheetSwipeVelocity.current > 0.55) {
       setDismissingSheet(sheetName)
-      if (sheetSwipeRef.current) {
-        sheetSwipeRef.current.style.transition = "transform 400ms cubic-bezier(0.32, 0.72, 0, 1)"
-        sheetSwipeRef.current.style.transform = "translate3d(0, 100%, 0)"
+      if (activeSheet) {
+        activeSheet.style.transition = "transform 400ms cubic-bezier(0.32, 0.72, 0, 1)"
+        activeSheet.style.transform = "translate3d(0, 100%, 0)"
       }
       setTimeout(() => {
-        if (sheetSwipeRef.current) {
-          sheetSwipeRef.current.style.transition = ""
-          sheetSwipeRef.current.style.transform = ""
+        if (activeSheet) {
+          activeSheet.style.transition = ""
+          activeSheet.style.transform = ""
         }
+        sheetSwipeRef.current = null
         setDismissingSheet(null)
         closer()
       }, 400)
@@ -543,14 +545,15 @@ export default function NewProductPage() {
       return
     }
 
-    if (sheetSwipeRef.current) {
-      sheetSwipeRef.current.style.transition = "transform 400ms cubic-bezier(0.32, 0.72, 0, 1)"
-      sheetSwipeRef.current.style.transform = "translate3d(0, 0, 0)"
+    if (activeSheet) {
+      activeSheet.style.transition = "transform 400ms cubic-bezier(0.32, 0.72, 0, 1)"
+      activeSheet.style.transform = "translate3d(0, 0, 0)"
       setTimeout(() => {
-        if (sheetSwipeRef.current) {
-          sheetSwipeRef.current.style.transition = ""
-          sheetSwipeRef.current.style.transform = ""
+        if (activeSheet) {
+          activeSheet.style.transition = ""
+          activeSheet.style.transform = ""
         }
+        sheetSwipeRef.current = null
       }, 400)
     }
     sheetSwipeCurrentY.current = 0
@@ -4481,6 +4484,7 @@ export default function NewProductPage() {
                     onTouchStart={(e) => handleSheetTouchStart(e, e.currentTarget as HTMLDivElement)}
                     onTouchMove={handleSheetTouchMove}
                     onTouchEnd={() => handleSheetTouchEnd("category", closeCategoryModal)}
+                    onTouchCancel={() => handleSheetTouchEnd("category", closeCategoryModal)}
                   >
                     <div className="flex justify-center py-2 sm:hidden cursor-grab" data-drag-handle><div className="w-10 h-1 rounded-full bg-gray-300" /></div>
                     <DialogHeader className="px-4 sm:p-6 pb-3 sm:pb-4 border-b flex-shrink-0">
@@ -4964,6 +4968,7 @@ export default function NewProductPage() {
             onTouchStart={(e) => handleSheetTouchStart(e, e.currentTarget as HTMLDivElement)}
             onTouchMove={handleSheetTouchMove}
             onTouchEnd={() => handleSheetTouchEnd("youtube", () => { setShowYoutubeInput(false); setYoutubeInput("") })}
+            onTouchCancel={() => handleSheetTouchEnd("youtube", () => { setShowYoutubeInput(false); setYoutubeInput("") })}
           >
             <div className="flex justify-center py-2.5 cursor-grab" data-drag-handle><div className="w-10 h-1 rounded-full bg-gray-300" /></div>
             <div className="px-5 pb-6 space-y-4" style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
@@ -5022,6 +5027,7 @@ export default function NewProductPage() {
             onTouchStart={(e) => handleSheetTouchStart(e, e.currentTarget as HTMLDivElement)}
             onTouchMove={handleSheetTouchMove}
             onTouchEnd={() => handleSheetTouchEnd("cta", () => setShowCtaSheet(false))}
+            onTouchCancel={() => handleSheetTouchEnd("cta", () => setShowCtaSheet(false))}
           >
             <div className="flex justify-center py-2.5 cursor-grab" data-drag-handle><div className="w-10 h-1 rounded-full bg-gray-300" /></div>
             <div className="px-5 pb-6 space-y-1" style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
@@ -5056,6 +5062,7 @@ export default function NewProductPage() {
             onTouchStart={(e) => handleSheetTouchStart(e, e.currentTarget as HTMLDivElement)}
             onTouchMove={handleSheetTouchMove}
             onTouchEnd={() => handleSheetTouchEnd("refund", () => setShowRefundPolicySheet(false))}
+            onTouchCancel={() => handleSheetTouchEnd("refund", () => setShowRefundPolicySheet(false))}
           >
             <div className="flex justify-center py-2.5 cursor-grab" data-drag-handle><div className="w-10 h-1 rounded-full bg-gray-300" /></div>
             <div className="px-5 pb-6 space-y-1" style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
@@ -5104,6 +5111,7 @@ export default function NewProductPage() {
           onTouchStart={(e) => isMobileViewport && handleSheetTouchStart(e, e.currentTarget as HTMLDivElement)}
           onTouchMove={(e) => isMobileViewport && handleSheetTouchMove(e)}
           onTouchEnd={() => isMobileViewport && handleSheetTouchEnd("unsaved", () => setShowExitDialog(false))}
+          onTouchCancel={() => isMobileViewport && handleSheetTouchEnd("unsaved", () => setShowExitDialog(false))}
         >
           {isMobileViewport && (
             <div className="flex justify-center py-2.5 cursor-grab" data-drag-handle>

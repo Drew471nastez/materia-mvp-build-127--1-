@@ -222,18 +222,20 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
   const handleTouchEnd = useCallback(() => {
     if (swipeStartY.current === null) return
     swipeStartY.current = null
+    const activeSheet = sheetRef.current
 
     if (swipeCurrentY.current > 92 || swipeVelocity.current > 0.55) {
       setIsDismissing(true)
-      if (sheetRef.current) {
-        sheetRef.current.style.transition = "transform 400ms cubic-bezier(0.32, 0.72, 0, 1)"
-        sheetRef.current.style.transform = "translate3d(0, 100%, 0)"
+      if (activeSheet) {
+        activeSheet.style.transition = "transform 400ms cubic-bezier(0.32, 0.72, 0, 1)"
+        activeSheet.style.transform = "translate3d(0, 100%, 0)"
       }
       setTimeout(() => {
-        if (sheetRef.current) {
-          sheetRef.current.style.transition = ""
-          sheetRef.current.style.transform = ""
+        if (activeSheet) {
+          activeSheet.style.transition = ""
+          activeSheet.style.transform = ""
         }
+        sheetRef.current = null
         setIsDismissing(false)
         onClose()
       }, 400)
@@ -242,14 +244,15 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
       return
     }
 
-    if (sheetRef.current) {
-      sheetRef.current.style.transition = "transform 400ms cubic-bezier(0.32, 0.72, 0, 1)"
-      sheetRef.current.style.transform = "translate3d(0, 0, 0)"
+    if (activeSheet) {
+      activeSheet.style.transition = "transform 400ms cubic-bezier(0.32, 0.72, 0, 1)"
+      activeSheet.style.transform = "translate3d(0, 0, 0)"
       setTimeout(() => {
-        if (sheetRef.current) {
-          sheetRef.current.style.transition = ""
-          sheetRef.current.style.transform = ""
+        if (activeSheet) {
+          activeSheet.style.transition = ""
+          activeSheet.style.transform = ""
         }
+        sheetRef.current = null
       }, 400)
     }
     swipeCurrentY.current = 0
@@ -428,6 +431,7 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
+          onTouchCancel={handleTouchEnd}
         >
           {/* Drag handle */}
           <div className="flex justify-center py-2.5 flex-shrink-0 cursor-grab" data-drag-handle>
