@@ -3603,7 +3603,7 @@ export function LinksTab() {
 
                       // --- Client-side security checks (fast, before any upload) ---
 
-                      // 1. File size limit: 50 GB for digital products
+                      // 1. File size limit: plan-based (free=10GB, growth=50GB, pro=unlimited)
                       if (isDigitalFile && file.size > MAX_DIGITAL_PRODUCT_FILE_SIZE) {
                         const limitGB = MAX_DIGITAL_PRODUCT_FILE_SIZE / (1024 * 1024 * 1024)
                         throw new Error(`File size exceeds the ${limitGB} GB limit for digital product uploads.`)

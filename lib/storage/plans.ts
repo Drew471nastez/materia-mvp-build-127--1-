@@ -7,8 +7,8 @@ export const STORAGE_BUCKET = "digital-products" // single private bucket for al
 export const PUBLIC_BUCKET = "lead-form-files-v2" // public bucket for thumbnails/images
 export const BUCKET_FILE_SIZE_LIMIT = 0 // 0 = no bucket-level limit (disables the check in Supabase Storage; only project-level global limit applies)
 
-/** Hard ceiling: 50 GB per-file for digital product uploads (enforced everywhere). */
-export const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024 * 1024 // 50 GB
+/** Global hard ceiling — effectively unlimited; actual limits are plan-based. */
+export const MAX_FILE_SIZE_BYTES = Number.MAX_SAFE_INTEGER
 
 export type PlanId = "free" | "growth" | "pro"
 
@@ -24,7 +24,7 @@ export interface PlanLimits {
 export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
   free: {
     storageQuotaBytes: 1 * 1024 * 1024 * 1024, // 1 GB
-    maxFileSizeBytes: 50 * 1024 * 1024 * 1024, // 50 GB
+    maxFileSizeBytes: 10 * 1024 * 1024 * 1024, // 10 GB
     maxDownloadsPerLink: 10,
     linkExpiryDays: 30,
     maxFilesPerProduct: 3,
@@ -32,7 +32,7 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
   },
   growth: {
     storageQuotaBytes: 25 * 1024 * 1024 * 1024, // 25 GB
-    maxFileSizeBytes: Number.MAX_SAFE_INTEGER, // unlimited
+    maxFileSizeBytes: 50 * 1024 * 1024 * 1024, // 50 GB
     maxDownloadsPerLink: 100,
     linkExpiryDays: 90,
     maxFilesPerProduct: 10,

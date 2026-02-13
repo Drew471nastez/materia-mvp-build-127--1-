@@ -125,7 +125,7 @@ export function validateFile(
     }
   }
 
-  // Enforce 50 GB max for digital products
+  // Enforce plan-based max file size for digital products
   if (fileSize > MAX_DIGITAL_PRODUCT_FILE_SIZE) {
     const limitGB = MAX_DIGITAL_PRODUCT_FILE_SIZE / (1024 * 1024 * 1024)
     return {
