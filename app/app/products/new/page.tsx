@@ -439,6 +439,8 @@ export default function NewProductPage() {
 
   // CTA bottom sheet for mobile
   const [showCtaSheet, setShowCtaSheet] = useState(false)
+  const [showRefundPolicySheet, setShowRefundPolicySheet] = useState(false)
+  const [isMobileViewport, setIsMobileViewport] = useState(false)
 
   // Bottom sheet dismiss animation states
   const [dismissingSheet, setDismissingSheet] = useState<string | null>(null)
@@ -452,8 +454,16 @@ export default function NewProductPage() {
     setTimeout(() => {
       setDismissingSheet(null)
       closer()
-    }, 200)
+    }, 400)
   }, [])
+
+  const closeCategoryModal = useCallback(() => {
+    if (isMobileViewport) {
+      closeSheet("category", () => setShowCategoryModal(false))
+      return
+    }
+    setShowCategoryModal(false)
+  }, [closeSheet, isMobileViewport])
 
   // Swipe handlers for bottom sheets
   const handleSheetTouchStart = useCallback((e: React.TouchEvent, ref: HTMLDivElement | null) => {
@@ -461,8 +471,12 @@ export default function NewProductPage() {
     const isDragHandle = target.closest("[data-drag-handle]")
     const scrollContainer = ref?.querySelector("[data-scroll-container]") as HTMLElement
     const isAtTop = !scrollContainer || scrollContainer.scrollTop <= 0
-    if (isDragHandle || isAtTop) {
-      sheetSwipeStartY.current = e.touches[0].clientY
+    const touchY = e.touches[0].clientY
+    const bounds = ref?.getBoundingClientRect()
+    const nearTop = !!bounds && touchY - bounds.top <= 72
+
+    if (isDragHandle || (isAtTop && nearTop)) {
+      sheetSwipeStartY.current = touchY
       sheetSwipeCurrentY.current = 0
       sheetSwipeRef.current = ref
     }
@@ -472,9 +486,11 @@ export default function NewProductPage() {
     if (sheetSwipeStartY.current === null) return
     const deltaY = e.touches[0].clientY - sheetSwipeStartY.current
     if (deltaY > 0) {
-      sheetSwipeCurrentY.current = deltaY
+      e.preventDefault()
+      const resisted = deltaY <= 160 ? deltaY * 0.92 : 147 + (deltaY - 160) * 0.4
+      sheetSwipeCurrentY.current = resisted
       if (sheetSwipeRef.current) {
-        sheetSwipeRef.current.style.transform = `translateY(${deltaY}px)`
+        sheetSwipeRef.current.style.transform = `translate3d(0, ${resisted}px, 0)`
         sheetSwipeRef.current.style.transition = "none"
       }
     }
@@ -488,7 +504,7 @@ export default function NewProductPage() {
     } else {
       if (sheetSwipeRef.current) {
         sheetSwipeRef.current.style.transform = ""
-        sheetSwipeRef.current.style.transition = "transform 200ms cubic-bezier(0.32, 0.72, 0, 1)"
+        sheetSwipeRef.current.style.transition = "transform 400ms cubic-bezier(0.32, 0.72, 0, 1)"
       }
     }
     sheetSwipeCurrentY.current = 0
@@ -496,6 +512,13 @@ export default function NewProductPage() {
 
   // Header scroll state
   const [isScrolled, setIsScrolled] = useState(false)
+
+  useEffect(() => {
+    const syncViewport = () => setIsMobileViewport(window.innerWidth < 640)
+    syncViewport()
+    window.addEventListener("resize", syncViewport)
+    return () => window.removeEventListener("resize", syncViewport)
+  }, [])
 
   // Refs for sections
   const sectionRefs = useRef<{ [key in SectionId]?: HTMLDivElement | null }>({})
@@ -660,13 +683,13 @@ export default function NewProductPage() {
   const faqSensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8,
+        distance: 12,
       },
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 250,
-        tolerance: 10,
+        delay: 300,
+        tolerance: 12,
       },
     }),
     useSensor(KeyboardSensor, {
@@ -678,13 +701,13 @@ export default function NewProductPage() {
   const mediaSensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8,
+        distance: 12,
       },
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 250,
-        tolerance: 10,
+        delay: 300,
+        tolerance: 12,
       },
     })
   )
@@ -2581,7 +2604,7 @@ export default function NewProductPage() {
     if (!currentProductId) {
       // First, we need to save the product to get an ID
       if (!title.trim()) {
-        showToast("Please enter a product title before uploading digital files")
+        showToast("Please enter a product title to upload digital product files")
         scrollToSection("about")
         return
       }
@@ -2914,7 +2937,7 @@ export default function NewProductPage() {
   // Skeleton loading component - exact match to final UI structure
   if (!isPageReady) {
     return (
-      <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
+      <div className="h-screen bg-gray-50 flex flex-col overflow-hidden overflow-x-hidden">
         {/* Skeleton Header - exact match */}
         <div className="flex-shrink-0 bg-white border-b border-gray-200 z-30 shadow-sm">
           <div className="px-4 sm:px-6 lg:px-8">
@@ -2944,7 +2967,7 @@ export default function NewProductPage() {
 
         {/* Skeleton Content - exact match to form structure */}
         <div className="flex-1 overflow-y-auto bg-white sm:bg-gray-50">
-          <div className="px-4 sm:px-6 lg:px-8 py-3 sm:py-6 pb-52 sm:pb-8">
+          <div className="px-4 sm:px-6 lg:px-8 py-3 sm:py-6 pb-64 sm:pb-8">
             <div className="max-w-5xl mx-auto">
               <div className="sm:bg-white sm:rounded-2xl sm:shadow-sm sm:border sm:border-gray-100 sm:p-6 lg:p-8">
                 <div className="lg:w-3/5 space-y-8 sm:space-y-12">
@@ -3066,7 +3089,7 @@ export default function NewProductPage() {
   }
 
   return (
-    <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
+    <div className="h-screen bg-gray-50 flex flex-col overflow-hidden overflow-x-hidden">
       {/* Success Notification - Modern black toast */}
       {showNotification && (
         <div
@@ -3082,7 +3105,7 @@ export default function NewProductPage() {
       {/* Validation Toast Notification - Black modern style */}
       {toast.visible && (
         <div
-          className={`fixed top-4 left-1/2 z-50 ${
+          className={`fixed top-5 sm:top-4 left-1/2 z-50 ${
             toast.dismissing ? "animate-toast-out" : "animate-toast-in"
           }`}
         >
@@ -3090,13 +3113,9 @@ export default function NewProductPage() {
             <AlertCircle className="h-4 w-4 text-white/80 flex-shrink-0" />
             <span className="text-sm font-medium text-white tracking-tight sm:block hidden">{toast.message}</span>
             <span className="text-sm font-medium text-white tracking-tight sm:hidden block">
-              {toast.message.length > 25 ? (
-                toast.message.includes("title") ? "Add title first" :
-                toast.message.includes("photo") || toast.message.includes("video") ? "Add media first" :
-                toast.message.includes("file") ? "Add files first" :
-                toast.message.includes("category") ? "Select category" :
-                toast.message.substring(0, 22) + "..."
-              ) : toast.message}
+              {toast.message === "Please enter a product title to upload digital product files"
+                ? "Please add title first."
+                : toast.message}
             </span>
             <button
               onClick={dismissToast}
@@ -3214,7 +3233,7 @@ export default function NewProductPage() {
                         ref={(el) => { pillRefs.current[section.id as SectionId] = el }}
                         onClick={() => scrollToSection(section.id as SectionId)}
                         className={`
-                          flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 lg:px-5 py-2 rounded-full text-[13px] sm:text-[14px] lg:text-[15px] font-medium transition-all duration-200 whitespace-nowrap flex-shrink-0
+                          flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 lg:px-5 py-2 rounded-full text-[13px] sm:text-[14px] lg:text-[15px] font-medium transition-all duration-400 whitespace-nowrap flex-shrink-0
                           bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-800
                         `}
                       >
@@ -3304,10 +3323,10 @@ export default function NewProductPage() {
       </div>
 
       {/* Scrollable Content Area - with overscroll protection */}
-      <div ref={contentRef} className="flex-1 overflow-y-auto bg-white sm:bg-gray-50 overscroll-contain">
+      <div ref={contentRef} className="flex-1 overflow-y-auto overflow-x-hidden bg-white sm:bg-gray-50 overscroll-contain">
 
         {/* Form Content - flat on mobile, card on desktop */}
-        <div className="px-4 sm:px-6 lg:px-8 py-3 sm:py-6 pb-52 sm:pb-8">
+        <div className="px-4 sm:px-6 lg:px-8 py-3 sm:py-6 pb-64 sm:pb-8">
           <div className="max-w-5xl mx-auto">
             <div className="sm:bg-white sm:rounded-2xl sm:shadow-sm sm:border sm:border-gray-100 sm:p-6 lg:p-8">
               {/* Form content wrapper - 60% width and left-aligned on desktop */}
@@ -3414,7 +3433,7 @@ export default function NewProductPage() {
                   className={`
                     border-2 border-dashed rounded-xl
                     flex flex-col items-center justify-center py-6 sm:py-8
-                    transition-all duration-200 cursor-pointer
+                    transition-all duration-400 cursor-pointer
                     touch-action-pan-y
                     ${uploadingMedia ? "pointer-events-none border-gray-300" : ""}
                     ${isExternalDragOver
@@ -3479,7 +3498,7 @@ export default function NewProductPage() {
                       </div>
                     </div>
                   ) : isExternalDragOver ? (
-                    <div className="flex flex-col items-center gap-3 animate-in fade-in zoom-in-95 duration-200">
+                    <div className="flex flex-col items-center gap-3 animate-in fade-in zoom-in-95 duration-400">
                       <div className="w-12 h-12 rounded-full bg-violet-100 flex items-center justify-center animate-pulse">
                         <Plus className="h-6 w-6 text-violet-600" />
                       </div>
@@ -3705,7 +3724,7 @@ export default function NewProductPage() {
                     className="text-gray-600 border-gray-200 h-8 text-xs rounded-lg hover:bg-gray-50"
                   >
                     <Plus className="h-3.5 w-3.5 mr-1" />
-                    Add FAQ
+                    + Add FAQ
                   </Button>
                 </div>
 
@@ -3823,7 +3842,7 @@ export default function NewProductPage() {
                     className={`
                       mt-2 border-2 border-dashed rounded-xl
                       flex flex-col items-center justify-center py-5 sm:py-6
-                      transition-all duration-200 cursor-pointer touch-action-pan-y
+                      transition-all duration-400 cursor-pointer touch-action-pan-y
                       ${uploadingFiles ? "pointer-events-none border-gray-300" : ""}
                       ${isFileDragOver
                         ? "border-violet-500 bg-violet-50 scale-[1.02] shadow-lg shadow-violet-100"
@@ -3887,7 +3906,7 @@ export default function NewProductPage() {
                         </div>
                       </div>
                     ) : isFileDragOver ? (
-                      <div className="flex flex-col items-center gap-3 animate-in fade-in zoom-in-95 duration-200">
+                      <div className="flex flex-col items-center gap-3 animate-in fade-in zoom-in-95 duration-400">
                         <div className="w-12 h-12 rounded-full bg-violet-100 flex items-center justify-center animate-pulse">
                           <Plus className="h-6 w-6 text-violet-600" />
                         </div>
@@ -4398,13 +4417,13 @@ export default function NewProductPage() {
 
                 {/* Category Modal - Bottom Sheet on Mobile */}
                 <Dialog open={showCategoryModal} onOpenChange={(open) => {
-                  if (!open) closeSheet("category", () => setShowCategoryModal(false))
+                  if (!open) closeCategoryModal()
                   else setShowCategoryModal(true)
                 }}>
                   <DialogContent className={`fixed bottom-0 left-0 right-0 sm:left-[50%] sm:top-[50%] sm:bottom-auto sm:translate-x-[-50%] sm:translate-y-[-50%] w-full sm:w-[calc(100%-2rem)] sm:max-w-lg rounded-t-2xl sm:rounded-xl bg-white shadow-xl border-t sm:border p-0 max-h-[90vh] sm:max-h-[calc(100vh-4rem)] overflow-hidden flex flex-col ${dismissingSheet === "category" ? "animate-bottom-sheet-out" : "animate-bottom-sheet-in"} sm:animate-none`}
                     onTouchStart={(e) => handleSheetTouchStart(e, e.currentTarget as HTMLDivElement)}
                     onTouchMove={handleSheetTouchMove}
-                    onTouchEnd={() => handleSheetTouchEnd("category", () => setShowCategoryModal(false))}
+                    onTouchEnd={() => handleSheetTouchEnd("category", closeCategoryModal)}
                   >
                     <div className="flex justify-center py-2 sm:hidden cursor-grab" data-drag-handle><div className="w-10 h-1 rounded-full bg-gray-300" /></div>
                     <DialogHeader className="px-4 sm:p-6 pb-3 sm:pb-4 border-b flex-shrink-0">
@@ -4432,10 +4451,10 @@ export default function NewProductPage() {
                             type="button"
                             onClick={() => {
                               setSelectedCategory(suggestedCategory)
-                              setShowCategoryModal(false)
+                              closeCategoryModal()
                               setCategorySearch("")
                             }}
-                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-all duration-200 ${
+                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-all duration-400 ${
                               selectedCategory === suggestedCategory
                                 ? "bg-gradient-to-r from-violet-500 to-purple-500 text-white shadow-md"
                                 : "bg-gradient-to-r from-violet-50 to-purple-50 hover:from-violet-100 hover:to-purple-100 border border-violet-200"
@@ -4469,7 +4488,7 @@ export default function NewProductPage() {
                               type="button"
                               onClick={() => {
                                 setSelectedCategory(category)
-                                setShowCategoryModal(false)
+                                closeCategoryModal()
                                 setCategorySearch("")
                               }}
                               className={`w-full flex items-center gap-3 text-left px-3 py-2.5 rounded-lg text-sm transition-all duration-150 ${
@@ -4512,7 +4531,7 @@ export default function NewProductPage() {
                                 <span className="text-lg">{group.icon}</span>
                                 <span className="flex-1">{groupName}</span>
                                 <span className="text-xs text-gray-400 mr-1">{group.categories.length}</span>
-                                <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${
+                                <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform duration-400 ${
                                   expandedGroups.has(groupName) ? "rotate-180" : ""
                                 }`} />
                               </button>
@@ -4526,7 +4545,7 @@ export default function NewProductPage() {
                                       type="button"
                                       onClick={() => {
                                         setSelectedCategory(category)
-                                        setShowCategoryModal(false)
+                                        closeCategoryModal()
                                         setCategorySearch("")
                                       }}
                                       className={`w-full flex items-center gap-2 text-left px-3 py-2 rounded-md text-sm transition-all duration-150 ${
@@ -4558,7 +4577,7 @@ export default function NewProductPage() {
                         variant="outline"
                         onClick={() => {
                           setSelectedCategory(null)
-                          setShowCategoryModal(false)
+                          closeCategoryModal()
                           setCategorySearch("")
                         }}
                         className="w-full sm:w-auto"
@@ -4568,7 +4587,7 @@ export default function NewProductPage() {
                       <Button
                         type="button"
                         onClick={() => {
-                          setShowCategoryModal(false)
+                          closeCategoryModal()
                           setCategorySearch("")
                         }}
                         className="w-full sm:w-auto bg-violet-500 hover:bg-violet-600"
@@ -4690,17 +4709,30 @@ export default function NewProductPage() {
                     />
                   </div>
                   {refundPolicyEnabled && (
-                    <Select value={refundPolicyType} onValueChange={setRefundPolicyType}>
-                      <SelectTrigger className="h-10 sm:h-11 border-gray-200 text-sm sm:text-base">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="no_refunds">No refunds allowed</SelectItem>
-                        <SelectItem value="7_day">7-day money back guarantee</SelectItem>
-                        <SelectItem value="14_day">14-day money back guarantee</SelectItem>
-                        <SelectItem value="30_day">30-day money back guarantee</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setShowRefundPolicySheet(true)}
+                        className="sm:hidden w-full h-10 justify-between text-sm border-gray-200 font-normal"
+                      >
+                        <span className="text-gray-900">{refundPolicyType === "no_refunds" ? "No refunds allowed" : refundPolicyType === "7_day" ? "7-day money back guarantee" : refundPolicyType === "14_day" ? "14-day money back guarantee" : "30-day money back guarantee"}</span>
+                        <ChevronDown className="h-4 w-4 text-gray-400" />
+                      </Button>
+                      <div className="hidden sm:block">
+                        <Select value={refundPolicyType} onValueChange={setRefundPolicyType}>
+                          <SelectTrigger className="h-10 sm:h-11 border-gray-200 text-sm sm:text-base">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="no_refunds">No refunds allowed</SelectItem>
+                            <SelectItem value="7_day">7-day money back guarantee</SelectItem>
+                            <SelectItem value="14_day">14-day money back guarantee</SelectItem>
+                            <SelectItem value="30_day">30-day money back guarantee</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </>
                   )}
                 </div>
               </div>
@@ -4868,7 +4900,7 @@ export default function NewProductPage() {
       {/* YouTube Bottom Sheet */}
       {showYoutubeInput && (
         <div className="fixed inset-0 z-50">
-          <div className={`fixed inset-0 bg-black/40 ${dismissingSheet === "youtube" ? "opacity-0 transition-opacity duration-200" : "animate-backdrop-in"}`} onClick={() => closeSheet("youtube", () => { setShowYoutubeInput(false); setYoutubeInput("") })} />
+          <div className={`fixed inset-0 bg-black/40 ${dismissingSheet === "youtube" ? "opacity-0 transition-opacity duration-400" : "animate-backdrop-in"}`} onClick={() => closeSheet("youtube", () => { setShowYoutubeInput(false); setYoutubeInput("") })} />
           <div
             className={`fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-xl ${dismissingSheet === "youtube" ? "animate-bottom-sheet-out" : "animate-bottom-sheet-in"} z-50`}
             style={{ maxHeight: "85vh" }}
@@ -4926,7 +4958,7 @@ export default function NewProductPage() {
       {/* CTA Bottom Sheet */}
       {showCtaSheet && (
         <div className="fixed inset-0 z-50">
-          <div className={`fixed inset-0 bg-black/40 ${dismissingSheet === "cta" ? "opacity-0 transition-opacity duration-200" : "animate-backdrop-in"}`} onClick={() => closeSheet("cta", () => setShowCtaSheet(false))} />
+          <div className={`fixed inset-0 bg-black/40 ${dismissingSheet === "cta" ? "opacity-0 transition-opacity duration-400" : "animate-backdrop-in"}`} onClick={() => closeSheet("cta", () => setShowCtaSheet(false))} />
           <div
             className={`fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-xl ${dismissingSheet === "cta" ? "animate-bottom-sheet-out" : "animate-bottom-sheet-in"} z-50`}
             onTouchStart={(e) => handleSheetTouchStart(e, e.currentTarget as HTMLDivElement)}
@@ -4949,6 +4981,45 @@ export default function NewProductPage() {
                 >
                   <span>{cta}</span>
                   {(callToAction || "I want this!") === cta && <Check className="h-4 w-4 text-violet-500" />}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Refund Policy Bottom Sheet */}
+      {showRefundPolicySheet && (
+        <div className="fixed inset-0 z-50 sm:hidden">
+          <div className={`fixed inset-0 bg-black/40 ${dismissingSheet === "refund" ? "opacity-0 transition-opacity duration-400" : "animate-backdrop-in"}`} onClick={() => closeSheet("refund", () => setShowRefundPolicySheet(false))} />
+          <div
+            className={`fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-xl ${dismissingSheet === "refund" ? "animate-bottom-sheet-out" : "animate-bottom-sheet-in"} z-50`}
+            style={{ maxHeight: "85vh" }}
+            onTouchStart={(e) => handleSheetTouchStart(e, e.currentTarget as HTMLDivElement)}
+            onTouchMove={handleSheetTouchMove}
+            onTouchEnd={() => handleSheetTouchEnd("refund", () => setShowRefundPolicySheet(false))}
+          >
+            <div className="flex justify-center py-2.5 cursor-grab" data-drag-handle><div className="w-10 h-1 rounded-full bg-gray-300" /></div>
+            <div className="px-5 pb-6 space-y-1" style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
+              <h3 className="text-base font-semibold text-gray-900 mb-3">Refund Policy</h3>
+              {[
+                { value: "no_refunds", label: "No refunds allowed" },
+                { value: "7_day", label: "7-day money back guarantee" },
+                { value: "14_day", label: "14-day money back guarantee" },
+                { value: "30_day", label: "30-day money back guarantee" },
+              ].map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => { setRefundPolicyType(option.value); closeSheet("refund", () => setShowRefundPolicySheet(false)) }}
+                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm transition-all ${
+                    refundPolicyType === option.value
+                      ? "bg-violet-50 text-violet-900 font-medium"
+                      : "text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  <span>{option.label}</span>
+                  {refundPolicyType === option.value && <Check className="h-4 w-4 text-violet-500" />}
                 </button>
               ))}
             </div>

@@ -170,7 +170,7 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
       setTimeout(() => {
         setIsDismissing(false)
         onClose()
-      }, 200)
+      }, 400)
     } else {
       onClose()
     }
@@ -185,8 +185,11 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
     const scrollContainer = sheet.querySelector("[data-scroll-container]") as HTMLElement
     const isAtTop = !scrollContainer || scrollContainer.scrollTop <= 0
     const isDragHandle = target.closest("[data-drag-handle]")
-    if (isDragHandle || isAtTop) {
-      swipeStartY.current = e.touches[0].clientY
+    const touchY = e.touches[0].clientY
+    const bounds = sheet.getBoundingClientRect()
+    const nearTop = touchY - bounds.top <= 72
+    if (isDragHandle || (isAtTop && nearTop)) {
+      swipeStartY.current = touchY
       swipeCurrentY.current = 0
     }
   }, [])
@@ -195,9 +198,11 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
     if (swipeStartY.current === null) return
     const deltaY = e.touches[0].clientY - swipeStartY.current
     if (deltaY > 0) {
-      swipeCurrentY.current = deltaY
+      e.preventDefault()
+      const resisted = deltaY <= 160 ? deltaY * 0.92 : 147 + (deltaY - 160) * 0.4
+      swipeCurrentY.current = resisted
       if (sheetRef.current) {
-        sheetRef.current.style.transform = `translateY(${deltaY}px)`
+        sheetRef.current.style.transform = `translate3d(0, ${resisted}px, 0)`
         sheetRef.current.style.transition = "none"
       }
     }
@@ -213,7 +218,7 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
       // Snap back
       if (sheetRef.current) {
         sheetRef.current.style.transform = ""
-        sheetRef.current.style.transition = "transform 200ms cubic-bezier(0.32, 0.72, 0, 1)"
+        sheetRef.current.style.transition = "transform 400ms cubic-bezier(0.32, 0.72, 0, 1)"
       }
     }
     swipeCurrentY.current = 0
@@ -352,7 +357,7 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
           zIndex: 2147483645,
           pointerEvents: "auto",
           opacity: isDismissing ? 0 : undefined,
-          transition: isDismissing ? "opacity 200ms ease-out" : undefined,
+          transition: isDismissing ? "opacity 400ms cubic-bezier(0.32, 0.72, 0, 1)" : undefined,
         }}
         onClick={handleClose}
         onMouseDown={(e) => e.stopPropagation()}

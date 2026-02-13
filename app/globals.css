@@ -398,15 +398,15 @@
   }
 
   .animate-bottom-sheet-in {
-    animation: bottomSheetIn 300ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
+    animation: bottomSheetIn 400ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
   }
 
   .animate-bottom-sheet-out {
-    animation: bottomSheetOut 200ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
+    animation: bottomSheetOut 400ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
   }
 
   .animate-backdrop-in {
-    animation: backdropIn 200ms ease-out forwards;
+    animation: backdropIn 400ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
   }
 
   /* Toast notification animations */
