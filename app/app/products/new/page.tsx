@@ -4448,7 +4448,10 @@ export default function NewProductPage() {
                   if (!open) closeCategoryModal()
                   else setShowCategoryModal(true)
                 }}>
-                  <DialogContent className={`fixed bottom-0 left-0 right-0 sm:left-[50%] sm:top-[50%] sm:bottom-auto sm:translate-x-[-50%] sm:translate-y-[-50%] w-full sm:w-[calc(100%-2rem)] sm:max-w-lg rounded-t-2xl sm:rounded-xl bg-white shadow-xl border-t sm:border p-0 max-h-[90vh] sm:max-h-[calc(100vh-4rem)] overflow-hidden flex flex-col ${dismissingSheet === "category" ? "animate-bottom-sheet-out" : "animate-bottom-sheet-in"} sm:animate-none`}
+                  <DialogContent
+                    disableDefaultAnimations={isMobileViewport}
+                    overlayClassName={isMobileViewport ? `bg-black/40 transition-opacity duration-400 ${dismissingSheet === "category" ? "opacity-0" : "opacity-100"}` : undefined}
+                    className={`fixed bottom-0 left-0 right-0 sm:left-[50%] sm:top-[50%] sm:bottom-auto sm:translate-x-[-50%] sm:translate-y-[-50%] w-full sm:w-[calc(100%-2rem)] sm:max-w-lg rounded-t-2xl sm:rounded-xl bg-white shadow-xl border-t sm:border p-0 max-h-[90vh] sm:max-h-[calc(100vh-4rem)] overflow-hidden flex flex-col ${dismissingSheet === "category" ? "animate-bottom-sheet-out" : "animate-bottom-sheet-in"} sm:animate-none`}
                     onTouchStart={(e) => handleSheetTouchStart(e, e.currentTarget as HTMLDivElement)}
                     onTouchMove={handleSheetTouchMove}
                     onTouchEnd={() => handleSheetTouchEnd("category", closeCategoryModal)}

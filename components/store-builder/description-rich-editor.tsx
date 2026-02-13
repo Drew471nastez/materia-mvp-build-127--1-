@@ -1794,7 +1794,7 @@ export function DescriptionRichEditor({
                     value={videoUrl}
                     onChange={(e) => setVideoUrl(e.target.value)}
                     className="h-11 text-sm"
-                    autoFocus
+                    autoFocus={!isMobile}
                   />
                 </div>
 
@@ -1901,7 +1901,7 @@ export function DescriptionRichEditor({
                   value={buttonText}
                   onChange={(e) => setButtonText(e.target.value)}
                   className="h-11 text-sm"
-                  autoFocus
+                  autoFocus={!isMobile}
                 />
               </div>
 
@@ -2004,7 +2004,7 @@ export function DescriptionRichEditor({
                   value={xPostUrl}
                   onChange={(e) => setXPostUrl(e.target.value)}
                   className="h-10 text-sm"
-                  autoFocus
+                  autoFocus={!isMobile}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault()
@@ -2181,7 +2181,7 @@ export function DescriptionRichEditor({
               value={textSelectionLinkUrl}
               onChange={(e) => setTextSelectionLinkUrl(e.target.value)}
               className="h-9 text-sm mb-3"
-              autoFocus
+              autoFocus={!isMobile}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault()
