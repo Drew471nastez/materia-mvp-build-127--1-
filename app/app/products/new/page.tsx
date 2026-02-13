@@ -3602,6 +3602,7 @@ export default function NewProductPage() {
                   <DescriptionRichEditor
                     value={description}
                     onChange={setDescription}
+                    isMobile={isMobileViewport}
                     className="min-h-[150px] sm:min-h-[180px] border border-gray-200 rounded-lg"
                     disableAutoFocus={true}
                   />
