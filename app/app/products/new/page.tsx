@@ -505,19 +505,19 @@ export default function NewProductPage() {
   const handleSheetTouchMove = useCallback((e: React.TouchEvent) => {
     if (sheetSwipeStartY.current === null) return
     const deltaY = e.touches[0].clientY - sheetSwipeStartY.current
-    if (deltaY > 0) {
-      e.preventDefault()
-      const now = Date.now()
-      const dt = Math.max(1, now - sheetSwipeLastTime.current)
-      sheetSwipeVelocity.current = (e.touches[0].clientY - sheetSwipeLastY.current) / dt
-      sheetSwipeLastY.current = e.touches[0].clientY
-      sheetSwipeLastTime.current = now
+    const now = Date.now()
+    const dt = Math.max(1, now - sheetSwipeLastTime.current)
+    sheetSwipeVelocity.current = (e.touches[0].clientY - sheetSwipeLastY.current) / dt
+    sheetSwipeLastY.current = e.touches[0].clientY
+    sheetSwipeLastTime.current = now
 
-      sheetSwipeCurrentY.current = deltaY
-      if (sheetSwipeRef.current) {
-        sheetSwipeRef.current.style.transform = `translate3d(0, ${deltaY}px, 0)`
-        sheetSwipeRef.current.style.transition = "none"
-      }
+    const trackedY = deltaY > 0 ? deltaY : deltaY * 0.18
+    if (deltaY > 0) e.preventDefault()
+
+    sheetSwipeCurrentY.current = Math.max(0, deltaY)
+    if (sheetSwipeRef.current) {
+      sheetSwipeRef.current.style.transform = `translate3d(0, ${trackedY}px, 0)`
+      sheetSwipeRef.current.style.transition = "none"
     }
   }, [])
 
@@ -4476,7 +4476,7 @@ export default function NewProductPage() {
                       if (isMobileViewport) e.preventDefault()
                     }}
                     overlayClassName={isMobileViewport ? `bg-black/40 transition-opacity duration-400 ${dismissingSheet === "category" ? "opacity-0" : "opacity-100"}` : undefined}
-                    className={`fixed !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0 sm:left-[50%] sm:top-[50%] sm:bottom-auto sm:translate-x-[-50%] sm:translate-y-[-50%] w-full sm:w-[calc(100%-2rem)] sm:max-w-lg rounded-t-2xl sm:rounded-xl bg-white shadow-xl border-t sm:border p-0 h-[80vh] sm:h-auto max-h-[80vh] sm:max-h-[calc(100vh-4rem)] overflow-hidden flex flex-col ${dismissingSheet === "category" ? "animate-bottom-sheet-out" : "animate-bottom-sheet-in"} sm:animate-none`}
+                    className={`fixed !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0 sm:left-[50%] sm:top-[50%] sm:bottom-auto sm:translate-x-[-50%] sm:translate-y-[-50%] w-full !max-w-none sm:!max-w-lg sm:w-[calc(100%-2rem)] rounded-t-2xl sm:rounded-xl bg-white shadow-xl border-t sm:border p-0 h-[80vh] sm:h-auto max-h-[80vh] sm:max-h-[calc(100vh-4rem)] overflow-hidden flex flex-col ${dismissingSheet === "category" ? "animate-bottom-sheet-out" : "animate-bottom-sheet-in"} sm:animate-none`}
                     style={isMobileViewport ? { willChange: 'transform', backfaceVisibility: 'hidden' } : undefined}
                     onTouchStart={(e) => handleSheetTouchStart(e, e.currentTarget as HTMLDivElement)}
                     onTouchMove={handleSheetTouchMove}
@@ -5098,7 +5098,7 @@ export default function NewProductPage() {
           }}
           overlayClassName={isMobileViewport ? `bg-black/40 transition-opacity duration-400 ${dismissingSheet === "unsaved" ? "opacity-0" : "opacity-100"}` : undefined}
           className={isMobileViewport
-            ? `fixed !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0 w-full rounded-t-2xl rounded-b-none border-x-0 border-b-0 p-0 max-h-[70vh] overflow-hidden flex flex-col ${dismissingSheet === "unsaved" ? "animate-bottom-sheet-out" : "animate-bottom-sheet-in"}`
+            ? `fixed !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0 w-full !max-w-none rounded-t-2xl rounded-b-none border-x-0 border-b-0 p-0 max-h-[70vh] overflow-hidden flex flex-col ${dismissingSheet === "unsaved" ? "animate-bottom-sheet-out" : "animate-bottom-sheet-in"}`
             : "sm:max-w-md mx-4"}
           style={isMobileViewport ? { willChange: 'transform', backfaceVisibility: 'hidden' } : undefined}
           onTouchStart={(e) => isMobileViewport && handleSheetTouchStart(e, e.currentTarget as HTMLDivElement)}
