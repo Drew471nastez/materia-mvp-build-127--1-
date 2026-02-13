@@ -511,12 +511,15 @@ export default function NewProductPage() {
     sheetSwipeLastY.current = e.touches[0].clientY
     sheetSwipeLastTime.current = now
 
-    const trackedY = deltaY > 0 ? deltaY : deltaY * 0.18
+    // Smooth progressive drag resistance (same as TimeframeBottomSheet)
+    const resisted = deltaY > 0
+      ? (deltaY <= 160 ? deltaY * 0.92 : 147 + (deltaY - 160) * 0.4)
+      : deltaY * 0.18
     if (deltaY > 0) e.preventDefault()
 
     sheetSwipeCurrentY.current = Math.max(0, deltaY)
     if (sheetSwipeRef.current) {
-      sheetSwipeRef.current.style.transform = `translate3d(0, ${trackedY}px, 0)`
+      sheetSwipeRef.current.style.transform = `translate3d(0, ${resisted}px, 0)`
       sheetSwipeRef.current.style.transition = "none"
     }
   }, [])
@@ -4486,7 +4489,7 @@ export default function NewProductPage() {
                     onTouchEnd={() => handleSheetTouchEnd("category", closeCategoryModal)}
                     onTouchCancel={() => handleSheetTouchEnd("category", closeCategoryModal)}
                   >
-                    <div className="flex justify-center py-2 sm:hidden cursor-grab" data-drag-handle><div className="w-10 h-1 rounded-full bg-gray-300" /></div>
+                    <div className="pt-3 pb-1 flex justify-center sm:hidden cursor-grab active:cursor-grabbing touch-none" data-drag-handle><div className="h-[5px] w-10 rounded-full bg-gray-300" /></div>
                     <DialogHeader className="px-4 sm:p-6 pb-3 sm:pb-4 border-b flex-shrink-0">
                       <DialogTitle className="text-lg sm:text-xl font-semibold">Select Category</DialogTitle>
                       <DialogDescription className="text-sm text-gray-500">
@@ -4970,7 +4973,7 @@ export default function NewProductPage() {
             onTouchEnd={() => handleSheetTouchEnd("youtube", () => { setShowYoutubeInput(false); setYoutubeInput("") })}
             onTouchCancel={() => handleSheetTouchEnd("youtube", () => { setShowYoutubeInput(false); setYoutubeInput("") })}
           >
-            <div className="flex justify-center py-2.5 cursor-grab" data-drag-handle><div className="w-10 h-1 rounded-full bg-gray-300" /></div>
+            <div className="pt-3 pb-1 flex justify-center cursor-grab active:cursor-grabbing touch-none" data-drag-handle><div className="h-[5px] w-10 rounded-full bg-gray-300" /></div>
             <div className="px-5 pb-6 space-y-4" style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
               <div className="flex items-center justify-between">
                 <h3 className="text-base font-semibold text-gray-900">Add YouTube Video</h3>
@@ -4989,7 +4992,6 @@ export default function NewProductPage() {
                   value={youtubeInput}
                   onChange={(e) => setYoutubeInput(e.target.value)}
                   className="flex-1 h-10 text-sm border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-2 placeholder:text-gray-400"
-                  autoFocus
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') { e.preventDefault(); handleAddYouTube() }
                     if (e.key === 'Escape') { setShowYoutubeInput(false); setYoutubeInput("") }
@@ -5029,7 +5031,7 @@ export default function NewProductPage() {
             onTouchEnd={() => handleSheetTouchEnd("cta", () => setShowCtaSheet(false))}
             onTouchCancel={() => handleSheetTouchEnd("cta", () => setShowCtaSheet(false))}
           >
-            <div className="flex justify-center py-2.5 cursor-grab" data-drag-handle><div className="w-10 h-1 rounded-full bg-gray-300" /></div>
+            <div className="pt-3 pb-1 flex justify-center cursor-grab active:cursor-grabbing touch-none" data-drag-handle><div className="h-[5px] w-10 rounded-full bg-gray-300" /></div>
             <div className="px-5 pb-6 space-y-1" style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
               <h3 className="text-base font-semibold text-gray-900 mb-3">Call to Action</h3>
               {["I want this!", "Buy Now", "Get Access", "Download Now", "Purchase", "Add to Cart", "Join Now"].map((cta) => (
@@ -5064,7 +5066,7 @@ export default function NewProductPage() {
             onTouchEnd={() => handleSheetTouchEnd("refund", () => setShowRefundPolicySheet(false))}
             onTouchCancel={() => handleSheetTouchEnd("refund", () => setShowRefundPolicySheet(false))}
           >
-            <div className="flex justify-center py-2.5 cursor-grab" data-drag-handle><div className="w-10 h-1 rounded-full bg-gray-300" /></div>
+            <div className="pt-3 pb-1 flex justify-center cursor-grab active:cursor-grabbing touch-none" data-drag-handle><div className="h-[5px] w-10 rounded-full bg-gray-300" /></div>
             <div className="px-5 pb-6 space-y-1" style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
               <h3 className="text-base font-semibold text-gray-900 mb-3">Refund Policy</h3>
               {[
@@ -5114,8 +5116,8 @@ export default function NewProductPage() {
           onTouchCancel={() => isMobileViewport && handleSheetTouchEnd("unsaved", () => setShowExitDialog(false))}
         >
           {isMobileViewport && (
-            <div className="flex justify-center py-2.5 cursor-grab" data-drag-handle>
-              <div className="w-10 h-1 rounded-full bg-gray-300" />
+            <div className="pt-3 pb-1 flex justify-center cursor-grab active:cursor-grabbing touch-none" data-drag-handle>
+              <div className="h-[5px] w-10 rounded-full bg-gray-300" />
             </div>
           )}
           <DialogHeader className={isMobileViewport ? "px-5 pt-1 pb-3 text-left" : undefined}>
