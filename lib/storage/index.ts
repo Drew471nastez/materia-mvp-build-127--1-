@@ -48,3 +48,13 @@ export {
   preUploadCheck,
   MAX_DIGITAL_PRODUCT_FILE_SIZE,
 } from "./security"
+
+export {
+  type ScanStatus,
+  type ScanResult,
+  scanFileForViruses,
+  updateAssetScanStatus,
+  isAssetSafeToDownload,
+  getPendingScanAssets,
+  handleInfectedFile,
+} from "./antivirus"

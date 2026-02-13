@@ -7,6 +7,7 @@ import {
   validateDownloadToken,
   checkDownloadRateLimit,
 } from "@/lib/storage"
+import { isAssetSafeToDownload } from "@/lib/storage/antivirus"
 import { headers } from "next/headers"
 
 export const runtime = "nodejs"
@@ -82,12 +83,23 @@ export async function GET(
     // Get digital assets for this product
     const { data: assets } = await admin
       .from("digital_assets")
-      .select("id, file_path, file_name, file_size, storage_bucket, mime_type")
+      .select("id, file_path, file_name, file_size, storage_bucket, mime_type, scan_status")
       .eq("product_id", record.product_id)
       .eq("upload_status", "completed")
 
     if (!assets || assets.length === 0) {
       return NextResponse.json({ error: "No download files available" }, { status: 404 })
+    }
+
+    // Check scan safety for all assets before allowing download
+    for (const asset of assets) {
+      const safetyCheck = await isAssetSafeToDownload(admin, asset.id)
+      if (!safetyCheck.safe) {
+        return NextResponse.json(
+          { error: safetyCheck.reason || "File is not available for download." },
+          { status: 403 },
+        )
+      }
     }
 
     // Increment download count
@@ -228,6 +240,15 @@ async function handleAssetDownload(
 
   if (!hasAccess) {
     return NextResponse.json({ error: "Access denied" }, { status: 403 })
+  }
+
+  // Check if file has been scanned and is safe to download
+  const safetyCheck = await isAssetSafeToDownload(admin, assetId)
+  if (!safetyCheck.safe) {
+    return NextResponse.json(
+      { error: safetyCheck.reason || "File is not available for download." },
+      { status: 403 },
+    )
   }
 
   // Generate signed URL

@@ -5,7 +5,24 @@ import type React from "react"
 import { useState, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import { Upload, X, FileIcon, CheckCircle2, AlertCircle } from "lucide-react"
+import {
+  Upload,
+  X,
+  FileIcon,
+  CheckCircle2,
+  AlertCircle,
+  Pause,
+  Play,
+  RotateCcw,
+  Shield,
+  Loader2,
+} from "lucide-react"
+import {
+  DirectUploader,
+  type UploadResult,
+  type UploadStatus,
+  type UploadError,
+} from "@/lib/storage/chunked-upload"
 
 interface UploadedFile {
   id?: string
@@ -14,22 +31,31 @@ interface UploadedFile {
   file_size: number
 }
 
+interface ActiveUpload {
+  file: File
+  uploader: DirectUploader
+  progress: number
+  status: UploadStatus
+  error?: string
+  bytesUploaded: number
+  bytesTotal: number
+}
+
 interface FileUploadProps {
   productId: string
   existingFiles?: UploadedFile[]
   onUploadComplete?: (files: UploadedFile[]) => void
-  maxSizeBytes?: number // Default 1GB
+  maxSizeBytes?: number
 }
 
 export function FileUpload({
   productId,
   existingFiles = [],
   onUploadComplete,
-  maxSizeBytes = 1024 * 1024 * 1024, // 1GB
+  maxSizeBytes = 1024 * 1024 * 1024, // 1GB default
 }: FileUploadProps) {
   const [files, setFiles] = useState<UploadedFile[]>(existingFiles)
-  const [uploading, setUploading] = useState(false)
-  const [progress, setProgress] = useState(0)
+  const [activeUploads, setActiveUploads] = useState<Map<string, ActiveUpload>>(new Map())
   const [error, setError] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -42,94 +68,182 @@ export function FileUpload({
     return `${Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`
   }
 
+  const getStatusLabel = (status: UploadStatus): string => {
+    switch (status) {
+      case "computing_checksum": return "Verifying file integrity..."
+      case "preparing": return "Preparing upload..."
+      case "uploading": return "Uploading..."
+      case "completing": return "Finalizing..."
+      case "complete": return "Complete"
+      case "paused": return "Paused"
+      case "error": return "Failed"
+      case "aborted": return "Cancelled"
+      default: return "Waiting..."
+    }
+  }
+
+  const isUploading = Array.from(activeUploads.values()).some(
+    (u) => !["complete", "error", "aborted", "paused"].includes(u.status),
+  )
+
+  // Overall progress across all active uploads
+  const overallProgress = activeUploads.size > 0
+    ? Math.round(
+        Array.from(activeUploads.values()).reduce((sum, u) => sum + u.progress, 0) /
+          activeUploads.size,
+      )
+    : 0
+
   const handleUpload = useCallback(
     async (selectedFiles: FileList | null) => {
       if (!selectedFiles || selectedFiles.length === 0) return
-
       setError(null)
-      setUploading(true)
-      setProgress(0)
 
-      const newFiles: UploadedFile[] = []
-      const totalFiles = selectedFiles.length
-      let completedFiles = 0
-
-      try {
-        for (const file of Array.from(selectedFiles)) {
-          // Check file size
-          if (file.size > maxSizeBytes) {
-            setError(`File "${file.name}" exceeds maximum size of ${formatFileSize(maxSizeBytes)}`)
-            continue
-          }
-
-          // Use the new API route that uses admin client (bypasses RLS)
-          const formData = new FormData()
-          formData.append("file", file)
-          formData.append("productId", productId)
-
-          // Start progress simulation
-          const progressInterval = setInterval(() => {
-            setProgress((prev) => {
-              const newProgress = prev + 5
-              return newProgress < 90 ? newProgress : prev
-            })
-          }, 200)
-
-          try {
-            const response = await fetch("/api/storage/upload-file", {
-              method: "POST",
-              body: formData,
-            })
-
-            clearInterval(progressInterval)
-
-            if (!response.ok) {
-              const errorData = await response.json()
-              console.error("[v0] Upload error:", errorData)
-              setError(`Failed to upload "${file.name}": ${errorData.error || "Upload failed"}`)
-              continue
-            }
-
-            const { asset } = await response.json()
-
-            newFiles.push({
-              id: asset.id,
-              file_name: asset.file_name,
-              file_path: asset.file_path,
-              file_size: asset.file_size,
-            })
-
-            completedFiles++
-            setProgress(Math.round((completedFiles / totalFiles) * 100))
-          } catch (uploadErr) {
-            clearInterval(progressInterval)
-            console.error("[v0] Upload request error:", uploadErr)
-            setError(`Failed to upload "${file.name}": Network error`)
-            continue
-          }
+      for (const file of Array.from(selectedFiles)) {
+        // Client-side size check
+        if (file.size > maxSizeBytes) {
+          setError(`File "${file.name}" exceeds maximum size of ${formatFileSize(maxSizeBytes)}`)
+          continue
         }
 
-        const updatedFiles = [...files, ...newFiles]
-        setFiles(updatedFiles)
-        onUploadComplete?.(updatedFiles)
-      } catch (err) {
-        console.error("[v0] Upload error:", err)
-        setError("An unexpected error occurred during upload")
-      } finally {
-        setUploading(false)
-        setProgress(0)
+        const uploadKey = `${file.name}-${file.size}-${Date.now()}`
+
+        const uploader = new DirectUploader({
+          file,
+          productId,
+          folder: "digital",
+          onProgress: (percent, bytesUploaded, bytesTotal) => {
+            setActiveUploads((prev) => {
+              const next = new Map(prev)
+              const entry = next.get(uploadKey)
+              if (entry) {
+                next.set(uploadKey, { ...entry, progress: percent, bytesUploaded, bytesTotal })
+              }
+              return next
+            })
+          },
+          onStatusChange: (status) => {
+            setActiveUploads((prev) => {
+              const next = new Map(prev)
+              const entry = next.get(uploadKey)
+              if (entry) {
+                next.set(uploadKey, { ...entry, status })
+              }
+              return next
+            })
+          },
+          onComplete: (result) => {
+            const newFile: UploadedFile = {
+              id: result.assetId || undefined,
+              file_name: result.fileName,
+              file_path: result.path,
+              file_size: result.fileSize,
+            }
+
+            setFiles((prev) => {
+              const updated = [...prev, newFile]
+              onUploadComplete?.(updated)
+              return updated
+            })
+
+            // Remove from active uploads after a brief delay
+            setTimeout(() => {
+              setActiveUploads((prev) => {
+                const next = new Map(prev)
+                next.delete(uploadKey)
+                return next
+              })
+            }, 2000)
+
+            // Trigger background antivirus scan
+            if (result.assetId) {
+              fetch("/api/v2/upload/scan", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ assetId: result.assetId }),
+              }).catch(() => {
+                // Non-critical: scan will be picked up by cron
+              })
+            }
+          },
+          onError: (err) => {
+            setActiveUploads((prev) => {
+              const next = new Map(prev)
+              const entry = next.get(uploadKey)
+              if (entry) {
+                next.set(uploadKey, { ...entry, status: "error", error: err.message })
+              }
+              return next
+            })
+          },
+        })
+
+        // Add to active uploads
+        setActiveUploads((prev) => {
+          const next = new Map(prev)
+          next.set(uploadKey, {
+            file,
+            uploader,
+            progress: 0,
+            status: "idle",
+            bytesUploaded: 0,
+            bytesTotal: file.size,
+          })
+          return next
+        })
+
+        // Start upload (don't await — allow parallel uploads)
+        uploader.start().catch(() => {
+          // Error already handled by onError callback
+        })
       }
     },
-    [productId, files, maxSizeBytes, onUploadComplete],
+    [productId, maxSizeBytes, onUploadComplete],
   )
+
+  const handlePause = useCallback((uploadKey: string) => {
+    const entry = activeUploads.get(uploadKey)
+    if (entry) {
+      entry.uploader.pause()
+    }
+  }, [activeUploads])
+
+  const handleResume = useCallback((uploadKey: string) => {
+    const entry = activeUploads.get(uploadKey)
+    if (entry) {
+      entry.uploader.resume().catch(() => {})
+    }
+  }, [activeUploads])
+
+  const handleRetry = useCallback((uploadKey: string) => {
+    const entry = activeUploads.get(uploadKey)
+    if (entry) {
+      setActiveUploads((prev) => {
+        const next = new Map(prev)
+        next.set(uploadKey, { ...entry, progress: 0, status: "idle", error: undefined })
+        return next
+      })
+      entry.uploader.start().catch(() => {})
+    }
+  }, [activeUploads])
+
+  const handleCancel = useCallback((uploadKey: string) => {
+    const entry = activeUploads.get(uploadKey)
+    if (entry) {
+      entry.uploader.abort()
+      setActiveUploads((prev) => {
+        const next = new Map(prev)
+        next.delete(uploadKey)
+        return next
+      })
+    }
+  }, [activeUploads])
 
   const handleDelete = async (fileToDelete: UploadedFile) => {
     if (!fileToDelete.id) return
-
     setError(null)
 
     try {
-      // Use the new API route for deletion
       const response = await fetch(`/api/storage/upload-file?assetId=${fileToDelete.id}`, {
         method: "DELETE",
       })
@@ -144,7 +258,7 @@ export function FileUpload({
       setFiles(updatedFiles)
       onUploadComplete?.(updatedFiles)
     } catch (err) {
-      console.error("[v0] Delete error:", err)
+      console.error("[file-upload] Delete error:", err)
       setError("Failed to delete file")
     }
   }
@@ -174,7 +288,7 @@ export function FileUpload({
       <div
         className={`relative rounded-lg border-2 border-dashed p-6 text-center transition-colors ${
           dragOver ? "border-blue-500 bg-blue-500/5" : "border-border"
-        } ${uploading ? "pointer-events-none opacity-50" : "cursor-pointer"}`}
+        } ${isUploading ? "pointer-events-none opacity-50" : "cursor-pointer"}`}
         onClick={() => inputRef.current?.click()}
         onDrop={handleDrop}
         onDragOver={handleDragOver}
@@ -186,18 +300,105 @@ export function FileUpload({
           multiple
           className="hidden"
           onChange={(e) => handleUpload(e.target.files)}
-          disabled={uploading}
+          disabled={isUploading}
         />
         <Upload className="mx-auto h-8 w-8 text-muted-foreground" />
-        <p className="mt-2 text-sm font-medium">{uploading ? "Uploading..." : "Click to upload or drag and drop"}</p>
-        <p className="mt-1 text-xs text-muted-foreground">Max file size: {formatFileSize(maxSizeBytes)}</p>
+        <p className="mt-2 text-sm font-medium">
+          {isUploading ? "Uploading..." : "Click to upload or drag and drop"}
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Max file size: {formatFileSize(maxSizeBytes)} — Direct upload, no server limits
+        </p>
       </div>
 
-      {/* Upload Progress */}
-      {uploading && (
-        <div className="space-y-2">
-          <Progress value={progress} className="h-2" />
-          <p className="text-center text-sm text-muted-foreground">{progress}% uploaded</p>
+      {/* Active Uploads with Real Progress */}
+      {activeUploads.size > 0 && (
+        <div className="space-y-3">
+          {Array.from(activeUploads).map(([key, upload]) => (
+            <div key={key} className="rounded-lg border border-border p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 min-w-0">
+                  {upload.status === "computing_checksum" ? (
+                    <Shield className="h-4 w-4 text-blue-500 shrink-0" />
+                  ) : upload.status === "error" ? (
+                    <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
+                  ) : upload.status === "complete" ? (
+                    <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+                  ) : (
+                    <Loader2 className="h-4 w-4 text-blue-500 animate-spin shrink-0" />
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{upload.file.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {getStatusLabel(upload.status)}
+                      {upload.status === "uploading" && upload.bytesTotal > 0 && (
+                        <> — {formatFileSize(upload.bytesUploaded)} / {formatFileSize(upload.bytesTotal)}</>
+                      )}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1 shrink-0">
+                  {upload.status === "uploading" && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={(e) => { e.stopPropagation(); handlePause(key) }}
+                      title="Pause upload"
+                    >
+                      <Pause className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                  {upload.status === "paused" && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={(e) => { e.stopPropagation(); handleResume(key) }}
+                      title="Resume upload"
+                    >
+                      <Play className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                  {upload.status === "error" && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={(e) => { e.stopPropagation(); handleRetry(key) }}
+                      title="Retry upload"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                  {upload.status !== "complete" && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                      onClick={(e) => { e.stopPropagation(); handleCancel(key) }}
+                      title="Cancel upload"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* Real progress bar */}
+              <Progress value={upload.progress} className="h-1.5" />
+
+              {/* Error message */}
+              {upload.error && (
+                <p className="text-xs text-destructive">{upload.error}</p>
+              )}
+            </div>
+          ))}
         </div>
       )}
 
@@ -214,7 +415,10 @@ export function FileUpload({
         <div className="space-y-2">
           <p className="text-sm font-medium">Uploaded files</p>
           {files.map((file, idx) => (
-            <div key={file.id || idx} className="flex items-center justify-between rounded-lg border border-border p-3">
+            <div
+              key={file.id || idx}
+              className="flex items-center justify-between rounded-lg border border-border p-3"
+            >
               <div className="flex items-center gap-3">
                 <FileIcon className="h-5 w-5 text-muted-foreground" />
                 <div>

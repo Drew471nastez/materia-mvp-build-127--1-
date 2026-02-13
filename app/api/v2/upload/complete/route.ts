@@ -9,10 +9,11 @@ export const runtime = "nodejs"
  * POST /api/v2/upload/complete
  *
  * Called after the client has successfully uploaded a file to the signed URL.
- * Marks the digital asset as completed and updates storage quota.
+ * Marks the digital asset as completed, stores SHA-256 checksum, sets
+ * scan_status = "pending_scan", and updates storage quota.
  *
  * Request body:
- *   { assetId, path, bucket, fileSize? }
+ *   { assetId, path, bucket, fileSize?, checksum? }
  *
  * Response:
  *   { success, asset }
@@ -29,11 +30,12 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { assetId, path, bucket, fileSize } = body as {
+    const { assetId, path, bucket, fileSize, checksum } = body as {
       assetId?: string
       path: string
       bucket: string
       fileSize?: number
+      checksum?: string
     }
 
     if (!path || !bucket) {
@@ -65,16 +67,24 @@ export async function POST(request: NextRequest) {
 
     // If assetId is provided, mark the asset as completed
     if (assetId) {
+      const updateData: Record<string, unknown> = {
+        upload_status: "completed",
+        scan_status: "pending_scan",
+        file_size: fileSize || null,
+        updated_at: new Date().toISOString(),
+      }
+
+      // Store SHA-256 checksum if provided by the client
+      if (checksum && checksum !== "no-crypto-api") {
+        updateData.checksum = checksum
+      }
+
       const { data: asset, error: updateError } = await admin
         .from("digital_assets")
-        .update({
-          upload_status: "completed",
-          file_size: fileSize || null,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq("id", assetId)
         .eq("uploaded_by", user.id)
-        .select("id, file_name, file_path, file_size, mime_type, file_category")
+        .select("id, file_name, file_path, file_size, mime_type, file_category, checksum, scan_status")
         .single()
 
       if (updateError) {
@@ -85,6 +95,17 @@ export async function POST(request: NextRequest) {
       // Update creator's storage usage counter
       await updateCreatorStorageUsed(admin, creator.id)
 
+      // Log upload event for audit trail
+      try {
+        await admin.from("upload_events").insert({
+          creator_id: creator.id,
+          file_name: asset.file_name,
+          file_size: asset.file_size || 0,
+          security_scan_result: "pending",
+          security_threat_type: null,
+        })
+      } catch { /* non-fatal */ }
+
       return NextResponse.json({
         success: true,
         asset: {
@@ -94,6 +115,8 @@ export async function POST(request: NextRequest) {
           fileSize: asset.file_size,
           mimeType: asset.mime_type,
           category: asset.file_category,
+          checksum: asset.checksum,
+          scanStatus: asset.scan_status,
         },
       })
     }
