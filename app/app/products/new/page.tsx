@@ -4462,8 +4462,12 @@ export default function NewProductPage() {
                   <DialogContent
                     disableDefaultAnimations={isMobileViewport}
                     showCloseButton={!isMobileViewport}
+                    onOpenAutoFocus={(e) => {
+                      if (isMobileViewport) e.preventDefault()
+                    }}
                     overlayClassName={isMobileViewport ? `bg-black/40 transition-opacity duration-400 ${dismissingSheet === "category" ? "opacity-0" : "opacity-100"}` : undefined}
-                    className={`fixed !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0 sm:left-[50%] sm:top-[50%] sm:bottom-auto sm:translate-x-[-50%] sm:translate-y-[-50%] w-full sm:w-[calc(100%-2rem)] sm:max-w-lg rounded-t-2xl sm:rounded-xl bg-white shadow-xl border-t sm:border p-0 max-h-[90vh] sm:max-h-[calc(100vh-4rem)] overflow-hidden flex flex-col ${dismissingSheet === "category" ? "animate-bottom-sheet-out" : "animate-bottom-sheet-in"} sm:animate-none`}
+                    className={`fixed !top-auto !left-1/2 !bottom-0 !translate-x-[-50%] !translate-y-0 sm:left-[50%] sm:top-[50%] sm:bottom-auto sm:translate-x-[-50%] sm:translate-y-[-50%] w-[60vw] min-w-[320px] max-w-[520px] sm:w-[calc(100%-2rem)] sm:max-w-lg rounded-t-2xl sm:rounded-xl bg-white shadow-xl border-t sm:border p-0 max-h-[90vh] sm:max-h-[calc(100vh-4rem)] overflow-hidden flex flex-col ${dismissingSheet === "category" ? "animate-bottom-sheet-out" : "animate-bottom-sheet-in"} sm:animate-none`}
+                    style={isMobileViewport ? { willChange: 'transform', backfaceVisibility: 'hidden' } : undefined}
                     onTouchStart={(e) => handleSheetTouchStart(e, e.currentTarget as HTMLDivElement)}
                     onTouchMove={handleSheetTouchMove}
                     onTouchEnd={() => handleSheetTouchEnd("category", closeCategoryModal)}
@@ -5071,15 +5075,37 @@ export default function NewProductPage() {
       )}
 
       {/* Unsaved Changes Dialog */}
-      <Dialog open={showExitDialog} onOpenChange={setShowExitDialog}>
-        <DialogContent className="sm:max-w-md mx-4">
-          <DialogHeader>
+      <Dialog open={showExitDialog} onOpenChange={(open) => {
+        if (!open && isMobileViewport) closeSheet("unsaved", () => setShowExitDialog(false))
+        else setShowExitDialog(open)
+      }}>
+        <DialogContent
+          disableDefaultAnimations={isMobileViewport}
+          showCloseButton={!isMobileViewport}
+          onOpenAutoFocus={(e) => {
+            if (isMobileViewport) e.preventDefault()
+          }}
+          overlayClassName={isMobileViewport ? `bg-black/40 transition-opacity duration-400 ${dismissingSheet === "unsaved" ? "opacity-0" : "opacity-100"}` : undefined}
+          className={isMobileViewport
+            ? `fixed !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0 w-full rounded-t-2xl rounded-b-none border-x-0 border-b-0 p-0 max-h-[70vh] overflow-hidden flex flex-col ${dismissingSheet === "unsaved" ? "animate-bottom-sheet-out" : "animate-bottom-sheet-in"}`
+            : "sm:max-w-md mx-4"}
+          style={isMobileViewport ? { willChange: 'transform', backfaceVisibility: 'hidden' } : undefined}
+          onTouchStart={(e) => isMobileViewport && handleSheetTouchStart(e, e.currentTarget as HTMLDivElement)}
+          onTouchMove={(e) => isMobileViewport && handleSheetTouchMove(e)}
+          onTouchEnd={() => isMobileViewport && handleSheetTouchEnd("unsaved", () => setShowExitDialog(false))}
+        >
+          {isMobileViewport && (
+            <div className="flex justify-center py-2.5 cursor-grab" data-drag-handle>
+              <div className="w-10 h-1 rounded-full bg-gray-300" />
+            </div>
+          )}
+          <DialogHeader className={isMobileViewport ? "px-5 pt-1 pb-3 text-left" : undefined}>
             <DialogTitle className="text-base sm:text-lg">Unsaved changes</DialogTitle>
             <DialogDescription className="text-xs sm:text-sm">
               You have unsaved changes. Would you like to save them before leaving?
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="flex-col-reverse sm:flex-row gap-2">
+          <DialogFooter className={isMobileViewport ? "px-5 pb-5 grid grid-cols-1 gap-2" : "flex-col-reverse sm:flex-row gap-2"}>
             <Button
               type="button"
               variant="outline"

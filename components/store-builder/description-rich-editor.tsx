@@ -1378,11 +1378,14 @@ export function DescriptionRichEditor({
     const embedContainer = target.closest('[data-embed-type]') as HTMLElement
 
     if (embedContainer) {
+      if (isMobile) {
+        editorRef.current?.blur()
+      }
       setSelectedEmbed(embedContainer)
     } else {
       setSelectedEmbed(null)
     }
-  }, [handleContentChange])
+  }, [handleContentChange, isMobile])
 
   // Delete selected embed
   const deleteEmbed = useCallback((embed: HTMLElement) => {
