@@ -598,6 +598,43 @@
   background-size: 200% 100%;
 }
 
+/* GPU Acceleration for smooth animations */
+.gpu-accelerated {
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+/* Mobile Bottom Sheet Optimizations */
+@media (max-width: 768px) {
+  /* Ensure smooth 60fps animations on mobile */
+  [data-radix-dialog-content],
+  [data-radix-dialog-overlay],
+  [data-mobile-bottom-sheet] {
+    will-change: transform, opacity;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+  }
+
+  /* Prevent zoom on input focus (iOS) */
+  input[type="text"],
+  input[type="search"],
+  input[type="email"],
+  input[type="tel"],
+  input[type="number"],
+  textarea,
+  select {
+    font-size: 16px;
+  }
+
+  /* Smooth scrolling with momentum */
+  .mobile-scroll {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+}
+
 /* Subtle Modal/Popover Animations - Modern UX */
 @keyframes fadeIn {
   from { opacity: 0; }

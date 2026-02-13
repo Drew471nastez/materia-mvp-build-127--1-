@@ -1241,6 +1241,22 @@ export function DescriptionRichEditor({
     }
   }, [handleContentChange])
 
+  // Handle touch events on mobile to prevent keyboard from appearing when touching embeds
+  const handleEditorTouchStart = useCallback((e: React.TouchEvent) => {
+    const target = e.target as HTMLElement
+    const embedContainer = target.closest('[data-embed-type]') as HTMLElement
+
+    if (embedContainer) {
+      // Prevent default to stop keyboard from appearing
+      if (isMobile && editorRef.current) {
+        // Blur the editor to prevent keyboard
+        editorRef.current.blur()
+      }
+      // Select the embed
+      setSelectedEmbed(embedContainer)
+    }
+  }, [isMobile])
+
   // Delete selected embed
   const deleteEmbed = useCallback((embed: HTMLElement) => {
     embed.remove()
@@ -1918,6 +1934,7 @@ export function DescriptionRichEditor({
         onKeyDown={handleKeyDown}
         onClick={handleEditorClick}
         onMouseUp={handleTextSelection}
+        onTouchStart={handleEditorTouchStart}
       />
 
       {/* Floating Link Button - appears when text is selected */}

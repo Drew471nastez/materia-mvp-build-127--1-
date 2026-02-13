@@ -5,8 +5,10 @@ import { createClient } from "@/lib/supabase/client"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Check, Search } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Check, Search, ChevronRight } from "lucide-react"
 import type { Category } from "@/lib/types"
+import { CategoriesSelectorMobile } from "./categories-selector-mobile"
 
 interface CategoriesSelectorProps {
   selectedCategory: string | null
@@ -17,6 +19,8 @@ export function CategoriesSelector({ selectedCategory, onChange }: CategoriesSel
   const [categories, setCategories] = useState<Category[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [isLoading, setIsLoading] = useState(true)
+  const [isMobile, setIsMobile] = useState(false)
+  const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false)
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -32,6 +36,17 @@ export function CategoriesSelector({ selectedCategory, onChange }: CategoriesSel
     fetchCategories()
   }, [])
 
+  // Detect mobile view
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
   const filteredCategories = categories.filter((cat) => cat.name.toLowerCase().includes(searchQuery.toLowerCase()))
 
   const selectedCategoryObject = selectedCategory ? categories.find((cat) => cat.id === selectedCategory) : null
@@ -40,6 +55,40 @@ export function CategoriesSelector({ selectedCategory, onChange }: CategoriesSel
     return <div className="text-sm text-muted-foreground">Loading categories...</div>
   }
 
+  // Mobile view: Show button that opens bottom sheet
+  if (isMobile) {
+    return (
+      <>
+        <div className="space-y-2">
+          <Label>Category</Label>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full justify-between h-auto py-3"
+            onClick={() => setIsBottomSheetOpen(true)}
+          >
+            <span className="text-left">
+              {selectedCategoryObject ? (
+                <span className="font-medium">{selectedCategoryObject.name}</span>
+              ) : (
+                <span className="text-muted-foreground">Select a category</span>
+              )}
+            </span>
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </Button>
+        </div>
+
+        <CategoriesSelectorMobile
+          selectedCategory={selectedCategory}
+          onChange={onChange}
+          open={isBottomSheetOpen}
+          onOpenChange={setIsBottomSheetOpen}
+        />
+      </>
+    )
+  }
+
+  // Desktop view: Show inline selector
   return (
     <div className="space-y-3">
       <div className="space-y-2">
