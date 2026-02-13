@@ -73,35 +73,51 @@ const RETRY_BASE_DELAY_MS = 1000
 
 /**
  * Compute SHA-256 checksum of a File using Web Crypto API.
- * Streams in chunks to avoid memory pressure on large files.
+ * For large files (>100MB), computes a fast fingerprint from the
+ * first and last 2MB + file metadata to avoid out-of-memory crashes.
  */
 export async function computeSHA256(
   file: File,
   onProgress?: (percent: number) => void,
 ): Promise<string> {
-  const HASH_CHUNK_SIZE = 2 * 1024 * 1024 // 2MB chunks for hashing
-  const totalSize = file.size
-  let offset = 0
+  if (typeof crypto === "undefined" || !crypto.subtle) {
+    return "no-crypto-api"
+  }
 
-  // Use SubtleCrypto for incremental hashing if available,
-  // otherwise fall back to reading the whole file
-  if (typeof crypto !== "undefined" && crypto.subtle) {
-    // Web Crypto doesn't support incremental hashing natively,
-    // so we read the entire file as an ArrayBuffer.
-    // For truly huge files (>2GB), we'd need a WASM SHA-256,
-    // but for practical digital products this is fine.
-    const buffer = await file.arrayBuffer()
+  const PARTIAL_HASH_THRESHOLD = 100 * 1024 * 1024 // 100MB
+  const SAMPLE_SIZE = 2 * 1024 * 1024 // 2MB
+
+  // For large files, hash first+last 2MB + metadata to avoid OOM
+  if (file.size > PARTIAL_HASH_THRESHOLD) {
+    onProgress?.(10)
+    const head = await file.slice(0, SAMPLE_SIZE).arrayBuffer()
+    onProgress?.(30)
+    const tail = await file.slice(Math.max(0, file.size - SAMPLE_SIZE)).arrayBuffer()
     onProgress?.(50)
-    const hashBuffer = await crypto.subtle.digest("SHA-256", buffer)
+
+    // Combine head + tail + metadata into a single buffer
+    const meta = new TextEncoder().encode(`${file.name}:${file.size}:${file.lastModified}`)
+    const combined = new Uint8Array(head.byteLength + tail.byteLength + meta.byteLength)
+    combined.set(new Uint8Array(head), 0)
+    combined.set(new Uint8Array(tail), head.byteLength)
+    combined.set(meta, head.byteLength + tail.byteLength)
+
+    const hashBuffer = await crypto.subtle.digest("SHA-256", combined)
     onProgress?.(100)
-    const hashArray = new Uint8Array(hashBuffer)
-    return Array.from(hashArray)
+    return Array.from(new Uint8Array(hashBuffer))
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("")
   }
 
-  // Fallback: no Web Crypto (very unlikely in modern browsers)
-  return "no-crypto-api"
+  // For smaller files, hash the whole thing
+  onProgress?.(10)
+  const buffer = await file.arrayBuffer()
+  onProgress?.(50)
+  const hashBuffer = await crypto.subtle.digest("SHA-256", buffer)
+  onProgress?.(100)
+  return Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("")
 }
 
 // ── Direct Uploader Class ──────────────────────────────────────────
@@ -132,6 +148,10 @@ export class DirectUploader {
   private onError?: UploadOptions["onError"]
   private onStatusChange?: UploadOptions["onStatusChange"]
 
+  // Internet connectivity listeners
+  private offlineHandler: (() => void) | null = null
+  private onlineHandler: (() => void) | null = null
+
   constructor(options: UploadOptions) {
     this.file = options.file
     this.productId = options.productId
@@ -142,6 +162,30 @@ export class DirectUploader {
     this.onComplete = options.onComplete
     this.onError = options.onError
     this.onStatusChange = options.onStatusChange
+
+    // Auto-pause on internet loss, auto-resume on reconnect
+    if (typeof window !== "undefined") {
+      this.offlineHandler = () => {
+        if (this.status === "uploading" || this.status === "preparing" || this.status === "completing") {
+          this.pause()
+        }
+      }
+      this.onlineHandler = () => {
+        if (this.status === "paused" && !this.aborted) {
+          this.resume().catch(() => {})
+        }
+      }
+      window.addEventListener("offline", this.offlineHandler)
+      window.addEventListener("online", this.onlineHandler)
+    }
+  }
+
+  /** Remove event listeners when upload is done. Call when discarding the uploader. */
+  destroy(): void {
+    if (typeof window !== "undefined") {
+      if (this.offlineHandler) window.removeEventListener("offline", this.offlineHandler)
+      if (this.onlineHandler) window.removeEventListener("online", this.onlineHandler)
+    }
   }
 
   // ── Public API ──────────────────────────────────────────────────
@@ -180,9 +224,11 @@ export class DirectUploader {
       const result = await this.complete()
 
       this.setStatus("complete")
+      this.destroy()
       this.onComplete?.(result)
       return result
     } catch (err) {
+      this.destroy()
       if (this.aborted) {
         this.setStatus("aborted")
         const abortErr: UploadError = {

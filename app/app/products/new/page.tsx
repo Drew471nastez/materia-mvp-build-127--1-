@@ -84,11 +84,11 @@ const SECTIONS = [
   { id: "media", name: "Media" },
   { id: "content", name: "Content" },
   { id: "whatsIncluded", name: "Included" },
-  { id: "faq", name: "FAQ" },
   { id: "files", name: "Files" },
   { id: "variants", name: "Variants" },
   { id: "pricing", name: "Pricing" },
   { id: "category", name: "Category" },
+  { id: "faq", name: "FAQ" },
   { id: "settings", name: "Settings" },
   { id: "seo", name: "SEO" },
 ] as const
@@ -103,7 +103,7 @@ const PILL_SECTIONS = [
 ] as const
 
 // Map child sections to their parent pill - Content pill encompasses these sections
-const CONTENT_CHILD_SECTIONS = ["content", "whatsIncluded", "faq", "files", "variants", "pricing", "category"] as const
+const CONTENT_CHILD_SECTIONS = ["content", "whatsIncluded", "files", "variants", "pricing", "category", "faq"] as const
 
 type SectionId = typeof SECTIONS[number]["id"]
 type PillSectionId = typeof PILL_SECTIONS[number]["id"]
@@ -665,15 +665,16 @@ export default function NewProductPage() {
     setShowCategoryModal(false)
   }, [closeSheet, isMobileViewport])
 
-  // Swipe handlers for bottom sheets
+  // Swipe handlers for bottom sheets — GPU-accelerated, 1:1 finger tracking
   const handleSheetTouchStart = useCallback((e: React.TouchEvent, ref: HTMLDivElement | null) => {
     const target = e.target as HTMLElement
     const isDragHandle = target.closest("[data-drag-handle]")
     const scrollContainer = ref?.querySelector("[data-scroll-container]") as HTMLElement
-    const isAtTop = !scrollContainer || scrollContainer.scrollTop <= 0
+    const isAtTop = !scrollContainer || scrollContainer.scrollTop <= 1
     const touchY = e.touches[0].clientY
     const bounds = ref?.getBoundingClientRect()
-    const nearTop = !!bounds && touchY - bounds.top <= 100
+    // Allow swipe start from top 120px of sheet or anywhere on drag handle
+    const nearTop = !!bounds && touchY - bounds.top <= 120
 
     if (isDragHandle || (isAtTop && nearTop)) {
       sheetSwipeStartY.current = touchY
@@ -682,22 +683,32 @@ export default function NewProductPage() {
       sheetSwipeLastTime.current = Date.now()
       sheetSwipeVelocity.current = 0
       sheetSwipeRef.current = ref
+      // Force GPU layer for smooth animation
+      if (ref) {
+        ref.style.willChange = "transform"
+        ref.style.backfaceVisibility = "hidden"
+      }
     }
   }, [])
 
   const handleSheetTouchMove = useCallback((e: React.TouchEvent) => {
     if (sheetSwipeStartY.current === null) return
-    const deltaY = e.touches[0].clientY - sheetSwipeStartY.current
+    const touchY = e.touches[0].clientY
+    const deltaY = touchY - sheetSwipeStartY.current
     const now = Date.now()
     const dt = Math.max(1, now - sheetSwipeLastTime.current)
-    sheetSwipeVelocity.current = (e.touches[0].clientY - sheetSwipeLastY.current) / dt
-    sheetSwipeLastY.current = e.touches[0].clientY
+
+    // Smoothed velocity (exponential moving average for stability)
+    const instantVelocity = (touchY - sheetSwipeLastY.current) / dt
+    sheetSwipeVelocity.current = sheetSwipeVelocity.current * 0.4 + instantVelocity * 0.6
+
+    sheetSwipeLastY.current = touchY
     sheetSwipeLastTime.current = now
 
-    // Smooth progressive drag resistance (same as TimeframeBottomSheet)
+    // 1:1 finger tracking for first 80px, then gradual resistance
     const resisted = deltaY > 0
-      ? (deltaY <= 160 ? deltaY * 0.92 : 147 + (deltaY - 160) * 0.4)
-      : deltaY * 0.18
+      ? (deltaY <= 80 ? deltaY : 80 + (deltaY - 80) * 0.55)
+      : deltaY * 0.15
     if (deltaY > 0) e.preventDefault()
 
     sheetSwipeCurrentY.current = Math.max(0, deltaY)
@@ -711,39 +722,43 @@ export default function NewProductPage() {
     if (sheetSwipeStartY.current === null) return
     sheetSwipeStartY.current = null
     const activeSheet = sheetSwipeRef.current
-    if (sheetSwipeCurrentY.current > 92 || sheetSwipeVelocity.current > 0.55) {
-      // Mark as swipe-closing to prevent CSS animation class conflict
+    const shouldDismiss = sheetSwipeCurrentY.current > 70 || sheetSwipeVelocity.current > 0.4
+
+    if (shouldDismiss) {
       swipeCloseRef.current = true
       setDismissingSheet(sheetName)
       if (activeSheet) {
-        activeSheet.style.transition = "transform 400ms cubic-bezier(0.32, 0.72, 0, 1)"
-        activeSheet.style.transform = "translate3d(0, 100%, 0)"
+        activeSheet.style.transition = "transform 350ms cubic-bezier(0.32, 0.72, 0, 1)"
+        activeSheet.style.transform = "translate3d(0, 105%, 0)"
       }
       setTimeout(() => {
         if (activeSheet) {
           activeSheet.style.transition = ""
           activeSheet.style.transform = ""
+          activeSheet.style.willChange = ""
         }
         sheetSwipeRef.current = null
         swipeCloseRef.current = false
         setDismissingSheet(null)
         closer()
-      }, 400)
+      }, 350)
       sheetSwipeCurrentY.current = 0
       sheetSwipeVelocity.current = 0
       return
     }
 
+    // Snap back with spring animation
     if (activeSheet) {
-      activeSheet.style.transition = "transform 400ms cubic-bezier(0.32, 0.72, 0, 1)"
+      activeSheet.style.transition = "transform 300ms cubic-bezier(0.2, 0.9, 0.3, 1)"
       activeSheet.style.transform = "translate3d(0, 0, 0)"
       setTimeout(() => {
         if (activeSheet) {
           activeSheet.style.transition = ""
           activeSheet.style.transform = ""
+          activeSheet.style.willChange = ""
         }
         sheetSwipeRef.current = null
-      }, 400)
+      }, 300)
     }
     sheetSwipeCurrentY.current = 0
     sheetSwipeVelocity.current = 0
@@ -4032,79 +4047,6 @@ export default function NewProductPage() {
                 )}
               </div>
 
-              {/* FAQ Section */}
-              <div
-                ref={(el) => { sectionRefs.current.faq = el }}
-                className="space-y-4 sm:space-y-6 mb-8 sm:mb-12"
-              >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <h2 className="text-base sm:text-lg font-semibold text-gray-900">FAQ</h2>
-                      <TooltipIcon
-                        content={<p>Add frequently asked questions to help customers</p>}
-                      />
-                    </div>
-                    <p className="text-xs sm:text-sm text-gray-500">
-                      Answer common questions. Drag to reorder.
-                    </p>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      const faqId = `custom-${Date.now()}`
-                      setFaqs(prev => [...prev, {
-                        id: faqId,
-                        question: "",
-                        answer: "",
-                        isDefault: false,
-                      }])
-                      // Smooth scroll to newly added FAQ after render
-                      requestAnimationFrame(() => {
-                        setTimeout(() => {
-                          const el = document.querySelector(`[data-faq-id="${faqId}"]`)
-                          if (el) el.scrollIntoView({ behavior: "smooth", block: "center" })
-                        }, 50)
-                      })
-                    }}
-                    className="text-gray-600 border-gray-200 h-8 text-xs rounded-lg hover:bg-gray-50"
-                  >
-                    <Plus className="h-3.5 w-3.5 mr-1" />
-                    + Add FAQ
-                  </Button>
-                </div>
-
-                <DndContext
-                  sensors={faqSensors}
-                  collisionDetection={closestCenter}
-                  onDragEnd={handleFaqDragEnd}
-                >
-                  <SortableContext
-                    items={faqs.map(faq => faq.id)}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    <div className="space-y-3">
-                      {faqs.map((faq) => (
-                        <SortableFAQItem
-                          key={faq.id}
-                          faq={faq}
-                          onUpdate={(id, updates) => {
-                            setFaqs(prev => prev.map(f =>
-                              f.id === id ? { ...f, ...updates } : f
-                            ))
-                          }}
-                          onRemove={(id) => {
-                            setFaqs(prev => prev.filter(f => f.id !== id))
-                          }}
-                        />
-                      ))}
-                    </div>
-                  </SortableContext>
-                </DndContext>
-              </div>
-
               {/* Digital Files Section */}
               <div
                 ref={(el) => { sectionRefs.current.files = el }}
@@ -4242,56 +4184,43 @@ export default function NewProductPage() {
                     />
 
                     {uploadingFiles && activeFileUploads.size > 0 ? (
-                      <div className="w-full space-y-3 px-2">
+                      <div className="w-full space-y-1.5 px-3">
                         {Array.from(activeFileUploads).map(([key, upload]) => (
-                          <div key={key} className="bg-white rounded-lg border border-gray-200 p-3 space-y-2">
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-2 min-w-0 flex-1">
-                                {upload.status === "complete" ? (
-                                  <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
-                                ) : upload.status === "error" ? (
-                                  <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0" />
-                                ) : (
-                                  <Loader2 className="h-4 w-4 text-violet-500 animate-spin flex-shrink-0" />
-                                )}
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-xs font-medium text-gray-900 truncate">{upload.file.name}</p>
-                                  <p className="text-[10px] text-gray-500">
-                                    {getUploadStatusLabel(upload.status)}
-                                    {upload.status === "uploading" && upload.bytesTotal > 0 && (
-                                      <> — {formatFileSize(upload.bytesUploaded)} / {formatFileSize(upload.bytesTotal)}</>
-                                    )}
-                                  </p>
-                                </div>
+                          <div key={key} className="flex items-center gap-2.5 py-1.5">
+                            <div className="flex-shrink-0 w-4 flex items-center justify-center">
+                              {upload.status === "complete" ? (
+                                <CheckCircle className="h-3.5 w-3.5 text-green-500" />
+                              ) : upload.status === "error" ? (
+                                <AlertCircle className="h-3.5 w-3.5 text-red-500" />
+                              ) : (
+                                <Loader2 className="h-3.5 w-3.5 text-violet-500 animate-spin" />
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center justify-between gap-2 mb-1">
+                                <p className="text-[11px] font-medium text-gray-700 truncate">{upload.file.name}</p>
+                                <span className="text-[10px] tabular-nums text-gray-400 flex-shrink-0">{upload.progress}%</span>
                               </div>
-                              <span className="text-xs font-semibold text-violet-600 tabular-nums flex-shrink-0">
-                                {upload.progress}%
-                              </span>
+                              <div className="w-full h-1 bg-gray-100 rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full transition-all duration-300 ease-out ${
+                                    upload.status === "error" ? "bg-red-400" :
+                                    upload.status === "complete" ? "bg-green-400" : "bg-violet-400"
+                                  }`}
+                                  style={{ width: `${upload.progress}%` }}
+                                />
+                              </div>
+                              {upload.error && (
+                                <p className="text-[10px] text-red-500 mt-0.5">{upload.error}</p>
+                              )}
                             </div>
-                            <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                              <div
-                                className={`h-full rounded-full transition-all duration-300 ease-out ${
-                                  upload.status === "error" ? "bg-red-500" :
-                                  upload.status === "complete" ? "bg-green-500" : "bg-violet-500"
-                                }`}
-                                style={{ width: `${upload.progress}%` }}
-                              />
-                            </div>
-                            {upload.error && (
-                              <p className="text-[10px] text-red-500">{upload.error}</p>
-                            )}
                           </div>
                         ))}
-                        <div className="flex items-center justify-center gap-2 pt-1">
-                          <div className="text-xs text-gray-500">Overall: {computedFileUploadProgress}%</div>
-                        </div>
                       </div>
                     ) : uploadingFiles ? (
-                      <div className="flex flex-col items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center">
-                          <Loader2 className="h-5 w-5 text-violet-600 animate-spin" />
-                        </div>
-                        <p className="text-sm font-medium text-gray-700">Preparing upload...</p>
+                      <div className="flex items-center gap-2 py-2">
+                        <Loader2 className="h-4 w-4 text-violet-500 animate-spin" />
+                        <p className="text-xs text-gray-500">Preparing upload...</p>
                       </div>
                     ) : isFileDragOver ? (
                       <div className="flex flex-col items-center gap-3 animate-in fade-in zoom-in-95 duration-400">
@@ -4994,6 +4923,78 @@ export default function NewProductPage() {
                     </div>
                   </DialogContent>
                 </Dialog>
+              </div>
+
+              {/* FAQ Section */}
+              <div
+                ref={(el) => { sectionRefs.current.faq = el }}
+                className="space-y-4 sm:space-y-6 mb-8 sm:mb-12"
+              >
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <h2 className="text-base sm:text-lg font-semibold text-gray-900">FAQ</h2>
+                      <TooltipIcon
+                        content={<p>Add frequently asked questions to help customers</p>}
+                      />
+                    </div>
+                    <p className="text-xs sm:text-sm text-gray-500">
+                      Answer common questions. Drag to reorder.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const faqId = `custom-${Date.now()}`
+                      setFaqs(prev => [...prev, {
+                        id: faqId,
+                        question: "",
+                        answer: "",
+                        isDefault: false,
+                      }])
+                      requestAnimationFrame(() => {
+                        setTimeout(() => {
+                          const el = document.querySelector(`[data-faq-id="${faqId}"]`)
+                          if (el) el.scrollIntoView({ behavior: "smooth", block: "center" })
+                        }, 50)
+                      })
+                    }}
+                    className="text-gray-600 border-gray-200 h-8 text-xs rounded-lg hover:bg-gray-50"
+                  >
+                    <Plus className="h-3.5 w-3.5 mr-1" />
+                    + Add FAQ
+                  </Button>
+                </div>
+
+                <DndContext
+                  sensors={faqSensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleFaqDragEnd}
+                >
+                  <SortableContext
+                    items={faqs.map(faq => faq.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div className="space-y-3">
+                      {faqs.map((faq) => (
+                        <SortableFAQItem
+                          key={faq.id}
+                          faq={faq}
+                          onUpdate={(id, updates) => {
+                            setFaqs(prev => prev.map(f =>
+                              f.id === id ? { ...f, ...updates } : f
+                            ))
+                          }}
+                          onRemove={(id) => {
+                            setFaqs(prev => prev.filter(f => f.id !== id))
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
               </div>
 
               {/* Settings Section */}
