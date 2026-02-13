@@ -1,13 +1,14 @@
 "use client"
 
 import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+  MobileBottomSheet,
+  MobileBottomSheetContent,
+  MobileBottomSheetHeader,
+  MobileBottomSheetBody,
+  MobileBottomSheetFooter,
+  MobileBottomSheetTitle,
+  MobileBottomSheetDescription,
+} from "@/components/ui/mobile-bottom-sheet"
 import { Button } from "@/components/ui/button"
 import { Loader2 } from "lucide-react"
 
@@ -31,35 +32,26 @@ export function UnsavedChangesDialog({
   }
 
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="sm:max-w-[425px]">
-        <AlertDialogHeader>
-          <AlertDialogTitle>Unsaved Changes</AlertDialogTitle>
-          <AlertDialogDescription>
+    <MobileBottomSheet open={open} onOpenChange={onOpenChange}>
+      <MobileBottomSheetContent>
+        <MobileBottomSheetHeader>
+          <MobileBottomSheetTitle>Unsaved Changes</MobileBottomSheetTitle>
+          <MobileBottomSheetDescription>
             You have unsaved changes. Would you like to save them before leaving?
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter className="flex-col sm:flex-row gap-2">
-          <Button 
-            variant="outline" 
-            onClick={() => onOpenChange(false)} 
-            disabled={isSaving}
-            className="border-gray-300 text-gray-700 hover:bg-gray-50"
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="outline"
-            onClick={onDiscard}
-            disabled={isSaving}
-            className="border-gray-300 text-gray-700 hover:bg-gray-50"
-          >
-            Discard Changes
-          </Button>
+          </MobileBottomSheetDescription>
+        </MobileBottomSheetHeader>
+
+        <MobileBottomSheetBody>
+          <div className="text-sm text-muted-foreground">
+            Your changes will be lost if you don't save them.
+          </div>
+        </MobileBottomSheetBody>
+
+        <MobileBottomSheetFooter>
           <Button
             onClick={handleSave}
             disabled={isSaving}
-            className="bg-purple-600 text-white hover:bg-purple-700"
+            className="w-full bg-purple-600 text-white hover:bg-purple-700 active:scale-[0.98] transition-transform"
           >
             {isSaving ? (
               <>
@@ -70,8 +62,24 @@ export function UnsavedChangesDialog({
               "Save Changes"
             )}
           </Button>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+          <Button
+            variant="outline"
+            onClick={onDiscard}
+            disabled={isSaving}
+            className="w-full border-gray-300 text-gray-700 hover:bg-gray-50 active:scale-[0.98] transition-transform"
+          >
+            Discard Changes
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={() => onOpenChange(false)}
+            disabled={isSaving}
+            className="w-full text-gray-700 hover:bg-gray-50 active:scale-[0.98] transition-transform"
+          >
+            Cancel
+          </Button>
+        </MobileBottomSheetFooter>
+      </MobileBottomSheetContent>
+    </MobileBottomSheet>
   )
 }
