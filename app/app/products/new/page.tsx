@@ -148,6 +148,16 @@ const parseYouTubeUrl = (url: string): string | null => {
   return null
 }
 
+const stripHtmlToPlainText = (input: string): string => {
+  if (!input) return ""
+  return input
+    .replace(/<br\s*\/?>(?=)/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
 // Helper to get YouTube thumbnail URL from video ID (for product listings only)
 // This is ONLY used when no images exist - YouTube thumbnail becomes the product cover
 const getYouTubeThumbnailUrl = (videoUrl: string): string | null => {
@@ -451,6 +461,9 @@ export default function NewProductPage() {
   const sheetSwipeStartY = useRef<number | null>(null)
   const sheetSwipeCurrentY = useRef(0)
   const sheetSwipeRef = useRef<HTMLDivElement | null>(null)
+  const sheetSwipeLastY = useRef(0)
+  const sheetSwipeLastTime = useRef(0)
+  const sheetSwipeVelocity = useRef(0)
 
   // Animated close for bottom sheets
   const closeSheet = useCallback((sheetName: string, closer: () => void) => {
@@ -482,6 +495,9 @@ export default function NewProductPage() {
     if (isDragHandle || (isAtTop && nearTop)) {
       sheetSwipeStartY.current = touchY
       sheetSwipeCurrentY.current = 0
+      sheetSwipeLastY.current = touchY
+      sheetSwipeLastTime.current = Date.now()
+      sheetSwipeVelocity.current = 0
       sheetSwipeRef.current = ref
     }
   }, [])
@@ -491,10 +507,15 @@ export default function NewProductPage() {
     const deltaY = e.touches[0].clientY - sheetSwipeStartY.current
     if (deltaY > 0) {
       e.preventDefault()
-      const resisted = deltaY <= 160 ? deltaY * 0.92 : 147 + (deltaY - 160) * 0.4
-      sheetSwipeCurrentY.current = resisted
+      const now = Date.now()
+      const dt = Math.max(1, now - sheetSwipeLastTime.current)
+      sheetSwipeVelocity.current = (e.touches[0].clientY - sheetSwipeLastY.current) / dt
+      sheetSwipeLastY.current = e.touches[0].clientY
+      sheetSwipeLastTime.current = now
+
+      sheetSwipeCurrentY.current = deltaY
       if (sheetSwipeRef.current) {
-        sheetSwipeRef.current.style.transform = `translate3d(0, ${resisted}px, 0)`
+        sheetSwipeRef.current.style.transform = `translate3d(0, ${deltaY}px, 0)`
         sheetSwipeRef.current.style.transition = "none"
       }
     }
@@ -503,7 +524,7 @@ export default function NewProductPage() {
   const handleSheetTouchEnd = useCallback((sheetName: string, closer: () => void) => {
     if (sheetSwipeStartY.current === null) return
     sheetSwipeStartY.current = null
-    if (sheetSwipeCurrentY.current > 80) {
+    if (sheetSwipeCurrentY.current > 92 || sheetSwipeVelocity.current > 0.55) {
       closeSheet(sheetName, closer)
     } else {
       if (sheetSwipeRef.current) {
@@ -512,6 +533,7 @@ export default function NewProductPage() {
       }
     }
     sheetSwipeCurrentY.current = 0
+    sheetSwipeVelocity.current = 0
   }, [closeSheet])
 
   // Header scroll state
@@ -2937,6 +2959,7 @@ export default function NewProductPage() {
 
   const existingImages = mediaItems.filter(m => m.type === "image").length
   const existingYouTube = mediaItems.filter(m => m.type === "youtube").length
+  const plainSearchPreviewDescription = stripHtmlToPlainText(seoDescription || description)
 
   // Skeleton loading component - exact match to final UI structure
   if (!isPageReady) {
@@ -4847,7 +4870,7 @@ export default function NewProductPage() {
                       {creator?.username || creator?.slug || "yourstore"}.storelib.com/p/{slug || "product-url"}
                     </p>
                     <p className="text-gray-600 text-xs sm:text-sm line-clamp-2 mt-0.5">
-                      {seoDescription || description || "Product description will appear here..."}
+                      {plainSearchPreviewDescription || "Product description will appear here..."}
                     </p>
                   </div>
                 </div>

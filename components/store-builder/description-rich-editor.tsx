@@ -160,6 +160,9 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
   const [isDismissing, setIsDismissing] = useState(false)
   const swipeStartY = useRef<number | null>(null)
   const swipeCurrentY = useRef(0)
+  const swipeLastY = useRef(0)
+  const swipeLastTime = useRef(0)
+  const swipeVelocity = useRef(0)
   const sheetRef = useRef<HTMLDivElement>(null)
 
   // Animated close handler
@@ -191,6 +194,9 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
     if (isDragHandle || (isAtTop && nearTop)) {
       swipeStartY.current = touchY
       swipeCurrentY.current = 0
+      swipeLastY.current = touchY
+      swipeLastTime.current = Date.now()
+      swipeVelocity.current = 0
     }
   }, [])
 
@@ -199,10 +205,15 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
     const deltaY = e.touches[0].clientY - swipeStartY.current
     if (deltaY > 0) {
       e.preventDefault()
-      const resisted = deltaY <= 160 ? deltaY * 0.92 : 147 + (deltaY - 160) * 0.4
-      swipeCurrentY.current = resisted
+      const now = Date.now()
+      const dt = Math.max(1, now - swipeLastTime.current)
+      swipeVelocity.current = (e.touches[0].clientY - swipeLastY.current) / dt
+      swipeLastY.current = e.touches[0].clientY
+      swipeLastTime.current = now
+
+      swipeCurrentY.current = deltaY
       if (sheetRef.current) {
-        sheetRef.current.style.transform = `translate3d(0, ${resisted}px, 0)`
+        sheetRef.current.style.transform = `translate3d(0, ${deltaY}px, 0)`
         sheetRef.current.style.transition = "none"
       }
     }
@@ -211,7 +222,7 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
   const handleTouchEnd = useCallback(() => {
     if (swipeStartY.current === null) return
     swipeStartY.current = null
-    if (swipeCurrentY.current > 80) {
+    if (swipeCurrentY.current > 92 || swipeVelocity.current > 0.55) {
       // Swipe far enough - dismiss
       handleClose()
     } else {
@@ -222,6 +233,7 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
       }
     }
     swipeCurrentY.current = 0
+    swipeVelocity.current = 0
   }, [handleClose])
 
   // Create portal container on mount
@@ -2217,7 +2229,7 @@ export function DescriptionRichEditor({
       )}
 
       {/* Selected Embed Controls */}
-      {selectedEmbed && (
+      {selectedEmbed && !isMobile && (
         <div className="fixed" style={{
           zIndex: 2147483640,
           top: selectedEmbed.getBoundingClientRect().top + window.scrollY + 8,
@@ -2291,6 +2303,89 @@ export function DescriptionRichEditor({
             </button>
           </div>
         </div>
+      )}
+
+      {selectedEmbed && isMobile && (
+        <InlinePopover
+          isOpen={!!selectedEmbed}
+          onClose={() => setSelectedEmbed(null)}
+          themeColors={themeColors}
+          isMobile={isMobile}
+        >
+          <div className="w-full px-4 pb-5 pt-2">
+            <h3 className="text-base font-semibold text-center mb-4">Image Settings</h3>
+
+            <div className="grid grid-cols-4 gap-2 mb-4">
+              <button
+                type="button"
+                onClick={() => moveEmbedUp(selectedEmbed)}
+                className="flex h-11 items-center justify-center rounded-xl border hover:bg-gray-50"
+                style={{ borderColor }}
+                title="Move up"
+              >
+                <MoveUp className="h-4 w-4" style={{ color: mutedColor }} />
+              </button>
+              <button
+                type="button"
+                onClick={() => moveEmbedDown(selectedEmbed)}
+                className="flex h-11 items-center justify-center rounded-xl border hover:bg-gray-50"
+                style={{ borderColor }}
+                title="Move down"
+              >
+                <MoveDown className="h-4 w-4" style={{ color: mutedColor }} />
+              </button>
+              <button
+                type="button"
+                onClick={() => changeImageSize(selectedEmbed, 'wide')}
+                className="flex h-11 items-center justify-center rounded-xl border hover:bg-gray-50"
+                style={{ borderColor }}
+                title="Expand"
+              >
+                <Maximize2 className="h-4 w-4" style={{ color: mutedColor }} />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  deleteEmbed(selectedEmbed)
+                  setSelectedEmbed(null)
+                }}
+                className="flex h-11 items-center justify-center rounded-xl border border-red-200 hover:bg-red-50"
+                title="Remove"
+              >
+                <Trash2 className="h-4 w-4 text-red-500" />
+              </button>
+            </div>
+
+            {selectedEmbed.getAttribute('data-embed-type') === 'image' && (
+              <div className="space-y-2">
+                <p className="text-xs font-medium uppercase tracking-wide" style={{ color: mutedColor }}>
+                  Image style
+                </p>
+                <div className="space-y-2">
+                  {imageSizeOptions.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => changeImageSize(selectedEmbed, option.value)}
+                      className="w-full flex items-center gap-3 rounded-xl border px-3 py-3 text-left"
+                      style={{
+                        borderColor: selectedEmbed.getAttribute('data-image-size') === option.value ? accentColor : borderColor,
+                        backgroundColor: selectedEmbed.getAttribute('data-image-size') === option.value ? (isDarkTheme ? 'rgba(124,58,237,0.15)' : '#f5f3ff') : 'transparent'
+                      }}
+                    >
+                      <option.icon className="h-4 w-4" />
+                      <div className="flex-1">
+                        <div className="text-sm font-medium">{option.label}</div>
+                        <div className="text-xs" style={{ color: mutedColor }}>{option.description}</div>
+                      </div>
+                      {selectedEmbed.getAttribute('data-image-size') === option.value && <Check className="h-4 w-4" style={{ color: accentColor }} />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </InlinePopover>
       )}
     </div>
   )
