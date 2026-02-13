@@ -3010,6 +3010,19 @@ export default function NewProductPage() {
             }
             return next
           })
+
+          // Show the error for 5 seconds, then clean up so the user can retry
+          setTimeout(() => {
+            setActiveFileUploads(prev => {
+              const next = new Map(prev)
+              next.delete(uploadKey)
+              if (next.size === 0) {
+                setUploadingFiles(false)
+                setFileUploadProgress(0)
+              }
+              return next
+            })
+          }, 5000)
         },
       })
 
@@ -4220,7 +4233,11 @@ export default function NewProductPage() {
                       multiple
                       accept="*/*"
                       className="hidden"
-                      onChange={(e) => handleFileUpload(e.target.files)}
+                      onChange={(e) => {
+                        handleFileUpload(e.target.files)
+                        // Reset value so the same file can be re-selected
+                        e.target.value = ""
+                      }}
                       disabled={uploadingFiles}
                     />
 

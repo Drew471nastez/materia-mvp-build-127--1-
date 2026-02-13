@@ -166,13 +166,12 @@ export class DirectUploader {
 
       if (this.aborted) throw this.abortError()
 
-      // Step 3: Upload file directly to storage
+      // Step 3: Upload file directly to storage via signed URL
+      // Always use direct upload — signed URL goes straight to Supabase
+      // storage with no server body-size limits. The old chunked path
+      // relied on in-memory state that breaks on Vercel serverless.
       this.setStatus("uploading")
-      if (this.file.size > LARGE_FILE_THRESHOLD) {
-        await this.uploadChunked()
-      } else {
-        await this.uploadDirect()
-      }
+      await this.uploadDirectWithRetry()
 
       if (this.aborted) throw this.abortError()
 
@@ -227,11 +226,7 @@ export class DirectUploader {
     if (this.signedUrl && this.uploadPath) {
       this.setStatus("uploading")
       try {
-        if (this.file.size > LARGE_FILE_THRESHOLD) {
-          await this.uploadChunked()
-        } else {
-          await this.uploadDirect()
-        }
+        await this.uploadDirectWithRetry()
 
         this.setStatus("completing")
         const result = await this.complete()
@@ -305,8 +300,63 @@ export class DirectUploader {
   }
 
   /**
-   * Step 2a: Upload file directly to signed URL using XMLHttpRequest
-   * for real progress tracking. Used for files < 50MB.
+   * Upload with retry and exponential backoff.
+   * If the signed URL expires (400/403), re-prepares and retries.
+   * Falls back to server-upload for small files as last resort.
+   */
+  private async uploadDirectWithRetry(): Promise<void> {
+    let lastError: UploadError | null = null
+
+    for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
+      if (this.aborted) throw this.abortError()
+
+      try {
+        await this.uploadDirect()
+        return // success
+      } catch (err) {
+        lastError = err as UploadError
+
+        // Non-retryable errors (abort, etc) — stop immediately
+        if (lastError.code === "ABORTED") throw lastError
+
+        // If signed URL expired or rejected, get a fresh one before retry
+        if (
+          lastError.httpStatus === 400 ||
+          lastError.httpStatus === 403 ||
+          lastError.httpStatus === 413
+        ) {
+          try {
+            await this.prepare()
+          } catch {
+            // If re-prepare fails, continue with retry anyway
+          }
+        }
+
+        if (attempt < this.maxRetries) {
+          const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt)
+          await new Promise((r) => setTimeout(r, delay))
+        }
+      }
+    }
+
+    // Last resort: try server upload for files small enough
+    // (Vercel has a 4.5MB body limit on serverless functions)
+    if (this.file.size <= 4 * 1024 * 1024) {
+      try {
+        await this.uploadViaServer()
+        return
+      } catch {
+        // Fall through to throw the original error
+      }
+    }
+
+    throw lastError!
+  }
+
+  /**
+   * Upload file directly to signed URL using XMLHttpRequest
+   * for real progress tracking. Works for any file size since
+   * the signed URL goes straight to Supabase storage (no server limits).
    */
   private uploadDirect(): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -332,19 +382,12 @@ export class DirectUploader {
           this.onProgress?.(95, this.file.size, this.file.size)
           resolve()
         } else {
-          // If signed URL expired, try server-upload fallback
-          if (xhr.status === 400 || xhr.status === 403) {
-            this.uploadViaServer()
-              .then(resolve)
-              .catch(reject)
-          } else {
-            reject({
-              message: `Upload failed: HTTP ${xhr.status}`,
-              code: "UPLOAD_HTTP_ERROR",
-              retryable: xhr.status >= 500,
-              httpStatus: xhr.status,
-            } as UploadError)
-          }
+          reject({
+            message: `Upload failed: HTTP ${xhr.status}`,
+            code: "UPLOAD_HTTP_ERROR",
+            retryable: true,
+            httpStatus: xhr.status,
+          } as UploadError)
         }
       })
 
@@ -358,14 +401,12 @@ export class DirectUploader {
 
       xhr.addEventListener("abort", () => {
         if (this.paused) {
-          // Pause — don't reject, the resume() method will re-start
           resolve()
         } else {
           reject(this.abortError())
         }
       })
 
-      // Upload to the signed URL with the token
       const url = this.signedUrl
       xhr.open("PUT", url)
       xhr.setRequestHeader("Content-Type", this.file.type || "application/octet-stream")
