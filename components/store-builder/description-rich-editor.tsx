@@ -203,19 +203,19 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     if (swipeStartY.current === null) return
     const deltaY = e.touches[0].clientY - swipeStartY.current
-    if (deltaY > 0) {
-      e.preventDefault()
-      const now = Date.now()
-      const dt = Math.max(1, now - swipeLastTime.current)
-      swipeVelocity.current = (e.touches[0].clientY - swipeLastY.current) / dt
-      swipeLastY.current = e.touches[0].clientY
-      swipeLastTime.current = now
+    const now = Date.now()
+    const dt = Math.max(1, now - swipeLastTime.current)
+    swipeVelocity.current = (e.touches[0].clientY - swipeLastY.current) / dt
+    swipeLastY.current = e.touches[0].clientY
+    swipeLastTime.current = now
 
-      swipeCurrentY.current = deltaY
-      if (sheetRef.current) {
-        sheetRef.current.style.transform = `translate3d(0, ${deltaY}px, 0)`
-        sheetRef.current.style.transition = "none"
-      }
+    const trackedY = deltaY > 0 ? deltaY : deltaY * 0.18
+    if (deltaY > 0) e.preventDefault()
+
+    swipeCurrentY.current = Math.max(0, deltaY)
+    if (sheetRef.current) {
+      sheetRef.current.style.transform = `translate3d(0, ${trackedY}px, 0)`
+      sheetRef.current.style.transition = "none"
     }
   }, [])
 
@@ -230,6 +230,10 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
         sheetRef.current.style.transform = "translate3d(0, 100%, 0)"
       }
       setTimeout(() => {
+        if (sheetRef.current) {
+          sheetRef.current.style.transition = ""
+          sheetRef.current.style.transform = ""
+        }
         setIsDismissing(false)
         onClose()
       }, 400)
@@ -239,8 +243,14 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
     }
 
     if (sheetRef.current) {
-      sheetRef.current.style.transform = ""
       sheetRef.current.style.transition = "transform 400ms cubic-bezier(0.32, 0.72, 0, 1)"
+      sheetRef.current.style.transform = "translate3d(0, 0, 0)"
+      setTimeout(() => {
+        if (sheetRef.current) {
+          sheetRef.current.style.transition = ""
+          sheetRef.current.style.transform = ""
+        }
+      }, 400)
     }
     swipeCurrentY.current = 0
     swipeVelocity.current = 0
@@ -410,6 +420,8 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
             borderTopRightRadius: 20,
             maxHeight: "85vh",
             overflow: "hidden",
+            willChange: "transform",
+            backfaceVisibility: "hidden",
           }}
           onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
