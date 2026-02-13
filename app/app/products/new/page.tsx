@@ -531,6 +531,10 @@ export default function NewProductPage() {
         sheetSwipeRef.current.style.transform = "translate3d(0, 100%, 0)"
       }
       setTimeout(() => {
+        if (sheetSwipeRef.current) {
+          sheetSwipeRef.current.style.transition = ""
+          sheetSwipeRef.current.style.transform = ""
+        }
         setDismissingSheet(null)
         closer()
       }, 400)
@@ -540,8 +544,14 @@ export default function NewProductPage() {
     }
 
     if (sheetSwipeRef.current) {
-      sheetSwipeRef.current.style.transform = ""
       sheetSwipeRef.current.style.transition = "transform 400ms cubic-bezier(0.32, 0.72, 0, 1)"
+      sheetSwipeRef.current.style.transform = "translate3d(0, 0, 0)"
+      setTimeout(() => {
+        if (sheetSwipeRef.current) {
+          sheetSwipeRef.current.style.transition = ""
+          sheetSwipeRef.current.style.transform = ""
+        }
+      }, 400)
     }
     sheetSwipeCurrentY.current = 0
     sheetSwipeVelocity.current = 0
@@ -4466,7 +4476,7 @@ export default function NewProductPage() {
                       if (isMobileViewport) e.preventDefault()
                     }}
                     overlayClassName={isMobileViewport ? `bg-black/40 transition-opacity duration-400 ${dismissingSheet === "category" ? "opacity-0" : "opacity-100"}` : undefined}
-                    className={`fixed !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0 sm:left-[50%] sm:top-[50%] sm:bottom-auto sm:translate-x-[-50%] sm:translate-y-[-50%] w-full sm:w-[calc(100%-2rem)] sm:max-w-lg rounded-t-2xl sm:rounded-xl bg-white shadow-xl border-t sm:border p-0 h-[60vh] sm:h-auto max-h-[60vh] sm:max-h-[calc(100vh-4rem)] overflow-hidden flex flex-col ${dismissingSheet === "category" ? "animate-bottom-sheet-out" : "animate-bottom-sheet-in"} sm:animate-none`}
+                    className={`fixed !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0 sm:left-[50%] sm:top-[50%] sm:bottom-auto sm:translate-x-[-50%] sm:translate-y-[-50%] w-full sm:w-[calc(100%-2rem)] sm:max-w-lg rounded-t-2xl sm:rounded-xl bg-white shadow-xl border-t sm:border p-0 h-[80vh] sm:h-auto max-h-[80vh] sm:max-h-[calc(100vh-4rem)] overflow-hidden flex flex-col ${dismissingSheet === "category" ? "animate-bottom-sheet-out" : "animate-bottom-sheet-in"} sm:animate-none`}
                     style={isMobileViewport ? { willChange: 'transform', backfaceVisibility: 'hidden' } : undefined}
                     onTouchStart={(e) => handleSheetTouchStart(e, e.currentTarget as HTMLDivElement)}
                     onTouchMove={handleSheetTouchMove}
