@@ -1352,26 +1352,31 @@ export function DescriptionRichEditor({
   // Handle insert options
   const handleInsert = useCallback((insertType: string) => {
     requestAnimationFrame(() => {
-      if (editorRef.current) {
-        editorRef.current.focus()
+      if (!editorRef.current) return
 
-        switch (insertType) {
-          case "divider":
-            document.execCommand("insertHTML", false, '<hr style="margin: 16px 0; border: 0; border-top: 1px solid #e5e7eb;" />')
-            handleContentChange()
-            break
-          case "button":
-            saveSelection()
-            setShowButtonPopover(true)
-            return
-          case "twitter":
-            saveSelection()
-            setShowXEmbedPopover(true)
-            return
-        }
+      const needsInlinePopover = insertType === "button" || insertType === "twitter"
+      if (isMobile && needsInlinePopover) {
+        editorRef.current.blur()
+      } else {
+        editorRef.current.focus()
+      }
+
+      switch (insertType) {
+        case "divider":
+          document.execCommand("insertHTML", false, '<hr style="margin: 16px 0; border: 0; border-top: 1px solid #e5e7eb;" />')
+          handleContentChange()
+          break
+        case "button":
+          saveSelection()
+          setShowButtonPopover(true)
+          return
+        case "twitter":
+          saveSelection()
+          setShowXEmbedPopover(true)
+          return
       }
     })
-  }, [handleContentChange, saveSelection])
+  }, [handleContentChange, isMobile, saveSelection])
 
   // Handle embed click for selection and controls
   const handleEditorClick = useCallback((e: React.MouseEvent) => {
