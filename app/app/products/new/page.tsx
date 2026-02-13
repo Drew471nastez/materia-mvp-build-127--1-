@@ -421,6 +421,159 @@ function SortableMediaItem({ item, index, onRemove }: SortableMediaItemProps) {
   )
 }
 
+// Smooth GPU-accelerated Mobile Bottom Sheet with drag-to-dismiss (same pattern as TimeframeBottomSheet)
+function MobileSheet({
+  isOpen,
+  onClose,
+  children,
+  maxHeight,
+  zIndex = 50,
+}: {
+  isOpen: boolean
+  onClose: () => void
+  children: React.ReactNode
+  maxHeight?: string
+  zIndex?: number
+}) {
+  const [isVisible, setIsVisible] = useState(false)
+  const [isAnimating, setIsAnimating] = useState(false)
+  const [dragY, setDragY] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+  const startYRef = useRef(0)
+  const lastYRef = useRef(0)
+  const lastTimeRef = useRef(0)
+  const velocityRef = useRef(0)
+  const sheetRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (isOpen && !isVisible) {
+      setIsVisible(true)
+      document.body.style.overflow = "hidden"
+      document.documentElement.style.overscrollBehavior = 'none'
+      document.body.style.overscrollBehavior = 'none'
+      // Blur any focused element to prevent keyboard from opening
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur()
+      }
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setIsAnimating(true)
+        })
+      })
+    } else if (!isOpen && isVisible) {
+      setIsAnimating(false)
+      document.body.style.overflow = ""
+      document.documentElement.style.overscrollBehavior = ''
+      document.body.style.overscrollBehavior = ''
+      const timer = setTimeout(() => {
+        setIsVisible(false)
+        setDragY(0)
+      }, 400)
+      return () => clearTimeout(timer)
+    }
+    return () => {
+      document.body.style.overflow = ""
+      document.documentElement.style.overscrollBehavior = ''
+      document.body.style.overscrollBehavior = ''
+    }
+  }, [isOpen, isVisible])
+
+  const handleClose = useCallback(() => {
+    setIsAnimating(false)
+    setIsDragging(false)
+    setDragY(0)
+    velocityRef.current = 0
+    setTimeout(() => {
+      onClose()
+    }, 400)
+  }, [onClose])
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const touch = e.touches[0]
+    const sheetElement = sheetRef.current
+    if (!sheetElement) return
+    const sheetRect = sheetElement.getBoundingClientRect()
+    const touchYInSheet = touch.clientY - sheetRect.top
+    // Allow drag from backdrop (above sheet) or handle/header area (top 100px)
+    if (touchYInSheet <= 0 || touchYInSheet <= 100) {
+      startYRef.current = touch.clientY
+      lastYRef.current = touch.clientY
+      lastTimeRef.current = Date.now()
+      velocityRef.current = 0
+      setIsDragging(true)
+    }
+  }, [])
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!isDragging) return
+    const currentY = e.touches[0].clientY
+    const diff = currentY - startYRef.current
+    if (diff > 0) {
+      e.preventDefault()
+      const now = Date.now()
+      const dt = Math.max(1, now - lastTimeRef.current)
+      velocityRef.current = (currentY - lastYRef.current) / dt
+      lastYRef.current = currentY
+      lastTimeRef.current = now
+      const resisted = diff <= 160 ? diff * 0.92 : 147 + (diff - 160) * 0.4
+      setDragY(resisted)
+    }
+  }, [isDragging])
+
+  const handleTouchEnd = useCallback(() => {
+    if (!isDragging) return
+    setIsDragging(false)
+    if (dragY > 92 || velocityRef.current > 0.55) {
+      handleClose()
+    } else {
+      setDragY(0)
+    }
+  }, [isDragging, dragY, handleClose])
+
+  if (!isVisible) return null
+
+  return (
+    <div
+      className="fixed inset-0"
+      style={{ zIndex }}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Backdrop with smooth fade + blur */}
+      <div
+        className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
+        style={{
+          opacity: isAnimating ? Math.max(0, 1 - dragY / 300) : 0,
+          transition: isDragging ? 'none' : 'opacity 400ms cubic-bezier(0.32, 0.72, 0, 1)',
+        }}
+        onClick={handleClose}
+      />
+      {/* Bottom Sheet - GPU accelerated */}
+      <div
+        ref={sheetRef}
+        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
+        style={{
+          maxHeight: maxHeight || '85vh',
+          transform: isAnimating ? `translate3d(0, ${dragY}px, 0)` : 'translate3d(0, 100%, 0)',
+          transition: isDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
+          willChange: 'transform',
+          backfaceVisibility: 'hidden',
+          WebkitBackfaceVisibility: 'hidden' as any,
+        }}
+      >
+        {/* Handle bar */}
+        <div className="pt-3 pb-1 flex justify-center cursor-grab active:cursor-grabbing touch-none" data-drag-handle>
+          <div className="h-[5px] w-10 rounded-full bg-gray-300" />
+        </div>
+        {children}
+        {/* Safe area padding for iOS */}
+        <div className="h-[env(safe-area-inset-bottom)]" />
+      </div>
+    </div>
+  )
+}
+
 export default function NewProductPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -464,6 +617,7 @@ export default function NewProductPage() {
   const sheetSwipeLastY = useRef(0)
   const sheetSwipeLastTime = useRef(0)
   const sheetSwipeVelocity = useRef(0)
+  const swipeCloseRef = useRef(false) // Tracks swipe-initiated close to prevent CSS animation conflict
 
   // Animated close for bottom sheets
   const closeSheet = useCallback((sheetName: string, closer: () => void) => {
@@ -490,7 +644,7 @@ export default function NewProductPage() {
     const isAtTop = !scrollContainer || scrollContainer.scrollTop <= 0
     const touchY = e.touches[0].clientY
     const bounds = ref?.getBoundingClientRect()
-    const nearTop = !!bounds && touchY - bounds.top <= 72
+    const nearTop = !!bounds && touchY - bounds.top <= 100
 
     if (isDragHandle || (isAtTop && nearTop)) {
       sheetSwipeStartY.current = touchY
@@ -529,6 +683,8 @@ export default function NewProductPage() {
     sheetSwipeStartY.current = null
     const activeSheet = sheetSwipeRef.current
     if (sheetSwipeCurrentY.current > 92 || sheetSwipeVelocity.current > 0.55) {
+      // Mark as swipe-closing to prevent CSS animation class conflict
+      swipeCloseRef.current = true
       setDismissingSheet(sheetName)
       if (activeSheet) {
         activeSheet.style.transition = "transform 400ms cubic-bezier(0.32, 0.72, 0, 1)"
@@ -540,6 +696,7 @@ export default function NewProductPage() {
           activeSheet.style.transform = ""
         }
         sheetSwipeRef.current = null
+        swipeCloseRef.current = false
         setDismissingSheet(null)
         closer()
       }, 400)
@@ -4482,12 +4639,12 @@ export default function NewProductPage() {
                       if (isMobileViewport) e.preventDefault()
                     }}
                     overlayClassName={isMobileViewport ? `bg-black/40 transition-opacity duration-400 ${dismissingSheet === "category" ? "opacity-0" : "opacity-100"}` : undefined}
-                    className={`fixed !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0 sm:left-[50%] sm:top-[50%] sm:bottom-auto sm:translate-x-[-50%] sm:translate-y-[-50%] w-full !max-w-none sm:!max-w-lg sm:w-[calc(100%-2rem)] rounded-t-2xl sm:rounded-xl bg-white shadow-xl border-t sm:border p-0 h-[80vh] sm:h-auto max-h-[80vh] sm:max-h-[calc(100vh-4rem)] overflow-hidden flex flex-col ${dismissingSheet === "category" ? "animate-bottom-sheet-out" : "animate-bottom-sheet-in"} sm:animate-none`}
+                    className={`fixed !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0 sm:left-[50%] sm:top-[50%] sm:bottom-auto sm:translate-x-[-50%] sm:translate-y-[-50%] w-full !max-w-none sm:!max-w-lg sm:w-[calc(100%-2rem)] rounded-t-2xl sm:rounded-xl bg-white shadow-xl border-t sm:border p-0 h-[80vh] sm:h-auto max-h-[80vh] sm:max-h-[calc(100vh-4rem)] overflow-hidden flex flex-col ${dismissingSheet === "category" && !swipeCloseRef.current ? "animate-bottom-sheet-out" : (!dismissingSheet ? "animate-bottom-sheet-in" : "")} sm:animate-none`}
                     style={isMobileViewport ? { willChange: 'transform', backfaceVisibility: 'hidden' } : undefined}
                     onTouchStart={(e) => handleSheetTouchStart(e, e.currentTarget as HTMLDivElement)}
                     onTouchMove={handleSheetTouchMove}
-                    onTouchEnd={() => handleSheetTouchEnd("category", closeCategoryModal)}
-                    onTouchCancel={() => handleSheetTouchEnd("category", closeCategoryModal)}
+                    onTouchEnd={() => handleSheetTouchEnd("category", () => setShowCategoryModal(false))}
+                    onTouchCancel={() => handleSheetTouchEnd("category", () => setShowCategoryModal(false))}
                   >
                     <div className="pt-3 pb-1 flex justify-center sm:hidden cursor-grab active:cursor-grabbing touch-none" data-drag-handle><div className="h-[5px] w-10 rounded-full bg-gray-300" /></div>
                     <DialogHeader className="px-4 sm:p-6 pb-3 sm:pb-4 border-b flex-shrink-0">
@@ -4962,137 +5119,98 @@ export default function NewProductPage() {
       </div>
 
       {/* YouTube Bottom Sheet */}
-      {showYoutubeInput && (
-        <div className="fixed inset-0 z-50">
-          <div className={`fixed inset-0 bg-black/40 ${dismissingSheet === "youtube" ? "opacity-0 transition-opacity duration-400" : "animate-backdrop-in"}`} onClick={() => closeSheet("youtube", () => { setShowYoutubeInput(false); setYoutubeInput("") })} />
-          <div
-            className={`fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-xl ${dismissingSheet === "youtube" ? "animate-bottom-sheet-out" : "animate-bottom-sheet-in"} z-50`}
-            style={{ maxHeight: "85vh", willChange: "transform", backfaceVisibility: "hidden" }}
-            onTouchStart={(e) => handleSheetTouchStart(e, e.currentTarget as HTMLDivElement)}
-            onTouchMove={handleSheetTouchMove}
-            onTouchEnd={() => handleSheetTouchEnd("youtube", () => { setShowYoutubeInput(false); setYoutubeInput("") })}
-            onTouchCancel={() => handleSheetTouchEnd("youtube", () => { setShowYoutubeInput(false); setYoutubeInput("") })}
-          >
-            <div className="pt-3 pb-1 flex justify-center cursor-grab active:cursor-grabbing touch-none" data-drag-handle><div className="h-[5px] w-10 rounded-full bg-gray-300" /></div>
-            <div className="px-5 pb-6 space-y-4" style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
-              <div className="flex items-center justify-between">
-                <h3 className="text-base font-semibold text-gray-900">Add YouTube Video</h3>
-                <button type="button" onClick={() => { setShowYoutubeInput(false); setYoutubeInput("") }} className="p-2 -mr-2 text-gray-400 hover:text-gray-600 rounded-full">
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-              <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl p-2.5">
-                <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-red-50 flex-shrink-0">
-                  <svg viewBox="0 -7 48 48" className="h-5 w-5" fill="none">
-                    <path d="M19.044 25.27L19.0425 11.688L32.0115 18.502L19.044 25.27ZM47.52 9.334C47.52 9.334 47.0505 6.003 45.612 4.536C43.7865 2.61 41.7405 2.601 40.803 2.489C34.086 2 24.0105 2 24.0105 2H23.9895C23.9895 2 13.914 2 7.197 2.489C6.258 2.601 4.2135 2.61 2.3865 4.536C0.948 6.003 0.48 9.334 0.48 9.334C0.48 9.334 0 13.247 0 17.158V20.826C0 24.738 0.48 28.649 0.48 28.649C0.48 28.649 0.948 31.98 2.3865 33.447C4.2135 35.373 6.612 35.313 7.68 35.514C11.52 35.885 24 36 24 36C24 36 34.086 35.985 40.803 35.495C41.7405 35.382 43.7865 35.373 45.612 33.447C47.0505 31.98 47.52 28.649 47.52 28.649C47.52 28.649 48 24.738 48 20.826V17.158C48 13.247 47.52 9.334 47.52 9.334Z" fill="#CE1312"/>
-                  </svg>
-                </div>
-                <Input
-                  placeholder="Paste YouTube URL..."
-                  value={youtubeInput}
-                  onChange={(e) => setYoutubeInput(e.target.value)}
-                  className="flex-1 h-10 text-sm border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-2 placeholder:text-gray-400"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') { e.preventDefault(); handleAddYouTube() }
-                    if (e.key === 'Escape') { setShowYoutubeInput(false); setYoutubeInput("") }
-                  }}
-                />
-              </div>
-              {youtubeInput && parseYouTubeUrl(youtubeInput) && (
-                <div className="relative aspect-video max-w-[240px] mx-auto rounded-lg overflow-hidden border border-gray-200 shadow-sm">
-                  <img src={`https://img.youtube.com/vi/${parseYouTubeUrl(youtubeInput)}/hqdefault.jpg`} alt="Video preview" className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                    <div className="w-12 h-12 rounded-full bg-red-600 flex items-center justify-center shadow-lg"><Play className="h-6 w-6 text-white ml-0.5" /></div>
-                  </div>
-                </div>
-              )}
-              <Button
-                type="button"
-                onClick={handleAddYouTube}
-                disabled={!youtubeInput || !parseYouTubeUrl(youtubeInput)}
-                className="w-full h-11 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-xl disabled:bg-gray-200 disabled:text-gray-400"
-              >
-                Add Video
-              </Button>
-            </div>
+      <MobileSheet isOpen={showYoutubeInput} onClose={() => { setShowYoutubeInput(false); setYoutubeInput("") }} maxHeight="85vh">
+        <div className="px-5 pb-6 space-y-4" style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-semibold text-gray-900">Add YouTube Video</h3>
+            <button type="button" onClick={() => { setShowYoutubeInput(false); setYoutubeInput("") }} className="p-2 -mr-2 text-gray-400 hover:text-gray-600 rounded-full">
+              <X className="h-5 w-5" />
+            </button>
           </div>
+          <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl p-2.5">
+            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-red-50 flex-shrink-0">
+              <svg viewBox="0 -7 48 48" className="h-5 w-5" fill="none">
+                <path d="M19.044 25.27L19.0425 11.688L32.0115 18.502L19.044 25.27ZM47.52 9.334C47.52 9.334 47.0505 6.003 45.612 4.536C43.7865 2.61 41.7405 2.601 40.803 2.489C34.086 2 24.0105 2 24.0105 2H23.9895C23.9895 2 13.914 2 7.197 2.489C6.258 2.601 4.2135 2.61 2.3865 4.536C0.948 6.003 0.48 9.334 0.48 9.334C0.48 9.334 0 13.247 0 17.158V20.826C0 24.738 0.48 28.649 0.48 28.649C0.48 28.649 0.948 31.98 2.3865 33.447C4.2135 35.373 6.612 35.313 7.68 35.514C11.52 35.885 24 36 24 36C24 36 34.086 35.985 40.803 35.495C41.7405 35.382 43.7865 35.373 45.612 33.447C47.0505 31.98 47.52 28.649 47.52 28.649C47.52 28.649 48 24.738 48 20.826V17.158C48 13.247 47.52 9.334 47.52 9.334Z" fill="#CE1312"/>
+              </svg>
+            </div>
+            <Input
+              placeholder="Paste YouTube URL..."
+              value={youtubeInput}
+              onChange={(e) => setYoutubeInput(e.target.value)}
+              className="flex-1 h-10 text-sm border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-2 placeholder:text-gray-400"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') { e.preventDefault(); handleAddYouTube() }
+                if (e.key === 'Escape') { setShowYoutubeInput(false); setYoutubeInput("") }
+              }}
+            />
+          </div>
+          {youtubeInput && parseYouTubeUrl(youtubeInput) && (
+            <div className="relative aspect-video max-w-[240px] mx-auto rounded-lg overflow-hidden border border-gray-200 shadow-sm">
+              <img src={`https://img.youtube.com/vi/${parseYouTubeUrl(youtubeInput)}/hqdefault.jpg`} alt="Video preview" className="w-full h-full object-cover" />
+              <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                <div className="w-12 h-12 rounded-full bg-red-600 flex items-center justify-center shadow-lg"><Play className="h-6 w-6 text-white ml-0.5" /></div>
+              </div>
+            </div>
+          )}
+          <Button
+            type="button"
+            onClick={handleAddYouTube}
+            disabled={!youtubeInput || !parseYouTubeUrl(youtubeInput)}
+            className="w-full h-11 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-xl disabled:bg-gray-200 disabled:text-gray-400"
+          >
+            Add Video
+          </Button>
         </div>
-      )}
+      </MobileSheet>
 
       {/* CTA Bottom Sheet */}
-      {showCtaSheet && (
-        <div className="fixed inset-0 z-50">
-          <div className={`fixed inset-0 bg-black/40 ${dismissingSheet === "cta" ? "opacity-0 transition-opacity duration-400" : "animate-backdrop-in"}`} onClick={() => closeSheet("cta", () => setShowCtaSheet(false))} />
-          <div
-            className={`fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-xl ${dismissingSheet === "cta" ? "animate-bottom-sheet-out" : "animate-bottom-sheet-in"} z-50`}
-            style={{ willChange: "transform", backfaceVisibility: "hidden" }}
-            onTouchStart={(e) => handleSheetTouchStart(e, e.currentTarget as HTMLDivElement)}
-            onTouchMove={handleSheetTouchMove}
-            onTouchEnd={() => handleSheetTouchEnd("cta", () => setShowCtaSheet(false))}
-            onTouchCancel={() => handleSheetTouchEnd("cta", () => setShowCtaSheet(false))}
-          >
-            <div className="pt-3 pb-1 flex justify-center cursor-grab active:cursor-grabbing touch-none" data-drag-handle><div className="h-[5px] w-10 rounded-full bg-gray-300" /></div>
-            <div className="px-5 pb-6 space-y-1" style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
-              <h3 className="text-base font-semibold text-gray-900 mb-3">Call to Action</h3>
-              {["I want this!", "Buy Now", "Get Access", "Download Now", "Purchase", "Add to Cart", "Join Now"].map((cta) => (
-                <button
-                  key={cta}
-                  type="button"
-                  onClick={() => { setCallToAction(cta); closeSheet("cta", () => setShowCtaSheet(false)) }}
-                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm transition-all ${
-                    (callToAction || "I want this!") === cta
-                      ? "bg-violet-50 text-violet-900 font-medium"
-                      : "text-gray-700 hover:bg-gray-50"
-                  }`}
-                >
-                  <span>{cta}</span>
-                  {(callToAction || "I want this!") === cta && <Check className="h-4 w-4 text-violet-500" />}
-                </button>
-              ))}
-            </div>
-          </div>
+      <MobileSheet isOpen={showCtaSheet} onClose={() => setShowCtaSheet(false)}>
+        <div className="px-5 pb-6 space-y-1" style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
+          <h3 className="text-base font-semibold text-gray-900 mb-3">Call to Action</h3>
+          {["I want this!", "Buy Now", "Get Access", "Download Now", "Purchase", "Add to Cart", "Join Now"].map((cta) => (
+            <button
+              key={cta}
+              type="button"
+              onClick={() => { setCallToAction(cta); setShowCtaSheet(false) }}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm transition-all ${
+                (callToAction || "I want this!") === cta
+                  ? "bg-violet-50 text-violet-900 font-medium"
+                  : "text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              <span>{cta}</span>
+              {(callToAction || "I want this!") === cta && <Check className="h-4 w-4 text-violet-500" />}
+            </button>
+          ))}
         </div>
-      )}
+      </MobileSheet>
 
       {/* Refund Policy Bottom Sheet */}
-      {showRefundPolicySheet && (
-        <div className="fixed inset-0 z-50 sm:hidden">
-          <div className={`fixed inset-0 bg-black/40 ${dismissingSheet === "refund" ? "opacity-0 transition-opacity duration-400" : "animate-backdrop-in"}`} onClick={() => closeSheet("refund", () => setShowRefundPolicySheet(false))} />
-          <div
-            className={`fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-xl ${dismissingSheet === "refund" ? "animate-bottom-sheet-out" : "animate-bottom-sheet-in"} z-50`}
-            style={{ maxHeight: "85vh", willChange: "transform", backfaceVisibility: "hidden" }}
-            onTouchStart={(e) => handleSheetTouchStart(e, e.currentTarget as HTMLDivElement)}
-            onTouchMove={handleSheetTouchMove}
-            onTouchEnd={() => handleSheetTouchEnd("refund", () => setShowRefundPolicySheet(false))}
-            onTouchCancel={() => handleSheetTouchEnd("refund", () => setShowRefundPolicySheet(false))}
-          >
-            <div className="pt-3 pb-1 flex justify-center cursor-grab active:cursor-grabbing touch-none" data-drag-handle><div className="h-[5px] w-10 rounded-full bg-gray-300" /></div>
-            <div className="px-5 pb-6 space-y-1" style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
-              <h3 className="text-base font-semibold text-gray-900 mb-3">Refund Policy</h3>
-              {[
-                { value: "no_refunds", label: "No refunds allowed" },
-                { value: "7_day", label: "7-day money back guarantee" },
-                { value: "14_day", label: "14-day money back guarantee" },
-                { value: "30_day", label: "30-day money back guarantee" },
-              ].map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => { setRefundPolicyType(option.value); closeSheet("refund", () => setShowRefundPolicySheet(false)) }}
-                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm transition-all ${
-                    refundPolicyType === option.value
-                      ? "bg-violet-50 text-violet-900 font-medium"
-                      : "text-gray-700 hover:bg-gray-50"
-                  }`}
-                >
-                  <span>{option.label}</span>
-                  {refundPolicyType === option.value && <Check className="h-4 w-4 text-violet-500" />}
-                </button>
-              ))}
-            </div>
-          </div>
+      <MobileSheet isOpen={showRefundPolicySheet} onClose={() => setShowRefundPolicySheet(false)} maxHeight="85vh">
+        <div className="px-5 pb-6 space-y-1" style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
+          <h3 className="text-base font-semibold text-gray-900 mb-3">Refund Policy</h3>
+          {[
+            { value: "no_refunds", label: "No refunds allowed" },
+            { value: "7_day", label: "7-day money back guarantee" },
+            { value: "14_day", label: "14-day money back guarantee" },
+            { value: "30_day", label: "30-day money back guarantee" },
+          ].map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => { setRefundPolicyType(option.value); setShowRefundPolicySheet(false) }}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm transition-all ${
+                refundPolicyType === option.value
+                  ? "bg-violet-50 text-violet-900 font-medium"
+                  : "text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              <span>{option.label}</span>
+              {refundPolicyType === option.value && <Check className="h-4 w-4 text-violet-500" />}
+            </button>
+          ))}
         </div>
-      )}
+      </MobileSheet>
 
       {/* Unsaved Changes Dialog */}
       <Dialog open={showExitDialog} onOpenChange={(open) => {
@@ -5107,7 +5225,7 @@ export default function NewProductPage() {
           }}
           overlayClassName={isMobileViewport ? `bg-black/40 transition-opacity duration-400 ${dismissingSheet === "unsaved" ? "opacity-0" : "opacity-100"}` : undefined}
           className={isMobileViewport
-            ? `fixed !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0 w-full !max-w-none rounded-t-2xl rounded-b-none border-x-0 border-b-0 p-0 max-h-[70vh] overflow-hidden flex flex-col ${dismissingSheet === "unsaved" ? "animate-bottom-sheet-out" : "animate-bottom-sheet-in"}`
+            ? `fixed !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0 w-full !max-w-none rounded-t-2xl rounded-b-none border-x-0 border-b-0 p-0 max-h-[70vh] overflow-hidden flex flex-col ${dismissingSheet === "unsaved" && !swipeCloseRef.current ? "animate-bottom-sheet-out" : (!dismissingSheet ? "animate-bottom-sheet-in" : "")}`
             : "sm:max-w-md mx-4"}
           style={isMobileViewport ? { willChange: 'transform', backfaceVisibility: 'hidden' } : undefined}
           onTouchStart={(e) => isMobileViewport && handleSheetTouchStart(e, e.currentTarget as HTMLDivElement)}
