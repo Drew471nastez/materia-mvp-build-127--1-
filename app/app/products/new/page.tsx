@@ -525,16 +525,27 @@ export default function NewProductPage() {
     if (sheetSwipeStartY.current === null) return
     sheetSwipeStartY.current = null
     if (sheetSwipeCurrentY.current > 92 || sheetSwipeVelocity.current > 0.55) {
-      closeSheet(sheetName, closer)
-    } else {
+      setDismissingSheet(sheetName)
       if (sheetSwipeRef.current) {
-        sheetSwipeRef.current.style.transform = ""
         sheetSwipeRef.current.style.transition = "transform 400ms cubic-bezier(0.32, 0.72, 0, 1)"
+        sheetSwipeRef.current.style.transform = "translate3d(0, 100%, 0)"
       }
+      setTimeout(() => {
+        setDismissingSheet(null)
+        closer()
+      }, 400)
+      sheetSwipeCurrentY.current = 0
+      sheetSwipeVelocity.current = 0
+      return
+    }
+
+    if (sheetSwipeRef.current) {
+      sheetSwipeRef.current.style.transform = ""
+      sheetSwipeRef.current.style.transition = "transform 400ms cubic-bezier(0.32, 0.72, 0, 1)"
     }
     sheetSwipeCurrentY.current = 0
     sheetSwipeVelocity.current = 0
-  }, [closeSheet])
+  }, [])
 
   // Header scroll state
   const [isScrolled, setIsScrolled] = useState(false)
@@ -4450,8 +4461,9 @@ export default function NewProductPage() {
                 }}>
                   <DialogContent
                     disableDefaultAnimations={isMobileViewport}
+                    showCloseButton={!isMobileViewport}
                     overlayClassName={isMobileViewport ? `bg-black/40 transition-opacity duration-400 ${dismissingSheet === "category" ? "opacity-0" : "opacity-100"}` : undefined}
-                    className={`fixed bottom-0 left-0 right-0 sm:left-[50%] sm:top-[50%] sm:bottom-auto sm:translate-x-[-50%] sm:translate-y-[-50%] w-full sm:w-[calc(100%-2rem)] sm:max-w-lg rounded-t-2xl sm:rounded-xl bg-white shadow-xl border-t sm:border p-0 max-h-[90vh] sm:max-h-[calc(100vh-4rem)] overflow-hidden flex flex-col ${dismissingSheet === "category" ? "animate-bottom-sheet-out" : "animate-bottom-sheet-in"} sm:animate-none`}
+                    className={`fixed !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0 sm:left-[50%] sm:top-[50%] sm:bottom-auto sm:translate-x-[-50%] sm:translate-y-[-50%] w-full sm:w-[calc(100%-2rem)] sm:max-w-lg rounded-t-2xl sm:rounded-xl bg-white shadow-xl border-t sm:border p-0 max-h-[90vh] sm:max-h-[calc(100vh-4rem)] overflow-hidden flex flex-col ${dismissingSheet === "category" ? "animate-bottom-sheet-out" : "animate-bottom-sheet-in"} sm:animate-none`}
                     onTouchStart={(e) => handleSheetTouchStart(e, e.currentTarget as HTMLDivElement)}
                     onTouchMove={handleSheetTouchMove}
                     onTouchEnd={() => handleSheetTouchEnd("category", closeCategoryModal)}

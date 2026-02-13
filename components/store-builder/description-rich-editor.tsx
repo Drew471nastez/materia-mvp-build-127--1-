@@ -222,19 +222,29 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
   const handleTouchEnd = useCallback(() => {
     if (swipeStartY.current === null) return
     swipeStartY.current = null
+
     if (swipeCurrentY.current > 92 || swipeVelocity.current > 0.55) {
-      // Swipe far enough - dismiss
-      handleClose()
-    } else {
-      // Snap back
+      setIsDismissing(true)
       if (sheetRef.current) {
-        sheetRef.current.style.transform = ""
         sheetRef.current.style.transition = "transform 400ms cubic-bezier(0.32, 0.72, 0, 1)"
+        sheetRef.current.style.transform = "translate3d(0, 100%, 0)"
       }
+      setTimeout(() => {
+        setIsDismissing(false)
+        onClose()
+      }, 400)
+      swipeCurrentY.current = 0
+      swipeVelocity.current = 0
+      return
+    }
+
+    if (sheetRef.current) {
+      sheetRef.current.style.transform = ""
+      sheetRef.current.style.transition = "transform 400ms cubic-bezier(0.32, 0.72, 0, 1)"
     }
     swipeCurrentY.current = 0
     swipeVelocity.current = 0
-  }, [handleClose])
+  }, [onClose])
 
   // Create portal container on mount
   useEffect(() => {
