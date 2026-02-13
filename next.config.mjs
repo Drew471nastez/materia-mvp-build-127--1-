@@ -11,10 +11,10 @@ const nextConfig = {
       bodySizeLimit: '10mb',
     },
   },
-  // Note: API route body size is NOT configured here for Next.js 16.
-  // Large file uploads bypass the server entirely via direct-to-storage
-  // signed URLs (see /api/v2/upload/prepare). The server-upload fallback
-  // route sets its own segment config for the rare cases it's needed.
+  // Note: Vercel serverless functions have a 4.5MB body size limit.
+  // Large file uploads bypass the server via direct-to-storage signed URLs
+  // (see /api/v2/upload/prepare). Chunked uploads (/api/v2/upload/chunk)
+  // use 2MB chunks to stay safely under the platform body size limit.
 }
 
 export default nextConfig

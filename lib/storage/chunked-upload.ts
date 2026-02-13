@@ -27,7 +27,7 @@ export interface UploadOptions {
   onComplete?: (result: UploadResult) => void
   onError?: (error: UploadError) => void
   onStatusChange?: (status: UploadStatus) => void
-  /** Chunk size in bytes for large files. Default: 5MB */
+  /** Chunk size in bytes for large files. Default: 2MB */
   chunkSize?: number
   /** Max retry attempts per chunk. Default: 3 */
   maxRetries?: number
@@ -64,7 +64,7 @@ export type UploadStatus =
 
 // ── Constants ──────────────────────────────────────────────────────
 
-const DEFAULT_CHUNK_SIZE = 5 * 1024 * 1024 // 5MB
+const DEFAULT_CHUNK_SIZE = 2 * 1024 * 1024 // 2MB — must stay under Vercel's 4.5MB body limit
 const LARGE_FILE_THRESHOLD = 50 * 1024 * 1024 // 50MB — use chunked for files larger
 const MAX_RETRIES = 3
 const RETRY_BASE_DELAY_MS = 1000
@@ -491,7 +491,7 @@ export class DirectUploader {
           reject({
             message: `Chunk ${chunkIndex + 1}/${totalChunks} failed: HTTP ${xhr.status}`,
             code: "CHUNK_FAILED",
-            retryable: xhr.status >= 500 || xhr.status === 429,
+            retryable: xhr.status >= 500 || xhr.status === 429 || xhr.status === 413,
             httpStatus: xhr.status,
           } as UploadError)
         }
