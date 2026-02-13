@@ -1,17 +1,19 @@
 /**
  * Secure download utilities.
- * Handles token generation, signed URL creation, and download logging.
+ * Handles token generation, signed URL creation, download logging,
+ * and rate limiting for both uploads and downloads.
  */
 
 import { type SupabaseClient } from "@supabase/supabase-js"
 import { STORAGE_BUCKET, PUBLIC_BUCKET, getPlanLimits } from "./plans"
 
-/** Default signed URL expiry: 5 minutes */
+/** Default signed URL expiry: 5 minutes (short-lived for security). */
 const SIGNED_URL_EXPIRY_SECONDS = 300
 
 /**
  * Generate a signed download URL for a digital asset.
  * Tries the primary bucket first, then fallback buckets.
+ * URLs are time-limited (5 min default) so buyers can't share permanent links.
  */
 export async function generateSignedDownloadUrl(
   admin: SupabaseClient,
@@ -64,7 +66,7 @@ export async function generateSignedDownloadUrl(
 }
 
 /**
- * Log a download event.
+ * Log a download event with full context for analytics, disputes, and refund support.
  */
 export async function logDownloadEvent(
   admin: SupabaseClient,
@@ -76,6 +78,11 @@ export async function logDownloadEvent(
     ip?: string | null
     userAgent?: string | null
     creatorId?: string
+    subscriberEmail?: string
+    productId?: string
+    fileName?: string
+    fileSize?: number
+    bucket?: string
   },
 ): Promise<void> {
   try {
@@ -120,6 +127,44 @@ export async function checkDownloadRateLimit(
   if (error || count === null) return true
 
   return count < limits.rateLimit.downloadsPerHour
+}
+
+/**
+ * Check rate limiting for uploads based on creator's plan.
+ * Returns { allowed: true } or { allowed: false, reason }.
+ */
+export async function checkUploadRateLimit(
+  admin: SupabaseClient,
+  creatorId: string,
+): Promise<{ allowed: true } | { allowed: false; reason: string }> {
+  const { data: creator } = await admin
+    .from("creators")
+    .select("subscription_plan_id")
+    .eq("id", creatorId)
+    .single()
+
+  const limits = getPlanLimits(creator?.subscription_plan_id)
+
+  // Count completed uploads in the last hour
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+
+  const { count, error } = await admin
+    .from("digital_assets")
+    .select("id", { count: "exact", head: true })
+    .eq("uploaded_by", creatorId)
+    .gte("created_at", oneHourAgo)
+
+  // If we can't check, allow (fail open)
+  if (error || count === null) return { allowed: true }
+
+  if (count >= limits.rateLimit.uploadsPerHour) {
+    return {
+      allowed: false,
+      reason: `Upload rate limit reached (${limits.rateLimit.uploadsPerHour} uploads/hour). Please wait and try again.`,
+    }
+  }
+
+  return { allowed: true }
 }
 
 /**

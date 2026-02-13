@@ -5,6 +5,7 @@ import {
   generateSignedDownloadUrl,
   logDownloadEvent,
   validateDownloadToken,
+  checkDownloadRateLimit,
 } from "@/lib/storage"
 import { headers } from "next/headers"
 
@@ -59,15 +60,23 @@ export async function GET(
 
     const { record } = validation
 
-    // Get product info
+    // Get product info (including creator for rate limiting)
     const { data: product } = await admin
       .from("products")
-      .select("id, title, slug")
+      .select("id, title, slug, creator_id")
       .eq("id", record.product_id)
       .single()
 
     if (!product) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 })
+    }
+
+    // Rate limit check (per creator's plan)
+    if (product.creator_id) {
+      const rateLimitOk = await checkDownloadRateLimit(admin, product.creator_id)
+      if (!rateLimitOk) {
+        return NextResponse.json({ error: "Download rate limit reached. Please try again later." }, { status: 429 })
+      }
     }
 
     // Get digital assets for this product

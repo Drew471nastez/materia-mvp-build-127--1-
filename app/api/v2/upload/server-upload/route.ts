@@ -8,6 +8,9 @@ import {
   generateStoragePath,
   checkUploadAllowed,
   getPlanLimits,
+  checkUploadRateLimit,
+  readBufferHeader,
+  scanFile,
 } from "@/lib/storage"
 
 export const runtime = "nodejs"
@@ -50,6 +53,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Creator account required" }, { status: 403 })
     }
 
+    // Rate limit check
+    const rateCheck = await checkUploadRateLimit(admin, creator.id)
+    if (!rateCheck.allowed) {
+      return NextResponse.json({ error: rateCheck.reason }, { status: 429 })
+    }
+
     // Parse multipart form
     const formData = await request.formData()
     const file = formData.get("file") as File | null
@@ -64,7 +73,7 @@ export async function POST(request: NextRequest) {
     const contentType = file.type || "application/octet-stream"
     const fileSize = file.size
 
-    // Validate file
+    // Validate file (extension blocklist + 5GB limit)
     const validation = validateFile(fileName, contentType, fileSize)
     if (!validation.valid) {
       return NextResponse.json({ error: validation.reason }, { status: 400 })
@@ -125,6 +134,16 @@ export async function POST(request: NextRequest) {
     // Convert File to Buffer (forces standard upload, not TUS)
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
+
+    // Deep security scan: inspect file header for magic bytes (detect disguised executables)
+    const header = readBufferHeader(buffer)
+    const deepScan = scanFile(fileName, contentType, header)
+    if (!deepScan.safe) {
+      if (assetId) {
+        await admin.from("digital_assets").delete().eq("id", assetId).catch(() => {})
+      }
+      return NextResponse.json({ error: deepScan.reason }, { status: 400 })
+    }
 
     // Upload via admin client (service_role bypasses RLS)
     // Using Buffer ensures the SDK uses standard POST, not TUS resumable

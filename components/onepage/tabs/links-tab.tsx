@@ -122,6 +122,7 @@ import {
 } from "recharts"
 import React, { useState, useEffect, useRef, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
+import { BLOCKED_EXTENSIONS, readFileHeader, scanFile, MAX_DIGITAL_PRODUCT_FILE_SIZE } from "@/lib/storage/security"
 
 // Validate social URL and transform if needed
 function validateSocialUrl(platform: keyof OnePageSocialLinks, url: string): { valid: boolean; error?: string; transformedUrl?: string } {
@@ -3599,6 +3600,31 @@ export function LinksTab() {
                     try {
                       const isDigitalFile = imageFieldType === 'digital_product_file' || imageFieldType === 'pdf_file'
                       const folder = isDigitalFile ? 'digital' : 'images'
+
+                      // --- Client-side security checks (fast, before any upload) ---
+
+                      // 1. File size limit: 5 GB for digital products
+                      if (isDigitalFile && file.size > MAX_DIGITAL_PRODUCT_FILE_SIZE) {
+                        const limitGB = MAX_DIGITAL_PRODUCT_FILE_SIZE / (1024 * 1024 * 1024)
+                        throw new Error(`File size exceeds the ${limitGB} GB limit for digital product uploads.`)
+                      }
+                      if (file.size <= 0) {
+                        throw new Error('File is empty (0 bytes).')
+                      }
+
+                      // 2. Extension blocklist (instant check)
+                      const fileExt = file.name.split('.').pop()?.toLowerCase() || ''
+                      if (BLOCKED_EXTENSIONS.has(fileExt)) {
+                        throw new Error(`File type ".${fileExt}" is blocked for security reasons. This file type can contain executable code.`)
+                      }
+
+                      // 3. Deep security scan: read file header and check magic bytes
+                      const fileHeader = await readFileHeader(file)
+                      const securityScan = scanFile(file.name, file.type || 'application/octet-stream', fileHeader)
+                      if (!securityScan.safe) {
+                        throw new Error(securityScan.reason || 'File blocked for security reasons.')
+                      }
+
                       // Use signed URL upload for digital files (any size) and large image files
                       // Direct upload only for small image/thumbnail files (< 2MB)
                       const DIRECT_UPLOAD_LIMIT = 2 * 1024 * 1024 // 2MB

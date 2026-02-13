@@ -7,11 +7,11 @@ export {
   STORAGE_BUCKET,
   PUBLIC_BUCKET,
   BUCKET_FILE_SIZE_LIMIT,
+  MAX_FILE_SIZE_BYTES,
   type PlanId,
   type PlanLimits,
   PLAN_LIMITS,
   getPlanLimits,
-  ALLOWED_FILE_TYPES,
   isAllowedFileType,
   formatBytes,
 } from "./plans"
@@ -35,5 +35,16 @@ export {
   generateSignedDownloadUrl,
   logDownloadEvent,
   checkDownloadRateLimit,
+  checkUploadRateLimit,
   validateDownloadToken,
 } from "./download"
+
+export {
+  type SecurityScanResult,
+  BLOCKED_EXTENSIONS,
+  scanFile,
+  readFileHeader,
+  readBufferHeader,
+  preUploadCheck,
+  MAX_DIGITAL_PRODUCT_FILE_SIZE,
+} from "./security"

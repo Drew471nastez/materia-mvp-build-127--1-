@@ -7,6 +7,9 @@ export const STORAGE_BUCKET = "digital-products" // single private bucket for al
 export const PUBLIC_BUCKET = "lead-form-files-v2" // public bucket for thumbnails/images
 export const BUCKET_FILE_SIZE_LIMIT = 0 // 0 = no bucket-level limit (disables the check in Supabase Storage; only project-level global limit applies)
 
+/** Hard ceiling: 5 GB per-file for digital product uploads (enforced everywhere). */
+export const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024 * 1024 // 5 GB
+
 export type PlanId = "free" | "growth" | "pro"
 
 export interface PlanLimits {
@@ -37,7 +40,7 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
   },
   pro: {
     storageQuotaBytes: 100 * 1024 * 1024 * 1024, // 100 GB
-    maxFileSizeBytes: 20 * 1024 * 1024 * 1024, // 20 GB
+    maxFileSizeBytes: 5 * 1024 * 1024 * 1024, // 5 GB
     maxDownloadsPerLink: 9999,
     linkExpiryDays: 365,
     maxFilesPerProduct: 50,
@@ -50,34 +53,13 @@ export function getPlanLimits(planId: string | null | undefined): PlanLimits {
   return PLAN_LIMITS[id] ?? PLAN_LIMITS.free
 }
 
-/** MIME types allowed for digital product uploads. */
-export const ALLOWED_FILE_TYPES: Record<string, string[]> = {
-  audio: ["audio/mpeg", "audio/mp3", "audio/wav", "audio/ogg", "audio/flac", "audio/aac", "audio/x-m4a", "audio/mp4"],
-  video: ["video/mp4", "video/webm", "video/quicktime", "video/x-matroska", "video/mpeg", "video/ogg"],
-  image: ["image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml", "image/tiff"],
-  document: [
-    "application/pdf",
-    "application/msword",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    "application/vnd.ms-excel",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    "application/vnd.ms-powerpoint",
-    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-    "text/plain",
-    "text/csv",
-  ],
-  archive: ["application/zip", "application/x-rar-compressed", "application/gzip", "application/x-7z-compressed", "application/x-tar"],
-  ebook: ["application/epub+zip", "application/x-mobipocket-ebook"],
-  font: ["font/ttf", "font/otf", "font/woff", "font/woff2"],
-  other: ["application/octet-stream"], // fallback for unknown types
-}
-
-const ALL_ALLOWED_MIMES = new Set(Object.values(ALLOWED_FILE_TYPES).flat())
-
-/** Returns true if the MIME type is allowed for upload. Permissive: allows application/octet-stream. */
-export function isAllowedFileType(mimeType: string): boolean {
-  if (!mimeType) return true // no type = allow (will be stored as octet-stream)
-  return ALL_ALLOWED_MIMES.has(mimeType) || mimeType.startsWith("audio/") || mimeType.startsWith("video/")
+/**
+ * Check if a file type is allowed for upload.
+ * Policy: allow ANY file type — dangerous types are blocked by the security scanner
+ * in validation.ts / security.ts (extension blocklist + magic byte analysis).
+ */
+export function isAllowedFileType(_mimeType: string): boolean {
+  return true
 }
 
 export function formatBytes(bytes: number): string {

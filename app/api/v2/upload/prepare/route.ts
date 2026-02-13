@@ -9,6 +9,7 @@ import {
   generateStoragePath,
   checkUploadAllowed,
   getPlanLimits,
+  checkUploadRateLimit,
 } from "@/lib/storage"
 
 export const runtime = "nodejs"
@@ -150,6 +151,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Creator account required" }, { status: 403 })
     }
 
+    // Rate limit check
+    const rateCheck = await checkUploadRateLimit(admin, creator.id)
+    if (!rateCheck.allowed) {
+      return NextResponse.json({ error: rateCheck.reason }, { status: 429 })
+    }
+
     // Parse request
     const body = await request.json()
     const { fileName, contentType, fileSize, productId, folder } = body as {
@@ -160,12 +167,12 @@ export async function POST(request: NextRequest) {
       folder?: string
     }
 
-    if (!fileName || !contentType || !fileSize) {
-      return NextResponse.json({ error: "Missing required fields: fileName, contentType, fileSize" }, { status: 400 })
+    if (!fileName || !fileSize) {
+      return NextResponse.json({ error: "Missing required fields: fileName, fileSize" }, { status: 400 })
     }
 
-    // Validate file
-    const validation = validateFile(fileName, contentType, fileSize)
+    // Validate file (security scan + 5GB limit + MIME resolution)
+    const validation = validateFile(fileName, contentType || "application/octet-stream", fileSize)
     if (!validation.valid) {
       return NextResponse.json({ error: validation.reason }, { status: 400 })
     }

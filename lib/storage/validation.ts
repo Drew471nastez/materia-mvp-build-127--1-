@@ -1,9 +1,12 @@
 /**
  * File validation utilities for uploads.
- * Validates MIME types, file extensions, and basic integrity checks.
+ * Validates file extensions, MIME types, and delegates to security scanner.
+ *
+ * Policy: Allow ANY file type EXCEPT known dangerous executables/scripts.
+ * The security module (security.ts) handles deep threat detection.
  */
 
-import { isAllowedFileType, ALLOWED_FILE_TYPES } from "./plans"
+import { BLOCKED_EXTENSIONS, scanFile, MAX_DIGITAL_PRODUCT_FILE_SIZE } from "./security"
 
 /** Map common extensions to MIME types for validation when Content-Type is missing/wrong. */
 const EXT_TO_MIME: Record<string, string> = {
@@ -39,6 +42,7 @@ const EXT_TO_MIME: Record<string, string> = {
   pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
   txt: "text/plain",
   csv: "text/csv",
+  rtf: "application/rtf",
   // Archives
   zip: "application/zip",
   rar: "application/x-rar-compressed",
@@ -53,15 +57,23 @@ const EXT_TO_MIME: Record<string, string> = {
   otf: "font/otf",
   woff: "font/woff",
   woff2: "font/woff2",
+  // 3D / Design
+  psd: "image/vnd.adobe.photoshop",
+  ai: "application/postscript",
+  sketch: "application/octet-stream",
+  fig: "application/octet-stream",
+  blend: "application/octet-stream",
+  stl: "model/stl",
+  obj: "model/obj",
+  fbx: "application/octet-stream",
+  // Other digital products
+  json: "application/json",
+  xml: "application/xml",
+  yaml: "application/x-yaml",
+  yml: "application/x-yaml",
+  sql: "application/sql",
+  md: "text/markdown",
 }
-
-/** File extensions that are always blocked (executable / dangerous). */
-const BLOCKED_EXTENSIONS = new Set([
-  "exe", "bat", "cmd", "com", "scr", "pif", "msi", "msp", "mst",
-  "cpl", "hta", "inf", "ins", "isp", "jse", "lnk", "reg", "rgs",
-  "sct", "shb", "shs", "vbe", "vbs", "wsc", "wsf", "wsh", "ws",
-  "ps1", "psm1", "psd1", "ps1xml", "ps2", "ps2xml",
-])
 
 export interface ValidationResult {
   valid: boolean
@@ -72,19 +84,23 @@ export interface ValidationResult {
 
 /**
  * Validate a file for upload.
+ * Checks security blocklist, resolves MIME type, and checks basic integrity.
+ * Now allows ANY file type except blocked dangerous extensions.
  */
 export function validateFile(
   fileName: string,
   contentType: string,
   fileSize: number,
+  fileHeader?: ArrayBuffer | Uint8Array | null,
 ): ValidationResult {
   const ext = fileName.split(".").pop()?.toLowerCase() || ""
 
-  // Block dangerous extensions
-  if (BLOCKED_EXTENSIONS.has(ext)) {
+  // Security scan (extension blocklist + deep checks if header provided)
+  const securityResult = scanFile(fileName, contentType, fileHeader)
+  if (!securityResult.safe) {
     return {
       valid: false,
-      reason: `File type .${ext} is not allowed for security reasons.`,
+      reason: securityResult.reason || `File type .${ext} is not allowed for security reasons.`,
       resolvedMimeType: contentType,
       fileCategory: "blocked",
     }
@@ -96,16 +112,6 @@ export function validateFile(
     resolvedMime = EXT_TO_MIME[ext] || "application/octet-stream"
   }
 
-  // Check allowed MIME types
-  if (!isAllowedFileType(resolvedMime)) {
-    return {
-      valid: false,
-      reason: `File type ${resolvedMime} is not supported.`,
-      resolvedMimeType: resolvedMime,
-      fileCategory: "unknown",
-    }
-  }
-
   // Determine category
   const fileCategory = getFileCategory(resolvedMime)
 
@@ -114,6 +120,17 @@ export function validateFile(
     return {
       valid: false,
       reason: "File is empty.",
+      resolvedMimeType: resolvedMime,
+      fileCategory,
+    }
+  }
+
+  // Enforce 5 GB max for digital products
+  if (fileSize > MAX_DIGITAL_PRODUCT_FILE_SIZE) {
+    const limitGB = MAX_DIGITAL_PRODUCT_FILE_SIZE / (1024 * 1024 * 1024)
+    return {
+      valid: false,
+      reason: `File size exceeds the ${limitGB} GB limit for digital product uploads.`,
       resolvedMimeType: resolvedMime,
       fileCategory,
     }
@@ -130,12 +147,21 @@ export function validateFile(
  * Get the category of a file based on MIME type.
  */
 export function getFileCategory(mimeType: string): string {
-  for (const [category, mimes] of Object.entries(ALLOWED_FILE_TYPES)) {
-    if (mimes.includes(mimeType)) return category
-  }
   if (mimeType.startsWith("audio/")) return "audio"
   if (mimeType.startsWith("video/")) return "video"
   if (mimeType.startsWith("image/")) return "image"
+  if (mimeType.startsWith("font/")) return "font"
+  if (mimeType.startsWith("model/")) return "3d"
+  if (mimeType === "application/pdf") return "document"
+  if (mimeType.includes("wordprocessing") || mimeType.includes("msword")) return "document"
+  if (mimeType.includes("spreadsheet") || mimeType.includes("ms-excel")) return "document"
+  if (mimeType.includes("presentation") || mimeType.includes("ms-powerpoint")) return "document"
+  if (mimeType === "text/plain" || mimeType === "text/csv" || mimeType === "text/markdown") return "document"
+  if (mimeType === "application/rtf") return "document"
+  if (mimeType === "application/zip" || mimeType === "application/x-rar-compressed" ||
+      mimeType === "application/gzip" || mimeType === "application/x-7z-compressed" ||
+      mimeType === "application/x-tar") return "archive"
+  if (mimeType === "application/epub+zip" || mimeType === "application/x-mobipocket-ebook") return "ebook"
   return "other"
 }
 

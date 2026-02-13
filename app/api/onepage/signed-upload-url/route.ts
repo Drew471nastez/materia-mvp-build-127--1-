@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { validateFile, checkUploadRateLimit } from "@/lib/storage"
 
 const BUCKET_NAME = process.env.ONEPAGE_LEAD_FILES_BUCKET || "lead-form-files-v2"
 
@@ -120,8 +121,20 @@ export async function POST(request: NextRequest) {
       folder: string
     }
 
-    if (!fileName || !contentType || !fileSize) {
+    if (!fileName || !fileSize) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+    }
+
+    // Rate limit check
+    const rateCheck = await checkUploadRateLimit(adminSupabase, creator.id)
+    if (!rateCheck.allowed) {
+      return NextResponse.json({ error: rateCheck.reason }, { status: 429 })
+    }
+
+    // Security validation (extension blocklist + 5GB limit)
+    const fileValidation = validateFile(fileName, contentType || "application/octet-stream", fileSize)
+    if (!fileValidation.valid) {
+      return NextResponse.json({ error: fileValidation.reason }, { status: 400 })
     }
 
     // Ensure bucket has no file_size_limit (let global project limit handle it)
