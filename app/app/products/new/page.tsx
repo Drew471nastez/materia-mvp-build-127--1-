@@ -250,14 +250,18 @@ function SortableFAQItem({ faq, onUpdate, onRemove }: SortableFAQItemProps) {
         isDragging ? "shadow-xl border-violet-300 scale-[1.02]" : "border-gray-200 hover:border-gray-300"
       }`}
     >
-      {/* Mobile: drag handle as a full-width top bar for easier grabbing */}
-      <div
-        {...attributes}
-        {...listeners}
-        className="sm:hidden flex items-center justify-center gap-1.5 py-3 px-3 bg-gray-50 border-b border-gray-100 cursor-grab active:cursor-grabbing active:bg-violet-50 touch-none select-none transition-colors"
-      >
-        <GripVertical className="h-4 w-4 text-gray-400" />
-        <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">Hold to drag</span>
+      {/* Mobile: dedicated drag handle button to prevent accidental activation while scrolling */}
+      <div className="sm:hidden flex items-center justify-center py-2.5 px-3 bg-gray-50 border-b border-gray-100">
+        <button
+          type="button"
+          {...attributes}
+          {...listeners}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full cursor-grab active:cursor-grabbing active:bg-violet-50 touch-none select-none transition-colors"
+          aria-label="Hold and drag to reorder FAQ"
+        >
+          <GripVertical className="h-4 w-4 text-gray-400" />
+          <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">Hold to drag</span>
+        </button>
       </div>
 
       <div className="p-3 sm:p-4">
@@ -688,8 +692,8 @@ export default function NewProductPage() {
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 300,
-        tolerance: 12,
+        delay: 380,
+        tolerance: 14,
       },
     }),
     useSensor(KeyboardSensor, {
@@ -3114,7 +3118,7 @@ export default function NewProductPage() {
             <span className="text-sm font-medium text-white tracking-tight sm:block hidden">{toast.message}</span>
             <span className="text-sm font-medium text-white tracking-tight sm:hidden block">
               {toast.message === "Please enter a product title to upload digital product files"
-                ? "Please add title first."
+                ? "Add title"
                 : toast.message}
             </span>
             <button

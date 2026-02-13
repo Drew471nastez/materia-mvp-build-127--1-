@@ -575,6 +575,7 @@ export function DescriptionRichEditor({
   const hoverBgColor = isDarkTheme ? "rgba(255,255,255,0.1)" : "rgba(124,58,237,0.1)"
 
   // Popover states instead of modals
+  const [showTextStylePopover, setShowTextStylePopover] = useState(false)
   const [showLinkPopover, setShowLinkPopover] = useState(false)
   const [showImagePopover, setShowImagePopover] = useState(false)
   const [showVideoPopover, setShowVideoPopover] = useState(false)
@@ -607,6 +608,7 @@ export function DescriptionRichEditor({
   const imageInputRef = useRef<HTMLInputElement>(null)
 
   // Trigger refs for popovers (for positioning)
+  const textStyleButtonRef = useRef<HTMLDivElement>(null)
   const imageButtonRef = useRef<HTMLDivElement>(null)
   const videoButtonRef = useRef<HTMLDivElement>(null)
   const insertButtonRef = useRef<HTMLDivElement>(null)
@@ -1473,6 +1475,7 @@ export function DescriptionRichEditor({
 
   // Close all popovers
   const closeAllPopovers = useCallback(() => {
+    setShowTextStylePopover(false)
     setShowLinkPopover(false)
     setShowImagePopover(false)
     setShowVideoPopover(false)
@@ -1527,33 +1530,87 @@ export function DescriptionRichEditor({
           borderColor: borderColor,
         }}
       >
-        {/* Text Style Dropdown */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              onMouseDown={(e) => e.preventDefault()}
-              className="flex items-center gap-1 px-2 py-1.5 rounded text-sm font-medium transition-colors"
-              style={{ color: fgColor }}
-            >
-              {currentTextStyle}
-              <ChevronDown className="h-3 w-3" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-48 z-[2147483640]">
-            {textStyleOptions.map((option) => (
-              <DropdownMenuItem
-                key={option.value}
+        {/* Text Style Dropdown / Mobile sheet */}
+        <div ref={textStyleButtonRef}>
+          {isMobile ? (
+            <>
+              <button
+                type="button"
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => applyTextStyle(option.value)}
-                className="flex items-center gap-2 cursor-pointer"
+                onClick={() => {
+                  closeAllPopovers()
+                  saveSelection()
+                  setShowTextStylePopover(true)
+                }}
+                className="flex items-center gap-1 px-2 py-1.5 rounded text-sm font-medium transition-colors"
+                style={{ color: fgColor }}
               >
-                <option.icon className="h-4 w-4" />
-                {option.label}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+                {currentTextStyle}
+                <ChevronDown className="h-3 w-3" />
+              </button>
+              <InlinePopover
+                isOpen={showTextStylePopover}
+                onClose={() => setShowTextStylePopover(false)}
+                themeColors={themeColors}
+                isMobile={isMobile}
+                triggerRef={textStyleButtonRef}
+              >
+                <div className="w-full px-5 pt-1 pb-5">
+                  <h3 className="text-base font-semibold text-center mb-4">Text Style</h3>
+                  <div className="space-y-2">
+                    {textStyleOptions.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => {
+                          applyTextStyle(option.value)
+                          setShowTextStylePopover(false)
+                        }}
+                        className={cn(
+                          "w-full flex items-center gap-3 rounded-xl px-4 py-3 text-left text-sm transition-colors",
+                          currentTextStyle === option.label
+                            ? "bg-violet-50 text-violet-900"
+                            : "hover:bg-gray-50"
+                        )}
+                      >
+                        <option.icon className="h-4 w-4" />
+                        <span className="flex-1">{option.label}</span>
+                        {currentTextStyle === option.label && <Check className="h-4 w-4 text-violet-500" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </InlinePopover>
+            </>
+          ) : (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  className="flex items-center gap-1 px-2 py-1.5 rounded text-sm font-medium transition-colors"
+                  style={{ color: fgColor }}
+                >
+                  {currentTextStyle}
+                  <ChevronDown className="h-3 w-3" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-48 z-[2147483640]">
+                {textStyleOptions.map((option) => (
+                  <DropdownMenuItem
+                    key={option.value}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => applyTextStyle(option.value)}
+                    className="flex items-center gap-2 cursor-pointer"
+                  >
+                    <option.icon className="h-4 w-4" />
+                    {option.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
 
         <div className="w-px h-5 mx-1" style={{ backgroundColor: borderColor }} />
 
@@ -1612,14 +1669,13 @@ export function DescriptionRichEditor({
             isMobile={isMobile}
             triggerRef={imageButtonRef}
           >
-            <div className={cn("p-4 pb-5", isMobile ? "w-full" : "w-80")}>
-              <h3 className="font-semibold text-sm mb-4">Insert Image</h3>
+            <div className={cn("px-4 pb-5", isMobile ? "w-full pt-2" : "w-80 pt-4")}>
+              <h3 className={cn("font-semibold mb-4 text-center", isMobile ? "text-base" : "text-sm")}>Insert Image</h3>
               <div className="space-y-4">
-                {/* Upload button */}
                 <button
                   type="button"
                   className={cn(
-                    "w-full h-20 border-2 border-dashed rounded-lg transition-colors flex flex-col items-center justify-center gap-1.5",
+                    "w-full h-24 border-2 border-dashed rounded-xl transition-colors flex flex-col items-center justify-center gap-2",
                     isDarkTheme
                       ? "border-purple-400/50 hover:border-purple-400 hover:bg-purple-500/10"
                       : "border-purple-300 hover:border-purple-500 hover:bg-purple-50"
@@ -1627,16 +1683,16 @@ export function DescriptionRichEditor({
                   onClick={() => imageInputRef.current?.click()}
                 >
                   <Upload className="h-6 w-6" style={{ color: accentColor }} />
-                  <span className="text-xs" style={{ color: mutedColor }}>Click to upload</span>
+                  <span className="text-sm font-medium" style={{ color: mutedColor }}>Click to upload</span>
                 </button>
 
-                <div className="relative">
+                <div className="relative py-1">
                   <div className="absolute inset-0 flex items-center">
                     <span className="w-full border-t" style={{ borderColor: borderColor }} />
                   </div>
-                  <div className="relative flex justify-center text-xs uppercase">
+                  <div className="relative flex justify-center text-xs uppercase tracking-wide">
                     <span
-                      className="px-2"
+                      className="px-3"
                       style={{
                         backgroundColor: isDarkTheme ? "#1a1a1a" : "#ffffff",
                         color: mutedColor
@@ -1647,13 +1703,13 @@ export function DescriptionRichEditor({
                   </div>
                 </div>
 
-                <div className="space-y-1.5">
+                <div className="space-y-2 text-left">
                   <Label className="text-xs font-medium">Image URL</Label>
                   <Input
                     placeholder="https://example.com/image.jpg"
                     value={imageUrl}
                     onChange={(e) => setImageUrl(e.target.value)}
-                    className="h-10 text-sm"
+                    className="h-11 text-sm"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault()
@@ -1662,12 +1718,12 @@ export function DescriptionRichEditor({
                     }}
                   />
                 </div>
-                <div className="flex gap-2 pt-2">
+                <div className={cn("grid gap-2 pt-2", isMobile ? "grid-cols-2" : "grid-cols-2")}>
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => setShowImagePopover(false)}
-                    className="flex-1 h-10"
+                    className="h-11"
                     style={{
                       borderColor: borderColor,
                       color: isDarkTheme ? "#fafafa" : "#1a1a1a",
@@ -1680,7 +1736,7 @@ export function DescriptionRichEditor({
                     size="sm"
                     onClick={insertImage}
                     disabled={!imageUrl}
-                    className="flex-1 h-10"
+                    className="h-11"
                     style={{
                       backgroundColor: accentColor,
                       color: "#ffffff",
@@ -1716,46 +1772,46 @@ export function DescriptionRichEditor({
             isMobile={isMobile}
             triggerRef={videoButtonRef}
           >
-            <div className={cn("p-4 pb-5", isMobile ? "w-full" : "w-80")}>
-              <h3 className="font-semibold text-sm mb-4">Insert YouTube Video</h3>
+            <div className={cn("px-4 pb-5", isMobile ? "w-full pt-2" : "w-80 pt-4")}>
+              <h3 className={cn("font-semibold mb-4 text-center", isMobile ? "text-base" : "text-sm")}>Insert YouTube Video</h3>
               <div className="space-y-4">
-                <div className="space-y-1.5">
+                <div className="space-y-2 text-left">
                   <Label className="text-xs font-medium">YouTube URL</Label>
                   <Input
                     placeholder="https://www.youtube.com/watch?v=..."
                     value={videoUrl}
                     onChange={(e) => setVideoUrl(e.target.value)}
-                    className="h-10 text-sm"
+                    className="h-11 text-sm"
                     autoFocus
                   />
                 </div>
 
-                <div className="space-y-2.5">
+                <div className="space-y-2.5 text-left">
                   <Label className="text-xs font-medium">Display Mode</Label>
                   <RadioGroup value={videoDisplayMode} onValueChange={(v) => setVideoDisplayMode(v as "embed" | "link")} className="space-y-2">
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="embed" id="embed" style={{ borderColor: accentColor, color: accentColor }} />
-                      <Label htmlFor="embed" className="flex items-center gap-2 cursor-pointer text-sm">
+                    <label className="flex items-center gap-3 rounded-xl border px-3 py-2.5 cursor-pointer hover:bg-gray-50">
+                      <RadioGroupItem value="embed" id="embed-video-mode" style={{ borderColor: accentColor, color: accentColor }} />
+                      <span className="flex items-center gap-2 text-sm">
                         <Play className="h-3.5 w-3.5" />
                         Embed video player
-                      </Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="link" id="link" style={{ borderColor: accentColor, color: accentColor }} />
-                      <Label htmlFor="link" className="flex items-center gap-2 cursor-pointer text-sm">
+                      </span>
+                    </label>
+                    <label className="flex items-center gap-3 rounded-xl border px-3 py-2.5 cursor-pointer hover:bg-gray-50">
+                      <RadioGroupItem value="link" id="link-video-mode" style={{ borderColor: accentColor, color: accentColor }} />
+                      <span className="flex items-center gap-2 text-sm">
                         <ExternalLink className="h-3.5 w-3.5" />
                         Show as thumbnail link
-                      </Label>
-                    </div>
+                      </span>
+                    </label>
                   </RadioGroup>
                 </div>
 
-                <div className="flex gap-2 pt-2">
+                <div className="grid grid-cols-2 gap-2 pt-2">
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => setShowVideoPopover(false)}
-                    className="flex-1 h-10"
+                    className="h-11"
                     style={{
                       borderColor: borderColor,
                       color: isDarkTheme ? "#fafafa" : "#1a1a1a",
@@ -1768,7 +1824,7 @@ export function DescriptionRichEditor({
                     size="sm"
                     onClick={insertVideo}
                     disabled={!videoUrl}
-                    className="flex-1 h-10"
+                    className="h-11"
                     style={{
                       backgroundColor: accentColor,
                       color: "#ffffff",
@@ -1823,27 +1879,30 @@ export function DescriptionRichEditor({
           isMobile={isMobile}
           triggerRef={insertButtonRef}
         >
-          <div className={cn("p-4 pb-5", isMobile ? "w-full" : "w-72")}>
-            <h3 className="font-semibold text-sm mb-4">Insert Button</h3>
+          <div className={cn("px-4 pb-5", isMobile ? "w-full pt-2" : "w-72 pt-4")}>
+            <h3 className={cn("font-semibold mb-4 text-center", isMobile ? "text-base" : "text-sm")}>Insert Button</h3>
             <div className="space-y-4">
-              {/* Button Text */}
-              <Input
-                placeholder="Button text..."
-                value={buttonText}
-                onChange={(e) => setButtonText(e.target.value)}
-                className="h-10 text-sm"
-                autoFocus
-              />
+              <div className="space-y-2 text-left">
+                <Label className="text-xs font-medium">Button label</Label>
+                <Input
+                  placeholder="Button text..."
+                  value={buttonText}
+                  onChange={(e) => setButtonText(e.target.value)}
+                  className="h-11 text-sm"
+                  autoFocus
+                />
+              </div>
 
-              {/* Button Link */}
-              <Input
-                placeholder="Link URL (optional)"
-                value={buttonLink}
-                onChange={(e) => setButtonLink(e.target.value)}
-                className="h-10 text-sm"
-              />
+              <div className="space-y-2 text-left">
+                <Label className="text-xs font-medium">Link URL (optional)</Label>
+                <Input
+                  placeholder="https://example.com"
+                  value={buttonLink}
+                  onChange={(e) => setButtonLink(e.target.value)}
+                  className="h-11 text-sm"
+                />
+              </div>
 
-              {/* Color presets - compact grid */}
               <div className="flex flex-wrap gap-2 justify-center py-1">
                 {buttonColorPresets.map((preset) => (
                   <button
@@ -1854,7 +1913,7 @@ export function DescriptionRichEditor({
                       setButtonTextColor(preset.textColor)
                     }}
                     className={cn(
-                      "w-7 h-7 rounded-full border-2 transition-all",
+                      "w-8 h-8 rounded-full border-2 transition-all",
                       buttonColor === preset.value ? "scale-110 ring-2" : "border-transparent hover:scale-105"
                     )}
                     style={{
@@ -1867,16 +1926,15 @@ export function DescriptionRichEditor({
                 ))}
               </div>
 
-              {/* Preview - inline compact */}
               <div
-                className="p-3 rounded-lg border text-center"
+                className="p-4 rounded-xl border text-center"
                 style={{
                   borderColor: borderColor,
                   backgroundColor: isDarkTheme ? "#0f0f0f" : "#f9fafb"
                 }}
               >
                 <span
-                  className="inline-block px-4 py-2 font-medium text-sm rounded-lg"
+                  className="inline-block px-5 py-2.5 font-medium text-sm rounded-lg"
                   style={{
                     backgroundColor: buttonColor,
                     color: buttonTextColor,
@@ -1886,13 +1944,12 @@ export function DescriptionRichEditor({
                 </span>
               </div>
 
-              {/* Actions */}
-              <div className="flex gap-2 pt-1">
+              <div className="grid grid-cols-2 gap-2 pt-1">
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={() => setShowButtonPopover(false)}
-                  className="flex-1 h-10"
+                  className="h-11"
                   style={{
                     borderColor: borderColor,
                     color: isDarkTheme ? "#fafafa" : "#1a1a1a",
@@ -1904,7 +1961,7 @@ export function DescriptionRichEditor({
                 <Button
                   size="sm"
                   onClick={insertButton}
-                  className="flex-1 h-10"
+                  className="h-11"
                   style={{ backgroundColor: accentColor, color: "#ffffff" }}
                 >
                   Insert
