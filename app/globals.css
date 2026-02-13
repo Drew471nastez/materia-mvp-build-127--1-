@@ -372,6 +372,42 @@
       opacity: 1;
     }
   }
+
+  /* Bottom sheet animations */
+  @keyframes bottomSheetIn {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes bottomSheetOut {
+    from {
+      transform: translateY(0);
+    }
+    to {
+      transform: translateY(100%);
+    }
+  }
+
+  @keyframes backdropIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .animate-bottom-sheet-in {
+    animation: bottomSheetIn 300ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  }
+
+  .animate-bottom-sheet-out {
+    animation: bottomSheetOut 200ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  }
+
+  .animate-backdrop-in {
+    animation: backdropIn 200ms ease-out forwards;
+  }
 }
 
 /* Responsive table styling - simplified to avoid Tailwind v4 issues */

@@ -73,6 +73,7 @@ import {
   sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
+  rectSortingStrategy,
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 
@@ -252,7 +253,7 @@ function SortableFAQItem({ faq, onUpdate, onRemove }: SortableFAQItemProps) {
       <div
         {...attributes}
         {...listeners}
-        className="sm:hidden flex items-center justify-center gap-1.5 py-2.5 px-3 bg-gray-50 border-b border-gray-100 cursor-grab active:cursor-grabbing active:bg-gray-100 touch-none select-none"
+        className="sm:hidden flex items-center justify-center gap-1.5 py-3 px-3 bg-gray-50 border-b border-gray-100 cursor-grab active:cursor-grabbing active:bg-violet-50 touch-none select-none transition-colors"
       >
         <GripVertical className="h-4 w-4 text-gray-400" />
         <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">Hold to drag</span>
@@ -314,6 +315,97 @@ function SortableFAQItem({ faq, onUpdate, onRemove }: SortableFAQItemProps) {
   )
 }
 
+// Sortable Media Item component for @dnd-kit grid reordering
+interface SortableMediaItemProps {
+  item: MediaItem
+  index: number
+  onRemove: (id: string) => void
+}
+
+function SortableMediaItem({ item, index, onRemove }: SortableMediaItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: item.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : undefined,
+    opacity: isDragging ? 0.5 : 1,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`relative aspect-video rounded-lg overflow-hidden border group select-none transition-shadow ${
+        isDragging ? "shadow-xl ring-2 ring-violet-400/50 scale-[1.03]" : "border-gray-200 hover:border-gray-300"
+      }`}
+    >
+      {item.type === "image" && (
+        <img src={item.url} alt="" className="w-full h-full object-cover" draggable={false} />
+      )}
+      {item.type === "youtube" && (
+        <div className="relative w-full h-full">
+          <img
+            src={`https://img.youtube.com/vi/${parseYouTubeUrl(item.url)}/hqdefault.jpg`}
+            alt="YouTube video thumbnail"
+            className="w-full h-full object-cover"
+            draggable={false}
+          />
+          <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-red-600 flex items-center justify-center">
+              <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5 text-white ml-0.5" fill="currentColor">
+                <path d="M8 5v14l11-7z"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Full-area drag handle */}
+      <div
+        {...attributes}
+        {...listeners}
+        className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/20 transition-colors cursor-grab active:cursor-grabbing touch-none"
+      >
+        <GripVertical className="h-5 w-5 sm:h-6 sm:w-6 text-white opacity-40 sm:opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-md" />
+      </div>
+
+      {/* Remove button */}
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onRemove(item.id) }}
+        className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 p-1.5 sm:p-1 bg-white/90 rounded-full shadow-sm opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity z-10"
+      >
+        <X className="h-3 w-3 text-gray-600" />
+      </button>
+
+      {/* Position indicator */}
+      <div className="absolute left-1 top-1 sm:left-1.5 sm:top-1.5 flex h-5 w-5 items-center justify-center rounded-md bg-black/50 text-[10px] font-medium text-white backdrop-blur-sm">
+        {index + 1}
+      </div>
+
+      {/* Type label */}
+      {index === 0 && item.type === "image" && (
+        <span className="absolute bottom-1 left-1 sm:bottom-1.5 sm:left-1.5 px-1.5 py-0.5 bg-black/70 text-white text-[9px] sm:text-[10px] rounded backdrop-blur-sm">
+          Thumbnail
+        </span>
+      )}
+      {item.type === "youtube" && (
+        <span className="absolute bottom-1 left-1 sm:bottom-1.5 sm:left-1.5 px-1.5 py-0.5 bg-red-600 text-white text-[9px] sm:text-[10px] rounded">
+          YouTube
+        </span>
+      )}
+    </div>
+  )
+}
+
 export default function NewProductPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -340,9 +432,12 @@ export default function NewProductPage() {
   const [showExitDialog, setShowExitDialog] = useState(false)
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null)
 
-  // YouTube inline input (no modal)
+  // YouTube inline input (bottom sheet on mobile)
   const [showYoutubeInput, setShowYoutubeInput] = useState(false)
   const [youtubeInput, setYoutubeInput] = useState("")
+
+  // CTA bottom sheet for mobile
+  const [showCtaSheet, setShowCtaSheet] = useState(false)
 
   // Header scroll state
   const [isScrolled, setIsScrolled] = useState(false)
@@ -510,17 +605,32 @@ export default function NewProductPage() {
   const faqSensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 5, // Require 5px movement before starting drag
+        distance: 5,
       },
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 150, // 150ms delay before touch drag starts
-        tolerance: 5, // 5px movement tolerance during delay
+        delay: 200,
+        tolerance: 5,
       },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
+
+  // DnD sensors for media grid reorder
+  const mediaSensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 200,
+        tolerance: 8,
+      },
     })
   )
 
@@ -533,6 +643,19 @@ export default function NewProductPage() {
         const oldIndex = prevFaqs.findIndex((faq) => faq.id === active.id)
         const newIndex = prevFaqs.findIndex((faq) => faq.id === over.id)
         return arrayMove(prevFaqs, oldIndex, newIndex)
+      })
+    }
+  }, [])
+
+  // Handle media drag end - reorder media items
+  const handleMediaDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event
+
+    if (over && active.id !== over.id) {
+      setMediaItems((prev) => {
+        const oldIndex = prev.findIndex((item) => item.id === active.id)
+        const newIndex = prev.findIndex((item) => item.id === over.id)
+        return arrayMove(prev, oldIndex, newIndex)
       })
     }
   }, [])
@@ -2758,10 +2881,10 @@ export default function NewProductPage() {
         </div>
 
         {/* Skeleton Content - exact match to form structure */}
-        <div className="flex-1 overflow-y-auto bg-gray-50">
-          <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 pb-36 sm:pb-8">
+        <div className="flex-1 overflow-y-auto bg-white sm:bg-gray-50">
+          <div className="px-4 sm:px-6 lg:px-8 py-3 sm:py-6 pb-44 sm:pb-8">
             <div className="max-w-5xl mx-auto">
-              <div className="bg-white sm:rounded-2xl sm:shadow-sm sm:border sm:border-gray-100 p-4 sm:p-6 lg:p-8">
+              <div className="sm:bg-white sm:rounded-2xl sm:shadow-sm sm:border sm:border-gray-100 sm:p-6 lg:p-8">
                 <div className="lg:w-3/5 space-y-8 sm:space-y-12">
 
                   {/* About section skeleton */}
@@ -3110,12 +3233,12 @@ export default function NewProductPage() {
       </div>
 
       {/* Scrollable Content Area - with overscroll protection */}
-      <div ref={contentRef} className="flex-1 overflow-y-auto bg-gray-50 overscroll-contain">
+      <div ref={contentRef} className="flex-1 overflow-y-auto bg-white sm:bg-gray-50 overscroll-contain">
 
-        {/* Form Content - White rounded container */}
-        <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 pb-36 sm:pb-8">
+        {/* Form Content - flat on mobile, card on desktop */}
+        <div className="px-4 sm:px-6 lg:px-8 py-3 sm:py-6 pb-44 sm:pb-8">
           <div className="max-w-5xl mx-auto">
-            <div className="bg-white sm:rounded-2xl sm:shadow-sm sm:border sm:border-gray-100 p-4 sm:p-6 lg:p-8">
+            <div className="sm:bg-white sm:rounded-2xl sm:shadow-sm sm:border sm:border-gray-100 sm:p-6 lg:p-8">
               {/* Form content wrapper - 60% width and left-aligned on desktop */}
               <div className="lg:w-3/5">
               {/* Error message */}
@@ -3188,128 +3311,29 @@ export default function NewProductPage() {
                   </p>
                 </div>
 
-                {/* Draggable Media Grid - Horizontal 16:9 ratio, 2 per row */}
+                {/* Draggable Media Grid - @dnd-kit powered, 2 per row */}
                 {mediaItems.length > 0 && (
-                  <div
-                    ref={mediaGridRef}
-                    className="grid grid-cols-2 gap-3 sm:gap-4"
+                  <DndContext
+                    sensors={mediaSensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleMediaDragEnd}
                   >
-                    {mediaItems.map((item, index) => {
-                      const isBeingDragged = isTouchDragging && touchDragIndex === index
-                      const isDropTarget = dragOverIndex === index
-                      const isDesktopDragged = draggedIndex === index
-
-                      return (
-                      <div
-                        key={item.id}
-                        data-media-index={index}
-                        draggable={!isTouchDragging}
-                        onDragStart={(e) => handleDragStart(e, index)}
-                        onDragOver={(e) => handleDragOver(e, index)}
-                        onDragLeave={handleDragLeave}
-                        onDrop={(e) => handleDrop(e, index)}
-                        onDragEnd={handleDragEnd}
-                        onTouchStart={(e) => handleTouchStart(e, index)}
-                        onTouchMove={handleTouchMove}
-                        onTouchEnd={handleTouchEnd}
-                        className={`
-                          relative aspect-video rounded-lg overflow-hidden border group select-none
-                          transition-all duration-200 ease-out
-                          ${isDropTarget
-                            ? "border-violet-500 border-2 scale-[1.03] shadow-lg shadow-violet-200/50 ring-2 ring-violet-300/50"
-                            : isDesktopDragged
-                              ? "opacity-40 border-dashed border-2 border-violet-300"
-                              : isBeingDragged
-                                ? "opacity-30 border-dashed border-2 border-violet-300"
-                                : "border-gray-200 hover:border-gray-300 cursor-grab active:cursor-grabbing"
-                          }
-                        `}
-                        style={
-                          isBeingDragged && touchCurrentPos
-                            ? {
-                                position: "fixed",
-                                left: touchCurrentPos.x - 75,
-                                top: touchCurrentPos.y - 42,
-                                width: 150,
-                                height: 84,
-                                zIndex: 9999,
-                                pointerEvents: "none",
-                                borderRadius: 12,
-                                boxShadow: "0 20px 40px rgba(0,0,0,0.25), 0 0 0 2px rgba(139,92,246,0.5)",
-                                opacity: 0.95,
-                                transform: "scale(1.05)",
-                              }
-                            : undefined
-                        }
-                      >
-                        {item.type === "image" && (
-                          <img src={item.url} alt="" className="w-full h-full object-cover" draggable={false} />
-                        )}
-                        {item.type === "youtube" && (
-                          <div className="relative w-full h-full">
-                            <img
-                              src={getYouTubeThumbnailUrl(item.url) || ""}
-                              alt="YouTube video thumbnail"
-                              className="w-full h-full object-cover"
-                              draggable={false}
-                            />
-                            <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-red-600 flex items-center justify-center">
-                                <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5 text-white ml-0.5" fill="currentColor">
-                                  <path d="M8 5v14l11-7z"/>
-                                </svg>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Drag handle overlay - visible on hover (desktop) and always subtle on mobile */}
-                        <div className={`absolute inset-0 flex items-center justify-center transition-colors touch-none ${
-                          isBeingDragged ? "bg-black/20" : "bg-black/0 group-hover:bg-black/20"
-                        }`}>
-                          <GripVertical className={`h-5 w-5 sm:h-6 sm:w-6 text-white transition-opacity drop-shadow-md ${
-                            isBeingDragged ? "opacity-100" : "opacity-40 sm:opacity-0 group-hover:opacity-100"
-                          }`} />
-                        </div>
-
-                        {/* Remove button */}
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); removeMedia(item.id) }}
-                          className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 p-1.5 sm:p-1 bg-white/90 rounded-full shadow-sm opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-                        >
-                          <X className="h-3 w-3 text-gray-600" />
-                        </button>
-
-                        {/* Position indicator */}
-                        <div className="absolute left-1 top-1 sm:left-1.5 sm:top-1.5 flex h-5 w-5 sm:h-5 sm:w-5 items-center justify-center rounded-md bg-black/50 text-[10px] sm:text-xs font-medium text-white backdrop-blur-sm">
-                          {index + 1}
-                        </div>
-
-                        {/* Type label - YouTube cannot be thumbnail */}
-                        {index === 0 && item.type === "image" && (
-                          <span className="absolute bottom-1 left-1 sm:bottom-1.5 sm:left-1.5 px-1.5 py-0.5 bg-black/70 text-white text-[9px] sm:text-[10px] rounded backdrop-blur-sm">
-                            Thumbnail
-                          </span>
-                        )}
-                        {item.type === "youtube" && (
-                          <span className="absolute bottom-1 left-1 sm:bottom-1.5 sm:left-1.5 px-1.5 py-0.5 bg-red-600 text-white text-[9px] sm:text-[10px] rounded">
-                            YouTube
-                          </span>
-                        )}
-
-                        {/* Drop target indicator overlay */}
-                        {isDropTarget && (
-                          <div className="absolute inset-0 bg-violet-500/10 border-2 border-violet-400 rounded-lg flex items-center justify-center">
-                            <div className="bg-violet-500 text-white text-[10px] font-medium px-2 py-0.5 rounded-full shadow-sm">
-                              Drop here
-                            </div>
-                          </div>
-                        )}
+                    <SortableContext
+                      items={mediaItems.map(item => item.id)}
+                      strategy={rectSortingStrategy}
+                    >
+                      <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                        {mediaItems.map((item, index) => (
+                          <SortableMediaItem
+                            key={item.id}
+                            item={item}
+                            index={index}
+                            onRemove={removeMedia}
+                          />
+                        ))}
                       </div>
-                      )
-                    })}
-                  </div>
+                    </SortableContext>
+                  </DndContext>
                 )}
 
                 {/* Upload Zone with skeleton loading */}
@@ -3420,85 +3444,20 @@ export default function NewProductPage() {
                         Recommended: horizontal 1280x720px
                       </p>
 
-                      {/* YouTube inline input */}
-                      {!showYoutubeInput ? (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setShowYoutubeInput(true)
-                          }}
-                          className="mt-3 text-xs sm:text-sm text-gray-500 hover:text-red-600 flex items-center gap-1.5 transition-colors"
-                        >
-                          <svg viewBox="0 -7 48 48" className="h-4 w-4 sm:h-5 sm:w-5" fill="none">
-                            <path d="M19.044 25.27L19.0425 11.688L32.0115 18.502L19.044 25.27ZM47.52 9.334C47.52 9.334 47.0505 6.003 45.612 4.536C43.7865 2.61 41.7405 2.601 40.803 2.489C34.086 2 24.0105 2 24.0105 2H23.9895C23.9895 2 13.914 2 7.197 2.489C6.258 2.601 4.2135 2.61 2.3865 4.536C0.948 6.003 0.48 9.334 0.48 9.334C0.48 9.334 0 13.247 0 17.158V20.826C0 24.738 0.48 28.649 0.48 28.649C0.48 28.649 0.948 31.98 2.3865 33.447C4.2135 35.373 6.612 35.313 7.68 35.514C11.52 35.885 24 36 24 36C24 36 34.086 35.985 40.803 35.495C41.7405 35.382 43.7865 35.373 45.612 33.447C47.0505 31.98 47.52 28.649 47.52 28.649C47.52 28.649 48 24.738 48 20.826V17.158C48 13.247 47.52 9.334 47.52 9.334Z" fill="#CE1312"/>
-                          </svg>
-                          Add YouTube video
-                        </button>
-                      ) : (
-                        <div
-                          className="mt-4 w-full max-w-md animate-in fade-in slide-in-from-top-2 duration-200"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl p-2.5 shadow-sm">
-                            <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-red-50 flex-shrink-0">
-                              <svg viewBox="0 -7 48 48" className="h-5 w-5" fill="none">
-                                <path d="M19.044 25.27L19.0425 11.688L32.0115 18.502L19.044 25.27ZM47.52 9.334C47.52 9.334 47.0505 6.003 45.612 4.536C43.7865 2.61 41.7405 2.601 40.803 2.489C34.086 2 24.0105 2 24.0105 2H23.9895C23.9895 2 13.914 2 7.197 2.489C6.258 2.601 4.2135 2.61 2.3865 4.536C0.948 6.003 0.48 9.334 0.48 9.334C0.48 9.334 0 13.247 0 17.158V20.826C0 24.738 0.48 28.649 0.48 28.649C0.48 28.649 0.948 31.98 2.3865 33.447C4.2135 35.373 6.612 35.313 7.68 35.514C11.52 35.885 24 36 24 36C24 36 34.086 35.985 40.803 35.495C41.7405 35.382 43.7865 35.373 45.612 33.447C47.0505 31.98 47.52 28.649 47.52 28.649C47.52 28.649 48 24.738 48 20.826V17.158C48 13.247 47.52 9.334 47.52 9.334Z" fill="#CE1312"/>
-                              </svg>
-                            </div>
-                            <Input
-                              placeholder="Paste YouTube URL..."
-                              value={youtubeInput}
-                              onChange={(e) => setYoutubeInput(e.target.value)}
-                              className="flex-1 h-9 text-sm border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-2 placeholder:text-gray-400"
-                              autoFocus
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  e.preventDefault()
-                                  handleAddYouTube()
-                                }
-                                if (e.key === 'Escape') {
-                                  setShowYoutubeInput(false)
-                                  setYoutubeInput("")
-                                }
-                              }}
-                            />
-                            <Button
-                              type="button"
-                              size="sm"
-                              onClick={handleAddYouTube}
-                              disabled={!youtubeInput || !parseYouTubeUrl(youtubeInput)}
-                              className="h-9 px-4 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded-lg disabled:bg-gray-200 disabled:text-gray-400"
-                            >
-                              Add
-                            </Button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setShowYoutubeInput(false)
-                                setYoutubeInput("")
-                              }}
-                              className="p-1.5 text-gray-400 hover:text-gray-600 transition-colors rounded-md hover:bg-gray-100"
-                            >
-                              <X className="h-4 w-4" />
-                            </button>
-                          </div>
-                          {youtubeInput && parseYouTubeUrl(youtubeInput) && (
-                            <div className="mt-3 relative aspect-video max-w-[200px] mx-auto rounded-lg overflow-hidden border border-gray-200 shadow-sm animate-in fade-in zoom-in-95 duration-200">
-                              <img
-                                src={`https://img.youtube.com/vi/${parseYouTubeUrl(youtubeInput)}/hqdefault.jpg`}
-                                alt="Video preview"
-                                className="w-full h-full object-cover"
-                              />
-                              <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                                <div className="w-12 h-12 rounded-full bg-red-600 flex items-center justify-center shadow-lg">
-                                  <Play className="h-6 w-6 text-white ml-0.5" />
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
+                      {/* YouTube add button */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setShowYoutubeInput(true)
+                        }}
+                        className="mt-3 text-xs sm:text-sm text-gray-500 hover:text-red-600 flex items-center gap-1.5 transition-colors"
+                      >
+                        <svg viewBox="0 -7 48 48" className="h-4 w-4 sm:h-5 sm:w-5" fill="none">
+                          <path d="M19.044 25.27L19.0425 11.688L32.0115 18.502L19.044 25.27ZM47.52 9.334C47.52 9.334 47.0505 6.003 45.612 4.536C43.7865 2.61 41.7405 2.601 40.803 2.489C34.086 2 24.0105 2 24.0105 2H23.9895C23.9895 2 13.914 2 7.197 2.489C6.258 2.601 4.2135 2.61 2.3865 4.536C0.948 6.003 0.48 9.334 0.48 9.334C0.48 9.334 0 13.247 0 17.158V20.826C0 24.738 0.48 28.649 0.48 28.649C0.48 28.649 0.948 31.98 2.3865 33.447C4.2135 35.373 6.612 35.313 7.68 35.514C11.52 35.885 24 36 24 36C24 36 34.086 35.985 40.803 35.495C41.7405 35.382 43.7865 35.373 45.612 33.447C47.0505 31.98 47.52 28.649 47.52 28.649C47.52 28.649 48 24.738 48 20.826V17.158C48 13.247 47.52 9.334 47.52 9.334Z" fill="#CE1312"/>
+                        </svg>
+                        Add YouTube video
+                      </button>
                     </>
                   )}
                 </div>
@@ -3825,6 +3784,7 @@ export default function NewProductPage() {
                       id="file-input"
                       type="file"
                       multiple
+                      accept="*/*"
                       className="hidden"
                       onChange={(e) => handleFileUpload(e.target.files)}
                       disabled={uploadingFiles}
@@ -3907,8 +3867,9 @@ export default function NewProductPage() {
                       variant="outline"
                       size="sm"
                       onClick={() => {
+                        const variantId = `new-variant-${Date.now()}`
                         const newVariant: ProductVariant = {
-                          id: `new-variant-${Date.now()}`,
+                          id: variantId,
                           name: "",
                           description: "",
                           price: "",
@@ -3921,6 +3882,13 @@ export default function NewProductPage() {
                           pwywSuggestedPrice: "",
                         }
                         setVariants(prev => [...prev, newVariant])
+                        // Smooth scroll to newly added variant after render
+                        requestAnimationFrame(() => {
+                          setTimeout(() => {
+                            const el = document.querySelector(`[data-variant-id="${variantId}"]`)
+                            if (el) el.scrollIntoView({ behavior: "smooth", block: "center" })
+                          }, 50)
+                        })
                       }}
                       className="text-gray-600 border-gray-200 h-8 text-xs rounded-lg hover:bg-gray-50"
                     >
@@ -3936,6 +3904,7 @@ export default function NewProductPage() {
                     {variants.map((variant, index) => (
                       <div
                         key={variant.id}
+                        data-variant-id={variant.id}
                         className="border border-gray-200 rounded-xl overflow-hidden bg-white hover:border-gray-300 transition-colors"
                       >
                         {/* Variant Header */}
@@ -4350,10 +4319,11 @@ export default function NewProductPage() {
                   </Button>
                 </div>
 
-                {/* Category Modal - Mobile Responsive */}
+                {/* Category Modal - Bottom Sheet on Mobile */}
                 <Dialog open={showCategoryModal} onOpenChange={setShowCategoryModal}>
-                  <DialogContent className="fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] w-[calc(100%-2rem)] max-w-lg rounded-xl bg-white shadow-xl border p-0 max-h-[calc(100vh-4rem)] overflow-hidden flex flex-col">
-                    <DialogHeader className="p-4 sm:p-6 pb-3 sm:pb-4 border-b flex-shrink-0">
+                  <DialogContent className="fixed bottom-0 left-0 right-0 sm:left-[50%] sm:top-[50%] sm:bottom-auto sm:translate-x-[-50%] sm:translate-y-[-50%] w-full sm:w-[calc(100%-2rem)] sm:max-w-lg rounded-t-2xl sm:rounded-xl bg-white shadow-xl border-t sm:border p-0 max-h-[90vh] sm:max-h-[calc(100vh-4rem)] overflow-hidden flex flex-col animate-bottom-sheet-in sm:animate-none">
+                    <div className="flex justify-center py-2 sm:hidden"><div className="w-10 h-1 rounded-full bg-gray-300" /></div>
+                    <DialogHeader className="px-4 sm:p-6 pb-3 sm:pb-4 border-b flex-shrink-0">
                       <DialogTitle className="text-lg sm:text-xl font-semibold">Select Category</DialogTitle>
                       <DialogDescription className="text-sm text-gray-500">
                         Choose a category that best describes your product.
@@ -4548,20 +4518,33 @@ export default function NewProductPage() {
                       content={<p>Button text shown on the product page</p>}
                     />
                   </div>
-                  <Select value={callToAction || "I want this!"} onValueChange={setCallToAction}>
-                    <SelectTrigger className="h-10 sm:h-11 border-gray-200 text-sm sm:text-base">
-                      <SelectValue placeholder="Select button text" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="I want this!">I want this!</SelectItem>
-                      <SelectItem value="Buy Now">Buy Now</SelectItem>
-                      <SelectItem value="Get Access">Get Access</SelectItem>
-                      <SelectItem value="Download Now">Download Now</SelectItem>
-                      <SelectItem value="Purchase">Purchase</SelectItem>
-                      <SelectItem value="Add to Cart">Add to Cart</SelectItem>
-                      <SelectItem value="Join Now">Join Now</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  {/* Mobile: button opens bottom sheet */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowCtaSheet(true)}
+                    className="sm:hidden w-full h-10 justify-between text-sm border-gray-200 font-normal"
+                  >
+                    <span className="text-gray-900">{callToAction || "I want this!"}</span>
+                    <ChevronDown className="h-4 w-4 text-gray-400" />
+                  </Button>
+                  {/* Desktop: standard select */}
+                  <div className="hidden sm:block">
+                    <Select value={callToAction || "I want this!"} onValueChange={setCallToAction}>
+                      <SelectTrigger className="h-11 border-gray-200 text-base">
+                        <SelectValue placeholder="Select button text" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="I want this!">I want this!</SelectItem>
+                        <SelectItem value="Buy Now">Buy Now</SelectItem>
+                        <SelectItem value="Get Access">Get Access</SelectItem>
+                        <SelectItem value="Download Now">Download Now</SelectItem>
+                        <SelectItem value="Purchase">Purchase</SelectItem>
+                        <SelectItem value="Add to Cart">Add to Cart</SelectItem>
+                        <SelectItem value="Join Now">Join Now</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
                 <div className="space-y-3">
@@ -4782,6 +4765,86 @@ export default function NewProductPage() {
           </div>
         </div>
       </div>
+
+      {/* YouTube Bottom Sheet */}
+      {showYoutubeInput && (
+        <div className="fixed inset-0 z-50">
+          <div className="fixed inset-0 bg-black/40 animate-backdrop-in" onClick={() => { setShowYoutubeInput(false); setYoutubeInput("") }} />
+          <div className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-xl animate-bottom-sheet-in z-50" style={{ maxHeight: "85vh" }}>
+            <div className="flex justify-center py-2.5"><div className="w-10 h-1 rounded-full bg-gray-300" /></div>
+            <div className="px-5 pb-6 space-y-4" style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-semibold text-gray-900">Add YouTube Video</h3>
+                <button type="button" onClick={() => { setShowYoutubeInput(false); setYoutubeInput("") }} className="p-2 -mr-2 text-gray-400 hover:text-gray-600 rounded-full">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl p-2.5">
+                <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-red-50 flex-shrink-0">
+                  <svg viewBox="0 -7 48 48" className="h-5 w-5" fill="none">
+                    <path d="M19.044 25.27L19.0425 11.688L32.0115 18.502L19.044 25.27ZM47.52 9.334C47.52 9.334 47.0505 6.003 45.612 4.536C43.7865 2.61 41.7405 2.601 40.803 2.489C34.086 2 24.0105 2 24.0105 2H23.9895C23.9895 2 13.914 2 7.197 2.489C6.258 2.601 4.2135 2.61 2.3865 4.536C0.948 6.003 0.48 9.334 0.48 9.334C0.48 9.334 0 13.247 0 17.158V20.826C0 24.738 0.48 28.649 0.48 28.649C0.48 28.649 0.948 31.98 2.3865 33.447C4.2135 35.373 6.612 35.313 7.68 35.514C11.52 35.885 24 36 24 36C24 36 34.086 35.985 40.803 35.495C41.7405 35.382 43.7865 35.373 45.612 33.447C47.0505 31.98 47.52 28.649 47.52 28.649C47.52 28.649 48 24.738 48 20.826V17.158C48 13.247 47.52 9.334 47.52 9.334Z" fill="#CE1312"/>
+                  </svg>
+                </div>
+                <Input
+                  placeholder="Paste YouTube URL..."
+                  value={youtubeInput}
+                  onChange={(e) => setYoutubeInput(e.target.value)}
+                  className="flex-1 h-10 text-sm border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-2 placeholder:text-gray-400"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') { e.preventDefault(); handleAddYouTube() }
+                    if (e.key === 'Escape') { setShowYoutubeInput(false); setYoutubeInput("") }
+                  }}
+                />
+              </div>
+              {youtubeInput && parseYouTubeUrl(youtubeInput) && (
+                <div className="relative aspect-video max-w-[240px] mx-auto rounded-lg overflow-hidden border border-gray-200 shadow-sm">
+                  <img src={`https://img.youtube.com/vi/${parseYouTubeUrl(youtubeInput)}/hqdefault.jpg`} alt="Video preview" className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                    <div className="w-12 h-12 rounded-full bg-red-600 flex items-center justify-center shadow-lg"><Play className="h-6 w-6 text-white ml-0.5" /></div>
+                  </div>
+                </div>
+              )}
+              <Button
+                type="button"
+                onClick={handleAddYouTube}
+                disabled={!youtubeInput || !parseYouTubeUrl(youtubeInput)}
+                className="w-full h-11 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-xl disabled:bg-gray-200 disabled:text-gray-400"
+              >
+                Add Video
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CTA Bottom Sheet */}
+      {showCtaSheet && (
+        <div className="fixed inset-0 z-50">
+          <div className="fixed inset-0 bg-black/40 animate-backdrop-in" onClick={() => setShowCtaSheet(false)} />
+          <div className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-xl animate-bottom-sheet-in z-50">
+            <div className="flex justify-center py-2.5"><div className="w-10 h-1 rounded-full bg-gray-300" /></div>
+            <div className="px-5 pb-6 space-y-1" style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
+              <h3 className="text-base font-semibold text-gray-900 mb-3">Call to Action</h3>
+              {["I want this!", "Buy Now", "Get Access", "Download Now", "Purchase", "Add to Cart", "Join Now"].map((cta) => (
+                <button
+                  key={cta}
+                  type="button"
+                  onClick={() => { setCallToAction(cta); setShowCtaSheet(false) }}
+                  className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm transition-all ${
+                    (callToAction || "I want this!") === cta
+                      ? "bg-violet-50 text-violet-900 font-medium"
+                      : "text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  <span>{cta}</span>
+                  {(callToAction || "I want this!") === cta && <Check className="h-4 w-4 text-violet-500" />}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Unsaved Changes Dialog */}
       <Dialog open={showExitDialog} onOpenChange={setShowExitDialog}>

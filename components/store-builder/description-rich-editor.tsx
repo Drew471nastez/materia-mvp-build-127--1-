@@ -283,74 +283,87 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
 
   const popoverContent = (
     <>
-      {/* Backdrop - very subtle fade */}
+      {/* Backdrop */}
       <div
-        className="fixed inset-0"
+        className="fixed inset-0 animate-backdrop-in"
         style={{
-          backgroundColor: isMobileView ? "rgba(0,0,0,0.2)" : "transparent",
+          backgroundColor: isMobileView ? "rgba(0,0,0,0.4)" : "transparent",
           zIndex: 2147483645,
           pointerEvents: "auto",
-          opacity: 1,
-          animation: "fadeIn 150ms ease-out forwards"
         }}
         onClick={onClose}
         onMouseDown={(e) => e.stopPropagation()}
       />
-      <div
-        ref={popoverRef}
-        className={cn(
-          "shadow-lg border flex flex-col",
-          className
-        )}
-        style={{
-          position: "fixed",
-          zIndex: 2147483646,
-          pointerEvents: "auto",
-          backgroundColor: bgColor,
-          borderColor: borderColorValue,
-          color: textColor,
-          borderRadius: "17px", // +5px from default 12px
-          // Subtle animation: gentle fade + very slight scale from 98%
-          animation: "popoverIn 180ms cubic-bezier(0.16, 1, 0.3, 1) forwards",
-          ...(isMobileView ? {
-            left: "50%",
-            top: "50%",
-            transform: "translate(-50%, -50%)",
-            transformOrigin: "center center",
-            width: "calc(100vw - 32px)",
-            maxWidth: "380px",
-            maxHeight: "calc(100vh - 32px)",
+      {isMobileView ? (
+        /* Mobile: Bottom sheet */
+        <div
+          ref={popoverRef}
+          className={cn(
+            "shadow-xl border-t flex flex-col animate-bottom-sheet-in",
+            className
+          )}
+          style={{
+            position: "fixed",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            zIndex: 2147483646,
+            pointerEvents: "auto",
+            backgroundColor: bgColor,
+            borderColor: borderColorValue,
+            color: textColor,
+            borderTopLeftRadius: 20,
+            borderTopRightRadius: 20,
+            maxHeight: "85vh",
             overflow: "hidden",
-          } : {
+          }}
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          {/* Drag handle */}
+          <div className="flex justify-center py-2.5 flex-shrink-0">
+            <div className="w-10 h-1 rounded-full" style={{ backgroundColor: isDark ? "#555" : "#d1d5db" }} />
+          </div>
+          <div className="flex-1 overflow-y-auto overscroll-contain px-1 pb-[env(safe-area-inset-bottom)]">
+            {children}
+          </div>
+        </div>
+      ) : (
+        /* Desktop: Positioned popover */
+        <div
+          ref={popoverRef}
+          className={cn(
+            "shadow-lg border flex flex-col",
+            className
+          )}
+          style={{
+            position: "fixed",
+            zIndex: 2147483646,
+            pointerEvents: "auto",
+            backgroundColor: bgColor,
+            borderColor: borderColorValue,
+            color: textColor,
+            borderRadius: "17px",
+            animation: "popoverIn 180ms cubic-bezier(0.16, 1, 0.3, 1) forwards",
             top: position.top,
             left: position.left,
             transformOrigin: position.transformOrigin,
-            maxHeight: "min(520px, calc(100vh - 80px))", // 15% taller (from 450px to ~518px)
+            maxHeight: "min(520px, calc(100vh - 80px))",
             overflow: "hidden",
-          }),
-        }}
-        onClick={(e) => e.stopPropagation()}
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <div className="flex-1 overflow-y-auto overscroll-contain">
-          {children}
+          }}
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <div className="flex-1 overflow-y-auto overscroll-contain">
+            {children}
+          </div>
         </div>
-      </div>
-      {/* Inline keyframes for subtle animations */}
+      )}
+      {/* Inline keyframes for desktop popover */}
       <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
         @keyframes popoverIn {
-          from {
-            opacity: 0;
-            transform: ${isMobileView ? 'translate(-50%, -50%) scale(0.98)' : 'scale(0.98)'};
-          }
-          to {
-            opacity: 1;
-            transform: ${isMobileView ? 'translate(-50%, -50%) scale(1)' : 'scale(1)'};
-          }
+          from { opacity: 0; transform: scale(0.98); }
+          to { opacity: 1; transform: scale(1); }
         }
       `}</style>
     </>
@@ -1917,7 +1930,8 @@ export function DescriptionRichEditor({
         suppressContentEditableWarning
         data-placeholder="Write your product description here..."
         className={cn(
-          "flex-1 p-3 sm:p-4 focus:outline-none min-h-[150px] sm:min-h-[205px] max-h-[300px] sm:max-h-[400px] overflow-y-auto",
+          "flex-1 p-3 sm:p-4 focus:outline-none min-h-[150px] sm:min-h-[205px] max-h-[300px] sm:max-h-[400px] overflow-y-auto overscroll-contain",
+          "[-webkit-user-select:text] [user-select:text] [-webkit-tap-highlight-color:transparent]",
           "prose prose-sm max-w-none",
           isDarkTheme && "prose-invert",
           "[&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mb-3",
