@@ -245,6 +245,7 @@ function SortableFAQItem({ faq, onUpdate, onRemove }: SortableFAQItemProps) {
     <div
       ref={setNodeRef}
       style={style}
+      data-faq-id={faq.id}
       className={`rounded-xl overflow-hidden bg-white border transition-all ${
         isDragging ? "shadow-xl border-violet-300 scale-[1.02]" : "border-gray-200 hover:border-gray-300"
       }`}
@@ -439,6 +440,60 @@ export default function NewProductPage() {
   // CTA bottom sheet for mobile
   const [showCtaSheet, setShowCtaSheet] = useState(false)
 
+  // Bottom sheet dismiss animation states
+  const [dismissingSheet, setDismissingSheet] = useState<string | null>(null)
+  const sheetSwipeStartY = useRef<number | null>(null)
+  const sheetSwipeCurrentY = useRef(0)
+  const sheetSwipeRef = useRef<HTMLDivElement | null>(null)
+
+  // Animated close for bottom sheets
+  const closeSheet = useCallback((sheetName: string, closer: () => void) => {
+    setDismissingSheet(sheetName)
+    setTimeout(() => {
+      setDismissingSheet(null)
+      closer()
+    }, 200)
+  }, [])
+
+  // Swipe handlers for bottom sheets
+  const handleSheetTouchStart = useCallback((e: React.TouchEvent, ref: HTMLDivElement | null) => {
+    const target = e.target as HTMLElement
+    const isDragHandle = target.closest("[data-drag-handle]")
+    const scrollContainer = ref?.querySelector("[data-scroll-container]") as HTMLElement
+    const isAtTop = !scrollContainer || scrollContainer.scrollTop <= 0
+    if (isDragHandle || isAtTop) {
+      sheetSwipeStartY.current = e.touches[0].clientY
+      sheetSwipeCurrentY.current = 0
+      sheetSwipeRef.current = ref
+    }
+  }, [])
+
+  const handleSheetTouchMove = useCallback((e: React.TouchEvent) => {
+    if (sheetSwipeStartY.current === null) return
+    const deltaY = e.touches[0].clientY - sheetSwipeStartY.current
+    if (deltaY > 0) {
+      sheetSwipeCurrentY.current = deltaY
+      if (sheetSwipeRef.current) {
+        sheetSwipeRef.current.style.transform = `translateY(${deltaY}px)`
+        sheetSwipeRef.current.style.transition = "none"
+      }
+    }
+  }, [])
+
+  const handleSheetTouchEnd = useCallback((sheetName: string, closer: () => void) => {
+    if (sheetSwipeStartY.current === null) return
+    sheetSwipeStartY.current = null
+    if (sheetSwipeCurrentY.current > 80) {
+      closeSheet(sheetName, closer)
+    } else {
+      if (sheetSwipeRef.current) {
+        sheetSwipeRef.current.style.transform = ""
+        sheetSwipeRef.current.style.transition = "transform 200ms cubic-bezier(0.32, 0.72, 0, 1)"
+      }
+    }
+    sheetSwipeCurrentY.current = 0
+  }, [closeSheet])
+
   // Header scroll state
   const [isScrolled, setIsScrolled] = useState(false)
 
@@ -590,8 +645,8 @@ export default function NewProductPage() {
   const [categorySearch, setCategorySearch] = useState("")
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
 
-  // Toast notification state for validation errors
-  const [toast, setToast] = useState<{ message: string; visible: boolean }>({ message: "", visible: false })
+  // Toast notification state for validation errors (with dismissing animation state)
+  const [toast, setToast] = useState<{ message: string; visible: boolean; dismissing: boolean }>({ message: "", visible: false, dismissing: false })
   const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Limit product sales state
@@ -601,17 +656,17 @@ export default function NewProductPage() {
   // AI suggestion states
   const [suggestedCategory, setSuggestedCategory] = useState<string | null>(null)
 
-  // DnD sensors for FAQ reorder (with touch support for mobile)
+  // DnD sensors for FAQ reorder (higher thresholds to prevent accidental drag on scroll)
   const faqSensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 5,
+        distance: 8,
       },
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 200,
-        tolerance: 5,
+        delay: 250,
+        tolerance: 10,
       },
     }),
     useSensor(KeyboardSensor, {
@@ -619,17 +674,17 @@ export default function NewProductPage() {
     })
   )
 
-  // DnD sensors for media grid reorder
+  // DnD sensors for media grid reorder (higher thresholds to prevent accidental drag on scroll)
   const mediaSensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 5,
+        distance: 8,
       },
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 200,
-        tolerance: 8,
+        delay: 250,
+        tolerance: 10,
       },
     })
   )
@@ -1005,20 +1060,27 @@ export default function NewProductPage() {
     return null
   }
 
-  // Show toast notification
+  // Show toast notification with animated dismiss
+  const dismissToast = useCallback(() => {
+    setToast(prev => ({ ...prev, dismissing: true }))
+    setTimeout(() => {
+      setToast({ message: "", visible: false, dismissing: false })
+    }, 250)
+  }, [])
+
   const showToast = useCallback((message: string) => {
     // Clear any existing timeout
     if (toastTimeoutRef.current) {
       clearTimeout(toastTimeoutRef.current)
     }
 
-    setToast({ message, visible: true })
+    setToast({ message, visible: true, dismissing: false })
 
-    // Hide toast after 6 seconds
+    // Hide toast after 5 seconds with animated dismiss
     toastTimeoutRef.current = setTimeout(() => {
-      setToast(prev => ({ ...prev, visible: false }))
-    }, 6000)
-  }, [])
+      dismissToast()
+    }, 5000)
+  }, [dismissToast])
 
   // Smart AI Category suggestion based on title and description
   const suggestCategory = useCallback((text: string) => {
@@ -2824,22 +2886,22 @@ export default function NewProductPage() {
               i
             </span>
           </TooltipTrigger>
-          <TooltipContent side="right" className="max-w-xs p-3">
+          <TooltipContent side="right" align="start" sideOffset={8} className="max-w-xs p-3 z-50">
             {content}
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
-      {/* Mobile: Popover */}
+      {/* Mobile: Popover with safe edge positioning */}
       <Popover>
         <PopoverTrigger asChild>
           <button
             type="button"
-            className="sm:hidden flex items-center justify-center w-4 h-4 rounded-full bg-violet-100 text-violet-600 text-[10px] font-medium cursor-help hover:bg-violet-200 transition-colors"
+            className="sm:hidden flex items-center justify-center w-5 h-5 rounded-full bg-violet-100 text-violet-600 text-[10px] font-medium cursor-help active:bg-violet-200 transition-colors"
           >
             i
           </button>
         </PopoverTrigger>
-        <PopoverContent side="top" className="max-w-[280px] p-3 text-sm">
+        <PopoverContent side="top" align="start" sideOffset={4} collisionPadding={16} className="max-w-[min(280px,calc(100vw-2rem))] p-3 text-sm z-50 animate-popover-in">
           {content}
         </PopoverContent>
       </Popover>
@@ -2882,7 +2944,7 @@ export default function NewProductPage() {
 
         {/* Skeleton Content - exact match to form structure */}
         <div className="flex-1 overflow-y-auto bg-white sm:bg-gray-50">
-          <div className="px-4 sm:px-6 lg:px-8 py-3 sm:py-6 pb-44 sm:pb-8">
+          <div className="px-4 sm:px-6 lg:px-8 py-3 sm:py-6 pb-52 sm:pb-8">
             <div className="max-w-5xl mx-auto">
               <div className="sm:bg-white sm:rounded-2xl sm:shadow-sm sm:border sm:border-gray-100 sm:p-6 lg:p-8">
                 <div className="lg:w-3/5 space-y-8 sm:space-y-12">
@@ -3017,21 +3079,30 @@ export default function NewProductPage() {
         </div>
       )}
 
-      {/* Validation Toast Notification - Red warning style */}
+      {/* Validation Toast Notification - Black modern style */}
       {toast.visible && (
         <div
-          className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 ease-out ${
-            toast.visible ? "animate-in slide-in-from-top-3 fade-in" : "animate-out slide-out-to-top-3 fade-out"
+          className={`fixed top-4 left-1/2 z-50 ${
+            toast.dismissing ? "animate-toast-out" : "animate-toast-in"
           }`}
         >
-          <div className="flex items-center gap-2.5 px-4 py-3 bg-red-500 rounded-xl shadow-2xl shadow-red-500/30 backdrop-blur-sm border border-red-400">
-            <AlertCircle className="h-4 w-4 text-white flex-shrink-0" />
-            <span className="text-sm font-medium text-white tracking-tight">{toast.message}</span>
+          <div className="flex items-center gap-2.5 px-4 py-3 bg-black rounded-xl shadow-2xl shadow-black/20 backdrop-blur-sm border border-gray-800 max-w-[calc(100vw-2rem)]">
+            <AlertCircle className="h-4 w-4 text-white/80 flex-shrink-0" />
+            <span className="text-sm font-medium text-white tracking-tight sm:block hidden">{toast.message}</span>
+            <span className="text-sm font-medium text-white tracking-tight sm:hidden block">
+              {toast.message.length > 25 ? (
+                toast.message.includes("title") ? "Add title first" :
+                toast.message.includes("photo") || toast.message.includes("video") ? "Add media first" :
+                toast.message.includes("file") ? "Add files first" :
+                toast.message.includes("category") ? "Select category" :
+                toast.message.substring(0, 22) + "..."
+              ) : toast.message}
+            </span>
             <button
-              onClick={() => setToast(prev => ({ ...prev, visible: false }))}
-              className="ml-2 p-0.5 hover:bg-red-400/50 rounded transition-colors"
+              onClick={dismissToast}
+              className="ml-1 p-0.5 hover:bg-white/10 rounded transition-colors flex-shrink-0"
             >
-              <X className="h-3.5 w-3.5 text-white" />
+              <X className="h-3.5 w-3.5 text-white/70" />
             </button>
           </div>
         </div>
@@ -3236,7 +3307,7 @@ export default function NewProductPage() {
       <div ref={contentRef} className="flex-1 overflow-y-auto bg-white sm:bg-gray-50 overscroll-contain">
 
         {/* Form Content - flat on mobile, card on desktop */}
-        <div className="px-4 sm:px-6 lg:px-8 py-3 sm:py-6 pb-44 sm:pb-8">
+        <div className="px-4 sm:px-6 lg:px-8 py-3 sm:py-6 pb-52 sm:pb-8">
           <div className="max-w-5xl mx-auto">
             <div className="sm:bg-white sm:rounded-2xl sm:shadow-sm sm:border sm:border-gray-100 sm:p-6 lg:p-8">
               {/* Form content wrapper - 60% width and left-aligned on desktop */}
@@ -3311,29 +3382,31 @@ export default function NewProductPage() {
                   </p>
                 </div>
 
-                {/* Draggable Media Grid - @dnd-kit powered, 2 per row */}
+                {/* Draggable Media Grid - @dnd-kit powered, 2 per row, overflow-hidden prevents white space on drag */}
                 {mediaItems.length > 0 && (
-                  <DndContext
-                    sensors={mediaSensors}
-                    collisionDetection={closestCenter}
-                    onDragEnd={handleMediaDragEnd}
-                  >
-                    <SortableContext
-                      items={mediaItems.map(item => item.id)}
-                      strategy={rectSortingStrategy}
+                  <div className="overflow-hidden">
+                    <DndContext
+                      sensors={mediaSensors}
+                      collisionDetection={closestCenter}
+                      onDragEnd={handleMediaDragEnd}
                     >
-                      <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                        {mediaItems.map((item, index) => (
-                          <SortableMediaItem
-                            key={item.id}
-                            item={item}
-                            index={index}
-                            onRemove={removeMedia}
-                          />
-                        ))}
-                      </div>
-                    </SortableContext>
-                  </DndContext>
+                      <SortableContext
+                        items={mediaItems.map(item => item.id)}
+                        strategy={rectSortingStrategy}
+                      >
+                        <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                          {mediaItems.map((item, index) => (
+                            <SortableMediaItem
+                              key={item.id}
+                              item={item}
+                              index={index}
+                              onRemove={removeMedia}
+                            />
+                          ))}
+                        </div>
+                      </SortableContext>
+                    </DndContext>
+                  </div>
                 )}
 
                 {/* Upload Zone with skeleton loading */}
@@ -3502,9 +3575,6 @@ export default function NewProductPage() {
                     <Label className="text-sm font-medium text-gray-700">
                       Description
                     </Label>
-                    <TooltipIcon
-                      content={<p>Describe what customers will get</p>}
-                    />
                   </div>
                   <DescriptionRichEditor
                     value={description}
@@ -3616,12 +3686,22 @@ export default function NewProductPage() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => setFaqs(prev => [...prev, {
-                      id: `custom-${Date.now()}`,
-                      question: "",
-                      answer: "",
-                      isDefault: false,
-                    }])}
+                    onClick={() => {
+                      const faqId = `custom-${Date.now()}`
+                      setFaqs(prev => [...prev, {
+                        id: faqId,
+                        question: "",
+                        answer: "",
+                        isDefault: false,
+                      }])
+                      // Smooth scroll to newly added FAQ after render
+                      requestAnimationFrame(() => {
+                        setTimeout(() => {
+                          const el = document.querySelector(`[data-faq-id="${faqId}"]`)
+                          if (el) el.scrollIntoView({ behavior: "smooth", block: "center" })
+                        }, 50)
+                      })
+                    }}
                     className="text-gray-600 border-gray-200 h-8 text-xs rounded-lg hover:bg-gray-50"
                   >
                     <Plus className="h-3.5 w-3.5 mr-1" />
@@ -4296,9 +4376,6 @@ export default function NewProductPage() {
                 <div>
                   <div className="flex items-center gap-1.5">
                     <h2 className="text-base sm:text-lg font-semibold text-gray-900">Category</h2>
-                    <TooltipIcon
-                      content={<p>Help customers find your product</p>}
-                    />
                   </div>
                   <p className="text-xs sm:text-sm text-gray-500">
                     Select the best category for your product.
@@ -4320,9 +4397,16 @@ export default function NewProductPage() {
                 </div>
 
                 {/* Category Modal - Bottom Sheet on Mobile */}
-                <Dialog open={showCategoryModal} onOpenChange={setShowCategoryModal}>
-                  <DialogContent className="fixed bottom-0 left-0 right-0 sm:left-[50%] sm:top-[50%] sm:bottom-auto sm:translate-x-[-50%] sm:translate-y-[-50%] w-full sm:w-[calc(100%-2rem)] sm:max-w-lg rounded-t-2xl sm:rounded-xl bg-white shadow-xl border-t sm:border p-0 max-h-[90vh] sm:max-h-[calc(100vh-4rem)] overflow-hidden flex flex-col animate-bottom-sheet-in sm:animate-none">
-                    <div className="flex justify-center py-2 sm:hidden"><div className="w-10 h-1 rounded-full bg-gray-300" /></div>
+                <Dialog open={showCategoryModal} onOpenChange={(open) => {
+                  if (!open) closeSheet("category", () => setShowCategoryModal(false))
+                  else setShowCategoryModal(true)
+                }}>
+                  <DialogContent className={`fixed bottom-0 left-0 right-0 sm:left-[50%] sm:top-[50%] sm:bottom-auto sm:translate-x-[-50%] sm:translate-y-[-50%] w-full sm:w-[calc(100%-2rem)] sm:max-w-lg rounded-t-2xl sm:rounded-xl bg-white shadow-xl border-t sm:border p-0 max-h-[90vh] sm:max-h-[calc(100vh-4rem)] overflow-hidden flex flex-col ${dismissingSheet === "category" ? "animate-bottom-sheet-out" : "animate-bottom-sheet-in"} sm:animate-none`}
+                    onTouchStart={(e) => handleSheetTouchStart(e, e.currentTarget as HTMLDivElement)}
+                    onTouchMove={handleSheetTouchMove}
+                    onTouchEnd={() => handleSheetTouchEnd("category", () => setShowCategoryModal(false))}
+                  >
+                    <div className="flex justify-center py-2 sm:hidden cursor-grab" data-drag-handle><div className="w-10 h-1 rounded-full bg-gray-300" /></div>
                     <DialogHeader className="px-4 sm:p-6 pb-3 sm:pb-4 border-b flex-shrink-0">
                       <DialogTitle className="text-lg sm:text-xl font-semibold">Select Category</DialogTitle>
                       <DialogDescription className="text-sm text-gray-500">
@@ -4340,7 +4424,7 @@ export default function NewProductPage() {
                       />
                     </div>
 
-                    <div className="flex-1 overflow-y-auto p-4 sm:p-6 pt-3 sm:pt-4">
+                    <div className="flex-1 overflow-y-auto p-4 sm:p-6 pt-3 sm:pt-4" data-scroll-container>
                       {/* AI Suggestion - Modern Badge Style */}
                       {suggestedCategory && !categorySearch && (
                         <div className="mb-4">
@@ -4627,7 +4711,22 @@ export default function NewProductPage() {
                 className="space-y-4 sm:space-y-6"
               >
                 <div>
-                  <h2 className="text-base sm:text-lg font-semibold text-gray-900">SEO</h2>
+                  <div className="flex items-center gap-1.5">
+                    <h2 className="text-base sm:text-lg font-semibold text-gray-900">SEO</h2>
+                    <TooltipIcon
+                      content={
+                        <>
+                          <p className="font-medium mb-2">Search Engine Optimization</p>
+                          <ul className="text-sm space-y-1 list-disc pl-4">
+                            <li>Helps your product appear in Google results</li>
+                            <li>SEO title: max 60 characters for best display</li>
+                            <li>Meta description: max 160 characters</li>
+                            <li>Custom URL slug for clean, shareable links</li>
+                          </ul>
+                        </>
+                      }
+                    />
+                  </div>
                   <p className="text-xs sm:text-sm text-gray-500">
                     Optimize your product for search engines.
                   </p>
@@ -4769,9 +4868,15 @@ export default function NewProductPage() {
       {/* YouTube Bottom Sheet */}
       {showYoutubeInput && (
         <div className="fixed inset-0 z-50">
-          <div className="fixed inset-0 bg-black/40 animate-backdrop-in" onClick={() => { setShowYoutubeInput(false); setYoutubeInput("") }} />
-          <div className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-xl animate-bottom-sheet-in z-50" style={{ maxHeight: "85vh" }}>
-            <div className="flex justify-center py-2.5"><div className="w-10 h-1 rounded-full bg-gray-300" /></div>
+          <div className={`fixed inset-0 bg-black/40 ${dismissingSheet === "youtube" ? "opacity-0 transition-opacity duration-200" : "animate-backdrop-in"}`} onClick={() => closeSheet("youtube", () => { setShowYoutubeInput(false); setYoutubeInput("") })} />
+          <div
+            className={`fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-xl ${dismissingSheet === "youtube" ? "animate-bottom-sheet-out" : "animate-bottom-sheet-in"} z-50`}
+            style={{ maxHeight: "85vh" }}
+            onTouchStart={(e) => handleSheetTouchStart(e, e.currentTarget as HTMLDivElement)}
+            onTouchMove={handleSheetTouchMove}
+            onTouchEnd={() => handleSheetTouchEnd("youtube", () => { setShowYoutubeInput(false); setYoutubeInput("") })}
+          >
+            <div className="flex justify-center py-2.5 cursor-grab" data-drag-handle><div className="w-10 h-1 rounded-full bg-gray-300" /></div>
             <div className="px-5 pb-6 space-y-4" style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
               <div className="flex items-center justify-between">
                 <h3 className="text-base font-semibold text-gray-900">Add YouTube Video</h3>
@@ -4821,16 +4926,21 @@ export default function NewProductPage() {
       {/* CTA Bottom Sheet */}
       {showCtaSheet && (
         <div className="fixed inset-0 z-50">
-          <div className="fixed inset-0 bg-black/40 animate-backdrop-in" onClick={() => setShowCtaSheet(false)} />
-          <div className="fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-xl animate-bottom-sheet-in z-50">
-            <div className="flex justify-center py-2.5"><div className="w-10 h-1 rounded-full bg-gray-300" /></div>
+          <div className={`fixed inset-0 bg-black/40 ${dismissingSheet === "cta" ? "opacity-0 transition-opacity duration-200" : "animate-backdrop-in"}`} onClick={() => closeSheet("cta", () => setShowCtaSheet(false))} />
+          <div
+            className={`fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-xl ${dismissingSheet === "cta" ? "animate-bottom-sheet-out" : "animate-bottom-sheet-in"} z-50`}
+            onTouchStart={(e) => handleSheetTouchStart(e, e.currentTarget as HTMLDivElement)}
+            onTouchMove={handleSheetTouchMove}
+            onTouchEnd={() => handleSheetTouchEnd("cta", () => setShowCtaSheet(false))}
+          >
+            <div className="flex justify-center py-2.5 cursor-grab" data-drag-handle><div className="w-10 h-1 rounded-full bg-gray-300" /></div>
             <div className="px-5 pb-6 space-y-1" style={{ paddingBottom: "max(1.5rem, env(safe-area-inset-bottom))" }}>
               <h3 className="text-base font-semibold text-gray-900 mb-3">Call to Action</h3>
               {["I want this!", "Buy Now", "Get Access", "Download Now", "Purchase", "Add to Cart", "Join Now"].map((cta) => (
                 <button
                   key={cta}
                   type="button"
-                  onClick={() => { setCallToAction(cta); setShowCtaSheet(false) }}
+                  onClick={() => { setCallToAction(cta); closeSheet("cta", () => setShowCtaSheet(false)) }}
                   className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm transition-all ${
                     (callToAction || "I want this!") === cta
                       ? "bg-violet-50 text-violet-900 font-medium"

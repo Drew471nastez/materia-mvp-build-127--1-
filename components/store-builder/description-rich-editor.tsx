@@ -157,6 +157,67 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
     left: number
     transformOrigin: string
   }>({ top: 0, left: 0, transformOrigin: "top left" })
+  const [isDismissing, setIsDismissing] = useState(false)
+  const swipeStartY = useRef<number | null>(null)
+  const swipeCurrentY = useRef(0)
+  const sheetRef = useRef<HTMLDivElement>(null)
+
+  // Animated close handler
+  const handleClose = useCallback(() => {
+    const isMobileView = isMobile || (typeof window !== "undefined" && window.innerWidth < 640)
+    if (isMobileView) {
+      setIsDismissing(true)
+      setTimeout(() => {
+        setIsDismissing(false)
+        onClose()
+      }, 200)
+    } else {
+      onClose()
+    }
+  }, [onClose, isMobile])
+
+  // Swipe-down-to-close handlers for mobile bottom sheet
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const target = e.target as HTMLElement
+    // Only start swipe from the drag handle area or when scrolled to top
+    const sheet = sheetRef.current
+    if (!sheet) return
+    const scrollContainer = sheet.querySelector("[data-scroll-container]") as HTMLElement
+    const isAtTop = !scrollContainer || scrollContainer.scrollTop <= 0
+    const isDragHandle = target.closest("[data-drag-handle]")
+    if (isDragHandle || isAtTop) {
+      swipeStartY.current = e.touches[0].clientY
+      swipeCurrentY.current = 0
+    }
+  }, [])
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (swipeStartY.current === null) return
+    const deltaY = e.touches[0].clientY - swipeStartY.current
+    if (deltaY > 0) {
+      swipeCurrentY.current = deltaY
+      if (sheetRef.current) {
+        sheetRef.current.style.transform = `translateY(${deltaY}px)`
+        sheetRef.current.style.transition = "none"
+      }
+    }
+  }, [])
+
+  const handleTouchEnd = useCallback(() => {
+    if (swipeStartY.current === null) return
+    swipeStartY.current = null
+    if (swipeCurrentY.current > 80) {
+      // Swipe far enough - dismiss
+      handleClose()
+    } else {
+      // Snap back
+      if (sheetRef.current) {
+        sheetRef.current.style.transform = ""
+        sheetRef.current.style.transition = "transform 200ms cubic-bezier(0.32, 0.72, 0, 1)"
+      }
+    }
+    swipeCurrentY.current = 0
+  }, [handleClose])
 
   // Create portal container on mount
   useEffect(() => {
@@ -285,21 +346,27 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 animate-backdrop-in"
+        className={isMobileView && isDismissing ? "fixed inset-0" : "fixed inset-0 animate-backdrop-in"}
         style={{
           backgroundColor: isMobileView ? "rgba(0,0,0,0.4)" : "transparent",
           zIndex: 2147483645,
           pointerEvents: "auto",
+          opacity: isDismissing ? 0 : undefined,
+          transition: isDismissing ? "opacity 200ms ease-out" : undefined,
         }}
-        onClick={onClose}
+        onClick={handleClose}
         onMouseDown={(e) => e.stopPropagation()}
       />
       {isMobileView ? (
-        /* Mobile: Bottom sheet */
+        /* Mobile: Bottom sheet with swipe-to-close */
         <div
-          ref={popoverRef}
+          ref={(node) => {
+            (popoverRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+            (sheetRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+          }}
           className={cn(
-            "shadow-xl border-t flex flex-col animate-bottom-sheet-in",
+            "shadow-xl border-t flex flex-col",
+            isDismissing ? "animate-bottom-sheet-out" : "animate-bottom-sheet-in",
             className
           )}
           style={{
@@ -319,12 +386,15 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
           }}
           onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
         >
           {/* Drag handle */}
-          <div className="flex justify-center py-2.5 flex-shrink-0">
+          <div className="flex justify-center py-2.5 flex-shrink-0 cursor-grab" data-drag-handle>
             <div className="w-10 h-1 rounded-full" style={{ backgroundColor: isDark ? "#555" : "#d1d5db" }} />
           </div>
-          <div className="flex-1 overflow-y-auto overscroll-contain px-1 pb-[env(safe-area-inset-bottom)]">
+          <div className="flex-1 overflow-y-auto overscroll-contain px-1 pb-[env(safe-area-inset-bottom)]" data-scroll-container>
             {children}
           </div>
         </div>
