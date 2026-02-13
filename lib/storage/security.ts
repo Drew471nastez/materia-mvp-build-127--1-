@@ -218,8 +218,8 @@ export function readBufferHeader(buffer: Buffer | ArrayBuffer, bytes: number = H
   return new Uint8Array(buffer, 0, Math.min(buffer.byteLength, bytes))
 }
 
-/** 5 GB maximum file size for digital product uploads. */
-export const MAX_DIGITAL_PRODUCT_FILE_SIZE = 5 * 1024 * 1024 * 1024 // 5 GB
+/** 50 GB maximum file size for digital product uploads (free plan ceiling). */
+export const MAX_DIGITAL_PRODUCT_FILE_SIZE = 50 * 1024 * 1024 * 1024 // 50 GB
 
 /**
  * Full pre-upload security check combining size limit + file scanning.
