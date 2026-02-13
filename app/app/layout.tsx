@@ -111,7 +111,7 @@ export default async function AppLayout({
 
   return (
     <AppLayoutWrapper>
-      <div className="min-h-svh overflow-x-hidden bg-[#111111] md:bg-white">
+      <div className="min-h-svh overflow-x-hidden bg-[#111111] md:bg-white app-no-scrollbar">
         <AppSidebar
           creatorSlug={creator.slug}
           storePublished={creator.store_published}

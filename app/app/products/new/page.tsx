@@ -237,6 +237,7 @@ function SortableFAQItem({ faq, onUpdate, onRemove }: SortableFAQItemProps) {
     transform: CSS.Transform.toString(transform),
     transition,
     zIndex: isDragging ? 50 : undefined,
+    opacity: isDragging ? 0.6 : 1,
   }
 
   return (
@@ -244,22 +245,32 @@ function SortableFAQItem({ faq, onUpdate, onRemove }: SortableFAQItemProps) {
       ref={setNodeRef}
       style={style}
       className={`rounded-xl overflow-hidden bg-white border transition-all ${
-        isDragging ? "opacity-50 shadow-xl border-violet-300" : "border-gray-200 hover:border-gray-300"
+        isDragging ? "shadow-xl border-violet-300 scale-[1.02]" : "border-gray-200 hover:border-gray-300"
       }`}
     >
-      <div className="p-4">
-        <div className="flex items-start gap-3">
-          {/* Drag handle - clean design */}
+      {/* Mobile: drag handle as a full-width top bar for easier grabbing */}
+      <div
+        {...attributes}
+        {...listeners}
+        className="sm:hidden flex items-center justify-center gap-1.5 py-2.5 px-3 bg-gray-50 border-b border-gray-100 cursor-grab active:cursor-grabbing active:bg-gray-100 touch-none select-none"
+      >
+        <GripVertical className="h-4 w-4 text-gray-400" />
+        <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">Hold to drag</span>
+      </div>
+
+      <div className="p-3 sm:p-4">
+        <div className="flex items-start gap-2 sm:gap-3">
+          {/* Drag handle - desktop only, hidden on mobile */}
           <button
             {...attributes}
             {...listeners}
-            className="p-1.5 text-gray-300 hover:text-gray-500 hover:bg-gray-100 rounded-lg cursor-grab active:cursor-grabbing touch-none flex-shrink-0 mt-1"
+            className="hidden sm:flex p-1.5 text-gray-300 hover:text-gray-500 hover:bg-gray-100 rounded-lg cursor-grab active:cursor-grabbing touch-none flex-shrink-0 mt-1"
             title="Drag to reorder"
           >
             <GripVertical className="h-4 w-4" />
           </button>
 
-          <div className="flex-1 space-y-3 min-w-0">
+          <div className="flex-1 space-y-2.5 sm:space-y-3 min-w-0">
             {/* Question field */}
             <div className="space-y-1">
               <label className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">Question</label>
@@ -276,7 +287,7 @@ function SortableFAQItem({ faq, onUpdate, onRemove }: SortableFAQItemProps) {
               <Textarea
                 value={faq.answer}
                 onChange={(e) => onUpdate(faq.id, { answer: e.target.value })}
-                className="text-sm border-gray-200 min-h-[70px] rounded-lg bg-gray-50 focus:bg-white transition-colors resize-none"
+                className="text-sm border-gray-200 min-h-[60px] sm:min-h-[70px] rounded-lg bg-gray-50 focus:bg-white transition-colors resize-none"
                 placeholder="Enter your answer..."
               />
             </div>
@@ -286,7 +297,7 @@ function SortableFAQItem({ faq, onUpdate, onRemove }: SortableFAQItemProps) {
             <button
               type="button"
               onClick={() => onRemove(faq.id)}
-              className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
+              className="p-2 sm:p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
               title="Remove FAQ"
             >
               <Trash2 className="h-4 w-4" />
@@ -294,7 +305,7 @@ function SortableFAQItem({ faq, onUpdate, onRemove }: SortableFAQItemProps) {
           )}
         </div>
         {faq.isDefault && (
-          <div className="mt-3 ml-9">
+          <div className="mt-2.5 sm:mt-3 sm:ml-9">
             <span className="text-[10px] text-violet-500 font-medium px-2 py-0.5 bg-violet-50 rounded-full">Default FAQ</span>
           </div>
         )}
@@ -379,17 +390,51 @@ export default function NewProductPage() {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
 
-  // Touch drag state for mobile
+  // Touch drag state for mobile - long press to initiate
   const [touchDragIndex, setTouchDragIndex] = useState<number | null>(null)
   const [touchStartPos, setTouchStartPos] = useState<{ x: number; y: number } | null>(null)
   const [touchCurrentPos, setTouchCurrentPos] = useState<{ x: number; y: number } | null>(null)
   const [isTouchDragging, setIsTouchDragging] = useState(false)
+  const [touchLongPressReady, setTouchLongPressReady] = useState(false)
   const touchDragRef = useRef<HTMLDivElement>(null)
   const mediaGridRef = useRef<HTMLDivElement>(null)
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const touchPendingIndexRef = useRef<number | null>(null)
 
   // External file drag state for media picker
   const [isExternalDragOver, setIsExternalDragOver] = useState(false)
   const dragCounterRef = useRef(0)
+
+  // Scroll-aware touch tracking to prevent accidental triggers while scrolling
+  const isScrollingRef = useRef(false)
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const touchStartYRef = useRef<number | null>(null)
+
+  // Track scrolling state to prevent accidental element activation
+  useEffect(() => {
+    const scrollContainer = contentRef.current
+    if (!scrollContainer) return
+
+    const handleScroll = () => {
+      isScrollingRef.current = true
+      if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current)
+      scrollTimeoutRef.current = setTimeout(() => {
+        isScrollingRef.current = false
+      }, 150)
+    }
+
+    scrollContainer.addEventListener("scroll", handleScroll, { passive: true })
+    return () => {
+      scrollContainer.removeEventListener("scroll", handleScroll)
+      if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current)
+    }
+  }, [isPageReady])
+
+  // Guard click handler: only fire if not scrolling and touch didn't move
+  const handleUploadZoneClick = useCallback(() => {
+    if (uploadingMedia || isScrollingRef.current) return
+    document.getElementById("media-input")?.click()
+  }, [uploadingMedia])
 
   // Ratio warning state for non-widescreen images
   const [ratioWarning, setRatioWarning] = useState<string | null>(null)
@@ -465,13 +510,13 @@ export default function NewProductPage() {
   const faqSensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8, // Require 8px movement before starting drag
+        distance: 5, // Require 5px movement before starting drag
       },
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
-        delay: 200, // 200ms delay before touch drag starts
-        tolerance: 8, // 8px movement tolerance during delay
+        delay: 150, // 150ms delay before touch drag starts
+        tolerance: 5, // 5px movement tolerance during delay
       },
     }),
     useSensor(KeyboardSensor, {
@@ -2261,29 +2306,51 @@ export default function NewProductPage() {
     setDragOverIndex(null)
   }
 
-  // Mobile touch drag handlers
-  const handleTouchStart = (e: React.TouchEvent, index: number) => {
+  // Mobile touch drag handlers - long press (300ms) to initiate drag
+  const cancelLongPress = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = null
+    }
+    touchPendingIndexRef.current = null
+    setTouchLongPressReady(false)
+  }, [])
+
+  const handleTouchStart = useCallback((e: React.TouchEvent, index: number) => {
     const touch = e.touches[0]
-    setTouchDragIndex(index)
-    setTouchStartPos({ x: touch.clientX, y: touch.clientY })
-    setTouchCurrentPos({ x: touch.clientX, y: touch.clientY })
-  }
+    const startPos = { x: touch.clientX, y: touch.clientY }
+    touchPendingIndexRef.current = index
+    setTouchStartPos(startPos)
+    setTouchCurrentPos(startPos)
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (touchDragIndex === null || !touchStartPos) return
-
-    const touch = e.touches[0]
-    const deltaX = Math.abs(touch.clientX - touchStartPos.x)
-    const deltaY = Math.abs(touch.clientY - touchStartPos.y)
-
-    // Start dragging if moved more than 10px
-    if (!isTouchDragging && (deltaX > 10 || deltaY > 10)) {
+    // Start long-press timer (300ms)
+    longPressTimerRef.current = setTimeout(() => {
+      setTouchDragIndex(index)
+      setTouchLongPressReady(true)
       setIsTouchDragging(true)
+      touchPendingIndexRef.current = null
+    }, 300)
+  }, [])
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    const touch = e.touches[0]
+    const currentPos = { x: touch.clientX, y: touch.clientY }
+
+    // If long press hasn't fired yet, check if user moved too much (scrolling)
+    if (touchPendingIndexRef.current !== null && touchStartPos) {
+      const deltaX = Math.abs(touch.clientX - touchStartPos.x)
+      const deltaY = Math.abs(touch.clientY - touchStartPos.y)
+      if (deltaX > 8 || deltaY > 8) {
+        // User is scrolling, cancel the long press
+        cancelLongPress()
+        return
+      }
     }
 
-    if (isTouchDragging) {
+    // If actively dragging, update position and find drop target
+    if (isTouchDragging && touchDragIndex !== null) {
       e.preventDefault()
-      setTouchCurrentPos({ x: touch.clientX, y: touch.clientY })
+      setTouchCurrentPos(currentPos)
 
       // Find which element we're over
       const elements = document.elementsFromPoint(touch.clientX, touch.clientY)
@@ -2298,9 +2365,11 @@ export default function NewProductPage() {
         setDragOverIndex(null)
       }
     }
-  }
+  }, [isTouchDragging, touchDragIndex, touchStartPos, cancelLongPress])
 
-  const handleTouchEnd = () => {
+  const handleTouchEnd = useCallback(() => {
+    cancelLongPress()
+
     if (touchDragIndex !== null && dragOverIndex !== null && touchDragIndex !== dragOverIndex) {
       const newItems = [...mediaItems]
       const [draggedItem] = newItems.splice(touchDragIndex, 1)
@@ -2312,8 +2381,9 @@ export default function NewProductPage() {
     setTouchStartPos(null)
     setTouchCurrentPos(null)
     setIsTouchDragging(false)
+    setTouchLongPressReady(false)
     setDragOverIndex(null)
-  }
+  }, [touchDragIndex, dragOverIndex, mediaItems, cancelLongPress])
 
   // Handle file upload for digital assets using admin API with progress
   const handleFileUpload = async (files: FileList | null) => {
@@ -2689,9 +2759,9 @@ export default function NewProductPage() {
 
         {/* Skeleton Content - exact match to form structure */}
         <div className="flex-1 overflow-y-auto bg-gray-50">
-          <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 pb-24 sm:pb-8">
+          <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 pb-36 sm:pb-8">
             <div className="max-w-5xl mx-auto">
-              <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 lg:p-8">
+              <div className="bg-white sm:rounded-2xl sm:shadow-sm sm:border sm:border-gray-100 p-4 sm:p-6 lg:p-8">
                 <div className="lg:w-3/5 space-y-8 sm:space-y-12">
 
                   {/* About section skeleton */}
@@ -3043,9 +3113,9 @@ export default function NewProductPage() {
       <div ref={contentRef} className="flex-1 overflow-y-auto bg-gray-50 overscroll-contain">
 
         {/* Form Content - White rounded container */}
-        <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 pb-24 sm:pb-8">
+        <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 pb-36 sm:pb-8">
           <div className="max-w-5xl mx-auto">
-            <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 lg:p-8">
+            <div className="bg-white sm:rounded-2xl sm:shadow-sm sm:border sm:border-gray-100 p-4 sm:p-6 lg:p-8">
               {/* Form content wrapper - 60% width and left-aligned on desktop */}
               <div className="lg:w-3/5">
               {/* Error message */}
@@ -3124,11 +3194,16 @@ export default function NewProductPage() {
                     ref={mediaGridRef}
                     className="grid grid-cols-2 gap-3 sm:gap-4"
                   >
-                    {mediaItems.map((item, index) => (
+                    {mediaItems.map((item, index) => {
+                      const isBeingDragged = isTouchDragging && touchDragIndex === index
+                      const isDropTarget = dragOverIndex === index
+                      const isDesktopDragged = draggedIndex === index
+
+                      return (
                       <div
                         key={item.id}
                         data-media-index={index}
-                        draggable
+                        draggable={!isTouchDragging}
                         onDragStart={(e) => handleDragStart(e, index)}
                         onDragOver={(e) => handleDragOver(e, index)}
                         onDragLeave={handleDragLeave}
@@ -3138,32 +3213,37 @@ export default function NewProductPage() {
                         onTouchMove={handleTouchMove}
                         onTouchEnd={handleTouchEnd}
                         className={`
-                          relative aspect-video rounded-lg overflow-hidden border group cursor-move select-none
+                          relative aspect-video rounded-lg overflow-hidden border group select-none
                           transition-all duration-200 ease-out
-                          ${dragOverIndex === index
-                            ? "border-violet-500 border-2 scale-105 shadow-lg"
-                            : draggedIndex === index || touchDragIndex === index
-                              ? "opacity-50 border-dashed border-2 border-violet-300"
-                              : "border-gray-200 hover:border-gray-300"
+                          ${isDropTarget
+                            ? "border-violet-500 border-2 scale-[1.03] shadow-lg shadow-violet-200/50 ring-2 ring-violet-300/50"
+                            : isDesktopDragged
+                              ? "opacity-40 border-dashed border-2 border-violet-300"
+                              : isBeingDragged
+                                ? "opacity-30 border-dashed border-2 border-violet-300"
+                                : "border-gray-200 hover:border-gray-300 cursor-grab active:cursor-grabbing"
                           }
-                          ${isTouchDragging && touchDragIndex === index ? "z-50" : ""}
                         `}
                         style={
-                          isTouchDragging && touchDragIndex === index && touchCurrentPos
+                          isBeingDragged && touchCurrentPos
                             ? {
                                 position: "fixed",
-                                left: touchCurrentPos.x - 80,
-                                top: touchCurrentPos.y - 45,
-                                width: 160,
-                                height: 90,
+                                left: touchCurrentPos.x - 75,
+                                top: touchCurrentPos.y - 42,
+                                width: 150,
+                                height: 84,
                                 zIndex: 9999,
                                 pointerEvents: "none",
+                                borderRadius: 12,
+                                boxShadow: "0 20px 40px rgba(0,0,0,0.25), 0 0 0 2px rgba(139,92,246,0.5)",
+                                opacity: 0.95,
+                                transform: "scale(1.05)",
                               }
                             : undefined
                         }
                       >
                         {item.type === "image" && (
-                          <img src={item.url} alt="" className="w-full h-full object-cover" />
+                          <img src={item.url} alt="" className="w-full h-full object-cover" draggable={false} />
                         )}
                         {item.type === "youtube" && (
                           <div className="relative w-full h-full">
@@ -3171,6 +3251,7 @@ export default function NewProductPage() {
                               src={getYouTubeThumbnailUrl(item.url) || ""}
                               alt="YouTube video thumbnail"
                               className="w-full h-full object-cover"
+                              draggable={false}
                             />
                             <div className="absolute inset-0 flex items-center justify-center bg-black/30">
                               <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-red-600 flex items-center justify-center">
@@ -3182,28 +3263,32 @@ export default function NewProductPage() {
                           </div>
                         )}
 
-                        {/* Drag handle overlay */}
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 sm:group-hover:bg-black/30 transition-colors touch-none">
-                          <GripVertical className="h-5 w-5 sm:h-6 sm:w-6 text-white opacity-0 group-hover:opacity-100 sm:group-hover:opacity-100 transition-opacity" />
+                        {/* Drag handle overlay - visible on hover (desktop) and always subtle on mobile */}
+                        <div className={`absolute inset-0 flex items-center justify-center transition-colors touch-none ${
+                          isBeingDragged ? "bg-black/20" : "bg-black/0 group-hover:bg-black/20"
+                        }`}>
+                          <GripVertical className={`h-5 w-5 sm:h-6 sm:w-6 text-white transition-opacity drop-shadow-md ${
+                            isBeingDragged ? "opacity-100" : "opacity-40 sm:opacity-0 group-hover:opacity-100"
+                          }`} />
                         </div>
 
                         {/* Remove button */}
                         <button
                           type="button"
-                          onClick={() => removeMedia(item.id)}
-                          className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 p-1 bg-white rounded-full shadow-sm opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                          onClick={(e) => { e.stopPropagation(); removeMedia(item.id) }}
+                          className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 p-1.5 sm:p-1 bg-white/90 rounded-full shadow-sm opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                         >
                           <X className="h-3 w-3 text-gray-600" />
                         </button>
 
                         {/* Position indicator */}
-                        <div className="absolute left-1 top-1 sm:left-1.5 sm:top-1.5 flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded bg-black/50 text-[10px] sm:text-xs text-white">
+                        <div className="absolute left-1 top-1 sm:left-1.5 sm:top-1.5 flex h-5 w-5 sm:h-5 sm:w-5 items-center justify-center rounded-md bg-black/50 text-[10px] sm:text-xs font-medium text-white backdrop-blur-sm">
                           {index + 1}
                         </div>
 
                         {/* Type label - YouTube cannot be thumbnail */}
                         {index === 0 && item.type === "image" && (
-                          <span className="absolute bottom-1 left-1 sm:bottom-1.5 sm:left-1.5 px-1.5 py-0.5 bg-black/70 text-white text-[9px] sm:text-[10px] rounded">
+                          <span className="absolute bottom-1 left-1 sm:bottom-1.5 sm:left-1.5 px-1.5 py-0.5 bg-black/70 text-white text-[9px] sm:text-[10px] rounded backdrop-blur-sm">
                             Thumbnail
                           </span>
                         )}
@@ -3212,8 +3297,18 @@ export default function NewProductPage() {
                             YouTube
                           </span>
                         )}
+
+                        {/* Drop target indicator overlay */}
+                        {isDropTarget && (
+                          <div className="absolute inset-0 bg-violet-500/10 border-2 border-violet-400 rounded-lg flex items-center justify-center">
+                            <div className="bg-violet-500 text-white text-[10px] font-medium px-2 py-0.5 rounded-full shadow-sm">
+                              Drop here
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
 
@@ -3223,13 +3318,14 @@ export default function NewProductPage() {
                     border-2 border-dashed rounded-xl
                     flex flex-col items-center justify-center py-6 sm:py-8
                     transition-all duration-200 cursor-pointer
+                    touch-action-pan-y
                     ${uploadingMedia ? "pointer-events-none border-gray-300" : ""}
                     ${isExternalDragOver
                       ? "border-violet-500 bg-violet-50 scale-[1.02] shadow-lg shadow-violet-100"
                       : "border-gray-300 hover:border-gray-400 hover:bg-gray-50/50"
                     }
                   `}
-                  onClick={() => !uploadingMedia && document.getElementById("media-input")?.click()}
+                  onClick={handleUploadZoneClick}
                   onDragEnter={(e) => {
                     e.preventDefault()
                     e.stopPropagation()
@@ -3688,14 +3784,14 @@ export default function NewProductPage() {
                     className={`
                       mt-2 border-2 border-dashed rounded-xl
                       flex flex-col items-center justify-center py-5 sm:py-6
-                      transition-all duration-200 cursor-pointer
+                      transition-all duration-200 cursor-pointer touch-action-pan-y
                       ${uploadingFiles ? "pointer-events-none border-gray-300" : ""}
                       ${isFileDragOver
                         ? "border-violet-500 bg-violet-50 scale-[1.02] shadow-lg shadow-violet-100"
                         : "border-gray-300 hover:border-gray-400 hover:bg-gray-50/50"
                       }
                     `}
-                    onClick={() => !uploadingFiles && document.getElementById("file-input")?.click()}
+                    onClick={() => { if (!uploadingFiles && !isScrollingRef.current) document.getElementById("file-input")?.click() }}
                     onDragEnter={(e) => {
                       e.preventDefault()
                       e.stopPropagation()

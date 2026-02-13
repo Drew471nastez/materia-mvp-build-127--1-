@@ -153,13 +153,28 @@
   html {
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
-    /* Hide scrollbar while keeping scroll functionality */
-    scrollbar-width: none; /* Firefox */
-    -ms-overflow-style: none; /* IE and Edge */
+    /* Modern light gray scrollbar for website pages */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(180, 180, 185, 0.45) transparent;
   }
 
   html::-webkit-scrollbar {
-    display: none; /* Chrome, Safari, Opera */
+    width: 8px;
+  }
+
+  html::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  html::-webkit-scrollbar-thumb {
+    background-color: rgba(180, 180, 185, 0.45);
+    border-radius: 4px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+
+  html::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(150, 150, 155, 0.65);
   }
 
   body {
@@ -172,20 +187,26 @@
     padding-bottom: env(safe-area-inset-bottom);
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
-    /* Hide scrollbar while keeping scroll functionality */
-    scrollbar-width: none; /* Firefox */
-    -ms-overflow-style: none; /* IE and Edge */
   }
 
-  body::-webkit-scrollbar {
-    display: none; /* Chrome, Safari, Opera */
+  /* Hide scrollbar on /app pages - applied via class */
+  .app-no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
   }
 
-  /* Prevent layout shift from scrollbar */
-  @supports (scrollbar-gutter: stable) {
-    html {
-      scrollbar-gutter: stable;
-    }
+  .app-no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Hide html scrollbar on app dashboard pages */
+  html.app-layout {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  html.app-layout::-webkit-scrollbar {
+    display: none;
   }
 
 }
@@ -209,6 +230,11 @@
   .touch-target {
     min-height: 44px;
     min-width: 44px;
+  }
+
+  /* Allow vertical scrolling but prevent horizontal drag/gesture hijacking */
+  .touch-action-pan-y {
+    touch-action: pan-y;
   }
 
   /* Horizontal scroll container for tables */
