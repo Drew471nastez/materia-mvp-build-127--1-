@@ -4466,7 +4466,7 @@ export default function NewProductPage() {
                       if (isMobileViewport) e.preventDefault()
                     }}
                     overlayClassName={isMobileViewport ? `bg-black/40 transition-opacity duration-400 ${dismissingSheet === "category" ? "opacity-0" : "opacity-100"}` : undefined}
-                    className={`fixed !top-auto !left-1/2 !bottom-0 !translate-x-[-50%] !translate-y-0 sm:left-[50%] sm:top-[50%] sm:bottom-auto sm:translate-x-[-50%] sm:translate-y-[-50%] w-[60vw] min-w-[320px] max-w-[520px] sm:w-[calc(100%-2rem)] sm:max-w-lg rounded-t-2xl sm:rounded-xl bg-white shadow-xl border-t sm:border p-0 max-h-[90vh] sm:max-h-[calc(100vh-4rem)] overflow-hidden flex flex-col ${dismissingSheet === "category" ? "animate-bottom-sheet-out" : "animate-bottom-sheet-in"} sm:animate-none`}
+                    className={`fixed !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0 sm:left-[50%] sm:top-[50%] sm:bottom-auto sm:translate-x-[-50%] sm:translate-y-[-50%] w-full sm:w-[calc(100%-2rem)] sm:max-w-lg rounded-t-2xl sm:rounded-xl bg-white shadow-xl border-t sm:border p-0 h-[60vh] sm:h-auto max-h-[60vh] sm:max-h-[calc(100vh-4rem)] overflow-hidden flex flex-col ${dismissingSheet === "category" ? "animate-bottom-sheet-out" : "animate-bottom-sheet-in"} sm:animate-none`}
                     style={isMobileViewport ? { willChange: 'transform', backfaceVisibility: 'hidden' } : undefined}
                     onTouchStart={(e) => handleSheetTouchStart(e, e.currentTarget as HTMLDivElement)}
                     onTouchMove={handleSheetTouchMove}
@@ -4950,7 +4950,7 @@ export default function NewProductPage() {
           <div className={`fixed inset-0 bg-black/40 ${dismissingSheet === "youtube" ? "opacity-0 transition-opacity duration-400" : "animate-backdrop-in"}`} onClick={() => closeSheet("youtube", () => { setShowYoutubeInput(false); setYoutubeInput("") })} />
           <div
             className={`fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-xl ${dismissingSheet === "youtube" ? "animate-bottom-sheet-out" : "animate-bottom-sheet-in"} z-50`}
-            style={{ maxHeight: "85vh" }}
+            style={{ maxHeight: "85vh", willChange: "transform", backfaceVisibility: "hidden" }}
             onTouchStart={(e) => handleSheetTouchStart(e, e.currentTarget as HTMLDivElement)}
             onTouchMove={handleSheetTouchMove}
             onTouchEnd={() => handleSheetTouchEnd("youtube", () => { setShowYoutubeInput(false); setYoutubeInput("") })}
@@ -5008,6 +5008,7 @@ export default function NewProductPage() {
           <div className={`fixed inset-0 bg-black/40 ${dismissingSheet === "cta" ? "opacity-0 transition-opacity duration-400" : "animate-backdrop-in"}`} onClick={() => closeSheet("cta", () => setShowCtaSheet(false))} />
           <div
             className={`fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-xl ${dismissingSheet === "cta" ? "animate-bottom-sheet-out" : "animate-bottom-sheet-in"} z-50`}
+            style={{ willChange: "transform", backfaceVisibility: "hidden" }}
             onTouchStart={(e) => handleSheetTouchStart(e, e.currentTarget as HTMLDivElement)}
             onTouchMove={handleSheetTouchMove}
             onTouchEnd={() => handleSheetTouchEnd("cta", () => setShowCtaSheet(false))}
@@ -5041,7 +5042,7 @@ export default function NewProductPage() {
           <div className={`fixed inset-0 bg-black/40 ${dismissingSheet === "refund" ? "opacity-0 transition-opacity duration-400" : "animate-backdrop-in"}`} onClick={() => closeSheet("refund", () => setShowRefundPolicySheet(false))} />
           <div
             className={`fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-xl ${dismissingSheet === "refund" ? "animate-bottom-sheet-out" : "animate-bottom-sheet-in"} z-50`}
-            style={{ maxHeight: "85vh" }}
+            style={{ maxHeight: "85vh", willChange: "transform", backfaceVisibility: "hidden" }}
             onTouchStart={(e) => handleSheetTouchStart(e, e.currentTarget as HTMLDivElement)}
             onTouchMove={handleSheetTouchMove}
             onTouchEnd={() => handleSheetTouchEnd("refund", () => setShowRefundPolicySheet(false))}
