@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet"
 import { cn } from "@/lib/utils"
 import { Loader2 } from "lucide-react"
 
@@ -59,9 +60,21 @@ const curatedCovers = [
   },
 ] as const
 
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640)
+    check()
+    window.addEventListener("resize", check)
+    return () => window.removeEventListener("resize", check)
+  }, [])
+  return isMobile
+}
+
 export function CoverImageLibraryModal({ open, onOpenChange, onSelect }: CoverImageLibraryModalProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const isMobile = useIsMobile()
 
   const handleColorSelect = async (cover: (typeof colorGradientCovers)[0]) => {
     setSelectedId(cover.id)
@@ -103,81 +116,97 @@ export function CoverImageLibraryModal({ open, onOpenChange, onSelect }: CoverIm
     onOpenChange(false)
   }
 
+  const coverContent = (
+    <div className="space-y-6">
+      <div className="space-y-3">
+        <h3 className="text-sm font-medium text-muted-foreground">Color & Gradient</h3>
+        <div className="grid grid-cols-4 gap-2 sm:gap-3">
+          {colorGradientCovers.map((cover) => (
+            <button
+              key={cover.id}
+              onClick={() => handleColorSelect(cover)}
+              disabled={loading}
+              className={cn(
+                "aspect-[3/2] rounded-lg overflow-hidden border-2 transition-all hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+                selectedId === cover.id ? "border-primary ring-2 ring-primary" : "border-transparent",
+              )}
+              style={{ background: cover.value }}
+            >
+              {loading && selectedId === cover.id && (
+                <div className="w-full h-full flex items-center justify-center bg-black/20">
+                  <Loader2 className="h-4 w-4 animate-spin text-white" />
+                </div>
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <h3 className="text-sm font-medium text-muted-foreground">Curated Images</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+          {curatedCovers.map((cover) => (
+            <button
+              key={cover.id}
+              onClick={() => handleCuratedSelect(cover)}
+              className={cn(
+                "aspect-[3/2] rounded-lg overflow-hidden border-2 transition-all hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+                selectedId === cover.id ? "border-primary ring-2 ring-primary" : "border-transparent",
+              )}
+            >
+              <img
+                src={cover.thumb}
+                alt="Cover option"
+                className="w-full h-full object-cover"
+                loading="lazy"
+                decoding="async"
+                fetchPriority="low"
+                referrerPolicy="no-referrer"
+                width={600}
+                height={300}
+                onError={(e) => {
+                  const img = e.currentTarget
+                  if (img.dataset.fallbackApplied === "1") return
+                  img.dataset.fallbackApplied = "1"
+                  img.src = cover.url
+                }}
+              />
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+
+  // Mobile: bottom sheet with swipe-to-dismiss
+  if (isMobile) {
+    return (
+      <MobileBottomSheet
+        open={open}
+        onOpenChange={onOpenChange}
+        title="Choose Cover Image"
+        heightPercent={60}
+      >
+        {coverContent}
+      </MobileBottomSheet>
+    )
+  }
+
+  // Desktop: standard dialog
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
           "p-0 gap-0 flex flex-col overflow-hidden",
-          "w-[95vw] h-[85vh]",
-          "sm:w-full sm:max-w-2xl sm:h-auto sm:max-h-[85vh]",
+          "w-full max-w-2xl h-auto max-h-[85vh]",
         )}
       >
         <DialogHeader className="px-4 sm:px-6 py-4 border-b border-border shrink-0">
           <DialogTitle>Choose Cover Image</DialogTitle>
         </DialogHeader>
-
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
-          <div className="p-4 sm:p-6 space-y-6">
-            {/* Color & Gradient Section */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-medium text-muted-foreground">Color & Gradient</h3>
-              <div className="grid grid-cols-4 gap-2 sm:gap-3">
-                {colorGradientCovers.map((cover) => (
-                  <button
-                    key={cover.id}
-                    onClick={() => handleColorSelect(cover)}
-                    disabled={loading}
-                    className={cn(
-                      "aspect-[3/2] rounded-lg overflow-hidden border-2 transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
-                      selectedId === cover.id ? "border-primary ring-2 ring-primary" : "border-transparent",
-                    )}
-                    style={{ background: cover.value }}
-                  >
-                    {loading && selectedId === cover.id && (
-                      <div className="w-full h-full flex items-center justify-center bg-black/20">
-                        <Loader2 className="h-4 w-4 animate-spin text-white" />
-                      </div>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Curated Images Section */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-medium text-muted-foreground">Curated Images</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-                {curatedCovers.map((cover) => (
-                  <button
-                    key={cover.id}
-                    onClick={() => handleCuratedSelect(cover)}
-                    className={cn(
-                      "aspect-[3/2] rounded-lg overflow-hidden border-2 transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
-                      selectedId === cover.id ? "border-primary ring-2 ring-primary" : "border-transparent",
-                    )}
-                  >
-                    <img
-                      src={cover.thumb}
-                      alt="Cover option"
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                      decoding="async"
-                      fetchPriority="low"
-                      referrerPolicy="no-referrer"
-                      width={600}
-                      height={300}
-                      onError={(e) => {
-                        // If thumb fails, fall back to the full URL.
-                        const img = e.currentTarget
-                        if (img.dataset.fallbackApplied === "1") return
-                        img.dataset.fallbackApplied = "1"
-                        img.src = cover.url
-                      }}
-                    />
-                  </button>
-                ))}
-              </div>
-            </div>
+          <div className="p-4 sm:p-6">
+            {coverContent}
           </div>
         </div>
       </DialogContent>

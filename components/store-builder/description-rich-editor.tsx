@@ -55,6 +55,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet"
 
 interface ThemeColors {
   backgroundColor?: string
@@ -157,6 +158,8 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
     transformOrigin: string
   }>({ top: 0, left: 0, transformOrigin: "top left" })
 
+  const isMobileView = isMobile || (typeof window !== "undefined" && window.innerWidth < 640)
+
   // Create portal container on mount
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -178,7 +181,7 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
   }, [])
 
   useEffect(() => {
-    if (!isOpen) return
+    if (!isOpen || isMobileView) return
 
     const handleClickOutside = (e: MouseEvent) => {
       if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
@@ -196,17 +199,6 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
     const calculatePosition = () => {
       const viewportWidth = window.innerWidth
       const viewportHeight = window.innerHeight
-      const isMobileView = isMobile || viewportWidth < 640
-
-      // On mobile, center on screen
-      if (isMobileView) {
-        setPosition({
-          top: viewportHeight / 2,
-          left: viewportWidth / 2,
-          transformOrigin: "center center"
-        })
-        return
-      }
 
       // Get the trigger element (parent of popover or anchorRef)
       const triggerElement = triggerRef?.current || anchorRef?.current || popoverRef.current?.parentElement
@@ -270,23 +262,38 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
       window.removeEventListener("resize", calculatePosition)
       window.removeEventListener("scroll", calculatePosition, true)
     }
-  }, [isOpen, onClose, isMobile, triggerRef, anchorRef])
+  }, [isOpen, onClose, isMobile, isMobileView, triggerRef, anchorRef])
 
   if (!isOpen) return null
 
   const isDark = themeColors?.isDarkTheme
-  const isMobileView = isMobile || (typeof window !== "undefined" && window.innerWidth < 640)
   const bgColor = isDark ? "#1a1a1a" : "#ffffff"
   const borderColorValue = isDark ? "#444" : "#e5e7eb"
   const textColor = isDark ? "#fafafa" : "#1a1a1a"
 
+  // Mobile: use MobileBottomSheet with smooth swipe-to-dismiss
+  if (isMobileView) {
+    return (
+      <MobileBottomSheet
+        open={isOpen}
+        onOpenChange={(open) => { if (!open) onClose() }}
+        heightPercent={55}
+        preventFocus
+      >
+        <div style={{ color: textColor }}>
+          {children}
+        </div>
+      </MobileBottomSheet>
+    )
+  }
+
   const popoverContent = (
     <>
-      {/* Backdrop - very subtle fade */}
+      {/* Backdrop */}
       <div
         className="fixed inset-0"
         style={{
-          backgroundColor: isMobileView ? "rgba(0,0,0,0.3)" : "transparent",
+          backgroundColor: "transparent",
           zIndex: 2147483645,
           pointerEvents: "auto",
           opacity: 1,
@@ -310,22 +317,11 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
           color: textColor,
           // Subtle animation: gentle fade + very slight scale from 98%
           animation: "popoverIn 180ms cubic-bezier(0.16, 1, 0.3, 1) forwards",
-          ...(isMobileView ? {
-            left: "50%",
-            top: "50%",
-            transform: "translate(-50%, -50%)",
-            transformOrigin: "center center",
-            width: "calc(100vw - 32px)",
-            maxWidth: "340px",
-            maxHeight: "calc(100vh - 48px)",
-            overflow: "hidden",
-          } : {
-            top: position.top,
-            left: position.left,
-            transformOrigin: position.transformOrigin,
-            maxHeight: "min(450px, calc(100vh - 100px))",
-            overflow: "hidden",
-          }),
+          top: position.top,
+          left: position.left,
+          transformOrigin: position.transformOrigin,
+          maxHeight: "min(450px, calc(100vh - 100px))",
+          overflow: "hidden",
         }}
         onClick={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
@@ -343,11 +339,11 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
         @keyframes popoverIn {
           from {
             opacity: 0;
-            transform: ${isMobileView ? 'translate(-50%, -50%) scale(0.98)' : 'scale(0.98)'};
+            transform: scale(0.98);
           }
           to {
             opacity: 1;
-            transform: ${isMobileView ? 'translate(-50%, -50%) scale(1)' : 'scale(1)'};
+            transform: scale(1);
           }
         }
       `}</style>
@@ -1235,11 +1231,20 @@ export function DescriptionRichEditor({
     const embedContainer = target.closest('[data-embed-type]') as HTMLElement
 
     if (embedContainer) {
+      // Prevent keyboard from opening on mobile when tapping images/embeds
+      const isMobileView = isMobile || window.innerWidth < 640
+      if (isMobileView) {
+        e.preventDefault()
+        // Temporarily blur editor to prevent keyboard
+        if (editorRef.current) {
+          editorRef.current.blur()
+        }
+      }
       setSelectedEmbed(embedContainer)
     } else {
       setSelectedEmbed(null)
     }
-  }, [handleContentChange])
+  }, [handleContentChange, isMobile])
 
   // Delete selected embed
   const deleteEmbed = useCallback((embed: HTMLElement) => {
@@ -2039,8 +2044,8 @@ export function DescriptionRichEditor({
         </div>
       )}
 
-      {/* Selected Embed Controls */}
-      {selectedEmbed && (
+      {/* Selected Embed Controls - Desktop: floating toolbar, Mobile: bottom sheet */}
+      {selectedEmbed && !(isMobile || (typeof window !== "undefined" && window.innerWidth < 640)) && (
         <div className="fixed" style={{
           zIndex: 2147483640,
           top: selectedEmbed.getBoundingClientRect().top + window.scrollY + 8,
@@ -2114,6 +2119,75 @@ export function DescriptionRichEditor({
             </button>
           </div>
         </div>
+      )}
+
+      {/* Mobile: Embed controls as bottom sheet */}
+      {selectedEmbed && (isMobile || (typeof window !== "undefined" && window.innerWidth < 640)) && (
+        <MobileBottomSheet
+          open={!!selectedEmbed}
+          onOpenChange={(open) => { if (!open) setSelectedEmbed(null) }}
+          title={selectedEmbed.getAttribute('data-embed-type') === 'image' ? "Image Settings" : "Media Settings"}
+          heightPercent={45}
+          preventFocus
+        >
+          <div className="space-y-3">
+            {/* Move controls */}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => { moveEmbedUp(selectedEmbed); }}
+                className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-border p-3 active:bg-muted transition-colors"
+              >
+                <MoveUp className="h-4 w-4" />
+                <span className="text-sm">Move Up</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { moveEmbedDown(selectedEmbed); }}
+                className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-border p-3 active:bg-muted transition-colors"
+              >
+                <MoveDown className="h-4 w-4" />
+                <span className="text-sm">Move Down</span>
+              </button>
+            </div>
+
+            {/* Image size options */}
+            {selectedEmbed.getAttribute('data-embed-type') === 'image' && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-muted-foreground">Image Size</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {imageSizeOptions.map((option) => {
+                    const isActive = selectedEmbed.getAttribute('data-image-size') === option.value
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => changeImageSize(selectedEmbed, option.value)}
+                        className={cn(
+                          "flex flex-col items-center gap-1 rounded-lg border p-3 transition-colors active:bg-muted",
+                          isActive ? "border-purple-500 bg-purple-50 dark:bg-purple-950/30" : "border-border"
+                        )}
+                      >
+                        <option.icon className={cn("h-5 w-5", isActive ? "text-purple-600" : "text-muted-foreground")} />
+                        <span className={cn("text-xs", isActive ? "text-purple-600 font-medium" : "")}>{option.label}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Delete */}
+            <button
+              type="button"
+              onClick={() => deleteEmbed(selectedEmbed)}
+              className="w-full flex items-center justify-center gap-2 rounded-lg border border-red-200 dark:border-red-900 p-3 text-red-600 active:bg-red-50 dark:active:bg-red-950/30 transition-colors"
+            >
+              <Trash2 className="h-4 w-4" />
+              <span className="text-sm font-medium">Delete</span>
+            </button>
+          </div>
+        </MobileBottomSheet>
       )}
     </div>
   )

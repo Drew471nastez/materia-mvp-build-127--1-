@@ -1,9 +1,11 @@
 "use client"
 
 import type React from "react"
+import { useState, useEffect } from "react"
 
 import { useStoreBuilder } from "./store-builder-context"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet"
 import { ListChecks, Type, Megaphone, Grid, ImageIcon, Package, CheckCircle, X, Star, Users, ShoppingBag } from "lucide-react"
 import { sectionLibrary, createSectionFromLibrary } from "@/lib/store-builder/defaults"
 import type { SectionLibraryItem } from "@/lib/store-builder/types"
@@ -24,8 +26,20 @@ const sectionIconsMap: Record<string, React.ReactNode> = {
   reviews: <CheckCircle className="h-5 w-5" />,
 }
 
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640)
+    check()
+    window.addEventListener("resize", check)
+    return () => window.removeEventListener("resize", check)
+  }, [])
+  return isMobile
+}
+
 export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
   const { draftConfig, addSection } = useStoreBuilder()
+  const isMobile = useIsMobile()
 
   const handleAddSection = (libraryItem: SectionLibraryItem) => {
     const newSection = createSectionFromLibrary(libraryItem, draftConfig.sections.length)
@@ -33,53 +47,63 @@ export function AddSectionModal({ open, onOpenChange }: AddSectionModalProps) {
     onOpenChange(false)
   }
 
+  const sectionGrid = (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {sectionLibrary
+        .filter((item) => item.type !== "featured-products" && item.type !== "reviews")
+        .map((item) => (
+        <button
+          key={item.type}
+          onClick={() => handleAddSection(item)}
+          className="flex flex-col items-start rounded-xl border border-border bg-background p-3 text-left transition-all hover:border-purple-400 hover:shadow-md hover:scale-[1.02] active:scale-[0.98] group focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+        >
+          <div className="w-full aspect-[16/9] rounded-lg bg-muted mb-2.5 flex items-center justify-center overflow-hidden border border-border/50">
+            <RealSectionPreview type={item.type} />
+          </div>
+          <div className="flex items-center gap-2.5 w-full">
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-muted-foreground group-hover:bg-purple-100 group-hover:text-purple-600 dark:group-hover:bg-purple-900 dark:group-hover:text-purple-400 shrink-0 transition-colors">
+              {sectionIconsMap[item.type]}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold text-sm truncate">{item.name}</p>
+              <p className="text-xs text-muted-foreground truncate">{item.description}</p>
+            </div>
+          </div>
+        </button>
+      ))}
+    </div>
+  )
+
+  // Mobile: bottom sheet with swipe-to-dismiss
+  if (isMobile) {
+    return (
+      <MobileBottomSheet
+        open={open}
+        onOpenChange={onOpenChange}
+        title="Add Section"
+        heightPercent={60}
+      >
+        {sectionGrid}
+      </MobileBottomSheet>
+    )
+  }
+
+  // Desktop: standard dialog
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
           "p-0 gap-0 flex flex-col overflow-hidden rounded-2xl",
-          // Mobile: near full screen
-          "w-[calc(100vw-24px)] h-[85vh]",
-          // Desktop: constrained size
-          "sm:w-full sm:max-w-2xl sm:h-auto sm:max-h-[80vh]",
+          "w-full max-w-2xl h-auto max-h-[80vh]",
         )}
       >
-        {/* Header - fixed */}
         <DialogHeader className="px-5 py-4 border-b border-border shrink-0 bg-background">
           <DialogTitle className="text-lg font-semibold">Add Section</DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">Choose a section type to add to your page</DialogDescription>
         </DialogHeader>
-
-        {/* Content - scrollable */}
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-muted/30">
           <div className="p-4 sm:p-5">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Filter out featured-products (automatically added and locked) and reviews (product page only) */}
-              {sectionLibrary
-                .filter((item) => item.type !== "featured-products" && item.type !== "reviews")
-                .map((item) => (
-                <button
-                  key={item.type}
-                  onClick={() => handleAddSection(item)}
-                  className="flex flex-col items-start rounded-xl border border-border bg-background p-3 text-left transition-all hover:border-purple-400 hover:shadow-md hover:scale-[1.02] group focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
-                >
-                  {/* Section Preview */}
-                  <div className="w-full aspect-[16/9] rounded-lg bg-muted mb-2.5 flex items-center justify-center overflow-hidden border border-border/50">
-                    <RealSectionPreview type={item.type} />
-                  </div>
-                  {/* Section Info */}
-                  <div className="flex items-center gap-2.5 w-full">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-muted-foreground group-hover:bg-purple-100 group-hover:text-purple-600 dark:group-hover:bg-purple-900 dark:group-hover:text-purple-400 shrink-0 transition-colors">
-                      {sectionIconsMap[item.type]}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-semibold text-sm truncate">{item.name}</p>
-                      <p className="text-xs text-muted-foreground truncate">{item.description}</p>
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
+            {sectionGrid}
           </div>
         </div>
       </DialogContent>

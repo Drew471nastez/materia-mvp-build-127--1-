@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet"
 import { Bell, CreditCard, ChevronRight, X, Link2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
@@ -203,23 +204,17 @@ export function NotificationsModal({
     </div>
   )
 
-  // Mobile: Full-screen sheet
+  // Mobile: Bottom sheet with smooth swipe-to-dismiss
   if (isMobile) {
     return (
-      <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="bottom" className="h-[85vh] p-0 rounded-t-2xl" hideCloseButton>
-          <SheetHeader className="px-4 py-3 border-b flex flex-row items-center justify-between">
-            <SheetTitle className="text-base font-semibold">Notifications</SheetTitle>
-            <button
-              onClick={() => onOpenChange(false)}
-              className="w-8 h-8 rounded-full hover:bg-neutral-100 flex items-center justify-center"
-            >
-              <X className="w-5 h-5 text-neutral-500" />
-            </button>
-          </SheetHeader>
-          <NotificationsContent />
-        </SheetContent>
-      </Sheet>
+      <MobileBottomSheet
+        open={open}
+        onOpenChange={onOpenChange}
+        title="Notifications"
+        heightPercent={60}
+      >
+        <NotificationsContent />
+      </MobileBottomSheet>
     )
   }
 
