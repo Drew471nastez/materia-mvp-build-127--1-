@@ -246,10 +246,19 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 })
     }
 
-    // Delete from storage
+    // Delete from storage - use the bucket from the asset record if available, fallback to default
+    const deleteBucket = asset.storage_bucket || BUCKET_NAME
     const { error: storageError } = await adminSupabase.storage
-      .from(BUCKET_NAME)
+      .from(deleteBucket)
       .remove([asset.file_path])
+
+    // If deletion failed from the primary bucket, try the other bucket too
+    if (storageError && deleteBucket !== BUCKET_NAME) {
+      await adminSupabase.storage.from(BUCKET_NAME).remove([asset.file_path]).catch(() => {})
+    }
+    if (storageError && deleteBucket !== "digital-products") {
+      await adminSupabase.storage.from("digital-products").remove([asset.file_path]).catch(() => {})
+    }
 
     if (storageError) {
       console.log("Storage deletion error (continuing):", storageError)

@@ -57,6 +57,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { DescriptionRichEditor } from "@/components/store-builder/description-rich-editor"
+import { DirectUploader, type UploadStatus } from "@/lib/storage/chunked-upload"
 import {
   DndContext,
   closestCenter,
@@ -119,6 +120,34 @@ const getPillForSection = (sectionId: SectionId): PillSectionId => {
 // Limits
 const MAX_PHOTOS = 12
 const MAX_YOUTUBE_VIDEOS = 5
+const MAX_FILE_SIZE = 5 * 1024 * 1024 * 1024 // 5GB per file
+const MAX_DIGITAL_FILES = 15
+
+// Blocked file extensions for security
+const BLOCKED_EXTENSIONS = new Set([
+  "exe", "bat", "cmd", "com", "scr", "pif", "msi", "msp", "mst",
+  "cpl", "hta", "inf", "ins", "isp", "lnk", "reg", "rgs",
+  "sct", "shb", "shs", "ws", "vbe", "vbs", "vb",
+  "jse", "wsc", "wsf", "wsh",
+  "ps1", "psm1", "psd1", "ps1xml", "ps2", "ps2xml",
+  "sh", "bash", "csh", "ksh", "zsh",
+  "py", "pyc", "pyw", "rb", "pl", "php", "asp", "aspx", "jsp",
+  "app", "command", "action", "workflow",
+  "jar", "class", "jnlp", "dll", "so", "dylib",
+  "iso", "img", "dmg", "vhd", "vhdx",
+  "url", "webloc", "desktop",
+  "cer", "crt", "der", "p7b", "pfx", "p12",
+])
+
+interface ActiveFileUpload {
+  file: File
+  uploader: DirectUploader
+  progress: number
+  status: UploadStatus
+  error?: string
+  bytesUploaded: number
+  bytesTotal: number
+}
 
 interface UploadedFile {
   id?: string
@@ -751,6 +780,7 @@ export default function NewProductPage() {
   const [digitalFiles, setDigitalFiles] = useState<UploadedFile[]>([])
   const [uploadingFiles, setUploadingFiles] = useState(false)
   const [fileUploadProgress, setFileUploadProgress] = useState(0)
+  const [activeFileUploads, setActiveFileUploads] = useState<Map<string, ActiveFileUpload>>(new Map())
   const [isFileDragOver, setIsFileDragOver] = useState(false)
   const fileDragCounterRef = useRef(0)
 
@@ -2356,6 +2386,16 @@ export default function NewProductPage() {
       }
 
       setHasUnsavedChanges(false)
+
+      // Auto-generate ZIP bundle when product has 2+ digital files
+      if (digitalFiles.length >= 2) {
+        fetch("/api/v2/upload/bundle", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ productId: finalProductId }),
+        }).catch(() => { /* Non-critical: bundle can be regenerated */ })
+      }
+
       return { productId: finalProductId, slug: finalSlug }
     } catch (err: any) {
       console.error("Error saving product:", err)
@@ -2804,11 +2844,66 @@ export default function NewProductPage() {
   }, [touchDragIndex, dragOverIndex, mediaItems, cancelLongPress])
 
   // Handle file upload for digital assets using admin API with progress
+  // Helper: get upload status label
+  const getUploadStatusLabel = (status: UploadStatus): string => {
+    switch (status) {
+      case "computing_checksum": return "Verifying integrity..."
+      case "preparing": return "Preparing upload..."
+      case "uploading": return "Uploading..."
+      case "completing": return "Finalizing..."
+      case "complete": return "Complete"
+      case "paused": return "Paused"
+      case "error": return "Failed"
+      case "aborted": return "Cancelled"
+      default: return "Starting..."
+    }
+  }
+
+  // Compute overall upload progress from all active uploads
+  const computedFileUploadProgress = activeFileUploads.size > 0
+    ? Math.round(
+        Array.from(activeFileUploads.values()).reduce((sum, u) => sum + u.progress, 0) /
+          activeFileUploads.size
+      )
+    : 0
+
   const handleFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return
 
     // Clear previous errors
     setError(null)
+
+    const fileArray = Array.from(files)
+
+    // Validate: max file count
+    if (digitalFiles.length + fileArray.length > MAX_DIGITAL_FILES) {
+      setError(`Maximum ${MAX_DIGITAL_FILES} digital files per product. You currently have ${digitalFiles.length}.`)
+      return
+    }
+
+    // Validate each file before starting uploads
+    for (const file of fileArray) {
+      // Check file size (5GB max)
+      if (file.size > MAX_FILE_SIZE) {
+        setError(`File "${file.name}" exceeds 5GB limit`)
+        return
+      }
+      // Check blocked extensions
+      const ext = file.name.split(".").pop()?.toLowerCase() || ""
+      if (BLOCKED_EXTENSIONS.has(ext)) {
+        setError(`File type ".${ext}" is not allowed for security reasons`)
+        return
+      }
+      // Check double extensions (e.g. file.pdf.exe)
+      const parts = file.name.split(".")
+      if (parts.length > 2) {
+        const lastExt = parts[parts.length - 1].toLowerCase()
+        if (BLOCKED_EXTENSIONS.has(lastExt)) {
+          setError(`File "${file.name}" has a blocked extension`)
+          return
+        }
+      }
+    }
 
     let currentProductId = productId
     if (!currentProductId) {
@@ -2819,14 +2914,11 @@ export default function NewProductPage() {
         return
       }
 
-      // Clear any previous error before attempting save
       setError(null)
 
       try {
         const saveResult = await saveProduct(false)
         if (!saveResult) {
-          // If saveProduct returns null, get error from state or use default
-          // Small delay to ensure error state is set
           await new Promise(resolve => setTimeout(resolve, 50))
           setError(prev => prev || "Failed to create product. Please check your connection and try again.")
           return
@@ -2841,73 +2933,104 @@ export default function NewProductPage() {
 
     setUploadingFiles(true)
     setFileUploadProgress(0)
-    const newFiles: UploadedFile[] = []
-    const totalFiles = Array.from(files).length
-    let completedFiles = 0
 
-    try {
-      for (const file of Array.from(files)) {
-        if (file.size > 5 * 1024 * 1024 * 1024) {
-          setError(`File "${file.name}" exceeds 5GB limit`)
-          continue
-        }
+    for (const file of fileArray) {
+      const uploadKey = `${file.name}-${file.size}-${Date.now()}`
 
-        // Update progress to show which file we're working on
-        setFileUploadProgress(Math.round((completedFiles / totalFiles) * 100))
-
-        // Use admin API route to bypass RLS
-        const formData = new FormData()
-        formData.append("file", file)
-        formData.append("productId", currentProductId)
-
-        try {
-          const response = await fetch("/api/storage/upload-file", {
-            method: "POST",
-            body: formData,
-          })
-
-          if (!response.ok) {
-            let errorMessage = "Upload failed"
-            try {
-              const errorData = await response.json()
-              console.error("Digital file upload error:", errorData)
-              errorMessage = errorData.error || errorMessage
-            } catch (e) {
-              console.error("Could not parse error response:", e)
+      const uploader = new DirectUploader({
+        file,
+        productId: currentProductId || undefined,
+        folder: "digital",
+        onProgress: (percent, bytesUploaded, bytesTotal) => {
+          setActiveFileUploads(prev => {
+            const next = new Map(prev)
+            const entry = next.get(uploadKey)
+            if (entry) {
+              next.set(uploadKey, { ...entry, progress: percent, bytesUploaded, bytesTotal })
             }
-            setError(`Failed to upload "${file.name}": ${errorMessage}`)
-            continue
+            return next
+          })
+          // Update overall progress
+          setActiveFileUploads(prev => {
+            const total = Array.from(prev.values()).reduce((s, u) => s + u.progress, 0)
+            setFileUploadProgress(prev.size > 0 ? Math.round(total / prev.size) : 0)
+            return prev
+          })
+        },
+        onStatusChange: (status) => {
+          setActiveFileUploads(prev => {
+            const next = new Map(prev)
+            const entry = next.get(uploadKey)
+            if (entry) {
+              next.set(uploadKey, { ...entry, status })
+            }
+            return next
+          })
+        },
+        onComplete: (result) => {
+          const newFile: UploadedFile = {
+            id: result.assetId || undefined,
+            file_name: result.fileName,
+            file_path: result.path,
+            file_size: result.fileSize,
+            mime_type: result.mimeType,
           }
 
-          const result = await response.json()
+          setDigitalFiles(prev => [...prev, newFile])
 
-          if (result.asset) {
-            newFiles.push({
-              id: result.asset.id,
-              file_name: result.asset.file_name,
-              file_path: result.asset.file_path,
-              file_size: result.asset.file_size,
+          // Remove from active uploads after showing completion briefly
+          setTimeout(() => {
+            setActiveFileUploads(prev => {
+              const next = new Map(prev)
+              next.delete(uploadKey)
+              // If no more active uploads, reset progress state
+              if (next.size === 0) {
+                setUploadingFiles(false)
+                setFileUploadProgress(0)
+              }
+              return next
             })
+          }, 1500)
+
+          // Trigger background antivirus scan
+          if (result.assetId) {
+            fetch("/api/v2/upload/scan", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ assetId: result.assetId }),
+            }).catch(() => { /* Non-critical: scan will be picked up by cron */ })
           }
+        },
+        onError: (err) => {
+          setActiveFileUploads(prev => {
+            const next = new Map(prev)
+            const entry = next.get(uploadKey)
+            if (entry) {
+              next.set(uploadKey, { ...entry, status: "error", error: err.message })
+            }
+            return next
+          })
+        },
+      })
 
-          completedFiles++
-          setFileUploadProgress(Math.round((completedFiles / totalFiles) * 100))
-        } catch (uploadErr) {
-          console.error("Digital file upload request error:", uploadErr)
-          setError(`Failed to upload "${file.name}": Network error. Please check your connection and try again.`)
-          continue
-        }
-      }
+      // Add to active uploads
+      setActiveFileUploads(prev => {
+        const next = new Map(prev)
+        next.set(uploadKey, {
+          file,
+          uploader,
+          progress: 0,
+          status: "idle",
+          bytesUploaded: 0,
+          bytesTotal: file.size,
+        })
+        return next
+      })
 
-      if (newFiles.length > 0) {
-        setDigitalFiles(prev => [...prev, ...newFiles])
-        setFileUploadProgress(100)
-      }
-    } finally {
-      // Brief delay to show 100% completion
-      await new Promise(resolve => setTimeout(resolve, 300))
-      setUploadingFiles(false)
-      setFileUploadProgress(0)
+      // Start upload (don't await — allow parallel uploads)
+      uploader.start().catch(() => {
+        // Error already handled by onError callback
+      })
     }
   }
 
@@ -3983,7 +4106,7 @@ export default function NewProductPage() {
                     />
                   </div>
                   <p className="text-xs sm:text-sm text-gray-500">
-                    Upload files customers will receive (max 5GB each).
+                    Upload files customers will receive (max 5GB each, up to {MAX_DIGITAL_FILES} files). Direct-to-cloud upload with real progress.
                   </p>
 
                   {digitalFiles.length > 0 && (
@@ -4101,21 +4224,57 @@ export default function NewProductPage() {
                       disabled={uploadingFiles}
                     />
 
-                    {uploadingFiles ? (
-                      <div className="flex flex-col items-center gap-3 animate-pulse">
+                    {uploadingFiles && activeFileUploads.size > 0 ? (
+                      <div className="w-full space-y-3 px-2">
+                        {Array.from(activeFileUploads).map(([key, upload]) => (
+                          <div key={key} className="bg-white rounded-lg border border-gray-200 p-3 space-y-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 min-w-0 flex-1">
+                                {upload.status === "complete" ? (
+                                  <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                                ) : upload.status === "error" ? (
+                                  <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0" />
+                                ) : (
+                                  <Loader2 className="h-4 w-4 text-violet-500 animate-spin flex-shrink-0" />
+                                )}
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-xs font-medium text-gray-900 truncate">{upload.file.name}</p>
+                                  <p className="text-[10px] text-gray-500">
+                                    {getUploadStatusLabel(upload.status)}
+                                    {upload.status === "uploading" && upload.bytesTotal > 0 && (
+                                      <> — {formatFileSize(upload.bytesUploaded)} / {formatFileSize(upload.bytesTotal)}</>
+                                    )}
+                                  </p>
+                                </div>
+                              </div>
+                              <span className="text-xs font-semibold text-violet-600 tabular-nums flex-shrink-0">
+                                {upload.progress}%
+                              </span>
+                            </div>
+                            <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all duration-300 ease-out ${
+                                  upload.status === "error" ? "bg-red-500" :
+                                  upload.status === "complete" ? "bg-green-500" : "bg-violet-500"
+                                }`}
+                                style={{ width: `${upload.progress}%` }}
+                              />
+                            </div>
+                            {upload.error && (
+                              <p className="text-[10px] text-red-500">{upload.error}</p>
+                            )}
+                          </div>
+                        ))}
+                        <div className="flex items-center justify-center gap-2 pt-1">
+                          <div className="text-xs text-gray-500">Overall: {computedFileUploadProgress}%</div>
+                        </div>
+                      </div>
+                    ) : uploadingFiles ? (
+                      <div className="flex flex-col items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center">
                           <Loader2 className="h-5 w-5 text-violet-600 animate-spin" />
                         </div>
-                        <div className="flex flex-col items-center gap-1">
-                          <p className="text-sm font-medium text-gray-700">Uploading digital files...</p>
-                          <div className="w-32 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-violet-500 rounded-full transition-all duration-300 ease-out"
-                              style={{ width: `${fileUploadProgress}%` }}
-                            />
-                          </div>
-                          <p className="text-xs text-gray-500">{fileUploadProgress}%</p>
-                        </div>
+                        <p className="text-sm font-medium text-gray-700">Preparing upload...</p>
                       </div>
                     ) : isFileDragOver ? (
                       <div className="flex flex-col items-center gap-3 animate-in fade-in zoom-in-95 duration-400">
