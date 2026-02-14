@@ -67,15 +67,12 @@ export async function POST(request: Request) {
     : ((product as any).pwyw_min_price_cents || 0)
 
   // Calculate final price
-  // - If PWYW active and custom price provided, use custom price (validated)
-  // - Otherwise use variant price if selected, or product price
   let basePriceCents = selectedVariant ? variantPriceCents : (product.price_cents || 0)
 
   // Handle PWYW custom price
   if (isPwywActive && customPriceCents !== null && customPriceCents !== undefined) {
     const parsedCustomPrice = parseInt(String(customPriceCents), 10)
     if (!isNaN(parsedCustomPrice)) {
-      // Validate against minimum
       if (parsedCustomPrice < pwywMinCents) {
         return NextResponse.json(
           { error: `Minimum price is $${(pwywMinCents / 100).toFixed(2)}` },
@@ -86,8 +83,7 @@ export async function POST(request: Request) {
     }
   }
 
-  // IMPORTANT: Only require Stripe when the FINAL price (variant or base) is > 0
-  // This allows free variants to work even if seller hasn't connected Stripe
+  // Only require Stripe when the FINAL price is > 0
   if (basePriceCents > 0) {
     if (!product.creator.stripe_account_id) {
       console.error("[v0] Seller has not connected Stripe account")
@@ -174,7 +170,6 @@ export async function POST(request: Request) {
     sameSite: "lax",
     maxAge: 60 * 60 * 24 * 365,
     path: "/",
-    // Cross-subdomain support - allows receipt access from any subdomain
     domain: isLocalhost ? undefined : `.${mainDomain}`,
   })
 
@@ -199,48 +194,18 @@ export async function POST(request: Request) {
     variantName: selectedVariant?.name || "none",
   })
 
-  // Build line item description with variant
-  const productDescription = selectedVariant
-    ? `By ${creatorProfile?.display_name || "Creator"} • ${selectedVariant.name}`
-    : `By ${creatorProfile?.display_name || "Creator"}`
-
-  const lineItems: Parameters<typeof stripe.checkout.sessions.create>[0]["line_items"] = [
-    {
-      price_data: {
-        currency: "usd",
-        product_data: {
-          name: product.title,
-          description: productDescription,
-        },
-        unit_amount: basePriceCents,
-      },
-      quantity: 1,
-    },
-  ]
-
-  if (tipCents > 0) {
-    lineItems.push({
-      price_data: {
-        currency: "usd",
-        product_data: {
-          name: "Tip for creator",
-          description: "Thank you for supporting the creator!",
-        },
-        unit_amount: tipCents,
-      },
-      quantity: 1,
-    })
-  }
-
   try {
-    const sessionConfig: any = {
-      ui_mode: "embedded",
-      mode: "payment",
-      line_items: lineItems,
-      customer_email: email,
+    // Build PaymentIntent config
+    const intentConfig: any = {
+      amount: totalAmount,
+      currency: "usd",
+      automatic_payment_methods: {
+        enabled: true,
+      },
       metadata: {
         product_id: product.id,
         product_slug: product.slug,
+        product_title: product.title,
         buyer_id: user?.id || "",
         buyer_first_name: firstName.trim(),
         buyer_last_name: lastName.trim(),
@@ -248,57 +213,104 @@ export async function POST(request: Request) {
         creator_id: product.creator.id,
         product_type: product.type,
         tip_cents: tipCents.toString(),
+        base_price_cents: basePriceCents.toString(),
         access_token: user ? "" : accessToken,
         is_gift: isGift ? "true" : "false",
         session_fingerprint: sessionFingerprint,
         receipt_token: receiptToken,
         platform_fee_cents: platformFee.toString(),
-        // Variant info (full data for order)
         variant_id: selectedVariant?.id || "",
         variant_name: selectedVariant?.name || "",
         variant_price_cents: selectedVariant?.price_cents?.toString() || "",
-        // Device and geo info
         buyer_country: geoInfo.country,
         buyer_country_code: geoInfo.countryCode,
         buyer_device_type: deviceInfo.deviceType,
         buyer_os: deviceInfo.os,
         buyer_browser: deviceInfo.browser,
+        creator_name: creatorProfile?.display_name || "Creator",
       },
-      return_url: `${baseUrl}/api/checkout/complete?session_id={CHECKOUT_SESSION_ID}`,
+      receipt_email: email,
     }
 
+    // Add Stripe Connect destination charge if seller has Stripe
     if (product.creator.stripe_account_id) {
-      sessionConfig.payment_intent_data = {
-        application_fee_amount: platformFee,
-        transfer_data: {
-          destination: product.creator.stripe_account_id,
-        },
-        statement_descriptor_suffix: getValidatedPlatformStatementDescriptor(),
+      intentConfig.application_fee_amount = platformFee
+      intentConfig.transfer_data = {
+        destination: product.creator.stripe_account_id,
       }
       console.log("[v0] Added destination charge to:", product.creator.stripe_account_id, "fee:", platformFee)
-    } else {
-      sessionConfig.payment_intent_data = {
-        statement_descriptor_suffix: getValidatedPlatformStatementDescriptor(),
-      }
     }
 
-    let session
+    // Try with statement descriptor, fall back without
     try {
-      session = await stripe.checkout.sessions.create(sessionConfig)
-    } catch (descriptorError: any) {
-      if (String(descriptorError?.message || "").toLowerCase().includes("statement_descriptor")) {
-        console.error("[v0] Descriptor rejected by provider, retrying without descriptor")
-        const fallbackConfig = { ...sessionConfig, payment_intent_data: undefined }
-        session = await stripe.checkout.sessions.create(fallbackConfig)
-      } else {
-        throw descriptorError
-      }
+      intentConfig.statement_descriptor_suffix = getValidatedPlatformStatementDescriptor()
+    } catch (descriptorError) {
+      console.error("[v0] Descriptor error, skipping:", descriptorError)
     }
 
-    console.log("[v0] Stripe session created:", session.id)
-    return NextResponse.json({ clientSecret: session.client_secret })
+    const paymentIntent = await stripe.paymentIntents.create(intentConfig)
+
+    console.log("[v0] PaymentIntent created:", paymentIntent.id)
+    return NextResponse.json({
+      clientSecret: paymentIntent.client_secret,
+      paymentIntentId: paymentIntent.id,
+    })
   } catch (error: any) {
-    console.error("[v0] Stripe session creation error:", error)
+    console.error("[v0] PaymentIntent creation error:", error)
+
+    // If statement descriptor is the issue, retry without it
+    if (String(error?.message || "").toLowerCase().includes("statement_descriptor")) {
+      try {
+        const fallbackConfig: any = {
+          amount: totalAmount,
+          currency: "usd",
+          automatic_payment_methods: { enabled: true },
+          metadata: {
+            product_id: product.id,
+            product_slug: product.slug,
+            product_title: product.title,
+            buyer_id: user?.id || "",
+            buyer_first_name: firstName.trim(),
+            buyer_last_name: lastName.trim(),
+            buyer_email: email,
+            creator_id: product.creator.id,
+            product_type: product.type,
+            tip_cents: tipCents.toString(),
+            base_price_cents: basePriceCents.toString(),
+            access_token: user ? "" : accessToken,
+            is_gift: isGift ? "true" : "false",
+            session_fingerprint: sessionFingerprint,
+            receipt_token: receiptToken,
+            platform_fee_cents: platformFee.toString(),
+            variant_id: selectedVariant?.id || "",
+            variant_name: selectedVariant?.name || "",
+            variant_price_cents: selectedVariant?.price_cents?.toString() || "",
+            buyer_country: geoInfo.country,
+            buyer_country_code: geoInfo.countryCode,
+            buyer_device_type: deviceInfo.deviceType,
+            buyer_os: deviceInfo.os,
+            buyer_browser: deviceInfo.browser,
+            creator_name: creatorProfile?.display_name || "Creator",
+          },
+          receipt_email: email,
+        }
+
+        if (product.creator.stripe_account_id) {
+          fallbackConfig.application_fee_amount = platformFee
+          fallbackConfig.transfer_data = { destination: product.creator.stripe_account_id }
+        }
+
+        const paymentIntent = await stripe.paymentIntents.create(fallbackConfig)
+        console.log("[v0] PaymentIntent created (fallback):", paymentIntent.id)
+        return NextResponse.json({
+          clientSecret: paymentIntent.client_secret,
+          paymentIntentId: paymentIntent.id,
+        })
+      } catch (fallbackError: any) {
+        console.error("[v0] Fallback PaymentIntent creation error:", fallbackError)
+        return NextResponse.json({ error: `Payment configuration error: ${fallbackError.message}` }, { status: 400 })
+      }
+    }
 
     if (error.type === "StripeInvalidRequestError") {
       return NextResponse.json({ error: `Payment configuration error: ${error.message}` }, { status: 400 })

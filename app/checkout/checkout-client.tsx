@@ -5,7 +5,14 @@ import Image from "next/image"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { loadStripe } from "@stripe/stripe-js"
-import { EmbeddedCheckout, EmbeddedCheckoutProvider } from "@stripe/react-stripe-js"
+import {
+  Elements,
+  CardNumberElement,
+  CardExpiryElement,
+  CardCvcElement,
+  useStripe,
+  useElements,
+} from "@stripe/react-stripe-js"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -77,7 +84,7 @@ function validateEmail(email: string): boolean {
 const formatPrice = (cents: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100)
 
-// Session storage keys (never store card details)
+// Session storage keys
 const SESSION_KEYS = {
   firstName: "checkout_firstName",
   lastName: "checkout_lastName",
@@ -94,6 +101,25 @@ function loadSessionField(key: string): string {
 function saveSessionField(key: string, value: string) {
   if (typeof window === "undefined") return
   try { sessionStorage.setItem(key, value) } catch { /* ignore */ }
+}
+
+// Stripe Elements styling
+const CARD_ELEMENT_OPTIONS = {
+  style: {
+    base: {
+      fontSize: "16px",
+      color: "#1f2937",
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      "::placeholder": {
+        color: "#9ca3af",
+      },
+      iconColor: "#6b7280",
+    },
+    invalid: {
+      color: "#ef4444",
+      iconColor: "#ef4444",
+    },
+  },
 }
 
 // ---------- SVG Icons ----------
@@ -141,6 +167,187 @@ function OrderSummaryMobileToggle({
   )
 }
 
+// ---------- Stripe Card Form ----------
+function StripeCardForm({
+  onSubmit,
+  isSubmitting,
+  isFormValid,
+  isFree,
+  total,
+  error,
+  setError,
+  nameOnCard,
+  setNameOnCard,
+}: {
+  onSubmit: (stripe: any, elements: any) => void
+  isSubmitting: boolean
+  isFormValid: boolean
+  isFree: boolean
+  total: number
+  error: string | null
+  setError: (e: string | null) => void
+  nameOnCard: string
+  setNameOnCard: (v: string) => void
+}) {
+  const stripe = useStripe()
+  const elements = useElements()
+  const [cardComplete, setCardComplete] = useState({
+    cardNumber: false,
+    cardExpiry: false,
+    cardCvc: false,
+  })
+
+  const isCardComplete = cardComplete.cardNumber && cardComplete.cardExpiry && cardComplete.cardCvc
+
+  const handleSubmit = () => {
+    if (!stripe || !elements) {
+      setError("Payment system is loading. Please wait.")
+      return
+    }
+    onSubmit(stripe, elements)
+  }
+
+  return (
+    <>
+      {/* Payment Methods Express Buttons */}
+      {!isFree && (
+        <div className="bg-white rounded-2xl border border-gray-200 p-5">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4 text-center">Express checkout</p>
+          <div className="grid grid-cols-3 gap-3">
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={isSubmitting || !isFormValid || !stripe}
+              className="flex items-center justify-center gap-2 h-12 rounded-xl bg-black text-white text-sm font-semibold hover:bg-gray-800 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <GooglePayIcon className="h-4 w-4" />
+              <span>Pay</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={isSubmitting || !isFormValid || !stripe}
+              className="flex items-center justify-center gap-2 h-12 rounded-xl bg-[#FFC439] text-[#003087] text-sm font-bold hover:bg-[#f0b930] transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <PayPalIcon className="h-4 w-4" />
+              <span>PayPal</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={isSubmitting || !isFormValid || !stripe}
+              className="flex items-center justify-center gap-2 h-12 rounded-xl bg-gray-100 text-gray-800 text-sm font-semibold hover:bg-gray-200 border border-gray-200 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <CreditCard className="h-4 w-4" />
+              <span>Card</span>
+            </button>
+          </div>
+          <div className="flex items-center gap-3 my-4">
+            <div className="flex-1 h-px bg-gray-200" />
+            <span className="text-xs text-gray-400">OR PAY WITH CARD</span>
+            <div className="flex-1 h-px bg-gray-200" />
+          </div>
+        </div>
+      )}
+
+      {/* Card Input Fields - Stripe Elements */}
+      {!isFree && (
+        <div className="bg-white rounded-2xl border border-gray-200 p-5 space-y-4">
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-gray-600">Card number</Label>
+            <div className="h-11 px-3 flex items-center rounded-xl border border-gray-200 bg-white focus-within:border-gray-400 focus-within:ring-1 focus-within:ring-gray-400/20 transition-colors">
+              <CardNumberElement
+                options={{
+                  ...CARD_ELEMENT_OPTIONS,
+                  showIcon: true,
+                }}
+                onChange={(e) => setCardComplete(prev => ({ ...prev, cardNumber: e.complete }))}
+                className="w-full"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-gray-600">Expiration date</Label>
+              <div className="h-11 px-3 flex items-center rounded-xl border border-gray-200 bg-white focus-within:border-gray-400 focus-within:ring-1 focus-within:ring-gray-400/20 transition-colors">
+                <CardExpiryElement
+                  options={CARD_ELEMENT_OPTIONS}
+                  onChange={(e) => setCardComplete(prev => ({ ...prev, cardExpiry: e.complete }))}
+                  className="w-full"
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-gray-600">Security code</Label>
+              <div className="h-11 px-3 flex items-center rounded-xl border border-gray-200 bg-white focus-within:border-gray-400 focus-within:ring-1 focus-within:ring-gray-400/20 transition-colors">
+                <CardCvcElement
+                  options={CARD_ELEMENT_OPTIONS}
+                  onChange={(e) => setCardComplete(prev => ({ ...prev, cardCvc: e.complete }))}
+                  className="w-full"
+                />
+              </div>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-gray-600">Name on card</Label>
+            <Input
+              placeholder="John Doe"
+              value={nameOnCard}
+              onChange={(e) => setNameOnCard(e.target.value)}
+              className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Error message */}
+      {error && (
+        <div className="flex items-start gap-2.5 bg-red-50 border border-red-200 rounded-xl p-4 animate-in fade-in slide-in-from-top-2 duration-200">
+          <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+          <p className="text-sm text-red-600">{error}</p>
+        </div>
+      )}
+
+      {/* CTA Button */}
+      <button
+        type="button"
+        onClick={handleSubmit}
+        disabled={isSubmitting || !isFormValid || (!isFree && !isCardComplete) || !stripe}
+        className="w-full flex items-center justify-center gap-2 h-14 rounded-2xl text-base font-semibold transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 bg-black hover:bg-gray-800 text-white shadow-lg shadow-black/10"
+      >
+        {isSubmitting ? (
+          <>
+            <Loader2 className="h-5 w-5 animate-spin" />
+            Processing...
+          </>
+        ) : isFree ? (
+          <>
+            Get for Free
+            <span className="ml-1">&rarr;</span>
+          </>
+        ) : (
+          <>
+            <Lock className="h-4 w-4" />
+            Pay {formatPrice(total)}
+          </>
+        )}
+      </button>
+
+      {/* Trust signals */}
+      <div className="flex flex-col items-center gap-2 pt-1">
+        <div className="flex items-center gap-1.5 text-xs text-gray-400">
+          <Shield className="h-3.5 w-3.5" />
+          <span>Payment is secure and encrypted</span>
+        </div>
+        <p className="text-xs text-gray-400 flex items-center gap-1">
+          <Lock className="h-3 w-3" />
+          Secured by Stripe
+        </p>
+      </div>
+    </>
+  )
+}
+
 // ---------- Main Component ----------
 export default function CheckoutPageClient({
   product,
@@ -154,43 +361,33 @@ export default function CheckoutPageClient({
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  // Email from URL param (intentional pre-fill exception)
   const urlEmail = searchParams.get("email") || ""
 
-  // Form state - restored from session (except card details)
   const [firstName, setFirstName] = useState(() => loadSessionField(SESSION_KEYS.firstName))
   const [lastName, setLastName] = useState(() => loadSessionField(SESSION_KEYS.lastName))
   const [email, setEmail] = useState(() => urlEmail || "")
   const [vatId, setVatId] = useState(() => loadSessionField(SESSION_KEYS.vatId))
   const [agreedToTerms, setAgreedToTerms] = useState(false)
+  const [nameOnCard, setNameOnCard] = useState("")
 
-  // Tip state
   const [tipAmount, setTipAmount] = useState(0)
   const [customTip, setCustomTip] = useState("")
-
-  // Gift
   const [isGift, setIsGift] = useState(false)
 
-  // Discount
   const [discountCode, setDiscountCode] = useState(() => loadSessionField(SESSION_KEYS.discountCode))
   const [discountApplied, setDiscountApplied] = useState(false)
   const [discountPercent, setDiscountPercent] = useState(0)
 
-  // UI state
-  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [clientSecret, setClientSecret] = useState<string | null>(null)
-  const [showStripe, setShowStripe] = useState(false)
+  const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null)
   const [mobileOrderOpen, setMobileOrderOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-
-  // Variant modal state
   const [showVariantModal, setShowVariantModal] = useState(false)
 
-  // Rate limiting
   const lastSubmitTime = useRef(0)
 
-  // Persist form fields to session storage
+  // Persist form fields
   useEffect(() => { saveSessionField(SESSION_KEYS.firstName, firstName) }, [firstName])
   useEffect(() => { saveSessionField(SESSION_KEYS.lastName, lastName) }, [lastName])
   useEffect(() => { saveSessionField(SESSION_KEYS.email, email) }, [email])
@@ -225,7 +422,6 @@ export default function CheckoutPageClient({
   const tipOptions = [0, 1, 3, 5]
   const productUrl = getProductUrl(creator.username, product.slug)
 
-  // Form validation
   const isFormValid = useMemo(() => {
     return (
       firstName.trim().length > 0 &&
@@ -235,7 +431,6 @@ export default function CheckoutPageClient({
     )
   }, [firstName, lastName, email, agreedToTerms])
 
-  // Rate limit check
   const isRateLimited = useCallback(() => {
     const now = Date.now()
     if (now - lastSubmitTime.current < 3000) return true
@@ -259,7 +454,6 @@ export default function CheckoutPageClient({
     }
 
     setIsSubmitting(true)
-    setLoading(true)
     setError(null)
 
     try {
@@ -293,13 +487,12 @@ export default function CheckoutPageClient({
     } catch (err) {
       setError(err instanceof Error ? err.message : "Checkout failed. Please try again.")
     } finally {
-      setLoading(false)
       setIsSubmitting(false)
     }
   }
 
-  // Create Stripe session
-  const createStripeSession = useCallback(async () => {
+  // Create PaymentIntent and get clientSecret
+  const createPaymentIntent = useCallback(async () => {
     const response = await fetch("/api/checkout/stripe-session", {
       method: "POST",
       headers: {
@@ -321,14 +514,28 @@ export default function CheckoutPageClient({
     const data = await response.json()
 
     if (!response.ok) {
-      throw new Error(data.error || "Failed to create checkout session")
+      throw new Error(data.error || "Failed to create payment session")
     }
 
-    return data.clientSecret
+    return { clientSecret: data.clientSecret, paymentIntentId: data.paymentIntentId }
   }, [product.id, firstName, lastName, email, tipCents, isGift, selectedVariant, isPwyw, customPriceCents])
 
-  // Handle paid checkout
-  const handlePaidCheckout = async () => {
+  // Initialize PaymentIntent when form is valid and product is not free
+  useEffect(() => {
+    if (!isFree && isFormValid && !clientSecret) {
+      createPaymentIntent()
+        .then(({ clientSecret: cs, paymentIntentId: piId }) => {
+          setClientSecret(cs)
+          setPaymentIntentId(piId)
+        })
+        .catch((err) => {
+          console.error("Failed to initialize payment:", err)
+        })
+    }
+  }, [isFree, isFormValid, clientSecret, createPaymentIntent])
+
+  // Handle paid checkout with Stripe Elements
+  const handlePaidCheckout = async (stripe: any, elements: any) => {
     if (!isFormValid) {
       if (!firstName.trim()) return setError("Please enter your first name")
       if (!lastName.trim()) return setError("Please enter your last name")
@@ -343,26 +550,83 @@ export default function CheckoutPageClient({
     }
 
     setIsSubmitting(true)
-    setLoading(true)
     setError(null)
 
     try {
-      const secret = await createStripeSession()
-      setClientSecret(secret)
-      setShowStripe(true)
+      // Get or create the PaymentIntent
+      let secret = clientSecret
+      let piId = paymentIntentId
+
+      if (!secret) {
+        const result = await createPaymentIntent()
+        secret = result.clientSecret
+        piId = result.paymentIntentId
+        setClientSecret(secret)
+        setPaymentIntentId(piId)
+      }
+
+      // Get the CardNumberElement
+      const cardElement = elements.getElement(CardNumberElement)
+      if (!cardElement) {
+        throw new Error("Card input not ready. Please try again.")
+      }
+
+      // Confirm the payment with Stripe
+      const { error: stripeError, paymentIntent: confirmedIntent } = await stripe.confirmCardPayment(secret, {
+        payment_method: {
+          card: cardElement,
+          billing_details: {
+            name: nameOnCard || `${firstName} ${lastName}`.trim(),
+            email: email,
+          },
+        },
+      })
+
+      if (stripeError) {
+        // Handle specific Stripe errors
+        if (stripeError.type === "card_error" || stripeError.type === "validation_error") {
+          setError(stripeError.message || "Your card was declined. Please try another card.")
+        } else {
+          setError("An unexpected error occurred. Please try again.")
+        }
+        return
+      }
+
+      if (confirmedIntent?.status === "succeeded") {
+        // Payment succeeded - create the order on our backend
+        const completeResponse = await fetch("/api/checkout/confirm-payment", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRF-Token": CSRF_TOKEN,
+          },
+          body: JSON.stringify({ paymentIntentId: piId }),
+        })
+
+        const completeData = await completeResponse.json()
+
+        if (!completeResponse.ok) {
+          throw new Error(completeData.error || "Failed to complete order")
+        }
+
+        // Redirect to receipt page
+        router.push(`${completeData.redirectUrl}?emailSent=1`)
+      } else if (confirmedIntent?.status === "requires_action") {
+        // 3D Secure - Stripe handles this automatically
+        setError("Additional authentication required. Please complete the verification.")
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to start checkout")
+      setError(err instanceof Error ? err.message : "Failed to process payment")
     } finally {
-      setLoading(false)
       setIsSubmitting(false)
     }
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = (stripeInstance?: any, elementsInstance?: any) => {
     if (isFree) {
       handleFreeCheckout()
-    } else {
-      handlePaidCheckout()
+    } else if (stripeInstance && elementsInstance) {
+      handlePaidCheckout(stripeInstance, elementsInstance)
     }
   }
 
@@ -378,31 +642,180 @@ export default function CheckoutPageClient({
     setDiscountCode("")
   }
 
-  // If Stripe session is active, show embedded checkout
-  if (showStripe && clientSecret) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <header className="border-b border-gray-200 bg-white pt-[env(safe-area-inset-top)]">
-          <div className="mx-auto flex h-14 max-w-6xl items-center px-4">
-            <a
-              href={productUrl}
-              className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 min-h-[44px] transition-colors"
-            >
-              <ArrowLeft className="h-4 w-4 shrink-0" />
-              <span className="truncate">Back to product</span>
-            </a>
-          </div>
-        </header>
-        <div className="mx-auto max-w-2xl px-4 py-8">
-          <EmbeddedCheckoutProvider stripe={stripePromise} options={{ clientSecret }}>
-            <EmbeddedCheckout />
-          </EmbeddedCheckoutProvider>
-        </div>
-      </div>
-    )
-  }
+  // Stripe Elements appearance config
+  const elementsOptions = useMemo(() => {
+    if (!clientSecret) return undefined
+    return {
+      clientSecret,
+      appearance: {
+        theme: "stripe" as const,
+        variables: {
+          colorPrimary: "#000000",
+          borderRadius: "12px",
+        },
+      },
+    }
+  }, [clientSecret])
 
   // ---------- RENDER ----------
+  const rightColumnContent = (
+    <div className="space-y-5">
+      {/* Order Summary - hidden on mobile (uses collapsible above) */}
+      <div className="hidden lg:block">
+        <OrderSummaryContent
+          product={product}
+          creator={creator}
+          selectedVariant={selectedVariant}
+          subtotal={subtotal}
+          tipCents={tipCents}
+          discountApplied={discountApplied}
+          discountCents={discountCents}
+          total={total}
+          isPwyw={isPwyw}
+          formatPrice={formatPrice}
+        />
+      </div>
+
+      {/* Stripe Elements Card Form */}
+      {clientSecret ? (
+        <Elements stripe={stripePromise} options={elementsOptions}>
+          <StripeCardForm
+            onSubmit={handleSubmit}
+            isSubmitting={isSubmitting}
+            isFormValid={isFormValid}
+            isFree={isFree}
+            total={total}
+            error={error}
+            setError={setError}
+            nameOnCard={nameOnCard}
+            setNameOnCard={setNameOnCard}
+          />
+        </Elements>
+      ) : (
+        <>
+          {/* Show payment section even before PaymentIntent is created */}
+          {!isFree && (
+            <div className="bg-white rounded-2xl border border-gray-200 p-5">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4 text-center">Express checkout</p>
+              <div className="grid grid-cols-3 gap-3">
+                <button type="button" disabled className="flex items-center justify-center gap-2 h-12 rounded-xl bg-black text-white text-sm font-semibold opacity-50 cursor-not-allowed">
+                  <GooglePayIcon className="h-4 w-4" />
+                  <span>Pay</span>
+                </button>
+                <button type="button" disabled className="flex items-center justify-center gap-2 h-12 rounded-xl bg-[#FFC439] text-[#003087] text-sm font-bold opacity-50 cursor-not-allowed">
+                  <PayPalIcon className="h-4 w-4" />
+                  <span>PayPal</span>
+                </button>
+                <button type="button" disabled className="flex items-center justify-center gap-2 h-12 rounded-xl bg-gray-100 text-gray-800 text-sm font-semibold border border-gray-200 opacity-50 cursor-not-allowed">
+                  <CreditCard className="h-4 w-4" />
+                  <span>Card</span>
+                </button>
+              </div>
+              <div className="flex items-center gap-3 my-4">
+                <div className="flex-1 h-px bg-gray-200" />
+                <span className="text-xs text-gray-400">OR PAY WITH CARD</span>
+                <div className="flex-1 h-px bg-gray-200" />
+              </div>
+            </div>
+          )}
+
+          {/* Placeholder card inputs (before PI is ready) */}
+          {!isFree && (
+            <div className="bg-white rounded-2xl border border-gray-200 p-5 space-y-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-gray-600">Card number</Label>
+                <div className="h-11 px-3 flex items-center rounded-xl border border-gray-200 bg-gray-50">
+                  <span className="text-sm text-gray-400">Fill in your details to enable payment</span>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-gray-600">Expiration date</Label>
+                  <div className="h-11 px-3 flex items-center rounded-xl border border-gray-200 bg-gray-50">
+                    <span className="text-sm text-gray-400">MM / YY</span>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-gray-600">Security code</Label>
+                  <div className="h-11 px-3 flex items-center rounded-xl border border-gray-200 bg-gray-50">
+                    <span className="text-sm text-gray-400">CVC</span>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-gray-600">Name on card</Label>
+                <Input
+                  placeholder="John Doe"
+                  value={nameOnCard}
+                  onChange={(e) => setNameOnCard(e.target.value)}
+                  className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Error message */}
+          {error && (
+            <div className="flex items-start gap-2.5 bg-red-50 border border-red-200 rounded-xl p-4 animate-in fade-in slide-in-from-top-2 duration-200">
+              <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+              <p className="text-sm text-red-600">{error}</p>
+            </div>
+          )}
+
+          {/* CTA Button (disabled state when no PI) */}
+          <button
+            type="button"
+            onClick={() => isFree && handleFreeCheckout()}
+            disabled={isSubmitting || !isFormValid || !isFree}
+            className="w-full flex items-center justify-center gap-2 h-14 rounded-2xl text-base font-semibold transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 bg-black hover:bg-gray-800 text-white shadow-lg shadow-black/10"
+          >
+            {isFree ? (
+              <>
+                Get for Free
+                <span className="ml-1">&rarr;</span>
+              </>
+            ) : (
+              <>
+                <Lock className="h-4 w-4" />
+                Pay {formatPrice(total)}
+              </>
+            )}
+          </button>
+
+          <div className="flex flex-col items-center gap-2 pt-1">
+            <div className="flex items-center gap-1.5 text-xs text-gray-400">
+              <Shield className="h-3.5 w-3.5" />
+              <span>Payment is secure and encrypted</span>
+            </div>
+            <p className="text-xs text-gray-400 flex items-center gap-1">
+              <Lock className="h-3 w-3" />
+              Secured by Stripe
+            </p>
+          </div>
+        </>
+      )}
+
+      {/* Terms & Conditions */}
+      <div className="bg-white rounded-2xl border border-gray-200 p-5">
+        <div className="flex items-start gap-3">
+          <Checkbox
+            id="terms"
+            checked={agreedToTerms}
+            onCheckedChange={(checked) => setAgreedToTerms(checked as boolean)}
+            className="mt-0.5 shrink-0 data-[state=checked]:bg-black data-[state=checked]:border-black"
+          />
+          <Label htmlFor="terms" className="cursor-pointer text-sm leading-relaxed text-gray-600">
+            I agree to the{" "}
+            <Link href="/terms" className="text-gray-900 hover:text-black underline underline-offset-2" target="_blank">
+              Terms and Conditions
+            </Link>{" "}
+            *
+          </Label>
+        </div>
+      </div>
+    </div>
+  )
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -457,21 +870,23 @@ export default function CheckoutPageClient({
             {/* Product Card */}
             <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
               <div className="flex gap-4">
-                <div className="relative h-20 w-20 sm:h-24 sm:w-24 shrink-0 overflow-hidden rounded-xl bg-gray-100">
-                  {product.thumbnail_url ? (
-                    <Image
-                      src={product.thumbnail_url}
-                      alt={product.title}
-                      fill
-                      className="object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-full items-center justify-center">
-                      <Package className="h-8 w-8 text-gray-300" />
-                    </div>
-                  )}
-                  {/* Quantity badge - black */}
-                  <div className="absolute -top-1.5 -right-1.5 w-6 h-6 bg-black text-white text-xs font-bold rounded-full flex items-center justify-center shadow-sm">
+                <div className="relative h-20 w-20 sm:h-24 sm:w-24 shrink-0 rounded-xl bg-gray-100">
+                  <div className="relative h-full w-full overflow-hidden rounded-xl">
+                    {product.thumbnail_url ? (
+                      <Image
+                        src={product.thumbnail_url}
+                        alt={product.title}
+                        fill
+                        className="object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center">
+                        <Package className="h-8 w-8 text-gray-300" />
+                      </div>
+                    )}
+                  </div>
+                  {/* Quantity badge - positioned outside overflow container */}
+                  <div className="absolute -top-2 -right-2 w-6 h-6 bg-black text-white text-xs font-bold rounded-full flex items-center justify-center shadow-md z-10 ring-2 ring-white">
                     1
                   </div>
                 </div>
@@ -665,131 +1080,7 @@ export default function CheckoutPageClient({
 
           {/* ===== RIGHT COLUMN (50%, sticky) ===== */}
           <div className="order-1 lg:order-2 lg:sticky lg:top-6">
-            <div className="space-y-5">
-              {/* Order Summary - hidden on mobile (uses collapsible above) */}
-              <div className="hidden lg:block">
-                <OrderSummaryContent
-                  product={product}
-                  creator={creator}
-                  selectedVariant={selectedVariant}
-                  subtotal={subtotal}
-                  tipCents={tipCents}
-                  discountApplied={discountApplied}
-                  discountCents={discountCents}
-                  total={total}
-                  isPwyw={isPwyw}
-                  formatPrice={formatPrice}
-                />
-              </div>
-
-              {/* Payment Methods */}
-              {!isFree && (
-                <div className="bg-white rounded-2xl border border-gray-200 p-5">
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4 text-center">Pay with</p>
-                  <div className="grid grid-cols-3 gap-3">
-                    {/* Google Pay - Black */}
-                    <button
-                      type="button"
-                      onClick={handleSubmit}
-                      disabled={isSubmitting || !isFormValid}
-                      className="flex items-center justify-center gap-2 h-12 rounded-xl bg-black text-white text-sm font-semibold hover:bg-gray-800 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <GooglePayIcon className="h-4 w-4" />
-                      <span>Pay</span>
-                    </button>
-                    {/* PayPal - Yellow */}
-                    <button
-                      type="button"
-                      onClick={handleSubmit}
-                      disabled={isSubmitting || !isFormValid}
-                      className="flex items-center justify-center gap-2 h-12 rounded-xl bg-[#FFC439] text-[#003087] text-sm font-bold hover:bg-[#f0b930] transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <PayPalIcon className="h-4 w-4" />
-                      <span>PayPal</span>
-                    </button>
-                    {/* Credit Card */}
-                    <button
-                      type="button"
-                      onClick={handleSubmit}
-                      disabled={isSubmitting || !isFormValid}
-                      className="flex items-center justify-center gap-2 h-12 rounded-xl bg-gray-100 text-gray-800 text-sm font-semibold hover:bg-gray-200 border border-gray-200 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <CreditCard className="h-4 w-4" />
-                      <span>Card</span>
-                    </button>
-                  </div>
-                  <div className="flex items-center gap-3 my-4">
-                    <div className="flex-1 h-px bg-gray-200" />
-                    <span className="text-xs text-gray-400">OR</span>
-                    <div className="flex-1 h-px bg-gray-200" />
-                  </div>
-                </div>
-              )}
-
-              {/* Terms & Conditions */}
-              <div className="bg-white rounded-2xl border border-gray-200 p-5">
-                <div className="flex items-start gap-3">
-                  <Checkbox
-                    id="terms"
-                    checked={agreedToTerms}
-                    onCheckedChange={(checked) => setAgreedToTerms(checked as boolean)}
-                    className="mt-0.5 shrink-0 data-[state=checked]:bg-black data-[state=checked]:border-black"
-                  />
-                  <Label htmlFor="terms" className="cursor-pointer text-sm leading-relaxed text-gray-600">
-                    I agree to the{" "}
-                    <Link href="/terms" className="text-gray-900 hover:text-black underline underline-offset-2" target="_blank">
-                      Terms and Conditions
-                    </Link>{" "}
-                    *
-                  </Label>
-                </div>
-              </div>
-
-              {/* Error message */}
-              {error && (
-                <div className="flex items-start gap-2.5 bg-red-50 border border-red-200 rounded-xl p-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                  <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
-                  <p className="text-sm text-red-600">{error}</p>
-                </div>
-              )}
-
-              {/* CTA Button */}
-              <button
-                type="button"
-                onClick={handleSubmit}
-                disabled={isSubmitting || !isFormValid}
-                className="w-full flex items-center justify-center gap-2 h-14 rounded-2xl text-base font-semibold transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 bg-black hover:bg-gray-800 text-white shadow-lg shadow-black/10"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                    Processing...
-                  </>
-                ) : isFree ? (
-                  <>
-                    Get for Free
-                    <span className="ml-1">&rarr;</span>
-                  </>
-                ) : (
-                  <>
-                    <Lock className="h-4 w-4" />
-                    Pay {formatPrice(total)}
-                  </>
-                )}
-              </button>
-
-              {/* Trust signals */}
-              <div className="flex flex-col items-center gap-2 pt-1">
-                <div className="flex items-center gap-1.5 text-xs text-gray-400">
-                  <Shield className="h-3.5 w-3.5" />
-                  <span>Payment is secure and encrypted</span>
-                </div>
-                <p className="text-xs text-gray-400 flex items-center gap-1">
-                  <Lock className="h-3 w-3" />
-                  Secured by Stripe
-                </p>
-              </div>
-            </div>
+            {rightColumnContent}
           </div>
         </div>
       </div>
@@ -799,7 +1090,6 @@ export default function CheckoutPageClient({
         <div className="pt-3">
           <button
             type="button"
-            onClick={handleSubmit}
             disabled={isSubmitting || !isFormValid}
             className="w-full flex items-center justify-center gap-2 h-13 rounded-2xl text-base font-semibold bg-black hover:bg-gray-800 text-white shadow-lg shadow-black/10 transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
           >
@@ -901,7 +1191,6 @@ function OrderSummaryContent({
     <div className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
       <h3 className="text-sm font-semibold text-gray-900 mb-4">Order summary</h3>
 
-      {/* Product row */}
       <div className="flex items-center gap-3 mb-4">
         <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-gray-100">
           {product.thumbnail_url ? (
@@ -930,7 +1219,6 @@ function OrderSummaryContent({
 
       <Separator className="my-3" />
 
-      {/* Line items */}
       <div className="space-y-2.5">
         <div className="flex justify-between text-sm">
           <span className="text-gray-500">{isPwyw ? "Your price" : "Subtotal"}</span>
@@ -954,7 +1242,6 @@ function OrderSummaryContent({
 
       <Separator className="my-3" />
 
-      {/* Total */}
       <div className="flex justify-between">
         <span className="text-base font-semibold text-gray-900">Total</span>
         <span className="text-lg font-bold text-gray-900">{formatPrice(total)}</span>

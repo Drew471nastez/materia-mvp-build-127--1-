@@ -1,4 +1,4 @@
-export const PLATFORM_STATEMENT_DESCRIPTOR = "STORELIB*" as const
+export const PLATFORM_STATEMENT_DESCRIPTOR = "STORELIB" as const
 
 export function getValidatedPlatformStatementDescriptor(): string {
   const descriptor = PLATFORM_STATEMENT_DESCRIPTOR.trim().toUpperCase()
