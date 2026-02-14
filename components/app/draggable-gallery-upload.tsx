@@ -208,8 +208,8 @@ export function DraggableGalleryUpload({
   }
 
   return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-4 gap-3">
+    <div className="space-y-3 isolate">
+      <div className="grid grid-cols-4 gap-3 relative">
         {value.map((url, index) => (
           <div
             key={url}
@@ -223,13 +223,16 @@ export function DraggableGalleryUpload({
             onTouchStart={(e) => handleTouchStart(e, index)}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
-            className={`group relative aspect-square overflow-hidden rounded-lg border transition-all cursor-move ${
+            className={`group relative aspect-square overflow-hidden rounded-lg border transition-all cursor-move will-change-transform ${
               dragOverIndex === index
-                ? "border-primary border-2 scale-105 z-20"
+                ? "border-primary border-2 scale-105 z-[15]"
                 : draggedIndex === index || (isDragging && touchIndex === index)
-                  ? "opacity-50 border-dashed border-2 z-30"
-                  : "border-border z-10"
+                  ? "opacity-50 border-dashed border-2 z-[20] shadow-lg"
+                  : "border-border z-[5]"
             }`}
+            style={{
+              touchAction: 'none', // Prevent default touch behaviors during drag
+            }}
           >
             <Image src={url || "/placeholder.svg"} alt={`Gallery image ${index + 1}`} fill className="object-cover" />
 

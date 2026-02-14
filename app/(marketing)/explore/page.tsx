@@ -76,7 +76,7 @@ export default async function ExplorePage({
       .select("id, title, slug, description, price_cents, compare_at_cents, thumbnail_url, type, category, creator_id, created_at, sales_count, reviews_count, reviews_average")
       .eq("status", "published")
       .order("created_at", { ascending: false })
-      .limit(50)
+      .limit(100)
 
     const { data: products, error: productsError } = await query
 

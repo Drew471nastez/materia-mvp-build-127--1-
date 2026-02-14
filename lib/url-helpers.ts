@@ -35,16 +35,27 @@ export function getCanonicalSiteUrl(): string {
 export function getStoreUrl(username: string): string {
   if (!username) return getSiteUrl()
 
+  // Sanitize username for URL: replace spaces with hyphens, remove special chars
+  const sanitizedUsername = username
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '-')  // Replace spaces with hyphens
+    .replace(/[^a-z0-9-]/g, '')  // Remove any chars that aren't alphanumeric or hyphen
+    .replace(/-+/g, '-')  // Replace multiple hyphens with single hyphen
+    .replace(/^-|-$/g, '')  // Remove leading/trailing hyphens
+
+  if (!sanitizedUsername) return getSiteUrl()
+
   const mainDomain = getMainDomain()
   const protocol = mainDomain.includes("localhost") ? "http" : "https"
 
   // Handle localhost for development
   if (mainDomain.includes("localhost")) {
     // In development, use path-based routing as fallback
-    return `${getSiteUrl()}/u/${username}`
+    return `${getSiteUrl()}/u/${sanitizedUsername}`
   }
 
-  return `${protocol}://${username.toLowerCase()}.${mainDomain}`
+  return `${protocol}://${sanitizedUsername}.${mainDomain}`
 }
 
 /**

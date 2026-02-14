@@ -34,7 +34,7 @@ export function MostPopularSection({ products }: MostPopularSectionProps) {
         return { ...p, _score: baseScore * recencyMultiplier }
       })
       .sort((a, b) => b._score - a._score)
-      .slice(0, 6)
+      .slice(0, 9)
 
     return scored
   }, [products])
