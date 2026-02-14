@@ -27,6 +27,26 @@ function onTapEnd(callback: () => void) {
   }
 }
 
+// Safe body scroll lock/unlock helpers that prevent scroll bugs
+let scrollLockCount = 0
+function lockBodyScroll() {
+  if (scrollLockCount === 0) {
+    const scrollY = window.scrollY
+    document.body.style.setProperty('--scroll-y', `-${scrollY}px`)
+    document.body.classList.add('modal-open')
+  }
+  scrollLockCount++
+}
+function unlockBodyScroll() {
+  scrollLockCount = Math.max(0, scrollLockCount - 1)
+  if (scrollLockCount === 0) {
+    const scrollY = document.body.style.getPropertyValue('--scroll-y')
+    document.body.classList.remove('modal-open')
+    document.body.style.removeProperty('--scroll-y')
+    window.scrollTo(0, parseInt(scrollY || '0') * -1)
+  }
+}
+
 // Categories with icons and subcategories - Extended list
 const CATEGORIES = [
   {
@@ -317,7 +337,7 @@ const SORT_OPTIONS = [
   { id: "price-high", label: "Price: High to Low" },
 ] as const
 
-const PRODUCTS_PER_PAGE = 15 // 3 per row x 5 rows
+const PRODUCTS_PER_PAGE = 9 // 3 per row x 3 rows
 
 // Mobile Filter Bottom Sheet Component
 function MobileFilterSheet({
@@ -355,9 +375,7 @@ function MobileFilterSheet({
   useEffect(() => {
     if (isOpen && !isVisible) {
       setIsVisible(true)
-      document.body.style.overflow = "hidden"
-      document.documentElement.style.overscrollBehavior = 'none'
-      document.body.style.overscrollBehavior = 'none'
+      lockBodyScroll()
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           setIsAnimating(true)
@@ -365,9 +383,7 @@ function MobileFilterSheet({
       })
     } else if (!isOpen && isVisible) {
       setIsAnimating(false)
-      document.body.style.overflow = ""
-      document.documentElement.style.overscrollBehavior = ''
-      document.body.style.overscrollBehavior = ''
+      unlockBodyScroll()
       const timer = setTimeout(() => {
         setIsVisible(false)
         setDragY(0)
@@ -375,9 +391,7 @@ function MobileFilterSheet({
       return () => clearTimeout(timer)
     }
     return () => {
-      document.body.style.overflow = ""
-      document.documentElement.style.overscrollBehavior = ''
-      document.body.style.overscrollBehavior = ''
+      if (isVisible) unlockBodyScroll()
     }
   }, [isOpen, isVisible])
 
@@ -565,9 +579,7 @@ function CategorySelectorModal({
     if (isOpen && !isVisible) {
       setIsVisible(true)
       setExpandedCategory(null)
-      document.body.style.overflow = "hidden"
-      document.documentElement.style.overscrollBehavior = 'none'
-      document.body.style.overscrollBehavior = 'none'
+      lockBodyScroll()
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           setIsAnimating(true)
@@ -575,9 +587,7 @@ function CategorySelectorModal({
       })
     } else if (!isOpen && isVisible) {
       setIsAnimating(false)
-      document.body.style.overflow = ""
-      document.documentElement.style.overscrollBehavior = ''
-      document.body.style.overscrollBehavior = ''
+      unlockBodyScroll()
       const timer = setTimeout(() => {
         setIsVisible(false)
         setDragY(0)
@@ -586,9 +596,7 @@ function CategorySelectorModal({
       return () => clearTimeout(timer)
     }
     return () => {
-      document.body.style.overflow = ""
-      document.documentElement.style.overscrollBehavior = ''
-      document.body.style.overscrollBehavior = ''
+      if (isVisible) unlockBodyScroll()
     }
   }, [isOpen, isVisible])
 

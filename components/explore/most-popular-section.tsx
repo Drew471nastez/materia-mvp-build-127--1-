@@ -135,9 +135,9 @@ export function MostPopularSection({ products }: MostPopularSectionProps) {
           <h2 className="text-xl sm:text-2xl font-bold text-neutral-900">
             Most popular
           </h2>
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
+          <span className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-semibold bg-neutral-900 text-white">
             <span>🔥</span>
-            <span>last 48 hours</span>
+            <span>Hot</span>
           </span>
         </div>
       </div>
