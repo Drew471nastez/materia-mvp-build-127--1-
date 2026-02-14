@@ -497,10 +497,10 @@ function StripeCardForm({
 
     pr.on("paymentmethod", async (ev: any) => {
       try {
-        onGooglePaySubmit(ev.paymentMethod.id)
         ev.complete("success")
+        await onGooglePaySubmit(ev.paymentMethod.id)
       } catch {
-        ev.complete("fail")
+        // Payment processing errors handled by onGooglePaySubmit
       }
     })
 
@@ -557,24 +557,24 @@ function StripeCardForm({
       {!isFree && (
         <div>
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3 text-center">Express checkout</p>
-          <div className="flex flex-col gap-2.5">
+          <div className="grid grid-cols-2 gap-3">
             {/* Google Pay - Black button with white logo */}
             <button
               type="button"
               onClick={handleGooglePayClick}
               disabled={isSubmitting || !canMakePayment || !stripe}
-              className="flex items-center justify-center w-full h-[50px] rounded-xl bg-black hover:bg-gray-900 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center justify-center h-[48px] rounded-xl bg-black hover:bg-gray-900 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <GooglePayIcon className="h-[26px] w-auto" />
+              <GooglePayIcon className="h-[22px] w-auto" />
             </button>
             {/* PayPal */}
             <div className="relative group">
               <button
                 type="button"
                 disabled
-                className="w-full flex items-center justify-center h-[50px] rounded-xl bg-[#FFC439] border border-[#F0B72A] cursor-not-allowed transition-all overflow-hidden"
+                className="w-full flex items-center justify-center h-[48px] rounded-xl bg-[#FFC439] border border-[#F0B72A] cursor-not-allowed transition-all overflow-hidden"
               >
-                <PayPalIcon className="h-[41.4px] w-auto" />
+                <PayPalIcon className="h-[35px] w-auto" />
               </button>
               <div className="absolute inset-0 flex items-center justify-center rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/75 pointer-events-none">
                 <span className="text-xs text-white font-medium">Not available now</span>
@@ -1312,7 +1312,7 @@ export default function CheckoutPageClient({
       <div className="hidden lg:flex min-h-[calc(100vh-57px)]">
         {/* LEFT HALF - White background */}
         <div className="w-1/2 bg-white">
-          <div className="max-w-[560px] ml-auto py-10 px-10 xl:px-16">
+          <div className="max-w-[640px] ml-auto py-10 px-10 xl:px-16">
             <div className="flex flex-col gap-5">
               {/* Contact Information */}
               <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
