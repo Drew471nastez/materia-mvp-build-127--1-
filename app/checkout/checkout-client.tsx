@@ -35,6 +35,8 @@ import {
   Shield,
   Check,
   AlertCircle,
+  Globe,
+  Search,
 } from "lucide-react"
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
@@ -91,6 +93,7 @@ const SESSION_KEYS = {
   email: "checkout_email",
   vatId: "checkout_vatId",
   discountCode: "checkout_discountCode",
+  country: "checkout_country",
 } as const
 
 function loadSessionField(key: string): string {
@@ -122,6 +125,80 @@ const CARD_ELEMENT_OPTIONS = {
   },
 }
 
+// ---------- Country list ----------
+const COUNTRIES = [
+  { code: "US", name: "United States" },
+  { code: "GB", name: "United Kingdom" },
+  { code: "CA", name: "Canada" },
+  { code: "AU", name: "Australia" },
+  { code: "DE", name: "Germany" },
+  { code: "FR", name: "France" },
+  { code: "ES", name: "Spain" },
+  { code: "IT", name: "Italy" },
+  { code: "NL", name: "Netherlands" },
+  { code: "BE", name: "Belgium" },
+  { code: "AT", name: "Austria" },
+  { code: "CH", name: "Switzerland" },
+  { code: "SE", name: "Sweden" },
+  { code: "NO", name: "Norway" },
+  { code: "DK", name: "Denmark" },
+  { code: "FI", name: "Finland" },
+  { code: "IE", name: "Ireland" },
+  { code: "PT", name: "Portugal" },
+  { code: "PL", name: "Poland" },
+  { code: "CZ", name: "Czech Republic" },
+  { code: "HU", name: "Hungary" },
+  { code: "RO", name: "Romania" },
+  { code: "BG", name: "Bulgaria" },
+  { code: "HR", name: "Croatia" },
+  { code: "SK", name: "Slovakia" },
+  { code: "SI", name: "Slovenia" },
+  { code: "EE", name: "Estonia" },
+  { code: "LV", name: "Latvia" },
+  { code: "LT", name: "Lithuania" },
+  { code: "GR", name: "Greece" },
+  { code: "CY", name: "Cyprus" },
+  { code: "MT", name: "Malta" },
+  { code: "LU", name: "Luxembourg" },
+  { code: "JP", name: "Japan" },
+  { code: "KR", name: "South Korea" },
+  { code: "CN", name: "China" },
+  { code: "IN", name: "India" },
+  { code: "SG", name: "Singapore" },
+  { code: "HK", name: "Hong Kong" },
+  { code: "TW", name: "Taiwan" },
+  { code: "MY", name: "Malaysia" },
+  { code: "TH", name: "Thailand" },
+  { code: "ID", name: "Indonesia" },
+  { code: "PH", name: "Philippines" },
+  { code: "VN", name: "Vietnam" },
+  { code: "NZ", name: "New Zealand" },
+  { code: "BR", name: "Brazil" },
+  { code: "MX", name: "Mexico" },
+  { code: "AR", name: "Argentina" },
+  { code: "CL", name: "Chile" },
+  { code: "CO", name: "Colombia" },
+  { code: "PE", name: "Peru" },
+  { code: "ZA", name: "South Africa" },
+  { code: "NG", name: "Nigeria" },
+  { code: "EG", name: "Egypt" },
+  { code: "KE", name: "Kenya" },
+  { code: "AE", name: "United Arab Emirates" },
+  { code: "SA", name: "Saudi Arabia" },
+  { code: "IL", name: "Israel" },
+  { code: "TR", name: "Turkey" },
+  { code: "IS", name: "Iceland" },
+  { code: "PR", name: "Puerto Rico" },
+  { code: "PA", name: "Panama" },
+  { code: "CR", name: "Costa Rica" },
+  { code: "EC", name: "Ecuador" },
+  { code: "UY", name: "Uruguay" },
+  { code: "PK", name: "Pakistan" },
+  { code: "BD", name: "Bangladesh" },
+  { code: "LK", name: "Sri Lanka" },
+  { code: "NP", name: "Nepal" },
+]
+
 // ---------- SVG Icons ----------
 function GooglePayIcon({ className = "h-5 w-5" }: { className?: string }) {
   return (
@@ -145,6 +222,220 @@ function PayPalIcon({ className = "h-5 w-5" }: { className?: string }) {
       <text x="0" y="24" fontFamily="Verdana, Arial, sans-serif" fontSize="22" fontWeight="bold" fill="#003087">Pay</text>
       <text x="36" y="24" fontFamily="Verdana, Arial, sans-serif" fontSize="22" fontWeight="bold" fill="#009cde">Pal</text>
     </svg>
+  )
+}
+
+// ---------- Skeleton Loader ----------
+function CheckoutSkeleton() {
+  return (
+    <div className="space-y-4 animate-pulse">
+      <div className="bg-white rounded-2xl border border-gray-200 p-5">
+        <div className="h-4 w-32 bg-gray-200 rounded mb-4 mx-auto" />
+        <div className="grid grid-cols-2 gap-3">
+          <div className="h-12 bg-gray-100 rounded-xl" />
+          <div className="h-12 bg-gray-100 rounded-xl" />
+        </div>
+        <div className="flex items-center gap-3 my-4">
+          <div className="flex-1 h-px bg-gray-200" />
+          <div className="h-3 w-28 bg-gray-200 rounded" />
+          <div className="flex-1 h-px bg-gray-200" />
+        </div>
+      </div>
+      <div className="bg-white rounded-2xl border border-gray-200 p-5 space-y-4">
+        <div className="space-y-1.5">
+          <div className="h-3 w-20 bg-gray-200 rounded" />
+          <div className="h-11 bg-gray-100 rounded-xl" />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <div className="h-3 w-24 bg-gray-200 rounded" />
+            <div className="h-11 bg-gray-100 rounded-xl" />
+          </div>
+          <div className="space-y-1.5">
+            <div className="h-3 w-20 bg-gray-200 rounded" />
+            <div className="h-11 bg-gray-100 rounded-xl" />
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <div className="h-3 w-20 bg-gray-200 rounded" />
+          <div className="h-11 bg-gray-100 rounded-xl" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ---------- Country Selector ----------
+function CountrySelector({
+  value,
+  onChange,
+}: {
+  value: string
+  onChange: (code: string) => void
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [search, setSearch] = useState("")
+  const [dragY, setDragY] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+  const dragStartY = useRef(0)
+  const sheetRef = useRef<HTMLDivElement>(null)
+
+  const selectedCountry = COUNTRIES.find((c) => c.code === value)
+  const filtered = COUNTRIES.filter(
+    (c) =>
+      c.name.toLowerCase().includes(search.toLowerCase()) ||
+      c.code.toLowerCase().includes(search.toLowerCase())
+  )
+
+  const handleSelect = (code: string) => {
+    onChange(code)
+    setIsOpen(false)
+    setSearch("")
+  }
+
+  // Touch drag for mobile bottom sheet
+  const handleTouchStart = (e: React.TouchEvent) => {
+    dragStartY.current = e.touches[0].clientY
+    setIsDragging(true)
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging) return
+    const diff = e.touches[0].clientY - dragStartY.current
+    if (diff > 0) setDragY(diff)
+  }
+
+  const handleTouchEnd = () => {
+    setIsDragging(false)
+    if (dragY > 120) {
+      setIsOpen(false)
+      setSearch("")
+    }
+    setDragY(0)
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setIsOpen(true)}
+        className="w-full flex items-center justify-between h-11 px-3 rounded-xl border border-gray-200 bg-white hover:border-gray-300 transition-colors text-sm cursor-pointer"
+      >
+        <span className="flex items-center gap-2">
+          <Globe className="w-4 h-4 text-gray-400" />
+          <span className={selectedCountry ? "text-gray-900" : "text-gray-400"}>
+            {selectedCountry ? selectedCountry.name : "Select country"}
+          </span>
+        </span>
+        <ChevronDown className="w-4 h-4 text-gray-400" />
+      </button>
+
+      {isOpen && (
+        <div className="fixed inset-0 z-[100]">
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200"
+            onClick={() => { setIsOpen(false); setSearch("") }}
+          />
+
+          {/* Mobile: bottom sheet */}
+          <div
+            ref={sheetRef}
+            className="lg:hidden absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl animate-in slide-in-from-bottom duration-300 max-h-[85vh] flex flex-col"
+            style={{ transform: dragY > 0 ? `translateY(${dragY}px)` : undefined, transition: isDragging ? "none" : "transform 0.3s ease-out" }}
+          >
+            <div
+              className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing"
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+            >
+              <div className="w-10 h-1 bg-gray-300 rounded-full" />
+            </div>
+            <div className="px-4 pb-3">
+              <h3 className="text-base font-semibold text-gray-900 mb-3">Select country</h3>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search countries..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full h-10 pl-9 pr-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-400/20"
+                  autoFocus
+                />
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto px-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
+              {filtered.map((country) => (
+                <button
+                  key={country.code}
+                  type="button"
+                  onClick={() => handleSelect(country.code)}
+                  className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm transition-colors cursor-pointer ${
+                    value === country.code ? "bg-gray-100 font-medium text-gray-900" : "text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  <span className="flex-1 text-left">{country.name}</span>
+                  <span className="text-xs text-gray-400">{country.code}</span>
+                  {value === country.code && <Check className="w-4 h-4 text-gray-900" />}
+                </button>
+              ))}
+              {filtered.length === 0 && (
+                <p className="text-sm text-gray-400 text-center py-6">No countries found</p>
+              )}
+            </div>
+          </div>
+
+          {/* Desktop: centered modal */}
+          <div className="hidden lg:flex items-center justify-center h-full p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[70vh] flex flex-col">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+                <h3 className="text-base font-semibold text-gray-900">Select country</h3>
+                <button
+                  type="button"
+                  onClick={() => { setIsOpen(false); setSearch("") }}
+                  className="p-1.5 rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4 text-gray-500" />
+                </button>
+              </div>
+              <div className="px-4 py-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search countries..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full h-10 pl-9 pr-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-400/20"
+                    autoFocus
+                  />
+                </div>
+              </div>
+              <div className="flex-1 overflow-y-auto px-2 pb-3">
+                {filtered.map((country) => (
+                  <button
+                    key={country.code}
+                    type="button"
+                    onClick={() => handleSelect(country.code)}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors cursor-pointer ${
+                      value === country.code ? "bg-gray-100 font-medium text-gray-900" : "text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    <span className="flex-1 text-left">{country.name}</span>
+                    <span className="text-xs text-gray-400">{country.code}</span>
+                    {value === country.code && <Check className="w-4 h-4 text-gray-900" />}
+                  </button>
+                ))}
+                {filtered.length === 0 && (
+                  <p className="text-sm text-gray-400 text-center py-6">No countries found</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 
@@ -187,6 +478,8 @@ function StripeCardForm({
   setError,
   nameOnCard,
   setNameOnCard,
+  agreedToTerms,
+  setAgreedToTerms,
 }: {
   onSubmit: (stripe: any, elements: any) => void
   isSubmitting: boolean
@@ -197,6 +490,8 @@ function StripeCardForm({
   setError: (e: string | null) => void
   nameOnCard: string
   setNameOnCard: (v: string) => void
+  agreedToTerms: boolean
+  setAgreedToTerms: (v: boolean) => void
 }) {
   const stripe = useStripe()
   const elements = useElements()
@@ -213,6 +508,10 @@ function StripeCardForm({
       setError("Payment system is loading. Please wait.")
       return
     }
+    if (!agreedToTerms) {
+      setError("Please agree to the Terms and Conditions")
+      return
+    }
     onSubmit(stripe, elements)
   }
 
@@ -226,7 +525,7 @@ function StripeCardForm({
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={isSubmitting || !isFormValid || !stripe}
+              disabled={isSubmitting || !isFormValid || !agreedToTerms || !stripe}
               className="flex items-center justify-center gap-2 h-12 rounded-xl bg-white border border-gray-300 text-gray-800 text-sm font-semibold hover:bg-gray-50 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <GooglePayIcon className="h-6 w-auto" />
@@ -310,7 +609,7 @@ function StripeCardForm({
         </div>
       )}
 
-      {/* Terms & Conditions - Moved above Pay button */}
+      {/* Terms & Conditions - Above Pay button */}
       <div className="bg-white rounded-2xl border border-gray-200 p-5">
         <div className="flex items-start gap-3">
           <Checkbox
@@ -333,7 +632,7 @@ function StripeCardForm({
       <button
         type="button"
         onClick={handleSubmit}
-        disabled={isSubmitting || !isFormValid || (!isFree && !isCardComplete) || !stripe}
+        disabled={isSubmitting || !isFormValid || !agreedToTerms || (!isFree && !isCardComplete) || !stripe}
         className="w-full flex items-center justify-center gap-2 h-14 rounded-2xl text-base font-semibold transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 bg-[#2563eb] hover:bg-[#1d4ed8] text-white shadow-lg shadow-blue-500/20"
       >
         {isSubmitting ? (
@@ -388,6 +687,7 @@ export default function CheckoutPageClient({
   const [lastName, setLastName] = useState(() => loadSessionField(SESSION_KEYS.lastName))
   const [email, setEmail] = useState(() => urlEmail || "")
   const [vatId, setVatId] = useState(() => loadSessionField(SESSION_KEYS.vatId))
+  const [country, setCountry] = useState(() => loadSessionField(SESSION_KEYS.country) || "US")
   const [agreedToTerms, setAgreedToTerms] = useState(false)
   const [nameOnCard, setNameOnCard] = useState("")
 
@@ -405,6 +705,7 @@ export default function CheckoutPageClient({
   const [mobileOrderOpen, setMobileOrderOpen] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showVariantModal, setShowVariantModal] = useState(false)
+  const [stripeReady, setStripeReady] = useState(false)
 
   const lastSubmitTime = useRef(0)
 
@@ -414,6 +715,7 @@ export default function CheckoutPageClient({
   useEffect(() => { saveSessionField(SESSION_KEYS.email, email) }, [email])
   useEffect(() => { saveSessionField(SESSION_KEYS.vatId, vatId) }, [vatId])
   useEffect(() => { saveSessionField(SESSION_KEYS.discountCode, discountCode) }, [discountCode])
+  useEffect(() => { saveSessionField(SESSION_KEYS.country, country) }, [country])
 
   // Track checkout start
   useEffect(() => {
@@ -443,14 +745,19 @@ export default function CheckoutPageClient({
   const tipOptions = [0, 1, 3, 5]
   const productUrl = getProductUrl(creator.username, product.slug)
 
-  const isFormValid = useMemo(() => {
+  // Contact validation: does NOT require agreedToTerms so PaymentIntent can be created early
+  const isContactValid = useMemo(() => {
     return (
       firstName.trim().length > 0 &&
       lastName.trim().length > 0 &&
-      validateEmail(email) &&
-      agreedToTerms
+      validateEmail(email)
     )
-  }, [firstName, lastName, email, agreedToTerms])
+  }, [firstName, lastName, email])
+
+  // Full form validation: includes terms for payment submission
+  const isFormValid = useMemo(() => {
+    return isContactValid && agreedToTerms
+  }, [isContactValid, agreedToTerms])
 
   const isRateLimited = useCallback(() => {
     const now = Date.now()
@@ -541,19 +848,28 @@ export default function CheckoutPageClient({
     return { clientSecret: data.clientSecret, paymentIntentId: data.paymentIntentId }
   }, [product.id, firstName, lastName, email, tipCents, isGift, selectedVariant, isPwyw, customPriceCents])
 
-  // Initialize PaymentIntent when form is valid and product is not free
+  // Initialize PaymentIntent when contact info is valid (NOT requiring agreedToTerms)
+  // This fixes infinite loading - Elements get clientSecret before terms are checked
   useEffect(() => {
-    if (!isFree && isFormValid && !clientSecret) {
+    if (!isFree && isContactValid && !clientSecret) {
       createPaymentIntent()
         .then(({ clientSecret: cs, paymentIntentId: piId }) => {
           setClientSecret(cs)
           setPaymentIntentId(piId)
+          setStripeReady(true)
         })
         .catch((err) => {
           console.error("Failed to initialize payment:", err)
+          // Set stripeReady to true even on error to stop showing skeleton
+          setStripeReady(true)
         })
     }
-  }, [isFree, isFormValid, clientSecret, createPaymentIntent])
+  }, [isFree, isContactValid, clientSecret, createPaymentIntent])
+
+  // If product is free, mark stripe as ready immediately
+  useEffect(() => {
+    if (isFree) setStripeReady(true)
+  }, [isFree])
 
   // Handle paid checkout with Stripe Elements
   const handlePaidCheckout = async (stripe: any, elements: any) => {
@@ -754,7 +1070,7 @@ export default function CheckoutPageClient({
               onClick={() => { setTipAmount(amount); setCustomTip("") }}
               className={`px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-150 cursor-pointer ${
                 tipAmount === amount && !customTip
-                  ? "bg-black text-white shadow-sm"
+                  ? "bg-[#2563eb] text-white shadow-sm"
                   : "bg-gray-100 text-gray-600 hover:bg-gray-200"
               }`}
             >
@@ -796,19 +1112,65 @@ export default function CheckoutPageClient({
 
   // Payment elements content (LEFT column on desktop, after product on mobile)
   const paymentElementsContent = !isFree ? (
-    <Elements stripe={stripePromise} options={elementsOptions}>
-      <StripeCardForm
-        onSubmit={handleSubmit}
-        isSubmitting={isSubmitting}
-        isFormValid={isFormValid}
-        isFree={isFree}
-        total={total}
-        error={error}
-        setError={setError}
-        nameOnCard={nameOnCard}
-        setNameOnCard={setNameOnCard}
-      />
-    </Elements>
+    clientSecret && elementsOptions ? (
+      <Elements stripe={stripePromise} options={elementsOptions}>
+        <StripeCardForm
+          onSubmit={handleSubmit}
+          isSubmitting={isSubmitting}
+          isFormValid={isContactValid}
+          isFree={isFree}
+          total={total}
+          error={error}
+          setError={setError}
+          nameOnCard={nameOnCard}
+          setNameOnCard={setNameOnCard}
+          agreedToTerms={agreedToTerms}
+          setAgreedToTerms={setAgreedToTerms}
+        />
+      </Elements>
+    ) : (
+      /* Skeleton loader while Stripe Elements are loading */
+      <div className="space-y-4">
+        <CheckoutSkeleton />
+        {/* Terms checkbox still shown during loading */}
+        <div className="bg-white rounded-2xl border border-gray-200 p-5">
+          <div className="flex items-start gap-3">
+            <Checkbox
+              id="terms-loading"
+              checked={agreedToTerms}
+              onCheckedChange={(checked) => setAgreedToTerms(checked as boolean)}
+              className="mt-0.5 shrink-0 data-[state=checked]:bg-black data-[state=checked]:border-black"
+            />
+            <Label htmlFor="terms-loading" className="cursor-pointer text-sm leading-relaxed text-gray-600">
+              I agree to the{" "}
+              <Link href="/terms" className="text-gray-900 hover:text-black underline underline-offset-2" target="_blank">
+                Terms and Conditions
+              </Link>{" "}
+              *
+            </Label>
+          </div>
+        </div>
+        {/* Disabled pay button during loading */}
+        <button
+          type="button"
+          disabled
+          className="w-full flex items-center justify-center gap-2 h-14 rounded-2xl text-base font-semibold transition-all duration-200 cursor-not-allowed opacity-60 bg-[#2563eb] text-white shadow-lg shadow-blue-500/20"
+        >
+          <Loader2 className="h-5 w-5 animate-spin" />
+          Loading payment...
+        </button>
+        <div className="flex flex-col items-center gap-2 pt-1">
+          <div className="flex items-center gap-1.5 text-xs text-gray-400">
+            <Shield className="h-3.5 w-3.5" />
+            <span>Payment is secure and encrypted</span>
+          </div>
+          <p className="text-xs text-gray-400 flex items-center gap-1">
+            <Lock className="h-3 w-3" />
+            Secured by Stripe
+          </p>
+        </div>
+      </div>
+    )
   ) : (
     <>
       {/* Free product - just show button */}
@@ -873,7 +1235,7 @@ export default function CheckoutPageClient({
       </header>
 
       <div className="mx-auto max-w-[1400px] px-6 sm:px-10 lg:px-16 py-6 sm:py-10 pb-[max(2rem,env(safe-area-inset-bottom))]">
-        {/* Mobile order summary toggle */}
+        {/* Mobile order summary toggle - open by default */}
         <div className="mb-4 lg:hidden">
           <OrderSummaryMobileToggle
             isOpen={mobileOrderOpen}
@@ -900,10 +1262,62 @@ export default function CheckoutPageClient({
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-start">
           {/* ===== LEFT COLUMN (50%) ===== */}
+          {/* Desktop: Contact info, Product, VAT, Express Checkout + Card fields */}
+          {/* Mobile: Contact info (order-1), Product (order-2), Payment (order-3), extras (order-4+) */}
           <div className="flex flex-col gap-6 order-2 lg:order-1">
 
-            {/* Product Card - First on Desktop, Third on Mobile */}
-            <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 order-2 lg:order-1">
+            {/* Contact Information - First on BOTH mobile and desktop */}
+            <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 order-1 lg:order-1">
+              <h3 className="text-sm font-semibold text-gray-900 mb-4">Contact information</h3>
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="firstName" className="text-xs font-medium text-gray-600">First Name *</Label>
+                    <Input
+                      id="firstName"
+                      type="text"
+                      placeholder="John"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="lastName" className="text-xs font-medium text-gray-600">Last Name *</Label>
+                    <Input
+                      id="lastName"
+                      type="text"
+                      placeholder="Doe"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20"
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="email" className="text-xs font-medium text-gray-600">Email address *</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="Email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20"
+                    required
+                  />
+                  <p className="text-xs text-gray-400">We&apos;ll send your download link to this email</p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-gray-600">Country</Label>
+                  <CountrySelector value={country} onChange={setCountry} />
+                </div>
+              </div>
+            </section>
+
+            {/* Product Card - Second on BOTH mobile and desktop */}
+            <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 order-2 lg:order-2">
               <div className="flex gap-4">
                 <div className="relative h-20 w-20 sm:h-24 sm:w-24 shrink-0 rounded-xl bg-gray-100">
                   <div className="relative h-full w-full overflow-hidden rounded-xl">
@@ -961,59 +1375,25 @@ export default function CheckoutPageClient({
               </div>
             </section>
 
-            {/* Contact Information - First on Mobile, Second on Desktop */}
-            <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 order-1 lg:order-2">
-              <h3 className="text-sm font-semibold text-gray-900 mb-4">Contact information</h3>
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="firstName" className="text-xs font-medium text-gray-600">First Name *</Label>
-                    <Input
-                      id="firstName"
-                      type="text"
-                      placeholder="John"
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
-                      className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="lastName" className="text-xs font-medium text-gray-600">Last Name *</Label>
-                    <Input
-                      id="lastName"
-                      type="text"
-                      placeholder="Doe"
-                      value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
-                      className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20"
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="email" className="text-xs font-medium text-gray-600">Email address *</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="Email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20"
-                    required
-                  />
-                  <p className="text-xs text-gray-400">We&apos;ll send your download link to this email</p>
-                </div>
-              </div>
+            {/* Business VAT ID - Desktop: order-3 (before payment), Mobile: order-7 (last) */}
+            <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 order-7 lg:order-3">
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">Business VAT ID (optional)</h3>
+              <Input
+                placeholder="e.g. DE123456789"
+                value={vatId}
+                onChange={(e) => setVatId(e.target.value)}
+                className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20"
+              />
+              <p className="text-xs text-gray-400 mt-1.5">Only required for EU B2B transactions</p>
             </section>
 
-            {/* Payment Elements - Mobile: after product (order-3), Desktop: after VAT (order-4) */}
+            {/* Payment Elements - Mobile: order-3, Desktop: order-4 (after VAT) */}
             <div className="order-3 lg:order-4">
               {paymentElementsContent}
             </div>
 
             {/* Discount Code - Mobile only (order-4) */}
-            <section className="lg:hidden bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 order-4 lg:hidden">
+            <section className="lg:hidden bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 order-4">
               <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
                 <Tag className="w-4 h-4 text-gray-400" />
                 Discount code
@@ -1054,7 +1434,7 @@ export default function CheckoutPageClient({
             </section>
 
             {/* Tip Section - Mobile only (order-5) */}
-            <section className="lg:hidden bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 order-5 lg:hidden">
+            <section className="lg:hidden bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 order-5">
               <div className="flex items-center gap-2 mb-3">
                 <Heart className="h-4 w-4 text-pink-500 shrink-0" />
                 <h3 className="text-sm font-semibold text-gray-900">Add a tip for {creator.name}</h3>
@@ -1067,7 +1447,7 @@ export default function CheckoutPageClient({
                     onClick={() => { setTipAmount(amount); setCustomTip("") }}
                     className={`px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-150 cursor-pointer ${
                       tipAmount === amount && !customTip
-                        ? "bg-black text-white shadow-sm"
+                        ? "bg-[#2563eb] text-white shadow-sm"
                         : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                     }`}
                   >
@@ -1090,7 +1470,7 @@ export default function CheckoutPageClient({
             </section>
 
             {/* Gift Toggle - Mobile only (order-6) */}
-            <section className="lg:hidden bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 order-6 lg:hidden">
+            <section className="lg:hidden bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 order-6">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <Gift className="h-5 w-5 text-gray-500 shrink-0" />
@@ -1103,18 +1483,6 @@ export default function CheckoutPageClient({
                 </div>
                 <Switch id="gift" checked={isGift} onCheckedChange={setIsGift} className="shrink-0" />
               </div>
-            </section>
-
-            {/* Business VAT ID - Mobile: order-7 (last), Desktop: order-3 (before payment) */}
-            <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 order-7 lg:order-3">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3">Business VAT ID (optional)</h3>
-              <Input
-                placeholder="e.g. DE123456789"
-                value={vatId}
-                onChange={(e) => setVatId(e.target.value)}
-                className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20"
-              />
-              <p className="text-xs text-gray-400 mt-1.5">Only required for EU B2B transactions</p>
             </section>
           </div>
 
@@ -1191,7 +1559,7 @@ export default function CheckoutPageClient({
               <button
                 type="button"
                 onClick={() => setShowVariantModal(false)}
-                className="w-full h-11 rounded-xl bg-black hover:bg-gray-800 text-white font-semibold transition-colors cursor-pointer"
+                className="w-full h-11 rounded-xl bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-semibold transition-colors cursor-pointer"
               >
                 Save changes
               </button>
