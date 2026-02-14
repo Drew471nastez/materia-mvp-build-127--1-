@@ -9,7 +9,7 @@ interface RecommendedSectionProps {
   filterType?: "curated" | "trending" | "hot-new"
 }
 
-const ITEMS_PER_PAGE = 6
+const ITEMS_PER_PAGE = 9
 
 export function RecommendedSection({ products, filterType = "curated" }: RecommendedSectionProps) {
   const [currentPage, setCurrentPage] = useState(0)

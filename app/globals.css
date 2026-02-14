@@ -188,11 +188,18 @@
     min-height: 100svh;
     /* Enable touch scrolling on mobile devices */
     touch-action: pan-y pinch-zoom;
+    /* Prevent scroll issues from modal/sheet interference */
+    overscroll-behavior: none;
     /* Safe area support for iOS notch/home indicator */
     padding-top: env(safe-area-inset-top);
     padding-bottom: env(safe-area-inset-bottom);
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
+  }
+
+  /* Force scroll restoration when body has inline overflow:hidden set incorrectly */
+  body:not([data-scroll-locked]) {
+    overflow-y: auto !important;
   }
 
   /* Hide scrollbar on /app pages - applied via class */
