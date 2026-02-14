@@ -1628,6 +1628,17 @@ export default function NewProductPage() {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload)
   }, [hasUnsavedChanges])
 
+  // Update document title based on edit mode
+  useEffect(() => {
+    const pageTitle = editProductId ? "Edit - Add Product | Storelib" : "Add Product | Storelib"
+    document.title = pageTitle
+
+    // Cleanup: restore default title on unmount
+    return () => {
+      document.title = "Storelib"
+    }
+  }, [editProductId])
+
   // Check section completion
   const checkSectionCompletion = useCallback(() => {
     const completed = new Set<SectionId>()
@@ -3783,7 +3794,7 @@ export default function NewProductPage() {
                   </div>
                   <Input
                     id="title"
-                    placeholder="Complete Digital Marketing Course"
+                    placeholder="Product title"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     className="h-10 sm:h-11 border-gray-200 bg-white text-sm sm:text-base"
@@ -4789,7 +4800,7 @@ export default function NewProductPage() {
                       if (isMobileViewport) e.preventDefault()
                     }}
                     overlayClassName={isMobileViewport ? `bg-black/40 transition-opacity duration-400 ${dismissingSheet === "category" ? "opacity-0" : "opacity-100"}` : undefined}
-                    className={`fixed !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0 sm:left-[50%] sm:top-[50%] sm:bottom-auto sm:translate-x-[-50%] sm:translate-y-[-50%] w-full !max-w-none sm:!max-w-lg sm:w-[calc(100%-2rem)] rounded-t-2xl sm:rounded-xl bg-white shadow-xl border-t sm:border p-0 h-[80vh] sm:h-auto max-h-[80vh] sm:max-h-[calc(100vh-4rem)] overflow-hidden flex flex-col ${dismissingSheet === "category" && !swipeCloseRef.current ? "animate-bottom-sheet-out" : (!dismissingSheet ? "animate-bottom-sheet-in" : "")} sm:animate-none`}
+                    className={`fixed !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0 sm:!left-[50%] sm:!top-[50%] sm:!bottom-auto sm:!translate-x-[-50%] sm:!translate-y-[-50%] w-full !max-w-none sm:!max-w-2xl lg:!max-w-3xl sm:w-[calc(100%-2rem)] rounded-t-2xl sm:rounded-2xl bg-white shadow-2xl border-t sm:border p-0 h-[85vh] sm:h-auto max-h-[85vh] sm:max-h-[85vh] overflow-hidden flex flex-col ${dismissingSheet === "category" && !swipeCloseRef.current ? "animate-bottom-sheet-out" : (!dismissingSheet ? "animate-bottom-sheet-in" : "")} sm:animate-none`}
                     style={isMobileViewport ? { willChange: 'transform', backfaceVisibility: 'hidden' } : undefined}
                     onTouchStart={(e) => handleSheetTouchStart(e, e.currentTarget as HTMLDivElement)}
                     onTouchMove={handleSheetTouchMove}
