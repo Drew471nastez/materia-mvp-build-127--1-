@@ -379,16 +379,17 @@ function SortableMediaItem({ item, index, onRemove }: SortableMediaItemProps) {
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    zIndex: isDragging ? 50 : undefined,
-    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 9999 : undefined,
+    opacity: isDragging ? 0.9 : 1,
+    position: isDragging ? 'relative' as const : undefined,
   }
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`relative aspect-video rounded-lg overflow-hidden border group select-none transition-shadow ${
-        isDragging ? "shadow-xl ring-2 ring-violet-400/50 scale-[1.03]" : "border-gray-200 hover:border-gray-300"
+      className={`relative aspect-video rounded-lg overflow-hidden border group select-none ${
+        isDragging ? "shadow-2xl ring-2 ring-violet-500 scale-105 bg-white" : "border-gray-200 hover:border-gray-300 transition-shadow"
       }`}
     >
       {item.type === "image" && (
@@ -3625,8 +3626,8 @@ export default function NewProductPage() {
                     disabled={!slug || !isPublished}
                     className="h-8 px-2.5 sm:px-3 text-xs font-medium rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors disabled:opacity-40"
                   >
-                    <ExternalLink className="h-3.5 w-3.5 sm:mr-1.5" />
-                    <span className="hidden sm:inline">View</span>
+                    <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                    View
                   </Button>
                 </div>
               )}
