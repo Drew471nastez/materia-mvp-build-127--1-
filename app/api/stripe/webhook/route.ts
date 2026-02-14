@@ -196,8 +196,10 @@ export async function POST(request: Request) {
 
     const totalAmount = session.amount_total || 0
 
+    // Fallback fee: 6% + $0.25 (only if >= $3.00)
+    const fallbackFee = Math.round(totalAmount * 0.06) + (totalAmount >= 300 ? 25 : 0)
     const platformFeeCents =
-      Number.parseInt(metadata.platform_fee_cents || "0", 10) || Math.round(totalAmount * 0.06) + 30
+      Number.parseInt(metadata.platform_fee_cents || "0", 10) || fallbackFee
 
     let applicationFeeAmount = platformFeeCents
     let transferId: string | null = null

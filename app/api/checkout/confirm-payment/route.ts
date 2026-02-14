@@ -162,6 +162,8 @@ export async function POST(request: Request) {
           name: variantName,
           price_cents: variantPriceCents,
         } : null,
+        agreed_to_terms: metadata.agreed_to_terms === "true" || true,
+        agreed_at: metadata.agreed_at || new Date().toISOString(),
       })
       .select()
       .single()

@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import crypto from "crypto"
 import { getValidatedPlatformStatementDescriptor } from "@/lib/payments/platform-descriptor"
-import { calculatePlatformFee } from "@/lib/fees"
+import { calculatePlatformFee } from "@/lib/billing/fee-calculator"
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
@@ -52,18 +52,19 @@ export async function POST(req: Request) {
     const currency = "usd"
     const accessToken = crypto.randomBytes(24).toString("hex")
 
-    // Calculate platform fee using the shared fee calculator
-    const feeCalc = await calculatePlatformFee(product.creator_id, product.price_cents)
+    // Calculate platform fee using the shared fee calculator (hardcoded percentages)
+    const feeCalc = await calculatePlatformFee(product.price_cents, product.creator_id, admin)
 
     console.log("[create-intent] Fee breakdown:", {
       productId: product.id,
       priceCents: product.price_cents,
-      plan: feeCalc.plan_used,
-      feePercent: `${(feeCalc.fee_percent * 100).toFixed(2)}%`,
-      percentFee: Math.round(product.price_cents * feeCalc.fee_percent),
-      fixedFee: feeCalc.fee_fixed_cents,
-      totalFee: feeCalc.fee_total_cents,
-      sellerNet: feeCalc.seller_net_cents,
+      plan: feeCalc.planId,
+      planName: feeCalc.planName,
+      feePercent: `${(feeCalc.feePercent * 100).toFixed(2)}%`,
+      percentFee: Math.round(product.price_cents * feeCalc.feePercent),
+      fixedFee: feeCalc.feeFixedCents,
+      totalFee: feeCalc.platformFeeCents,
+      sellerNet: feeCalc.sellerReceivesCents,
     })
 
     // Get the seller's connected Stripe account for destination charges
@@ -87,12 +88,12 @@ export async function POST(req: Request) {
         buyer_id: user?.id || "",
         email,
         access_token: accessToken,
-        fee_percent: String(feeCalc.fee_percent),
-        fee_fixed_cents: String(feeCalc.fee_fixed_cents),
-        fee_total_cents: String(feeCalc.fee_total_cents),
-        seller_net_cents: String(feeCalc.seller_net_cents),
-        plan_used: feeCalc.plan_used,
-        platform_fee_cents: String(feeCalc.fee_total_cents),
+        fee_percent: String(feeCalc.feePercent),
+        fee_fixed_cents: String(feeCalc.feeFixedCents),
+        fee_total_cents: String(feeCalc.platformFeeCents),
+        seller_net_cents: String(feeCalc.sellerReceivesCents),
+        plan_used: feeCalc.planId,
+        platform_fee_cents: String(feeCalc.platformFeeCents),
       },
     }
 
@@ -116,7 +117,7 @@ export async function POST(req: Request) {
     // If seller has a connected Stripe account, use destination charges
     // This sends money to the seller's account, while Storelib keeps the application fee
     if (hasConnectedAccount) {
-      intentParams.application_fee_amount = feeCalc.fee_total_cents
+      intentParams.application_fee_amount = feeCalc.platformFeeCents
       intentParams.transfer_data = {
         destination: creator.stripe_account_id,
       }
