@@ -242,12 +242,16 @@ export async function POST(request: Request) {
     }
 
     // Configure statement descriptor for bank statements
-    // Format: "STORELIB*{seller_descriptor}" (e.g., "STORELIB*JANES SHOP")
+    // Format: "{seller_descriptor} - STORELIB" (e.g., "JANES SHOP - STORELIB")
     try {
-      intentConfig.statement_descriptor = getValidatedPlatformStatementDescriptor()
-      const sellerDescriptor = product.creator.statement_descriptor || product.creator.name || "STORE"
-      intentConfig.statement_descriptor_suffix = sellerDescriptor.trim().toUpperCase().slice(0, 22).replace(/[^A-Z0-9\s]/g, "")
-      console.log("[v0] Statement descriptor configured:", intentConfig.statement_descriptor, "*", intentConfig.statement_descriptor_suffix)
+      const platformName = getValidatedPlatformStatementDescriptor()
+      const sellerDescriptor = (product.creator.statement_descriptor || product.creator.name || "STORE")
+        .trim().toUpperCase().replace(/[^A-Z0-9\s]/g, "")
+      const suffix = ` - ${platformName}`
+      const maxSellerLen = 22 - suffix.length
+      const truncatedSeller = sellerDescriptor.slice(0, maxSellerLen)
+      intentConfig.statement_descriptor = `${truncatedSeller}${suffix}`
+      console.log("[v0] Statement descriptor configured:", intentConfig.statement_descriptor)
     } catch (descriptorError) {
       console.error("[v0] Descriptor error, skipping:", descriptorError)
     }

@@ -419,21 +419,27 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
                     <TooltipContent className="max-w-xs">
                       <p className="text-sm">
                         This text appears on your customers' bank statements. It helps them identify the charge.
-                        Uses format: "STORELIB*{creator.name || statementDescriptor}". Max 22 characters.
+                        Format: &quot;(Your Name) - STORELIB&quot;. Only your name can be changed. Max 22 characters total.
                       </p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               </div>
-              <Input
-                id="descriptor"
-                value={statementDescriptor}
-                onChange={(e) => setStatementDescriptor(e.target.value.slice(0, 22).toUpperCase())}
-                placeholder={creator.name?.slice(0, 22).toUpperCase() || "YOUR STORE"}
-                maxLength={22}
-              />
+              <div className="flex items-center">
+                <Input
+                  id="descriptor"
+                  value={statementDescriptor}
+                  onChange={(e) => setStatementDescriptor(e.target.value.slice(0, 10).toUpperCase())}
+                  placeholder={creator.name?.slice(0, 10).toUpperCase() || "YOUR NAME"}
+                  maxLength={10}
+                  className="rounded-r-none border-r-0"
+                />
+                <div className="flex h-10 items-center rounded-r-md border border-l-0 border-input bg-muted px-3 text-sm font-medium text-muted-foreground whitespace-nowrap select-none">
+                  - STORELIB
+                </div>
+              </div>
               <p className="text-xs text-muted-foreground">
-                Bank statement will show: <span className="font-mono">STORELIB*{statementDescriptor || creator.name?.slice(0, 22).toUpperCase() || "YOURSTORE"}</span>
+                Bank statement will show: <span className="font-mono">{statementDescriptor || creator.name?.slice(0, 10).toUpperCase() || "YOURNAME"} - STORELIB</span>
               </p>
             </div>
 

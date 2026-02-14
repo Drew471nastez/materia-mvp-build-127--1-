@@ -82,9 +82,19 @@ export async function POST(req: Request) {
       },
     }
 
-    // Add statement descriptor if possible
+    // Add statement descriptor - format: "{sellername} - STORELIB"
     try {
-      intentParams.statement_descriptor_suffix = getValidatedPlatformStatementDescriptor()
+      const platformName = getValidatedPlatformStatementDescriptor()
+      const { data: creatorProfile } = await supabase
+        .from("creators")
+        .select("statement_descriptor, name")
+        .eq("id", product.creator_id)
+        .single()
+      const sellerDescriptor = (creatorProfile?.statement_descriptor || creatorProfile?.name || "STORE")
+        .trim().toUpperCase().replace(/[^A-Z0-9\s]/g, "")
+      const suffix = ` - ${platformName}`
+      const maxSellerLen = 22 - suffix.length
+      intentParams.statement_descriptor = `${sellerDescriptor.slice(0, maxSellerLen)}${suffix}`
     } catch {
       // Skip descriptor if it fails validation
     }
