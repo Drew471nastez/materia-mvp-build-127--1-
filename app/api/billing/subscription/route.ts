@@ -236,7 +236,28 @@ export async function GET() {
       console.error("[Subscription API] Stripe fetch error:", err)
     }
 
-    // No active subscription found
+    // No active subscription found — sync DB back to free plan
+    // This fixes stale plan data if a webhook was missed or failed
+    if (creator.subscription_plan_id !== "free" || creator.subscription_status !== "active") {
+      console.log("[Subscription API] No active Stripe subscription, resetting creator to free plan:", {
+        creatorId: creator.id,
+        stalePlan: creator.subscription_plan_id,
+        staleStatus: creator.subscription_status,
+      })
+      try {
+        await supabase
+          .from("creators")
+          .update({
+            subscription_plan_id: "free",
+            subscription_status: "active",
+            stripe_customer_id: stripeCustomerId,
+          })
+          .eq("id", creator.id)
+      } catch (syncError) {
+        console.error("[Subscription API] Failed to reset creator to free:", syncError)
+      }
+    }
+
     return NextResponse.json({
       subscription: null,
       currentPlan: FREE_PLAN,

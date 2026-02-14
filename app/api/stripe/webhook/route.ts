@@ -585,14 +585,25 @@ export async function POST(request: Request) {
         })
         .eq("stripe_subscription_id", subscription.id)
 
+      // If subscription is no longer active/trialing, force plan to "free"
+      // so fee calculation always defaults correctly
+      const isSubscriptionActive = ["active", "trialing"].includes(subscription.status)
+      const creatorPlanId = isSubscriptionActive ? planId : "free"
+
       await supabaseAdmin
         .from("creators")
         .update({
-          subscription_plan_id: planId,
-          subscription_status: subscription.status,
+          subscription_plan_id: creatorPlanId,
+          subscription_status: isSubscriptionActive ? subscription.status : "active",
         })
         .eq("id", existingSubscription.creator_id)
 
+      console.log("[Subscription] Creator plan synced:", {
+        creatorId: existingSubscription.creator_id,
+        stripeStatus: subscription.status,
+        resolvedPlanId: creatorPlanId,
+        isActive: isSubscriptionActive,
+      })
 
       if (subscription.status === "active" && metadata.pending_plan_id) {
         await stripe.subscriptions.update(subscription.id, {
