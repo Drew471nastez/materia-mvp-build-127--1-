@@ -39,8 +39,9 @@ const PLAN_NAMES: Record<SellerPlan, string> = {
   pro: "Professional",
 }
 
-// $0.25 flat fixed fee — applied on EVERY transaction
+// $0.25 fixed fee — ONLY applied when order amount >= $3.00 (300 cents)
 const FIXED_FEE_CENTS = 25
+const FIXED_FEE_THRESHOLD_CENTS = 300
 
 // ────────────────────────────────────────────────────────────────
 // resolveSellerPlan — maps any plan ID string to SellerPlan
@@ -59,20 +60,20 @@ function resolveSellerPlan(planId: string | null | undefined): SellerPlan {
 //
 // Rules:
 //   percent_fee    = round(unitAmount × planPercent)
-//   fixed_fee      = 25c (always)
+//   fixed_fee      = 25c IF unitAmount >= 300c ($3.00), else 0
 //   application_fee = percent_fee + fixed_fee
 //   Clamped to [0, unitAmount]
 //
 // Examples:
-//   Free  $1.00 (100c) → 6%=6c  + 25c → 31c
-//   Free  $3.00 (300c) → 6%=18c + 25c → 43c
-//   Free  $10   (1000c)→ 6%=60c + 25c → 85c
-//   Growth $1   (100c) → 3%=3c  + 25c → 28c
-//   Growth $3   (300c) → 3%=9c  + 25c → 34c
-//   Growth $10  (1000c)→ 3%=30c + 25c → 55c
-//   Pro   $1    (100c) → 1.5%=2c + 25c → 27c
-//   Pro   $3    (300c) → 1.5%=5c + 25c → 30c
-//   Pro   $10   (1000c)→ 1.5%=15c+ 25c → 40c
+//   Free  $1.00 (100c) → 6%=6c,  fixed=0   → 6c
+//   Free  $3.00 (300c) → 6%=18c, fixed=25c  → 43c
+//   Free  $10   (1000c)→ 6%=60c, fixed=25c  → 85c
+//   Growth $1   (100c) → 3%=3c,  fixed=0    → 3c
+//   Growth $3   (300c) → 3%=9c,  fixed=25c  → 34c
+//   Growth $10  (1000c)→ 3%=30c, fixed=25c  → 55c
+//   Pro   $1    (100c) → 1.5%=2c, fixed=0   → 2c
+//   Pro   $3    (300c) → 1.5%=5c, fixed=25c → 30c
+//   Pro   $10   (1000c)→ 1.5%=15c,fixed=25c → 40c
 // ────────────────────────────────────────────────────────────────
 
 export function computeApplicationFee({
@@ -84,7 +85,8 @@ export function computeApplicationFee({
 }): number {
   const percent = PLAN_FEE_PERCENT[sellerPlan] ?? PLAN_FEE_PERCENT.free
   const percentFee = Math.round(unitAmount * percent)
-  const applicationFee = percentFee + FIXED_FEE_CENTS
+  const fixedFee = unitAmount >= FIXED_FEE_THRESHOLD_CENTS ? FIXED_FEE_CENTS : 0
+  const applicationFee = percentFee + fixedFee
 
   // Clamp: never negative, never exceed total charge
   return Math.max(0, Math.min(applicationFee, unitAmount))
@@ -140,7 +142,7 @@ export async function calculatePlatformFee(
 
   const feePercent = PLAN_FEE_PERCENT[effectivePlan]
   const percentFeeCents = Math.round(amountCents * feePercent)
-  const fixedFeeCents = FIXED_FEE_CENTS
+  const fixedFeeCents = amountCents >= FIXED_FEE_THRESHOLD_CENTS ? FIXED_FEE_CENTS : 0
   const totalFeeCents = percentFeeCents + fixedFeeCents
 
   // Clamp: never negative, never exceed total charge
@@ -180,7 +182,7 @@ export function calculateFeeWithPlan(
   // ALWAYS use hardcoded fee percent based on plan ID
   const resolved = resolveSellerPlan(plan.id)
   const feePercent = PLAN_FEE_PERCENT[resolved]
-  const feeFixedCents = FIXED_FEE_CENTS
+  const feeFixedCents = amountCents >= FIXED_FEE_THRESHOLD_CENTS ? FIXED_FEE_CENTS : 0
 
   const percentageFeeCents = Math.round(amountCents * feePercent)
   const totalFeeCents = percentageFeeCents + feeFixedCents
@@ -209,7 +211,7 @@ export function getFeePreview(
 ): FeeCalculation {
   const resolved = resolveSellerPlan(planId)
   const feePercent = PLAN_FEE_PERCENT[resolved]
-  const fixedFee = FIXED_FEE_CENTS
+  const fixedFee = amountCents >= FIXED_FEE_THRESHOLD_CENTS ? FIXED_FEE_CENTS : 0
   const percentFee = Math.round(amountCents * feePercent)
   const totalFee = percentFee + fixedFee
   const platformFeeCents = Math.max(0, Math.min(totalFee, amountCents))
@@ -238,9 +240,9 @@ export function formatCentsToDollars(cents: number): string {
 
 export function getFeeDescription(planId: string): string {
   const descriptions: Record<string, string> = {
-    free: "6% + $0.25 per transaction",
-    growth: "3% + $0.25 per transaction",
-    pro: "1.5% + $0.25 per transaction",
+    free: "6% + $0.25 per transaction (on orders $3+)",
+    growth: "3% + $0.25 per transaction (on orders $3+)",
+    pro: "1.5% + $0.25 per transaction (on orders $3+)",
   }
   return descriptions[planId] || descriptions.free
 }

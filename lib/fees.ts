@@ -23,8 +23,9 @@ const PLAN_FEE_PERCENT: Record<string, number> = {
   pro: 0.015,   // 1.5%
 }
 
-// $0.25 flat fixed fee — applied on EVERY transaction
+// $0.25 fixed fee — ONLY on orders >= $3.00 (300 cents)
 const FIXED_FEE_CENTS = 25
+const FIXED_FEE_THRESHOLD_CENTS = 300
 
 function resolveSellerPlan(planId: string | null | undefined): string {
   if (!planId) return "free"
@@ -39,9 +40,9 @@ function resolveSellerPlan(planId: string | null | undefined): string {
  * Uses the seller's CURRENT plan from Supabase at time of charge.
  *
  * Fee rules (hardcoded, not from DB):
- *   Free:         6%   + $0.25 flat
- *   Growth:       3%   + $0.25 flat
- *   Professional: 1.5% + $0.25 flat
+ *   Free:         6%   + $0.25 (only if order >= $3.00)
+ *   Growth:       3%   + $0.25 (only if order >= $3.00)
+ *   Professional: 1.5% + $0.25 (only if order >= $3.00)
  *
  * If not active on paid tier, defaults to Free fees.
  */
@@ -82,7 +83,7 @@ export async function calculatePlatformFee(
   // Use hardcoded fee percent based on resolved plan ID
   const feePercent = PLAN_FEE_PERCENT[effectivePlan] ?? PLAN_FEE_PERCENT.free
   const percentFee = Math.round(orderAmountCents * feePercent)
-  const feeFixedCents = FIXED_FEE_CENTS
+  const feeFixedCents = orderAmountCents >= FIXED_FEE_THRESHOLD_CENTS ? FIXED_FEE_CENTS : 0
   const feeTotalCents = Math.max(0, Math.min(percentFee + feeFixedCents, orderAmountCents))
   const sellerNetCents = orderAmountCents - feeTotalCents
 

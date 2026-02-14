@@ -10,7 +10,7 @@ const FREE_PLAN = {
   billing_period: null,
   fee_percent: 0.06,
   fee_fixed_cents: 25,
-  features: ["6% + $0.25 per transaction", "Basic analytics", "Standard support"],
+  features: ["6% + $0.25 per transaction (on orders $3+)", "Basic analytics", "Standard support"],
   is_active: true,
 }
 
@@ -21,7 +21,7 @@ const GROWTH_PLAN = {
   billing_period: "month",
   fee_percent: 0.03,
   fee_fixed_cents: 25,
-  features: ["3% + $0.25 per transaction", "Advanced analytics", "Priority support", "Custom domain"],
+  features: ["3% + $0.25 per transaction (on orders $3+)", "Advanced analytics", "Priority support", "Custom domain"],
   is_active: true,
 }
 
@@ -32,7 +32,7 @@ const PRO_PLAN = {
   billing_period: "month",
   fee_percent: 0.015,
   fee_fixed_cents: 25,
-  features: ["1.5% + $0.25 per transaction", "Premium analytics", "Dedicated support", "White-label", "API access"],
+  features: ["1.5% + $0.25 per transaction (on orders $3+)", "Premium analytics", "Dedicated support", "White-label", "API access"],
   is_active: true,
 }
 
