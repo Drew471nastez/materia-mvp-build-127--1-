@@ -8,6 +8,12 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import {
   X, Check, Loader2, AlertCircle, Mail, Lock,
   CreditCard, Store, Shield, Settings, Wallet,
   Camera, ExternalLink, ChevronRight, Globe,
@@ -208,6 +214,8 @@ interface SettingsFormProps {
     brand_color?: string
     cover_url?: string
     support_email?: string | null
+    statement_descriptor?: string | null
+    payout_currency?: string | null
     slug?: string
   }
   storeBuilderAvatarUrl?: string | null
@@ -830,9 +838,22 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   const [supportEmail, setSupportEmail] = useState(creator?.support_email || "")
   const initialSupportEmail = useRef(supportEmail)
 
+  const normalizeStatementDescriptor = (value: string) =>
+    value
+      .toUpperCase()
+      .replace(/[^A-Z0-9\s]/g, "")
+      .slice(0, 22)
+
+  const defaultStatementDescriptor = normalizeStatementDescriptor(
+    (creator?.statement_descriptor || creator?.name || "STORE").trim()
+  )
+
   const [payoutCurrency, setPayoutCurrency] = useState((creator as any)?.payout_currency || "USD")
+  const [statementDescriptor, setStatementDescriptor] = useState(defaultStatementDescriptor)
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false)
   const [isMobileViewport, setIsMobileViewport] = useState(false)
+  const initialPayoutCurrency = useRef(payoutCurrency)
+  const initialStatementDescriptor = useRef(statementDescriptor)
 
   const [stripeStatus, setStripeStatus] = useState<{ connected: boolean; status: string; chargesEnabled?: boolean; payoutsEnabled?: boolean; detailsSubmitted?: boolean; accountId?: string | null }>({ connected: false, status: "not_connected" })
   const [stripeStatusLoading, setStripeStatusLoading] = useState(false)
@@ -932,7 +953,9 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     country !== initialValues.current.country ||
     selectedLanguage !== initialLanguage.current ||
     selectedTimezone !== initialTimezone.current ||
-    supportEmail !== initialSupportEmail.current
+    supportEmail !== initialSupportEmail.current ||
+    payoutCurrency !== initialPayoutCurrency.current ||
+    statementDescriptor !== initialStatementDescriptor.current
 
 
   const loadStripeStatus = useCallback(async () => {
@@ -1415,7 +1438,9 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
       const { error: creatorError } = await supabase.from("creators").update({
         slug: cleanUsername,
-        support_email: supportEmail || null
+        support_email: supportEmail || null,
+        payout_currency: payoutCurrency,
+        statement_descriptor: normalizeStatementDescriptor(statementDescriptor || creator?.name || "STORE"),
       }).eq("id", creator.id)
 
       if (creatorError) throw creatorError
@@ -1445,6 +1470,8 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
       }
       initialTimezone.current = selectedTimezone
       initialSupportEmail.current = supportEmail
+      initialPayoutCurrency.current = payoutCurrency
+      initialStatementDescriptor.current = statementDescriptor
 
       // If language changed, apply it and reload the page
       if (languageChanged) {
@@ -2628,6 +2655,36 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 </button>
                 <p className="text-[12px] text-[#9ca3af] mt-2">Prices are shown in USD. Payouts are settled in your selected currency.</p>
                 <p className="text-[12px] text-[#9ca3af] mt-1">Lock all buyer-facing prices to USD only.</p>
+
+                <div className="mt-4 space-y-1.5 max-w-[420px]">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="statement-descriptor" className="text-[13px] font-medium text-[#374151]">Statement Descriptor</Label>
+                    <TooltipProvider delayDuration={120}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            className="inline-flex items-center justify-center text-[#9ca3af] hover:text-[#6b7280] transition-colors cursor-help"
+                            aria-label="About statement descriptor"
+                          >
+                            <Info className="h-3.5 w-3.5" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-[280px] text-xs leading-relaxed">
+                          This text appears on your customer&apos;s bank statement to identify who charged them.
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <Input
+                    id="statement-descriptor"
+                    value={statementDescriptor}
+                    onChange={(e) => setStatementDescriptor(normalizeStatementDescriptor(e.target.value))}
+                    placeholder={defaultStatementDescriptor}
+                    className="h-10 rounded-xl border-[#e5e7eb] text-[13px] focus-visible:border-[#8b5cf6] focus-visible:ring-[#8b5cf6]/20"
+                  />
+                  <p className="text-[12px] text-[#9ca3af]">Shown in bank apps as the charge descriptor (max 22 characters).</p>
+                </div>
               </div>
 
               {showCurrencyPicker && !isMobileViewport && (
