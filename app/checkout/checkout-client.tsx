@@ -187,6 +187,8 @@ function StripeCardForm({
   setError,
   nameOnCard,
   setNameOnCard,
+  agreedToTerms,
+  setAgreedToTerms,
 }: {
   onSubmit: (stripe: any, elements: any) => void
   isSubmitting: boolean
@@ -197,6 +199,8 @@ function StripeCardForm({
   setError: (e: string | null) => void
   nameOnCard: string
   setNameOnCard: (v: string) => void
+  agreedToTerms: boolean
+  setAgreedToTerms: (v: boolean) => void
 }) {
   const stripe = useStripe()
   const elements = useElements()
@@ -807,6 +811,8 @@ export default function CheckoutPageClient({
         setError={setError}
         nameOnCard={nameOnCard}
         setNameOnCard={setNameOnCard}
+        agreedToTerms={agreedToTerms}
+        setAgreedToTerms={setAgreedToTerms}
       />
     </Elements>
   ) : (
