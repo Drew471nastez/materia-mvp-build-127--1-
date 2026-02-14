@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,11 +21,12 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, CheckCircle2, AlertTriangle, CreditCard, Unplug, RefreshCw } from "lucide-react"
+import { Loader2, CheckCircle2, AlertTriangle, CreditCard, Unplug, RefreshCw, Info } from "lucide-react"
 
 interface PaymentsContentProps {
   creator: {
     id: string
+    name?: string
     default_currency?: string
     statement_descriptor?: string
     stripe_account_id?: string
@@ -407,16 +409,31 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="descriptor">Statement Descriptor</Label>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="descriptor">Statement Descriptor</Label>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="text-sm">
+                        This text appears on your customers' bank statements. It helps them identify the charge.
+                        Uses format: "STORELIB*{creator.name || statementDescriptor}". Max 22 characters.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
               <Input
                 id="descriptor"
                 value={statementDescriptor}
-                onChange={(e) => setStatementDescriptor(e.target.value.slice(0, 22))}
-                placeholder="YOUR STORE"
+                onChange={(e) => setStatementDescriptor(e.target.value.slice(0, 22).toUpperCase())}
+                placeholder={creator.name?.slice(0, 22).toUpperCase() || "YOUR STORE"}
                 maxLength={22}
               />
               <p className="text-xs text-muted-foreground">
-                Appears on customer credit card statements (max 22 characters)
+                Bank statement will show: <span className="font-mono">STORELIB*{statementDescriptor || creator.name?.slice(0, 22).toUpperCase() || "YOURSTORE"}</span>
               </p>
             </div>
 

@@ -28,7 +28,7 @@ export async function POST(request: Request) {
   const { data: product, error: productError } = await admin
     .from("products")
     .select(
-      "*, pay_what_you_want, pwyw_min_price_cents, pwyw_suggested_price_cents, creator:creators(id, user_id, stripe_account_id, stripe_onboarding_status, charges_enabled, payouts_enabled)",
+      "*, pay_what_you_want, pwyw_min_price_cents, pwyw_suggested_price_cents, creator:creators(id, user_id, name, stripe_account_id, stripe_onboarding_status, charges_enabled, payouts_enabled, statement_descriptor)",
     )
     .eq("id", productId)
     .eq("status", "published")
@@ -241,9 +241,13 @@ export async function POST(request: Request) {
       console.log("[v0] Added destination charge to:", product.creator.stripe_account_id, "fee:", platformFee)
     }
 
-    // Try with statement descriptor, fall back without
+    // Configure statement descriptor for bank statements
+    // Format: "STORELIB*{seller_descriptor}" (e.g., "STORELIB*JANES SHOP")
     try {
-      intentConfig.statement_descriptor_suffix = getValidatedPlatformStatementDescriptor()
+      intentConfig.statement_descriptor = getValidatedPlatformStatementDescriptor()
+      const sellerDescriptor = product.creator.statement_descriptor || product.creator.name || "STORE"
+      intentConfig.statement_descriptor_suffix = sellerDescriptor.trim().toUpperCase().slice(0, 22).replace(/[^A-Z0-9\s]/g, "")
+      console.log("[v0] Statement descriptor configured:", intentConfig.statement_descriptor, "*", intentConfig.statement_descriptor_suffix)
     } catch (descriptorError) {
       console.error("[v0] Descriptor error, skipping:", descriptorError)
     }

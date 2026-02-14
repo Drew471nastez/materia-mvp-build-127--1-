@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Skeleton } from "@/components/ui/skeleton"
 import { getProductUrl } from "@/lib/url-helpers"
 import {
   ArrowLeft,
@@ -125,16 +126,25 @@ const CARD_ELEMENT_OPTIONS = {
 // ---------- SVG Icons ----------
 function GooglePayIcon({ className = "h-5 w-5" }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M12.24 10.285V14.4h6.806c-.275 1.765-2.056 5.174-6.806 5.174-4.095 0-7.439-3.389-7.439-7.574s3.345-7.574 7.439-7.574c2.33 0 3.891.989 4.785 1.849l3.254-3.138C18.189 1.186 15.479 0 12.24 0c-6.635 0-12 5.365-12 12s5.365 12 12 12c6.926 0 11.52-4.869 11.52-11.726 0-.788-.085-1.39-.189-1.989H12.24z" fill="currentColor"/>
+    <svg className={className} viewBox="0 0 40 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <g>
+        <path d="M19.526 8.568v5.103h-1.651V.271h4.388c1.068 0 2.078.413 2.826 1.147.761.748 1.189 1.759 1.189 2.84 0 1.08-.428 2.091-1.189 2.839-.748.734-1.758 1.147-2.826 1.147h-2.737v.324zm0-6.627v5.03h2.763c.721 0 1.401-.285 1.908-.799.52-.52.811-1.214.811-1.947 0-.732-.291-1.427-.811-1.947-.507-.514-1.187-.799-1.908-.799h-2.763v.462z" fill="#5F6368"/>
+        <path d="M30.858 5.763c1.228 0 2.197.338 2.905.962.721.637 1.081 1.516 1.081 2.645v5.301h-1.57v-1.201h-.069c-.679 1.011-1.596 1.516-2.75 1.516-1.011 0-1.866-.31-2.565-.93-.693-.62-1.04-1.406-1.04-2.358 0-.979.36-1.752 1.081-2.317.721-.565 1.651-.848 2.791-.848 1.011 0 1.842.203 2.496.607v-.427c0-.607-.262-1.188-.734-1.627-.472-.438-1.054-.662-1.733-.662-.965 0-1.733.42-2.303 1.255l-1.461-.924c.858-1.188 2.142-1.787 3.843-1.787l.028-.006zm-2.195 6.627c0 .482.22.924.607 1.228.386.31.858.472 1.392.472.748 0 1.461-.351 1.974-.965.525-.62.786-1.322.786-2.105-.565-.482-1.364-.721-2.398-.721-.734 0-1.364.2-1.88.593-.514.393-.771.896-.771 1.498h.29z" fill="#5F6368"/>
+        <path d="M44 6.078l-6.048 13.805h-1.706l2.243-4.846-4.039-8.959h1.815l2.966 6.927h.041l2.905-6.927H44z" fill="#5F6368"/>
+        <path d="M11.05 6.713c0-.565-.048-1.13-.138-1.682H5.64v3.177h3.025c-.131.7-.527 1.344-1.116 1.758v2.063h1.803c1.054-.972 1.662-2.403 1.662-4.109l.036-.207z" fill="#4285F4"/>
+        <path d="M5.64 13.776c1.51 0 2.777-.496 3.703-1.351l-1.803-2.063c-.5.338-1.143.537-1.9.537-1.461 0-2.701-1.011-3.143-2.371H.649v2.063c.917 1.814 2.791 3.064 4.991 3.064v.121z" fill="#34A853"/>
+        <path d="M2.497 8.528c-.234-.7-.234-1.461 0-2.161V4.304H.649c-.772 1.53-.772 3.322 0 4.852l1.848-2.063v.435z" fill="#FBBC04"/>
+        <path d="M5.64 3.256c.803-.014 1.579.283 2.147.827l1.606-1.606C8.431 1.579 7.064.934 5.64.948c-2.2 0-4.074 1.25-4.991 3.064l1.848 2.063c.442-1.36 1.682-2.371 3.143-2.371v.552z" fill="#EA4335"/>
+      </g>
     </svg>
   )
 }
 
 function PayPalIcon({ className = "h-5 w-5" }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M7.076 21.337H2.47a.641.641 0 01-.633-.74L4.944.901C5.026.382 5.474 0 5.998 0h7.46c2.57 0 4.578.543 5.69 1.81 1.01 1.15 1.304 2.42 1.012 4.287-.023.143-.047.288-.077.437-.983 5.05-4.349 6.797-8.647 6.797h-2.19c-.524 0-.968.382-1.05.9l-1.12 7.106zm14.146-14.42a3.35 3.35 0 00-.607-.541c-.013.076-.026.175-.041.254-.93 4.778-4.005 7.201-9.138 7.201h-2.19a.563.563 0 00-.556.479l-1.187 7.527h-.506l-.24 1.516a.56.56 0 00.554.647h3.882c.46 0 .85-.334.922-.788.06-.26.76-4.852.816-5.09a.932.932 0 01.92-.789h.58c3.76 0 6.705-1.528 7.565-5.946.36-1.847.174-3.388-.774-4.47z" fill="currentColor"/>
+    <svg className={className} viewBox="0 0 100 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <text x="0" y="24" fontFamily="Verdana, Arial, sans-serif" fontSize="22" fontWeight="bold" fill="#003087">Pay</text>
+      <text x="36" y="24" fontFamily="Verdana, Arial, sans-serif" fontSize="22" fontWeight="bold" fill="#009cde">Pal</text>
     </svg>
   )
 }
@@ -213,34 +223,27 @@ function StripeCardForm({
       {!isFree && (
         <div className="bg-white rounded-2xl border border-gray-200 p-5">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4 text-center">Express checkout</p>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
               onClick={handleSubmit}
               disabled={isSubmitting || !isFormValid || !stripe}
-              className="flex items-center justify-center gap-2 h-12 rounded-xl bg-black text-white text-sm font-semibold hover:bg-gray-800 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center justify-center gap-2 h-12 rounded-xl bg-white border border-gray-300 text-gray-800 text-sm font-semibold hover:bg-gray-50 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <GooglePayIcon className="h-4 w-4" />
-              <span>Pay</span>
+              <GooglePayIcon className="h-6 w-auto" />
             </button>
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={isSubmitting || !isFormValid || !stripe}
-              className="flex items-center justify-center gap-2 h-12 rounded-xl bg-[#FFC439] text-[#003087] text-sm font-bold hover:bg-[#f0b930] transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <PayPalIcon className="h-4 w-4" />
-              <span>PayPal</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={isSubmitting || !isFormValid || !stripe}
-              className="flex items-center justify-center gap-2 h-12 rounded-xl bg-gray-100 text-gray-800 text-sm font-semibold hover:bg-gray-200 border border-gray-200 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <CreditCard className="h-4 w-4" />
-              <span>Card</span>
-            </button>
+            <div className="relative group">
+              <button
+                type="button"
+                disabled
+                className="w-full flex items-center justify-center gap-2 h-12 rounded-xl bg-[#FFC439] text-[#003087] text-sm font-bold cursor-not-allowed transition-all"
+              >
+                <PayPalIcon className="h-6 w-auto" />
+              </button>
+              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/80 rounded-xl pointer-events-none">
+                <span className="text-xs text-white font-medium">Not available now</span>
+              </div>
+            </div>
           </div>
           <div className="flex items-center gap-3 my-4">
             <div className="flex-1 h-px bg-gray-200" />
@@ -308,12 +311,31 @@ function StripeCardForm({
         </div>
       )}
 
+      {/* Terms & Conditions - Moved above Pay button */}
+      <div className="bg-white rounded-2xl border border-gray-200 p-5">
+        <div className="flex items-start gap-3">
+          <Checkbox
+            id="terms"
+            checked={agreedToTerms}
+            onCheckedChange={(checked) => setAgreedToTerms(checked as boolean)}
+            className="mt-0.5 shrink-0 data-[state=checked]:bg-black data-[state=checked]:border-black"
+          />
+          <Label htmlFor="terms" className="cursor-pointer text-sm leading-relaxed text-gray-600">
+            I agree to the{" "}
+            <Link href="/terms" className="text-gray-900 hover:text-black underline underline-offset-2" target="_blank">
+              Terms and Conditions
+            </Link>{" "}
+            *
+          </Label>
+        </div>
+      </div>
+
       {/* CTA Button */}
       <button
         type="button"
         onClick={handleSubmit}
         disabled={isSubmitting || !isFormValid || (!isFree && !isCardComplete) || !stripe}
-        className="w-full flex items-center justify-center gap-2 h-14 rounded-2xl text-base font-semibold transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 bg-black hover:bg-gray-800 text-white shadow-lg shadow-black/10"
+        className="w-full flex items-center justify-center gap-2 h-14 rounded-2xl text-base font-semibold transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 bg-[#2563eb] hover:bg-[#1d4ed8] text-white shadow-lg shadow-blue-500/20"
       >
         {isSubmitting ? (
           <>
@@ -381,7 +403,7 @@ export default function CheckoutPageClient({
   const [error, setError] = useState<string | null>(null)
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null)
-  const [mobileOrderOpen, setMobileOrderOpen] = useState(false)
+  const [mobileOrderOpen, setMobileOrderOpen] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showVariantModal, setShowVariantModal] = useState(false)
 
@@ -676,6 +698,99 @@ export default function CheckoutPageClient({
         />
       </div>
 
+      {/* Discount Code - Desktop only, shown in right column */}
+      <section className="hidden lg:block bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
+        <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+          <Tag className="w-4 h-4 text-gray-400" />
+          Discount code
+        </h3>
+        {discountApplied ? (
+          <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+            <div className="flex items-center gap-2">
+              <Check className="w-4 h-4 text-green-600" />
+              <span className="text-sm font-medium text-green-700">{discountCode}</span>
+              <span className="text-xs text-green-600">(-{discountPercent}%)</span>
+            </div>
+            <button
+              type="button"
+              onClick={handleRemoveDiscount}
+              className="text-green-600 hover:text-green-800 cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        ) : (
+          <div className="flex gap-2">
+            <Input
+              placeholder="Enter discount code"
+              value={discountCode}
+              onChange={(e) => setDiscountCode(e.target.value)}
+              className="flex-1 h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20"
+            />
+            <Button
+              variant="outline"
+              onClick={handleApplyDiscount}
+              disabled={!discountCode.trim()}
+              className="h-11 px-5 rounded-xl border-gray-200"
+            >
+              Apply
+            </Button>
+          </div>
+        )}
+      </section>
+
+      {/* Tip Section - Desktop only, shown in right column */}
+      <section className="hidden lg:block bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
+        <div className="flex items-center gap-2 mb-3">
+          <Heart className="h-4 w-4 text-pink-500 shrink-0" />
+          <h3 className="text-sm font-semibold text-gray-900">Add a tip for {creator.name}</h3>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {tipOptions.map((amount) => (
+            <button
+              key={amount}
+              type="button"
+              onClick={() => { setTipAmount(amount); setCustomTip("") }}
+              className={`px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-150 cursor-pointer ${
+                tipAmount === amount && !customTip
+                  ? "bg-black text-white shadow-sm"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              {amount === 0 ? "None" : `$${amount}`}
+            </button>
+          ))}
+          <Input
+            type="number"
+            placeholder="Other"
+            value={customTip}
+            className="w-24 h-10 rounded-full text-center border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20"
+            min={0}
+            step={0.5}
+            onChange={(e) => {
+              setCustomTip(e.target.value)
+              setTipAmount(0)
+            }}
+          />
+        </div>
+      </section>
+
+      {/* Gift Toggle - Desktop only, shown in right column */}
+      <section className="hidden lg:block bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <Gift className="h-5 w-5 text-gray-500 shrink-0" />
+            <div className="min-w-0">
+              <Label htmlFor="gift-desktop" className="cursor-pointer text-sm font-semibold text-gray-900">
+                Give as a gift?
+              </Label>
+              <p className="text-xs text-gray-400">Send to someone else via email</p>
+            </div>
+          </div>
+          <Switch id="gift-desktop" checked={isGift} onCheckedChange={setIsGift} className="shrink-0" />
+        </div>
+      </section>
+
       {/* Stripe Elements Card Form */}
       {clientSecret ? (
         <Elements stripe={stripePromise} options={elementsOptions}>
@@ -697,19 +812,9 @@ export default function CheckoutPageClient({
           {!isFree && (
             <div className="bg-white rounded-2xl border border-gray-200 p-5">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4 text-center">Express checkout</p>
-              <div className="grid grid-cols-3 gap-3">
-                <button type="button" disabled className="flex items-center justify-center gap-2 h-12 rounded-xl bg-black text-white text-sm font-semibold opacity-50 cursor-not-allowed">
-                  <GooglePayIcon className="h-4 w-4" />
-                  <span>Pay</span>
-                </button>
-                <button type="button" disabled className="flex items-center justify-center gap-2 h-12 rounded-xl bg-[#FFC439] text-[#003087] text-sm font-bold opacity-50 cursor-not-allowed">
-                  <PayPalIcon className="h-4 w-4" />
-                  <span>PayPal</span>
-                </button>
-                <button type="button" disabled className="flex items-center justify-center gap-2 h-12 rounded-xl bg-gray-100 text-gray-800 text-sm font-semibold border border-gray-200 opacity-50 cursor-not-allowed">
-                  <CreditCard className="h-4 w-4" />
-                  <span>Card</span>
-                </button>
+              <div className="grid grid-cols-2 gap-3">
+                <Skeleton className="h-12 w-full rounded-xl" />
+                <Skeleton className="h-12 w-full rounded-xl" />
               </div>
               <div className="flex items-center gap-3 my-4">
                 <div className="flex-1 h-px bg-gray-200" />
@@ -719,37 +824,26 @@ export default function CheckoutPageClient({
             </div>
           )}
 
-          {/* Placeholder card inputs (before PI is ready) */}
+          {/* Placeholder card inputs (before PI is ready) - with skeleton loaders */}
           {!isFree && (
             <div className="bg-white rounded-2xl border border-gray-200 p-5 space-y-4">
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium text-gray-600">Card number</Label>
-                <div className="h-11 px-3 flex items-center rounded-xl border border-gray-200 bg-gray-50">
-                  <span className="text-sm text-gray-400">Fill in your details to enable payment</span>
-                </div>
+                <Skeleton className="h-11 w-full rounded-xl" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium text-gray-600">Expiration date</Label>
-                  <div className="h-11 px-3 flex items-center rounded-xl border border-gray-200 bg-gray-50">
-                    <span className="text-sm text-gray-400">MM / YY</span>
-                  </div>
+                  <Skeleton className="h-11 w-full rounded-xl" />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium text-gray-600">Security code</Label>
-                  <div className="h-11 px-3 flex items-center rounded-xl border border-gray-200 bg-gray-50">
-                    <span className="text-sm text-gray-400">CVC</span>
-                  </div>
+                  <Skeleton className="h-11 w-full rounded-xl" />
                 </div>
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium text-gray-600">Name on card</Label>
-                <Input
-                  placeholder="John Doe"
-                  value={nameOnCard}
-                  onChange={(e) => setNameOnCard(e.target.value)}
-                  className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20"
-                />
+                <Skeleton className="h-11 w-full rounded-xl" />
               </div>
             </div>
           )}
@@ -762,12 +856,31 @@ export default function CheckoutPageClient({
             </div>
           )}
 
+          {/* Terms & Conditions - Moved above Pay button */}
+          <div className="bg-white rounded-2xl border border-gray-200 p-5">
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id="terms-placeholder"
+                checked={agreedToTerms}
+                onCheckedChange={(checked) => setAgreedToTerms(checked as boolean)}
+                className="mt-0.5 shrink-0 data-[state=checked]:bg-black data-[state=checked]:border-black"
+              />
+              <Label htmlFor="terms-placeholder" className="cursor-pointer text-sm leading-relaxed text-gray-600">
+                I agree to the{" "}
+                <Link href="/terms" className="text-gray-900 hover:text-black underline underline-offset-2" target="_blank">
+                  Terms and Conditions
+                </Link>{" "}
+                *
+              </Label>
+            </div>
+          </div>
+
           {/* CTA Button (disabled state when no PI) */}
           <button
             type="button"
             onClick={() => isFree && handleFreeCheckout()}
             disabled={isSubmitting || !isFormValid || !isFree}
-            className="w-full flex items-center justify-center gap-2 h-14 rounded-2xl text-base font-semibold transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 bg-black hover:bg-gray-800 text-white shadow-lg shadow-black/10"
+            className="w-full flex items-center justify-center gap-2 h-14 rounded-2xl text-base font-semibold transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 bg-[#2563eb] hover:bg-[#1d4ed8] text-white shadow-lg shadow-blue-500/20"
           >
             {isFree ? (
               <>
@@ -794,25 +907,6 @@ export default function CheckoutPageClient({
           </div>
         </>
       )}
-
-      {/* Terms & Conditions */}
-      <div className="bg-white rounded-2xl border border-gray-200 p-5">
-        <div className="flex items-start gap-3">
-          <Checkbox
-            id="terms"
-            checked={agreedToTerms}
-            onCheckedChange={(checked) => setAgreedToTerms(checked as boolean)}
-            className="mt-0.5 shrink-0 data-[state=checked]:bg-black data-[state=checked]:border-black"
-          />
-          <Label htmlFor="terms" className="cursor-pointer text-sm leading-relaxed text-gray-600">
-            I agree to the{" "}
-            <Link href="/terms" className="text-gray-900 hover:text-black underline underline-offset-2" target="_blank">
-              Terms and Conditions
-            </Link>{" "}
-            *
-          </Label>
-        </div>
-      </div>
     </div>
   )
 
@@ -866,6 +960,52 @@ export default function CheckoutPageClient({
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-start">
           {/* ===== LEFT COLUMN (50%) ===== */}
           <div className="space-y-6 order-2 lg:order-1">
+
+            {/* Contact Information - First on Mobile */}
+            <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
+              <h3 className="text-sm font-semibold text-gray-900 mb-4">Contact information</h3>
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="firstName" className="text-xs font-medium text-gray-600">First Name *</Label>
+                    <Input
+                      id="firstName"
+                      type="text"
+                      placeholder="John"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="lastName" className="text-xs font-medium text-gray-600">Last Name *</Label>
+                    <Input
+                      id="lastName"
+                      type="text"
+                      placeholder="Doe"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20"
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="email" className="text-xs font-medium text-gray-600">Email address *</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="Email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20"
+                    required
+                  />
+                  <p className="text-xs text-gray-400">We&apos;ll send your download link to this email</p>
+                </div>
+              </div>
+            </section>
 
             {/* Product Card */}
             <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
@@ -926,8 +1066,8 @@ export default function CheckoutPageClient({
               </div>
             </section>
 
-            {/* Discount Code */}
-            <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
+            {/* Discount Code - Mobile only, hidden on desktop */}
+            <section className="lg:hidden bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
               <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
                 <Tag className="w-4 h-4 text-gray-400" />
                 Discount code
@@ -967,66 +1107,8 @@ export default function CheckoutPageClient({
               )}
             </section>
 
-            {/* Contact Information */}
-            <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
-              <h3 className="text-sm font-semibold text-gray-900 mb-4">Contact information</h3>
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="firstName" className="text-xs font-medium text-gray-600">First Name *</Label>
-                    <Input
-                      id="firstName"
-                      type="text"
-                      placeholder="John"
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
-                      className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="lastName" className="text-xs font-medium text-gray-600">Last Name *</Label>
-                    <Input
-                      id="lastName"
-                      type="text"
-                      placeholder="Doe"
-                      value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
-                      className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20"
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="email" className="text-xs font-medium text-gray-600">Email address *</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="you@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20"
-                    required
-                  />
-                  <p className="text-xs text-gray-400">We&apos;ll send your download link to this email</p>
-                </div>
-              </div>
-            </section>
-
-            {/* Business VAT ID */}
-            <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3">Business VAT ID (optional)</h3>
-              <Input
-                placeholder="e.g. DE123456789"
-                value={vatId}
-                onChange={(e) => setVatId(e.target.value)}
-                className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20"
-              />
-              <p className="text-xs text-gray-400 mt-1.5">Only required for EU B2B transactions</p>
-            </section>
-
-            {/* Tip Section */}
-            <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
+            {/* Tip Section - Mobile only, hidden on desktop */}
+            <section className="lg:hidden bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
               <div className="flex items-center gap-2 mb-3">
                 <Heart className="h-4 w-4 text-pink-500 shrink-0" />
                 <h3 className="text-sm font-semibold text-gray-900">Add a tip for {creator.name}</h3>
@@ -1061,8 +1143,8 @@ export default function CheckoutPageClient({
               </div>
             </section>
 
-            {/* Gift Toggle */}
-            <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
+            {/* Gift Toggle - Mobile only, hidden on desktop */}
+            <section className="lg:hidden bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <Gift className="h-5 w-5 text-gray-500 shrink-0" />
@@ -1075,6 +1157,18 @@ export default function CheckoutPageClient({
                 </div>
                 <Switch id="gift" checked={isGift} onCheckedChange={setIsGift} className="shrink-0" />
               </div>
+            </section>
+
+            {/* Business VAT ID - Last (Optional) */}
+            <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">Business VAT ID (optional)</h3>
+              <Input
+                placeholder="e.g. DE123456789"
+                value={vatId}
+                onChange={(e) => setVatId(e.target.value)}
+                className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20"
+              />
+              <p className="text-xs text-gray-400 mt-1.5">Only required for EU B2B transactions</p>
             </section>
           </div>
 
@@ -1091,7 +1185,7 @@ export default function CheckoutPageClient({
           <button
             type="button"
             disabled={isSubmitting || !isFormValid}
-            className="w-full flex items-center justify-center gap-2 h-13 rounded-2xl text-base font-semibold bg-black hover:bg-gray-800 text-white shadow-lg shadow-black/10 transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+            className="w-full flex items-center justify-center gap-2 h-13 rounded-2xl text-base font-semibold bg-[#2563eb] hover:bg-[#1d4ed8] text-white shadow-lg shadow-blue-500/20 transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSubmitting ? (
               <>
