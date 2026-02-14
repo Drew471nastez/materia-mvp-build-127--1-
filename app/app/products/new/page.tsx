@@ -523,13 +523,17 @@ function MobileSheet({
     if (!sheetElement) return
     const sheetRect = sheetElement.getBoundingClientRect()
     const touchYInSheet = touch.clientY - sheetRect.top
-    // Allow drag from backdrop (above sheet) or handle/header area (top 100px)
-    if (touchYInSheet <= 0 || touchYInSheet <= 100) {
+    // Allow drag from backdrop (above sheet) or handle/header area (top 120px)
+    if (touchYInSheet <= 0 || touchYInSheet <= 120) {
       startYRef.current = touch.clientY
       lastYRef.current = touch.clientY
       lastTimeRef.current = Date.now()
       velocityRef.current = 0
       setIsDragging(true)
+      // Prevent any scroll on the sheet content while dragging
+      if (sheetElement) {
+        sheetElement.style.overflow = 'hidden'
+      }
     }
   }, [])
 
@@ -544,15 +548,21 @@ function MobileSheet({
       velocityRef.current = (currentY - lastYRef.current) / dt
       lastYRef.current = currentY
       lastTimeRef.current = now
-      const resisted = diff <= 160 ? diff * 0.92 : 147 + (diff - 160) * 0.4
+      // Smooth elastic resistance curve for natural feel
+      const resisted = diff <= 180 ? diff * 0.95 : 171 + (diff - 180) * 0.35
       setDragY(resisted)
     }
   }, [isDragging])
 
   const handleTouchEnd = useCallback(() => {
     if (!isDragging) return
+    const sheetElement = sheetRef.current
+    if (sheetElement) {
+      sheetElement.style.overflow = ''
+    }
     setIsDragging(false)
-    if (dragY > 92 || velocityRef.current > 0.55) {
+    // Close if dragged more than 100px or has strong downward velocity
+    if (dragY > 100 || velocityRef.current > 0.6) {
       handleClose()
     } else {
       setDragY(0)
@@ -578,22 +588,23 @@ function MobileSheet({
         }}
         onClick={handleClose}
       />
-      {/* Bottom Sheet - GPU accelerated */}
+      {/* Bottom Sheet - GPU accelerated with smooth dragging */}
       <div
         ref={sheetRef}
-        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
+        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl overflow-auto"
         style={{
           maxHeight: maxHeight || '85vh',
           transform: isAnimating ? `translate3d(0, ${dragY}px, 0)` : 'translate3d(0, 100%, 0)',
-          transition: isDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
-          willChange: 'transform',
+          transition: isDragging ? 'none' : 'transform 350ms cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+          willChange: isDragging ? 'transform' : 'auto',
           backfaceVisibility: 'hidden',
           WebkitBackfaceVisibility: 'hidden' as any,
+          touchAction: 'pan-y',
         }}
       >
-        {/* Handle bar */}
-        <div className="pt-3 pb-1 flex justify-center cursor-grab active:cursor-grabbing touch-none" data-drag-handle>
-          <div className="h-[5px] w-10 rounded-full bg-gray-300" />
+        {/* Handle bar - increased hit area */}
+        <div className="pt-4 pb-2 flex justify-center sticky top-0 bg-white z-10 cursor-grab active:cursor-grabbing touch-none" data-drag-handle>
+          <div className="h-1 w-12 rounded-full bg-gray-300/80" />
         </div>
         {children}
         {/* Safe area padding for iOS */}
@@ -2898,17 +2909,45 @@ export default function NewProductPage() {
 
     // Validate each file before starting uploads
     for (const file of fileArray) {
+      // Check for empty files
+      if (file.size === 0) {
+        setError(`File "${file.name}" is empty (0 bytes)`)
+        return
+      }
+
       // Check file size (5GB max)
       if (file.size > MAX_FILE_SIZE) {
         setError(`File "${file.name}" exceeds 5GB limit`)
         return
       }
+
+      // Check for duplicate file names
+      const isDuplicate = digitalFiles.some(f => f.file_name === file.name)
+      if (isDuplicate) {
+        setError(`A file named "${file.name}" already exists. Please rename it or remove the existing file first.`)
+        return
+      }
+
+      // Check for invalid file name characters
+      const invalidChars = /[<>:"|?*\x00-\x1f]/
+      if (invalidChars.test(file.name)) {
+        setError(`File "${file.name}" contains invalid characters`)
+        return
+      }
+
+      // Check file name length (255 char limit for most filesystems)
+      if (file.name.length > 255) {
+        setError(`File name "${file.name}" is too long (max 255 characters)`)
+        return
+      }
+
       // Check blocked extensions
       const ext = file.name.split(".").pop()?.toLowerCase() || ""
       if (BLOCKED_EXTENSIONS.has(ext)) {
         setError(`File type ".${ext}" is not allowed for security reasons`)
         return
       }
+
       // Check double extensions (e.g. file.pdf.exe)
       const parts = file.name.split(".")
       if (parts.length > 2) {
@@ -2918,6 +2957,15 @@ export default function NewProductPage() {
           return
         }
       }
+    }
+
+    // Check total storage size (optional warning for very large uploads)
+    const totalSize = fileArray.reduce((sum, f) => sum + f.size, 0)
+    const existingSize = digitalFiles.reduce((sum, f) => sum + f.file_size, 0)
+    const combinedSize = totalSize + existingSize
+    if (combinedSize > 20 * 1024 * 1024 * 1024) { // 20GB warning
+      const confirmed = confirm(`Total file size will be ${formatFileSize(combinedSize)}. This may take a while to upload. Continue?`)
+      if (!confirmed) return
     }
 
     let currentProductId = productId
@@ -3735,7 +3783,7 @@ export default function NewProductPage() {
                   </div>
                   <Input
                     id="title"
-                    placeholder="Short sleeve t-shirt"
+                    placeholder="Complete Digital Marketing Course"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     className="h-10 sm:h-11 border-gray-200 bg-white text-sm sm:text-base"
@@ -4061,17 +4109,17 @@ export default function NewProductPage() {
                     />
                   </div>
                   <p className="text-xs sm:text-sm text-gray-500">
-                    Upload files customers will receive (max 5GB each, up to {MAX_DIGITAL_FILES} files). Direct-to-cloud upload with real progress.
+                    Files customers receive after purchase.
                   </p>
 
                   {digitalFiles.length > 0 && (
-                    <div className="space-y-2 mt-2">
+                    <div className="space-y-2 mt-3">
                       {digitalFiles.map((file) => (
                         <div
                           key={file.id}
-                          className="flex items-start sm:items-center gap-2 sm:gap-3 p-2.5 sm:p-3 bg-gray-50 rounded-lg border border-gray-200"
+                          className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-colors"
                         >
-                          <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 flex-shrink-0 mt-0.5 sm:mt-0" />
+                          <FileText className="h-5 w-5 text-gray-400 flex-shrink-0" />
                           <div className="min-w-0 flex-1 mr-2">
                             {editingFileId === file.id ? (
                               <Input
@@ -4098,9 +4146,9 @@ export default function NewProductPage() {
                                 }}
                               />
                             ) : (
-                              <p className="text-xs sm:text-sm font-medium text-gray-900 truncate pr-2">{file.file_name}</p>
+                              <p className="text-sm font-medium text-gray-900 truncate">{file.file_name}</p>
                             )}
-                            <p className="text-[10px] sm:text-xs text-gray-500">{formatFileSize(file.file_size)}</p>
+                            <p className="text-xs text-gray-500">{formatFileSize(file.file_size)}</p>
                           </div>
                           <div className="flex items-center gap-1 flex-shrink-0 ml-auto">
                             <button
@@ -4130,13 +4178,13 @@ export default function NewProductPage() {
 
                   <div
                     className={`
-                      mt-2 border-2 border-dashed rounded-xl
-                      flex flex-col items-center justify-center py-5 sm:py-6
-                      transition-all duration-400 cursor-pointer touch-action-pan-y
-                      ${uploadingFiles ? "pointer-events-none border-gray-300" : ""}
+                      mt-3 border-2 border-dashed rounded-xl
+                      flex flex-col items-center justify-center py-6
+                      transition-all duration-300 cursor-pointer
+                      ${uploadingFiles ? "pointer-events-none border-gray-200 bg-gray-50" : ""}
                       ${isFileDragOver
-                        ? "border-violet-500 bg-violet-50 scale-[1.02] shadow-lg shadow-violet-100"
-                        : "border-gray-300 hover:border-gray-400 hover:bg-gray-50/50"
+                        ? "border-violet-400 bg-violet-50/70 scale-[1.01]"
+                        : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
                       }
                     `}
                     onClick={() => { if (!uploadingFiles && !isScrollingRef.current) document.getElementById("file-input")?.click() }}
@@ -4184,34 +4232,34 @@ export default function NewProductPage() {
                     />
 
                     {uploadingFiles && activeFileUploads.size > 0 ? (
-                      <div className="w-full space-y-1.5 px-3">
+                      <div className="w-full max-w-md mx-auto space-y-2 px-4">
                         {Array.from(activeFileUploads).map(([key, upload]) => (
-                          <div key={key} className="flex items-center gap-2.5 py-1.5">
+                          <div key={key} className="flex items-center gap-2 py-1">
                             <div className="flex-shrink-0 w-4 flex items-center justify-center">
                               {upload.status === "complete" ? (
-                                <CheckCircle className="h-3.5 w-3.5 text-green-500" />
+                                <CheckCircle className="h-4 w-4 text-green-500" />
                               ) : upload.status === "error" ? (
-                                <AlertCircle className="h-3.5 w-3.5 text-red-500" />
+                                <AlertCircle className="h-4 w-4 text-red-500" />
                               ) : (
-                                <Loader2 className="h-3.5 w-3.5 text-violet-500 animate-spin" />
+                                <Loader2 className="h-4 w-4 text-violet-500 animate-spin" />
                               )}
                             </div>
                             <div className="min-w-0 flex-1">
-                              <div className="flex items-center justify-between gap-2 mb-1">
-                                <p className="text-[11px] font-medium text-gray-700 truncate">{upload.file.name}</p>
-                                <span className="text-[10px] tabular-nums text-gray-400 flex-shrink-0">{upload.progress}%</span>
+                              <div className="flex items-center justify-between gap-2 mb-0.5">
+                                <p className="text-xs font-medium text-gray-700 truncate">{upload.file.name}</p>
+                                <span className="text-xs tabular-nums text-gray-500 flex-shrink-0 ml-2">{upload.progress}%</span>
                               </div>
-                              <div className="w-full h-1 bg-gray-100 rounded-full overflow-hidden">
+                              <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
                                 <div
-                                  className={`h-full rounded-full transition-all duration-300 ease-out ${
-                                    upload.status === "error" ? "bg-red-400" :
-                                    upload.status === "complete" ? "bg-green-400" : "bg-violet-400"
+                                  className={`h-full rounded-full transition-all duration-200 ease-out ${
+                                    upload.status === "error" ? "bg-red-500" :
+                                    upload.status === "complete" ? "bg-green-500" : "bg-violet-500"
                                   }`}
                                   style={{ width: `${upload.progress}%` }}
                                 />
                               </div>
                               {upload.error && (
-                                <p className="text-[10px] text-red-500 mt-0.5">{upload.error}</p>
+                                <p className="text-xs text-red-500 mt-0.5">{upload.error}</p>
                               )}
                             </div>
                           </div>
@@ -4223,36 +4271,33 @@ export default function NewProductPage() {
                         <p className="text-xs text-gray-500">Preparing upload...</p>
                       </div>
                     ) : isFileDragOver ? (
-                      <div className="flex flex-col items-center gap-3 animate-in fade-in zoom-in-95 duration-400">
-                        <div className="w-12 h-12 rounded-full bg-violet-100 flex items-center justify-center animate-pulse">
-                          <Plus className="h-6 w-6 text-violet-600" />
+                      <div className="flex flex-col items-center gap-2">
+                        <div className="w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center">
+                          <Plus className="h-5 w-5 text-violet-600" />
                         </div>
                         <p className="text-sm font-medium text-violet-600">
                           Drop files here
                         </p>
-                        <p className="text-xs text-violet-500">
-                          Release to upload digital files
-                        </p>
                       </div>
                     ) : (
                       <>
-                        <p className="text-gray-500 text-xs sm:text-sm mb-2">
-                          Drag and drop files or
+                        <p className="text-gray-400 text-sm mb-3">
+                          Drag and drop or click to upload
                         </p>
 
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="border-gray-300 text-gray-700 h-7 sm:h-8 text-xs sm:text-sm pointer-events-auto"
+                          className="border-gray-200 text-gray-700 h-9 text-sm hover:bg-gray-50 pointer-events-auto"
                           disabled={uploadingFiles}
                           onClick={(e) => {
                             e.stopPropagation()
                             document.getElementById("file-input")?.click()
                           }}
                         >
-                          <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1" />
-                          Upload
+                          <Plus className="h-4 w-4 mr-1.5" />
+                          Choose Files
                         </Button>
                       </>
                     )}
@@ -4964,7 +5009,7 @@ export default function NewProductPage() {
                     className="text-gray-600 border-gray-200 h-8 text-xs rounded-lg hover:bg-gray-50"
                   >
                     <Plus className="h-3.5 w-3.5 mr-1" />
-                    + Add FAQ
+                    Add FAQ
                   </Button>
                 </div>
 
