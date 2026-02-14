@@ -55,6 +55,17 @@ export async function POST(req: Request) {
     // Calculate platform fee using the shared fee calculator
     const feeCalc = await calculatePlatformFee(product.creator_id, product.price_cents)
 
+    console.log("[create-intent] Fee breakdown:", {
+      productId: product.id,
+      priceCents: product.price_cents,
+      plan: feeCalc.plan_used,
+      feePercent: `${(feeCalc.fee_percent * 100).toFixed(2)}%`,
+      percentFee: Math.round(product.price_cents * feeCalc.fee_percent),
+      fixedFee: feeCalc.fee_fixed_cents,
+      totalFee: feeCalc.fee_total_cents,
+      sellerNet: feeCalc.seller_net_cents,
+    })
+
     // Get the seller's connected Stripe account for destination charges
     const { data: creator } = await admin
       .from("creators")

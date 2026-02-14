@@ -14,15 +14,31 @@ export interface FeeCalculation {
   plan_used: string
 }
 
-// Fixed fee only applied when order amount >= 300 cents ($3.00)
+// ── HARDCODED fee constants — single source of truth ──
+// NEVER read fee_percent from the database; always use these.
+
+const PLAN_FEE_PERCENT: Record<string, number> = {
+  free: 0.06,   // 6%
+  growth: 0.03, // 3%
+  pro: 0.015,   // 1.5%
+}
+
 const FIXED_FEE_CENTS = 25
 const FIXED_FEE_THRESHOLD_CENTS = 300
+
+function resolveSellerPlan(planId: string | null | undefined): string {
+  if (!planId) return "free"
+  const normalized = planId.toLowerCase().trim()
+  if (normalized === "growth") return "growth"
+  if (normalized === "pro" || normalized === "professional") return "pro"
+  return "free"
+}
 
 /**
  * Calculate platform application fee for a given order.
  * Uses the seller's CURRENT plan from Supabase at time of charge.
  *
- * Fee rules:
+ * Fee rules (hardcoded, not from DB):
  *   Free:         6%   + $0.25 (fixed only if price >= $3.00)
  *   Growth:       3%   + $0.25 (fixed only if price >= $3.00)
  *   Professional: 1.5% + $0.25 (fixed only if price >= $3.00)
@@ -33,9 +49,7 @@ export async function calculatePlatformFee(
   creatorId: string,
   orderAmountCents: number
 ): Promise<FeeCalculation> {
-  // Default to free plan fees
-  let feePercent = 0.06
-  let planUsed = "free"
+  let effectivePlan = "free"
 
   try {
     // Get the seller's current subscription info
@@ -46,38 +60,47 @@ export async function calculatePlatformFee(
       .single()
 
     if (creator) {
-      const planId = creator.subscription_plan_id || "free"
+      const rawPlanId = creator.subscription_plan_id || "free"
       const status = creator.subscription_status
 
       // Only apply paid plan fees if subscription is active
-      if (status === "active" && planId !== "free") {
-        const { data: plan } = await supabaseAdmin
-          .from("subscription_plans")
-          .select("fee_percent, fee_fixed_cents, id")
-          .eq("id", planId)
-          .eq("is_active", true)
-          .single()
-
-        if (plan) {
-          feePercent = plan.fee_percent
-          planUsed = plan.id
-        }
+      if (status === "active" && rawPlanId !== "free") {
+        effectivePlan = resolveSellerPlan(rawPlanId)
       }
+
+      console.log("[fees] Plan resolution:", {
+        creatorId,
+        rawPlanId,
+        subscriptionStatus: status,
+        effectivePlan,
+      })
     }
   } catch (error) {
     console.error("[fees] Error fetching seller plan, defaulting to free:", error)
   }
 
+  // Use hardcoded fee percent based on resolved plan ID
+  const feePercent = PLAN_FEE_PERCENT[effectivePlan] ?? PLAN_FEE_PERCENT.free
   const percentFee = Math.round(orderAmountCents * feePercent)
   const feeFixedCents = orderAmountCents >= FIXED_FEE_THRESHOLD_CENTS ? FIXED_FEE_CENTS : 0
   const feeTotalCents = Math.max(0, Math.min(percentFee + feeFixedCents, orderAmountCents))
   const sellerNetCents = orderAmountCents - feeTotalCents
+
+  console.log("[fees] Fee computation:", {
+    plan: effectivePlan,
+    orderAmountCents,
+    feePercent: `${(feePercent * 100).toFixed(2)}%`,
+    percentFee,
+    feeFixedCents,
+    feeTotalCents,
+    sellerNetCents,
+  })
 
   return {
     fee_percent: feePercent,
     fee_fixed_cents: feeFixedCents,
     fee_total_cents: feeTotalCents,
     seller_net_cents: Math.max(0, sellerNetCents),
-    plan_used: planUsed,
+    plan_used: effectivePlan,
   }
 }

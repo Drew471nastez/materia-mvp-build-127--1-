@@ -185,13 +185,17 @@ export async function POST(request: Request) {
   const feeCalculation = await calculatePlatformFee(totalAmount, product.creator.id, admin, basePriceCents)
   const platformFee = feeCalculation.platformFeeCents
 
-  console.log("[v0] Checkout details:", {
+  console.log("[v0] Checkout fee breakdown:", {
     totalAmount,
+    basePriceCents,
+    tipCents: tipCents || 0,
     platformFee,
     sellerReceives: totalAmount - platformFee,
     stripeAccountId: product.creator.stripe_account_id,
     creatorPlan: feeCalculation.planId,
+    planName: feeCalculation.planName,
     feePercent: `${(feeCalculation.feePercent * 100).toFixed(2)}%`,
+    feeFixedCents: feeCalculation.feeFixedCents,
     variantId: selectedVariant?.id || "none",
     variantName: selectedVariant?.name || "none",
   })
