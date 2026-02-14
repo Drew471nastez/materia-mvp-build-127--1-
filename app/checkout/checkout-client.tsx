@@ -680,9 +680,11 @@ export default function CheckoutPageClient({
   }, [clientSecret])
 
   // ---------- RENDER ----------
+
+  // Order summary and extras content (RIGHT column on desktop)
   const rightColumnContent = (
     <div className="space-y-5">
-      {/* Order Summary - hidden on mobile (uses collapsible above) */}
+      {/* Order Summary - Desktop only */}
       <div className="hidden lg:block">
         <OrderSummaryContent
           product={product}
@@ -698,7 +700,7 @@ export default function CheckoutPageClient({
         />
       </div>
 
-      {/* Discount Code - Desktop only, shown in right column */}
+      {/* Discount Code - Desktop only */}
       <section className="hidden lg:block bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
         <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
           <Tag className="w-4 h-4 text-gray-400" />
@@ -739,7 +741,7 @@ export default function CheckoutPageClient({
         )}
       </section>
 
-      {/* Tip Section - Desktop only, shown in right column */}
+      {/* Tip Section - Desktop only */}
       <section className="hidden lg:block bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
         <div className="flex items-center gap-2 mb-3">
           <Heart className="h-4 w-4 text-pink-500 shrink-0" />
@@ -775,7 +777,7 @@ export default function CheckoutPageClient({
         </div>
       </section>
 
-      {/* Gift Toggle - Desktop only, shown in right column */}
+      {/* Gift Toggle - Desktop only */}
       <section className="hidden lg:block bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
@@ -790,124 +792,143 @@ export default function CheckoutPageClient({
           <Switch id="gift-desktop" checked={isGift} onCheckedChange={setIsGift} className="shrink-0" />
         </div>
       </section>
-
-      {/* Stripe Elements Card Form */}
-      {clientSecret ? (
-        <Elements stripe={stripePromise} options={elementsOptions}>
-          <StripeCardForm
-            onSubmit={handleSubmit}
-            isSubmitting={isSubmitting}
-            isFormValid={isFormValid}
-            isFree={isFree}
-            total={total}
-            error={error}
-            setError={setError}
-            nameOnCard={nameOnCard}
-            setNameOnCard={setNameOnCard}
-          />
-        </Elements>
-      ) : (
-        <>
-          {/* Show payment section even before PaymentIntent is created */}
-          {!isFree && (
-            <div className="bg-white rounded-2xl border border-gray-200 p-5">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4 text-center">Express checkout</p>
-              <div className="grid grid-cols-2 gap-3">
-                <Skeleton className="h-12 w-full rounded-xl" />
-                <Skeleton className="h-12 w-full rounded-xl" />
-              </div>
-              <div className="flex items-center gap-3 my-4">
-                <div className="flex-1 h-px bg-gray-200" />
-                <span className="text-xs text-gray-400">OR PAY WITH CARD</span>
-                <div className="flex-1 h-px bg-gray-200" />
-              </div>
-            </div>
-          )}
-
-          {/* Placeholder card inputs (before PI is ready) - with skeleton loaders */}
-          {!isFree && (
-            <div className="bg-white rounded-2xl border border-gray-200 p-5 space-y-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-gray-600">Card number</Label>
-                <Skeleton className="h-11 w-full rounded-xl" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-gray-600">Expiration date</Label>
-                  <Skeleton className="h-11 w-full rounded-xl" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-gray-600">Security code</Label>
-                  <Skeleton className="h-11 w-full rounded-xl" />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs font-medium text-gray-600">Name on card</Label>
-                <Skeleton className="h-11 w-full rounded-xl" />
-              </div>
-            </div>
-          )}
-
-          {/* Error message */}
-          {error && (
-            <div className="flex items-start gap-2.5 bg-red-50 border border-red-200 rounded-xl p-4 animate-in fade-in slide-in-from-top-2 duration-200">
-              <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
-              <p className="text-sm text-red-600">{error}</p>
-            </div>
-          )}
-
-          {/* Terms & Conditions - Moved above Pay button */}
-          <div className="bg-white rounded-2xl border border-gray-200 p-5">
-            <div className="flex items-start gap-3">
-              <Checkbox
-                id="terms-placeholder"
-                checked={agreedToTerms}
-                onCheckedChange={(checked) => setAgreedToTerms(checked as boolean)}
-                className="mt-0.5 shrink-0 data-[state=checked]:bg-black data-[state=checked]:border-black"
-              />
-              <Label htmlFor="terms-placeholder" className="cursor-pointer text-sm leading-relaxed text-gray-600">
-                I agree to the{" "}
-                <Link href="/terms" className="text-gray-900 hover:text-black underline underline-offset-2" target="_blank">
-                  Terms and Conditions
-                </Link>{" "}
-                *
-              </Label>
-            </div>
-          </div>
-
-          {/* CTA Button (disabled state when no PI) */}
-          <button
-            type="button"
-            onClick={() => isFree && handleFreeCheckout()}
-            disabled={isSubmitting || !isFormValid || !isFree}
-            className="w-full flex items-center justify-center gap-2 h-14 rounded-2xl text-base font-semibold transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 bg-[#2563eb] hover:bg-[#1d4ed8] text-white shadow-lg shadow-blue-500/20"
-          >
-            {isFree ? (
-              <>
-                Get for Free
-                <span className="ml-1">&rarr;</span>
-              </>
-            ) : (
-              <>
-                <Lock className="h-4 w-4" />
-                Pay {formatPrice(total)}
-              </>
-            )}
-          </button>
-
-          <div className="flex flex-col items-center gap-2 pt-1">
-            <div className="flex items-center gap-1.5 text-xs text-gray-400">
-              <Shield className="h-3.5 w-3.5" />
-              <span>Payment is secure and encrypted</span>
-            </div>
-            <p className="text-xs text-gray-400 flex items-center gap-1">
-              <Lock className="h-3 w-3" />
-              Secured by Stripe
-            </p>
-          </div>
-        </>
-      )}
     </div>
+  )
+
+  // Payment elements content (LEFT column on desktop, after product on mobile)
+  const paymentElementsContent = clientSecret ? (
+    <Elements stripe={stripePromise} options={elementsOptions}>
+      <StripeCardForm
+        onSubmit={handleSubmit}
+        isSubmitting={isSubmitting}
+        isFormValid={isFormValid}
+        isFree={isFree}
+        total={total}
+        error={error}
+        setError={setError}
+        nameOnCard={nameOnCard}
+        setNameOnCard={setNameOnCard}
+      />
+    </Elements>
+  ) : !isFree ? (
+    <>
+      {/* Express checkout - show skeleton while loading */}
+      <div className="bg-white rounded-2xl border border-gray-200 p-5">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4 text-center">Express checkout</p>
+        <div className="grid grid-cols-2 gap-3">
+          <Skeleton className="h-12 w-full rounded-xl" />
+          <Skeleton className="h-12 w-full rounded-xl" />
+        </div>
+        <div className="flex items-center gap-3 my-4">
+          <div className="flex-1 h-px bg-gray-200" />
+          <span className="text-xs text-gray-400">OR PAY WITH CARD</span>
+          <div className="flex-1 h-px bg-gray-200" />
+        </div>
+      </div>
+
+      {/* Card fields - show skeleton while loading */}
+      <div className="bg-white rounded-2xl border border-gray-200 p-5 space-y-4">
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium text-gray-600">Card number</Label>
+          <Skeleton className="h-11 w-full rounded-xl" />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-gray-600">Expiration date</Label>
+            <Skeleton className="h-11 w-full rounded-xl" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-gray-600">Security code</Label>
+            <Skeleton className="h-11 w-full rounded-xl" />
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium text-gray-600">Name on card</Label>
+          <Skeleton className="h-11 w-full rounded-xl" />
+        </div>
+      </div>
+
+      {/* Terms checkbox - always show */}
+      <div className="bg-white rounded-2xl border border-gray-200 p-5">
+        <div className="flex items-start gap-3">
+          <Checkbox
+            id="terms-loading"
+            checked={agreedToTerms}
+            onCheckedChange={(checked) => setAgreedToTerms(checked as boolean)}
+            className="mt-0.5 shrink-0 data-[state=checked]:bg-black data-[state=checked]:border-black"
+          />
+          <Label htmlFor="terms-loading" className="cursor-pointer text-sm leading-relaxed text-gray-600">
+            I agree to the{" "}
+            <Link href="/terms" className="text-gray-900 hover:text-black underline underline-offset-2" target="_blank">
+              Terms and Conditions
+            </Link>{" "}
+            *
+          </Label>
+        </div>
+      </div>
+
+      {/* Pay button - disabled while loading */}
+      <button
+        type="button"
+        disabled={true}
+        className="w-full flex items-center justify-center gap-2 h-14 rounded-2xl text-base font-semibold transition-all duration-200 cursor-not-allowed opacity-60 bg-[#2563eb] text-white"
+      >
+        <Loader2 className="h-5 w-5 animate-spin" />
+        Initializing payment...
+      </button>
+
+      {/* Trust signals */}
+      <div className="flex flex-col items-center gap-2 pt-1">
+        <div className="flex items-center gap-1.5 text-xs text-gray-400">
+          <Shield className="h-3.5 w-3.5" />
+          <span>Payment is secure and encrypted</span>
+        </div>
+        <p className="text-xs text-gray-400 flex items-center gap-1">
+          <Lock className="h-3 w-3" />
+          Secured by Stripe
+        </p>
+      </div>
+    </>
+  ) : (
+    <>
+      {/* Free product - just show button */}
+      <div className="bg-white rounded-2xl border border-gray-200 p-5">
+        <div className="flex items-start gap-3">
+          <Checkbox
+            id="terms-free"
+            checked={agreedToTerms}
+            onCheckedChange={(checked) => setAgreedToTerms(checked as boolean)}
+            className="mt-0.5 shrink-0 data-[state=checked]:bg-black data-[state=checked]:border-black"
+          />
+          <Label htmlFor="terms-free" className="cursor-pointer text-sm leading-relaxed text-gray-600">
+            I agree to the{" "}
+            <Link href="/terms" className="text-gray-900 hover:text-black underline underline-offset-2" target="_blank">
+              Terms and Conditions
+            </Link>{" "}
+            *
+          </Label>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={handleFreeCheckout}
+        disabled={isSubmitting || !isFormValid}
+        className="w-full flex items-center justify-center gap-2 h-14 rounded-2xl text-base font-semibold transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 bg-[#2563eb] hover:bg-[#1d4ed8] text-white shadow-lg shadow-blue-500/20"
+      >
+        {isSubmitting ? (
+          <>
+            <Loader2 className="h-5 w-5 animate-spin" />
+            Processing...
+          </>
+        ) : (
+          <>
+            Get for Free
+            <span className="ml-1">&rarr;</span>
+          </>
+        )}
+      </button>
+    </>
   )
 
   return (
@@ -959,10 +980,69 @@ export default function CheckoutPageClient({
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-start">
           {/* ===== LEFT COLUMN (50%) ===== */}
-          <div className="space-y-6 order-2 lg:order-1">
+          <div className="flex flex-col gap-6 order-2 lg:order-1">
 
-            {/* Contact Information - First on Mobile */}
-            <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
+            {/* Product Card - First on Desktop, Third on Mobile */}
+            <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 order-2 lg:order-1">
+              <div className="flex gap-4">
+                <div className="relative h-20 w-20 sm:h-24 sm:w-24 shrink-0 rounded-xl bg-gray-100">
+                  <div className="relative h-full w-full overflow-hidden rounded-xl">
+                    {product.thumbnail_url ? (
+                      <Image
+                        src={product.thumbnail_url}
+                        alt={product.title}
+                        fill
+                        className="object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center">
+                        <Package className="h-8 w-8 text-gray-300" />
+                      </div>
+                    )}
+                  </div>
+                  {/* Quantity badge */}
+                  <div className="absolute -top-2 -right-2 w-6 h-6 bg-black text-white text-xs font-bold rounded-full flex items-center justify-center shadow-md z-10 ring-2 ring-white">
+                    1
+                  </div>
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <h2 className="font-semibold text-base sm:text-lg text-gray-900 line-clamp-2">{product.title}</h2>
+                      {selectedVariant && (
+                        <p className="text-sm font-medium text-gray-600 mt-0.5">{selectedVariant.name}</p>
+                      )}
+                      <p className="text-sm text-gray-500 truncate mt-0.5">{creator.name}</p>
+                    </div>
+                    <span className="font-semibold text-gray-900 whitespace-nowrap">
+                      {subtotal === 0 ? "Free" : formatPrice(subtotal)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2 mt-3">
+                    {selectedVariant && (
+                      <button
+                        type="button"
+                        onClick={() => setShowVariantModal(true)}
+                        className="text-xs font-medium text-gray-600 hover:text-gray-800 underline underline-offset-2 cursor-pointer transition-colors"
+                      >
+                        Edit
+                      </button>
+                    )}
+                    <a
+                      href={productUrl}
+                      className="text-xs font-medium text-gray-400 hover:text-red-500 transition-colors cursor-pointer"
+                    >
+                      Remove
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* Contact Information - First on Mobile, Second on Desktop */}
+            <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 order-1 lg:order-2">
               <h3 className="text-sm font-semibold text-gray-900 mb-4">Contact information</h3>
               <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1007,67 +1087,13 @@ export default function CheckoutPageClient({
               </div>
             </section>
 
-            {/* Product Card */}
-            <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
-              <div className="flex gap-4">
-                <div className="relative h-20 w-20 sm:h-24 sm:w-24 shrink-0 rounded-xl bg-gray-100">
-                  <div className="relative h-full w-full overflow-hidden rounded-xl">
-                    {product.thumbnail_url ? (
-                      <Image
-                        src={product.thumbnail_url}
-                        alt={product.title}
-                        fill
-                        className="object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-full items-center justify-center">
-                        <Package className="h-8 w-8 text-gray-300" />
-                      </div>
-                    )}
-                  </div>
-                  {/* Quantity badge - positioned outside overflow container */}
-                  <div className="absolute -top-2 -right-2 w-6 h-6 bg-black text-white text-xs font-bold rounded-full flex items-center justify-center shadow-md z-10 ring-2 ring-white">
-                    1
-                  </div>
-                </div>
+            {/* Payment Elements - Mobile: after product (order-3), Desktop: after VAT (order-4) */}
+            <div className="order-3 lg:order-4">
+              {paymentElementsContent}
+            </div>
 
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <h2 className="font-semibold text-base sm:text-lg text-gray-900 line-clamp-2">{product.title}</h2>
-                      {selectedVariant && (
-                        <p className="text-sm font-medium text-gray-600 mt-0.5">{selectedVariant.name}</p>
-                      )}
-                      <p className="text-sm text-gray-500 truncate mt-0.5">{creator.name}</p>
-                    </div>
-                    <span className="font-semibold text-gray-900 whitespace-nowrap">
-                      {subtotal === 0 ? "Free" : formatPrice(subtotal)}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2 mt-3">
-                    {selectedVariant && (
-                      <button
-                        type="button"
-                        onClick={() => setShowVariantModal(true)}
-                        className="text-xs font-medium text-gray-600 hover:text-gray-800 underline underline-offset-2 cursor-pointer transition-colors"
-                      >
-                        Edit
-                      </button>
-                    )}
-                    <a
-                      href={productUrl}
-                      className="text-xs font-medium text-gray-400 hover:text-red-500 transition-colors cursor-pointer"
-                    >
-                      Remove
-                    </a>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            {/* Discount Code - Mobile only, hidden on desktop */}
-            <section className="lg:hidden bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
+            {/* Discount Code - Mobile only (order-4) */}
+            <section className="lg:hidden bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 order-4 lg:hidden">
               <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
                 <Tag className="w-4 h-4 text-gray-400" />
                 Discount code
@@ -1107,8 +1133,8 @@ export default function CheckoutPageClient({
               )}
             </section>
 
-            {/* Tip Section - Mobile only, hidden on desktop */}
-            <section className="lg:hidden bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
+            {/* Tip Section - Mobile only (order-5) */}
+            <section className="lg:hidden bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 order-5 lg:hidden">
               <div className="flex items-center gap-2 mb-3">
                 <Heart className="h-4 w-4 text-pink-500 shrink-0" />
                 <h3 className="text-sm font-semibold text-gray-900">Add a tip for {creator.name}</h3>
@@ -1143,8 +1169,8 @@ export default function CheckoutPageClient({
               </div>
             </section>
 
-            {/* Gift Toggle - Mobile only, hidden on desktop */}
-            <section className="lg:hidden bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
+            {/* Gift Toggle - Mobile only (order-6) */}
+            <section className="lg:hidden bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 order-6 lg:hidden">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <Gift className="h-5 w-5 text-gray-500 shrink-0" />
@@ -1159,8 +1185,8 @@ export default function CheckoutPageClient({
               </div>
             </section>
 
-            {/* Business VAT ID - Last (Optional) */}
-            <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
+            {/* Business VAT ID - Mobile: order-7 (last), Desktop: order-3 (before payment) */}
+            <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 order-7 lg:order-3">
               <h3 className="text-sm font-semibold text-gray-900 mb-3">Business VAT ID (optional)</h3>
               <Input
                 placeholder="e.g. DE123456789"
