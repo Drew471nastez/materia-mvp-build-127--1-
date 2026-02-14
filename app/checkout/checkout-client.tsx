@@ -201,9 +201,9 @@ const COUNTRIES = [
 // ---------- SVG Icons ----------
 function GooglePayIcon({ className = "h-5 w-auto" }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 2387.3 948" xmlns="http://www.w3.org/2000/svg">
+    <svg className={className} viewBox="0 0 2387.3 948" xmlns="http://www.w3.org/2000/svg" fill="none">
       <g>
-        <path fill="#5F6368" d="M1129.1,463.2V741h-88.2V54.8h233.8c56.4-1.2,110.9,20.2,151.4,59.4c41,36.9,64.1,89.7,63.2,144.8 c1.2,55.5-21.9,108.7-63.2,145.7c-40.9,39-91.4,58.5-151.4,58.4L1129.1,463.2L1129.1,463.2z M1129.1,139.3v239.6h147.8 c32.8,1,64.4-11.9,87.2-35.5c46.3-45,47.4-119.1,2.3-165.4c-0.8-0.8-1.5-1.6-2.3-2.3c-22.5-24.1-54.3-37.3-87.2-36.4L1129.1,139.3 L1129.1,139.3z M1692.5,256.2c65.2,0,116.6,17.4,154.3,52.2c37.7,34.8,56.5,82.6,56.5,143.2V741H1819v-65.2h-3.8 c-36.5,53.7-85.1,80.5-145.7,80.5c-51.7,0-95-15.3-129.8-46c-33.8-28.5-53-70.7-52.2-115c0-48.6,18.4-87.2,55.1-115.9 c36.7-28.7,85.7-43.1,147.1-43.1c52.3,0,95.5,9.6,129.3,28.7v-20.2c0.2-30.2-13.2-58.8-36.4-78c-23.3-21-53.7-32.5-85.1-32.1 c-49.2,0-88.2,20.8-116.9,62.3l-77.6-48.9C1545.6,286.8,1608.8,256.2,1692.5,256.2L1692.5,256.2z M1578.4,597.3 c-0.1,22.8,10.8,44.2,29.2,57.5c19.5,15.3,43.7,23.5,68.5,23c37.2-0.1,72.9-14.9,99.2-41.2c29.2-27.5,43.8-59.7,43.8-96.8 c-27.5-21.9-65.8-32.9-115-32.9c-35.8,0-65.7,8.6-89.6,25.9C1590.4,550.4,1578.4,571.7,1578.4,597.3L1578.4,597.3z M2387.3,271.5 L2093,948h-91l109.2-236.7l-193.6-439.8h95.8l139.9,337.3h1.9l136.1-337.3L2387.3,271.5z" />
+        <path fill="#ffffff" d="M1129.1,463.2V741h-88.2V54.8h233.8c56.4-1.2,110.9,20.2,151.4,59.4c41,36.9,64.1,89.7,63.2,144.8 c1.2,55.5-21.9,108.7-63.2,145.7c-40.9,39-91.4,58.5-151.4,58.4L1129.1,463.2L1129.1,463.2z M1129.1,139.3v239.6h147.8 c32.8,1,64.4-11.9,87.2-35.5c46.3-45,47.4-119.1,2.3-165.4c-0.8-0.8-1.5-1.6-2.3-2.3c-22.5-24.1-54.3-37.3-87.2-36.4L1129.1,139.3 L1129.1,139.3z M1692.5,256.2c65.2,0,116.6,17.4,154.3,52.2c37.7,34.8,56.5,82.6,56.5,143.2V741H1819v-65.2h-3.8 c-36.5,53.7-85.1,80.5-145.7,80.5c-51.7,0-95-15.3-129.8-46c-33.8-28.5-53-70.7-52.2-115c0-48.6,18.4-87.2,55.1-115.9 c36.7-28.7,85.7-43.1,147.1-43.1c52.3,0,95.5,9.6,129.3,28.7v-20.2c0.2-30.2-13.2-58.8-36.4-78c-23.3-21-53.7-32.5-85.1-32.1 c-49.2,0-88.2,20.8-116.9,62.3l-77.6-48.9C1545.6,286.8,1608.8,256.2,1692.5,256.2L1692.5,256.2z M1578.4,597.3 c-0.1,22.8,10.8,44.2,29.2,57.5c19.5,15.3,43.7,23.5,68.5,23c37.2-0.1,72.9-14.9,99.2-41.2c29.2-27.5,43.8-59.7,43.8-96.8 c-27.5-21.9-65.8-32.9-115-32.9c-35.8,0-65.7,8.6-89.6,25.9C1590.4,550.4,1578.4,571.7,1578.4,597.3L1578.4,597.3z M2387.3,271.5 L2093,948h-91l109.2-236.7l-193.6-439.8h95.8l139.9,337.3h1.9l136.1-337.3L2387.3,271.5z" />
       </g>
       <path fill="#4285F4" d="M772.8,403.2c0-26.9-2.2-53.7-6.8-80.2H394.2v151.8h212.9c-8.8,49-37.2,92.3-78.7,119.8v98.6h127.1 C729.9,624.7,772.8,523.2,772.8,403.2L772.8,403.2z" />
       <path fill="#34A853" d="M394.2,788.5c106.4,0,196-34.9,261.3-95.2l-127.1-98.6c-35.4,24-80.9,37.7-134.2,37.7 c-102.8,0-190.1-69.3-221.3-162.7H42v101.6C108.9,704.5,245.2,788.5,394.2,788.5z" />
@@ -444,6 +444,8 @@ function StripeCardForm({
   agreedToTerms,
   setAgreedToTerms,
   isContactValid,
+  productTitle,
+  onGooglePaySubmit,
 }: {
   onSubmit: (stripe: any, elements: any) => void
   isSubmitting: boolean
@@ -456,6 +458,8 @@ function StripeCardForm({
   agreedToTerms: boolean
   setAgreedToTerms: (v: boolean) => void
   isContactValid: boolean
+  productTitle: string
+  onGooglePaySubmit: (paymentMethodId: string) => void
 }) {
   const stripe = useStripe()
   const elements = useElements()
@@ -464,8 +468,59 @@ function StripeCardForm({
     cardExpiry: false,
     cardCvc: false,
   })
+  const [paymentRequest, setPaymentRequest] = useState<any>(null)
+  const [canMakePayment, setCanMakePayment] = useState(false)
 
   const isCardComplete = cardComplete.cardNumber && cardComplete.cardExpiry && cardComplete.cardCvc
+
+  // Initialize Stripe Payment Request (Google Pay / Apple Pay)
+  useEffect(() => {
+    if (!stripe || isFree || total <= 0) return
+
+    const pr = stripe.paymentRequest({
+      country: "US",
+      currency: "usd",
+      total: {
+        label: productTitle,
+        amount: total,
+      },
+      requestPayerName: true,
+      requestPayerEmail: true,
+    })
+
+    pr.canMakePayment().then((result: any) => {
+      if (result) {
+        setCanMakePayment(true)
+        setPaymentRequest(pr)
+      }
+    })
+
+    pr.on("paymentmethod", async (ev: any) => {
+      try {
+        onGooglePaySubmit(ev.paymentMethod.id)
+        ev.complete("success")
+      } catch {
+        ev.complete("fail")
+      }
+    })
+
+    return () => {
+      setPaymentRequest(null)
+      setCanMakePayment(false)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stripe, isFree, total, productTitle])
+
+  // Update payment request amount when total changes
+  useEffect(() => {
+    if (!paymentRequest || total <= 0) return
+    paymentRequest.update({
+      total: {
+        label: productTitle,
+        amount: total,
+      },
+    })
+  }, [paymentRequest, total, productTitle])
 
   const handleSubmit = () => {
     if (!stripe || !elements) {
@@ -483,6 +538,19 @@ function StripeCardForm({
     onSubmit(stripe, elements)
   }
 
+  const handleGooglePayClick = () => {
+    if (!paymentRequest) return
+    if (!agreedToTerms) {
+      setError("Please agree to the Terms and Conditions")
+      return
+    }
+    if (!isContactValid) {
+      setError("Please fill in your contact information")
+      return
+    }
+    paymentRequest.show()
+  }
+
   return (
     <div className="space-y-4">
       {/* Express Checkout */}
@@ -490,12 +558,12 @@ function StripeCardForm({
         <div className="bg-white rounded-2xl border border-gray-200 p-5">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4 text-center">Express checkout</p>
           <div className="grid grid-cols-2 gap-3">
-            {/* Google Pay */}
+            {/* Google Pay - Black button with white logo */}
             <button
               type="button"
-              onClick={handleSubmit}
-              disabled={isSubmitting || !agreedToTerms || !isContactValid || !stripe}
-              className="flex items-center justify-center h-12 rounded-xl bg-white border border-gray-200 hover:bg-gray-50 hover:border-gray-300 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={handleGooglePayClick}
+              disabled={isSubmitting || !canMakePayment || !stripe}
+              className="flex items-center justify-center h-12 rounded-xl bg-black hover:bg-gray-900 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <GooglePayIcon className="h-[26px] w-auto" />
             </button>
@@ -506,7 +574,7 @@ function StripeCardForm({
                 disabled
                 className="w-full flex items-center justify-center h-12 rounded-xl bg-[#FFC439] border border-[#F0B72A] cursor-not-allowed transition-all overflow-hidden"
               >
-                <PayPalIcon className="h-9 w-auto" />
+                <PayPalIcon className="h-[41.4px] w-auto" />
               </button>
               <div className="absolute inset-0 flex items-center justify-center rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/75 pointer-events-none">
                 <span className="text-xs text-white font-medium">Not available now</span>
@@ -923,22 +991,20 @@ export default function CheckoutPageClient({
   // Right column content (Desktop: Order Summary, Discount, Tip, Gift)
   const rightColumnContent = (
     <div className="space-y-5">
-      <div className="hidden lg:block">
-        <OrderSummaryContent
-          product={product}
-          creator={creator}
-          selectedVariant={selectedVariant}
-          subtotal={subtotal}
-          tipCents={tipCents}
-          discountApplied={discountApplied}
-          discountCents={discountCents}
-          total={total}
-          isPwyw={isPwyw}
-          formatPrice={formatPrice}
-        />
-      </div>
+      <OrderSummaryContent
+        product={product}
+        creator={creator}
+        selectedVariant={selectedVariant}
+        subtotal={subtotal}
+        tipCents={tipCents}
+        discountApplied={discountApplied}
+        discountCents={discountCents}
+        total={total}
+        isPwyw={isPwyw}
+        formatPrice={formatPrice}
+      />
 
-      <section className="hidden lg:block bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
+      <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
         <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
           <Tag className="w-4 h-4 text-gray-400" />
           Discount code
@@ -962,7 +1028,7 @@ export default function CheckoutPageClient({
         )}
       </section>
 
-      <section className="hidden lg:block bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
+      <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
         <div className="flex items-center gap-2 mb-3">
           <Heart className="h-4 w-4 text-pink-500 shrink-0" />
           <h3 className="text-sm font-semibold text-gray-900">Add a tip for {creator.name}</h3>
@@ -977,7 +1043,7 @@ export default function CheckoutPageClient({
         </div>
       </section>
 
-      <section className="hidden lg:block bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
+      <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <Gift className="h-5 w-5 text-gray-500 shrink-0" />
@@ -991,6 +1057,56 @@ export default function CheckoutPageClient({
       </section>
     </div>
   )
+
+  // Handle Google Pay payment method
+  const handleGooglePayPayment = useCallback(async (paymentMethodId: string) => {
+    setIsSubmitting(true)
+    setError(null)
+
+    try {
+      // Create PaymentIntent
+      const result = await createPaymentIntent()
+      setClientSecret(result.clientSecret)
+      setPaymentIntentId(result.paymentIntentId)
+
+      // Confirm with the payment method from Google Pay
+      const stripeInstance = await stripePromise
+      if (!stripeInstance) throw new Error("Stripe not loaded")
+
+      const { error: stripeError, paymentIntent: confirmedIntent } = await stripeInstance.confirmCardPayment(
+        result.clientSecret,
+        { payment_method: paymentMethodId }
+      )
+
+      if (stripeError) {
+        setError(stripeError.message || "Payment failed. Please try again.")
+        return
+      }
+
+      if (confirmedIntent?.status === "succeeded") {
+        const completeResponse = await fetch("/api/checkout/confirm-payment", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRF-Token": CSRF_TOKEN,
+          },
+          body: JSON.stringify({ paymentIntentId: result.paymentIntentId }),
+        })
+
+        const completeData = await completeResponse.json()
+
+        if (!completeResponse.ok) {
+          throw new Error(completeData.error || "Failed to complete order")
+        }
+
+        router.push(`${completeData.redirectUrl}?emailSent=1`)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to process Google Pay payment")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }, [createPaymentIntent, router])
 
   // Payment content - Elements renders immediately without clientSecret
   const paymentElementsContent = !isFree ? (
@@ -1007,6 +1123,8 @@ export default function CheckoutPageClient({
         agreedToTerms={agreedToTerms}
         setAgreedToTerms={setAgreedToTerms}
         isContactValid={isContactValid}
+        productTitle={product.title}
+        onGooglePaySubmit={handleGooglePayPayment}
       />
     </Elements>
   ) : (
@@ -1051,38 +1169,37 @@ export default function CheckoutPageClient({
         </div>
       </header>
 
-      <div className="mx-auto max-w-[1400px] px-6 sm:px-10 lg:px-16 py-6 sm:py-10 pb-[max(2rem,env(safe-area-inset-bottom))]">
-        {/* Mobile order summary toggle - open by default */}
-        <div className="mb-4 lg:hidden">
-          <OrderSummaryMobileToggle isOpen={mobileOrderOpen} onToggle={() => setMobileOrderOpen(!mobileOrderOpen)} total={total} />
-          {mobileOrderOpen && (
-            <div className="mt-3 animate-in slide-in-from-top-2 duration-200">
-              <OrderSummaryContent product={product} creator={creator} selectedVariant={selectedVariant} subtotal={subtotal} tipCents={tipCents} discountApplied={discountApplied} discountCents={discountCents} total={total} isPwyw={isPwyw} formatPrice={formatPrice} />
-            </div>
-          )}
-        </div>
+      {/* Mobile layout: normal stacked flow */}
+      <div className="lg:hidden">
+        <div className="mx-auto max-w-[1400px] px-6 sm:px-10 py-6 sm:py-10 pb-[max(2rem,env(safe-area-inset-bottom))]">
+          {/* Mobile order summary toggle - open by default */}
+          <div className="mb-4">
+            <OrderSummaryMobileToggle isOpen={mobileOrderOpen} onToggle={() => setMobileOrderOpen(!mobileOrderOpen)} total={total} />
+            {mobileOrderOpen && (
+              <div className="mt-3 animate-in slide-in-from-top-2 duration-200">
+                <OrderSummaryContent product={product} creator={creator} selectedVariant={selectedVariant} subtotal={subtotal} tipCents={tipCents} discountApplied={discountApplied} discountCents={discountCents} total={total} isPwyw={isPwyw} formatPrice={formatPrice} />
+              </div>
+            )}
+          </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-start">
-          {/* LEFT COLUMN */}
-          <div className="flex flex-col gap-5 order-2 lg:order-1">
-
+          <div className="flex flex-col gap-5">
             {/* Contact Information */}
-            <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 order-1">
+            <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
               <h3 className="text-sm font-semibold text-gray-900 mb-4">Contact information</h3>
               <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label htmlFor="firstName" className="text-xs font-medium text-gray-600">First Name *</Label>
-                    <Input id="firstName" type="text" placeholder="John" value={firstName} onChange={(e) => setFirstName(e.target.value)} className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20" required />
+                    <Label htmlFor="firstName-m" className="text-xs font-medium text-gray-600">First Name *</Label>
+                    <Input id="firstName-m" type="text" placeholder="John" value={firstName} onChange={(e) => setFirstName(e.target.value)} className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20" required />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="lastName" className="text-xs font-medium text-gray-600">Last Name *</Label>
-                    <Input id="lastName" type="text" placeholder="Doe" value={lastName} onChange={(e) => setLastName(e.target.value)} className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20" required />
+                    <Label htmlFor="lastName-m" className="text-xs font-medium text-gray-600">Last Name *</Label>
+                    <Input id="lastName-m" type="text" placeholder="Doe" value={lastName} onChange={(e) => setLastName(e.target.value)} className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20" required />
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="email" className="text-xs font-medium text-gray-600">Email address *</Label>
-                  <Input id="email" type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20" required />
+                  <Label htmlFor="email-m" className="text-xs font-medium text-gray-600">Email address *</Label>
+                  <Input id="email-m" type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20" required />
                   <p className="text-xs text-gray-400">We&apos;ll send your download link to this email</p>
                 </div>
                 <div className="space-y-1.5">
@@ -1093,7 +1210,7 @@ export default function CheckoutPageClient({
             </section>
 
             {/* Product Card */}
-            <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 order-2">
+            <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
               <div className="flex gap-4">
                 <div className="relative h-20 w-20 sm:h-24 sm:w-24 shrink-0 rounded-xl bg-gray-100">
                   <div className="relative h-full w-full overflow-hidden rounded-xl">
@@ -1124,20 +1241,13 @@ export default function CheckoutPageClient({
               </div>
             </section>
 
-            {/* Business VAT ID */}
-            <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 order-7 lg:order-3">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3">Business VAT ID (optional)</h3>
-              <Input placeholder="e.g. DE123456789" value={vatId} onChange={(e) => setVatId(e.target.value)} className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20" />
-              <p className="text-xs text-gray-400 mt-1.5">Only required for EU B2B transactions</p>
-            </section>
-
             {/* Payment Elements */}
-            <div className="order-3 lg:order-4">
+            <div>
               {paymentElementsContent}
             </div>
 
-            {/* Discount - Mobile only */}
-            <section className="lg:hidden bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 order-4">
+            {/* Discount - Mobile */}
+            <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
               <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
                 <Tag className="w-4 h-4 text-gray-400" />Discount code
               </h3>
@@ -1158,8 +1268,8 @@ export default function CheckoutPageClient({
               )}
             </section>
 
-            {/* Tip - Mobile only */}
-            <section className="lg:hidden bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 order-5">
+            {/* Tip - Mobile */}
+            <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
               <div className="flex items-center gap-2 mb-3">
                 <Heart className="h-4 w-4 text-pink-500 shrink-0" />
                 <h3 className="text-sm font-semibold text-gray-900">Add a tip for {creator.name}</h3>
@@ -1174,8 +1284,8 @@ export default function CheckoutPageClient({
               </div>
             </section>
 
-            {/* Gift - Mobile only */}
-            <section className="lg:hidden bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 order-6">
+            {/* Gift - Mobile */}
+            <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <Gift className="h-5 w-5 text-gray-500 shrink-0" />
@@ -1187,10 +1297,102 @@ export default function CheckoutPageClient({
                 <Switch id="gift" checked={isGift} onCheckedChange={setIsGift} className="shrink-0" />
               </div>
             </section>
-          </div>
 
-          {/* RIGHT COLUMN */}
-          <div className="order-1 lg:order-2 lg:sticky lg:top-6">
+            {/* Business VAT ID */}
+            <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">Business VAT ID (optional)</h3>
+              <Input placeholder="e.g. DE123456789" value={vatId} onChange={(e) => setVatId(e.target.value)} className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20" />
+              <p className="text-xs text-gray-400 mt-1.5">Only required for EU B2B transactions</p>
+            </section>
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop layout: split-screen with white left / light gray right / subtle divider */}
+      <div className="hidden lg:flex min-h-[calc(100vh-57px)]">
+        {/* LEFT HALF - White background */}
+        <div className="w-1/2 bg-white">
+          <div className="max-w-[560px] ml-auto py-10 px-10 xl:px-16">
+            <div className="flex flex-col gap-5">
+              {/* Contact Information */}
+              <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
+                <h3 className="text-sm font-semibold text-gray-900 mb-4">Contact information</h3>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="firstName" className="text-xs font-medium text-gray-600">First Name *</Label>
+                      <Input id="firstName" type="text" placeholder="John" value={firstName} onChange={(e) => setFirstName(e.target.value)} className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20" required />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="lastName" className="text-xs font-medium text-gray-600">Last Name *</Label>
+                      <Input id="lastName" type="text" placeholder="Doe" value={lastName} onChange={(e) => setLastName(e.target.value)} className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20" required />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="email" className="text-xs font-medium text-gray-600">Email address *</Label>
+                    <Input id="email" type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20" required />
+                    <p className="text-xs text-gray-400">We&apos;ll send your download link to this email</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-gray-600">Country</Label>
+                    <CountrySelector value={country} onChange={setCountry} />
+                  </div>
+                </div>
+              </section>
+
+              {/* Product Card */}
+              <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
+                <div className="flex gap-4">
+                  <div className="relative h-20 w-20 sm:h-24 sm:w-24 shrink-0 rounded-xl bg-gray-100">
+                    <div className="relative h-full w-full overflow-hidden rounded-xl">
+                      {product.thumbnail_url ? (
+                        <Image src={product.thumbnail_url} alt={product.title} fill className="object-cover" />
+                      ) : (
+                        <div className="flex h-full items-center justify-center"><Package className="h-8 w-8 text-gray-300" /></div>
+                      )}
+                    </div>
+                    <div className="absolute -top-2 -right-2 w-6 h-6 bg-black text-white text-xs font-bold rounded-full flex items-center justify-center shadow-md z-10 ring-2 ring-white">1</div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <h2 className="font-semibold text-base sm:text-lg text-gray-900 line-clamp-2">{product.title}</h2>
+                        {selectedVariant && <p className="text-sm font-medium text-gray-600 mt-0.5">{selectedVariant.name}</p>}
+                        <p className="text-sm text-gray-500 truncate mt-0.5">{creator.name}</p>
+                      </div>
+                      <span className="font-semibold text-gray-900 whitespace-nowrap">{subtotal === 0 ? "Free" : formatPrice(subtotal)}</span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-3">
+                      {selectedVariant && (
+                        <button type="button" onClick={() => setShowVariantModal(true)} className="text-xs font-medium text-gray-600 hover:text-gray-800 underline underline-offset-2 cursor-pointer transition-colors">Edit</button>
+                      )}
+                      <a href={productUrl} className="text-xs font-medium text-gray-400 hover:text-red-500 transition-colors cursor-pointer">Remove</a>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              {/* Business VAT ID */}
+              <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">Business VAT ID (optional)</h3>
+                <Input placeholder="e.g. DE123456789" value={vatId} onChange={(e) => setVatId(e.target.value)} className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20" />
+                <p className="text-xs text-gray-400 mt-1.5">Only required for EU B2B transactions</p>
+              </section>
+
+              {/* Payment Elements */}
+              <div>
+                {paymentElementsContent}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Subtle vertical divider */}
+        <div className="w-px bg-gray-200 shrink-0" />
+
+        {/* RIGHT HALF - Light gray background */}
+        <div className="w-1/2 bg-[#f7f7f8]">
+          <div className="max-w-[560px] mr-auto py-10 px-10 xl:px-16 sticky top-[57px]">
             {rightColumnContent}
           </div>
         </div>
