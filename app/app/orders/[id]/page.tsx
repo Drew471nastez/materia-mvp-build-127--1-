@@ -217,7 +217,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
               </div>
             )}
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Platform Fee (6% + $0.30)</span>
+              <span className="text-muted-foreground">Platform Fee</span>
               <span className="text-muted-foreground">-{formatPrice(platformFee)}</span>
             </div>
             <div className="pt-3 border-t">

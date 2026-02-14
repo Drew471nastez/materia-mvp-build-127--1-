@@ -283,7 +283,7 @@ export default async function BillingPage() {
       try {
         await supabase
           .from("creators")
-          .update({ subscription_plan_id: "free", subscription_status: "inactive" })
+          .update({ subscription_plan_id: "free", subscription_status: "active" })
           .eq("id", creator.id)
       } catch (error) {
         console.error("[Billing] Error syncing free plan to DB:", error)

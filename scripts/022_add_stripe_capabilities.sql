@@ -18,4 +18,4 @@ CREATE INDEX IF NOT EXISTS idx_orders_transfer ON orders(transfer_id);
 COMMENT ON COLUMN creators.charges_enabled IS 'Whether the connected Stripe account can accept charges';
 COMMENT ON COLUMN creators.payouts_enabled IS 'Whether the connected Stripe account can receive payouts';
 COMMENT ON COLUMN orders.transfer_id IS 'Stripe transfer ID for destination charge';
-COMMENT ON COLUMN orders.application_fee_cents IS 'Platform fee collected by Storelib (6% + $0.30)';
+COMMENT ON COLUMN orders.application_fee_cents IS 'Platform fee collected by Storelib (plan% + $0.25 on orders >= $3)';
