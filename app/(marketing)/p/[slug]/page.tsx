@@ -1392,7 +1392,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
 
     return (
       <div
-        className="min-h-screen overflow-x-hidden w-full"
+        className="min-h-screen w-full"
         style={{
           background: pageBackgroundColor || "var(--background)",
           color: pageTextColor || "var(--foreground)",
@@ -1509,7 +1509,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
 
   return (
     <div
-      className="min-h-screen overflow-x-hidden w-full"
+      className="min-h-screen w-full"
       style={{
         background: defaultPageBackgroundColor || "var(--background)",
         color: defaultPageTextColor || "var(--foreground)",

@@ -74,43 +74,6 @@ function validateEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 }
 
-function luhnCheck(num: string): boolean {
-  const digits = num.replace(/\D/g, "")
-  if (digits.length < 13 || digits.length > 19) return false
-  let sum = 0
-  let alt = false
-  for (let i = digits.length - 1; i >= 0; i--) {
-    let n = parseInt(digits[i], 10)
-    if (alt) {
-      n *= 2
-      if (n > 9) n -= 9
-    }
-    sum += n
-    alt = !alt
-  }
-  return sum % 10 === 0
-}
-
-function detectCardBrand(number: string): string {
-  const cleaned = number.replace(/\D/g, "")
-  if (/^4/.test(cleaned)) return "visa"
-  if (/^5[1-5]/.test(cleaned) || /^2[2-7]/.test(cleaned)) return "mastercard"
-  if (/^3[47]/.test(cleaned)) return "amex"
-  if (/^6(?:011|5)/.test(cleaned)) return "discover"
-  return ""
-}
-
-function formatCardNumber(value: string): string {
-  const cleaned = value.replace(/\D/g, "").slice(0, 16)
-  return cleaned.replace(/(.{4})/g, "$1 ").trim()
-}
-
-function formatExpiry(value: string): string {
-  const cleaned = value.replace(/\D/g, "").slice(0, 4)
-  if (cleaned.length >= 3) return `${cleaned.slice(0, 2)}/${cleaned.slice(2)}`
-  return cleaned
-}
-
 const formatPrice = (cents: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100)
 
@@ -133,22 +96,24 @@ function saveSessionField(key: string, value: string) {
   try { sessionStorage.setItem(key, value) } catch { /* ignore */ }
 }
 
-// ---------- Sub-components ----------
-function CardBrandIcon({ brand }: { brand: string }) {
-  const icons: Record<string, string> = {
-    visa: "💳 Visa",
-    mastercard: "💳 MC",
-    amex: "💳 Amex",
-    discover: "💳 Disc",
-  }
-  if (!brand) return null
+// ---------- SVG Icons ----------
+function GooglePayIcon({ className = "h-5 w-5" }: { className?: string }) {
   return (
-    <span className="text-xs font-medium text-purple-600 bg-purple-50 px-2 py-0.5 rounded">
-      {icons[brand] || brand}
-    </span>
+    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12.24 10.285V14.4h6.806c-.275 1.765-2.056 5.174-6.806 5.174-4.095 0-7.439-3.389-7.439-7.574s3.345-7.574 7.439-7.574c2.33 0 3.891.989 4.785 1.849l3.254-3.138C18.189 1.186 15.479 0 12.24 0c-6.635 0-12 5.365-12 12s5.365 12 12 12c6.926 0 11.52-4.869 11.52-11.726 0-.788-.085-1.39-.189-1.989H12.24z" fill="currentColor"/>
+    </svg>
   )
 }
 
+function PayPalIcon({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M7.076 21.337H2.47a.641.641 0 01-.633-.74L4.944.901C5.026.382 5.474 0 5.998 0h7.46c2.57 0 4.578.543 5.69 1.81 1.01 1.15 1.304 2.42 1.012 4.287-.023.143-.047.288-.077.437-.983 5.05-4.349 6.797-8.647 6.797h-2.19c-.524 0-.968.382-1.05.9l-1.12 7.106zm14.146-14.42a3.35 3.35 0 00-.607-.541c-.013.076-.026.175-.041.254-.93 4.778-4.005 7.201-9.138 7.201h-2.19a.563.563 0 00-.556.479l-1.187 7.527h-.506l-.24 1.516a.56.56 0 00.554.647h3.882c.46 0 .85-.334.922-.788.06-.26.76-4.852.816-5.09a.932.932 0 01.92-.789h.58c3.76 0 6.705-1.528 7.565-5.946.36-1.847.174-3.388-.774-4.47z" fill="currentColor"/>
+    </svg>
+  )
+}
+
+// ---------- Sub-components ----------
 function OrderSummaryMobileToggle({
   isOpen,
   onToggle,
@@ -211,15 +176,6 @@ export default function CheckoutPageClient({
   const [discountApplied, setDiscountApplied] = useState(false)
   const [discountPercent, setDiscountPercent] = useState(0)
 
-  // Card fields (never stored in session)
-  const [cardNumber, setCardNumber] = useState("")
-  const [cardExpiry, setCardExpiry] = useState("")
-  const [cardCvc, setCardCvc] = useState("")
-  const [cardBrand, setCardBrand] = useState("")
-
-  // Payment method tab
-  const [paymentMethod, setPaymentMethod] = useState<"card" | "paypal">("card")
-
   // UI state
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -258,11 +214,6 @@ export default function CheckoutPageClient({
     }
     trackCheckoutStart()
   }, [creator.id, product.id])
-
-  // Card brand detection
-  useEffect(() => {
-    setCardBrand(detectCardBrand(cardNumber))
-  }, [cardNumber])
 
   // Price calculations
   const subtotal = selectedVariant ? selectedVariant.priceCents : product.price_cents
@@ -417,7 +368,6 @@ export default function CheckoutPageClient({
 
   const handleApplyDiscount = () => {
     if (!discountCode.trim()) return
-    // Placeholder: In production, validate discount code via API
     setDiscountApplied(true)
     setDiscountPercent(10)
   }
@@ -454,10 +404,10 @@ export default function CheckoutPageClient({
 
   // ---------- RENDER ----------
   return (
-    <div className="min-h-screen bg-gray-50 overflow-x-hidden">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="border-b border-gray-200 bg-white pt-[env(safe-area-inset-top)]">
-        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6">
+        <div className="mx-auto flex h-14 max-w-[1400px] items-center justify-between px-6 sm:px-10 lg:px-16">
           <a
             href={productUrl}
             className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 min-h-[44px] transition-colors"
@@ -465,14 +415,16 @@ export default function CheckoutPageClient({
             <ArrowLeft className="h-4 w-4 shrink-0" />
             <span className="truncate">Back to product</span>
           </a>
-          <div className="flex items-center gap-1.5 text-xs text-gray-400">
-            <Lock className="h-3.5 w-3.5" />
-            <span>Secure checkout</span>
-          </div>
+          <Link
+            href="/explore"
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Continue Shopping
+          </Link>
         </div>
       </header>
 
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 py-6 sm:py-10 pb-[max(2rem,env(safe-area-inset-bottom))]">
+      <div className="mx-auto max-w-[1400px] px-6 sm:px-10 lg:px-16 py-6 sm:py-10 pb-[max(2rem,env(safe-area-inset-bottom))]">
         {/* Mobile order summary toggle */}
         <div className="mb-4 lg:hidden">
           <OrderSummaryMobileToggle
@@ -498,8 +450,8 @@ export default function CheckoutPageClient({
           )}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-8 lg:gap-12 items-start">
-          {/* ===== LEFT COLUMN (60%) ===== */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-start">
+          {/* ===== LEFT COLUMN (50%) ===== */}
           <div className="space-y-6 order-2 lg:order-1">
 
             {/* Product Card */}
@@ -518,8 +470,8 @@ export default function CheckoutPageClient({
                       <Package className="h-8 w-8 text-gray-300" />
                     </div>
                   )}
-                  {/* Quantity badge */}
-                  <div className="absolute -top-1.5 -right-1.5 w-6 h-6 bg-purple-600 text-white text-xs font-bold rounded-full flex items-center justify-center shadow-sm">
+                  {/* Quantity badge - black */}
+                  <div className="absolute -top-1.5 -right-1.5 w-6 h-6 bg-black text-white text-xs font-bold rounded-full flex items-center justify-center shadow-sm">
                     1
                   </div>
                 </div>
@@ -529,7 +481,7 @@ export default function CheckoutPageClient({
                     <div className="min-w-0">
                       <h2 className="font-semibold text-base sm:text-lg text-gray-900 line-clamp-2">{product.title}</h2>
                       {selectedVariant && (
-                        <p className="text-sm font-medium text-purple-600 mt-0.5">{selectedVariant.name}</p>
+                        <p className="text-sm font-medium text-gray-600 mt-0.5">{selectedVariant.name}</p>
                       )}
                       <p className="text-sm text-gray-500 truncate mt-0.5">{creator.name}</p>
                     </div>
@@ -543,7 +495,7 @@ export default function CheckoutPageClient({
                       <button
                         type="button"
                         onClick={() => setShowVariantModal(true)}
-                        className="text-xs font-medium text-purple-600 hover:text-purple-700 underline underline-offset-2 cursor-pointer transition-colors"
+                        className="text-xs font-medium text-gray-600 hover:text-gray-800 underline underline-offset-2 cursor-pointer transition-colors"
                       >
                         Edit
                       </button>
@@ -586,7 +538,7 @@ export default function CheckoutPageClient({
                     placeholder="Enter discount code"
                     value={discountCode}
                     onChange={(e) => setDiscountCode(e.target.value)}
-                    className="flex-1 h-11 rounded-xl border-gray-200 focus-visible:border-purple-400 focus-visible:ring-purple-400/20"
+                    className="flex-1 h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20"
                   />
                   <Button
                     variant="outline"
@@ -613,7 +565,7 @@ export default function CheckoutPageClient({
                       placeholder="John"
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
-                      className="h-11 rounded-xl border-gray-200 focus-visible:border-purple-400 focus-visible:ring-purple-400/20"
+                      className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20"
                       required
                     />
                   </div>
@@ -625,7 +577,7 @@ export default function CheckoutPageClient({
                       placeholder="Doe"
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
-                      className="h-11 rounded-xl border-gray-200 focus-visible:border-purple-400 focus-visible:ring-purple-400/20"
+                      className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20"
                       required
                     />
                   </div>
@@ -638,7 +590,7 @@ export default function CheckoutPageClient({
                     placeholder="you@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="h-11 rounded-xl border-gray-200 focus-visible:border-purple-400 focus-visible:ring-purple-400/20"
+                    className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20"
                     required
                   />
                   <p className="text-xs text-gray-400">We&apos;ll send your download link to this email</p>
@@ -653,7 +605,7 @@ export default function CheckoutPageClient({
                 placeholder="e.g. DE123456789"
                 value={vatId}
                 onChange={(e) => setVatId(e.target.value)}
-                className="h-11 rounded-xl border-gray-200 focus-visible:border-purple-400 focus-visible:ring-purple-400/20"
+                className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20"
               />
               <p className="text-xs text-gray-400 mt-1.5">Only required for EU B2B transactions</p>
             </section>
@@ -672,7 +624,7 @@ export default function CheckoutPageClient({
                     onClick={() => { setTipAmount(amount); setCustomTip("") }}
                     className={`px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-150 cursor-pointer ${
                       tipAmount === amount && !customTip
-                        ? "bg-purple-600 text-white shadow-sm"
+                        ? "bg-black text-white shadow-sm"
                         : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                     }`}
                   >
@@ -683,7 +635,7 @@ export default function CheckoutPageClient({
                   type="number"
                   placeholder="Other"
                   value={customTip}
-                  className="w-24 h-10 rounded-full text-center border-gray-200 focus-visible:border-purple-400 focus-visible:ring-purple-400/20"
+                  className="w-24 h-10 rounded-full text-center border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20"
                   min={0}
                   step={0.5}
                   onChange={(e) => {
@@ -698,7 +650,7 @@ export default function CheckoutPageClient({
             <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
-                  <Gift className="h-5 w-5 text-purple-500 shrink-0" />
+                  <Gift className="h-5 w-5 text-gray-500 shrink-0" />
                   <div className="min-w-0">
                     <Label htmlFor="gift" className="cursor-pointer text-sm font-semibold text-gray-900">
                       Give as a gift?
@@ -711,7 +663,7 @@ export default function CheckoutPageClient({
             </section>
           </div>
 
-          {/* ===== RIGHT COLUMN (40%, sticky) ===== */}
+          {/* ===== RIGHT COLUMN (50%, sticky) ===== */}
           <div className="order-1 lg:order-2 lg:sticky lg:top-6">
             <div className="space-y-5">
               {/* Order Summary - hidden on mobile (uses collapsible above) */}
@@ -730,22 +682,40 @@ export default function CheckoutPageClient({
                 />
               </div>
 
-              {/* Express Checkout */}
+              {/* Payment Methods */}
               {!isFree && (
                 <div className="bg-white rounded-2xl border border-gray-200 p-5">
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3 text-center">Express checkout</p>
-                  <div className="grid grid-cols-2 gap-3">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4 text-center">Pay with</p>
+                  <div className="grid grid-cols-3 gap-3">
+                    {/* Google Pay - Black */}
                     <button
                       type="button"
-                      className="flex items-center justify-center gap-2 h-12 rounded-xl bg-black text-white text-sm font-semibold hover:bg-gray-800 transition-colors cursor-pointer"
+                      onClick={handleSubmit}
+                      disabled={isSubmitting || !isFormValid}
+                      className="flex items-center justify-center gap-2 h-12 rounded-xl bg-black text-white text-sm font-semibold hover:bg-gray-800 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                       Pay
+                      <GooglePayIcon className="h-4 w-4" />
+                      <span>Pay</span>
                     </button>
+                    {/* PayPal - Yellow */}
                     <button
                       type="button"
-                      className="flex items-center justify-center gap-2 h-12 rounded-xl bg-black text-white text-sm font-semibold hover:bg-gray-800 transition-colors cursor-pointer"
+                      onClick={handleSubmit}
+                      disabled={isSubmitting || !isFormValid}
+                      className="flex items-center justify-center gap-2 h-12 rounded-xl bg-[#FFC439] text-[#003087] text-sm font-bold hover:bg-[#f0b930] transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      G Pay
+                      <PayPalIcon className="h-4 w-4" />
+                      <span>PayPal</span>
+                    </button>
+                    {/* Credit Card */}
+                    <button
+                      type="button"
+                      onClick={handleSubmit}
+                      disabled={isSubmitting || !isFormValid}
+                      className="flex items-center justify-center gap-2 h-12 rounded-xl bg-gray-100 text-gray-800 text-sm font-semibold hover:bg-gray-200 border border-gray-200 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <CreditCard className="h-4 w-4" />
+                      <span>Card</span>
                     </button>
                   </div>
                   <div className="flex items-center gap-3 my-4">
@@ -756,90 +726,6 @@ export default function CheckoutPageClient({
                 </div>
               )}
 
-              {/* Payment Method */}
-              {!isFree && (
-                <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-                  {/* Tab buttons */}
-                  <div className="flex border-b border-gray-200">
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMethod("card")}
-                      className={`flex-1 flex items-center justify-center gap-2 py-3.5 text-sm font-medium transition-colors cursor-pointer ${
-                        paymentMethod === "card"
-                          ? "bg-white text-purple-600 border-b-2 border-purple-600"
-                          : "bg-gray-50 text-gray-500 hover:text-gray-700"
-                      }`}
-                    >
-                      <CreditCard className="w-4 h-4" />
-                      Credit Card
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMethod("paypal")}
-                      className={`flex-1 flex items-center justify-center gap-2 py-3.5 text-sm font-medium transition-colors cursor-pointer relative ${
-                        paymentMethod === "paypal"
-                          ? "bg-white text-purple-600 border-b-2 border-purple-600"
-                          : "bg-gray-50 text-gray-500 hover:text-gray-700"
-                      }`}
-                    >
-                      PayPal
-                      <span className="text-[10px] font-semibold bg-gray-200 text-gray-500 px-1.5 py-0.5 rounded-full">Soon</span>
-                    </button>
-                  </div>
-
-                  {/* Card inputs */}
-                  {paymentMethod === "card" && (
-                    <div className="p-5 space-y-4">
-                      <div className="space-y-1.5">
-                        <div className="flex items-center justify-between">
-                          <Label className="text-xs font-medium text-gray-600">Card number</Label>
-                          <CardBrandIcon brand={cardBrand} />
-                        </div>
-                        <Input
-                          placeholder="1234 5678 9012 3456"
-                          value={cardNumber}
-                          onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
-                          className="h-11 rounded-xl border-gray-200 focus-visible:border-purple-400 focus-visible:ring-purple-400/20 font-mono tracking-wider"
-                          maxLength={19}
-                          inputMode="numeric"
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-medium text-gray-600">Expiry</Label>
-                          <Input
-                            placeholder="MM/YY"
-                            value={cardExpiry}
-                            onChange={(e) => setCardExpiry(formatExpiry(e.target.value))}
-                            className="h-11 rounded-xl border-gray-200 focus-visible:border-purple-400 focus-visible:ring-purple-400/20 font-mono"
-                            maxLength={5}
-                            inputMode="numeric"
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-medium text-gray-600">CVC</Label>
-                          <Input
-                            placeholder="123"
-                            value={cardCvc}
-                            onChange={(e) => setCardCvc(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                            className="h-11 rounded-xl border-gray-200 focus-visible:border-purple-400 focus-visible:ring-purple-400/20 font-mono"
-                            maxLength={4}
-                            inputMode="numeric"
-                            type="password"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {paymentMethod === "paypal" && (
-                    <div className="p-5 text-center text-sm text-gray-400">
-                      PayPal support is coming soon. Please use a credit card for now.
-                    </div>
-                  )}
-                </div>
-              )}
-
               {/* Terms & Conditions */}
               <div className="bg-white rounded-2xl border border-gray-200 p-5">
                 <div className="flex items-start gap-3">
@@ -847,11 +733,11 @@ export default function CheckoutPageClient({
                     id="terms"
                     checked={agreedToTerms}
                     onCheckedChange={(checked) => setAgreedToTerms(checked as boolean)}
-                    className="mt-0.5 shrink-0 data-[state=checked]:bg-purple-600 data-[state=checked]:border-purple-600"
+                    className="mt-0.5 shrink-0 data-[state=checked]:bg-black data-[state=checked]:border-black"
                   />
                   <Label htmlFor="terms" className="cursor-pointer text-sm leading-relaxed text-gray-600">
                     I agree to the{" "}
-                    <Link href="/terms" className="text-purple-600 hover:text-purple-700 underline underline-offset-2" target="_blank">
+                    <Link href="/terms" className="text-gray-900 hover:text-black underline underline-offset-2" target="_blank">
                       Terms and Conditions
                     </Link>{" "}
                     *
@@ -871,12 +757,8 @@ export default function CheckoutPageClient({
               <button
                 type="button"
                 onClick={handleSubmit}
-                disabled={isSubmitting || !isFormValid || (paymentMethod === "paypal" && !isFree)}
-                className={`w-full flex items-center justify-center gap-2 h-14 rounded-2xl text-base font-semibold transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 ${
-                  isFree
-                    ? "bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-600/20"
-                    : "bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-600/20"
-                }`}
+                disabled={isSubmitting || !isFormValid}
+                className="w-full flex items-center justify-center gap-2 h-14 rounded-2xl text-base font-semibold transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 bg-black hover:bg-gray-800 text-white shadow-lg shadow-black/10"
               >
                 {isSubmitting ? (
                   <>
@@ -902,17 +784,9 @@ export default function CheckoutPageClient({
                   <Shield className="h-3.5 w-3.5" />
                   <span>Payment is secure and encrypted</span>
                 </div>
-                {!isFree && (
-                  <div className="flex items-center gap-3 text-xs text-gray-300">
-                    <span>Visa</span>
-                    <span>Mastercard</span>
-                    <span>Amex</span>
-                    <span>Discover</span>
-                  </div>
-                )}
                 <p className="text-xs text-gray-400 flex items-center gap-1">
                   <Lock className="h-3 w-3" />
-                  Secured checkout by Stripe
+                  Secured by Stripe
                 </p>
               </div>
             </div>
@@ -926,8 +800,8 @@ export default function CheckoutPageClient({
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={isSubmitting || !isFormValid || (paymentMethod === "paypal" && !isFree)}
-            className="w-full flex items-center justify-center gap-2 h-13 rounded-2xl text-base font-semibold bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-600/20 transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={isSubmitting || !isFormValid}
+            className="w-full flex items-center justify-center gap-2 h-13 rounded-2xl text-base font-semibold bg-black hover:bg-gray-800 text-white shadow-lg shadow-black/10 transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSubmitting ? (
               <>
@@ -968,10 +842,9 @@ export default function CheckoutPageClient({
               </button>
             </div>
             <div className="p-5 space-y-3">
-              {/* Current variant shown as selected */}
-              <div className="flex items-center gap-3 p-4 rounded-xl border-2 border-purple-600 bg-purple-50">
-                <div className="w-4 h-4 rounded-full border-2 border-purple-600 flex items-center justify-center">
-                  <div className="w-2 h-2 rounded-full bg-purple-600" />
+              <div className="flex items-center gap-3 p-4 rounded-xl border-2 border-black bg-gray-50">
+                <div className="w-4 h-4 rounded-full border-2 border-black flex items-center justify-center">
+                  <div className="w-2 h-2 rounded-full bg-black" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-gray-900">{selectedVariant.name}</p>
@@ -979,7 +852,7 @@ export default function CheckoutPageClient({
                     <p className="text-xs text-gray-500 mt-0.5">{selectedVariant.description}</p>
                   )}
                 </div>
-                <span className="font-semibold text-purple-600 whitespace-nowrap">
+                <span className="font-semibold text-gray-900 whitespace-nowrap">
                   {selectedVariant.priceCents === 0 ? "Free" : formatPrice(selectedVariant.priceCents)}
                 </span>
               </div>
@@ -988,7 +861,7 @@ export default function CheckoutPageClient({
               <button
                 type="button"
                 onClick={() => setShowVariantModal(false)}
-                className="w-full h-11 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-semibold transition-colors cursor-pointer"
+                className="w-full h-11 rounded-xl bg-black hover:bg-gray-800 text-white font-semibold transition-colors cursor-pointer"
               >
                 Save changes
               </button>
@@ -1047,7 +920,7 @@ function OrderSummaryContent({
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-gray-900 truncate">{product.title}</p>
           {selectedVariant && (
-            <p className="text-xs text-purple-600">{selectedVariant.name}</p>
+            <p className="text-xs text-gray-500">{selectedVariant.name}</p>
           )}
         </div>
         <span className="text-sm font-medium text-gray-900 whitespace-nowrap">
