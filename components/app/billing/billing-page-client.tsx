@@ -264,9 +264,9 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
 
   // Plan benefits for Current Plan card
   const planBenefits: Record<string, string[]> = {
-    free: ["6% + $0.25 per transaction (on orders $3+)", "Basic OnePage features", "Unlimited Digital Products", "500 emails / month"],
-    growth: ["3% + $0.25 per transaction (on orders $3+)", "Unlimited digital products", "Premium OnePage features", "Custom domain"],
-    pro: ["1.5% + $0.25 per transaction (on orders $3+)", "Unlimited digital products", "Premium OnePage features", "Custom domain"],
+    free: ["6% + $0.25 per transaction", "Basic OnePage features", "Unlimited Digital Products", "500 emails / month"],
+    growth: ["3% + $0.25 per transaction", "Unlimited digital products", "Premium OnePage features", "Custom domain"],
+    pro: ["1.5% + $0.25 per transaction", "Unlimited digital products", "Premium OnePage features", "Custom domain"],
   }
 
   // Determine the next upgrade target

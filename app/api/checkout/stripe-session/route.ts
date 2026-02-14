@@ -181,8 +181,7 @@ export async function POST(request: Request) {
   }
 
   // Calculate platform fee based on creator's subscription plan
-  // Pass basePriceCents separately so the $3 fixed-fee threshold uses the product price, not total with tip
-  const feeCalculation = await calculatePlatformFee(totalAmount, product.creator.id, admin, basePriceCents)
+  const feeCalculation = await calculatePlatformFee(totalAmount, product.creator.id, admin)
   const platformFee = feeCalculation.platformFeeCents
 
   console.log("[v0] Checkout fee breakdown:", {

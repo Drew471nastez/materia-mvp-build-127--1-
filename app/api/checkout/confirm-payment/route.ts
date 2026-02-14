@@ -70,8 +70,8 @@ export async function POST(request: Request) {
     }
 
     const totalAmount = paymentIntent.amount || 0
-    // Fallback fee: 6% + $0.25 fixed (only if amount >= $3.00)
-    const fallbackFee = Math.round(totalAmount * 0.06) + (totalAmount >= 300 ? 25 : 0)
+    // Fallback fee: 6% + $0.25 flat
+    const fallbackFee = Math.round(totalAmount * 0.06) + 25
     const platformFeeCents =
       Number.parseInt(metadata.platform_fee_cents || "0", 10) || fallbackFee
 

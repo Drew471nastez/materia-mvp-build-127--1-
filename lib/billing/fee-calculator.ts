@@ -39,9 +39,8 @@ const PLAN_NAMES: Record<SellerPlan, string> = {
   pro: "Professional",
 }
 
-// $0.25 fixed fee — only applied when product price >= $3.00 (300 cents)
+// $0.25 flat fixed fee — applied on EVERY transaction
 const FIXED_FEE_CENTS = 25
-const FIXED_FEE_THRESHOLD_CENTS = 300
 
 // ────────────────────────────────────────────────────────────────
 // resolveSellerPlan — maps any plan ID string to SellerPlan
@@ -60,37 +59,32 @@ function resolveSellerPlan(planId: string | null | undefined): SellerPlan {
 //
 // Rules:
 //   percent_fee    = round(unitAmount × planPercent)
-//   fixed_fee      = 25c  IF productPrice >= 300c ($3.00), else 0
+//   fixed_fee      = 25c (always)
 //   application_fee = percent_fee + fixed_fee
 //   Clamped to [0, unitAmount]
 //
 // Examples:
-//   Free  $1.00 (100c) → 6%=6c,  fixed=0   → 6c
-//   Free  $3.00 (300c) → 6%=18c, fixed=25c  → 43c
-//   Free  $10   (1000c)→ 6%=60c, fixed=25c  → 85c
-//   Growth $1   (100c) → 3%=3c,  fixed=0    → 3c
-//   Growth $3   (300c) → 3%=9c,  fixed=25c  → 34c
-//   Growth $10  (1000c)→ 3%=30c, fixed=25c  → 55c
-//   Pro   $1    (100c) → 1.5%=2c, fixed=0   → 2c
-//   Pro   $3    (300c) → 1.5%=5c, fixed=25c → 30c
-//   Pro   $10   (1000c)→ 1.5%=15c,fixed=25c → 40c
+//   Free  $1.00 (100c) → 6%=6c  + 25c → 31c
+//   Free  $3.00 (300c) → 6%=18c + 25c → 43c
+//   Free  $10   (1000c)→ 6%=60c + 25c → 85c
+//   Growth $1   (100c) → 3%=3c  + 25c → 28c
+//   Growth $3   (300c) → 3%=9c  + 25c → 34c
+//   Growth $10  (1000c)→ 3%=30c + 25c → 55c
+//   Pro   $1    (100c) → 1.5%=2c + 25c → 27c
+//   Pro   $3    (300c) → 1.5%=5c + 25c → 30c
+//   Pro   $10   (1000c)→ 1.5%=15c+ 25c → 40c
 // ────────────────────────────────────────────────────────────────
 
 export function computeApplicationFee({
   unitAmount,
   sellerPlan,
-  productPriceCents,
 }: {
   unitAmount: number
   sellerPlan: SellerPlan
-  /** Product base price used for the $3 fixed-fee threshold. Defaults to unitAmount. */
-  productPriceCents?: number
 }): number {
   const percent = PLAN_FEE_PERCENT[sellerPlan] ?? PLAN_FEE_PERCENT.free
   const percentFee = Math.round(unitAmount * percent)
-  const thresholdAmount = productPriceCents !== undefined ? productPriceCents : unitAmount
-  const fixedFee = thresholdAmount >= FIXED_FEE_THRESHOLD_CENTS ? FIXED_FEE_CENTS : 0
-  const applicationFee = percentFee + fixedFee
+  const applicationFee = percentFee + FIXED_FEE_CENTS
 
   // Clamp: never negative, never exceed total charge
   return Math.max(0, Math.min(applicationFee, unitAmount))
@@ -100,18 +94,15 @@ export function computeApplicationFee({
 // calculatePlatformFee — fetches creator plan from DB, then
 // resolves to hardcoded fees based on plan ID.
 //
-// @param amountCents        Total charge (product + tip)
-// @param creatorId          Creator row ID
-// @param supabase           Admin Supabase client
-// @param productPriceCents  Base product price (for $3 threshold).
-//                           Defaults to amountCents.
+// @param amountCents  Total charge (product + tip)
+// @param creatorId    Creator row ID
+// @param supabase     Admin Supabase client
 // ────────────────────────────────────────────────────────────────
 
 export async function calculatePlatformFee(
   amountCents: number,
   creatorId: string,
   supabase: SupabaseClient,
-  productPriceCents?: number,
 ): Promise<FeeCalculation> {
   let effectivePlan: SellerPlan = "free"
 
@@ -148,9 +139,8 @@ export async function calculatePlatformFee(
   }
 
   const feePercent = PLAN_FEE_PERCENT[effectivePlan]
-  const thresholdAmount = productPriceCents !== undefined ? productPriceCents : amountCents
   const percentFeeCents = Math.round(amountCents * feePercent)
-  const fixedFeeCents = thresholdAmount >= FIXED_FEE_THRESHOLD_CENTS ? FIXED_FEE_CENTS : 0
+  const fixedFeeCents = FIXED_FEE_CENTS
   const totalFeeCents = percentFeeCents + fixedFeeCents
 
   // Clamp: never negative, never exceed total charge
@@ -160,7 +150,6 @@ export async function calculatePlatformFee(
   console.log("[fee-calc] Fee computation:", {
     plan: effectivePlan,
     amountCents,
-    productPriceCents: thresholdAmount,
     feePercent: `${(feePercent * 100).toFixed(2)}%`,
     percentFeeCents,
     fixedFeeCents,
@@ -187,14 +176,11 @@ export async function calculatePlatformFee(
 export function calculateFeeWithPlan(
   amountCents: number,
   plan: SubscriptionPlan,
-  productPriceCents?: number,
 ): FeeCalculation {
   // ALWAYS use hardcoded fee percent based on plan ID
   const resolved = resolveSellerPlan(plan.id)
   const feePercent = PLAN_FEE_PERCENT[resolved]
-
-  const thresholdAmount = productPriceCents !== undefined ? productPriceCents : amountCents
-  const feeFixedCents = thresholdAmount >= FIXED_FEE_THRESHOLD_CENTS ? FIXED_FEE_CENTS : 0
+  const feeFixedCents = FIXED_FEE_CENTS
 
   const percentageFeeCents = Math.round(amountCents * feePercent)
   const totalFeeCents = percentageFeeCents + feeFixedCents
@@ -223,8 +209,7 @@ export function getFeePreview(
 ): FeeCalculation {
   const resolved = resolveSellerPlan(planId)
   const feePercent = PLAN_FEE_PERCENT[resolved]
-  const thresholdAmount = amountCents
-  const fixedFee = thresholdAmount >= FIXED_FEE_THRESHOLD_CENTS ? FIXED_FEE_CENTS : 0
+  const fixedFee = FIXED_FEE_CENTS
   const percentFee = Math.round(amountCents * feePercent)
   const totalFee = percentFee + fixedFee
   const platformFeeCents = Math.max(0, Math.min(totalFee, amountCents))
@@ -253,9 +238,9 @@ export function formatCentsToDollars(cents: number): string {
 
 export function getFeeDescription(planId: string): string {
   const descriptions: Record<string, string> = {
-    free: "6% + $0.25 per transaction (fixed fee on orders $3+)",
-    growth: "3% + $0.25 per transaction (fixed fee on orders $3+)",
-    pro: "1.5% + $0.25 per transaction (fixed fee on orders $3+)",
+    free: "6% + $0.25 per transaction",
+    growth: "3% + $0.25 per transaction",
+    pro: "1.5% + $0.25 per transaction",
   }
   return descriptions[planId] || descriptions.free
 }
