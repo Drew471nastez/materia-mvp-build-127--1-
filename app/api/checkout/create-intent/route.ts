@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import Stripe from "stripe"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import crypto from "crypto"
 import { getValidatedPlatformStatementDescriptor } from "@/lib/payments/platform-descriptor"
 import { calculatePlatformFee } from "@/lib/fees"
@@ -20,15 +21,17 @@ export async function POST(req: Request) {
     }
 
     const supabase = await createClient()
+    const admin = createAdminClient()
     const {
       data: { user },
     } = await supabase.auth.getUser()
 
-    // Fetch product with creator_id
-    const { data: product, error } = await supabase
+    // Fetch product with creator_id using admin client (bypasses RLS)
+    const { data: product, error } = await admin
       .from("products")
       .select("id,title,price_cents,currency,creator_id")
       .eq("id", productId)
+      .eq("status", "published")
       .single()
 
     if (error || !product) {
@@ -53,7 +56,7 @@ export async function POST(req: Request) {
     const feeCalc = await calculatePlatformFee(product.creator_id, product.price_cents)
 
     // Get the seller's connected Stripe account for destination charges
-    const { data: creator } = await supabase
+    const { data: creator } = await admin
       .from("creators")
       .select("stripe_account_id, charges_enabled")
       .eq("id", product.creator_id)
@@ -85,7 +88,7 @@ export async function POST(req: Request) {
     // Add statement descriptor - format: "{sellername} - STORELIB"
     try {
       const platformName = getValidatedPlatformStatementDescriptor()
-      const { data: creatorProfile } = await supabase
+      const { data: creatorProfile } = await admin
         .from("creators")
         .select("statement_descriptor, name")
         .eq("id", product.creator_id)
@@ -114,7 +117,7 @@ export async function POST(req: Request) {
     } catch (descriptorError: any) {
       if (String(descriptorError?.message || "").toLowerCase().includes("statement_descriptor")) {
         console.error("[create-intent] descriptor rejected, retrying without descriptor")
-        delete intentParams.statement_descriptor_suffix
+        delete intentParams.statement_descriptor
         intent = await stripe.paymentIntents.create(intentParams)
       } else {
         throw descriptorError

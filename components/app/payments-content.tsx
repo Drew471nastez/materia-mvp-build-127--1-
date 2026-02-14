@@ -63,7 +63,9 @@ export function PaymentsContent({ creator }: PaymentsContentProps) {
   } | null>(null)
 
   const [defaultCurrency, setDefaultCurrency] = useState(creator.default_currency || "USD")
-  const [statementDescriptor, setStatementDescriptor] = useState(creator.statement_descriptor || "")
+  const [statementDescriptor, setStatementDescriptor] = useState(
+    creator.statement_descriptor || creator.name?.trim().toUpperCase().replace(/[^A-Z0-9\s]/g, "").slice(0, 10) || ""
+  )
   const [paypalEmail, setPaypalEmail] = useState(creator.paypal_merchant_id || "")
 
   const isTestMode = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.includes("_test_")
