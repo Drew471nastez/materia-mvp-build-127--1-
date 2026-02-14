@@ -14,13 +14,18 @@ export interface FeeCalculation {
   plan_used: string
 }
 
+// Fixed fee only applied when order amount >= 300 cents ($3.00)
+const FIXED_FEE_CENTS = 25
+const FIXED_FEE_THRESHOLD_CENTS = 300
+
 /**
  * Calculate platform application fee for a given order.
  * Uses the seller's CURRENT plan from Supabase at time of charge.
  *
- * Free:         6%   + $0.25
- * Growth:       3%   + $0.25  (only if subscription status is active)
- * Professional: 1.5% + $0.25  (only if subscription status is active)
+ * Fee rules:
+ *   Free:         6%   + $0.25 (fixed only if price >= $3.00)
+ *   Growth:       3%   + $0.25 (fixed only if price >= $3.00)
+ *   Professional: 1.5% + $0.25 (fixed only if price >= $3.00)
  *
  * If not active on paid tier, defaults to Free fees.
  */
@@ -30,7 +35,6 @@ export async function calculatePlatformFee(
 ): Promise<FeeCalculation> {
   // Default to free plan fees
   let feePercent = 0.06
-  let feeFixedCents = 25
   let planUsed = "free"
 
   try {
@@ -56,7 +60,6 @@ export async function calculatePlatformFee(
 
         if (plan) {
           feePercent = plan.fee_percent
-          feeFixedCents = plan.fee_fixed_cents
           planUsed = plan.id
         }
       }
@@ -66,7 +69,8 @@ export async function calculatePlatformFee(
   }
 
   const percentFee = Math.round(orderAmountCents * feePercent)
-  const feeTotalCents = percentFee + feeFixedCents
+  const feeFixedCents = orderAmountCents >= FIXED_FEE_THRESHOLD_CENTS ? FIXED_FEE_CENTS : 0
+  const feeTotalCents = Math.max(0, Math.min(percentFee + feeFixedCents, orderAmountCents))
   const sellerNetCents = orderAmountCents - feeTotalCents
 
   return {

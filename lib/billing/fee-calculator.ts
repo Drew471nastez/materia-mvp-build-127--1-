@@ -16,13 +16,54 @@ export interface SubscriptionPlan {
   fee_fixed_cents: number
 }
 
+type SellerPlan = "free" | "growth" | "pro"
+
+// Plan fee percentages
+const PLAN_FEE_PERCENT: Record<SellerPlan, number> = {
+  free: 0.06,       // 6%
+  growth: 0.03,     // 3%
+  pro: 0.015,       // 1.5%
+}
+
+// Fixed fee in cents (only applied when unit_amount >= 300 cents / $3.00)
+const FIXED_FEE_CENTS = 25
+const FIXED_FEE_THRESHOLD_CENTS = 300
+
 /**
- * Calculate platform fee based on creator's subscription plan
+ * Pure, reusable fee computation function.
  *
- * @param amountCents - Total transaction amount in cents
- * @param creatorId - Creator's ID
- * @param supabase - Supabase client (can be service role or user client)
- * @returns Fee calculation breakdown
+ * Rules:
+ *   percent_fee   = round(unitAmount * planPercent)
+ *   fixed_fee     = 25 cents  IF unitAmount >= 300 cents ($3.00), else 0
+ *   application_fee = percent_fee + fixed_fee
+ *   Clamped to [0, unitAmount]
+ *
+ * Sanity examples:
+ *   Free  $1.00 (100c) → 6%=6c, fixed=0    → fee=6c
+ *   Free  $3.00 (300c) → 6%=18c, fixed=25c  → fee=43c
+ *   Growth $2.99 (299c)→ 3%=9c, fixed=0     → fee=9c
+ *   Growth $3.00 (300c)→ 3%=9c, fixed=25c   → fee=34c
+ *   Pro   $10.00(1000c)→ 1.5%=15c, fixed=25c→ fee=40c
+ */
+export function computeApplicationFee({
+  unitAmount,
+  sellerPlan,
+}: {
+  unitAmount: number
+  sellerPlan: SellerPlan
+}): number {
+  const percent = PLAN_FEE_PERCENT[sellerPlan] ?? PLAN_FEE_PERCENT.free
+  const percentFee = Math.round(unitAmount * percent)
+  const fixedFee = unitAmount >= FIXED_FEE_THRESHOLD_CENTS ? FIXED_FEE_CENTS : 0
+  const applicationFee = percentFee + fixedFee
+
+  // Clamp: never negative, never exceed total charge
+  return Math.max(0, Math.min(applicationFee, unitAmount))
+}
+
+/**
+ * Calculate platform fee based on creator's subscription plan.
+ * Fetches the creator's plan from the database and computes the fee.
  */
 export async function calculatePlatformFee(
   amountCents: number,
@@ -47,12 +88,11 @@ export async function calculatePlatformFee(
 
   if (error || !creator) {
     console.error("Error fetching creator subscription plan:", error)
-    // Fall back to free plan defaults if there's an error
     return calculateFeeWithPlan(amountCents, {
       id: "free",
       name: "Free",
-      fee_percent: 0.06, // 6%
-      fee_fixed_cents: 25, // $0.25
+      fee_percent: 0.06,
+      fee_fixed_cents: FIXED_FEE_CENTS,
     })
   }
 
@@ -64,17 +104,16 @@ export async function calculatePlatformFee(
       id: "free",
       name: "Free",
       fee_percent: 0.06,
-      fee_fixed_cents: 25,
+      fee_fixed_cents: FIXED_FEE_CENTS,
     })
   }
 
   if (!plan) {
-    // No plan found, use free plan defaults
     return calculateFeeWithPlan(amountCents, {
       id: "free",
       name: "Free",
       fee_percent: 0.06,
-      fee_fixed_cents: 25,
+      fee_fixed_cents: FIXED_FEE_CENTS,
     })
   }
 
@@ -82,11 +121,8 @@ export async function calculatePlatformFee(
 }
 
 /**
- * Calculate fee with a specific plan (helper function)
- *
- * @param amountCents - Total transaction amount in cents
- * @param plan - Subscription plan details
- * @returns Fee calculation breakdown
+ * Calculate fee with a specific plan (helper function).
+ * Fixed fee only applies when amountCents >= 300 ($3.00).
  */
 export function calculateFeeWithPlan(
   amountCents: number,
@@ -96,7 +132,7 @@ export function calculateFeeWithPlan(
     ? plan.fee_percent
     : parseFloat(String(plan.fee_percent))
 
-  const feeFixedCents = plan.fee_fixed_cents
+  const feeFixedCents = amountCents >= FIXED_FEE_THRESHOLD_CENTS ? plan.fee_fixed_cents : 0
 
   // Calculate percentage fee
   const percentageFeeCents = Math.round(amountCents * feePercent)
@@ -104,12 +140,8 @@ export function calculateFeeWithPlan(
   // Total platform fee
   const totalFeeCents = percentageFeeCents + feeFixedCents
 
-  // Ensure seller receives at least $0.50 (50 cents) minimum
-  const minimumSellerReceives = 50
-  const cappedFeeCents = Math.min(totalFeeCents, amountCents - minimumSellerReceives)
-
-  // Final fee (capped if necessary)
-  const platformFeeCents = Math.max(0, cappedFeeCents)
+  // Clamp: never negative, never exceed total charge
+  const platformFeeCents = Math.max(0, Math.min(totalFeeCents, amountCents))
 
   // Calculate what seller receives
   const sellerReceivesCents = amountCents - platformFeeCents
@@ -125,12 +157,8 @@ export function calculateFeeWithPlan(
 }
 
 /**
- * Get fee preview for display purposes (without database query)
- * Used in UI to show potential fees for different plans
- *
- * @param amountCents - Transaction amount
- * @param planId - Plan ID ('free', 'growth', 'pro')
- * @returns Fee calculation
+ * Get fee preview for display purposes (without database query).
+ * Used in UI to show potential fees for different plans.
  */
 export function getFeePreview(
   amountCents: number,
@@ -140,20 +168,20 @@ export function getFeePreview(
     free: {
       id: 'free',
       name: 'Free',
-      fee_percent: 0.06, // 6%
-      fee_fixed_cents: 25, // $0.25
+      fee_percent: 0.06,
+      fee_fixed_cents: FIXED_FEE_CENTS,
     },
     growth: {
       id: 'growth',
       name: 'Growth',
-      fee_percent: 0.03, // 3%
-      fee_fixed_cents: 25, // $0.25
+      fee_percent: 0.03,
+      fee_fixed_cents: FIXED_FEE_CENTS,
     },
     pro: {
       id: 'pro',
       name: 'Pro',
-      fee_percent: 0.015, // 1.5%
-      fee_fixed_cents: 25, // $0.25
+      fee_percent: 0.015,
+      fee_fixed_cents: FIXED_FEE_CENTS,
     },
   }
 
@@ -163,8 +191,6 @@ export function getFeePreview(
 
 /**
  * Format fee as percentage string for display
- * @param feePercent - Fee as decimal (e.g., 0.06)
- * @returns Formatted string (e.g., "6%")
  */
 export function formatFeePercent(feePercent: number): string {
   return `${(feePercent * 100).toFixed(feePercent >= 0.01 ? 1 : 2)}%`
@@ -172,8 +198,6 @@ export function formatFeePercent(feePercent: number): string {
 
 /**
  * Format cents as dollar amount
- * @param cents - Amount in cents
- * @returns Formatted dollar string (e.g., "$1.50")
  */
 export function formatCentsToDollars(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`
@@ -181,14 +205,12 @@ export function formatCentsToDollars(cents: number): string {
 
 /**
  * Get fee description for a plan
- * @param planId - Plan ID
- * @returns Human-readable fee description
  */
 export function getFeeDescription(planId: string): string {
   const descriptions: Record<string, string> = {
-    free: "6% + $0.25 per transaction",
-    growth: "3% + $0.25 per transaction",
-    pro: "1.5% + $0.25 per transaction",
+    free: "6% + $0.25 per transaction (fixed fee on orders $3+)",
+    growth: "3% + $0.25 per transaction (fixed fee on orders $3+)",
+    pro: "1.5% + $0.25 per transaction (fixed fee on orders $3+)",
   }
 
   return descriptions[planId] || descriptions.free
