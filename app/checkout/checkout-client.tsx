@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Skeleton } from "@/components/ui/skeleton"
 import { getProductUrl } from "@/lib/url-helpers"
 import {
   ArrowLeft,
@@ -35,6 +36,7 @@ import {
   Shield,
   Check,
   AlertCircle,
+  MapPin,
 } from "lucide-react"
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
@@ -125,28 +127,44 @@ const CARD_ELEMENT_OPTIONS = {
 // ---------- SVG Icons ----------
 function GooglePayIcon({ className = "h-5 w-5" }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 40 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <g>
-        <path d="M19.526 8.568v5.103h-1.651V.271h4.388c1.068 0 2.078.413 2.826 1.147.761.748 1.189 1.759 1.189 2.84 0 1.08-.428 2.091-1.189 2.839-.748.734-1.758 1.147-2.826 1.147h-2.737v.324zm0-6.627v5.03h2.763c.721 0 1.401-.285 1.908-.799.52-.52.811-1.214.811-1.947 0-.732-.291-1.427-.811-1.947-.507-.514-1.187-.799-1.908-.799h-2.763v.462z" fill="#5F6368"/>
-        <path d="M30.858 5.763c1.228 0 2.197.338 2.905.962.721.637 1.081 1.516 1.081 2.645v5.301h-1.57v-1.201h-.069c-.679 1.011-1.596 1.516-2.75 1.516-1.011 0-1.866-.31-2.565-.93-.693-.62-1.04-1.406-1.04-2.358 0-.979.36-1.752 1.081-2.317.721-.565 1.651-.848 2.791-.848 1.011 0 1.842.203 2.496.607v-.427c0-.607-.262-1.188-.734-1.627-.472-.438-1.054-.662-1.733-.662-.965 0-1.733.42-2.303 1.255l-1.461-.924c.858-1.188 2.142-1.787 3.843-1.787l.028-.006zm-2.195 6.627c0 .482.22.924.607 1.228.386.31.858.472 1.392.472.748 0 1.461-.351 1.974-.965.525-.62.786-1.322.786-2.105-.565-.482-1.364-.721-2.398-.721-.734 0-1.364.2-1.88.593-.514.393-.771.896-.771 1.498h.29z" fill="#5F6368"/>
-        <path d="M44 6.078l-6.048 13.805h-1.706l2.243-4.846-4.039-8.959h1.815l2.966 6.927h.041l2.905-6.927H44z" fill="#5F6368"/>
-        <path d="M11.05 6.713c0-.565-.048-1.13-.138-1.682H5.64v3.177h3.025c-.131.7-.527 1.344-1.116 1.758v2.063h1.803c1.054-.972 1.662-2.403 1.662-4.109l.036-.207z" fill="#4285F4"/>
-        <path d="M5.64 13.776c1.51 0 2.777-.496 3.703-1.351l-1.803-2.063c-.5.338-1.143.537-1.9.537-1.461 0-2.701-1.011-3.143-2.371H.649v2.063c.917 1.814 2.791 3.064 4.991 3.064v.121z" fill="#34A853"/>
-        <path d="M2.497 8.528c-.234-.7-.234-1.461 0-2.161V4.304H.649c-.772 1.53-.772 3.322 0 4.852l1.848-2.063v.435z" fill="#FBBC04"/>
-        <path d="M5.64 3.256c.803-.014 1.579.283 2.147.827l1.606-1.606C8.431 1.579 7.064.934 5.64.948c-2.2 0-4.074 1.25-4.991 3.064l1.848 2.063c.442-1.36 1.682-2.371 3.143-2.371v.552z" fill="#EA4335"/>
-      </g>
+    <svg className={className} viewBox="0 0 74 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M20.28 12.27c0-.84-.08-1.64-.24-2.41H9v4.55h6.35c-.27 1.46-1.1 2.7-2.35 3.54v2.94h3.79c2.22-2.04 3.49-5.05 3.49-8.62Z" fill="#4285F4"/>
+      <path d="M9 24c3.15 0 5.79-1.04 7.72-2.82L12.93 18.2c-1.04.7-2.38 1.12-3.93 1.12-3.02 0-5.58-2.04-6.5-4.79H-1.4v3.03A11.996 11.996 0 0 0 9 24Z" fill="#34A853"/>
+      <path d="M2.5 14.53A7.2 7.2 0 0 1 2.1 12c0-.88.15-1.74.4-2.53V6.44H-1.4A12 12 0 0 0-3 12c0 1.93.46 3.75 1.6 5.56L2.5 14.53Z" fill="#FBBC04"/>
+      <path d="M9 4.77c1.71 0 3.25.59 4.47 1.74l3.35-3.35A11.2 11.2 0 0 0 9 0 11.996 11.996 0 0 0-1.4 6.44l3.9 3.03C3.42 6.8 5.98 4.77 9 4.77Z" fill="#EA4335"/>
+      <path d="M28.9 16.73V7.27h3.43c.89 0 1.64.3 2.25.9.62.58.93 1.32.93 2.2 0 .87-.31 1.6-.93 2.2-.61.58-1.36.87-2.25.87h-1.28v3.29H28.9Zm2.15-5.12h1.32c.35 0 .63-.11.86-.33.24-.24.35-.54.35-.91 0-.37-.11-.66-.35-.88a1.15 1.15 0 0 0-.86-.35h-1.32v2.47Zm8.84 5.34c-.86 0-1.57-.24-2.12-.73-.56-.5-.83-1.12-.83-1.85 0-.76.29-1.37.86-1.82.58-.46 1.35-.69 2.3-.69.82 0 1.5.14 2.03.43v-.15c0-.37-.15-.67-.44-.9-.3-.24-.65-.36-1.05-.36-.61 0-1.1.26-1.46.77l-1.98-1.24c.55-.8 1.4-1.2 2.56-1.2.98 0 1.79.24 2.43.72.64.48.96 1.2.96 2.14v4.95h-2.05v-.58h-.07c-.44.5-1.02.76-1.74.76Zm.54-1.64c.4 0 .74-.13 1.02-.4.3-.27.45-.58.45-.95-.31-.24-.74-.36-1.28-.36-.39 0-.72.08-.97.24-.26.16-.39.38-.39.65 0 .24.1.43.3.58.2.16.49.24.87.24Zm8.58 4.79h-2.24l2.11-4.6-3.64-8.29h2.33l2.34 5.65h.04l2.25-5.65h2.29L49 20.1Z" fill="#5F6368"/>
     </svg>
   )
 }
 
 function PayPalIcon({ className = "h-5 w-5" }: { className?: string }) {
   return (
-    <svg className={className} viewBox="0 0 100 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <text x="0" y="24" fontFamily="Verdana, Arial, sans-serif" fontSize="22" fontWeight="bold" fill="#003087">Pay</text>
-      <text x="36" y="24" fontFamily="Verdana, Arial, sans-serif" fontSize="22" fontWeight="bold" fill="#009cde">Pal</text>
+    <svg className={className} viewBox="0 0 780 501" xmlns="http://www.w3.org/2000/svg" fill="none">
+      <g>
+        <path fill="#003087" d="M168.379,169.853c-8.399-5.774-19.359-8.668-32.88-8.668H83.153c-4.145,0-6.435,2.073-6.87,6.215 L55.018,300.883c-0.221,1.311,0.107,2.51,0.981,3.6c0.869,1.092,1.962,1.635,3.271,1.635h24.864c4.361,0,6.758-2.068,7.198-6.215 l5.888-35.986c0.215-1.744,0.982-3.162,2.291-4.254c1.308-1.09,2.944-1.803,4.907-2.13c1.963-0.324,3.814-0.487,5.562-0.487 c1.743,0,3.814,0.11,6.217,0.327c2.397,0.218,3.925,0.324,4.58,0.324c18.756,0,33.478-5.285,44.167-15.866 c10.684-10.577,16.032-25.243,16.032-44.004C180.976,184.96,176.774,175.636,168.379,169.853z M141.389,209.933 c-1.094,7.635-3.926,12.649-8.506,15.049c-4.581,2.403-11.124,3.598-19.629,3.598l-10.797,0.327l5.563-35.007 c0.434-2.397,1.851-3.597,4.252-3.597h6.218c8.72,0,15.049,1.257,18.975,3.761C141.389,196.574,142.698,201.865,141.389,209.933z" />
+        <path fill="#009CDE" d="M720.794,161.185h-24.208c-2.405,0-3.821,1.2-4.253,3.6l-21.267,136.099l-0.328,0.654 c0,1.096,0.437,2.127,1.311,3.109c0.868,0.98,1.963,1.471,3.27,1.471h21.595c4.138,0,6.429-2.068,6.871-6.215l21.265-133.813 v-0.325C725.049,162.712,723.627,161.185,720.794,161.185z" />
+        <path fill="#003087" d="M428.31,213.856c0-1.088-0.439-2.126-1.306-3.106c-0.875-0.981-1.858-1.474-2.945-1.474h-25.192 c-2.404,0-4.366,1.096-5.889,3.271l-34.679,51.04l-14.395-49.075c-1.095-3.487-3.492-5.236-7.197-5.236h-24.541 c-1.093,0-2.074,0.492-2.941,1.474c-0.875,0.98-1.309,2.019-1.309,3.106c0,0.44,2.127,6.871,6.379,19.303 c4.252,12.435,8.832,25.849,13.74,40.245c4.908,14.393,7.469,22.031,7.688,22.898c-17.886,24.43-26.826,37.517-26.826,39.259 c0,2.838,1.416,4.254,4.253,4.254h25.192c2.398,0,4.36-1.088,5.889-3.27l83.427-120.399 C428.092,215.713,428.31,214.953,428.31,213.856z" />
+      </g>
     </svg>
   )
 }
+
+const CHECKOUT_COUNTRIES = [
+  { code: "US", name: "United States" },
+  { code: "CA", name: "Canada" },
+  { code: "GB", name: "United Kingdom" },
+  { code: "AU", name: "Australia" },
+  { code: "DE", name: "Germany" },
+  { code: "FR", name: "France" },
+  { code: "ES", name: "Spain" },
+  { code: "IT", name: "Italy" },
+  { code: "NL", name: "Netherlands" },
+  { code: "SE", name: "Sweden" },
+  { code: "IN", name: "India" },
+  { code: "SG", name: "Singapore" },
+  { code: "JP", name: "Japan" },
+  { code: "BR", name: "Brazil" },
+]
 
 // ---------- Sub-components ----------
 function OrderSummaryMobileToggle({
@@ -204,6 +222,7 @@ function StripeCardForm({
 }) {
   const stripe = useStripe()
   const elements = useElements()
+  const isStripeReady = Boolean(stripe && elements)
   const [cardComplete, setCardComplete] = useState({
     cardNumber: false,
     cardExpiry: false,
@@ -221,29 +240,33 @@ function StripeCardForm({
   }
 
   return (
-    <>
+    <div className="space-y-4">
       {/* Payment Methods Express Buttons */}
       {!isFree && (
-        <div className="bg-white rounded-2xl border border-gray-200 p-5">
+        <div className="bg-white rounded-2xl border border-gray-200 p-5 space-y-4">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4 text-center">Express checkout</p>
           <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={isSubmitting || !isFormValid || !stripe}
-              className="flex items-center justify-center gap-2 h-12 rounded-xl bg-white border border-gray-300 text-gray-800 text-sm font-semibold hover:bg-gray-50 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <GooglePayIcon className="h-6 w-auto" />
-            </button>
+            {isStripeReady ? (
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={isSubmitting || !isFormValid || !stripe}
+                className="flex items-center justify-center gap-2 h-12 rounded-xl bg-white border border-gray-300 text-gray-800 text-sm font-semibold hover:bg-gray-50 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <GooglePayIcon className="h-6 w-auto" />
+              </button>
+            ) : (
+              <Skeleton className="h-12 w-full rounded-xl bg-gray-100" />
+            )}
             <div className="relative group">
               <button
                 type="button"
                 disabled
                 className="w-full flex items-center justify-center gap-2 h-12 rounded-xl bg-[#FFC439] text-[#003087] text-sm font-bold cursor-not-allowed transition-all"
               >
-                <PayPalIcon className="h-6 w-auto" />
+                <PayPalIcon className="h-6 w-[78px]" />
               </button>
-              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/80 rounded-xl pointer-events-none">
+              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 bg-black/80 rounded-xl pointer-events-none">
                 <span className="text-xs text-white font-medium">Not available now</span>
               </div>
             </div>
@@ -261,37 +284,49 @@ function StripeCardForm({
         <div className="bg-white rounded-2xl border border-gray-200 p-5 space-y-4">
           <div className="space-y-1.5">
             <Label className="text-xs font-medium text-gray-600">Card number</Label>
-            <div className="h-11 px-3 flex items-center rounded-xl border border-gray-200 bg-white focus-within:border-gray-400 focus-within:ring-1 focus-within:ring-gray-400/20 transition-colors">
-              <CardNumberElement
-                options={{
-                  ...CARD_ELEMENT_OPTIONS,
-                  showIcon: true,
-                }}
-                onChange={(e) => setCardComplete(prev => ({ ...prev, cardNumber: e.complete }))}
-                className="w-full"
-              />
-            </div>
+            {isStripeReady ? (
+              <div className="h-11 px-3 flex items-center rounded-xl border border-gray-200 bg-white focus-within:border-gray-400 focus-within:ring-1 focus-within:ring-gray-400/20 transition-colors">
+                <CardNumberElement
+                  options={{
+                    ...CARD_ELEMENT_OPTIONS,
+                    showIcon: true,
+                  }}
+                  onChange={(e) => setCardComplete(prev => ({ ...prev, cardNumber: e.complete }))}
+                  className="w-full"
+                />
+              </div>
+            ) : (
+              <Skeleton className="h-11 w-full rounded-xl bg-gray-100" />
+            )}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs font-medium text-gray-600">Expiration date</Label>
-              <div className="h-11 px-3 flex items-center rounded-xl border border-gray-200 bg-white focus-within:border-gray-400 focus-within:ring-1 focus-within:ring-gray-400/20 transition-colors">
-                <CardExpiryElement
-                  options={CARD_ELEMENT_OPTIONS}
-                  onChange={(e) => setCardComplete(prev => ({ ...prev, cardExpiry: e.complete }))}
-                  className="w-full"
-                />
-              </div>
+              {isStripeReady ? (
+                <div className="h-11 px-3 flex items-center rounded-xl border border-gray-200 bg-white focus-within:border-gray-400 focus-within:ring-1 focus-within:ring-gray-400/20 transition-colors">
+                  <CardExpiryElement
+                    options={CARD_ELEMENT_OPTIONS}
+                    onChange={(e) => setCardComplete(prev => ({ ...prev, cardExpiry: e.complete }))}
+                    className="w-full"
+                  />
+                </div>
+              ) : (
+                <Skeleton className="h-11 w-full rounded-xl bg-gray-100" />
+              )}
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs font-medium text-gray-600">Security code</Label>
-              <div className="h-11 px-3 flex items-center rounded-xl border border-gray-200 bg-white focus-within:border-gray-400 focus-within:ring-1 focus-within:ring-gray-400/20 transition-colors">
-                <CardCvcElement
-                  options={CARD_ELEMENT_OPTIONS}
-                  onChange={(e) => setCardComplete(prev => ({ ...prev, cardCvc: e.complete }))}
-                  className="w-full"
-                />
-              </div>
+              {isStripeReady ? (
+                <div className="h-11 px-3 flex items-center rounded-xl border border-gray-200 bg-white focus-within:border-gray-400 focus-within:ring-1 focus-within:ring-gray-400/20 transition-colors">
+                  <CardCvcElement
+                    options={CARD_ELEMENT_OPTIONS}
+                    onChange={(e) => setCardComplete(prev => ({ ...prev, cardCvc: e.complete }))}
+                    className="w-full"
+                  />
+                </div>
+              ) : (
+                <Skeleton className="h-11 w-full rounded-xl bg-gray-100" />
+              )}
             </div>
           </div>
           <div className="space-y-1.5">
@@ -315,7 +350,7 @@ function StripeCardForm({
       )}
 
       {/* Terms & Conditions - Moved above Pay button */}
-      <div className="bg-white rounded-2xl border border-gray-200 p-5">
+      <div className="bg-white rounded-2xl border border-gray-200 p-5 mt-1">
         <div className="flex items-start gap-3">
           <Checkbox
             id="terms"
@@ -369,7 +404,7 @@ function StripeCardForm({
           Secured by Stripe
         </p>
       </div>
-    </>
+    </div>
   )
 }
 
@@ -409,8 +444,18 @@ export default function CheckoutPageClient({
   const [mobileOrderOpen, setMobileOrderOpen] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showVariantModal, setShowVariantModal] = useState(false)
+  const [countryCode, setCountryCode] = useState("US")
+  const [showCountrySelector, setShowCountrySelector] = useState(false)
+  const [isMobileViewport, setIsMobileViewport] = useState(false)
 
   const lastSubmitTime = useRef(0)
+
+  useEffect(() => {
+    const onResize = () => setIsMobileViewport(window.innerWidth < 1024)
+    onResize()
+    window.addEventListener("resize", onResize)
+    return () => window.removeEventListener("resize", onResize)
+  }, [])
 
   // Persist form fields
   useEffect(() => { saveSessionField(SESSION_KEYS.firstName, firstName) }, [firstName])
@@ -1010,6 +1055,20 @@ export default function CheckoutPageClient({
                   />
                   <p className="text-xs text-gray-400">We&apos;ll send your download link to this email</p>
                 </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-gray-600">Country</Label>
+                  <button
+                    type="button"
+                    onClick={() => setShowCountrySelector(true)}
+                    className="w-full h-11 rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-700 flex items-center justify-between hover:bg-gray-50 transition-colors"
+                  >
+                    <span className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-gray-400" />
+                      {CHECKOUT_COUNTRIES.find((item) => item.code === countryCode)?.name || "United States"}
+                    </span>
+                    <ChevronDown className="h-4 w-4 text-gray-400" />
+                  </button>
+                </div>
               </div>
             </section>
 
@@ -1205,6 +1264,50 @@ export default function CheckoutPageClient({
           </div>
         </div>
       )}
+
+      {/* Country selector modal/sheet */}
+      {showCountrySelector && !isMobileViewport && (
+        <div className="fixed inset-0 z-[90] bg-black/40 flex items-center justify-center p-4" onClick={() => setShowCountrySelector(false)}>
+          <div className="w-full max-w-md rounded-2xl bg-white border border-gray-200 shadow-2xl p-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-semibold text-gray-900 mb-3">Select country</h3>
+            <div className="max-h-[60vh] overflow-y-auto space-y-1">
+              {CHECKOUT_COUNTRIES.map((country) => (
+                <button
+                  key={country.code}
+                  type="button"
+                  onClick={() => { setCountryCode(country.code); setShowCountrySelector(false) }}
+                  className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-colors ${countryCode === country.code ? "bg-blue-50 text-blue-700" : "text-gray-700 hover:bg-gray-50"}`}
+                >
+                  {country.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className={`lg:hidden fixed inset-0 z-[90] ${showCountrySelector && isMobileViewport ? "pointer-events-auto" : "pointer-events-none"}`}>
+        <div
+          onClick={() => setShowCountrySelector(false)}
+          className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ${showCountrySelector && isMobileViewport ? "opacity-100" : "opacity-0"}`}
+        />
+        <div className={`absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl border-t border-gray-200 p-4 max-h-[72vh] overflow-y-auto transition-transform duration-300 ${showCountrySelector && isMobileViewport ? "translate-y-0" : "translate-y-full"}`}>
+          <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-4" />
+          <h3 className="text-base font-semibold text-gray-900 mb-3">Select country</h3>
+          <div className="space-y-1 pb-4">
+            {CHECKOUT_COUNTRIES.map((country) => (
+              <button
+                key={country.code}
+                type="button"
+                onClick={() => { setCountryCode(country.code); setShowCountrySelector(false) }}
+                className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-colors ${countryCode === country.code ? "bg-blue-50 text-blue-700" : "text-gray-700 hover:bg-gray-50"}`}
+              >
+                {country.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

@@ -838,14 +838,20 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   const [supportEmail, setSupportEmail] = useState(creator?.support_email || "")
   const initialSupportEmail = useRef(supportEmail)
 
+  const PLATFORM_DESCRIPTOR = "STORELIB"
+
   const normalizeStatementDescriptor = (value: string) =>
     value
       .toUpperCase()
       .replace(/[^A-Z0-9\s]/g, "")
       .slice(0, 22)
 
+  const initialSellerDescriptor = (creator?.statement_descriptor || "").trim().toUpperCase() === PLATFORM_DESCRIPTOR
+    ? (creator?.name || "STORE")
+    : (creator?.statement_descriptor || creator?.name || "STORE")
+
   const defaultStatementDescriptor = normalizeStatementDescriptor(
-    (creator?.statement_descriptor || creator?.name || "STORE").trim()
+    initialSellerDescriptor.trim()
   )
 
   const [payoutCurrency, setPayoutCurrency] = useState((creator as any)?.payout_currency || "USD")
@@ -2671,19 +2677,24 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                           </button>
                         </TooltipTrigger>
                         <TooltipContent className="max-w-[280px] text-xs leading-relaxed">
-                          This text appears on your customer&apos;s bank statement to identify who charged them.
+                          This appears in customer bank statements as: seller name - STORELIB.
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
                   </div>
-                  <Input
-                    id="statement-descriptor"
-                    value={statementDescriptor}
-                    onChange={(e) => setStatementDescriptor(normalizeStatementDescriptor(e.target.value))}
-                    placeholder={defaultStatementDescriptor}
-                    className="h-10 rounded-xl border-[#e5e7eb] text-[13px] focus-visible:border-[#8b5cf6] focus-visible:ring-[#8b5cf6]/20"
-                  />
-                  <p className="text-[12px] text-[#9ca3af]">Shown in bank apps as the charge descriptor (max 22 characters).</p>
+                  <div className="h-10 rounded-xl border border-[#e5e7eb] bg-white flex items-center overflow-hidden focus-within:ring-2 focus-within:ring-[#8b5cf6]/20 focus-within:border-[#8b5cf6]">
+                    <Input
+                      id="statement-descriptor"
+                      value={statementDescriptor}
+                      onChange={(e) => setStatementDescriptor(normalizeStatementDescriptor(e.target.value))}
+                      placeholder={defaultStatementDescriptor}
+                      className="h-full border-0 rounded-none text-[13px] focus-visible:ring-0 focus-visible:border-transparent"
+                    />
+                    <span className="h-full inline-flex items-center px-3 text-[12px] font-semibold text-[#6b7280] border-l border-[#e5e7eb] bg-[#f9fafb] whitespace-nowrap">
+                      - {PLATFORM_DESCRIPTOR}
+                    </span>
+                  </div>
+                  <p className="text-[12px] text-[#9ca3af]">Only the seller name part is editable (max 22 chars). STORELIB is fixed.</p>
                 </div>
               </div>
 
