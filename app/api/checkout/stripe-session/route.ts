@@ -28,7 +28,7 @@ export async function POST(request: Request) {
   const { data: product, error: productError } = await admin
     .from("products")
     .select(
-      "*, pay_what_you_want, pwyw_min_price_cents, pwyw_suggested_price_cents, creator:creators(id, user_id, name, stripe_account_id, stripe_onboarding_status, charges_enabled, payouts_enabled, statement_descriptor)",
+      "*, pay_what_you_want, pwyw_min_price_cents, pwyw_suggested_price_cents, creator:creators(id, user_id, display_name, stripe_account_id, stripe_onboarding_status, charges_enabled, payouts_enabled, statement_descriptor)",
     )
     .eq("id", productId)
     .eq("status", "published")
@@ -83,8 +83,9 @@ export async function POST(request: Request) {
     }
   }
 
-  // Only require Stripe when the FINAL price is > 0
-  if (basePriceCents > 0) {
+  // Require Stripe when the total charge (including tips) is > 0
+  const totalCharge = basePriceCents + (tipCents || 0)
+  if (totalCharge > 0) {
     if (!product.creator.stripe_account_id) {
       console.error("[v0] Seller has not connected Stripe account")
       return NextResponse.json(
@@ -245,7 +246,7 @@ export async function POST(request: Request) {
     // Format: "{seller_descriptor} - STORELIB" (e.g., "JANES SHOP - STORELIB")
     try {
       const platformName = getValidatedPlatformStatementDescriptor()
-      const sellerDescriptor = (product.creator.statement_descriptor || product.creator.name || "STORE")
+      const sellerDescriptor = (product.creator.statement_descriptor || product.creator.display_name || "STORE")
         .trim().toUpperCase().replace(/[^A-Z0-9\s]/g, "")
       const suffix = ` - ${platformName}`
       const maxSellerLen = 22 - suffix.length

@@ -555,15 +555,15 @@ function StripeCardForm({
     <div className="space-y-4">
       {/* Express Checkout */}
       {!isFree && (
-        <div className="bg-white rounded-2xl border border-gray-200 p-5">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4 text-center">Express checkout</p>
-          <div className="grid grid-cols-2 gap-3">
+        <div>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3 text-center">Express checkout</p>
+          <div className="flex flex-col gap-2.5">
             {/* Google Pay - Black button with white logo */}
             <button
               type="button"
               onClick={handleGooglePayClick}
               disabled={isSubmitting || !canMakePayment || !stripe}
-              className="flex items-center justify-center h-12 rounded-xl bg-black hover:bg-gray-900 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center justify-center w-full h-[50px] rounded-xl bg-black hover:bg-gray-900 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <GooglePayIcon className="h-[26px] w-auto" />
             </button>
@@ -572,7 +572,7 @@ function StripeCardForm({
               <button
                 type="button"
                 disabled
-                className="w-full flex items-center justify-center h-12 rounded-xl bg-[#FFC439] border border-[#F0B72A] cursor-not-allowed transition-all overflow-hidden"
+                className="w-full flex items-center justify-center h-[50px] rounded-xl bg-[#FFC439] border border-[#F0B72A] cursor-not-allowed transition-all overflow-hidden"
               >
                 <PayPalIcon className="h-[41.4px] w-auto" />
               </button>
@@ -583,7 +583,7 @@ function StripeCardForm({
           </div>
 
           {/* Divider */}
-          <div className="flex items-center gap-3 mt-5">
+          <div className="flex items-center gap-3 mt-5 mb-1">
             <div className="flex-1 h-px bg-gray-200" />
             <span className="text-xs text-gray-400 font-medium">OR PAY WITH CARD</span>
             <div className="flex-1 h-px bg-gray-200" />

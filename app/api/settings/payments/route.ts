@@ -42,7 +42,7 @@ export async function POST(request: Request) {
 
     // Validate and format statement descriptor suffix (seller part)
     // Platform part "STORELIB" + "*" + suffix will appear on bank statements
-    let descriptorSuffix = (statementDescriptor || creator.name || "STORE").trim().toUpperCase().slice(0, 22)
+    let descriptorSuffix = (statementDescriptor || creator.display_name || "STORE").trim().toUpperCase().slice(0, 22)
     // Remove special characters that aren't allowed
     descriptorSuffix = descriptorSuffix.replace(/[^A-Z0-9\s]/g, "")
 
