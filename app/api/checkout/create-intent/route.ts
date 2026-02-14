@@ -90,10 +90,10 @@ export async function POST(req: Request) {
       const platformName = getValidatedPlatformStatementDescriptor()
       const { data: creatorProfile } = await admin
         .from("creators")
-        .select("statement_descriptor, name")
+        .select("statement_descriptor, display_name")
         .eq("id", product.creator_id)
         .single()
-      const sellerDescriptor = (creatorProfile?.statement_descriptor || creatorProfile?.name || "STORE")
+      const sellerDescriptor = (creatorProfile?.statement_descriptor || creatorProfile?.display_name || "STORE")
         .trim().toUpperCase().replace(/[^A-Z0-9\s]/g, "")
       const suffix = ` - ${platformName}`
       const maxSellerLen = 22 - suffix.length

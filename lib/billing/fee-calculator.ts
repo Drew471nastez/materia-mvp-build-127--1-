@@ -64,12 +64,26 @@ export function computeApplicationFee({
 /**
  * Calculate platform fee based on creator's subscription plan.
  * Fetches the creator's plan from the database and computes the fee.
+ *
+ * @param amountCents      Total charge amount (product price + tip)
+ * @param creatorId        Creator ID to look up plan
+ * @param supabase         Supabase client
+ * @param productPriceCents  Product base price (before tip) – used for the $3.00
+ *                           fixed-fee threshold. If omitted, defaults to amountCents.
  */
 export async function calculatePlatformFee(
   amountCents: number,
   creatorId: string,
-  supabase: SupabaseClient
+  supabase: SupabaseClient,
+  productPriceCents?: number,
 ): Promise<FeeCalculation> {
+  const freePlan: SubscriptionPlan = {
+    id: "free",
+    name: "Free",
+    fee_percent: 0.06,
+    fee_fixed_cents: FIXED_FEE_CENTS,
+  }
+
   // Fetch creator's subscription plan
   const { data: creator, error } = await supabase
     .from("creators")
@@ -88,53 +102,46 @@ export async function calculatePlatformFee(
 
   if (error || !creator) {
     console.error("Error fetching creator subscription plan:", error)
-    return calculateFeeWithPlan(amountCents, {
-      id: "free",
-      name: "Free",
-      fee_percent: 0.06,
-      fee_fixed_cents: FIXED_FEE_CENTS,
-    })
+    return calculateFeeWithPlan(amountCents, freePlan, productPriceCents)
   }
 
   const plan = creator.subscription_plans as unknown as SubscriptionPlan
 
   const creatorSubscriptionStatus = (creator as any).subscription_status
   if (creatorSubscriptionStatus && !["active", "trialing"].includes(creatorSubscriptionStatus)) {
-    return calculateFeeWithPlan(amountCents, {
-      id: "free",
-      name: "Free",
-      fee_percent: 0.06,
-      fee_fixed_cents: FIXED_FEE_CENTS,
-    })
+    return calculateFeeWithPlan(amountCents, freePlan, productPriceCents)
   }
 
   if (!plan) {
-    return calculateFeeWithPlan(amountCents, {
-      id: "free",
-      name: "Free",
-      fee_percent: 0.06,
-      fee_fixed_cents: FIXED_FEE_CENTS,
-    })
+    return calculateFeeWithPlan(amountCents, freePlan, productPriceCents)
   }
 
-  return calculateFeeWithPlan(amountCents, plan)
+  return calculateFeeWithPlan(amountCents, plan, productPriceCents)
 }
 
 /**
  * Calculate fee with a specific plan (helper function).
- * Fixed fee only applies when amountCents >= 300 ($3.00).
+ * Fixed fee ($0.25) only applies when the PRODUCT PRICE >= $3.00.
+ *
+ * @param amountCents        Total charge amount (product price + tip). Percentage is applied to this.
+ * @param plan               The subscription plan with fee_percent and fee_fixed_cents.
+ * @param productPriceCents  Product base price (before tip) used for the $3.00 threshold.
+ *                           If omitted, defaults to amountCents (backwards compatible).
  */
 export function calculateFeeWithPlan(
   amountCents: number,
-  plan: SubscriptionPlan
+  plan: SubscriptionPlan,
+  productPriceCents?: number,
 ): FeeCalculation {
   const feePercent = typeof plan.fee_percent === 'number'
     ? plan.fee_percent
     : parseFloat(String(plan.fee_percent))
 
-  const feeFixedCents = amountCents >= FIXED_FEE_THRESHOLD_CENTS ? plan.fee_fixed_cents : 0
+  // Use product price for the $3 threshold (not total with tip)
+  const thresholdAmount = productPriceCents !== undefined ? productPriceCents : amountCents
+  const feeFixedCents = thresholdAmount >= FIXED_FEE_THRESHOLD_CENTS ? plan.fee_fixed_cents : 0
 
-  // Calculate percentage fee
+  // Calculate percentage fee on the TOTAL charge (including tip)
   const percentageFeeCents = Math.round(amountCents * feePercent)
 
   // Total platform fee
