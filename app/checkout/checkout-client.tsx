@@ -542,9 +542,10 @@ export default function CheckoutPageClient({
     return { clientSecret: data.clientSecret, paymentIntentId: data.paymentIntentId }
   }, [product.id, firstName, lastName, email, tipCents, isGift, selectedVariant, isPwyw, customPriceCents])
 
-  // Initialize PaymentIntent when form is valid and product is not free
+  // Initialize PaymentIntent when user has basic info (create early so card fields load)
   useEffect(() => {
-    if (!isFree && isFormValid && !clientSecret) {
+    const hasBasicInfo = firstName.trim() && lastName.trim() && validateEmail(email)
+    if (!isFree && hasBasicInfo && !clientSecret) {
       createPaymentIntent()
         .then(({ clientSecret: cs, paymentIntentId: piId }) => {
           setClientSecret(cs)
@@ -554,7 +555,7 @@ export default function CheckoutPageClient({
           console.error("Failed to initialize payment:", err)
         })
     }
-  }, [isFree, isFormValid, clientSecret, createPaymentIntent])
+  }, [isFree, firstName, lastName, email, clientSecret, createPaymentIntent])
 
   // Handle paid checkout with Stripe Elements
   const handlePaidCheckout = async (stripe: any, elements: any) => {
@@ -664,20 +665,20 @@ export default function CheckoutPageClient({
     setDiscountCode("")
   }
 
-  // Stripe Elements appearance config
-  const elementsOptions = useMemo(() => {
-    if (!clientSecret) return undefined
-    return {
-      clientSecret,
-      appearance: {
-        theme: "stripe" as const,
-        variables: {
-          colorPrimary: "#000000",
-          borderRadius: "12px",
-        },
-      },
-    }
-  }, [clientSecret])
+  // Stripe Elements appearance config (no longer needed - we create PaymentIntent on demand)
+  // const elementsOptions = useMemo(() => {
+  //   if (!clientSecret) return undefined
+  //   return {
+  //     clientSecret,
+  //     appearance: {
+  //       theme: "stripe" as const,
+  //       variables: {
+  //         colorPrimary: "#000000",
+  //         borderRadius: "12px",
+  //       },
+  //     },
+  //   }
+  // }, [clientSecret])
 
   // ---------- RENDER ----------
 
@@ -796,102 +797,26 @@ export default function CheckoutPageClient({
   )
 
   // Payment elements content (LEFT column on desktop, after product on mobile)
-  const paymentElementsContent = clientSecret ? (
-    <Elements stripe={stripePromise} options={elementsOptions}>
-      <StripeCardForm
-        onSubmit={handleSubmit}
-        isSubmitting={isSubmitting}
-        isFormValid={isFormValid}
-        isFree={isFree}
-        total={total}
-        error={error}
-        setError={setError}
-        nameOnCard={nameOnCard}
-        setNameOnCard={setNameOnCard}
-      />
-    </Elements>
-  ) : !isFree ? (
+  const paymentElementsContent = !isFree ? (
     <>
-      {/* Express checkout - show skeleton while loading */}
-      <div className="bg-white rounded-2xl border border-gray-200 p-5">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4 text-center">Express checkout</p>
-        <div className="grid grid-cols-2 gap-3">
-          <Skeleton className="h-12 w-full rounded-xl" />
-          <Skeleton className="h-12 w-full rounded-xl" />
-        </div>
-        <div className="flex items-center gap-3 my-4">
-          <div className="flex-1 h-px bg-gray-200" />
-          <span className="text-xs text-gray-400">OR PAY WITH CARD</span>
-          <div className="flex-1 h-px bg-gray-200" />
-        </div>
-      </div>
-
-      {/* Card fields - show skeleton while loading */}
-      <div className="bg-white rounded-2xl border border-gray-200 p-5 space-y-4">
-        <div className="space-y-1.5">
-          <Label className="text-xs font-medium text-gray-600">Card number</Label>
-          <Skeleton className="h-11 w-full rounded-xl" />
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium text-gray-600">Expiration date</Label>
-            <Skeleton className="h-11 w-full rounded-xl" />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium text-gray-600">Security code</Label>
-            <Skeleton className="h-11 w-full rounded-xl" />
-          </div>
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs font-medium text-gray-600">Name on card</Label>
-          <Skeleton className="h-11 w-full rounded-xl" />
-        </div>
-      </div>
-
-      {/* Terms checkbox - always show */}
-      <div className="bg-white rounded-2xl border border-gray-200 p-5">
-        <div className="flex items-start gap-3">
-          <Checkbox
-            id="terms-loading"
-            checked={agreedToTerms}
-            onCheckedChange={(checked) => setAgreedToTerms(checked as boolean)}
-            className="mt-0.5 shrink-0 data-[state=checked]:bg-black data-[state=checked]:border-black"
-          />
-          <Label htmlFor="terms-loading" className="cursor-pointer text-sm leading-relaxed text-gray-600">
-            I agree to the{" "}
-            <Link href="/terms" className="text-gray-900 hover:text-black underline underline-offset-2" target="_blank">
-              Terms and Conditions
-            </Link>{" "}
-            *
-          </Label>
-        </div>
-      </div>
-
-      {/* Pay button - disabled while loading */}
-      <button
-        type="button"
-        disabled={true}
-        className="w-full flex items-center justify-center gap-2 h-14 rounded-2xl text-base font-semibold transition-all duration-200 cursor-not-allowed opacity-60 bg-[#2563eb] text-white"
-      >
-        <Loader2 className="h-5 w-5 animate-spin" />
-        Initializing payment...
-      </button>
-
-      {/* Trust signals */}
-      <div className="flex flex-col items-center gap-2 pt-1">
-        <div className="flex items-center gap-1.5 text-xs text-gray-400">
-          <Shield className="h-3.5 w-3.5" />
-          <span>Payment is secure and encrypted</span>
-        </div>
-        <p className="text-xs text-gray-400 flex items-center gap-1">
-          <Lock className="h-3 w-3" />
-          Secured by Stripe
-        </p>
-      </div>
+      {/* Stripe Elements Card Form - Always show, create PaymentIntent on demand */}
+      <Elements stripe={stripePromise}>
+        <StripeCardForm
+          onSubmit={handleSubmit}
+          isSubmitting={isSubmitting}
+          isFormValid={isFormValid}
+          isFree={isFree}
+          total={total}
+          error={error}
+          setError={setError}
+          nameOnCard={nameOnCard}
+          setNameOnCard={setNameOnCard}
+        />
+      </Elements>
     </>
   ) : (
     <>
-      {/* Free product - just show button */}
+      {/* Free product - just show terms and button */}
       <div className="bg-white rounded-2xl border border-gray-200 p-5">
         <div className="flex items-start gap-3">
           <Checkbox
