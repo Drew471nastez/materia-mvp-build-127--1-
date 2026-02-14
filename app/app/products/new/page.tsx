@@ -3269,8 +3269,9 @@ export default function NewProductPage() {
       // Smooth scroll to top
       contentRef.current?.scrollTo({ top: 0, behavior: "smooth" })
 
-      // Show success notification
-      setNotificationMessage("Product is live and saved!")
+      // Show success notification - shorter message on mobile devices
+      const isMobile = typeof window !== 'undefined' && window.innerWidth < 640
+      setNotificationMessage(isMobile ? "Product is live!" : "Product is live and saved!")
       setShowNotification(true)
 
       // Hide notification after 3 seconds

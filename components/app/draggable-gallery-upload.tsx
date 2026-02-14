@@ -139,30 +139,61 @@ export function DraggableGalleryUpload({
   }
 
   const [touchStartY, setTouchStartY] = useState<number | null>(null)
+  const [touchStartX, setTouchStartX] = useState<number | null>(null)
   const [touchIndex, setTouchIndex] = useState<number | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
+
+  // Threshold for distinguishing drag vs scroll (in pixels)
+  const DRAG_THRESHOLD = 10
 
   const handleTouchStart = (e: React.TouchEvent, index: number) => {
     setTouchStartY(e.touches[0].clientY)
+    setTouchStartX(e.touches[0].clientX)
     setTouchIndex(index)
+    setIsDragging(false)
   }
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (touchStartY === null || touchIndex === null) return
+    if (touchStartY === null || touchStartX === null || touchIndex === null) return
 
     const touch = e.touches[0]
-    const elements = document.elementsFromPoint(touch.clientX, touch.clientY)
-    const dropTarget = elements.find((el) => el.getAttribute("data-gallery-index"))
+    const deltaY = Math.abs(touch.clientY - touchStartY)
+    const deltaX = Math.abs(touch.clientX - touchStartX)
 
-    if (dropTarget) {
-      const targetIndex = Number.parseInt(dropTarget.getAttribute("data-gallery-index") || "-1")
-      if (targetIndex !== -1 && targetIndex !== touchIndex) {
-        setDragOverIndex(targetIndex)
+    // If user is scrolling vertically (deltaY > deltaX), don't initiate drag
+    if (!isDragging && deltaY > DRAG_THRESHOLD) {
+      // User is scrolling, not dragging - cancel drag
+      setTouchStartY(null)
+      setTouchStartX(null)
+      setTouchIndex(null)
+      return
+    }
+
+    // If horizontal movement exceeds threshold, initiate drag
+    if (!isDragging && (deltaX > DRAG_THRESHOLD || deltaY > DRAG_THRESHOLD)) {
+      setIsDragging(true)
+      // Prevent default to stop page scroll during drag
+      e.preventDefault()
+    }
+
+    // Only process drag if we're actually dragging
+    if (isDragging) {
+      e.preventDefault() // Prevent scroll while dragging
+      const elements = document.elementsFromPoint(touch.clientX, touch.clientY)
+      const dropTarget = elements.find((el) => el.getAttribute("data-gallery-index"))
+
+      if (dropTarget) {
+        const targetIndex = Number.parseInt(dropTarget.getAttribute("data-gallery-index") || "-1")
+        if (targetIndex !== -1 && targetIndex !== touchIndex) {
+          setDragOverIndex(targetIndex)
+        }
       }
     }
   }
 
   const handleTouchEnd = () => {
-    if (touchIndex !== null && dragOverIndex !== null && touchIndex !== dragOverIndex) {
+    // Only perform reorder if we were actually dragging
+    if (isDragging && touchIndex !== null && dragOverIndex !== null && touchIndex !== dragOverIndex) {
       const newUrls = [...value]
       const [draggedItem] = newUrls.splice(touchIndex, 1)
       newUrls.splice(dragOverIndex, 0, draggedItem)
@@ -170,8 +201,10 @@ export function DraggableGalleryUpload({
     }
 
     setTouchStartY(null)
+    setTouchStartX(null)
     setTouchIndex(null)
     setDragOverIndex(null)
+    setIsDragging(false)
   }
 
   return (
@@ -192,10 +225,10 @@ export function DraggableGalleryUpload({
             onTouchEnd={handleTouchEnd}
             className={`group relative aspect-square overflow-hidden rounded-lg border transition-all cursor-move ${
               dragOverIndex === index
-                ? "border-primary border-2 scale-105"
-                : draggedIndex === index
-                  ? "opacity-50 border-dashed border-2"
-                  : "border-border"
+                ? "border-primary border-2 scale-105 z-20"
+                : draggedIndex === index || (isDragging && touchIndex === index)
+                  ? "opacity-50 border-dashed border-2 z-30"
+                  : "border-border z-10"
             }`}
           >
             <Image src={url || "/placeholder.svg"} alt={`Gallery image ${index + 1}`} fill className="object-cover" />

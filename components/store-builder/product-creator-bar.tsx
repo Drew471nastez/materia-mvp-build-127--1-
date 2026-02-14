@@ -170,7 +170,11 @@ function getInputOpacityClass(isSubscribed: boolean, isFocused: boolean) {
 }
 
 function getCreatorHref(creatorUsername?: string, creatorId?: string, creatorName?: string) {
-  const raw = (creatorUsername || creatorId || creatorName || "").toString().trim()
+  // IMPORTANT: Never use creatorId (UUID) for URLs - only use username or name
+  // UUIDs create invalid URLs like https://d06724e5-e783-436a-b91f-f8e666d7c56b.storelib.com/
+  const usableIdentifier = creatorUsername || creatorName
+  if (!usableIdentifier) return "#"
+  const raw = usableIdentifier.toString().trim()
   if (!raw) return "#"
   return getStoreUrl(raw)
 }
