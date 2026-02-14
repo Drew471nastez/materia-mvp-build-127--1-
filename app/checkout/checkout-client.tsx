@@ -338,7 +338,7 @@ function StripeCardForm({
         type="button"
         onClick={handleSubmit}
         disabled={isSubmitting || !isFormValid || (!isFree && !isCardComplete) || !stripe}
-        className="w-full flex items-center justify-center gap-2 h-14 rounded-2xl text-base font-semibold transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 bg-[#2563eb] hover:bg-[#1d4ed8] text-white shadow-lg shadow-blue-500/20"
+        className="mt-4 w-full flex items-center justify-center gap-2 h-14 rounded-2xl text-base font-semibold transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 bg-[#2563eb] hover:bg-[#1d4ed8] text-white shadow-lg shadow-blue-500/20"
       >
         {isSubmitting ? (
           <>
@@ -840,7 +840,7 @@ export default function CheckoutPageClient({
         type="button"
         onClick={handleFreeCheckout}
         disabled={isSubmitting || !isFormValid}
-        className="w-full flex items-center justify-center gap-2 h-14 rounded-2xl text-base font-semibold transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 bg-[#2563eb] hover:bg-[#1d4ed8] text-white shadow-lg shadow-blue-500/20"
+        className="mt-4 w-full flex items-center justify-center gap-2 h-14 rounded-2xl text-base font-semibold transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 bg-[#2563eb] hover:bg-[#1d4ed8] text-white shadow-lg shadow-blue-500/20"
       >
         {isSubmitting ? (
           <>
