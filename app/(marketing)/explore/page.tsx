@@ -174,7 +174,7 @@ export default async function ExplorePage({
         </div>
       </form>
 
-      <div className="mb-6 flex flex-wrap gap-2">
+      <div className="mb-6 hidden flex-wrap gap-2 md:flex">
         {CATEGORIES.map((cat) => (
           <Link key={cat} href={`/explore?tab=${activeTab}&category=${cat}&q=${searchQuery}&sort=${sortBy}&src=${src}`}>
             <Badge variant={category === cat ? "default" : "outline"} className="cursor-pointer">
