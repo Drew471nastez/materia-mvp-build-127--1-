@@ -2558,14 +2558,14 @@ Tips:
   return (
     <div className="h-full overflow-y-auto page-scroll bg-[#fafafa]">
       {showSuccessToast && (
-        <div className="hidden sm:block fixed left-1/2 -translate-x-1/2 z-[220] top-[calc(env(safe-area-inset-top)+12px)] w-[calc(100%-24px)] max-w-sm sm:w-auto animate-in fade-in slide-in-from-top-2 duration-300 px-1 pointer-events-none">
+        <div className="hidden md:block fixed left-1/2 -translate-x-1/2 z-[220] top-4 w-auto animate-in fade-in slide-in-from-top-2 duration-300 px-1 pointer-events-none">
           <div className="bg-black text-white px-4 py-3 rounded-xl shadow-2xl text-sm font-medium text-center whitespace-normal">
             Email sent successfully
           </div>
         </div>
       )}
       {isMobileTopToastVisible && (
-        <div className="sm:hidden fixed left-1/2 -translate-x-1/2 z-[220] top-[calc(env(safe-area-inset-top)+10px)] w-[calc(100%-24px)] max-w-[360px] animate-in fade-in slide-in-from-top-2 duration-300 pointer-events-none">
+        <div className="md:hidden fixed left-1/2 -translate-x-1/2 z-[220] top-[calc(68px+env(safe-area-inset-top)+10px)] w-[calc(100%-24px)] max-w-[360px] animate-in fade-in slide-in-from-top-2 duration-300 pointer-events-none">
           <div className="rounded-xl border border-black/10 bg-black/95 px-4 py-2.5 text-center text-sm font-medium text-white shadow-xl backdrop-blur-sm">
             Email sent successfully
           </div>
@@ -2573,7 +2573,7 @@ Tips:
       )}
       {/* Global Save Notification - Shows across all views */}
       {showFlowSaveNotification && (
-        <div className="fixed top-[calc(env(safe-area-inset-top)+10px)] left-1/2 transform -translate-x-1/2 z-[200] w-[calc(100%-24px)] max-w-[460px] animate-in fade-in slide-in-from-top-2 duration-300 pointer-events-none">
+        <div className="fixed top-[calc(68px+env(safe-area-inset-top)+10px)] md:top-4 left-1/2 transform -translate-x-1/2 z-[200] w-[calc(100%-24px)] max-w-[460px] animate-in fade-in slide-in-from-top-2 duration-300 pointer-events-none">
           <div className="bg-gray-900 text-white px-4 py-3 rounded-xl shadow-xl flex items-center justify-center gap-2">
             <Check className="h-5 w-5 text-green-400" />
             <span className="text-sm font-medium">{flowSaveNotificationMessage}</span>

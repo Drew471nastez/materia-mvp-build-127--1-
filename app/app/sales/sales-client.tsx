@@ -1834,7 +1834,7 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
     <div className="h-full overflow-y-auto bg-[#f8f9fa] sales-scroll-container">
       {/* Notification Toast */}
       {notification.visible && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] animate-in fade-in-0 slide-in-from-top-2 duration-300">
+        <div className="fixed top-[calc(68px+env(safe-area-inset-top)+12px)] md:top-4 left-1/2 -translate-x-1/2 z-[100] animate-in fade-in-0 slide-in-from-top-2 duration-300">
           <div className="bg-[#1a1a2e] text-white px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-2 text-[13px] font-medium">
             <Check className="h-4 w-4 text-emerald-400" />
             {notification.message}

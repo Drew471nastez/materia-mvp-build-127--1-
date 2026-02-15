@@ -380,7 +380,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     <div className="h-full overflow-y-auto page-scroll bg-[#f8f9fa]">
       {/* Notification Toast */}
       {notification.visible && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] animate-in fade-in-0 slide-in-from-top-2 duration-300">
+        <div className="fixed top-[calc(68px+env(safe-area-inset-top)+12px)] md:top-4 left-1/2 -translate-x-1/2 z-[100] animate-in fade-in-0 slide-in-from-top-2 duration-300">
           <div className={`px-4 py-3 rounded-xl shadow-lg ${notification.type === "error" ? "bg-rose-600" : "bg-[#1a1a2e]"} text-white text-[13px] font-medium`}>
             {notification.message}
           </div>

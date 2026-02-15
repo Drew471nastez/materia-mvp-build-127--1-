@@ -3516,7 +3516,7 @@ export default function NewProductPage() {
       {/* Success Notification - Modern black toast */}
       {showNotification && (
         <div
-          className="fixed top-4 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-top-3 fade-in duration-300"
+          className="fixed top-[calc(68px+env(safe-area-inset-top)+12px)] md:top-4 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-top-3 fade-in duration-300"
         >
           <div className="flex items-center gap-2.5 px-4 py-3 bg-gray-900 rounded-xl shadow-2xl shadow-gray-900/20 backdrop-blur-sm border border-gray-800">
             <CheckCircle className="h-4 w-4 text-white flex-shrink-0" />
@@ -3528,7 +3528,7 @@ export default function NewProductPage() {
       {/* Validation Toast Notification - Black modern style */}
       {toast.visible && (
         <div
-          className={`fixed top-5 sm:top-4 left-1/2 z-50 ${
+          className={`fixed top-[calc(68px+env(safe-area-inset-top)+12px)] md:top-4 left-1/2 z-[100] ${
             toast.dismissing ? "animate-toast-out" : "animate-toast-in"
           }`}
         >

@@ -329,7 +329,7 @@ export function ProductsTab() {
     <>
       {/* Notification Toast - Rendered via Portal */}
       {isMounted && notification.visible && createPortal(
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[2147483647] animate-in fade-in slide-in-from-top-2 duration-300 pointer-events-none">
+        <div className="fixed top-[calc(68px+env(safe-area-inset-top)+12px)] md:top-4 left-1/2 transform -translate-x-1/2 z-[2147483647] animate-in fade-in slide-in-from-top-2 duration-300 pointer-events-none">
           <div className="flex items-center gap-2 px-4 py-3 bg-gray-900 text-white rounded-lg shadow-xl">
             <Check className="h-4 w-4 text-green-400" />
             <span className="text-sm font-medium">{notification.message}</span>

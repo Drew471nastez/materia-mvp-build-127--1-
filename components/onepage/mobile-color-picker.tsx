@@ -249,8 +249,7 @@ export function MobileColorPicker({ value, onChange, label = "Choose color", cla
   const notification = mounted
     ? createPortal(
         <div
-          className="fixed top-0 left-0 right-0 z-[200] flex justify-center pointer-events-none"
-          style={{ paddingTop: 'max(env(safe-area-inset-top, 12px), 12px)' }}
+          className="fixed top-[calc(68px+env(safe-area-inset-top)+12px)] md:top-3 left-0 right-0 z-[200] flex justify-center pointer-events-none"
         >
           <div
             className="pointer-events-auto px-5 py-3 rounded-2xl bg-black/90 backdrop-blur-lg shadow-2xl flex items-center gap-2.5"
