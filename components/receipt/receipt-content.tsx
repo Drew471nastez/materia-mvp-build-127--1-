@@ -63,16 +63,17 @@ function SuccessToast({
   return (
     <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-full max-w-md px-4">
       <div
-        className="bg-white border border-green-200 rounded-xl shadow-lg shadow-green-100/50 p-3 flex items-center gap-2 animate-in slide-in-from-top-2 fade-in duration-300"
+        className="bg-white border border-green-200 rounded-xl shadow-lg shadow-green-100/50 p-4 flex items-start gap-3 animate-in slide-in-from-top-2 fade-in duration-300"
         style={{
           animation: show ? "slideIn 0.3s ease-out" : "slideOut 0.3s ease-in forwards",
         }}
       >
-        <div className="flex-shrink-0 w-7 h-7 rounded-full bg-green-100 flex items-center justify-center">
-          <CheckCircle className="w-4 h-4 text-green-600" />
+        <div className="flex-shrink-0 w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+          <CheckCircle className="w-5 h-5 text-green-600" />
         </div>
-        <div className="flex-1 min-w-0">
-          <p className="font-medium text-gray-900 text-sm whitespace-nowrap overflow-hidden text-ellipsis">Emails sent successfully — {message}</p>
+        <div className="flex-1 pt-0.5">
+          <p className="font-medium text-gray-900 text-sm">Emails sent successfully</p>
+          <p className="text-sm text-gray-600 mt-0.5">{message}</p>
         </div>
         <button
           onClick={onClose}
@@ -108,16 +109,17 @@ function ErrorToast({
   return (
     <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-full max-w-md px-4">
       <div
-        className="bg-white border border-red-200 rounded-xl shadow-lg shadow-red-100/50 p-3 flex items-center gap-2 animate-in slide-in-from-top-2 fade-in duration-300"
+        className="bg-white border border-red-200 rounded-xl shadow-lg shadow-red-100/50 p-4 flex items-start gap-3 animate-in slide-in-from-top-2 fade-in duration-300"
         style={{
           animation: show ? "slideIn 0.3s ease-out" : "slideOut 0.3s ease-in forwards",
         }}
       >
-        <div className="flex-shrink-0 w-7 h-7 rounded-full bg-red-100 flex items-center justify-center">
-          <AlertCircle className="w-4 h-4 text-red-600" />
+        <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+          <AlertCircle className="w-5 h-5 text-red-600" />
         </div>
-        <div className="flex-1 min-w-0">
-          <p className="font-medium text-gray-900 text-sm whitespace-nowrap overflow-hidden text-ellipsis">Email delivery issue — {message}</p>
+        <div className="flex-1 pt-0.5">
+          <p className="font-medium text-gray-900 text-sm">Email delivery issue</p>
+          <p className="text-sm text-gray-600 mt-0.5">{message}</p>
         </div>
         <button
           onClick={onClose}

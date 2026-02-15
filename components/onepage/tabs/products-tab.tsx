@@ -266,10 +266,10 @@ export function ProductsTab() {
     <div className="space-y-6">
       {/* Notification Toast */}
       {notification.visible && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-sm px-4 animate-in fade-in slide-in-from-top-2 duration-300">
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-2 duration-300">
           <div className="flex items-center gap-2 px-4 py-3 bg-gray-900 text-white rounded-lg shadow-lg">
-            <Check className="h-4 w-4 text-green-400 flex-shrink-0" />
-            <span className="text-sm font-medium whitespace-nowrap overflow-hidden text-ellipsis">{notification.message}</span>
+            <Check className="h-4 w-4 text-green-400" />
+            <span className="text-sm font-medium">{notification.message}</span>
           </div>
         </div>
       )}
