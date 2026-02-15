@@ -117,7 +117,7 @@ export function FeaturedCategoriesSection({ products = [] }: FeaturedCategoriesS
           </h2>
           <Link
             href="/explore"
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-neutral-900 text-white text-sm font-medium rounded-full hover:bg-neutral-800 transition-colors w-fit"
+            className="hidden md:inline-flex items-center gap-2 px-5 py-2.5 bg-neutral-900 text-white text-sm font-medium rounded-full hover:bg-neutral-800 transition-colors w-fit"
           >
             Browse categories
             <ArrowRight className="w-4 h-4" />
