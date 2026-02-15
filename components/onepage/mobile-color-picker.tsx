@@ -252,7 +252,7 @@ export function MobileColorPicker({ value, onChange, label = "Choose color", cla
           className="fixed top-[calc(68px+env(safe-area-inset-top)+12px)] md:top-3 left-0 right-0 z-[200] flex justify-center pointer-events-none"
         >
           <div
-            className="pointer-events-auto px-5 py-3 rounded-2xl bg-black/90 backdrop-blur-lg shadow-2xl flex items-center gap-2.5"
+            className="pointer-events-auto px-5 py-3 rounded-2xl bg-black/90 backdrop-blur-lg shadow-2xl flex items-center gap-2.5 whitespace-nowrap"
             style={{
               transform: showNotification ? 'translateY(0)' : 'translateY(-100%)',
               opacity: showNotification ? 1 : 0,

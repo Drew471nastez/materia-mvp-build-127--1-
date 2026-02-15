@@ -3518,7 +3518,7 @@ export default function NewProductPage() {
         <div
           className="fixed top-[calc(68px+env(safe-area-inset-top)+12px)] md:top-4 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-top-3 fade-in duration-300"
         >
-          <div className="flex items-center gap-2.5 px-4 py-3 bg-gray-900 rounded-xl shadow-2xl shadow-gray-900/20 backdrop-blur-sm border border-gray-800">
+          <div className="flex items-center gap-2.5 px-4 py-3 bg-gray-900 rounded-xl shadow-2xl shadow-gray-900/20 backdrop-blur-sm border border-gray-800 whitespace-nowrap">
             <CheckCircle className="h-4 w-4 text-white flex-shrink-0" />
             <span className="text-sm font-medium text-white tracking-tight">{notificationMessage}</span>
           </div>
@@ -3532,7 +3532,7 @@ export default function NewProductPage() {
             toast.dismissing ? "animate-toast-out" : "animate-toast-in"
           }`}
         >
-          <div className="flex items-center gap-2.5 px-4 py-3 bg-black rounded-xl shadow-2xl shadow-black/20 backdrop-blur-sm border border-gray-800 max-w-[calc(100vw-2rem)]">
+          <div className="flex items-center gap-2.5 px-4 py-3 bg-black rounded-xl shadow-2xl shadow-black/20 backdrop-blur-sm border border-gray-800 max-w-[calc(100vw-2rem)] whitespace-nowrap">
             <AlertCircle className="h-4 w-4 text-white/80 flex-shrink-0" />
             <span className="text-sm font-medium text-white tracking-tight sm:block hidden">{toast.message}</span>
             <span className="text-sm font-medium text-white tracking-tight sm:hidden block">

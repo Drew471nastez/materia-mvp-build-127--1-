@@ -1528,7 +1528,7 @@ export function DashboardClient({
 
       <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto">
         {copyNotice && (
-          <div className="fixed top-[calc(68px+env(safe-area-inset-top)+12px)] md:top-4 left-1/2 z-[120] -translate-x-1/2 rounded-full bg-[#111827] px-4 py-2 text-xs font-medium text-white shadow-lg animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="fixed top-[calc(68px+env(safe-area-inset-top)+12px)] md:top-4 left-1/2 z-[120] -translate-x-1/2 rounded-full bg-[#111827] px-4 py-2 text-xs font-medium text-white shadow-lg animate-in fade-in slide-in-from-top-2 duration-200 whitespace-nowrap">
             {copyNotice}
           </div>
         )}

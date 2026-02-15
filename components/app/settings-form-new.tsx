@@ -1744,8 +1744,8 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
             : "opacity-0 -translate-y-2 pointer-events-none"
         }`}
       >
-        <div className="bg-[#1a1a2e] text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2.5">
-          <Check className="h-4.5 w-4.5 text-emerald-400" />
+        <div className="bg-[#1a1a2e] text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2.5 whitespace-nowrap">
+          <Check className="h-4.5 w-4.5 text-emerald-400 shrink-0" />
           <span className="text-[14px] font-medium">Your settings are saved</span>
         </div>
       </div>
