@@ -41,6 +41,7 @@ export function FeaturedBannerCarousel({ products, overlay }: FeaturedBannerCaro
   // Touch/swipe state
   const touchStartX = useRef<number>(0)
   const touchEndX = useRef<number>(0)
+  const touchMoved = useRef<boolean>(false)
 
   // Limit to 5 products
   const featuredProducts = products.slice(0, 5)
@@ -121,29 +122,34 @@ export function FeaturedBannerCarousel({ products, overlay }: FeaturedBannerCaro
     lastTimeRef.current = 0
   }, [])
 
-  // Touch handlers for swipe
+  // Touch handlers for swipe — distinguishes taps from swipes so links/buttons work
   const handleTouchStart = useCallback((e: TouchEvent<HTMLDivElement>) => {
     touchStartX.current = e.targetTouches[0].clientX
+    touchEndX.current = e.targetTouches[0].clientX // reset so a tap = diff 0
+    touchMoved.current = false
     setIsPaused(true)
   }, [])
 
   const handleTouchMove = useCallback((e: TouchEvent<HTMLDivElement>) => {
     touchEndX.current = e.targetTouches[0].clientX
+    touchMoved.current = true
   }, [])
 
   const handleTouchEnd = useCallback(() => {
-    const diff = touchStartX.current - touchEndX.current
-    const minSwipeDistance = 50
+    // Only evaluate swipe if the finger actually moved
+    if (touchMoved.current) {
+      const diff = touchStartX.current - touchEndX.current
+      const minSwipeDistance = 50
 
-    if (Math.abs(diff) > minSwipeDistance) {
-      if (diff > 0) {
-        // Swipe left - go next
-        goToNext()
-      } else {
-        // Swipe right - go previous
-        goToPrevious()
+      if (Math.abs(diff) > minSwipeDistance) {
+        if (diff > 0) {
+          goToNext()
+        } else {
+          goToPrevious()
+        }
       }
     }
+    // If !touchMoved, it was a tap — do nothing so links/buttons get the click
 
     setIsPaused(false)
     lastTimeRef.current = 0
