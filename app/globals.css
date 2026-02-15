@@ -160,9 +160,8 @@
     /* Modern light gray scrollbar for website pages */
     scrollbar-width: thin;
     scrollbar-color: rgba(180, 180, 185, 0.45) transparent;
-    /* Prevent pull-to-refresh while keeping normal scroll + bounce feel */
+    /* Prevent overscroll bounce that can cause scroll lock */
     overscroll-behavior-x: none;
-    overscroll-behavior-y: contain;
   }
 
   html::-webkit-scrollbar {
@@ -193,9 +192,8 @@
     /* Enable touch scrolling on mobile devices */
     touch-action: pan-y pinch-zoom;
     -webkit-overflow-scrolling: touch;
-    /* Prevent pull-to-refresh while keeping normal scroll + bounce feel */
+    /* Prevent overscroll bounce that can cause scroll lock */
     overscroll-behavior-x: none;
-    overscroll-behavior-y: contain;
     /* Safe area support for iOS notch/home indicator */
     padding-top: env(safe-area-inset-top);
     padding-bottom: env(safe-area-inset-bottom);

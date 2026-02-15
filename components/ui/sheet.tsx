@@ -70,8 +70,12 @@ function SheetContent({
     const portal = portalRef.current
     if (!portal) {
       return () => {
-        document.documentElement.style.overscrollBehavior = prevHtmlOverscroll
-        document.body.style.overscrollBehavior = prevBodyOverscroll
+        // Delay restoration so any in-progress dismiss gesture completes
+        // before the browser can trigger pull-to-refresh
+        setTimeout(() => {
+          document.documentElement.style.overscrollBehavior = prevHtmlOverscroll
+          document.body.style.overscrollBehavior = prevBodyOverscroll
+        }, 500)
       }
     }
 
@@ -108,10 +112,14 @@ function SheetContent({
     portal.addEventListener('touchmove', handleTouchMove, { passive: false })
 
     return () => {
-      document.documentElement.style.overscrollBehavior = prevHtmlOverscroll
-      document.body.style.overscrollBehavior = prevBodyOverscroll
       portal.removeEventListener('touchstart', handleTouchStart)
       portal.removeEventListener('touchmove', handleTouchMove)
+      // Delay restoration so any in-progress dismiss gesture completes
+      // before the browser can trigger pull-to-refresh
+      setTimeout(() => {
+        document.documentElement.style.overscrollBehavior = prevHtmlOverscroll
+        document.body.style.overscrollBehavior = prevBodyOverscroll
+      }, 500)
     }
   }, [])
 
