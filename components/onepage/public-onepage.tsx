@@ -265,31 +265,10 @@ function NotificationBell({
   style = "glass",
 }: { sellerName: string; sellerId: string | null; onepageId: string; style?: "glass" | "white" | "black" }) {
   const [isOpen, setIsOpen] = useState(false)
-  const [isBellVisible, setIsBellVisible] = useState(true)
   const [email, setEmail] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState("")
-
-  useEffect(() => {
-    let ticking = false
-
-    const handleScroll = () => {
-      const currentY = window.scrollY
-
-      if (!ticking) {
-        window.requestAnimationFrame(() => {
-          setIsBellVisible(currentY < 120)
-          ticking = false
-        })
-        ticking = true
-      }
-    }
-
-    handleScroll()
-    window.addEventListener("scroll", handleScroll, { passive: true })
-    return () => window.removeEventListener("scroll", handleScroll)
-  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -402,7 +381,6 @@ function NotificationBell({
 
   // Fallback to glass if style is not defined
   const s = styles[style as keyof typeof styles] || styles.glass
-  const bellVisible = isOpen || isBellVisible
   const [pdfModalOpen, setPdfModalOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
 
@@ -428,8 +406,8 @@ function NotificationBell({
   return (
     <div
       className={cn(
-        "fixed top-4 right-4 sm:top-6 sm:right-6 z-[20] transition-[opacity,transform] duration-300 ease-out",
-        bellVisible && !hideForModal ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2 pointer-events-none",
+        "fixed top-4 right-4 sm:top-6 sm:right-6 z-[20] transition-opacity duration-300 ease-out",
+        hideForModal ? "opacity-0 pointer-events-none" : "opacity-100",
       )}
     >
       {/* Bell Button */}
@@ -578,28 +556,6 @@ function ShareButton({
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const [copied, setCopied] = useState(false)
-  const [isShareVisible, setIsShareVisible] = useState(true)
-  // Share button visibility on scroll
-  useEffect(() => {
-    let ticking = false
-
-    const handleScroll = () => {
-      const currentY = window.scrollY
-
-      if (!ticking) {
-        window.requestAnimationFrame(() => {
-          setIsShareVisible(currentY < 120)
-          ticking = false
-        })
-        ticking = true
-      }
-    }
-
-    handleScroll()
-    window.addEventListener("scroll", handleScroll, { passive: true })
-    return () => window.removeEventListener("scroll", handleScroll)
-  }, [])
-
 
   // Adapt popup header background to theme - prioritize gradient, then solid color, then accent
   const getPopupHeaderBackground = () => {
@@ -735,7 +691,6 @@ function ShareButton({
   // Subscribe icon stays on TOP RIGHT
   // Desktop (md): top-[22px] to align 2px above the subscribe button which is at top-6 (24px)
   const positionClass = "fixed top-4 left-4 sm:top-6 sm:left-6 md:top-[22px] md:left-8 z-[20]"
-  const shareVisible = isOpen || isShareVisible
   const [pdfModalOpen, setPdfModalOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
 
@@ -759,8 +714,8 @@ function ShareButton({
   const hideForModal = pdfModalOpen && isMobile
 
   const buttonWrapperClass = cn(
-    "transition-[opacity,transform] duration-300 ease-out",
-    shareVisible && !hideForModal ? "opacity-100 translate-y-0 pointer-events-auto" : "opacity-0 -translate-y-2 pointer-events-none",
+    "transition-opacity duration-300 ease-out",
+    hideForModal ? "opacity-0 pointer-events-none" : "opacity-100 pointer-events-auto",
   )
 
   return (
