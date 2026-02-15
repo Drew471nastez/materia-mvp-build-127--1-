@@ -826,3 +826,17 @@
 .animate-editor-fade-in {
   animation: editorFadeIn 180ms ease-out forwards;
 }
+
+/* ─── Prevent iOS / mobile auto-zoom on input focus ───────────
+   iOS Safari zooms the page when a focused element has font-size < 16px.
+   This rule forces 16px on all form elements on touch devices so the
+   browser never triggers auto-zoom. Pinch-to-zoom remains fully functional.
+   ──────────────────────────────────────────────────────────────── */
+@media screen and (max-width: 767px) {
+  input,
+  select,
+  textarea,
+  [contenteditable="true"] {
+    font-size: 16px !important;
+  }
+}
