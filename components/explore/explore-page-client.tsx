@@ -1235,10 +1235,10 @@ export function ExplorePageClient({
     handleCategoryChange(categoryId, subcategoryId, subcategoryLabel, true)
   }, [handleCategoryChange])
 
-  // Handle browse category change from pills (only updates browse section, not recommended)
+  // Handle browse category change from pills and smooth-scroll to Recommended section
   const handleBrowseCategoryChange = useCallback((categoryId: string) => {
-    setBrowseCategory(categoryId)
-  }, [])
+    handleCategoryChange(categoryId, undefined, undefined, true)
+  }, [handleCategoryChange])
 
   // Handle category selection from modal - updates MAIN category and scrolls
   const handleCategorySelectorSelect = useCallback((categoryId: string) => {
