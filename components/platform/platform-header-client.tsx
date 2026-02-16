@@ -573,129 +573,6 @@ function LaunchCountdownBar({ onCanonicalNav }: { onCanonicalNav: (e: React.Mous
   )
 }
 
-// Full header skeleton shown during initial page load
-function FullHeaderSkeleton({ isMarketing, showCategoryBar }: { isMarketing: boolean; showCategoryBar: boolean }) {
-  return (
-    <div className="relative z-40 w-full bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/90 pt-[env(safe-area-inset-top)]">
-      {/* Countdown bar skeleton for marketing pages */}
-      {isMarketing && (
-        <div className="bg-violet-600">
-          <div className="py-2 px-4 md:py-2.5">
-            <div className="max-w-[1400px] mx-auto flex items-center justify-center gap-2 md:gap-3">
-              <div className="h-4 w-48 md:w-72 bg-violet-500/50 rounded animate-pulse" />
-              <div className="h-7 w-24 md:w-28 bg-white/20 rounded-lg animate-pulse" />
-            </div>
-          </div>
-        </div>
-      )}
-      <header className="w-full bg-white border-b border-gray-200">
-        <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
-          <div className="flex h-[68px] md:h-[81px] items-center justify-between gap-4 md:py-[3px]">
-            {isMarketing ? (
-              <>
-                {/* Desktop marketing header skeleton */}
-                <div className="hidden md:flex items-center justify-between w-full">
-                  <div className="flex items-center gap-2">
-                    <Skeleton className="h-[46px] w-[46px] rounded-xl bg-gray-200" />
-                    <Skeleton className="h-6 w-[72px] rounded bg-gray-200" />
-                  </div>
-                  <nav className="flex items-center gap-2">
-                    <Skeleton className="h-10 w-[92px] rounded-full bg-gray-100" />
-                    <Skeleton className="h-10 w-[56px] rounded-full bg-gray-100" />
-                    <Skeleton className="h-10 w-[72px] rounded-full bg-gray-100" />
-                    <Skeleton className="h-10 w-[84px] rounded-full bg-gray-100" />
-                  </nav>
-                  <div className="flex items-center gap-3">
-                    <Skeleton className="h-11 w-11 rounded-full bg-gray-200" />
-                    <Skeleton className="h-11 w-[120px] rounded-lg bg-gray-200" />
-                  </div>
-                </div>
-                {/* Mobile marketing header skeleton */}
-                <div className="md:hidden flex items-center justify-between w-full">
-                  <div className="flex items-center gap-1.5">
-                    <Skeleton className="h-[42px] w-[42px] rounded-xl bg-gray-200" />
-                    <Skeleton className="h-5 w-[64px] rounded bg-gray-200" />
-                  </div>
-                  <Skeleton className="h-10 w-10 rounded-full bg-gray-100" />
-                </div>
-              </>
-            ) : (
-              <>
-                {/* Desktop explore header skeleton */}
-                <div className="hidden md:flex items-center gap-3 shrink-0">
-                  <div className="flex items-center gap-2">
-                    <Skeleton className="h-[46px] w-[46px] rounded-xl bg-gray-200" />
-                    <Skeleton className="h-6 w-[72px] rounded bg-gray-200" />
-                  </div>
-                  <Skeleton className="h-11 w-[130px] rounded-lg bg-gray-100" />
-                </div>
-                <div className="hidden md:flex flex-1 max-w-xl mx-4">
-                  <Skeleton className="h-11 w-full rounded-full bg-gray-100" />
-                </div>
-                <div className="hidden md:flex items-center gap-2.5 shrink-0">
-                  <Skeleton className="h-11 w-11 rounded-full bg-gray-200" />
-                  <Skeleton className="h-11 w-11 rounded-full bg-gray-200" />
-                  <Skeleton className="h-11 w-[110px] rounded-full bg-gray-200" />
-                  <Skeleton className="h-11 w-11 rounded-full bg-gray-200" />
-                </div>
-                {/* Mobile explore header skeleton */}
-                <div className="md:hidden flex items-center justify-between flex-1 -ml-6">
-                  <div className="flex items-center gap-0">
-                    <Skeleton className="h-9 w-9 rounded bg-gray-100" />
-                    <div className="flex items-center gap-1.5 ml-1">
-                      <Skeleton className="h-[38px] w-[38px] rounded-xl bg-gray-200" />
-                      <Skeleton className="h-5 w-[60px] rounded bg-gray-200" />
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Skeleton className="h-9 w-9 rounded-full bg-gray-200" />
-                    <Skeleton className="h-9 w-9 rounded-full bg-gray-200" />
-                    <Skeleton className="h-8 w-8 rounded-full bg-gray-200 ml-2" />
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Mobile search bar skeleton for non-marketing */}
-          {!isMarketing && (
-            <div className="md:hidden pt-2 pb-1.5 border-t border-gray-100">
-              <Skeleton className="h-10 w-full rounded-full bg-gray-100" />
-            </div>
-          )}
-
-          {/* Mobile category pills skeleton */}
-          {showCategoryBar && (
-            <div className="md:hidden -mx-4 px-4 pt-0.5 pb-1">
-              <div className="flex items-center gap-2">
-                <Skeleton className="h-9 w-[52px] rounded-full bg-gray-100 flex-shrink-0" />
-                <Skeleton className="h-9 w-[120px] rounded-full bg-gray-100 flex-shrink-0" />
-                <Skeleton className="h-9 w-[140px] rounded-full bg-gray-100 flex-shrink-0" />
-                <Skeleton className="h-9 w-[60px] rounded-full bg-gray-100 flex-shrink-0" />
-                <Skeleton className="h-9 w-[76px] rounded-full bg-gray-100 flex-shrink-0" />
-              </div>
-            </div>
-          )}
-
-          {/* Desktop category bar skeleton */}
-          {showCategoryBar && (
-            <nav className="border-t border-gray-200 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 hidden md:block">
-              <div className="flex h-12 items-center gap-7">
-                <Skeleton className="h-5 w-[36px] rounded bg-gray-100" />
-                <Skeleton className="h-5 w-[110px] rounded bg-gray-100" />
-                <Skeleton className="h-5 w-[140px] rounded bg-gray-100" />
-                <Skeleton className="h-5 w-[52px] rounded bg-gray-100" />
-                <Skeleton className="h-5 w-[68px] rounded bg-gray-100" />
-                <Skeleton className="h-5 w-[30px] rounded bg-gray-100" />
-              </div>
-            </nav>
-          )}
-        </div>
-      </header>
-    </div>
-  )
-}
-
 export function PlatformHeaderClient() {
   const router = useRouter()
   const pathname = usePathname()
@@ -708,7 +585,6 @@ export function PlatformHeaderClient() {
   const [hasCompletedSellerOnboarding, setHasCompletedSellerOnboarding] = useState(false)
   const [loading, setLoading] = useState(true)
   const [initialLoadDone, setInitialLoadDone] = useState(false)
-  const [showHeaderSkeleton, setShowHeaderSkeleton] = useState(false)
   const [wishlistCount, setWishlistCount] = useState(0)
 
   const mountedRef = useRef(true)
@@ -730,16 +606,6 @@ export function PlatformHeaderClient() {
   useEffect(() => {
     setQuery(searchParams.get("q") ?? "")
   }, [searchParams])
-
-  // Only show full header skeleton if loading takes longer than 600ms
-  useEffect(() => {
-    if (initialLoadDone) {
-      setShowHeaderSkeleton(false)
-      return
-    }
-    const timer = setTimeout(() => setShowHeaderSkeleton(true), 600)
-    return () => clearTimeout(timer)
-  }, [initialLoadDone])
 
   // Close modals on route change
   useEffect(() => {
@@ -1039,23 +905,6 @@ export function PlatformHeaderClient() {
     [toCanonicalUrl],
   )
 
-  // Logo click: go to /explore at the very top, fresh
-  const handleLogoClick = useCallback((e: React.MouseEvent) => {
-    if (shouldForceCanonicalNav) {
-      e.preventDefault()
-      navigateToCanonical("/explore")
-      return
-    }
-    // If already on /explore, scroll to top and refresh
-    if (pathname === "/explore" || pathname.startsWith("/explore")) {
-      e.preventDefault()
-      window.scrollTo(0, 0)
-      router.push("/explore")
-      router.refresh()
-    }
-    // Otherwise, Next.js Link handles navigation to /explore with scroll:true (default)
-  }, [pathname, shouldForceCanonicalNav, navigateToCanonical, router])
-
   const onCanonicalNav = useCallback(
     (e: React.MouseEvent<HTMLElement>, targetPath: string) => {
       if (!shouldForceCanonicalNav) return
@@ -1083,14 +932,9 @@ export function PlatformHeaderClient() {
     ? CATEGORIES_WITH_SUBS.find(c => c.label === selectedCategoryForSubs)
     : null
 
-  // Show full header skeleton only when loading takes longer than expected (>600ms)
-  if (!initialLoadDone && showHeaderSkeleton) {
-    return <FullHeaderSkeleton isMarketing={isMarketingNavRoute} showCategoryBar={showCategories} />
-  }
-
   return (
     <>
-      <div className="relative z-40 w-full bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/90 pt-[env(safe-area-inset-top)] animate-in fade-in duration-300">
+      <div className="relative z-40 w-full bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/90 pt-[env(safe-area-inset-top)]">
       {/* Homepage and Features Page Announcement Bar — Beta Countdown */}
       {(pathname === "/" || pathname === "/features" || pathname === "/pricing" || isBlogRoute) && (
         <LaunchCountdownBar onCanonicalNav={onCanonicalNav} />
@@ -1103,8 +947,8 @@ export function PlatformHeaderClient() {
             <>
               {/* Homepage Desktop Header */}
               <div className="hidden md:flex items-center justify-between w-full">
-                {/* Left - Logo - always links to storelib.com/explore */}
-                <Link href="/explore" onClick={handleLogoClick} className="shrink-0 flex items-center gap-2">
+                {/* Left - Logo - always links to storelib.com */}
+                <Link href="/" onClick={(e) => onCanonicalNav(e, "/")} className="shrink-0 flex items-center gap-2">
                   <Image
                     src={LOGO_URL || "/placeholder.svg"}
                     alt="Storelib"
@@ -1191,7 +1035,7 @@ export function PlatformHeaderClient() {
               <div className="md:hidden flex items-center justify-between w-full">
                 {/* Left - Logo */}
                 <div className="flex items-center gap-0">
-                  <Link href="/explore" onClick={handleLogoClick} className="shrink-0 flex items-center gap-1.5">
+                  <Link href="/" onClick={(e) => onCanonicalNav(e, "/")} className="shrink-0 flex items-center gap-1.5">
                     <Image
                       src={LOGO_URL || "/placeholder.svg"}
                       alt="Storelib"
@@ -1220,8 +1064,8 @@ export function PlatformHeaderClient() {
               {/* Non-Homepage Desktop Header - Original Layout */}
               {/* Left side - Logo and Categories Button */}
               <div className="flex items-center gap-3 shrink-0">
-                {/* Logo with Storelib text - always links to storelib.com/explore */}
-                <Link href="/explore" onClick={handleLogoClick} className="shrink-0 hidden md:flex items-center gap-2">
+                {/* Logo with Storelib text - always links to storelib.com */}
+                <Link href="/" onClick={(e) => onCanonicalNav(e, "/")} className="shrink-0 hidden md:flex items-center gap-2">
                   <Image
                     src={LOGO_URL || "/placeholder.svg"}
                     alt="Storelib"
@@ -1491,8 +1335,8 @@ export function PlatformHeaderClient() {
                 <AnimatedHamburger isOpen={mobileMenuOpen} />
               </button>
 
-              {/* Logo next to hamburger - always links to storelib.com/explore */}
-              <Link href="/explore" onClick={handleLogoClick} className="shrink-0 flex items-center gap-1.5">
+              {/* Logo next to hamburger - always links to storelib.com */}
+              <Link href="/" onClick={(e) => onCanonicalNav(e, "/")} className="shrink-0 flex items-center gap-1.5">
                 <Image
                   src={LOGO_URL || "/placeholder.svg"}
                   alt="Storelib"
