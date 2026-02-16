@@ -708,6 +708,7 @@ export function PlatformHeaderClient() {
   const [hasCompletedSellerOnboarding, setHasCompletedSellerOnboarding] = useState(false)
   const [loading, setLoading] = useState(true)
   const [initialLoadDone, setInitialLoadDone] = useState(false)
+  const [showHeaderSkeleton, setShowHeaderSkeleton] = useState(false)
   const [wishlistCount, setWishlistCount] = useState(0)
 
   const mountedRef = useRef(true)
@@ -729,6 +730,16 @@ export function PlatformHeaderClient() {
   useEffect(() => {
     setQuery(searchParams.get("q") ?? "")
   }, [searchParams])
+
+  // Only show full header skeleton if loading takes longer than 600ms
+  useEffect(() => {
+    if (initialLoadDone) {
+      setShowHeaderSkeleton(false)
+      return
+    }
+    const timer = setTimeout(() => setShowHeaderSkeleton(true), 600)
+    return () => clearTimeout(timer)
+  }, [initialLoadDone])
 
   // Close modals on route change
   useEffect(() => {
@@ -1028,6 +1039,23 @@ export function PlatformHeaderClient() {
     [toCanonicalUrl],
   )
 
+  // Logo click: go to /explore at the very top, fresh
+  const handleLogoClick = useCallback((e: React.MouseEvent) => {
+    if (shouldForceCanonicalNav) {
+      e.preventDefault()
+      navigateToCanonical("/explore")
+      return
+    }
+    // If already on /explore, scroll to top and refresh
+    if (pathname === "/explore" || pathname.startsWith("/explore")) {
+      e.preventDefault()
+      window.scrollTo(0, 0)
+      router.push("/explore")
+      router.refresh()
+    }
+    // Otherwise, Next.js Link handles navigation to /explore with scroll:true (default)
+  }, [pathname, shouldForceCanonicalNav, navigateToCanonical, router])
+
   const onCanonicalNav = useCallback(
     (e: React.MouseEvent<HTMLElement>, targetPath: string) => {
       if (!shouldForceCanonicalNav) return
@@ -1055,8 +1083,8 @@ export function PlatformHeaderClient() {
     ? CATEGORIES_WITH_SUBS.find(c => c.label === selectedCategoryForSubs)
     : null
 
-  // Show full header skeleton during initial auth/profile load
-  if (!initialLoadDone) {
+  // Show full header skeleton only when loading takes longer than expected (>600ms)
+  if (!initialLoadDone && showHeaderSkeleton) {
     return <FullHeaderSkeleton isMarketing={isMarketingNavRoute} showCategoryBar={showCategories} />
   }
 
@@ -1076,7 +1104,7 @@ export function PlatformHeaderClient() {
               {/* Homepage Desktop Header */}
               <div className="hidden md:flex items-center justify-between w-full">
                 {/* Left - Logo - always links to storelib.com/explore */}
-                <Link href="/explore" onClick={(e) => onCanonicalNav(e, "/explore")} className="shrink-0 flex items-center gap-2">
+                <Link href="/explore" onClick={handleLogoClick} className="shrink-0 flex items-center gap-2">
                   <Image
                     src={LOGO_URL || "/placeholder.svg"}
                     alt="Storelib"
@@ -1163,7 +1191,7 @@ export function PlatformHeaderClient() {
               <div className="md:hidden flex items-center justify-between w-full">
                 {/* Left - Logo */}
                 <div className="flex items-center gap-0">
-                  <Link href="/explore" onClick={(e) => onCanonicalNav(e, "/explore")} className="shrink-0 flex items-center gap-1.5">
+                  <Link href="/explore" onClick={handleLogoClick} className="shrink-0 flex items-center gap-1.5">
                     <Image
                       src={LOGO_URL || "/placeholder.svg"}
                       alt="Storelib"
@@ -1193,7 +1221,7 @@ export function PlatformHeaderClient() {
               {/* Left side - Logo and Categories Button */}
               <div className="flex items-center gap-3 shrink-0">
                 {/* Logo with Storelib text - always links to storelib.com/explore */}
-                <Link href="/explore" onClick={(e) => onCanonicalNav(e, "/explore")} className="shrink-0 hidden md:flex items-center gap-2">
+                <Link href="/explore" onClick={handleLogoClick} className="shrink-0 hidden md:flex items-center gap-2">
                   <Image
                     src={LOGO_URL || "/placeholder.svg"}
                     alt="Storelib"
@@ -1464,7 +1492,7 @@ export function PlatformHeaderClient() {
               </button>
 
               {/* Logo next to hamburger - always links to storelib.com/explore */}
-              <Link href="/explore" onClick={(e) => onCanonicalNav(e, "/explore")} className="shrink-0 flex items-center gap-1.5">
+              <Link href="/explore" onClick={handleLogoClick} className="shrink-0 flex items-center gap-1.5">
                 <Image
                   src={LOGO_URL || "/placeholder.svg"}
                   alt="Storelib"

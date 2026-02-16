@@ -90,7 +90,7 @@ export function MarketingFooter() {
           {/* Logo and Info Column */}
           <div className="col-span-2 md:col-span-1 space-y-6">
             {/* Logo with text */}
-            <Link href="https://storelib.com" className="flex items-center gap-3 flex-wrap hover:opacity-80 transition-opacity">
+            <Link href="/" scroll={true} className="flex items-center gap-3 flex-wrap hover:opacity-80 transition-opacity">
               <Image
                 src={LOGO_URL}
                 alt="Storelib"
