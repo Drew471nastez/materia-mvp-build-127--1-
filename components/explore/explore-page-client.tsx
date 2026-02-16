@@ -1639,54 +1639,63 @@ export function ExplorePageClient({
       )}
 
       {/* Browse by Category Section */}
-      <section className="mt-8 md:mt-12 pt-6 md:pt-8 border-t border-neutral-200">
+      <section className="mt-12 pt-8 border-t border-neutral-200">
         {/* Section Header */}
-        <div className="flex flex-col gap-3 md:gap-4 mb-4">
-          {/* Title and By Category button on same row */}
-          <div className="flex items-center justify-between">
-            <h3 className="text-base md:text-lg font-semibold text-neutral-900">
-              {browseCategory === "all" ? "Browse by Category" : browseCategoryLabel}
-            </h3>
-
-            {/* By Category button - all screens */}
+        <div className="flex flex-col gap-4 mb-4">
+          {/* Mobile: By Category button above pills, right-aligned */}
+          <div className="flex md:hidden justify-end">
             <button
               onClick={() => setCategorySelectorOpen(true)}
-              className="inline-flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 rounded-full text-xs md:text-sm font-medium bg-neutral-100 text-neutral-700 hover:bg-neutral-200 transition-colors cursor-pointer"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium bg-neutral-100 text-neutral-700 hover:bg-neutral-200 transition-colors cursor-pointer"
             >
               <span>By Category</span>
-              <ChevronDown className="w-3.5 h-3.5 md:w-4 md:h-4" />
+              <ChevronDown className="w-4 h-4" />
             </button>
           </div>
 
-          {/* Category Pills - horizontally scrollable */}
-          <nav aria-label="Browse categories" className="-mx-4 px-4 md:mx-0 md:px-0 overflow-x-auto pb-1 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-            <div className="flex items-center gap-2 whitespace-nowrap">
-              {CATEGORIES.slice(0, 8).map((category) => {
-                const isSelected = browseCategory === category.id
-                const Icon = category.icon
-                return (
-                  <button
-                    key={category.id}
-                    onClick={() => handleBrowseCategoryChange(category.id)}
-                    className={`relative inline-flex items-center justify-center gap-1 md:gap-1.5 px-3 md:px-4 py-1.5 md:py-2 rounded-full text-xs md:text-sm font-medium whitespace-nowrap cursor-pointer select-none transition-all duration-150 ease-out active:scale-[0.98] ${
-                      isSelected
-                        ? "bg-neutral-900 text-white shadow-sm"
-                        : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200 hover:text-neutral-900"
-                    }`}
-                    aria-pressed={isSelected}
-                  >
-                    <Icon className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                    {category.label}
-                  </button>
-                )
-              })}
-            </div>
+          {/* Desktop: Title and By Category button on same row */}
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-neutral-900">
+              {browseCategory === "all" ? "Browse by Category" : browseCategoryLabel}
+            </h3>
+
+            {/* Desktop: By Category button */}
+            <button
+              onClick={() => setCategorySelectorOpen(true)}
+              className="hidden md:inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium bg-neutral-100 text-neutral-700 hover:bg-neutral-200 transition-colors cursor-pointer"
+            >
+              <span>By Category</span>
+              <ChevronDown className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Category Pills */}
+          <nav aria-label="Browse categories" className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
+            {CATEGORIES.slice(0, 8).map((category) => {
+              const isSelected = browseCategory === category.id
+              const Icon = category.icon
+              return (
+                <button
+                  key={category.id}
+                  onClick={() => handleBrowseCategoryChange(category.id)}
+                  className={`relative inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap cursor-pointer select-none transition-all duration-150 ease-out active:scale-[0.98] ${
+                    isSelected
+                      ? "bg-neutral-900 text-white shadow-sm"
+                      : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200 hover:text-neutral-900"
+                  }`}
+                  aria-pressed={isSelected}
+                >
+                  <Icon className="w-4 h-4" />
+                  {category.label}
+                </button>
+              )
+            })}
           </nav>
         </div>
 
         {/* Products Grid - 2 rows x 3 products on desktop */}
         {browseSectionProducts.length > 0 ? (
-          <div className="grid gap-3 md:gap-5 grid-cols-2 lg:grid-cols-3 animate-in fade-in-0 duration-200">
+          <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 animate-in fade-in-0 duration-200">
             {browseSectionProducts.map((product, index) => (
               <ProductCard
                 key={product.id}
