@@ -158,7 +158,7 @@ export function FeaturedCategoriesSection({ products = [] }: FeaturedCategoriesS
             {/* Swipeable container with touch support */}
             <div
               id="mobile-categories-scroll"
-              className="flex gap-3 overflow-x-auto pb-3 scrollbar-hide -mx-4 px-4 snap-x snap-mandatory"
+              className="flex gap-3 overflow-x-auto pb-3 scrollbar-hide -mx-4 px-4 snap-x snap-mandatory touch-pan-y"
               style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             >
               {bigCategories.map((category) => (
