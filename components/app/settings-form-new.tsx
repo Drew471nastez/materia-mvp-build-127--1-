@@ -1744,9 +1744,10 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
             : "opacity-0 -translate-y-2 pointer-events-none"
         }`}
       >
-        <div className="bg-[#1a1a2e] text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2.5 whitespace-nowrap">
+        <div className="bg-[#1a1a2e] text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2.5 whitespace-nowrap max-w-[calc(100vw-2rem)]">
           <Check className="h-4.5 w-4.5 text-emerald-400 shrink-0" />
-          <span className="text-[14px] font-medium">Your settings are saved</span>
+          <span className="text-[14px] font-medium hidden sm:inline">Your settings are saved</span>
+          <span className="text-[14px] font-medium sm:hidden">Settings saved</span>
         </div>
       </div>
 
@@ -1902,7 +1903,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
           {!isTabLoading && activeTab === "general" && (
             <div className="space-y-4 sm:space-y-6">
               {/* Purple Announcement Bar — Connect Stripe */}
-              {stripeStatusLoading && (
+              {stripeStatusLoading && !stripeStatus.connected && (
                 <div className="rounded-2xl bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] px-4 sm:px-6 py-3 sm:py-3.5 shadow-sm animate-pulse">
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">

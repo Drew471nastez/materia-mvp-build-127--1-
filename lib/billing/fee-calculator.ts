@@ -240,9 +240,9 @@ export function formatCentsToDollars(cents: number): string {
 
 export function getFeeDescription(planId: string): string {
   const descriptions: Record<string, string> = {
-    free: "6% + $0.25 per transaction (on orders $3+)",
-    growth: "3% + $0.25 per transaction (on orders $3+)",
-    pro: "1.5% + $0.25 per transaction (on orders $3+)",
+    free: "6% + $0.25 per transaction",
+    growth: "3% + $0.25 per transaction",
+    pro: "1.5% + $0.25 per transaction",
   }
   return descriptions[planId] || descriptions.free
 }

@@ -264,9 +264,9 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
 
   // Plan benefits for Current Plan card
   const planBenefits: Record<string, string[]> = {
-    free: ["6% + $0.25 per transaction (on orders $3+)", "Basic OnePage features", "Unlimited Digital Products", "500 emails / month"],
-    growth: ["3% + $0.25 per transaction (on orders $3+)", "Unlimited digital products", "Premium OnePage features", "Custom domain"],
-    pro: ["1.5% + $0.25 per transaction (on orders $3+)", "Unlimited digital products", "Premium OnePage features", "Custom domain"],
+    free: ["6% + $0.25 per transaction", "Basic OnePage features", "Unlimited Digital Products", "500 emails / month"],
+    growth: ["3% + $0.25 per transaction", "Unlimited digital products", "Premium OnePage features", "Custom domain"],
+    pro: ["1.5% + $0.25 per transaction", "Unlimited digital products", "Premium OnePage features", "Custom domain"],
   }
 
   // Determine the next upgrade target
@@ -603,10 +603,18 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
       {/* Upgrade Confirmation Modal */}
       {/* Fixed notification toast */}
       {notification && (
-        <div className="fixed top-0 left-0 right-0 z-[200] flex justify-center pointer-events-none">
-          <div className={`mt-3 pointer-events-auto bg-[#18181b] text-white rounded-lg shadow-lg px-4 py-2.5 flex items-center gap-2.5 transition-all duration-300 ease-out ${notification.visible ? "translate-y-0 opacity-100" : "-translate-y-3 opacity-0"}`}>
+        <div className="fixed top-[calc(68px+env(safe-area-inset-top)+12px)] md:top-3 left-0 right-0 z-[200] flex justify-center pointer-events-none">
+          <div className={`pointer-events-auto bg-[#18181b] text-white rounded-xl shadow-lg px-4 py-2.5 flex items-center gap-2.5 max-w-[calc(100vw-2rem)] whitespace-nowrap transition-all duration-300 ease-out ${notification.visible ? "translate-y-0 opacity-100" : "-translate-y-3 opacity-0"}`}>
             {notification.type === "success" ? <Check className="h-3.5 w-3.5 shrink-0 text-white" strokeWidth={2.5} /> : <X className="h-3.5 w-3.5 shrink-0 text-red-400" strokeWidth={2.5} />}
-            <p className="text-[12px] font-medium">{notification.message}</p>
+            <p className="text-[12px] font-medium hidden sm:block">{notification.message}</p>
+            <p className="text-[12px] font-medium sm:hidden">{
+              notification.message.includes("Subscription activated") ? "Plan activated!" :
+              notification.message.includes("Payment method updated") ? "Payment updated!" :
+              notification.message.includes("Checkout was canceled") ? "Checkout canceled" :
+              notification.message.includes("Plan changed") ? "Plan updated!" :
+              notification.message.length > 30 ? notification.message.slice(0, 28) + "..." :
+              notification.message
+            }</p>
             <button onClick={dismissNotification} className="shrink-0 text-white/40 hover:text-white transition-colors cursor-pointer ml-1"><X className="h-3.5 w-3.5" /></button>
           </div>
         </div>
@@ -974,9 +982,9 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
   }
 
   const featureLists: Record<string, string[]> = {
-    free: ["6% + $0.25 per transaction (on orders $3+)", "Unlimited digital products", "Basic OnePage features", "500 emails / month"],
-    growth: ["3% + $0.25 per transaction (on orders $3+)", "Unlimited digital products", "Premium OnePage features", "Custom domain", "Verified badge", "2,000 emails / month"],
-    pro: ["1.5% + $0.25 per transaction (on orders $3+)", "Unlimited digital products", "Premium OnePage features", "Custom domain", "Verified badge", "5,000 emails / month", "Priority support"],
+    free: ["6% + $0.25 per transaction", "Unlimited digital products", "Basic OnePage features", "500 emails / month"],
+    growth: ["3% + $0.25 per transaction", "Unlimited digital products", "Premium OnePage features", "Custom domain", "Verified badge", "2,000 emails / month"],
+    pro: ["1.5% + $0.25 per transaction", "Unlimited digital products", "Premium OnePage features", "Custom domain", "Verified badge", "5,000 emails / month", "Priority support"],
   }
 
   return (

@@ -1835,9 +1835,17 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
       {/* Notification Toast */}
       {notification.visible && (
         <div className="fixed top-[calc(68px+env(safe-area-inset-top)+12px)] md:top-4 left-1/2 -translate-x-1/2 z-[100] animate-in fade-in-0 slide-in-from-top-2 duration-300">
-          <div className="bg-[#1a1a2e] text-white px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-2 text-[13px] font-medium whitespace-nowrap">
+          <div className="bg-[#1a1a2e] text-white px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-2 text-[13px] font-medium whitespace-nowrap max-w-[calc(100vw-2rem)]">
             <Check className="h-4 w-4 text-emerald-400 shrink-0" />
-            {notification.message}
+            <span className="hidden sm:block">{notification.message}</span>
+            <span className="sm:hidden overflow-hidden text-ellipsis">{
+              notification.message.includes("Receipt sent to") ? "Receipt sent" :
+              notification.message.includes("Maximum resend limit") ? "Resend limit reached" :
+              notification.message.includes("Unable to resend") ? "Receipt unavailable" :
+              notification.message.includes("Failed to send") ? "Send failed" :
+              notification.message.includes("unsubscribed") ? "Unsubscribed" :
+              notification.message
+            }</span>
           </div>
         </div>
       )}
