@@ -893,20 +893,6 @@ function SearchInput({
   )
 }
 
-// Smooth scroll utility function
-function smoothScrollToSection(ref: React.RefObject<HTMLElement | null>) {
-  if (ref.current) {
-    const yOffset = -100 // Offset for fixed header
-    const element = ref.current
-    const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset
-
-    window.scrollTo({
-      top: y,
-      behavior: 'smooth'
-    })
-  }
-}
-
 interface ExplorePageClientProps {
   initialProducts: any[]
   initialCategory: string
@@ -935,7 +921,6 @@ export function ExplorePageClient({
   const [isLoadingCategory, setIsLoadingCategory] = useState(false)
   const [recommendationFilter, setRecommendationFilter] = useState<"curated" | "trending" | "hot-new">("curated")
   const categoryChangeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const categorySectionRef = useRef<HTMLElement>(null)
 
   // Filter states
   const [priceFilter, setPriceFilter] = useState<string>("all")
@@ -1205,13 +1190,6 @@ export function ExplorePageClient({
       })
       setIsLoadingCategory(false)
 
-      // Smooth scroll to Recommended section for both desktop and mobile
-      // Wait 450ms for modal animation to complete before scrolling
-      if (categoryId !== "all" || subcategoryId) {
-        setTimeout(() => {
-          smoothScrollToSection(categorySectionRef)
-        }, 450)
-      }
     }, 100)
   }, [router, urlSearchQuery])
 
@@ -1269,7 +1247,7 @@ export function ExplorePageClient({
 
       {/* Dynamic Category Section (Recommended) */}
       {!urlSearchQuery && (
-        <section ref={categorySectionRef} className="mt-10 scroll-mt-28">
+        <section className="mt-10 scroll-mt-28">
           {/* Section Header */}
           <div className="flex flex-col gap-4 mb-6 relative">
             {/* Title Row with Search and Filters */}
