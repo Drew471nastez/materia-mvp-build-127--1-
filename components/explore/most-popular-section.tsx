@@ -54,11 +54,21 @@ export function MostPopularSection({ products }: MostPopularSectionProps) {
   // Scroll to specific product on mobile
   const scrollToProduct = useCallback((index: number) => {
     if (mobileScrollRef.current) {
-      const targetSlide = mobileScrollRef.current.querySelector<HTMLElement>(`[data-popular-slide="${index}"]`)
+      const container = mobileScrollRef.current
+      const targetSlide = container.querySelector<HTMLElement>(`[data-popular-slide="${index}"]`)
+
       if (targetSlide) {
-        targetSlide.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" })
+        const targetLeft = targetSlide.offsetLeft - (container.clientWidth - targetSlide.offsetWidth) / 2
+        const maxScrollLeft = container.scrollWidth - container.clientWidth
+        const clampedLeft = Math.max(0, Math.min(targetLeft, maxScrollLeft))
+
+        container.scrollTo({
+          left: clampedLeft,
+          behavior: "smooth",
+        })
       }
     }
+
     setCurrentMobileIndex(index)
   }, [])
 
