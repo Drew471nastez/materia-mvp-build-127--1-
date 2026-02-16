@@ -212,9 +212,12 @@ export function PlatformHeaderClient() {
     router.refresh()
   }
 
+  const [isSearchOpen, setIsSearchOpen] = useState(false)
+
   const onSubmitSearch = (e: React.FormEvent) => {
     e.preventDefault()
     const trimmed = query.trim()
+    setIsSearchOpen(false)
     if (trimmed) {
       router.push(`/explore?q=${encodeURIComponent(trimmed)}`)
     } else {
@@ -223,6 +226,7 @@ export function PlatformHeaderClient() {
   }
 
   const onCategoryClick = (cat: string) => {
+    setIsSearchOpen(false)
     router.push(`/explore?category=${encodeURIComponent(cat)}`)
   }
 
@@ -259,7 +263,7 @@ export function PlatformHeaderClient() {
 
           {/* Mobile Search */}
           <div className="md:hidden flex-1 mx-2">
-            <Sheet>
+            <Sheet open={isSearchOpen} onOpenChange={setIsSearchOpen}>
               <SheetTrigger asChild>
                 <button
                   type="button"
@@ -411,7 +415,7 @@ export function PlatformHeaderClient() {
         {/* Categories */}
         {showCategories && (
           <nav className="border-t border-gray-200 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8">
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto [touch-action:pan-x_pan-y] overscroll-behavior-x-contain">
               <div className="flex h-11 items-center gap-6 whitespace-nowrap text-sm">
                 {DEFAULT_CATEGORIES.map((cat) => (
                   <button

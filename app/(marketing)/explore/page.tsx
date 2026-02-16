@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { CreatorCard } from "@/components/explore/creator-card"
 import { ProductCard } from "@/components/explore/product-card"
+import { ExplorePageWrapper } from "@/components/explore/explore-page-wrapper"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -157,107 +158,109 @@ export default async function ExplorePage({
   })
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-12">
-      <div className="mb-8">
-        <h1 className="text-3xl font-semibold tracking-tight">Explore</h1>
-        <p className="mt-2 text-muted-foreground">Discover creators and their products</p>
-      </div>
-
-      <form className="mb-6">
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input name="q" placeholder="Search creators or products..." className="pl-10" defaultValue={searchQuery} />
-          <input type="hidden" name="tab" value={activeTab} />
-          <input type="hidden" name="category" value={category} />
-          <input type="hidden" name="sort" value={sortBy} />
-          <input type="hidden" name="src" value={src} />
+    <ExplorePageWrapper>
+      <div className="mx-auto max-w-6xl px-4 py-12">
+        <div className="mb-8">
+          <h1 className="text-3xl font-semibold tracking-tight">Explore</h1>
+          <p className="mt-2 text-muted-foreground">Discover creators and their products</p>
         </div>
-      </form>
 
-      <div className="mb-6 flex flex-wrap gap-2">
-        {CATEGORIES.map((cat) => (
-          <Link key={cat} href={`/explore?tab=${activeTab}&category=${cat}&q=${searchQuery}&sort=${sortBy}&src=${src}`}>
-            <Badge variant={category === cat ? "default" : "outline"} className="cursor-pointer">
-              {cat}
-            </Badge>
+        <form className="mb-6">
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input name="q" placeholder="Search creators or products..." className="pl-10" defaultValue={searchQuery} />
+            <input type="hidden" name="tab" value={activeTab} />
+            <input type="hidden" name="category" value={category} />
+            <input type="hidden" name="sort" value={sortBy} />
+            <input type="hidden" name="src" value={src} />
+          </div>
+        </form>
+
+        <div className="mb-6 flex flex-wrap gap-2">
+          {CATEGORIES.map((cat) => (
+            <Link key={cat} href={`/explore?tab=${activeTab}&category=${cat}&q=${searchQuery}&sort=${sortBy}&src=${src}`}>
+              <Badge variant={category === cat ? "default" : "outline"} className="cursor-pointer">
+                {cat}
+              </Badge>
+            </Link>
+          ))}
+        </div>
+
+        <div className="mb-6 flex gap-4 text-sm">
+          <span className="text-muted-foreground">Sort:</span>
+          <Link
+            href={`/explore?tab=${activeTab}&category=${category}&q=${searchQuery}&sort=newest&src=${src}`}
+            className={
+              sortBy === "newest" ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground"
+            }
+          >
+            Newest
           </Link>
-        ))}
+          <Link
+            href={`/explore?tab=${activeTab}&category=${category}&q=${searchQuery}&sort=trending&src=${src}`}
+            className={
+              sortBy === "trending" ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground"
+            }
+          >
+            Trending
+          </Link>
+          <Link
+            href={`/explore?tab=${activeTab}&category=${category}&q=${searchQuery}&sort=featured&src=${src}`}
+            className={
+              sortBy === "featured" ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground"
+            }
+          >
+            Featured
+          </Link>
+        </div>
+
+        <Tabs defaultValue={activeTab}>
+          <TabsList>
+            <TabsTrigger value="products" asChild>
+              <Link href={`/explore?tab=products&category=${category}&q=${searchQuery}&sort=${sortBy}&src=${src}`}>
+                Products ({filteredProducts.length})
+              </Link>
+            </TabsTrigger>
+            <TabsTrigger value="creators" asChild>
+              <Link href={`/explore?tab=creators&category=${category}&q=${searchQuery}&sort=${sortBy}&src=${src}`}>
+                Creators ({filteredCreators.length})
+              </Link>
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="products" className="mt-6">
+            {filteredProducts.length > 0 ? (
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {filteredProducts.map((product) => (
+                  <ProductCard key={product.id} product={product} srcParam="?src=platform" />
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-lg border border-dashed border-border p-12 text-center">
+                <p className="text-muted-foreground">
+                  {searchQuery ? `No products found for "${searchQuery}"` : "No products found yet."}
+                </p>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="creators" className="mt-6">
+            {filteredCreators.length > 0 ? (
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {filteredCreators.map((creator) => (
+                  <CreatorCard key={creator.id} creator={creator} />
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-lg border border-dashed border-border p-12 text-center">
+                <p className="text-muted-foreground">
+                  {searchQuery ? `No creators found for "${searchQuery}"` : "No creators found yet."}
+                </p>
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
-
-      <div className="mb-6 flex gap-4 text-sm">
-        <span className="text-muted-foreground">Sort:</span>
-        <Link
-          href={`/explore?tab=${activeTab}&category=${category}&q=${searchQuery}&sort=newest&src=${src}`}
-          className={
-            sortBy === "newest" ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground"
-          }
-        >
-          Newest
-        </Link>
-        <Link
-          href={`/explore?tab=${activeTab}&category=${category}&q=${searchQuery}&sort=trending&src=${src}`}
-          className={
-            sortBy === "trending" ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground"
-          }
-        >
-          Trending
-        </Link>
-        <Link
-          href={`/explore?tab=${activeTab}&category=${category}&q=${searchQuery}&sort=featured&src=${src}`}
-          className={
-            sortBy === "featured" ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground"
-          }
-        >
-          Featured
-        </Link>
-      </div>
-
-      <Tabs defaultValue={activeTab}>
-        <TabsList>
-          <TabsTrigger value="products" asChild>
-            <Link href={`/explore?tab=products&category=${category}&q=${searchQuery}&sort=${sortBy}&src=${src}`}>
-              Products ({filteredProducts.length})
-            </Link>
-          </TabsTrigger>
-          <TabsTrigger value="creators" asChild>
-            <Link href={`/explore?tab=creators&category=${category}&q=${searchQuery}&sort=${sortBy}&src=${src}`}>
-              Creators ({filteredCreators.length})
-            </Link>
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="products" className="mt-6">
-          {filteredProducts.length > 0 ? (
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredProducts.map((product) => (
-                <ProductCard key={product.id} product={product} srcParam="?src=platform" />
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-lg border border-dashed border-border p-12 text-center">
-              <p className="text-muted-foreground">
-                {searchQuery ? `No products found for "${searchQuery}"` : "No products found yet."}
-              </p>
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="creators" className="mt-6">
-          {filteredCreators.length > 0 ? (
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredCreators.map((creator) => (
-                <CreatorCard key={creator.id} creator={creator} />
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-lg border border-dashed border-border p-12 text-center">
-              <p className="text-muted-foreground">
-                {searchQuery ? `No creators found for "${searchQuery}"` : "No creators found yet."}
-              </p>
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
-    </div>
+    </ExplorePageWrapper>
   )
 }

@@ -6,8 +6,21 @@ import { XIcon } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
-function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
-  return <SheetPrimitive.Root data-slot="sheet" {...props} />
+function Sheet({ onOpenChange, ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
+  const scrollPositionRef = React.useRef(0)
+
+  const handleOpenChange = React.useCallback((open: boolean) => {
+    if (open) {
+      scrollPositionRef.current = window.scrollY
+    } else {
+      requestAnimationFrame(() => {
+        window.scrollTo(0, scrollPositionRef.current)
+      })
+    }
+    onOpenChange?.(open)
+  }, [onOpenChange])
+
+  return <SheetPrimitive.Root data-slot="sheet" onOpenChange={handleOpenChange} {...props} />
 }
 
 function SheetTrigger({
