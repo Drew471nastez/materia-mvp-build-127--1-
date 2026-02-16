@@ -893,6 +893,19 @@ function SearchInput({
   )
 }
 
+
+function smoothScrollToRecommendedSection(ref: React.RefObject<HTMLElement | null>) {
+  if (!ref.current) return
+
+  const yOffset = -96
+  const y = ref.current.getBoundingClientRect().top + window.pageYOffset + yOffset
+
+  window.scrollTo({
+    top: Math.max(0, y),
+    behavior: "smooth",
+  })
+}
+
 interface ExplorePageClientProps {
   initialProducts: any[]
   initialCategory: string
@@ -921,6 +934,8 @@ export function ExplorePageClient({
   const [isLoadingCategory, setIsLoadingCategory] = useState(false)
   const [recommendationFilter, setRecommendationFilter] = useState<"curated" | "trending" | "hot-new">("curated")
   const categoryChangeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const categorySectionRef = useRef<HTMLElement>(null)
+  const pendingCategoryAutoScrollRef = useRef(false)
 
   // Filter states
   const [priceFilter, setPriceFilter] = useState<string>("all")
@@ -1166,14 +1181,20 @@ export function ExplorePageClient({
     return CATEGORIES.find(c => c.id === mainCategory)?.label || "Products"
   }, [mainCategory, selectedSubcategoryLabel, urlSearchQuery])
 
-  // Handle category change - updates main category and scrolls to Recommended section
-  const handleCategoryChange = useCallback((categoryId: string, subcategoryId?: string, subcategoryLabel?: string) => {
+  // Handle category change - updates main category and can smooth-scroll to Recommended section
+  const handleCategoryChange = useCallback((
+    categoryId: string,
+    subcategoryId?: string,
+    subcategoryLabel?: string,
+    shouldAutoScrollToRecommended = false,
+  ) => {
     setMainCategory(categoryId)
     setBrowseCategory(categoryId)
     setSelectedSubcategoryId(subcategoryId || null)
     setSelectedSubcategoryLabel(subcategoryLabel || null)
     setSelectedSubcategories([])
     setIsLoadingCategory(true)
+    pendingCategoryAutoScrollRef.current = shouldAutoScrollToRecommended
 
     if (categoryChangeTimeoutRef.current) clearTimeout(categoryChangeTimeoutRef.current)
 
@@ -1195,7 +1216,7 @@ export function ExplorePageClient({
 
   // Handle subcategory selection from modal
   const handleSubcategorySelect = useCallback((categoryId: string, subcategoryId: string, subcategoryLabel: string) => {
-    handleCategoryChange(categoryId, subcategoryId, subcategoryLabel)
+    handleCategoryChange(categoryId, subcategoryId, subcategoryLabel, true)
   }, [handleCategoryChange])
 
   // Handle browse category change from pills (only updates browse section, not recommended)
@@ -1205,8 +1226,25 @@ export function ExplorePageClient({
 
   // Handle category selection from modal - updates MAIN category and scrolls
   const handleCategorySelectorSelect = useCallback((categoryId: string) => {
-    handleCategoryChange(categoryId)
+    handleCategoryChange(categoryId, undefined, undefined, true)
   }, [handleCategoryChange])
+
+
+  useEffect(() => {
+    if (isLoadingCategory || !pendingCategoryAutoScrollRef.current || !categorySectionRef.current) {
+      return
+    }
+
+    pendingCategoryAutoScrollRef.current = false
+
+    const timer = window.setTimeout(() => {
+      requestAnimationFrame(() => {
+        smoothScrollToRecommendedSection(categorySectionRef)
+      })
+    }, 80)
+
+    return () => window.clearTimeout(timer)
+  }, [isLoadingCategory, mainCategory, selectedSubcategoryId])
 
   useEffect(() => {
     return () => {
@@ -1247,7 +1285,7 @@ export function ExplorePageClient({
 
       {/* Dynamic Category Section (Recommended) */}
       {!urlSearchQuery && (
-        <section className="mt-10 scroll-mt-28">
+        <section ref={categorySectionRef} className="mt-10 scroll-mt-28">
           {/* Section Header */}
           <div className="flex flex-col gap-4 mb-6 relative">
             {/* Title Row with Search and Filters */}
