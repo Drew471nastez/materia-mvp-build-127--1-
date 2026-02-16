@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useState, useEffect, useCallback, useRef } from "react"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 import { ProductCard } from "./product-card"
 
 interface MostPopularSectionProps {
@@ -39,15 +40,17 @@ export function MostPopularSection({ products }: MostPopularSectionProps) {
     return scored
   }, [products])
 
+  // Mobile: show max 6 products for cleaner navigation
+  const mobileProducts = popularProducts.slice(0, 6)
+
   // Mobile carousel state
   const [currentMobileIndex, setCurrentMobileIndex] = useState(0)
-  const [progress, setProgress] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
   const mobileScrollRef = useRef<HTMLDivElement>(null)
-  const progressIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const autoplayIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const pauseTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  const totalMobileProducts = popularProducts.length
+  const totalMobileProducts = mobileProducts.length
 
   // Scroll to specific product on mobile
   const scrollToProduct = useCallback((index: number) => {
@@ -60,7 +63,6 @@ export function MostPopularSection({ products }: MostPopularSectionProps) {
       })
     }
     setCurrentMobileIndex(index)
-    setProgress(0)
   }, [])
 
   // Go to next product (mobile)
@@ -69,46 +71,24 @@ export function MostPopularSection({ products }: MostPopularSectionProps) {
     scrollToProduct(nextIndex)
   }, [currentMobileIndex, totalMobileProducts, scrollToProduct])
 
-  // Mobile autoplay with progress
+  // Go to previous product (mobile)
+  const goToPrevMobile = useCallback(() => {
+    const prevIndex = (currentMobileIndex - 1 + totalMobileProducts) % totalMobileProducts
+    scrollToProduct(prevIndex)
+  }, [currentMobileIndex, totalMobileProducts, scrollToProduct])
+
+  // Mobile autoplay (5s interval, pauses on touch)
   useEffect(() => {
-    if (totalMobileProducts <= 1) return
+    if (totalMobileProducts <= 1 || isPaused) return
 
-    const startProgress = () => {
-      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current)
-
-      progressIntervalRef.current = setInterval(() => {
-        if (!isPaused) {
-          setProgress(prev => {
-            if (prev >= 100) return 100
-            return prev + 2.5 // 40 steps over 4 seconds
-          })
-        }
-      }, 100)
-    }
-
-    const startAutoplay = () => {
-      if (autoplayIntervalRef.current) clearInterval(autoplayIntervalRef.current)
-
-      autoplayIntervalRef.current = setInterval(() => {
-        if (!isPaused) {
-          goToNextMobile()
-        }
-      }, 4000)
-    }
-
-    startProgress()
-    startAutoplay()
+    autoplayIntervalRef.current = setInterval(() => {
+      goToNextMobile()
+    }, 5000)
 
     return () => {
-      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current)
       if (autoplayIntervalRef.current) clearInterval(autoplayIntervalRef.current)
     }
   }, [isPaused, totalMobileProducts, goToNextMobile])
-
-  // Reset progress when index changes
-  useEffect(() => {
-    setProgress(0)
-  }, [currentMobileIndex])
 
   // Handle scroll events to update current index
   const handleScroll = useCallback(() => {
@@ -118,10 +98,29 @@ export function MostPopularSection({ products }: MostPopularSectionProps) {
       const newIndex = Math.round(container.scrollLeft / itemWidth)
       if (newIndex !== currentMobileIndex && newIndex >= 0 && newIndex < totalMobileProducts) {
         setCurrentMobileIndex(newIndex)
-        setProgress(0)
       }
     }
   }, [currentMobileIndex, totalMobileProducts])
+
+  // Pause autoplay on touch, resume after delay so it doesn't fight manual swiping
+  const handleTouchStart = useCallback(() => {
+    setIsPaused(true)
+    if (pauseTimeoutRef.current) clearTimeout(pauseTimeoutRef.current)
+  }, [])
+
+  const handleTouchEnd = useCallback(() => {
+    if (pauseTimeoutRef.current) clearTimeout(pauseTimeoutRef.current)
+    pauseTimeoutRef.current = setTimeout(() => {
+      setIsPaused(false)
+    }, 6000) // 6s pause after touch so autoplay doesn't snap carousel back
+  }, [])
+
+  // Cleanup
+  useEffect(() => {
+    return () => {
+      if (pauseTimeoutRef.current) clearTimeout(pauseTimeoutRef.current)
+    }
+  }, [])
 
   if (popularProducts.length === 0) {
     return null
@@ -130,15 +129,35 @@ export function MostPopularSection({ products }: MostPopularSectionProps) {
   return (
     <section className="mt-8 md:mt-12 pt-[24px] pb-[24px] border-t border-neutral-100">
       {/* Section header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-5 md:mb-6">
         <div className="flex items-center gap-3">
-          <h2 className="text-xl sm:text-2xl font-bold text-neutral-900">
+          <h2 className="text-lg sm:text-2xl font-bold text-neutral-900">
             Most popular
           </h2>
-          <span className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-semibold bg-neutral-900 text-white">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 md:gap-1.5 md:px-3.5 md:py-2 rounded-full text-xs md:text-sm font-semibold bg-neutral-900 text-white">
             <span>🔥</span>
             <span>Hot</span>
           </span>
+        </div>
+
+        {/* Mobile prev/next arrows */}
+        <div className="flex items-center gap-2 md:hidden">
+          <button
+            type="button"
+            onClick={goToPrevMobile}
+            className="w-9 h-9 rounded-full bg-neutral-900 hover:bg-neutral-700 flex items-center justify-center transition-colors cursor-pointer active:scale-95 shadow-sm"
+            aria-label="Previous"
+          >
+            <ChevronLeft className="w-4 h-4 text-white" />
+          </button>
+          <button
+            type="button"
+            onClick={goToNextMobile}
+            className="w-9 h-9 rounded-full bg-neutral-900 hover:bg-neutral-700 flex items-center justify-center transition-colors cursor-pointer active:scale-95 shadow-sm"
+            aria-label="Next"
+          >
+            <ChevronRight className="w-4 h-4 text-white" />
+          </button>
         </div>
       </div>
 
@@ -154,20 +173,20 @@ export function MostPopularSection({ products }: MostPopularSectionProps) {
         ))}
       </div>
 
-      {/* Mobile: Horizontal scroll carousel with auto-swipe */}
+      {/* Mobile: Horizontal scroll carousel */}
       <div
         className="md:hidden"
-        onTouchStart={() => setIsPaused(true)}
-        onTouchEnd={() => setIsPaused(false)}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
       >
         <div
           ref={mobileScrollRef}
           onScroll={handleScroll}
-          className="overflow-x-auto scrollbar-hide -mx-4 px-4 snap-x snap-mandatory touch-pan-x"
+          className="overflow-x-auto scrollbar-hide -mx-4 px-4 snap-x snap-proximity"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
           <div className="flex gap-4">
-            {popularProducts.map((product, index) => (
+            {mobileProducts.map((product, index) => (
               <div key={product.id} className="flex-shrink-0 w-[85%] snap-center">
                 <ProductCard
                   product={product}
@@ -179,25 +198,22 @@ export function MostPopularSection({ products }: MostPopularSectionProps) {
           </div>
         </div>
 
-        {/* Mobile navigation dots with progress fill */}
+        {/* Mobile navigation dots — pill style */}
         {totalMobileProducts > 1 && (
-          <div className="flex items-center justify-center gap-2 mt-4">
-            {popularProducts.map((_, index) => {
+          <div className="flex items-center justify-center gap-1.5 mt-4">
+            {mobileProducts.map((_, index) => {
               const isActive = index === currentMobileIndex
-              const progressWidth = isActive ? progress : (index < currentMobileIndex ? 100 : 0)
-
               return (
                 <button
                   key={index}
                   onClick={() => scrollToProduct(index)}
-                  className="relative h-1 w-8 rounded-full overflow-hidden bg-gray-300 cursor-pointer transition-all hover:bg-gray-400"
+                  className={`rounded-full cursor-pointer transition-all duration-300 ${
+                    isActive
+                      ? "w-6 h-2 bg-neutral-900"
+                      : "w-2 h-2 bg-neutral-300 hover:bg-neutral-400"
+                  }`}
                   aria-label={`Go to product ${index + 1}`}
-                >
-                  <div
-                    className="absolute inset-y-0 left-0 bg-neutral-800 rounded-full transition-all duration-100"
-                    style={{ width: `${progressWidth}%` }}
-                  />
-                </button>
+                />
               )
             })}
           </div>
