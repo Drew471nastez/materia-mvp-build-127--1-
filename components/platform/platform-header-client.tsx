@@ -947,8 +947,8 @@ export function PlatformHeaderClient() {
             <>
               {/* Homepage Desktop Header */}
               <div className="hidden md:flex items-center justify-between w-full">
-                {/* Left - Logo - always links to storelib.com */}
-                <Link href="/" onClick={(e) => onCanonicalNav(e, "/")} className="shrink-0 flex items-center gap-2">
+                {/* Left - Logo - refreshes main page */}
+                <Link href="/" onClick={(e) => { e.preventDefault(); window.location.href = "/" }} className="shrink-0 flex items-center gap-2">
                   <Image
                     src={LOGO_URL || "/placeholder.svg"}
                     alt="Storelib"
@@ -1035,7 +1035,7 @@ export function PlatformHeaderClient() {
               <div className="md:hidden flex items-center justify-between w-full">
                 {/* Left - Logo */}
                 <div className="flex items-center gap-0">
-                  <Link href="/" onClick={(e) => onCanonicalNav(e, "/")} className="shrink-0 flex items-center gap-1.5">
+                  <Link href="/" onClick={(e) => { e.preventDefault(); window.location.href = "/" }} className="shrink-0 flex items-center gap-1.5">
                     <Image
                       src={LOGO_URL || "/placeholder.svg"}
                       alt="Storelib"
@@ -1064,8 +1064,8 @@ export function PlatformHeaderClient() {
               {/* Non-Homepage Desktop Header - Original Layout */}
               {/* Left side - Logo and Categories Button */}
               <div className="flex items-center gap-3 shrink-0">
-                {/* Logo with Storelib text - always links to storelib.com */}
-                <Link href="/" onClick={(e) => onCanonicalNav(e, "/")} className="shrink-0 hidden md:flex items-center gap-2">
+                {/* Logo with Storelib text - links to /explore */}
+                <Link href="/explore" onClick={(e) => onCanonicalNav(e, "/explore")} className="shrink-0 hidden md:flex items-center gap-2">
                   <Image
                     src={LOGO_URL || "/placeholder.svg"}
                     alt="Storelib"
@@ -1335,8 +1335,8 @@ export function PlatformHeaderClient() {
                 <AnimatedHamburger isOpen={mobileMenuOpen} />
               </button>
 
-              {/* Logo next to hamburger - always links to storelib.com */}
-              <Link href="/" onClick={(e) => onCanonicalNav(e, "/")} className="shrink-0 flex items-center gap-1.5">
+              {/* Logo next to hamburger - links to /explore */}
+              <Link href="/explore" onClick={(e) => onCanonicalNav(e, "/explore")} className="shrink-0 flex items-center gap-1.5">
                 <Image
                   src={LOGO_URL || "/placeholder.svg"}
                   alt="Storelib"

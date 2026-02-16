@@ -952,6 +952,7 @@ export function ExplorePageClient({
   const browseSectionRef = useRef<HTMLElement>(null)
   const pendingBrowseAutoScrollRef = useRef(false)
   const scrollTargetHandledRef = useRef<string | null>(null)
+  const hasMountedRef = useRef(false)
 
   // Filter states
   const [priceFilter, setPriceFilter] = useState<string>("all")
@@ -1317,8 +1318,16 @@ export function ExplorePageClient({
     })
   }, [categorySelectorOpen])
 
-  // Handle scroll target from URL (set by header, hamburger, search bar, featured categories)
+  // Mark component as mounted after initial render (skip auto-scroll on page load/reload)
   useEffect(() => {
+    const timer = setTimeout(() => { hasMountedRef.current = true }, 500)
+    return () => clearTimeout(timer)
+  }, [])
+
+  // Handle scroll target from URL (set by header, hamburger, search bar, featured categories)
+  // Only fires on client-side navigation, never on initial page load/reload
+  useEffect(() => {
+    if (!hasMountedRef.current) return
     const scrollTarget = searchParams.get("scroll")
     const currentUrl = window.location.href
     if (scrollTarget === "recommended" && scrollTargetHandledRef.current !== currentUrl) {
