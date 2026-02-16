@@ -573,6 +573,129 @@ function LaunchCountdownBar({ onCanonicalNav }: { onCanonicalNav: (e: React.Mous
   )
 }
 
+// Full header skeleton shown during initial page load
+function FullHeaderSkeleton({ isMarketing, showCategoryBar }: { isMarketing: boolean; showCategoryBar: boolean }) {
+  return (
+    <div className="relative z-40 w-full bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/90 pt-[env(safe-area-inset-top)]">
+      {/* Countdown bar skeleton for marketing pages */}
+      {isMarketing && (
+        <div className="bg-violet-600">
+          <div className="py-2 px-4 md:py-2.5">
+            <div className="max-w-[1400px] mx-auto flex items-center justify-center gap-2 md:gap-3">
+              <div className="h-4 w-48 md:w-72 bg-violet-500/50 rounded animate-pulse" />
+              <div className="h-7 w-24 md:w-28 bg-white/20 rounded-lg animate-pulse" />
+            </div>
+          </div>
+        </div>
+      )}
+      <header className="w-full bg-white border-b border-gray-200">
+        <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
+          <div className="flex h-[68px] md:h-[81px] items-center justify-between gap-4 md:py-[3px]">
+            {isMarketing ? (
+              <>
+                {/* Desktop marketing header skeleton */}
+                <div className="hidden md:flex items-center justify-between w-full">
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="h-[46px] w-[46px] rounded-xl bg-gray-200" />
+                    <Skeleton className="h-6 w-[72px] rounded bg-gray-200" />
+                  </div>
+                  <nav className="flex items-center gap-2">
+                    <Skeleton className="h-10 w-[92px] rounded-full bg-gray-100" />
+                    <Skeleton className="h-10 w-[56px] rounded-full bg-gray-100" />
+                    <Skeleton className="h-10 w-[72px] rounded-full bg-gray-100" />
+                    <Skeleton className="h-10 w-[84px] rounded-full bg-gray-100" />
+                  </nav>
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="h-11 w-11 rounded-full bg-gray-200" />
+                    <Skeleton className="h-11 w-[120px] rounded-lg bg-gray-200" />
+                  </div>
+                </div>
+                {/* Mobile marketing header skeleton */}
+                <div className="md:hidden flex items-center justify-between w-full">
+                  <div className="flex items-center gap-1.5">
+                    <Skeleton className="h-[42px] w-[42px] rounded-xl bg-gray-200" />
+                    <Skeleton className="h-5 w-[64px] rounded bg-gray-200" />
+                  </div>
+                  <Skeleton className="h-10 w-10 rounded-full bg-gray-100" />
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Desktop explore header skeleton */}
+                <div className="hidden md:flex items-center gap-3 shrink-0">
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="h-[46px] w-[46px] rounded-xl bg-gray-200" />
+                    <Skeleton className="h-6 w-[72px] rounded bg-gray-200" />
+                  </div>
+                  <Skeleton className="h-11 w-[130px] rounded-lg bg-gray-100" />
+                </div>
+                <div className="hidden md:flex flex-1 max-w-xl mx-4">
+                  <Skeleton className="h-11 w-full rounded-full bg-gray-100" />
+                </div>
+                <div className="hidden md:flex items-center gap-2.5 shrink-0">
+                  <Skeleton className="h-11 w-11 rounded-full bg-gray-200" />
+                  <Skeleton className="h-11 w-11 rounded-full bg-gray-200" />
+                  <Skeleton className="h-11 w-[110px] rounded-full bg-gray-200" />
+                  <Skeleton className="h-11 w-11 rounded-full bg-gray-200" />
+                </div>
+                {/* Mobile explore header skeleton */}
+                <div className="md:hidden flex items-center justify-between flex-1 -ml-6">
+                  <div className="flex items-center gap-0">
+                    <Skeleton className="h-9 w-9 rounded bg-gray-100" />
+                    <div className="flex items-center gap-1.5 ml-1">
+                      <Skeleton className="h-[38px] w-[38px] rounded-xl bg-gray-200" />
+                      <Skeleton className="h-5 w-[60px] rounded bg-gray-200" />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Skeleton className="h-9 w-9 rounded-full bg-gray-200" />
+                    <Skeleton className="h-9 w-9 rounded-full bg-gray-200" />
+                    <Skeleton className="h-8 w-8 rounded-full bg-gray-200 ml-2" />
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Mobile search bar skeleton for non-marketing */}
+          {!isMarketing && (
+            <div className="md:hidden pt-2 pb-1.5 border-t border-gray-100">
+              <Skeleton className="h-10 w-full rounded-full bg-gray-100" />
+            </div>
+          )}
+
+          {/* Mobile category pills skeleton */}
+          {showCategoryBar && (
+            <div className="md:hidden -mx-4 px-4 pt-0.5 pb-1">
+              <div className="flex items-center gap-2">
+                <Skeleton className="h-9 w-[52px] rounded-full bg-gray-100 flex-shrink-0" />
+                <Skeleton className="h-9 w-[120px] rounded-full bg-gray-100 flex-shrink-0" />
+                <Skeleton className="h-9 w-[140px] rounded-full bg-gray-100 flex-shrink-0" />
+                <Skeleton className="h-9 w-[60px] rounded-full bg-gray-100 flex-shrink-0" />
+                <Skeleton className="h-9 w-[76px] rounded-full bg-gray-100 flex-shrink-0" />
+              </div>
+            </div>
+          )}
+
+          {/* Desktop category bar skeleton */}
+          {showCategoryBar && (
+            <nav className="border-t border-gray-200 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 hidden md:block">
+              <div className="flex h-12 items-center gap-7">
+                <Skeleton className="h-5 w-[36px] rounded bg-gray-100" />
+                <Skeleton className="h-5 w-[110px] rounded bg-gray-100" />
+                <Skeleton className="h-5 w-[140px] rounded bg-gray-100" />
+                <Skeleton className="h-5 w-[52px] rounded bg-gray-100" />
+                <Skeleton className="h-5 w-[68px] rounded bg-gray-100" />
+                <Skeleton className="h-5 w-[30px] rounded bg-gray-100" />
+              </div>
+            </nav>
+          )}
+        </div>
+      </header>
+    </div>
+  )
+}
+
 export function PlatformHeaderClient() {
   const router = useRouter()
   const pathname = usePathname()
@@ -932,9 +1055,14 @@ export function PlatformHeaderClient() {
     ? CATEGORIES_WITH_SUBS.find(c => c.label === selectedCategoryForSubs)
     : null
 
+  // Show full header skeleton during initial auth/profile load
+  if (!initialLoadDone) {
+    return <FullHeaderSkeleton isMarketing={isMarketingNavRoute} showCategoryBar={showCategories} />
+  }
+
   return (
     <>
-      <div className="relative z-40 w-full bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/90 pt-[env(safe-area-inset-top)]">
+      <div className="relative z-40 w-full bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/90 pt-[env(safe-area-inset-top)] animate-in fade-in duration-300">
       {/* Homepage and Features Page Announcement Bar — Beta Countdown */}
       {(pathname === "/" || pathname === "/features" || pathname === "/pricing" || isBlogRoute) && (
         <LaunchCountdownBar onCanonicalNav={onCanonicalNav} />
