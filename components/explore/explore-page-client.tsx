@@ -29,21 +29,23 @@ function onTapEnd(callback: () => void) {
 
 // Safe body scroll lock/unlock helpers that prevent scroll bugs
 let scrollLockCount = 0
+let lockedScrollY = 0
+
 function lockBodyScroll() {
   if (scrollLockCount === 0) {
-    const scrollY = window.scrollY
-    document.body.style.setProperty('--scroll-y', `-${scrollY}px`)
+    lockedScrollY = window.scrollY
+    document.body.style.setProperty('--scroll-y', `-${lockedScrollY}px`)
     document.body.classList.add('modal-open')
   }
   scrollLockCount++
 }
+
 function unlockBodyScroll() {
   scrollLockCount = Math.max(0, scrollLockCount - 1)
   if (scrollLockCount === 0) {
-    const scrollY = document.body.style.getPropertyValue('--scroll-y')
     document.body.classList.remove('modal-open')
     document.body.style.removeProperty('--scroll-y')
-    window.scrollTo(0, parseInt(scrollY || '0') * -1)
+    window.scrollTo(0, lockedScrollY)
   }
 }
 
@@ -372,27 +374,41 @@ function MobileFilterSheet({
   const startY = useRef(0)
   const sheetRef = useRef<HTMLDivElement>(null)
 
+  const hasBodyScrollLock = useRef(false)
+
   useEffect(() => {
-    if (isOpen && !isVisible) {
-      setIsVisible(true)
+    if (!isOpen) return
+
+    setIsVisible(true)
+    if (!hasBodyScrollLock.current) {
       lockBodyScroll()
+      hasBodyScrollLock.current = true
+    }
+
+    requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          setIsAnimating(true)
-        })
+        setIsAnimating(true)
       })
-    } else if (!isOpen && isVisible) {
-      setIsAnimating(false)
-      unlockBodyScroll()
-      const timer = setTimeout(() => {
-        setIsVisible(false)
-        setDragY(0)
-      }, 400)
-      return () => clearTimeout(timer)
-    }
+    })
+
     return () => {
-      if (isVisible) unlockBodyScroll()
+      if (hasBodyScrollLock.current) {
+        unlockBodyScroll()
+        hasBodyScrollLock.current = false
+      }
     }
+  }, [isOpen])
+
+  useEffect(() => {
+    if (isOpen || !isVisible) return
+
+    setIsAnimating(false)
+    const timer = setTimeout(() => {
+      setIsVisible(false)
+      setDragY(0)
+    }, 400)
+
+    return () => clearTimeout(timer)
   }, [isOpen, isVisible])
 
   const handleClose = () => {
@@ -575,29 +591,43 @@ function CategorySelectorModal({
   const startY = useRef(0)
   const sheetRef = useRef<HTMLDivElement>(null)
 
+  const hasBodyScrollLock = useRef(false)
+
   useEffect(() => {
-    if (isOpen && !isVisible) {
-      setIsVisible(true)
-      setExpandedCategory(null)
+    if (!isOpen) return
+
+    setIsVisible(true)
+    setExpandedCategory(null)
+    if (!hasBodyScrollLock.current) {
       lockBodyScroll()
+      hasBodyScrollLock.current = true
+    }
+
+    requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          setIsAnimating(true)
-        })
+        setIsAnimating(true)
       })
-    } else if (!isOpen && isVisible) {
-      setIsAnimating(false)
-      unlockBodyScroll()
-      const timer = setTimeout(() => {
-        setIsVisible(false)
-        setDragY(0)
-        setExpandedCategory(null)
-      }, 400)
-      return () => clearTimeout(timer)
-    }
+    })
+
     return () => {
-      if (isVisible) unlockBodyScroll()
+      if (hasBodyScrollLock.current) {
+        unlockBodyScroll()
+        hasBodyScrollLock.current = false
+      }
     }
+  }, [isOpen])
+
+  useEffect(() => {
+    if (isOpen || !isVisible) return
+
+    setIsAnimating(false)
+    const timer = setTimeout(() => {
+      setIsVisible(false)
+      setDragY(0)
+      setExpandedCategory(null)
+    }, 400)
+
+    return () => clearTimeout(timer)
   }, [isOpen, isVisible])
 
   const handleClose = () => {
@@ -933,20 +963,6 @@ export function ExplorePageClient({
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1)
-
-  // Smooth scroll to Recommended section when category changes from URL
-  useEffect(() => {
-    const categoryParam = searchParams.get("category")
-    const subParam = searchParams.get("sub")
-
-    if (categoryParam && categoryParam !== "all") {
-      // Small delay to ensure DOM is ready
-      const timer = setTimeout(() => {
-        smoothScrollToSection(categorySectionRef)
-      }, 200)
-      return () => clearTimeout(timer)
-    }
-  }, [searchParams])
 
   // Reset page when filters change
   useEffect(() => {
