@@ -163,7 +163,7 @@ export function MostPopularSection({ products }: MostPopularSectionProps) {
         <div
           ref={mobileScrollRef}
           onScroll={handleScroll}
-          className="overflow-x-auto scrollbar-hide -mx-4 px-4 snap-x snap-mandatory touch-pan-x"
+          className="overflow-x-auto scrollbar-hide -mx-4 px-4 snap-x snap-mandatory touch-pan-x touch-pan-y"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
           <div className="flex gap-4">
