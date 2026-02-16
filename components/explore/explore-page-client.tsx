@@ -906,6 +906,18 @@ function smoothScrollToRecommendedSection(ref: React.RefObject<HTMLElement | nul
   })
 }
 
+function smoothScrollToBrowseSection(ref: React.RefObject<HTMLElement | null>) {
+  if (!ref.current) return
+
+  const yOffset = -96
+  const y = ref.current.getBoundingClientRect().top + window.pageYOffset + yOffset
+
+  window.scrollTo({
+    top: Math.max(0, y),
+    behavior: "smooth",
+  })
+}
+
 interface ExplorePageClientProps {
   initialProducts: any[]
   initialCategory: string
@@ -937,6 +949,9 @@ export function ExplorePageClient({
   const categorySectionRef = useRef<HTMLElement>(null)
   const categoryAutoScrollTimeoutRef = useRef<number | null>(null)
   const pendingCategoryAutoScrollRef = useRef(false)
+  const browseSectionRef = useRef<HTMLElement>(null)
+  const pendingBrowseAutoScrollRef = useRef(false)
+  const scrollTargetHandledRef = useRef<string | null>(null)
 
   // Filter states
   const [priceFilter, setPriceFilter] = useState<string>("all")
@@ -947,6 +962,7 @@ export function ExplorePageClient({
 
   // Category selector modal
   const [categorySelectorOpen, setCategorySelectorOpen] = useState(false)
+  const [categorySelectorSource, setCategorySelectorSource] = useState<'recommended' | 'browse'>('recommended')
 
   // Search states
   const [searchOpen, setSearchOpen] = useState(false)
@@ -1235,15 +1251,36 @@ export function ExplorePageClient({
     handleCategoryChange(categoryId, subcategoryId, subcategoryLabel, true)
   }, [handleCategoryChange])
 
-  // Handle browse category change from pills and smooth-scroll to Recommended section
-  const handleBrowseCategoryChange = useCallback((categoryId: string) => {
-    handleCategoryChange(categoryId, undefined, undefined, true)
-  }, [handleCategoryChange])
+  // Handle browse-only category change from browse section pills (doesn't change main/recommended)
+  const handleBrowseOnlyChange = useCallback((categoryId: string) => {
+    setBrowseCategory(categoryId)
+    // Scroll to browse section after content renders
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        smoothScrollToBrowseSection(browseSectionRef)
+      })
+    })
+  }, [])
 
-  // Handle category selection from modal - updates MAIN category and scrolls
-  const handleCategorySelectorSelect = useCallback((categoryId: string) => {
-    handleCategoryChange(categoryId, undefined, undefined, true)
-  }, [handleCategoryChange])
+  // Handle category selection from modal - depends on which section opened it
+  const handleModalCategorySelect = useCallback((categoryId: string) => {
+    if (categorySelectorSource === 'browse') {
+      setBrowseCategory(categoryId)
+      pendingBrowseAutoScrollRef.current = true
+    } else {
+      handleCategoryChange(categoryId, undefined, undefined, true)
+    }
+  }, [categorySelectorSource, handleCategoryChange])
+
+  // Handle subcategory selection from modal - depends on which section opened it
+  const handleModalSubcategorySelect = useCallback((categoryId: string, subcategoryId: string, subcategoryLabel: string) => {
+    if (categorySelectorSource === 'browse') {
+      setBrowseCategory(categoryId)
+      pendingBrowseAutoScrollRef.current = true
+    } else {
+      handleCategoryChange(categoryId, subcategoryId, subcategoryLabel, true)
+    }
+  }, [categorySelectorSource, handleCategoryChange])
 
 
   useEffect(() => {
@@ -1270,6 +1307,31 @@ export function ExplorePageClient({
     urlSearchQuery,
   ])
 
+
+  // Auto-scroll to browse section after category selector modal closes (when opened from browse context)
+  useEffect(() => {
+    if (categorySelectorOpen || !pendingBrowseAutoScrollRef.current) return
+    pendingBrowseAutoScrollRef.current = false
+    requestAnimationFrame(() => {
+      smoothScrollToBrowseSection(browseSectionRef)
+    })
+  }, [categorySelectorOpen])
+
+  // Handle scroll target from URL (set by header, hamburger, search bar, featured categories)
+  useEffect(() => {
+    const scrollTarget = searchParams.get("scroll")
+    const currentUrl = window.location.href
+    if (scrollTarget === "recommended" && scrollTargetHandledRef.current !== currentUrl) {
+      scrollTargetHandledRef.current = currentUrl
+      setTimeout(() => {
+        scrollRecommendedSectionWithRetry()
+        // Clean up scroll param without triggering re-render
+        const url = new URL(window.location.href)
+        url.searchParams.delete("scroll")
+        window.history.replaceState({}, '', url.pathname + url.search)
+      }, 200)
+    }
+  }, [searchParams, scrollRecommendedSectionWithRetry])
 
   useEffect(() => {
     return () => {
@@ -1339,7 +1401,7 @@ export function ExplorePageClient({
               <div className="flex items-center gap-2">
                 {/* Mobile: Category Icon Button */}
                 <button
-                  onClick={() => setCategorySelectorOpen(true)}
+                  onClick={() => { setCategorySelectorSource('recommended'); setCategorySelectorOpen(true) }}
                   className="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-full bg-neutral-100 text-neutral-700 hover:bg-neutral-200 transition-all duration-150 cursor-pointer"
                 >
                   <Layers className="w-4 h-4" />
@@ -1347,7 +1409,7 @@ export function ExplorePageClient({
 
                 {/* Desktop: By Category Pill Button */}
                 <button
-                  onClick={() => setCategorySelectorOpen(true)}
+                  onClick={() => { setCategorySelectorSource('recommended'); setCategorySelectorOpen(true) }}
                   className="hidden md:inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium bg-neutral-100 text-neutral-700 hover:bg-neutral-200 transition-all duration-150 cursor-pointer"
                 >
                   <Layers className="w-4 h-4" />
@@ -1687,13 +1749,13 @@ export function ExplorePageClient({
       )}
 
       {/* Browse by Category Section */}
-      <section className="mt-12 pt-8 border-t border-neutral-200">
+      <section ref={browseSectionRef} className="mt-12 pt-8 border-t border-neutral-200 scroll-mt-28">
         {/* Section Header */}
         <div className="flex flex-col gap-4 mb-4">
           {/* Mobile: By Category button above pills, right-aligned */}
           <div className="flex md:hidden justify-end">
             <button
-              onClick={() => setCategorySelectorOpen(true)}
+              onClick={() => { setCategorySelectorSource('browse'); setCategorySelectorOpen(true) }}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium bg-neutral-100 text-neutral-700 hover:bg-neutral-200 transition-colors cursor-pointer"
             >
               <span>By Category</span>
@@ -1709,7 +1771,7 @@ export function ExplorePageClient({
 
             {/* Desktop: By Category button */}
             <button
-              onClick={() => setCategorySelectorOpen(true)}
+              onClick={() => { setCategorySelectorSource('browse'); setCategorySelectorOpen(true) }}
               className="hidden md:inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium bg-neutral-100 text-neutral-700 hover:bg-neutral-200 transition-colors cursor-pointer"
             >
               <span>By Category</span>
@@ -1725,7 +1787,7 @@ export function ExplorePageClient({
               return (
                 <button
                   key={category.id}
-                  onClick={() => handleBrowseCategoryChange(category.id)}
+                  onClick={() => handleBrowseOnlyChange(category.id)}
                   className={`relative inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap cursor-pointer select-none transition-all duration-150 ease-out active:scale-[0.98] ${
                     isSelected
                       ? "bg-neutral-900 text-white shadow-sm"
@@ -1817,10 +1879,10 @@ export function ExplorePageClient({
       <CategorySelectorModal
         isOpen={categorySelectorOpen}
         onClose={() => setCategorySelectorOpen(false)}
-        selectedCategory={mainCategory}
-        selectedSubcategory={selectedSubcategoryId}
-        onSelectCategory={handleCategorySelectorSelect}
-        onSelectSubcategory={handleSubcategorySelect}
+        selectedCategory={categorySelectorSource === 'browse' ? browseCategory : mainCategory}
+        selectedSubcategory={categorySelectorSource === 'browse' ? null : selectedSubcategoryId}
+        onSelectCategory={handleModalCategorySelect}
+        onSelectSubcategory={handleModalSubcategorySelect}
       />
     </div>
   )

@@ -865,11 +865,12 @@ export function PlatformHeaderClient() {
   }
 
   const onCategoryClick = (cat: string) => {
+    const url = `/explore?category=${encodeURIComponent(cat)}&scroll=recommended`
     if (shouldForceCanonicalNav) {
-      navigateToCanonical(`/explore?category=${encodeURIComponent(cat)}`)
+      navigateToCanonical(url)
       return
     }
-    router.push(`/explore?category=${encodeURIComponent(cat)}`)
+    router.push(url)
   }
 
   const showCategories = pathname === "/explore" || pathname.startsWith("/explore")
@@ -1126,7 +1127,7 @@ export function PlatformHeaderClient() {
                           )}
                         </div>
                         <Link
-                          href={getCanonicalOrRelativePath(selectedCategoryData.href)}
+                          href={getCanonicalOrRelativePath(selectedCategoryData.href + '&scroll=recommended')}
                           onClick={() => setCategoriesDropdownOpen(false)}
                           className="flex items-center justify-between px-3 py-2.5 mb-1 rounded-lg text-sm font-medium text-gray-800 bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
                         >
@@ -1137,7 +1138,7 @@ export function PlatformHeaderClient() {
                           {selectedCategoryData.subcategories.map((sub) => (
                             <Link
                               key={sub.label}
-                              href={getCanonicalOrRelativePath(sub.href)}
+                              href={getCanonicalOrRelativePath(sub.href + '&scroll=recommended')}
                               onClick={() => setCategoriesDropdownOpen(false)}
                               className="block px-3 py-2.5 rounded-lg text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors cursor-pointer"
                             >
@@ -1162,7 +1163,7 @@ export function PlatformHeaderClient() {
                                   if (hasSubcats) {
                                     setSelectedCategoryForSubs(cat.label)
                                   } else {
-                                    shouldForceCanonicalNav ? navigateToCanonical(cat.href) : router.push(cat.href)
+                                    shouldForceCanonicalNav ? navigateToCanonical(cat.href + '&scroll=recommended') : router.push(cat.href + '&scroll=recommended')
                                     setCategoriesDropdownOpen(false)
                                   }
                                 }}
@@ -1235,7 +1236,7 @@ export function PlatformHeaderClient() {
                         {SEARCH_CATEGORIES.map((cat) => (
                           <Link
                             key={cat.label}
-                            href={getCanonicalOrRelativePath(cat.href)}
+                            href={getCanonicalOrRelativePath(cat.href + '&scroll=recommended')}
                             onClick={() => setSearchModalOpen(false)}
                             className="px-3 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 transition-colors cursor-pointer"
                           >
@@ -1613,7 +1614,7 @@ export function PlatformHeaderClient() {
                   {SEARCH_CATEGORIES.map((cat) => (
                     <Link
                       key={cat.label}
-                      href={getCanonicalOrRelativePath(cat.href)}
+                      href={getCanonicalOrRelativePath(cat.href + '&scroll=recommended')}
                       onClick={() => setSearchModalOpen(false)}
                       className="px-3 py-2 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 transition-colors cursor-pointer"
                     >
@@ -1926,7 +1927,7 @@ export function PlatformHeaderClient() {
                       )}
                     </div>
                     <Link
-                      href={getCanonicalOrRelativePath(cat.href)}
+                      href={getCanonicalOrRelativePath(cat.href + '&scroll=recommended')}
                       onClick={() => {
                         setExpandedCategory(null)
                         setMobileMenuOpen(false)
@@ -1940,7 +1941,7 @@ export function PlatformHeaderClient() {
                       {cat.subcategories.map((sub, index) => (
                         <Link
                           key={sub.label}
-                          href={getCanonicalOrRelativePath(sub.href)}
+                          href={getCanonicalOrRelativePath(sub.href + '&scroll=recommended')}
                           onClick={() => {
                             setExpandedCategory(null)
                             setMobileMenuOpen(false)
@@ -1969,7 +1970,7 @@ export function PlatformHeaderClient() {
                     if (hasSubcats) {
                       setExpandedCategory(cat.label)
                     } else {
-                      shouldForceCanonicalNav ? navigateToCanonical(cat.href) : router.push(cat.href)
+                      shouldForceCanonicalNav ? navigateToCanonical(cat.href + '&scroll=recommended') : router.push(cat.href + '&scroll=recommended')
                       setMobileMenuOpen(false)
                     }
                   }

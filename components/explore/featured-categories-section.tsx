@@ -158,13 +158,13 @@ export function FeaturedCategoriesSection({ products = [] }: FeaturedCategoriesS
             {/* Swipeable container with touch support */}
             <div
               id="mobile-categories-scroll"
-              className="flex gap-3 overflow-x-auto pb-3 scrollbar-hide -mx-4 px-4 snap-x snap-mandatory touch-pan-y"
+              className="flex gap-3 overflow-x-auto pb-3 scrollbar-hide -mx-4 px-4 snap-x snap-mandatory touch-manipulation"
               style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             >
               {bigCategories.map((category) => (
                 <div key={category.id} className="flex-shrink-0 w-[70%] snap-center">
                   <Link
-                    href={`/explore?category=${category.slug}`}
+                    href={`/explore?category=${category.slug}&scroll=recommended`}
                     className="group relative overflow-hidden rounded-2xl aspect-[4/3] bg-neutral-100 block transition-all duration-300 ease-out hover:shadow-lg"
                   >
                     {category.coverImage ? (
@@ -243,7 +243,7 @@ function CategoryCard({ category, size }: CategoryCardProps) {
 
   return (
     <Link
-      href={`/explore?category=${category.slug}`}
+      href={`/explore?category=${category.slug}&scroll=recommended`}
       className={`
         group relative overflow-hidden rounded-2xl ${isLarge ? "rounded-3xl" : "rounded-2xl"}
         ${isLarge ? "aspect-[4/5] sm:aspect-[3/4]" : "aspect-[4/3]"}
