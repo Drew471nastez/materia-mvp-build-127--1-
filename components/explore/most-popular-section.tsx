@@ -54,12 +54,10 @@ export function MostPopularSection({ products }: MostPopularSectionProps) {
   // Scroll to specific product on mobile
   const scrollToProduct = useCallback((index: number) => {
     if (mobileScrollRef.current) {
-      const container = mobileScrollRef.current
-      const itemWidth = container.clientWidth * 0.85 + 16 // 85% width + gap
-      container.scrollTo({
-        left: index * itemWidth,
-        behavior: 'smooth'
-      })
+      const targetSlide = mobileScrollRef.current.querySelector<HTMLElement>(`[data-popular-slide="${index}"]`)
+      if (targetSlide) {
+        targetSlide.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" })
+      }
     }
     setCurrentMobileIndex(index)
   }, [])
@@ -85,15 +83,31 @@ export function MostPopularSection({ products }: MostPopularSectionProps) {
 
   // Handle scroll events to update current index
   const handleScroll = useCallback(() => {
-    if (mobileScrollRef.current) {
-      const container = mobileScrollRef.current
-      const itemWidth = container.clientWidth * 0.85 + 16
-      const newIndex = Math.round(container.scrollLeft / itemWidth)
-      if (newIndex !== currentMobileIndex && newIndex >= 0 && newIndex < totalMobileProducts) {
-        setCurrentMobileIndex(newIndex)
+    if (!mobileScrollRef.current) return
+
+    const container = mobileScrollRef.current
+    const slides = Array.from(container.querySelectorAll<HTMLElement>("[data-popular-slide]"))
+    if (slides.length === 0) return
+
+    const containerCenter = container.scrollLeft + container.clientWidth / 2
+
+    let closestIndex = 0
+    let closestDistance = Number.POSITIVE_INFINITY
+
+    slides.forEach((slide, index) => {
+      const slideCenter = slide.offsetLeft + slide.offsetWidth / 2
+      const distance = Math.abs(slideCenter - containerCenter)
+
+      if (distance < closestDistance) {
+        closestDistance = distance
+        closestIndex = index
       }
+    })
+
+    if (closestIndex !== currentMobileIndex) {
+      setCurrentMobileIndex(closestIndex)
     }
-  }, [currentMobileIndex, totalMobileProducts])
+  }, [currentMobileIndex])
 
   // Pause autoplay on touch, resume after delay so it doesn't fight manual swiping
   const handleTouchStart = useCallback(() => {
@@ -161,7 +175,7 @@ export function MostPopularSection({ products }: MostPopularSectionProps) {
         >
           <div className="flex gap-4">
             {mobileProducts.map((product, index) => (
-              <div key={product.id} className="flex-shrink-0 w-[85%] snap-center">
+              <div key={product.id} data-popular-slide={index} className="flex-shrink-0 w-[85%] snap-center">
                 <ProductCard
                   product={product}
                   srcParam="?src=platform"
