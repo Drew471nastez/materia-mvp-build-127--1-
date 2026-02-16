@@ -935,7 +935,7 @@ export function ExplorePageClient({
   const [recommendationFilter, setRecommendationFilter] = useState<"curated" | "trending" | "hot-new">("curated")
   const categoryChangeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const categorySectionRef = useRef<HTMLElement>(null)
-  const pendingCategoryAutoScrollRef = useRef(false)
+  const categoryAutoScrollTimeoutRef = useRef<number | null>(null)
 
   // Filter states
   const [priceFilter, setPriceFilter] = useState<string>("all")
@@ -1181,6 +1181,21 @@ export function ExplorePageClient({
     return CATEGORIES.find(c => c.id === mainCategory)?.label || "Products"
   }, [mainCategory, selectedSubcategoryLabel, urlSearchQuery])
 
+  const scrollRecommendedSectionWithRetry = useCallback((attempt = 0) => {
+    if (urlSearchQuery) return
+
+    if (categorySectionRef.current) {
+      smoothScrollToRecommendedSection(categorySectionRef)
+      return
+    }
+
+    if (attempt >= 8) return
+
+    categoryAutoScrollTimeoutRef.current = window.setTimeout(() => {
+      scrollRecommendedSectionWithRetry(attempt + 1)
+    }, 60)
+  }, [urlSearchQuery])
+
   // Handle category change - updates main category and can smooth-scroll to Recommended section
   const handleCategoryChange = useCallback((
     categoryId: string,
@@ -1194,7 +1209,6 @@ export function ExplorePageClient({
     setSelectedSubcategoryLabel(subcategoryLabel || null)
     setSelectedSubcategories([])
     setIsLoadingCategory(true)
-    pendingCategoryAutoScrollRef.current = shouldAutoScrollToRecommended
 
     if (categoryChangeTimeoutRef.current) clearTimeout(categoryChangeTimeoutRef.current)
 
@@ -1211,8 +1225,20 @@ export function ExplorePageClient({
       })
       setIsLoadingCategory(false)
 
+      if (shouldAutoScrollToRecommended) {
+        if (categoryAutoScrollTimeoutRef.current) {
+          window.clearTimeout(categoryAutoScrollTimeoutRef.current)
+        }
+
+        categoryAutoScrollTimeoutRef.current = window.setTimeout(() => {
+          requestAnimationFrame(() => {
+            scrollRecommendedSectionWithRetry()
+          })
+        }, 120)
+      }
+
     }, 100)
-  }, [router, urlSearchQuery])
+  }, [router, scrollRecommendedSectionWithRetry, urlSearchQuery])
 
   // Handle subcategory selection from modal
   const handleSubcategorySelect = useCallback((categoryId: string, subcategoryId: string, subcategoryLabel: string) => {
@@ -1231,24 +1257,9 @@ export function ExplorePageClient({
 
 
   useEffect(() => {
-    if (isLoadingCategory || !pendingCategoryAutoScrollRef.current || !categorySectionRef.current) {
-      return
-    }
-
-    pendingCategoryAutoScrollRef.current = false
-
-    const timer = window.setTimeout(() => {
-      requestAnimationFrame(() => {
-        smoothScrollToRecommendedSection(categorySectionRef)
-      })
-    }, 80)
-
-    return () => window.clearTimeout(timer)
-  }, [isLoadingCategory, mainCategory, selectedSubcategoryId])
-
-  useEffect(() => {
     return () => {
       if (categoryChangeTimeoutRef.current) clearTimeout(categoryChangeTimeoutRef.current)
+      if (categoryAutoScrollTimeoutRef.current) window.clearTimeout(categoryAutoScrollTimeoutRef.current)
     }
   }, [])
 
