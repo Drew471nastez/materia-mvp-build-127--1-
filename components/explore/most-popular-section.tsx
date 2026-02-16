@@ -1,7 +1,6 @@
 "use client"
 
 import { useMemo, useState, useEffect, useCallback, useRef } from "react"
-import { ChevronLeft, ChevronRight } from "lucide-react"
 import { ProductCard } from "./product-card"
 
 interface MostPopularSectionProps {
@@ -71,12 +70,6 @@ export function MostPopularSection({ products }: MostPopularSectionProps) {
     scrollToProduct(nextIndex)
   }, [currentMobileIndex, totalMobileProducts, scrollToProduct])
 
-  // Go to previous product (mobile)
-  const goToPrevMobile = useCallback(() => {
-    const prevIndex = (currentMobileIndex - 1 + totalMobileProducts) % totalMobileProducts
-    scrollToProduct(prevIndex)
-  }, [currentMobileIndex, totalMobileProducts, scrollToProduct])
-
   // Mobile autoplay (5s interval, pauses on touch)
   useEffect(() => {
     if (totalMobileProducts <= 1 || isPaused) return
@@ -140,25 +133,6 @@ export function MostPopularSection({ products }: MostPopularSectionProps) {
           </span>
         </div>
 
-        {/* Mobile prev/next arrows */}
-        <div className="flex items-center gap-2 md:hidden">
-          <button
-            type="button"
-            onClick={goToPrevMobile}
-            className="w-9 h-9 rounded-full bg-neutral-900 hover:bg-neutral-700 flex items-center justify-center transition-colors cursor-pointer active:scale-95 shadow-sm"
-            aria-label="Previous"
-          >
-            <ChevronLeft className="w-4 h-4 text-white" />
-          </button>
-          <button
-            type="button"
-            onClick={goToNextMobile}
-            className="w-9 h-9 rounded-full bg-neutral-900 hover:bg-neutral-700 flex items-center justify-center transition-colors cursor-pointer active:scale-95 shadow-sm"
-            aria-label="Next"
-          >
-            <ChevronRight className="w-4 h-4 text-white" />
-          </button>
-        </div>
       </div>
 
       {/* Desktop: Static 3x2 grid - no carousel, no dots */}
