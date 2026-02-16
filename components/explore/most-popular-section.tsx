@@ -188,7 +188,7 @@ export function MostPopularSection({ products }: MostPopularSectionProps) {
           className="overflow-x-auto scrollbar-hide -mx-4 px-4 snap-x snap-proximity"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
-          <div className="flex gap-4">
+          <div className="flex gap-4 pr-4">
             {mobileProducts.map((product, index) => (
               <div key={product.id} data-popular-slide={index} className="flex-shrink-0 w-[85%] snap-center">
                 <ProductCard
