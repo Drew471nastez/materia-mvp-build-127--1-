@@ -89,6 +89,21 @@ export function MostPopularSection({ products }: MostPopularSectionProps) {
     const slides = Array.from(container.querySelectorAll<HTMLElement>("[data-popular-slide]"))
     if (slides.length === 0) return
 
+    const maxScrollLeft = container.scrollWidth - container.clientWidth
+    const edgeThreshold = 8
+
+    // Clamp edge cases so last/first dot stays accurate when browser cannot fully center slides at bounds
+    if (container.scrollLeft <= edgeThreshold) {
+      if (currentMobileIndex !== 0) setCurrentMobileIndex(0)
+      return
+    }
+
+    if (container.scrollLeft >= maxScrollLeft - edgeThreshold) {
+      const lastIndex = slides.length - 1
+      if (currentMobileIndex !== lastIndex) setCurrentMobileIndex(lastIndex)
+      return
+    }
+
     const containerCenter = container.scrollLeft + container.clientWidth / 2
 
     let closestIndex = 0
