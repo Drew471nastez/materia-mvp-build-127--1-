@@ -1902,18 +1902,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
           {/* General Tab */}
           {!isTabLoading && activeTab === "general" && (
             <div className="space-y-4 sm:space-y-6">
-              {/* Purple Announcement Bar — Connect Stripe */}
-              {stripeStatusLoading && !stripeStatus.connected && (
-                <div className="rounded-2xl bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] px-4 sm:px-6 py-3 sm:py-3.5 shadow-sm animate-pulse">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-5 h-5 rounded-full bg-white/20 shrink-0" />
-                      <div className="h-4 bg-white/20 rounded w-40 sm:w-64" />
-                    </div>
-                    <div className="h-9 w-20 sm:w-24 bg-white/20 rounded-lg shrink-0" />
-                  </div>
-                </div>
-              )}
+              {/* Purple Announcement Bar — Connect Stripe (only after status confirmed) */}
               {!stripeStatusLoading && !stripeStatus.connected && (
                 <div className="flex items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] px-4 sm:px-6 py-3 sm:py-3.5 shadow-sm transition-all duration-300">
                   <div className="flex items-center gap-3 min-w-0">
