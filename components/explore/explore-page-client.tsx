@@ -936,6 +936,7 @@ export function ExplorePageClient({
   const categoryChangeTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const categorySectionRef = useRef<HTMLElement>(null)
   const categoryAutoScrollTimeoutRef = useRef<number | null>(null)
+  const pendingCategoryAutoScrollRef = useRef(false)
 
   // Filter states
   const [priceFilter, setPriceFilter] = useState<string>("all")
@@ -1209,6 +1210,7 @@ export function ExplorePageClient({
     setSelectedSubcategoryLabel(subcategoryLabel || null)
     setSelectedSubcategories([])
     setIsLoadingCategory(true)
+    pendingCategoryAutoScrollRef.current = shouldAutoScrollToRecommended
 
     if (categoryChangeTimeoutRef.current) clearTimeout(categoryChangeTimeoutRef.current)
 
@@ -1225,20 +1227,8 @@ export function ExplorePageClient({
       })
       setIsLoadingCategory(false)
 
-      if (shouldAutoScrollToRecommended) {
-        if (categoryAutoScrollTimeoutRef.current) {
-          window.clearTimeout(categoryAutoScrollTimeoutRef.current)
-        }
-
-        categoryAutoScrollTimeoutRef.current = window.setTimeout(() => {
-          requestAnimationFrame(() => {
-            scrollRecommendedSectionWithRetry()
-          })
-        }, 120)
-      }
-
     }, 100)
-  }, [router, scrollRecommendedSectionWithRetry, urlSearchQuery])
+  }, [router, urlSearchQuery])
 
   // Handle subcategory selection from modal
   const handleSubcategorySelect = useCallback((categoryId: string, subcategoryId: string, subcategoryLabel: string) => {
@@ -1254,6 +1244,31 @@ export function ExplorePageClient({
   const handleCategorySelectorSelect = useCallback((categoryId: string) => {
     handleCategoryChange(categoryId, undefined, undefined, true)
   }, [handleCategoryChange])
+
+
+  useEffect(() => {
+    if (
+      urlSearchQuery ||
+      isLoadingCategory ||
+      categorySelectorOpen ||
+      !pendingCategoryAutoScrollRef.current
+    ) {
+      return
+    }
+
+    pendingCategoryAutoScrollRef.current = false
+
+    requestAnimationFrame(() => {
+      scrollRecommendedSectionWithRetry()
+    })
+  }, [
+    categorySelectorOpen,
+    isLoadingCategory,
+    mainCategory,
+    scrollRecommendedSectionWithRetry,
+    selectedSubcategoryId,
+    urlSearchQuery,
+  ])
 
 
   useEffect(() => {
