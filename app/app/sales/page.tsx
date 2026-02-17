@@ -105,7 +105,9 @@ export default async function SalesPage() {
       .order("created_at", { ascending: false })
 
     // Server-side refund sync: check Stripe for refunded orders still marked completed
-    if (creator.stripe_account_id && ordersData) {
+    // NOTE: This app uses destination charges — PIs live on the PLATFORM account, not the connected account.
+    // So we retrieve PIs WITHOUT the stripeAccount parameter.
+    if (ordersData) {
       const completedWithPI = ordersData.filter(
         (o: any) => o.status === "completed" && o.stripe_payment_intent_id
       )
@@ -113,8 +115,7 @@ export default async function SalesPage() {
         try {
           const pi = await stripe.paymentIntents.retrieve(
             order.stripe_payment_intent_id,
-            { expand: ["latest_charge"] },
-            { stripeAccount: creator.stripe_account_id }
+            { expand: ["latest_charge"] }
           )
           const charge = pi.latest_charge as any
           if (charge && (charge.refunded === true || (charge.amount_refunded && charge.amount_refunded > 0))) {

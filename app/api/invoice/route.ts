@@ -84,96 +84,116 @@ export async function GET(request: Request) {
       doc.on("end", () => resolve(Buffer.concat(chunks)))
     })
 
-    // Header
-    doc.fontSize(22).font("Helvetica-Bold").text(storeName, 50, 50)
-    doc.fontSize(11).font("Helvetica").fillColor("#6b7280").text("Digital Product Invoice", 50, 75)
+    // Header — Store name + INVOICE
+    doc.fontSize(22).font("Helvetica-Bold").fillColor("#1a1a2e").text(storeName, 50, 50)
 
-    doc.fontSize(28).font("Helvetica-Bold").fillColor("#6b7280").text("INVOICE", 400, 50, { align: "right" })
+    doc.fontSize(28).font("Helvetica-Bold").fillColor("#9ca3af").text("INVOICE", 400, 50, { align: "right" })
 
-    // Line
-    doc.moveTo(50, 100).lineTo(545, 100).strokeColor("#e5e7eb").lineWidth(1).stroke()
-
-    // Meta grid
-    const metaY = 120
-    doc.fontSize(9).font("Helvetica-Bold").fillColor("#9ca3af")
-    doc.text("INVOICE NUMBER", 50, metaY)
-    doc.text("DATE", 280, metaY)
-
-    doc.fontSize(13).font("Helvetica").fillColor("#1a1a2e")
-    doc.text(`#INV-${order.id.slice(0, 8).toUpperCase()}`, 50, metaY + 16)
-    doc.text(`${invoiceDate} at ${invoiceTime}`, 280, metaY + 16)
-
-    const metaY2 = metaY + 45
-    doc.fontSize(9).font("Helvetica-Bold").fillColor("#9ca3af")
-    doc.text("CUSTOMER", 50, metaY2)
-    doc.text("STATUS", 280, metaY2)
-
-    doc.fontSize(13).font("Helvetica").fillColor("#1a1a2e")
-    doc.text(order.customer_email || order.buyer_email || "N/A", 50, metaY2 + 16)
+    // Status badge next to INVOICE
     if (isRefunded) {
-      doc.fillColor("#dc2626").text("Refunded", 280, metaY2 + 16)
+      doc.roundedRect(460, 82, 85, 20, 4).fillColor("#fef2f2").fill()
+      doc.fontSize(9).font("Helvetica-Bold").fillColor("#dc2626").text("REFUNDED", 467, 87, { width: 71, align: "center" })
     } else {
-      doc.fillColor("#059669").text("Paid", 280, metaY2 + 16)
+      doc.roundedRect(490, 82, 55, 20, 4).fillColor("#ecfdf5").fill()
+      doc.fontSize(9).font("Helvetica-Bold").fillColor("#059669").text("PAID", 497, 87, { width: 41, align: "center" })
     }
 
-    // Table header
-    const tableY = metaY2 + 55
-    doc.moveTo(50, tableY).lineTo(545, tableY).strokeColor("#e5e7eb").lineWidth(2).stroke()
+    // Divider
+    doc.moveTo(50, 110).lineTo(545, 110).strokeColor("#e5e7eb").lineWidth(1).stroke()
 
-    doc.fontSize(9).font("Helvetica-Bold").fillColor("#6b7280")
-    doc.text("ITEM", 50, tableY + 8)
-    doc.text("AMOUNT", 450, tableY + 8, { align: "right" })
-
-    // Table line
-    doc.moveTo(50, tableY + 25).lineTo(545, tableY + 25).strokeColor("#e5e7eb").lineWidth(1).stroke()
-
-    // Table row
-    doc.fontSize(13).font("Helvetica").fillColor("#1a1a2e")
-    doc.text(order.product?.title || "Digital Product", 50, tableY + 35)
-    doc.text(formatPrice(order.amount_cents || 0), 350, tableY + 35, { align: "right", width: 195 })
-
-    // Totals
-    const totalsY = tableY + 75
-    doc.moveTo(330, totalsY).lineTo(545, totalsY).strokeColor("#f3f4f6").lineWidth(1).stroke()
+    // Invoice details grid — 2x2 layout
+    const metaY = 125
+    doc.fontSize(9).font("Helvetica-Bold").fillColor("#9ca3af")
+    doc.text("INVOICE NUMBER", 50, metaY)
+    doc.text("DATE", 300, metaY)
 
     doc.fontSize(12).font("Helvetica").fillColor("#1a1a2e")
-    doc.text("Subtotal", 330, totalsY + 10)
-    doc.text(formatPrice(order.amount_cents || 0), 350, totalsY + 10, { align: "right", width: 195 })
+    doc.text(`#INV-${order.id.slice(0, 8).toUpperCase()}`, 50, metaY + 15)
+    doc.text(`${invoiceDate}`, 300, metaY + 15)
+    doc.fontSize(10).fillColor("#6b7280").text(`${invoiceTime}`, 300, metaY + 30)
 
-    doc.text("Platform Fee", 330, totalsY + 30)
-    doc.text(`-${formatPrice(order.fee_cents || 0)}`, 350, totalsY + 30, { align: "right", width: 195 })
+    const metaY2 = metaY + 50
+    doc.fontSize(9).font("Helvetica-Bold").fillColor("#9ca3af")
+    doc.text("CUSTOMER EMAIL", 50, metaY2)
+    doc.text("PAYMENT METHOD", 300, metaY2)
 
-    doc.moveTo(330, totalsY + 52).lineTo(545, totalsY + 52).strokeColor("#1a1a2e").lineWidth(2).stroke()
+    doc.fontSize(12).font("Helvetica").fillColor("#1a1a2e")
+    doc.text(order.customer_email || order.buyer_email || "N/A", 50, metaY2 + 15)
+    doc.text("Stripe", 300, metaY2 + 15)
 
-    doc.fontSize(16).font("Helvetica-Bold")
-    doc.text("Net Amount", 330, totalsY + 62)
-    doc.text(formatPrice((order.amount_cents || 0) - (order.fee_cents || 0)), 350, totalsY + 62, { align: "right", width: 195 })
+    // Buyer name if available
+    const buyerName = [order.buyer_first_name, order.buyer_last_name].filter(Boolean).join(" ")
+    const metaY3 = metaY2 + 45
+    if (buyerName) {
+      doc.fontSize(9).font("Helvetica-Bold").fillColor("#9ca3af")
+      doc.text("CUSTOMER NAME", 50, metaY3)
+      doc.fontSize(12).font("Helvetica").fillColor("#1a1a2e")
+      doc.text(buyerName, 50, metaY3 + 15)
+    }
+
+    doc.fontSize(9).font("Helvetica-Bold").fillColor("#9ca3af")
+    doc.text("ORDER ID", 300, metaY3)
+    doc.fontSize(10).font("Helvetica").fillColor("#6b7280")
+    doc.text(order.id, 300, metaY3 + 15)
+
+    // Line items table
+    const tableY = metaY3 + 50
+    doc.moveTo(50, tableY).lineTo(545, tableY).strokeColor("#e5e7eb").lineWidth(1.5).stroke()
+
+    doc.fontSize(9).font("Helvetica-Bold").fillColor("#6b7280")
+    doc.text("ITEM", 50, tableY + 10)
+    doc.text("QTY", 380, tableY + 10, { width: 40, align: "center" })
+    doc.text("AMOUNT", 430, tableY + 10, { align: "right", width: 115 })
+
+    doc.moveTo(50, tableY + 28).lineTo(545, tableY + 28).strokeColor("#f3f4f6").lineWidth(1).stroke()
+
+    // Item row
+    doc.fontSize(12).font("Helvetica").fillColor("#1a1a2e")
+    doc.text(order.product?.title || "Product", 50, tableY + 38, { width: 320 })
+    doc.text("1", 380, tableY + 38, { width: 40, align: "center" })
+    doc.text(formatPrice(order.amount_cents || 0), 430, tableY + 38, { align: "right", width: 115 })
+
+    // Totals section
+    const totalsY = tableY + 80
+    doc.moveTo(330, totalsY).lineTo(545, totalsY).strokeColor("#f3f4f6").lineWidth(1).stroke()
+
+    doc.fontSize(11).font("Helvetica").fillColor("#6b7280")
+    doc.text("Subtotal", 330, totalsY + 12)
+    doc.fillColor("#1a1a2e").text(formatPrice(order.amount_cents || 0), 430, totalsY + 12, { align: "right", width: 115 })
+
+    doc.fillColor("#6b7280").text("Platform Fee", 330, totalsY + 34)
+    doc.fillColor("#1a1a2e").text(`-${formatPrice(order.fee_cents || 0)}`, 430, totalsY + 34, { align: "right", width: 115 })
+
+    doc.moveTo(330, totalsY + 56).lineTo(545, totalsY + 56).strokeColor("#1a1a2e").lineWidth(1.5).stroke()
+
+    doc.fontSize(14).font("Helvetica-Bold").fillColor("#1a1a2e")
+    doc.text("Net Earnings", 330, totalsY + 66)
+    doc.text(formatPrice((order.amount_cents || 0) - (order.fee_cents || 0)), 430, totalsY + 66, { align: "right", width: 115 })
 
     // Refund section
-    let currentY = totalsY + 100
+    let currentY = totalsY + 105
     if (isRefunded) {
-      // Red background box
-      doc.roundedRect(50, currentY, 495, 80, 6).fillColor("#fef2f2").fill()
+      doc.roundedRect(50, currentY, 495, 75, 6).fillColor("#fef2f2").fill()
 
-      doc.fontSize(13).font("Helvetica-Bold").fillColor("#dc2626")
-      doc.text("Refund Details", 65, currentY + 12)
+      doc.fontSize(12).font("Helvetica-Bold").fillColor("#dc2626")
+      doc.text("Refund Information", 65, currentY + 12)
 
-      doc.fontSize(11).font("Helvetica").fillColor("#7f1d1d")
-      doc.text(`Amount: ${formatPrice(order.refund_amount_cents || order.amount_cents)}`, 65, currentY + 32)
-      if (refundDate) doc.text(`Date: ${refundDate}${refundTime ? ` at ${refundTime}` : ""}`, 65, currentY + 48)
-      if (order.refund_reason) doc.text(`Reason: ${order.refund_reason}`, 65, currentY + 64)
+      doc.fontSize(10).font("Helvetica").fillColor("#7f1d1d")
+      doc.text(`Amount Refunded: ${formatPrice(order.refund_amount_cents || order.amount_cents)}`, 65, currentY + 30)
+      if (refundDate) doc.text(`Refund Date: ${refundDate}${refundTime ? ` at ${refundTime}` : ""}`, 65, currentY + 46)
+      if (order.refund_reason) doc.text(`Reason: ${order.refund_reason}`, 65, currentY + 62)
 
-      currentY += 100
+      currentY += 95
     }
 
     // Footer
-    currentY = Math.max(currentY, 650)
+    currentY = Math.max(currentY, 660)
     doc.moveTo(50, currentY).lineTo(545, currentY).strokeColor("#e5e7eb").lineWidth(1).stroke()
 
-    doc.fontSize(11).font("Helvetica").fillColor("#9ca3af")
+    doc.fontSize(10).font("Helvetica").fillColor("#9ca3af")
     doc.text("Thank you for your purchase.", 50, currentY + 15, { align: "center", width: 495 })
-    doc.text(`${storeName} — Powered by Storelib`, 50, currentY + 32, { align: "center", width: 495 })
-    doc.fontSize(9).text(`Order ID: ${order.id}`, 50, currentY + 50, { align: "center", width: 495 })
+    doc.text(`${storeName} — Powered by Storelib`, 50, currentY + 30, { align: "center", width: 495 })
+    doc.fontSize(8).text(`Generated on ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}`, 50, currentY + 46, { align: "center", width: 495 })
 
     doc.end()
     const pdfBuffer = await pdfReady

@@ -88,10 +88,9 @@ export async function POST(request: Request) {
         refund_reason: reason || "requested_by_customer",
       },
     }
-    const stripeOptions = creator.stripe_account_id
-      ? { stripeAccount: creator.stripe_account_id }
-      : undefined
-    const refund = await stripe.refunds.create(refundParams, stripeOptions)
+    // NOTE: This app uses destination charges — PIs and refunds live on the PLATFORM account.
+    // Do NOT pass stripeAccount; the refund is created on the platform and automatically reverses the transfer.
+    const refund = await stripe.refunds.create(refundParams)
 
     // Update order status in database — split into two updates for column safety
     // Step 1: Update status (this column always exists)

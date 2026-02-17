@@ -62,14 +62,10 @@ export async function POST() {
         if (!order.stripe_payment_intent_id) continue
 
         // Retrieve the payment intent with charge and refund data expanded
-        const stripeOpts = creator.stripe_account_id
-          ? { stripeAccount: creator.stripe_account_id }
-          : undefined
-
+        // NOTE: This app uses destination charges — PIs live on the PLATFORM account, not the connected account.
         const paymentIntent = await stripe.paymentIntents.retrieve(
           order.stripe_payment_intent_id,
-          { expand: ["latest_charge"] },
-          stripeOpts
+          { expand: ["latest_charge"] }
         )
 
         // Check if charge was refunded

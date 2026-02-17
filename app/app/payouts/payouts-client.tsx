@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
+import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
@@ -431,10 +432,12 @@ function OrderDetailsModal({
   const coverImage = selectedOrder.product?.thumbnail_url
   const productTitle = selectedOrder.product?.title || "Unknown Product"
 
-  return (
+  if (typeof window === "undefined") return null
+
+  return createPortal(
     <>
       {/* Desktop Modal */}
-      <div className="fixed inset-0 z-50 hidden sm:flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-[200] hidden sm:flex items-center justify-center p-4">
         <div
           className={`absolute inset-0 bg-black/50 transition-opacity duration-400 ${isAnimating ? 'opacity-100' : 'opacity-0'}`}
           onClick={handleClose}
@@ -515,7 +518,6 @@ function OrderDetailsModal({
                 )}
                 <div>
                   <p className="font-medium text-[#1a1a2e]">{productTitle}</p>
-                  <p className="text-[12px] text-[#6b7280]">Digital Product</p>
                 </div>
               </div>
             </div>
@@ -603,7 +605,7 @@ function OrderDetailsModal({
       </div>
 
       {/* Mobile Bottom Sheet */}
-      <div className="fixed inset-0 z-50 sm:hidden">
+      <div className="fixed inset-0 z-[200] sm:hidden">
         <div
           className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity ease-out ${isAnimating ? "opacity-100" : "opacity-0"}`}
           style={{ transitionDuration: '400ms' }}
@@ -684,7 +686,6 @@ function OrderDetailsModal({
                   )}
                   <div>
                     <p className="text-[13px] font-medium text-[#1a1a2e]">{productTitle}</p>
-                    <p className="text-[11px] text-[#6b7280]">Digital Product</p>
                   </div>
                 </div>
               </div>
@@ -774,7 +775,8 @@ function OrderDetailsModal({
           <div className="h-[env(safe-area-inset-bottom)] min-h-[16px] bg-white" />
         </div>
       </div>
-    </>
+    </>,
+    document.body
   )
 }
 
