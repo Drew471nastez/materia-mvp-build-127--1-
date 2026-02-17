@@ -2586,7 +2586,7 @@ Tips:
         <div className="py-2 px-4 md:py-2.5">
           <div className="max-w-[1200px] mx-auto flex items-center justify-center gap-2 md:gap-3 text-center">
             <span className="text-[12px] md:text-[14px] text-white/90">
-              <span className="font-semibold text-white">Try Pro free</span>
+              <span className="font-semibold text-white">Try Pro</span>
               <span className="hidden md:inline"> — our most popular plan for content creators and businesses.</span>
             </span>
             <Link

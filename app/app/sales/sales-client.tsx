@@ -2349,7 +2349,7 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
             {announcementType === "upgrade" && (
               <>
                 <span className="text-[12px] md:text-[14px] text-white/90">
-                  <span className="font-semibold text-white">Try Pro free</span>
+                  <span className="font-semibold text-white">Try Pro</span>
                   <span className="hidden md:inline"> — our most popular plan for content creators and businesses.</span>
                 </span>
                 <Link
