@@ -780,7 +780,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           }}
           className={cn(
             "fixed bottom-6 right-4 md:right-6 z-40 hidden md:flex items-center gap-2 bg-white rounded-full pl-2 pr-3 py-2 md:pl-2.5 md:pr-4 md:py-2.5 shadow-lg border border-neutral-200/70 transition-all duration-200 hover:shadow-xl hover:scale-105 active:scale-95",
-            (pathname.startsWith("/app/settings") || pathname.startsWith("/app/emails")) && "!hidden"
+            (pathname.startsWith("/app/settings") || pathname.startsWith("/app/emails") || pathname.startsWith("/app/payouts")) && "!hidden"
           )}
         >
           <div className="relative shrink-0 w-8 h-8 md:w-[37px] md:h-[37px]">

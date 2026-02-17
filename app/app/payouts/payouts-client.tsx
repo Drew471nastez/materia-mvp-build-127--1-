@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
@@ -31,6 +31,8 @@ import {
   Shield,
   Zap,
   ChevronRight,
+  ChevronDown,
+  X,
   XCircle,
   HelpCircle,
   Landmark,
@@ -42,8 +44,11 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   ShoppingCart,
+  Users,
+  Copy,
+  Check,
+  Send,
 } from "lucide-react"
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
 import { useLanguage } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 
@@ -72,6 +77,11 @@ interface OrderPayment {
   refund_amount_cents?: number
   refunded_at?: string
   stripe_refund_id?: string
+  buyer_first_name?: string
+  buyer_last_name?: string
+  payment_method?: string
+  card_brand?: string | null
+  card_last4?: string | null
   product?: {
     title: string
     thumbnail_url?: string | null
@@ -103,25 +113,684 @@ interface StripePayout {
   destination: string | null
 }
 
-interface EarningsTrend {
-  date: string
-  earnings: number
-  fees: number
-  net: number
+type ActiveTab = "payouts" | "sales"
+
+type TimeframeOption = {
+  value: string
+  label: string
+  getDates: () => { start: Date; end: Date }
 }
 
-type ActiveTab = "payouts" | "sales"
+const timeframeOptions: TimeframeOption[] = [
+  {
+    value: "today",
+    label: "Today",
+    getDates: () => {
+      const start = new Date()
+      start.setHours(0, 0, 0, 0)
+      return { start, end: new Date() }
+    },
+  },
+  {
+    value: "yesterday",
+    label: "Yesterday",
+    getDates: () => {
+      const start = new Date()
+      start.setDate(start.getDate() - 1)
+      start.setHours(0, 0, 0, 0)
+      const end = new Date()
+      end.setDate(end.getDate() - 1)
+      end.setHours(23, 59, 59, 999)
+      return { start, end }
+    },
+  },
+  {
+    value: "last_7_days",
+    label: "Last 7 days",
+    getDates: () => {
+      const end = new Date()
+      const start = new Date()
+      start.setDate(start.getDate() - 7)
+      return { start, end }
+    },
+  },
+  {
+    value: "last_30_days",
+    label: "Last 30 days",
+    getDates: () => {
+      const end = new Date()
+      const start = new Date()
+      start.setDate(start.getDate() - 30)
+      return { start, end }
+    },
+  },
+  {
+    value: "last_90_days",
+    label: "Last 90 days",
+    getDates: () => {
+      const end = new Date()
+      const start = new Date()
+      start.setDate(start.getDate() - 90)
+      return { start, end }
+    },
+  },
+  {
+    value: "this_year",
+    label: "This year",
+    getDates: () => {
+      const end = new Date()
+      const start = new Date()
+      start.setMonth(0)
+      start.setDate(1)
+      start.setHours(0, 0, 0, 0)
+      return { start, end }
+    },
+  },
+  {
+    value: "all_time",
+    label: "All time",
+    getDates: () => {
+      const end = new Date()
+      const start = new Date(2020, 0, 1)
+      return { start, end }
+    },
+  },
+]
+
+// Mobile Bottom Sheet for Timeframe Selector
+function TimeframeBottomSheet({
+  isOpen,
+  onClose,
+  options,
+  selectedValue,
+  onSelect,
+}: {
+  isOpen: boolean
+  onClose: () => void
+  options: TimeframeOption[]
+  selectedValue: string
+  onSelect: (value: string) => void
+}) {
+  const [isVisible, setIsVisible] = useState(false)
+  const [isAnimating, setIsAnimating] = useState(false)
+  const [dragY, setDragY] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+  const startY = React.useRef(0)
+  const sheetRef = React.useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (isOpen && !isVisible) {
+      setIsVisible(true)
+      document.body.style.overflow = "hidden"
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => setIsAnimating(true))
+      })
+    } else if (!isOpen && isVisible) {
+      setIsAnimating(false)
+      document.body.style.overflow = ""
+      const timer = setTimeout(() => {
+        setIsVisible(false)
+        setDragY(0)
+      }, 400)
+      return () => clearTimeout(timer)
+    }
+    return () => { document.body.style.overflow = "" }
+  }, [isOpen, isVisible])
+
+  const handleClose = () => {
+    setIsAnimating(false)
+    setDragY(0)
+    setTimeout(() => onClose(), 400)
+  }
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0]
+    const sheetElement = sheetRef.current
+    if (!sheetElement) return
+    const sheetRect = sheetElement.getBoundingClientRect()
+    const touchYInSheet = touch.clientY - sheetRect.top
+    if (touchYInSheet <= 60) {
+      startY.current = touch.clientY
+      setIsDragging(true)
+    }
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging) return
+    const diff = e.touches[0].clientY - startY.current
+    if (diff > 0) setDragY(diff * 0.9)
+  }
+
+  const handleTouchEnd = () => {
+    if (!isDragging) return
+    setIsDragging(false)
+    if (dragY > 90) handleClose()
+    else setDragY(0)
+  }
+
+  if (!isVisible) return null
+
+  return (
+    <div className="fixed inset-0 z-[100] md:hidden">
+      <div
+        className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity duration-400 ease-out ${isAnimating ? "opacity-100" : "opacity-0"}`}
+        style={{ transitionDuration: '400ms' }}
+        onClick={handleClose}
+      />
+      <div
+        ref={sheetRef}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
+        style={{
+          transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)",
+          transition: isDragging ? 'none' : 'transform 360ms cubic-bezier(0.22, 0.9, 0.24, 1)',
+        }}
+      >
+        <div className="pt-3 pb-2">
+          <button onClick={handleClose} className="w-full flex justify-center py-2 cursor-pointer touch-none">
+            <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
+          </button>
+        </div>
+        <div className="px-4 pb-4">
+          <h3 className="text-[16px] font-semibold text-[#1a1a2e] mb-4">Select time period</h3>
+          <div className="space-y-1 max-h-[50vh] overflow-y-auto overscroll-contain">
+            {options.map((option) => (
+              <button
+                key={option.value}
+                onClick={() => { onSelect(option.value); handleClose() }}
+                className={`w-full text-left px-4 py-3 rounded-xl text-[15px] font-medium transition-colors ${
+                  selectedValue === option.value
+                    ? "bg-[#f5f3ff] text-[#8b5cf6]"
+                    : "text-[#374151] hover:bg-[#f9fafb] active:bg-[#f3f4f6]"
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="h-[env(safe-area-inset-bottom)]" />
+      </div>
+    </div>
+  )
+}
+
+// Order Details Modal with swipe-to-close on mobile — matching sales page exactly
+function OrderDetailsModal({
+  isOpen,
+  onClose,
+  selectedOrder,
+  formatPrice,
+  formatFullDate,
+  handleDownloadInvoice,
+  handleOpenRefund,
+  invoiceLoading,
+}: {
+  isOpen: boolean
+  onClose: () => void
+  selectedOrder: OrderPayment | null
+  formatPrice: (cents: number) => string
+  formatFullDate: (dateString: string) => string
+  handleDownloadInvoice: (order: OrderPayment) => void
+  handleOpenRefund: (order: OrderPayment) => void
+  invoiceLoading: boolean
+}) {
+  const [isVisible, setIsVisible] = useState(false)
+  const [isAnimating, setIsAnimating] = useState(false)
+  const [dragY, setDragY] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+  const [copiedId, setCopiedId] = useState(false)
+  const startY = React.useRef(0)
+  const sheetRef = React.useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (isOpen && !isVisible) {
+      setIsVisible(true)
+      document.body.style.overflow = "hidden"
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => setIsAnimating(true))
+      })
+    } else if (!isOpen && isVisible) {
+      setIsAnimating(false)
+      document.body.style.overflow = ""
+      const timer = setTimeout(() => {
+        setIsVisible(false)
+        setDragY(0)
+      }, 400)
+      return () => clearTimeout(timer)
+    }
+    return () => { document.body.style.overflow = "" }
+  }, [isOpen, isVisible])
+
+  const handleClose = () => {
+    setIsAnimating(false)
+    setDragY(0)
+    setTimeout(() => onClose(), 400)
+  }
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0]
+    const sheetElement = sheetRef.current
+    if (!sheetElement) return
+    const sheetRect = sheetElement.getBoundingClientRect()
+    const touchYInSheet = touch.clientY - sheetRect.top
+    if (touchYInSheet <= 60) {
+      startY.current = touch.clientY
+      setIsDragging(true)
+    }
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging) return
+    const diff = e.touches[0].clientY - startY.current
+    if (diff > 0) setDragY(diff * 0.9)
+  }
+
+  const handleTouchEnd = () => {
+    if (!isDragging) return
+    setIsDragging(false)
+    if (dragY > 90) handleClose()
+    else setDragY(0)
+  }
+
+  const handleCopyOrderId = (orderId: string) => {
+    navigator.clipboard.writeText(orderId)
+    setCopiedId(true)
+    setTimeout(() => setCopiedId(false), 2000)
+  }
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "completed":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-violet-100 text-violet-700">
+            <CheckCircle2 className="h-3 w-3" />
+            Completed
+          </span>
+        )
+      case "refunded":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-rose-100 text-rose-700">
+            <RotateCcw className="h-3 w-3" />
+            Refunded
+          </span>
+        )
+      default:
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-700">
+            {status}
+          </span>
+        )
+    }
+  }
+
+  if (!isVisible || !selectedOrder) return null
+
+  const coverImage = selectedOrder.product?.thumbnail_url
+  const productTitle = selectedOrder.product?.title || "Unknown Product"
+
+  return (
+    <>
+      {/* Desktop Modal */}
+      <div className="fixed inset-0 z-50 hidden sm:flex items-center justify-center p-4">
+        <div
+          className={`absolute inset-0 bg-black/50 transition-opacity duration-400 ${isAnimating ? 'opacity-100' : 'opacity-0'}`}
+          onClick={handleClose}
+        />
+        <div
+          className={`relative bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl transition-all duration-400 ${
+            isAnimating ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
+          }`}
+          style={{ transitionTimingFunction: 'cubic-bezier(0.32, 0.72, 0, 1)' }}
+        >
+          {/* Desktop Header */}
+          <div className="sticky top-0 bg-white border-b border-[#e5e7eb] px-6 py-4 flex items-center justify-between">
+            <h2 className="text-[18px] font-semibold text-[#1a1a2e]">Order Details</h2>
+            <button
+              onClick={handleClose}
+              className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center text-[#6b7280] hover:bg-[#e5e7eb] transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* Desktop Content */}
+          <div className="p-6 space-y-6">
+            {/* Order ID & Status */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-[12px] text-[#6b7280]">Order ID:</span>
+                <code className="text-[12px] font-mono bg-[#f3f4f6] px-2 py-0.5 rounded">
+                  #{selectedOrder.id.slice(0, 8)}
+                </code>
+                <button
+                  onClick={() => handleCopyOrderId(selectedOrder.id)}
+                  className="p-1 text-[#9ca3af] hover:text-[#6b7280] transition-colors"
+                >
+                  {copiedId ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+                </button>
+              </div>
+              {getStatusBadge(selectedOrder.status)}
+            </div>
+
+            {/* Customer Info */}
+            <div className="bg-[#f9fafb] rounded-xl p-4 space-y-3">
+              <h3 className="text-[13px] font-semibold text-[#1a1a2e] flex items-center gap-2">
+                <Users className="h-4 w-4 text-[#8b5cf6]" />
+                Customer Information
+              </h3>
+              <div className="grid grid-cols-2 gap-3 text-[13px]">
+                <div>
+                  <span className="text-[#6b7280]">Email</span>
+                  <p className="font-medium text-[#1a1a2e] break-all">
+                    {selectedOrder.customer_email || selectedOrder.buyer_email || "N/A"}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[#6b7280]">Name</span>
+                  <p className="font-medium text-[#1a1a2e]">
+                    {selectedOrder.buyer_first_name && selectedOrder.buyer_last_name
+                      ? `${selectedOrder.buyer_first_name} ${selectedOrder.buyer_last_name}`
+                      : "Unknown"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Product Info */}
+            <div className="bg-[#f9fafb] rounded-xl p-4 space-y-3">
+              <h3 className="text-[13px] font-semibold text-[#1a1a2e] flex items-center gap-2">
+                <Package className="h-4 w-4 text-[#8b5cf6]" />
+                Product
+              </h3>
+              <div className="flex items-center gap-3">
+                {coverImage ? (
+                  <img src={coverImage} alt="" className="w-14 h-14 rounded-lg object-cover" />
+                ) : (
+                  <div className="w-14 h-14 rounded-lg bg-[#e5e7eb] flex items-center justify-center">
+                    <Package className="h-6 w-6 text-[#9ca3af]" />
+                  </div>
+                )}
+                <div>
+                  <p className="font-medium text-[#1a1a2e]">{productTitle}</p>
+                  <p className="text-[12px] text-[#6b7280]">Digital Product</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Payment Info */}
+            <div className="bg-[#f9fafb] rounded-xl p-4 space-y-3">
+              <h3 className="text-[13px] font-semibold text-[#1a1a2e] flex items-center gap-2">
+                <CreditCard className="h-4 w-4 text-[#8b5cf6]" />
+                Payment Details
+              </h3>
+              <div className="grid grid-cols-2 gap-3 text-[13px]">
+                <div>
+                  <span className="text-[#6b7280]">Amount</span>
+                  <p className="font-semibold text-[#1a1a2e] text-[16px]">{formatPrice(selectedOrder.amount_cents)}</p>
+                </div>
+                <div>
+                  <span className="text-[#6b7280]">Fee</span>
+                  <p className="font-medium text-[#1a1a2e]">{formatPrice(selectedOrder.fee_cents || 0)}</p>
+                </div>
+                <div>
+                  <span className="text-[#6b7280]">Payment Method</span>
+                  <p className="font-medium text-[#1a1a2e] capitalize">
+                    {selectedOrder.payment_method === "card" && selectedOrder.card_brand ? (
+                      <span className="flex items-center gap-1">
+                        <span className="capitalize">{selectedOrder.card_brand}</span>
+                        {selectedOrder.card_last4 && <span className="text-[#6b7280]">•••• {selectedOrder.card_last4}</span>}
+                      </span>
+                    ) : selectedOrder.payment_method || "Card"}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[#6b7280]">Net Revenue</span>
+                  <p className="font-medium text-[#1a1a2e]">{formatPrice(selectedOrder.amount_cents - (selectedOrder.fee_cents || 0))}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Order Date & Time */}
+            <div className="bg-[#f9fafb] rounded-xl p-4 space-y-3">
+              <h3 className="text-[13px] font-semibold text-[#1a1a2e] flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-[#8b5cf6]" />
+                Order Date & Time
+              </h3>
+              <p className="text-[13px] font-medium text-[#1a1a2e]">{formatFullDate(selectedOrder.created_at)}</p>
+            </div>
+          </div>
+
+          {/* Refund info if applicable */}
+          {selectedOrder.status === "refunded" && (
+            <div className="mx-6 mb-4 p-3 bg-red-50 rounded-xl space-y-1">
+              <p className="text-[13px] font-medium text-red-700">Refund Details</p>
+              {selectedOrder.refund_amount_cents && <p className="text-[12px] text-red-600">Amount: {formatPrice(selectedOrder.refund_amount_cents)}</p>}
+              {selectedOrder.refunded_at && <p className="text-[12px] text-red-600">Date: {formatFullDate(selectedOrder.refunded_at)}</p>}
+              {selectedOrder.refund_reason && <p className="text-[12px] text-red-600">Reason: {selectedOrder.refund_reason}</p>}
+            </div>
+          )}
+
+          {/* Desktop Footer */}
+          <div className="sticky bottom-0 bg-white border-t border-[#e5e7eb] px-6 py-4 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleDownloadInvoice(selectedOrder)}
+                className="px-4 py-2 text-[13px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg hover:bg-[#e5e7eb] transition-colors flex items-center gap-2"
+              >
+                {invoiceLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+                Invoice
+              </button>
+            </div>
+            {selectedOrder.status === "completed" ? (
+              <button
+                onClick={() => { handleClose(); setTimeout(() => handleOpenRefund(selectedOrder), 450) }}
+                className="px-4 py-2 text-[13px] font-medium text-rose-600 bg-rose-50 rounded-lg hover:bg-rose-100 transition-colors flex items-center gap-2"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Issue Refund
+              </button>
+            ) : selectedOrder.status === "refunded" ? (
+              <span className="px-4 py-2 text-[13px] font-medium text-rose-400 bg-rose-50 rounded-lg flex items-center gap-2 cursor-not-allowed opacity-70">
+                <RotateCcw className="h-4 w-4" />
+                Refunded
+              </span>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile Bottom Sheet */}
+      <div className="fixed inset-0 z-50 sm:hidden">
+        <div
+          className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity ease-out ${isAnimating ? "opacity-100" : "opacity-0"}`}
+          style={{ transitionDuration: '400ms' }}
+          onClick={handleClose}
+        />
+        <div
+          ref={sheetRef}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
+          style={{
+            transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)",
+            transition: isDragging ? 'none' : 'transform 360ms cubic-bezier(0.22, 0.9, 0.24, 1)',
+            maxHeight: '76.5vh',
+          }}
+        >
+          {/* Handle bar area */}
+          <div className="pt-3 pb-2">
+            <button onClick={handleClose} className="w-full flex justify-center py-2 cursor-pointer touch-none">
+              <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
+            </button>
+          </div>
+
+          {/* Header */}
+          <div className="px-4 pb-3 flex items-center justify-between border-b border-[#e5e7eb]">
+            <h3 className="text-[16px] font-semibold text-[#1a1a2e]">Order Details</h3>
+            {getStatusBadge(selectedOrder.status)}
+          </div>
+
+          {/* Scrollable Content */}
+          <div className="px-4 py-4 overflow-y-auto overscroll-contain" style={{ maxHeight: 'calc(76.5vh - 160px)' }}>
+            <div className="space-y-4">
+              {/* Order ID */}
+              <div className="flex items-center gap-2">
+                <span className="text-[12px] text-[#6b7280]">Order ID:</span>
+                <code className="text-[12px] font-mono bg-[#f3f4f6] px-2 py-0.5 rounded">#{selectedOrder.id.slice(0, 8)}</code>
+                <button onClick={() => handleCopyOrderId(selectedOrder.id)} className="p-1 text-[#9ca3af]">
+                  {copiedId ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+                </button>
+              </div>
+
+              {/* Customer */}
+              <div className="bg-[#f9fafb] rounded-xl p-3 space-y-2">
+                <h4 className="text-[12px] font-semibold text-[#1a1a2e] flex items-center gap-1.5">
+                  <Users className="h-3.5 w-3.5 text-[#8b5cf6]" />
+                  Customer Information
+                </h4>
+                <div className="grid grid-cols-2 gap-2 text-[12px]">
+                  <div>
+                    <span className="text-[#6b7280]">Email</span>
+                    <p className="font-medium text-[#1a1a2e] break-all">{selectedOrder.customer_email || selectedOrder.buyer_email || "N/A"}</p>
+                  </div>
+                  <div>
+                    <span className="text-[#6b7280]">Name</span>
+                    <p className="font-medium text-[#1a1a2e]">
+                      {selectedOrder.buyer_first_name && selectedOrder.buyer_last_name
+                        ? `${selectedOrder.buyer_first_name} ${selectedOrder.buyer_last_name}`
+                        : "Unknown"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Product */}
+              <div className="bg-[#f9fafb] rounded-xl p-3">
+                <h4 className="text-[12px] font-semibold text-[#1a1a2e] flex items-center gap-1.5 mb-2">
+                  <Package className="h-3.5 w-3.5 text-[#8b5cf6]" />
+                  Product
+                </h4>
+                <div className="flex items-center gap-3">
+                  {coverImage ? (
+                    <img src={coverImage} alt="" className="w-12 h-12 rounded-lg object-cover" />
+                  ) : (
+                    <div className="w-12 h-12 rounded-lg bg-[#e5e7eb] flex items-center justify-center">
+                      <Package className="h-5 w-5 text-[#9ca3af]" />
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-[13px] font-medium text-[#1a1a2e]">{productTitle}</p>
+                    <p className="text-[11px] text-[#6b7280]">Digital Product</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Payment */}
+              <div className="bg-[#f9fafb] rounded-xl p-3 space-y-2">
+                <h4 className="text-[12px] font-semibold text-[#1a1a2e] flex items-center gap-1.5">
+                  <CreditCard className="h-3.5 w-3.5 text-[#8b5cf6]" />
+                  Payment
+                </h4>
+                <div className="flex items-center justify-between">
+                  <span className="text-[12px] text-[#6b7280]">Amount</span>
+                  <span className="text-[14px] font-semibold text-[#1a1a2e]">{formatPrice(selectedOrder.amount_cents)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[12px] text-[#6b7280]">Fee</span>
+                  <span className="text-[12px] font-medium text-[#1a1a2e]">{formatPrice(selectedOrder.fee_cents || 0)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[12px] text-[#6b7280]">Net Revenue</span>
+                  <span className="text-[12px] font-medium text-[#1a1a2e]">{formatPrice(selectedOrder.amount_cents - (selectedOrder.fee_cents || 0))}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[12px] text-[#6b7280]">Payment Method</span>
+                  <span className="text-[12px] font-medium text-[#1a1a2e] capitalize">
+                    {selectedOrder.payment_method === "card" && selectedOrder.card_brand ? (
+                      <span className="flex items-center gap-1">
+                        <span className="capitalize">{selectedOrder.card_brand}</span>
+                        {selectedOrder.card_last4 && <span className="text-[#6b7280]">•••• {selectedOrder.card_last4}</span>}
+                      </span>
+                    ) : selectedOrder.payment_method || "Card"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Date */}
+              <div className="bg-[#f9fafb] rounded-xl p-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[12px] text-[#6b7280] flex items-center gap-1.5">
+                    <Calendar className="h-3.5 w-3.5 text-[#8b5cf6]" />
+                    Date
+                  </span>
+                  <span className="text-[12px] font-medium text-[#1a1a2e]">{formatFullDate(selectedOrder.created_at)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Refund info on mobile */}
+          {selectedOrder.status === "refunded" && (
+            <div className="mx-4 mb-2 p-3 bg-red-50 rounded-xl space-y-1">
+              <p className="text-[12px] font-medium text-red-700">Refund Details</p>
+              {selectedOrder.refund_amount_cents && <p className="text-[11px] text-red-600">Amount: {formatPrice(selectedOrder.refund_amount_cents)}</p>}
+              {selectedOrder.refunded_at && <p className="text-[11px] text-red-600">Date: {formatFullDate(selectedOrder.refunded_at)}</p>}
+              {selectedOrder.refund_reason && <p className="text-[11px] text-red-600">Reason: {selectedOrder.refund_reason}</p>}
+            </div>
+          )}
+
+          {/* Mobile Footer Actions */}
+          <div className="px-4 pt-4 pb-5 border-t border-[#e5e7eb] bg-white">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleDownloadInvoice(selectedOrder)}
+                className="flex-1 px-3 py-2.5 text-[12px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg active:bg-[#e5e7eb] transition-colors flex items-center justify-center gap-1.5"
+              >
+                {invoiceLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
+                Invoice
+              </button>
+              {selectedOrder.status === "completed" ? (
+                <button
+                  onClick={() => { handleClose(); setTimeout(() => handleOpenRefund(selectedOrder), 450) }}
+                  className="flex-1 px-3 py-2.5 text-[12px] font-medium text-rose-600 bg-rose-50 rounded-lg active:bg-rose-100 transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Refund
+                </button>
+              ) : selectedOrder.status === "refunded" ? (
+                <span className="flex-1 px-3 py-2.5 text-[12px] font-medium text-rose-400 bg-rose-50 rounded-lg flex items-center justify-center gap-1.5 cursor-not-allowed opacity-70">
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Refunded
+                </span>
+              ) : null}
+            </div>
+          </div>
+
+          {/* Safe area padding */}
+          <div className="h-[env(safe-area-inset-bottom)] min-h-[16px] bg-white" />
+        </div>
+      </div>
+    </>
+  )
+}
 
 export function PayoutsClient({ creator, initialData, initialOrders = [] }: PayoutsClientProps) {
   const router = useRouter()
   const { t } = useLanguage()
-  const [activeTab, setActiveTab] = useState<ActiveTab>(
-    creator.stripe_onboarding_status === "connected" ? "payouts" : "sales"
-  )
+  const [activeTab, setActiveTab] = useState<ActiveTab>("sales")
   const [isConnecting, setIsConnecting] = useState(false)
   const [statusLoading, setStatusLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+
+  // Timeframe
+  const [timeframe, setTimeframe] = useState("all_time")
+  const [isTimeframeOpen, setIsTimeframeOpen] = useState(false)
+  const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false)
 
   // Connection status
   const [connectionStatus, setConnectionStatus] = useState<{
@@ -149,14 +818,6 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
   const [selectedOrder, setSelectedOrder] = useState<OrderPayment | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
 
-  // Mobile bottom sheet state
-  const [isMobileSheet, setIsMobileSheet] = useState(false)
-  const [isDetailPresented, setIsDetailPresented] = useState(false)
-  const [detailDragY, setDetailDragY] = useState(0)
-  const [isDetailDragging, setIsDetailDragging] = useState(false)
-  const detailDragStartY = useRef(0)
-  const detailDragCurrentY = useRef(0)
-
   // Refund modal
   const [refundModalOpen, setRefundModalOpen] = useState(false)
   const [refundOrder, setRefundOrder] = useState<OrderPayment | null>(null)
@@ -169,74 +830,54 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
   const isStripeConnected = creator.stripe_onboarding_status === "connected"
   const isStripePending = creator.stripe_onboarding_status === "pending"
 
-  useEffect(() => {
-    const check = () => setIsMobileSheet(window.innerWidth < 768)
-    check()
-    window.addEventListener("resize", check)
-    return () => window.removeEventListener("resize", check)
-  }, [])
+  const selectedOption = timeframeOptions.find((o) => o.value === timeframe)
 
-  useEffect(() => {
-    if (detailOpen && isMobileSheet) {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => setIsDetailPresented(true))
-      })
-    } else {
-      setIsDetailPresented(false)
-      setDetailDragY(0)
-    }
-  }, [detailOpen, isMobileSheet])
+  // Filter orders by timeframe
+  const filteredOrders = useMemo(() => {
+    const option = timeframeOptions.find((o) => o.value === timeframe)
+    if (!option) return initialOrders
+    const { start, end } = option.getDates()
+    return initialOrders.filter((o) => {
+      const orderDate = new Date(o.created_at)
+      return orderDate >= start && orderDate <= end
+    })
+  }, [timeframe, initialOrders])
 
-  const handleDetailTouchStart = useCallback((e: React.TouchEvent) => {
-    setIsDetailDragging(true)
-    detailDragStartY.current = e.touches[0].clientY
-    detailDragCurrentY.current = e.touches[0].clientY
-  }, [])
+  // Compute summary based on filtered orders
+  const computedData = useMemo(() => {
+    const completed = filteredOrders.filter((o) => o.status === "completed")
+    const totalEarnings = completed.reduce((sum, o) => sum + (o.amount_cents || 0), 0)
+    const totalFees = completed.reduce((sum, o) => sum + (o.fee_cents || 0), 0)
+    const netEarnings = totalEarnings - totalFees
 
-  const handleDetailTouchMove = useCallback((e: React.TouchEvent) => {
-    detailDragCurrentY.current = e.touches[0].clientY
-    const delta = Math.max(0, detailDragCurrentY.current - detailDragStartY.current)
-    setDetailDragY(delta)
-  }, [])
-
-  const handleDetailTouchEnd = useCallback(() => {
-    setIsDetailDragging(false)
-    const delta = detailDragCurrentY.current - detailDragStartY.current
-    const velocity = delta > 0 ? delta / 300 : 0
-    if (delta > 80 || velocity > 0.5) {
-      setIsDetailPresented(false)
-      setTimeout(() => { setDetailOpen(false); setDetailDragY(0) }, 400)
-    } else {
-      setDetailDragY(0)
-    }
-  }, [])
-
-  // Earnings trend from real order data
-  const earningsTrend: EarningsTrend[] = (() => {
-    if (initialOrders.length === 0) return []
-    const trendMap: Record<string, { earnings: number; fees: number }> = {}
-    const now = new Date()
-    for (let i = 29; i >= 0; i--) {
-      const d = new Date(now)
-      d.setDate(d.getDate() - i)
-      const key = d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
-      trendMap[key] = { earnings: 0, fees: 0 }
-    }
-    initialOrders.filter(o => o.status === "completed").forEach((order) => {
-      const d = new Date(order.created_at)
-      const key = d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
-      if (trendMap[key]) {
-        trendMap[key].earnings += order.amount_cents || 0
-        trendMap[key].fees += order.fee_cents || 0
+    const sevenDaysAgo = new Date()
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+    let pendingAmount = 0
+    let availableBalance = 0
+    completed.forEach((order) => {
+      const orderDate = new Date(order.created_at)
+      const netAmount = (order.amount_cents || 0) - (order.fee_cents || 0)
+      if (orderDate > sevenDaysAgo) {
+        pendingAmount += netAmount
+      } else {
+        availableBalance += netAmount
       }
     })
-    return Object.entries(trendMap).map(([date, data]) => ({
-      date,
-      earnings: data.earnings,
-      fees: data.fees,
-      net: data.earnings - data.fees,
-    }))
-  })()
+
+    return { totalEarnings, totalFees, netEarnings, pendingAmount, availableBalance }
+  }, [filteredOrders])
+
+  // Close timeframe dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      if (!target.closest(".timeframe-dropdown")) {
+        setIsTimeframeOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
 
   // Fetch Stripe connection status
   const fetchConnectionStatus = async () => {
@@ -295,6 +936,16 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
     }
   }
 
+  // Open refund modal
+  const handleOpenRefund = (order: OrderPayment) => {
+    setRefundOrder(order)
+    setRefundAmount((order.amount_cents / 100).toFixed(2))
+    setRefundReason("")
+    setRefundError(null)
+    setDetailOpen(false)
+    setRefundModalOpen(true)
+  }
+
   // Refund handler
   const handleRefund = async () => {
     if (!refundOrder) return
@@ -341,7 +992,7 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
     }
   }
 
-  // Invoice download handler - triggers real PDF download from API
+  // Invoice download handler
   const [invoiceLoading, setInvoiceLoading] = useState(false)
   const handleDownloadInvoice = async (order: OrderPayment) => {
     setInvoiceLoading(true)
@@ -390,12 +1041,13 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
 
   const formatFullDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
-      weekday: "short",
-      month: "short",
+      weekday: "long",
+      month: "long",
       day: "numeric",
       year: "numeric",
-      hour: "numeric",
+      hour: "2-digit",
       minute: "2-digit",
+      timeZoneName: "short",
     })
   }
 
@@ -433,27 +1085,71 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
         </Alert>
       )}
       {success && (
-        <Alert className="border-green-200 bg-green-50 text-green-800">
+        <Alert className="border-violet-200 bg-violet-50 text-violet-800">
           <CheckCircle2 className="h-4 w-4" />
           <AlertDescription>{success}</AlertDescription>
         </Alert>
       )}
 
-      {/* Earnings Summary Cards — use Stripe balance for Available/Pending when connected */}
+      {/* Timeframe Selector */}
+      <div className="flex items-center justify-between">
+        <div />
+        {/* Desktop Timeframe Dropdown */}
+        <div className="relative timeframe-dropdown hidden md:block">
+          <button
+            onClick={() => setIsTimeframeOpen(!isTimeframeOpen)}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#e5e7eb] rounded-xl text-[13px] font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors shadow-sm cursor-pointer"
+          >
+            {selectedOption?.label || "All time"}
+            <ChevronDown className={`h-4 w-4 text-[#9ca3af] transition-transform duration-200 ${isTimeframeOpen ? "rotate-180" : ""}`} />
+          </button>
+          {isTimeframeOpen && (
+            <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-[#e5e7eb] rounded-xl shadow-lg z-50 py-1 animate-in fade-in-0 zoom-in-95 duration-100">
+              {timeframeOptions.map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => {
+                    setTimeframe(option.value)
+                    setIsTimeframeOpen(false)
+                  }}
+                  className={`w-full text-left px-4 py-2 text-[13px] font-medium transition-colors cursor-pointer ${
+                    timeframe === option.value
+                      ? "bg-[#f5f3ff] text-[#8b5cf6]"
+                      : "text-[#374151] hover:bg-[#f9fafb]"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Mobile Timeframe Button */}
+        <button
+          onClick={() => setIsMobileSheetOpen(true)}
+          className="md:hidden inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#e5e7eb] rounded-xl text-[13px] font-medium text-[#374151] shadow-sm"
+        >
+          {selectedOption?.label || "All time"}
+          <ChevronDown className="h-4 w-4 text-[#9ca3af]" />
+        </button>
+      </div>
+
+      {/* Earnings Summary Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4 sm:p-5">
           <div className="flex items-center gap-2 mb-2">
             <DollarSign className="h-4 w-4 text-[#9ca3af]" />
             <span className="text-[12px] text-[#6b7280] font-medium">Total Earnings</span>
           </div>
-          <p className="text-[20px] sm:text-[24px] font-bold text-[#1a1a2e]">{formatPrice(initialData.totalEarnings)}</p>
+          <p className="text-[20px] sm:text-[24px] font-bold text-[#1a1a2e]">{formatPrice(computedData.totalEarnings)}</p>
         </div>
         <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4 sm:p-5">
           <div className="flex items-center gap-2 mb-2">
             <TrendingUp className="h-4 w-4 text-[#9ca3af]" />
             <span className="text-[12px] text-[#6b7280] font-medium">Net Earnings</span>
           </div>
-          <p className="text-[20px] sm:text-[24px] font-bold text-[#1a1a2e]">{formatPrice(initialData.netEarnings)}</p>
+          <p className="text-[20px] sm:text-[24px] font-bold text-[#1a1a2e]">{formatPrice(computedData.netEarnings)}</p>
         </div>
         <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4 sm:p-5">
           <div className="flex items-center gap-2 mb-2">
@@ -461,7 +1157,7 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
             <span className="text-[12px] text-[#6b7280] font-medium">Pending</span>
           </div>
           <p className="text-[20px] sm:text-[24px] font-bold text-[#1a1a2e]">
-            {stripeBalance?.pending?.[0] ? formatPrice(stripeBalance.pending[0].amount) : formatPrice(initialData.pendingAmount)}
+            {stripeBalance?.pending?.[0] ? formatPrice(stripeBalance.pending[0].amount) : formatPrice(computedData.pendingAmount)}
           </p>
         </div>
         <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4 sm:p-5">
@@ -470,7 +1166,7 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
             <span className="text-[12px] text-[#6b7280] font-medium">Available</span>
           </div>
           <p className="text-[20px] sm:text-[24px] font-bold text-[#1a1a2e]">
-            {stripeBalance?.available?.[0] ? formatPrice(stripeBalance.available[0].amount) : formatPrice(initialData.availableBalance)}
+            {stripeBalance?.available?.[0] ? formatPrice(stripeBalance.available[0].amount) : formatPrice(computedData.availableBalance)}
           </p>
         </div>
       </div>
@@ -526,7 +1222,7 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
         </div>
       )}
 
-      {/* ═══════ MAIN CONTENT — Orders & Payouts ═══════ */}
+      {/* Main Content — Orders & Payouts */}
       <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
         {/* Section header with tab switcher */}
         <div className="p-4 sm:p-5 border-b border-[#e5e7eb]/60">
@@ -541,7 +1237,7 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
                   <button
                     onClick={() => setActiveTab("payouts")}
                     className={cn(
-                      "px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all",
+                      "px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all cursor-pointer",
                       activeTab === "payouts"
                         ? "bg-white text-[#1a1a2e] shadow-sm"
                         : "text-[#6b7280] hover:text-[#1a1a2e]"
@@ -554,7 +1250,7 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
                 <button
                   onClick={() => setActiveTab("sales")}
                   className={cn(
-                    "px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all",
+                    "px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all cursor-pointer",
                     activeTab === "sales"
                       ? "bg-white text-[#1a1a2e] shadow-sm"
                       : "text-[#6b7280] hover:text-[#1a1a2e]"
@@ -565,19 +1261,19 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
                 </button>
               </div>
               {activeTab === "payouts" && isStripeConnected && (
-                <button onClick={fetchStripePayouts} className="text-[13px] text-[#8b5cf6] hover:text-[#7c3aed] font-medium transition-colors">
-                  {payoutsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Refresh"}
+                <button onClick={fetchStripePayouts} className="p-2 rounded-lg hover:bg-[#f3f4f6] text-[#8b5cf6] hover:text-[#7c3aed] transition-colors cursor-pointer" title="Refresh payouts">
+                  {payoutsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
                 </button>
               )}
             </div>
           </div>
         </div>
 
-        {/* ═══ Payouts Tab Content ═══ */}
+        {/* Payouts Tab Content */}
         {activeTab === "payouts" && isStripeConnected && (
           <>
             {payoutsLoading ? (
-              <div className="p-8 flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-[#9ca3af]" /></div>
+              <div className="p-8 flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-[#8b5cf6]" /></div>
             ) : stripePayouts.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center px-4">
                 <div className="p-4 bg-[#f3f4f6] rounded-full mb-4"><Landmark className="h-8 w-8 text-[#9ca3af]" /></div>
@@ -589,18 +1285,18 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
                 {/* Mobile card view */}
                 <div className="divide-y divide-[#e5e7eb]/60 sm:hidden">
                   {stripePayouts.map((payout) => (
-                    <div key={payout.id} className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-lg bg-[#f3f4f6] flex items-center justify-center shrink-0">
-                            <ArrowDownLeft className="h-4 w-4 text-emerald-600" />
+                    <div key={payout.id} className="px-4 py-3.5">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-9 h-9 rounded-lg bg-[#f3f4f6] flex items-center justify-center shrink-0">
+                            <ArrowDownLeft className="h-4 w-4 text-[#6b7280]" />
                           </div>
-                          <div>
-                            <p className="text-[14px] font-medium text-[#1a1a2e]">{formatPrice(payout.amount)}</p>
-                            <p className="text-[12px] text-[#9ca3af]">{formatTimestamp(payout.arrival_date)}</p>
+                          <div className="min-w-0">
+                            <p className="text-[14px] font-semibold text-[#1a1a2e]">{formatPrice(payout.amount)}</p>
+                            <p className="text-[11px] text-[#9ca3af] mt-0.5">{formatTimestamp(payout.arrival_date)}</p>
                           </div>
                         </div>
-                        <div>{getPayoutStatusBadge(payout.status)}</div>
+                        <div className="shrink-0">{getPayoutStatusBadge(payout.status)}</div>
                       </div>
                     </div>
                   ))}
@@ -611,21 +1307,21 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
                   <Table>
                     <TableHeader>
                       <TableRow className="border-b border-[#e5e7eb]">
-                        <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Amount</TableHead>
+                        <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider pl-5">Amount</TableHead>
                         <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Arrival Date</TableHead>
                         <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Initiated</TableHead>
                         <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Status</TableHead>
-                        <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Destination</TableHead>
+                        <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider pr-5">Destination</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {stripePayouts.map((payout) => (
                         <TableRow key={payout.id} className="hover:bg-[#f9fafb] border-b border-[#e5e7eb]/60 last:border-0">
-                          <TableCell className="text-[14px] font-medium text-[#1a1a2e]">{formatPrice(payout.amount)}</TableCell>
+                          <TableCell className="text-[14px] font-medium text-[#1a1a2e] pl-5">{formatPrice(payout.amount)}</TableCell>
                           <TableCell className="text-[13px] text-[#6b7280]">{formatTimestamp(payout.arrival_date)}</TableCell>
                           <TableCell className="text-[13px] text-[#6b7280]">{formatTimestamp(payout.created)}</TableCell>
                           <TableCell>{getPayoutStatusBadge(payout.status)}</TableCell>
-                          <TableCell className="text-[13px] text-[#6b7280]">{payout.destination || "Bank account"}</TableCell>
+                          <TableCell className="text-[13px] text-[#6b7280] pr-5">{payout.destination || "Bank account"}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -640,10 +1336,10 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
           </>
         )}
 
-        {/* ═══ Sales Tab Content ═══ */}
+        {/* Sales Tab Content */}
         {activeTab === "sales" && (
           <>
-            {initialOrders.length === 0 ? (
+            {filteredOrders.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center px-4">
                 <div className="p-4 bg-[#f3f4f6] rounded-full mb-4"><Wallet className="h-8 w-8 text-[#9ca3af]" /></div>
                 <h3 className="font-medium text-[15px] text-[#1a1a2e] mb-1">No sales yet</h3>
@@ -653,8 +1349,8 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
               <>
                 {/* Mobile card view */}
                 <div className="divide-y divide-[#e5e7eb]/60 sm:hidden">
-                  {initialOrders.map((order) => (
-                    <div key={order.id} className="p-4 cursor-pointer hover:bg-[#f9fafb] transition-colors active:bg-[#f3f4f6]" onClick={() => { setSelectedOrder(order); setDetailOpen(true) }}>
+                  {filteredOrders.map((order) => (
+                    <div key={order.id} className="px-4 py-3.5 cursor-pointer hover:bg-[#f9fafb] transition-colors active:bg-[#f3f4f6]" onClick={() => { setSelectedOrder(order); setDetailOpen(true) }}>
                       <div className="flex items-center gap-3">
                         {order.product?.thumbnail_url ? (
                           <img src={order.product.thumbnail_url} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
@@ -662,15 +1358,20 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
                           <div className="w-10 h-10 rounded-lg bg-[#f3f4f6] flex items-center justify-center shrink-0"><Package className="h-4 w-4 text-[#9ca3af]" /></div>
                         )}
                         <div className="flex-1 min-w-0">
-                          <p className="text-[14px] font-medium text-[#1a1a2e] truncate">{order.product?.title || "Product"}</p>
-                          <p className="text-[12px] text-[#9ca3af] truncate">{order.customer_email || order.buyer_email || "—"}</p>
+                          <p className="text-[13px] font-medium text-[#1a1a2e] truncate">{order.product?.title || "Product"}</p>
+                          <p className="text-[11px] text-[#9ca3af] truncate mt-0.5">{order.customer_email || order.buyer_email || "—"}</p>
                         </div>
-                        <div className="text-right shrink-0">
+                        <div className="text-right shrink-0 ml-2">
                           <div className="flex items-center gap-1.5 justify-end">
                             <p className="text-[14px] font-semibold text-[#1a1a2e]">{formatPrice(order.amount_cents)}</p>
-                            {order.status === "refunded" && <Badge className="bg-red-50 text-red-600 border-0 text-[9px] px-1.5 py-0">Refunded</Badge>}
                           </div>
-                          <p className="text-[11px] text-[#9ca3af]">{formatDate(order.created_at)}</p>
+                          <div className="flex items-center gap-1.5 justify-end mt-0.5">
+                            {order.status === "refunded" ? (
+                              <Badge className="bg-red-50 text-red-600 border-0 text-[9px] px-1.5 py-0">Refunded</Badge>
+                            ) : (
+                              <p className="text-[11px] text-[#9ca3af]">{formatDate(order.created_at)}</p>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -682,18 +1383,18 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
                   <Table>
                     <TableHeader>
                       <TableRow className="border-b border-[#e5e7eb]">
-                        <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Customer</TableHead>
+                        <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider pl-5">Customer</TableHead>
                         <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Product</TableHead>
                         <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Date</TableHead>
                         <TableHead className="text-right text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Amount</TableHead>
                         <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Status</TableHead>
-                        <TableHead className="w-10"></TableHead>
+                        <TableHead className="w-10 pr-5"></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {initialOrders.map((order) => (
-                        <TableRow key={order.id} className="hover:bg-[#f9fafb] border-b border-[#e5e7eb]/60 last:border-0 cursor-pointer" onClick={() => { setSelectedOrder(order); setDetailOpen(true) }}>
-                          <TableCell className="text-[13px] text-[#6b7280] truncate max-w-[180px]">{order.customer_email || order.buyer_email || "—"}</TableCell>
+                      {filteredOrders.map((order) => (
+                        <TableRow key={order.id} className="hover:bg-[#f9fafb] border-b border-[#e5e7eb]/60 last:border-0 cursor-pointer group" onClick={() => { setSelectedOrder(order); setDetailOpen(true) }}>
+                          <TableCell className="text-[13px] text-[#6b7280] truncate max-w-[180px] pl-5">{order.customer_email || order.buyer_email || "—"}</TableCell>
                           <TableCell>
                             <div className="flex items-center gap-3">
                               {order.product?.thumbnail_url ? (
@@ -701,7 +1402,7 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
                               ) : (
                                 <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center shrink-0"><Package className="h-3.5 w-3.5 text-[#9ca3af]" /></div>
                               )}
-                              <span className="text-[14px] font-medium text-[#1a1a2e] truncate max-w-[200px]">{order.product?.title || "Product"}</span>
+                              <span className="text-[13px] font-medium text-[#1a1a2e] truncate max-w-[200px]">{order.product?.title || "Product"}</span>
                             </div>
                           </TableCell>
                           <TableCell className="text-[13px] text-[#6b7280] whitespace-nowrap">{formatDate(order.created_at)}</TableCell>
@@ -710,11 +1411,11 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
                             {order.status === "refunded" ? (
                               <Badge className="bg-red-50 text-red-600 border-0 text-[11px]">Refunded</Badge>
                             ) : (
-                              <Badge className="bg-emerald-50 text-emerald-700 border-0 text-[11px]"><CheckCircle2 className="mr-1 h-3 w-3" />Completed</Badge>
+                              <Badge className="bg-violet-50 text-violet-700 border-0 text-[11px]"><CheckCircle2 className="mr-1 h-3 w-3" />Completed</Badge>
                             )}
                           </TableCell>
-                          <TableCell>
-                            <button onClick={(e) => { e.stopPropagation(); setSelectedOrder(order); setDetailOpen(true) }} className="p-1.5 rounded-lg hover:bg-[#f3f4f6] transition-colors">
+                          <TableCell className="pr-5">
+                            <button onClick={(e) => { e.stopPropagation(); setSelectedOrder(order); setDetailOpen(true) }} className="p-1.5 rounded-lg hover:bg-[#f3f4f6] transition-colors opacity-0 group-hover:opacity-100">
                               <Eye className="h-4 w-4 text-[#9ca3af]" />
                             </button>
                           </TableCell>
@@ -725,7 +1426,7 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
                 </div>
 
                 <div className="px-5 py-3 border-t border-[#e5e7eb] text-[12px] text-[#6b7280]">
-                  Showing {initialOrders.length} order{initialOrders.length !== 1 ? "s" : ""}
+                  Showing {filteredOrders.length} order{filteredOrders.length !== 1 ? "s" : ""}
                 </div>
               </>
             )}
@@ -733,90 +1434,64 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
         )}
       </div>
 
-      {/* Payout Account Card — positioned under Bank Payouts section */}
+      {/* Payout Account Card */}
       {isStripeConnected && (
         <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-          <div className="p-5 border-b border-[#e5e7eb]/60">
+          <div className="p-4 sm:p-5 border-b border-[#e5e7eb]/60">
             <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] flex items-center gap-2">
-                  <Landmark className="h-5 w-5" />
-                  {t("payouts.payoutAccount")}
-                </h3>
-                <p className="text-[13px] text-[#6b7280] mt-0.5">Where your earnings are deposited</p>
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-[#f3f4f6] rounded-lg">
+                  <Landmark className="h-4 w-4 text-[#6b7280]" />
+                </div>
+                <div>
+                  <h3 className="text-[15px] font-semibold text-[#1a1a2e]">
+                    {t("payouts.payoutAccount")}
+                  </h3>
+                  <p className="text-[12px] text-[#6b7280] mt-0.5">Where your earnings are deposited</p>
+                </div>
               </div>
-              <Badge className="bg-emerald-50 text-emerald-700 border-0">
+              <Badge className="bg-violet-50 text-violet-700 border-0 text-[11px]">
                 <CheckCircle2 className="mr-1 h-3 w-3" />
                 {t("common.connected")}
               </Badge>
             </div>
           </div>
-          <div className="p-5 space-y-4">
-            <div className="flex items-center gap-4 p-4 bg-[#f9fafb] rounded-xl">
-              <div className="p-2 bg-white rounded-lg border border-[#e5e7eb]/60">
-                <Building2 className="h-6 w-6 text-[#6b7280]" />
+          <div className="p-4 sm:p-5">
+            <div className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-[#f9fafb] rounded-xl">
+              <div className="p-2 bg-white rounded-lg border border-[#e5e7eb]/60 shrink-0">
+                <Building2 className="h-5 w-5 sm:h-6 sm:w-6 text-[#6b7280]" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-[14px] text-[#1a1a2e]">{connectionStatus?.bankAccount?.bankName || "Bank Account"}</p>
-                <p className="text-[13px] text-[#6b7280]">****{connectionStatus?.bankAccount?.last4 || "····"} ({currency})</p>
+                <p className="font-medium text-[13px] sm:text-[14px] text-[#1a1a2e] truncate">{connectionStatus?.bankAccount?.bankName || "Bank Account"}</p>
+                <p className="text-[12px] sm:text-[13px] text-[#6b7280]">****{connectionStatus?.bankAccount?.last4 || "····"} ({currency})</p>
               </div>
-              <Button variant="outline" size="sm" onClick={handleConnectStripe} className="rounded-lg shrink-0">{t("common.update")}</Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-lg shrink-0 text-[13px]"
+                disabled={isConnecting}
+                onClick={() => {
+                  setIsConnecting(true)
+                  fetch("/api/stripe/connect/start", { method: "POST" })
+                    .then(r => r.json())
+                    .then(data => {
+                      if (data.url) window.open(data.url, "_blank", "noopener,noreferrer")
+                      setIsConnecting(false)
+                    })
+                    .catch(() => setIsConnecting(false))
+                }}
+              >
+                {isConnecting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : t("common.update")}
+              </Button>
             </div>
-
-            {/* Stripe Balance */}
-            {stripeBalance && (
-              <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 bg-emerald-50/50 rounded-xl">
-                  <p className="text-[11px] text-emerald-700 font-medium mb-1">Available Balance</p>
-                  <p className="text-[16px] font-bold text-emerald-800">
-                    {stripeBalance.available.length > 0 ? formatPrice(stripeBalance.available[0].amount) : "$0.00"}
-                  </p>
-                </div>
-                <div className="p-3 bg-amber-50/50 rounded-xl">
-                  <p className="text-[11px] text-amber-700 font-medium mb-1">Pending Balance</p>
-                  <p className="text-[16px] font-bold text-amber-800">
-                    {stripeBalance.pending.length > 0 ? formatPrice(stripeBalance.pending[0].amount) : "$0.00"}
-                  </p>
-                </div>
-              </div>
-            )}
           </div>
-          <div className="p-5 border-t border-[#e5e7eb]/60">
-            <Button variant="outline" className="w-full rounded-xl" asChild>
+          <div className="px-4 sm:px-5 pb-4 sm:pb-5">
+            <Button variant="outline" className="w-full rounded-xl text-[13px]" asChild>
               <a href="https://dashboard.stripe.com" target="_blank" rel="noopener noreferrer">
                 <StripeIcon className="mr-2 h-4 w-auto" />
                 Open Stripe Dashboard
               </a>
             </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Earnings Chart — show when there's data */}
-      {earningsTrend.length > 0 && earningsTrend.some(d => d.net > 0) && (
-        <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-          <div className="p-4 sm:p-5 border-b border-[#e5e7eb]/60">
-            <h3 className="text-[15px] font-semibold text-[#1a1a2e]">{t("payouts.earningsOverTime")}</h3>
-            <p className="text-[13px] text-[#6b7280] mt-0.5">Revenue from the last 30 days</p>
-          </div>
-          <div className="p-4 sm:p-5">
-            <div className="h-[220px] sm:h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={earningsTrend}>
-                  <defs>
-                    <linearGradient id="colorNet2" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="date" tick={{ fontSize: 11 }} interval="preserveStartEnd" />
-                  <YAxis tickFormatter={(value) => formatPrice(value)} tick={{ fontSize: 11 }} width={70} />
-                  <Tooltip formatter={(value: number, name: string) => [formatPrice(value), "Net Earnings"]} labelStyle={{ fontWeight: "bold" }} />
-                  <Area type="monotone" dataKey="net" stroke="#8b5cf6" strokeWidth={2} fillOpacity={1} fill="url(#colorNet2)" name="net" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
           </div>
         </div>
       )}
@@ -838,133 +1513,28 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
         </div>
       </div>
 
-      {/* ═══════ ORDER DETAIL MODAL ═══════ */}
-      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-        <DialogContent
-          showCloseButton={!isMobileSheet}
-          disableDefaultAnimations={isMobileSheet}
-          disableOverlayDefaultAnimations={isMobileSheet}
-          overlayClassName={isMobileSheet ? cn("bg-black/40 transition-all duration-400", isDetailPresented ? "opacity-100 backdrop-blur-[2px]" : "opacity-0 backdrop-blur-0") : undefined}
-          onTouchStart={isMobileSheet ? handleDetailTouchStart : undefined}
-          onTouchMove={isMobileSheet ? handleDetailTouchMove : undefined}
-          onTouchEnd={isMobileSheet ? handleDetailTouchEnd : undefined}
-          className={cn("p-0 gap-0 overflow-hidden", isMobileSheet ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0" : "w-[calc(100%-32px)] max-w-md rounded-2xl")}
-          style={isMobileSheet ? { position: "fixed", top: "auto", left: 0, right: 0, bottom: 0, transform: isDetailPresented ? `translate3d(0, ${detailDragY}px, 0)` : "translate3d(0, 100%, 0)", transition: isDetailDragging ? "none" : "transform 400ms cubic-bezier(0.32, 0.72, 0, 1)" } : undefined}
-        >
-          {isMobileSheet && (
-            <div className="pt-3 pb-1 flex justify-center"><div className="h-1.5 w-10 rounded-full bg-gray-300" /></div>
-          )}
+      {/* Order Details Modal — matching sales page exactly */}
+      <OrderDetailsModal
+        isOpen={detailOpen}
+        onClose={() => setDetailOpen(false)}
+        selectedOrder={selectedOrder}
+        formatPrice={formatPrice}
+        formatFullDate={formatFullDate}
+        handleDownloadInvoice={handleDownloadInvoice}
+        handleOpenRefund={handleOpenRefund}
+        invoiceLoading={invoiceLoading}
+      />
 
-          {selectedOrder && (
-            <div className="p-6 space-y-5 max-h-[85vh] overflow-y-auto overscroll-contain">
-              <div className="text-center">
-                <p className="text-[28px] font-bold text-[#1a1a2e]">{formatPrice(selectedOrder.amount_cents)}</p>
-                {selectedOrder.status === "refunded" ? (
-                  <Badge className="mt-2 bg-red-50 text-red-600 border-0"><XCircle className="mr-1 h-3 w-3" />Refunded</Badge>
-                ) : (
-                  <Badge className="mt-2 bg-emerald-50 text-emerald-700 border-0"><CheckCircle2 className="mr-1 h-3 w-3" />Completed</Badge>
-                )}
-              </div>
+      {/* Timeframe Bottom Sheet (Mobile) */}
+      <TimeframeBottomSheet
+        isOpen={isMobileSheetOpen}
+        onClose={() => setIsMobileSheetOpen(false)}
+        options={timeframeOptions}
+        selectedValue={timeframe}
+        onSelect={setTimeframe}
+      />
 
-              {/* Product */}
-              <div className="flex items-center gap-3 p-3 bg-[#f9fafb] rounded-xl">
-                {selectedOrder.product?.thumbnail_url ? (
-                  <img src={selectedOrder.product.thumbnail_url} alt="" className="w-12 h-12 rounded-lg object-cover" />
-                ) : (
-                  <div className="w-12 h-12 rounded-lg bg-[#e5e7eb] flex items-center justify-center"><Package className="h-5 w-5 text-[#9ca3af]" /></div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="text-[14px] font-medium text-[#1a1a2e] truncate">{selectedOrder.product?.title || "Product"}</p>
-                  <p className="text-[12px] text-[#9ca3af]">Product sale</p>
-                </div>
-              </div>
-
-              {/* Details */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between text-[14px]">
-                  <span className="text-[#6b7280] flex items-center gap-2"><Mail className="h-4 w-4" /> Customer</span>
-                  <span className="text-[#1a1a2e] font-medium truncate max-w-[180px]">{selectedOrder.customer_email || selectedOrder.buyer_email || "—"}</span>
-                </div>
-                <div className="flex items-center justify-between text-[14px]">
-                  <span className="text-[#6b7280] flex items-center gap-2"><Calendar className="h-4 w-4" /> Date</span>
-                  <span className="text-[#1a1a2e]">{formatFullDate(selectedOrder.created_at)}</span>
-                </div>
-                <div className="flex items-center justify-between text-[14px]">
-                  <span className="text-[#6b7280] flex items-center gap-2"><DollarSign className="h-4 w-4" /> Amount</span>
-                  <span className="text-[#1a1a2e] font-medium">{formatPrice(selectedOrder.amount_cents)}</span>
-                </div>
-                <div className="flex items-center justify-between text-[14px]">
-                  <span className="text-[#6b7280]">Platform fee</span>
-                  <span className="text-[#ef4444]">-{formatPrice(selectedOrder.fee_cents || 0)}</span>
-                </div>
-                <div className="flex items-center justify-between text-[14px] pt-2 border-t border-[#e5e7eb]">
-                  <span className="text-[#1a1a2e] font-semibold">Net earnings</span>
-                  <span className="text-[#1a1a2e] font-bold">{formatPrice((selectedOrder.amount_cents || 0) - (selectedOrder.fee_cents || 0))}</span>
-                </div>
-              </div>
-
-              {/* Refund info */}
-              {selectedOrder.status === "refunded" && (
-                <div className="p-3 bg-red-50 rounded-xl space-y-1">
-                  <p className="text-[13px] font-medium text-red-700">Refund Details</p>
-                  {selectedOrder.refund_amount_cents && <p className="text-[12px] text-red-600">Amount: {formatPrice(selectedOrder.refund_amount_cents)}</p>}
-                  {selectedOrder.refunded_at && <p className="text-[12px] text-red-600">Date: {formatFullDate(selectedOrder.refunded_at)}</p>}
-                  {selectedOrder.refund_reason && <p className="text-[12px] text-red-600">Reason: {selectedOrder.refund_reason}</p>}
-                </div>
-              )}
-
-              {selectedOrder.stripe_payment_intent_id && (
-                <div className="flex items-center justify-between text-[13px] p-3 bg-[#f9fafb] rounded-xl">
-                  <span className="text-[#6b7280] flex items-center gap-2"><CreditCard className="h-4 w-4" /> Payment ID</span>
-                  <span className="text-[#1a1a2e] font-mono text-[12px] truncate max-w-[160px]">{selectedOrder.stripe_payment_intent_id}</span>
-                </div>
-              )}
-
-              {/* Action Buttons — responsive grid */}
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  variant="outline"
-                  className="rounded-xl text-[13px]"
-                  disabled={invoiceLoading}
-                  onClick={() => handleDownloadInvoice(selectedOrder)}
-                >
-                  {invoiceLoading ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Download className="mr-1.5 h-3.5 w-3.5" />}
-                  Invoice
-                </Button>
-
-                {selectedOrder.status === "completed" ? (
-                  <Button
-                    variant="outline"
-                    className="rounded-xl text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 text-[13px]"
-                    onClick={() => {
-                      setRefundOrder(selectedOrder)
-                      setRefundAmount((selectedOrder.amount_cents / 100).toFixed(2))
-                      setRefundReason("")
-                      setRefundError(null)
-                      setDetailOpen(false)
-                      setRefundModalOpen(true)
-                    }}
-                  >
-                    <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-                    Refund
-                  </Button>
-                ) : selectedOrder.status === "refunded" ? (
-                  <Button variant="outline" className="rounded-xl text-[13px] text-red-400 cursor-not-allowed" disabled>
-                    <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-                    Refunded
-                  </Button>
-                ) : (
-                  <Button variant="outline" className="rounded-xl text-[13px]" onClick={() => setDetailOpen(false)}>
-                    Close
-                  </Button>
-                )}
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* ═══════ REFUND MODAL ═══════ */}
+      {/* Refund Modal */}
       <Dialog open={refundModalOpen} onOpenChange={setRefundModalOpen}>
         <DialogContent className="w-[calc(100%-32px)] max-w-md rounded-2xl">
           <DialogHeader>
