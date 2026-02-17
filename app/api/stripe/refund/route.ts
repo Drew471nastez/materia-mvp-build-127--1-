@@ -122,12 +122,28 @@ export async function POST(request: Request) {
       // Resolve proper creator display name and email
       let storeName = creator.username || "Store"
       let sellerContactEmail = user.email || ""
+      let sellerAvatarUrl = ""
       try {
         const identity = await resolveCreatorIdentity(dbClient, creator.id)
         storeName = identity.fromName || storeName
         sellerContactEmail = identity.sellerEmail || sellerContactEmail
       } catch (identityErr) {
         console.log("[Refund] Could not resolve creator identity, using fallback:", identityErr)
+      }
+
+      // Resolve seller avatar URL
+      try {
+        const { data: profile } = await dbClient
+          .from("profiles")
+          .select("avatar_url")
+          .eq("id", creator.user_id)
+          .single()
+        if (profile?.avatar_url) sellerAvatarUrl = profile.avatar_url
+      } catch {
+        // No avatar available
+      }
+      if (!sellerAvatarUrl && creator.avatar_url) {
+        sellerAvatarUrl = creator.avatar_url
       }
 
       await sendRefundEmails({
@@ -141,6 +157,7 @@ export async function POST(request: Request) {
         reason: reason || "Requested by seller",
         storeName,
         orderDate: order.created_at || order.order_date,
+        sellerAvatarUrl,
       })
     } catch (emailErr) {
       console.error("[Refund] Email notification failed:", emailErr)
