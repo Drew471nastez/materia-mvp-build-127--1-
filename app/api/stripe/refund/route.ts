@@ -76,8 +76,8 @@ export async function POST(request: Request) {
       }, { status: 400 })
     }
 
-    // Create Stripe refund
-    const refund = await stripe.refunds.create({
+    // Create Stripe refund — use connected account if available
+    const refundParams: any = {
       payment_intent: order.stripe_payment_intent_id,
       amount: refundAmountCents,
       reason: reason === "duplicate" ? "duplicate" : reason === "fraudulent" ? "fraudulent" : "requested_by_customer",
@@ -87,7 +87,11 @@ export async function POST(request: Request) {
         product_id: order.product_id,
         refund_reason: reason || "requested_by_customer",
       },
-    })
+    }
+    const stripeOptions = creator.stripe_account_id
+      ? { stripeAccount: creator.stripe_account_id }
+      : undefined
+    const refund = await stripe.refunds.create(refundParams, stripeOptions)
 
     // Update order status in database
     await dbClient

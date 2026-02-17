@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
+export const runtime = "nodejs"
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
@@ -69,8 +71,9 @@ export async function GET(request: Request) {
       : null
 
     // Generate PDF using PDFKit
-    // @ts-ignore - pdfkit has no type declarations
-    const PDFDocument = (await import("pdfkit")).default
+    // @ts-ignore - pdfkit CJS module
+    const pdfkitModule = await import("pdfkit")
+    const PDFDocument = pdfkitModule.default || pdfkitModule
 
     const doc = new PDFDocument({ size: "A4", margin: 50 })
     const chunks: Buffer[] = []

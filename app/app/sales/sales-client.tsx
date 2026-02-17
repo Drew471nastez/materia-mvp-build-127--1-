@@ -2143,6 +2143,24 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
     fetchSalesData()
   }, [timeframe, searchQuery, appliedFilters])
 
+  // Sync refund status from Stripe on page load (catches refunds done via Stripe Dashboard)
+  useEffect(() => {
+    const syncRefunds = async () => {
+      try {
+        const response = await fetch("/api/stripe/sync-refunds", { method: "POST" })
+        if (response.ok) {
+          const data = await response.json()
+          if (data.synced > 0) {
+            router.refresh()
+          }
+        }
+      } catch (err) {
+        console.error("Error syncing refunds:", err)
+      }
+    }
+    syncRefunds()
+  }, [])
+
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

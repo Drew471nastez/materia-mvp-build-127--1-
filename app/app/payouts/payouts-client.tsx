@@ -912,11 +912,27 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
     }
   }
 
+  // Sync refund status from Stripe on load (catches refunds done via Stripe Dashboard)
+  const syncRefunds = async () => {
+    try {
+      const response = await fetch("/api/stripe/sync-refunds", { method: "POST" })
+      if (response.ok) {
+        const data = await response.json()
+        if (data.synced > 0) {
+          router.refresh()
+        }
+      }
+    } catch (err) {
+      console.error("Error syncing refunds:", err)
+    }
+  }
+
   useEffect(() => {
     fetchConnectionStatus()
     if (isStripeConnected) {
       fetchStripePayouts()
     }
+    syncRefunds()
   }, [creator.stripe_account_id])
 
   const handleConnectStripe = async () => {
@@ -1433,79 +1449,83 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
         )}
       </div>
 
-      {/* Payout Account Card */}
-      {isStripeConnected && (
-        <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-          <div className="p-4 sm:p-5 border-b border-[#e5e7eb]/60">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-[#f3f4f6] rounded-lg">
-                  <Landmark className="h-4 w-4 text-[#6b7280]" />
+      {/* Payout Account + Help Section — side by side on desktop */}
+      <div className={cn(
+        "grid gap-4",
+        isStripeConnected ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1"
+      )}>
+        {/* Payout Account Card */}
+        {isStripeConnected && (
+          <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden flex flex-col">
+            <div className="p-4 sm:p-5 border-b border-[#e5e7eb]/60">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-[#f3f4f6] rounded-lg">
+                    <Landmark className="h-4 w-4 text-[#6b7280]" />
+                  </div>
+                  <div>
+                    <h3 className="text-[15px] font-semibold text-[#1a1a2e]">
+                      {t("payouts.payoutAccount")}
+                    </h3>
+                    <p className="text-[12px] text-[#6b7280] mt-0.5">Where your earnings are deposited</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-[15px] font-semibold text-[#1a1a2e]">
-                    {t("payouts.payoutAccount")}
-                  </h3>
-                  <p className="text-[12px] text-[#6b7280] mt-0.5">Where your earnings are deposited</p>
-                </div>
+                <Badge className="bg-violet-50 text-violet-700 border-0 text-[11px]">
+                  <CheckCircle2 className="mr-1 h-3 w-3" />
+                  {t("common.connected")}
+                </Badge>
               </div>
-              <Badge className="bg-violet-50 text-violet-700 border-0 text-[11px]">
-                <CheckCircle2 className="mr-1 h-3 w-3" />
-                {t("common.connected")}
-              </Badge>
             </div>
-          </div>
-          <div className="p-4 sm:p-5">
-            <div className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-[#f9fafb] rounded-xl">
-              <div className="p-2 bg-white rounded-lg border border-[#e5e7eb]/60 shrink-0">
-                <Building2 className="h-5 w-5 sm:h-6 sm:w-6 text-[#6b7280]" />
+            <div className="p-4 sm:p-5 flex-1">
+              <div className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-[#f9fafb] rounded-xl">
+                <div className="p-2 bg-white rounded-lg border border-[#e5e7eb]/60 shrink-0">
+                  <Building2 className="h-5 w-5 sm:h-6 sm:w-6 text-[#6b7280]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-[13px] sm:text-[14px] text-[#1a1a2e] truncate">{connectionStatus?.bankAccount?.bankName || "Bank Account"}</p>
+                  <p className="text-[12px] sm:text-[13px] text-[#6b7280]">****{connectionStatus?.bankAccount?.last4 || "····"} ({currency})</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-lg shrink-0 text-[13px]"
+                  disabled={isConnecting}
+                  onClick={() => {
+                    setIsConnecting(true)
+                    fetch("/api/stripe/connect/start", { method: "POST" })
+                      .then(r => r.json())
+                      .then(data => {
+                        if (data.url) window.open(data.url, "_blank", "noopener,noreferrer")
+                        setIsConnecting(false)
+                      })
+                      .catch(() => setIsConnecting(false))
+                  }}
+                >
+                  {isConnecting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : t("common.update")}
+                </Button>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-[13px] sm:text-[14px] text-[#1a1a2e] truncate">{connectionStatus?.bankAccount?.bankName || "Bank Account"}</p>
-                <p className="text-[12px] sm:text-[13px] text-[#6b7280]">****{connectionStatus?.bankAccount?.last4 || "····"} ({currency})</p>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-lg shrink-0 text-[13px]"
-                disabled={isConnecting}
-                onClick={() => {
-                  setIsConnecting(true)
-                  fetch("/api/stripe/connect/start", { method: "POST" })
-                    .then(r => r.json())
-                    .then(data => {
-                      if (data.url) window.open(data.url, "_blank", "noopener,noreferrer")
-                      setIsConnecting(false)
-                    })
-                    .catch(() => setIsConnecting(false))
-                }}
-              >
-                {isConnecting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : t("common.update")}
+            </div>
+            <div className="px-4 sm:px-5 pb-4 sm:pb-5">
+              <Button variant="outline" className="w-full rounded-xl text-[13px]" asChild>
+                <a href="https://dashboard.stripe.com" target="_blank" rel="noopener noreferrer">
+                  <StripeIcon className="mr-2 h-4 w-auto" />
+                  Open Stripe Dashboard
+                </a>
               </Button>
             </div>
           </div>
-          <div className="px-4 sm:px-5 pb-4 sm:pb-5">
-            <Button variant="outline" className="w-full rounded-xl text-[13px]" asChild>
-              <a href="https://dashboard.stripe.com" target="_blank" rel="noopener noreferrer">
-                <StripeIcon className="mr-2 h-4 w-auto" />
-                Open Stripe Dashboard
-              </a>
-            </Button>
-          </div>
-        </div>
-      )}
+        )}
 
-      {/* Help Section */}
-      <div className="bg-[#f9fafb] rounded-2xl border border-[#e5e7eb]/60 p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-4">
-            <div className="p-2 bg-white rounded-lg border border-[#e5e7eb]/60"><HelpCircle className="h-5 w-5 text-[#6b7280]" /></div>
+        {/* Help Section */}
+        <div className="bg-[#f9fafb] rounded-2xl border border-[#e5e7eb]/60 p-5 sm:p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)] flex flex-col justify-between">
+          <div className="flex items-start gap-3 sm:gap-4">
+            <div className="p-2 bg-white rounded-lg border border-[#e5e7eb]/60 shrink-0"><HelpCircle className="h-5 w-5 text-[#6b7280]" /></div>
             <div>
               <h3 className="font-medium text-[14px] text-[#1a1a2e]">Need help with payouts?</h3>
-              <p className="text-[13px] text-[#6b7280]">Learn about payout schedules, fees, and how to optimize your earnings.</p>
+              <p className="text-[13px] text-[#6b7280] mt-1">Learn about payout schedules, fees, and how to optimize your earnings.</p>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 mt-4">
             <Button variant="outline" size="sm" className="rounded-lg">View FAQ</Button>
             <Button variant="outline" size="sm" className="rounded-lg">Contact Support</Button>
           </div>

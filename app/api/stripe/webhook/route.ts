@@ -788,5 +788,50 @@ export async function POST(request: Request) {
     return NextResponse.json({ received: true })
   }
 
+  // ============================================================================
+  // REFUND EVENTS — sync refunds initiated from Stripe Dashboard
+  // ============================================================================
+
+  if (event.type === "charge.refunded") {
+    const charge = event.data.object as Stripe.Charge
+    const paymentIntentId = typeof charge.payment_intent === "string" ? charge.payment_intent : charge.payment_intent?.id
+
+    console.log("[Webhook] Charge refunded:", charge.id, "PI:", paymentIntentId)
+
+    if (paymentIntentId) {
+      try {
+        // Find the order by stripe_payment_intent_id
+        const { data: order } = await supabaseAdmin
+          .from("orders")
+          .select("id, status, amount_cents")
+          .eq("stripe_payment_intent_id", paymentIntentId)
+          .maybeSingle()
+
+        if (order && order.status !== "refunded") {
+          // Get refund details from charge
+          const refund = charge.refunds?.data?.[0]
+          const refundAmountCents = charge.amount_refunded || order.amount_cents
+
+          await supabaseAdmin
+            .from("orders")
+            .update({
+              status: "refunded",
+              refunded_at: new Date().toISOString(),
+              refund_reason: refund?.reason || "requested_by_customer",
+              refund_amount_cents: refundAmountCents,
+              stripe_refund_id: refund?.id || null,
+            })
+            .eq("id", order.id)
+
+          console.log("[Webhook] Order", order.id, "marked as refunded via webhook")
+        }
+      } catch (error) {
+        console.error("[Webhook] Error processing charge.refunded:", error)
+      }
+    }
+
+    return NextResponse.json({ received: true })
+  }
+
   return NextResponse.json({ received: true })
 }
