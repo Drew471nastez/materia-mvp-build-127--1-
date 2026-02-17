@@ -114,18 +114,43 @@ export default async function PayoutsPage() {
   }
 
   // Fetch real Stripe balance for pending/available KPIs
+  // Only use balance entries matching the creator's sales currency (e.g. USD).
+  // Connected accounts in other countries may have balances in local currency (e.g. RON)
+  // which should NOT be displayed as USD.
   let stripePendingBalance = 0
   let stripeAvailableBalance = 0
+  const salesCurrency = (creator.default_currency || "USD").toLowerCase()
+
   if (creator.stripe_account_id) {
     try {
       const balance = await stripe.balance.retrieve(
         { stripeAccount: creator.stripe_account_id }
       )
-      stripePendingBalance = balance.pending.reduce((sum, b) => sum + b.amount, 0)
-      stripeAvailableBalance = balance.available.reduce((sum, b) => sum + b.amount, 0)
+      // Filter for entries matching the sales currency only
+      const pendingInCurrency = balance.pending.filter(b => b.currency === salesCurrency)
+      const availableInCurrency = balance.available.filter(b => b.currency === salesCurrency)
+
+      stripePendingBalance = pendingInCurrency.reduce((sum, b) => sum + b.amount, 0)
+      stripeAvailableBalance = availableInCurrency.reduce((sum, b) => sum + b.amount, 0)
     } catch (err) {
       console.error("[Payouts] Failed to fetch Stripe balance:", err)
     }
+  }
+
+  // If Stripe balance had no entries in the sales currency (e.g. connected account
+  // is in a different country with a different currency), compute from order data instead
+  if (stripePendingBalance === 0 && stripeAvailableBalance === 0 && allOrders.length > 0) {
+    const sevenDaysAgo = new Date()
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+    const completedOrders = allOrders.filter((o: any) => o.status === "completed")
+    completedOrders.forEach((order: any) => {
+      const net = (order.amount_cents || 0) - (order.fee_cents || 0)
+      if (new Date(order.created_at) > sevenDaysAgo) {
+        stripePendingBalance += net
+      } else {
+        stripeAvailableBalance += net
+      }
+    })
   }
 
   const netEarnings = totalEarnings - totalFees

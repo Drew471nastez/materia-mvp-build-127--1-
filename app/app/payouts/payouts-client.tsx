@@ -1420,7 +1420,11 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
             <span className="text-[12px] text-[#6b7280] font-medium">Pending</span>
           </div>
           <p className="text-[20px] sm:text-[24px] font-bold text-[#1a1a2e]">
-            {stripeBalance?.pending?.length ? formatPrice(stripeBalance.pending.reduce((sum, b) => sum + b.amount, 0)) : formatPrice(initialData.pendingAmount)}
+            {(() => {
+              const cl = currency.toLowerCase()
+              const m = stripeBalance?.pending?.filter(b => b.currency === cl) || []
+              return m.length ? formatPrice(m.reduce((s, b) => s + b.amount, 0)) : formatPrice(initialData.pendingAmount)
+            })()}
           </p>
         </div>
         <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4 sm:p-5">
@@ -1429,7 +1433,11 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
             <span className="text-[12px] text-[#6b7280] font-medium">Available</span>
           </div>
           <p className="text-[20px] sm:text-[24px] font-bold text-[#1a1a2e]">
-            {stripeBalance?.available?.length ? formatPrice(stripeBalance.available.reduce((sum, b) => sum + b.amount, 0)) : formatPrice(initialData.availableBalance)}
+            {(() => {
+              const cl = currency.toLowerCase()
+              const m = stripeBalance?.available?.filter(b => b.currency === cl) || []
+              return m.length ? formatPrice(m.reduce((s, b) => s + b.amount, 0)) : formatPrice(initialData.availableBalance)
+            })()}
           </p>
         </div>
       </div>
