@@ -51,7 +51,7 @@ export default async function PayoutsPage() {
     // Get all orders (completed and refunded) with product info
     const { data: completedOrders } = await supabase
       .from("orders")
-      .select("id, amount_cents, fee_cents, created_at, status, customer_email, product_id, stripe_payment_intent_id, product:products(title, thumbnail_url)")
+      .select("id, amount_cents, fee_cents, created_at, status, customer_email, product_id, stripe_payment_intent_id, refund_reason, refund_amount_cents, refunded_at, stripe_refund_id, product:products(title, thumbnail_url)")
       .in("product_id", productIds)
       .in("status", ["completed", "refunded"])
       .order("created_at", { ascending: false })

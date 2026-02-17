@@ -1347,83 +1347,28 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
     setTimeout(() => setNotification({ message: "", visible: false }), 5000)
   }
 
-  // Invoice download handler
-  const handleDownloadInvoice = (order: Order) => {
-    const invoiceDate = new Date(order.created_at).toLocaleDateString("en-US", {
-      year: "numeric", month: "long", day: "numeric",
-    })
-    const invoiceTime = new Date(order.created_at).toLocaleTimeString("en-US", {
-      hour: "numeric", minute: "2-digit",
-    })
-
-    const isRefunded = order.status === "refunded"
-    const refundDate = order.refunded_at
-      ? new Date(order.refunded_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
-      : null
-
-    const html = `<!DOCTYPE html>
-<html><head><meta charset="UTF-8"><title>Invoice ${order.id.slice(0, 8)}</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:40px;color:#1a1a2e;max-width:700px;margin:0 auto}
-.header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:40px;padding-bottom:20px;border-bottom:2px solid #e5e7eb}
-.logo{font-size:22px;font-weight:700;color:#1a1a2e}
-.invoice-label{font-size:28px;font-weight:700;color:#6b7280;text-align:right}
-.meta{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:32px}
-.meta-block h4{font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#9ca3af;margin-bottom:6px}
-.meta-block p{font-size:14px;color:#1a1a2e}
-table{width:100%;border-collapse:collapse;margin-bottom:24px}
-th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#6b7280;padding:10px 0;border-bottom:2px solid #e5e7eb}
-td{padding:14px 0;font-size:14px;border-bottom:1px solid #f3f4f6}
-.amount{text-align:right}
-.totals{margin-left:auto;width:260px}
-.total-row{display:flex;justify-content:space-between;padding:8px 0;font-size:14px}
-.total-row.final{font-size:18px;font-weight:700;border-top:2px solid #1a1a2e;padding-top:12px;margin-top:4px}
-.refund-section{background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:16px;margin-top:24px}
-.refund-section h3{color:#dc2626;font-size:14px;font-weight:600;margin-bottom:8px}
-.refund-section p{color:#7f1d1d;font-size:13px}
-.footer{margin-top:40px;padding-top:20px;border-top:1px solid #e5e7eb;text-align:center;font-size:12px;color:#9ca3af}
-@media print{body{padding:20px}button{display:none!important}}
-</style></head><body>
-<div class="header">
-  <div><div class="logo">${storeName}</div><p style="font-size:13px;color:#6b7280;margin-top:4px">Digital Product Invoice</p></div>
-  <div class="invoice-label">INVOICE</div>
-</div>
-<div class="meta">
-  <div class="meta-block"><h4>Invoice Number</h4><p>#INV-${order.id.slice(0, 8).toUpperCase()}</p></div>
-  <div class="meta-block"><h4>Date</h4><p>${invoiceDate} at ${invoiceTime}</p></div>
-  <div class="meta-block"><h4>Customer</h4><p>${order.buyer_email || order.customer_email || order.buyer?.email || "N/A"}</p></div>
-  <div class="meta-block"><h4>Status</h4><p>${isRefunded ? '<span style="color:#dc2626">Refunded</span>' : '<span style="color:#059669">Paid</span>'}</p></div>
-</div>
-<table>
-  <thead><tr><th>Item</th><th class="amount">Amount</th></tr></thead>
-  <tbody><tr><td>${order.product?.title || "Digital Product"}</td><td class="amount">${formatPrice(order.amount_cents)}</td></tr></tbody>
-</table>
-<div class="totals">
-  <div class="total-row"><span>Subtotal</span><span>${formatPrice(order.amount_cents)}</span></div>
-  <div class="total-row"><span>Platform Fee</span><span>-${formatPrice(order.fee_cents || 0)}</span></div>
-  <div class="total-row final"><span>Net Amount</span><span>${formatPrice((order.amount_cents || 0) - (order.fee_cents || 0))}</span></div>
-</div>
-${isRefunded ? `<div class="refund-section">
-  <h3>Refund Details</h3>
-  <p>Amount: ${formatPrice(order.refund_amount_cents || order.amount_cents)}</p>
-  ${refundDate ? `<p>Date: ${refundDate}</p>` : ""}
-  ${order.refund_reason ? `<p>Reason: ${order.refund_reason}</p>` : ""}
-</div>` : ""}
-<div class="footer">
-  <p>Thank you for your purchase.</p>
-  <p style="margin-top:8px">${storeName} &mdash; Powered by Storelib</p>
-  <p style="margin-top:4px">Order ID: ${order.id}</p>
-</div>
-<div style="text-align:center;margin-top:24px">
-  <button onclick="window.print()" style="background:#1a1a2e;color:white;border:none;padding:10px 24px;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer">Print / Save as PDF</button>
-</div>
-</body></html>`
-
-    const blob = new Blob([html], { type: "text/html" })
-    const url = URL.createObjectURL(blob)
-    window.open(url, "_blank")
-    setTimeout(() => URL.revokeObjectURL(url), 5000)
+  // Invoice download handler - real PDF from API endpoint
+  const [invoiceLoading, setInvoiceLoading] = useState(false)
+  const handleDownloadInvoice = async (order: Order) => {
+    setInvoiceLoading(true)
+    try {
+      const response = await fetch(`/api/invoice?orderId=${order.id}`)
+      if (!response.ok) throw new Error("Failed to generate invoice")
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `invoice-${order.id.slice(0, 8)}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error("Invoice download failed:", err)
+      showNotification("Failed to download invoice. Please try again.")
+    } finally {
+      setInvoiceLoading(false)
+    }
   }
 
   // Refund handler

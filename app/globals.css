@@ -756,18 +756,43 @@
 /* Button shine animation for pricing CTA */
 @keyframes btn-shine {
   0% {
-    background-position: 200% 0;
-  }
-  30% {
-    background-position: -50% 0;
+    transform: translateX(-100%);
   }
   100% {
-    background-position: -50% 0;
+    transform: translateX(200%);
   }
 }
 
-.btn-shine-hover:hover .btn-shine-effect {
-  animation-play-state: paused !important;
+.btn-shine-effect {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.btn-shine-effect::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    transparent 35%,
+    rgba(255, 255, 255, 0.12) 42%,
+    rgba(255, 255, 255, 0.2) 50%,
+    rgba(255, 255, 255, 0.12) 58%,
+    transparent 65%,
+    transparent 100%
+  );
+  animation: btn-shine 5s ease-in-out infinite;
+  animation-delay: 1s;
+}
+
+.btn-shine-hover:hover .btn-shine-effect::after {
+  animation-play-state: paused;
 }
 
 /* Shimmer animation for skeleton loading */
