@@ -1092,8 +1092,7 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
       )}
 
       {/* Timeframe Selector */}
-      <div className="flex items-center justify-between">
-        <div />
+      <div className="flex items-center justify-start">
         {/* Desktop Timeframe Dropdown */}
         <div className="relative timeframe-dropdown hidden md:block">
           <button
@@ -1104,7 +1103,7 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
             <ChevronDown className={`h-4 w-4 text-[#9ca3af] transition-transform duration-200 ${isTimeframeOpen ? "rotate-180" : ""}`} />
           </button>
           {isTimeframeOpen && (
-            <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-[#e5e7eb] rounded-xl shadow-lg z-50 py-1 animate-in fade-in-0 zoom-in-95 duration-100">
+            <div className="absolute left-0 top-full mt-2 w-48 bg-white border border-[#e5e7eb] rounded-xl shadow-lg z-50 py-1 animate-in fade-in-0 zoom-in-95 duration-100">
               {timeframeOptions.map((option) => (
                 <button
                   key={option.value}

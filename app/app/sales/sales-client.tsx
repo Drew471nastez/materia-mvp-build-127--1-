@@ -993,7 +993,7 @@ function OrderDetailsModal({
                 Edit Email
               </button>
             </div>
-            {selectedOrder.status === "completed" && (
+            {selectedOrder.status === "completed" ? (
               <button
                 onClick={() => { handleClose(); setTimeout(() => handleOpenRefund(selectedOrder), 450) }}
                 className="px-4 py-2 text-[13px] font-medium text-rose-600 bg-rose-50 rounded-lg hover:bg-rose-100 transition-colors flex items-center gap-2"
@@ -1001,7 +1001,12 @@ function OrderDetailsModal({
                 <RotateCcw className="h-4 w-4" />
                 Issue Refund
               </button>
-            )}
+            ) : selectedOrder.status === "refunded" ? (
+              <span className="px-4 py-2 text-[13px] font-medium text-rose-400 bg-rose-50 rounded-lg flex items-center gap-2 cursor-not-allowed opacity-70">
+                <RotateCcw className="h-4 w-4" />
+                Refunded
+              </span>
+            ) : null}
           </div>
         </div>
       </div>
@@ -1232,7 +1237,7 @@ function OrderDetailsModal({
                 <Mail className="h-3.5 w-3.5" />
                 Edit Email
               </button>
-              {selectedOrder.status === "completed" && (
+              {selectedOrder.status === "completed" ? (
                 <button
                   onClick={() => { handleClose(); setTimeout(() => handleOpenRefund(selectedOrder), 450) }}
                   className="flex-1 px-3 py-2.5 text-[12px] font-medium text-rose-600 bg-rose-50 rounded-lg active:bg-rose-100 transition-colors flex items-center justify-center gap-1.5"
@@ -1240,7 +1245,12 @@ function OrderDetailsModal({
                   <RotateCcw className="h-3.5 w-3.5" />
                   Refund
                 </button>
-              )}
+              ) : selectedOrder.status === "refunded" ? (
+                <span className="flex-1 px-3 py-2.5 text-[12px] font-medium text-rose-400 bg-rose-50 rounded-lg flex items-center justify-center gap-1.5 cursor-not-allowed opacity-70">
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Refunded
+                </span>
+              ) : null}
             </div>
           </div>
 
@@ -1293,6 +1303,14 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
   const [filterCustomer, setFilterCustomer] = useState("")
   const [filterStatus, setFilterStatus] = useState("all")
   const [appliedFilters, setAppliedFilters] = useState<any>(null)
+
+  // Sync server data after router.refresh() — initialOrders/initialSummary props may update
+  useEffect(() => {
+    setAllOrders(initialOrders)
+    setOrders(initialOrders)
+    setSummary(initialSummary)
+    setTotalCount(initialOrders.length)
+  }, [initialOrders, initialSummary])
 
   // KPI Modal states
   const [openKPIModal, setOpenKPIModal] = useState<KPIType>(null)
@@ -1402,6 +1420,31 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
         const data = await response.json()
         throw new Error(data.error || "Failed to process refund")
       }
+
+      // Immediately update local state so refund status shows without waiting for server refresh
+      const refundAmountCents = amount ? Math.round(amount * 100) : refundOrder.amount_cents
+      const updatedOrder = {
+        ...refundOrder,
+        status: "refunded",
+        refunded_at: new Date().toISOString(),
+        refund_reason: refundReason || "requested_by_customer",
+        refund_amount_cents: refundAmountCents,
+      }
+      setAllOrders(prev => prev.map(o => o.id === refundOrder.id ? updatedOrder : o))
+      setOrders(prev => prev.map(o => o.id === refundOrder.id ? updatedOrder : o))
+      // Recalculate summary with updated data
+      setAllOrders(prev => {
+        const completedOrders = prev.filter(o => o.status === "completed")
+        const refundedOrders = prev.filter(o => o.status === "refunded")
+        setSummary({
+          totalSales: completedOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0),
+          totalOrders: completedOrders.length,
+          avgOrderValue: completedOrders.length > 0 ? Math.round(completedOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0) / completedOrders.length) : 0,
+          refundCount: refundedOrders.length,
+          refundAmount: refundedOrders.reduce((sum, o) => sum + (o.refund_amount_cents || o.amount_cents || 0), 0),
+        })
+        return prev
+      })
 
       showNotification("Refund processed successfully! Confirmation emails have been sent.")
       setRefundModalOpen(false)
