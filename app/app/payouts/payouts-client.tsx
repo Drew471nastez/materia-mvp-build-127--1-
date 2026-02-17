@@ -1,8 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -11,9 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Progress } from "@/components/ui/progress"
 import {
   Dialog,
   DialogContent,
@@ -23,24 +20,13 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu"
-import {
   Wallet,
   DollarSign,
   Clock,
   CheckCircle2,
   AlertCircle,
-  ArrowUpRight,
-  ArrowDownRight,
   Building2,
-  CreditCard,
   Calendar,
-  RefreshCw,
   Download,
   MoreHorizontal,
   Eye,
@@ -56,10 +42,13 @@ import {
   XCircle,
   HelpCircle,
   Landmark,
+  Package,
+  Mail,
+  CreditCard,
 } from "lucide-react"
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
-import { createClient } from "@/lib/supabase/client"
 import { useLanguage } from "@/lib/i18n"
+import { cn } from "@/lib/utils"
 
 interface Creator {
   id: string
@@ -71,6 +60,21 @@ interface Creator {
   instant_payouts_enabled?: boolean
 }
 
+interface OrderPayment {
+  id: string
+  amount_cents: number
+  fee_cents: number
+  created_at: string
+  status: string
+  customer_email: string
+  product_id: string
+  stripe_payment_intent_id?: string
+  product?: {
+    title: string
+    thumbnail_url?: string
+  } | null
+}
+
 interface PayoutsClientProps {
   creator: Creator
   initialData: {
@@ -80,16 +84,7 @@ interface PayoutsClientProps {
     pendingAmount: number
     availableBalance: number
   }
-}
-
-interface Payout {
-  id: string
-  amount: number
-  status: "pending" | "in_transit" | "paid" | "failed" | "canceled"
-  arrival_date: string
-  created_at: string
-  method: string
-  destination_last4?: string
+  initialOrders?: OrderPayment[]
 }
 
 interface EarningsTrend {
@@ -105,10 +100,9 @@ const PAYOUT_SCHEDULES = [
   { value: "monthly", label: "Monthly", description: "Receive payouts on the 1st of each month" },
 ]
 
-export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
+export function PayoutsClient({ creator, initialData, initialOrders = [] }: PayoutsClientProps) {
   const router = useRouter()
   const { t } = useLanguage()
-  const [isLoading, setIsLoading] = useState(false)
   const [isConnecting, setIsConnecting] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [statusLoading, setStatusLoading] = useState(false)
@@ -134,19 +128,92 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
   const [payoutThreshold, setPayoutThreshold] = useState(creator.payout_threshold || 0)
   const [instantPayoutsEnabled, setInstantPayoutsEnabled] = useState(creator.instant_payouts_enabled || false)
 
-  // Payout history
-  const [payouts, setPayouts] = useState<Payout[]>([])
-  const [earningsTrend, setEarningsTrend] = useState<EarningsTrend[]>([])
-  const [selectedPayout, setSelectedPayout] = useState<Payout | null>(null)
-  const [payoutDetailOpen, setPayoutDetailOpen] = useState(false)
+  // Payment detail bottom sheet
+  const [selectedOrder, setSelectedOrder] = useState<OrderPayment | null>(null)
+  const [detailOpen, setDetailOpen] = useState(false)
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false)
-  const [timeframe, setTimeframe] = useState("last_30_days")
+
+  // Mobile bottom sheet state for detail
+  const [isMobileSheet, setIsMobileSheet] = useState(false)
+  const [isDetailPresented, setIsDetailPresented] = useState(false)
+  const [detailDragY, setDetailDragY] = useState(0)
+  const [isDetailDragging, setIsDetailDragging] = useState(false)
+  const detailDragStartY = useRef(0)
+  const detailDragCurrentY = useRef(0)
 
   const currency = creator.default_currency || "USD"
-  const supabase = createClient()
 
   const isStripeConnected = creator.stripe_onboarding_status === "connected"
   const isStripePending = creator.stripe_onboarding_status === "pending"
+
+  useEffect(() => {
+    const check = () => setIsMobileSheet(window.innerWidth < 768)
+    check()
+    window.addEventListener("resize", check)
+    return () => window.removeEventListener("resize", check)
+  }, [])
+
+  useEffect(() => {
+    if (detailOpen && isMobileSheet) {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => setIsDetailPresented(true))
+      })
+    } else {
+      setIsDetailPresented(false)
+      setDetailDragY(0)
+    }
+  }, [detailOpen, isMobileSheet])
+
+  const handleDetailTouchStart = useCallback((e: React.TouchEvent) => {
+    setIsDetailDragging(true)
+    detailDragStartY.current = e.touches[0].clientY
+    detailDragCurrentY.current = e.touches[0].clientY
+  }, [])
+
+  const handleDetailTouchMove = useCallback((e: React.TouchEvent) => {
+    detailDragCurrentY.current = e.touches[0].clientY
+    const delta = Math.max(0, detailDragCurrentY.current - detailDragStartY.current)
+    setDetailDragY(delta)
+  }, [])
+
+  const handleDetailTouchEnd = useCallback(() => {
+    setIsDetailDragging(false)
+    const delta = detailDragCurrentY.current - detailDragStartY.current
+    const velocity = delta > 0 ? delta / 300 : 0
+    if (delta > 80 || velocity > 0.5) {
+      setIsDetailPresented(false)
+      setTimeout(() => { setDetailOpen(false); setDetailDragY(0) }, 400)
+    } else {
+      setDetailDragY(0)
+    }
+  }, [])
+
+  // Build earnings trend from real order data
+  const earningsTrend: EarningsTrend[] = (() => {
+    if (initialOrders.length === 0) return []
+    const trendMap: Record<string, { earnings: number; fees: number }> = {}
+    const now = new Date()
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(now)
+      d.setDate(d.getDate() - i)
+      const key = d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+      trendMap[key] = { earnings: 0, fees: 0 }
+    }
+    initialOrders.forEach((order) => {
+      const d = new Date(order.created_at)
+      const key = d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+      if (trendMap[key]) {
+        trendMap[key].earnings += order.amount_cents || 0
+        trendMap[key].fees += order.fee_cents || 0
+      }
+    })
+    return Object.entries(trendMap).map(([date, data]) => ({
+      date,
+      earnings: data.earnings,
+      fees: data.fees,
+      net: data.earnings - data.fees,
+    }))
+  })()
 
   // Fetch Stripe connection status
   const fetchConnectionStatus = async () => {
@@ -164,74 +231,8 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
     }
   }
 
-  // Fetch payout history (mock data for demo)
-  const fetchPayoutHistory = async () => {
-    setIsLoading(true)
-    try {
-      // In a real implementation, this would fetch from Stripe
-      // For now, we'll generate mock data based on the timeframe
-      const mockPayouts: Payout[] = [
-        {
-          id: "po_1",
-          amount: 150000,
-          status: "paid",
-          arrival_date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-          created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-          method: "bank_account",
-          destination_last4: "4242",
-        },
-        {
-          id: "po_2",
-          amount: 89500,
-          status: "in_transit",
-          arrival_date: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString(),
-          created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-          method: "bank_account",
-          destination_last4: "4242",
-        },
-        {
-          id: "po_3",
-          amount: 45000,
-          status: "pending",
-          arrival_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-          created_at: new Date().toISOString(),
-          method: "bank_account",
-          destination_last4: "4242",
-        },
-      ]
-
-      // Only show payouts if Stripe is connected
-      if (isStripeConnected) {
-        setPayouts(mockPayouts)
-      } else {
-        setPayouts([])
-      }
-
-      // Generate earnings trend
-      const trend: EarningsTrend[] = []
-      for (let i = 29; i >= 0; i--) {
-        const date = new Date()
-        date.setDate(date.getDate() - i)
-        const earnings = Math.floor(Math.random() * 50000) + 10000
-        const fees = Math.floor(earnings * 0.1)
-        trend.push({
-          date: date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-          earnings,
-          fees,
-          net: earnings - fees,
-        })
-      }
-      setEarningsTrend(trend)
-    } catch (err) {
-      console.error("Error fetching payout history:", err)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
   useEffect(() => {
     fetchConnectionStatus()
-    fetchPayoutHistory()
   }, [creator.stripe_account_id])
 
   const handleConnectStripe = async () => {
@@ -267,7 +268,7 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           payoutSchedule,
-          payoutThreshold: payoutThreshold * 100, // Convert to cents
+          payoutThreshold: payoutThreshold * 100,
           instantPayoutsEnabled,
         }),
       })
@@ -302,46 +303,15 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
     })
   }
 
-  const getPayoutStatusBadge = (status: Payout["status"]) => {
-    switch (status) {
-      case "paid":
-        return (
-          <Badge className="bg-green-100 text-green-700 hover:bg-green-100">
-            <CheckCircle2 className="mr-1 h-3 w-3" />
-            Paid
-          </Badge>
-        )
-      case "in_transit":
-        return (
-          <Badge variant="secondary" className="bg-blue-100 text-blue-700 hover:bg-blue-100">
-            <ArrowUpRight className="mr-1 h-3 w-3" />
-            In Transit
-          </Badge>
-        )
-      case "pending":
-        return (
-          <Badge variant="secondary" className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100">
-            <Clock className="mr-1 h-3 w-3" />
-            Pending
-          </Badge>
-        )
-      case "failed":
-        return (
-          <Badge variant="destructive">
-            <XCircle className="mr-1 h-3 w-3" />
-            Failed
-          </Badge>
-        )
-      case "canceled":
-        return (
-          <Badge variant="outline">
-            <XCircle className="mr-1 h-3 w-3" />
-            Canceled
-          </Badge>
-        )
-      default:
-        return <Badge variant="outline">{status}</Badge>
-    }
+  const formatFullDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    })
   }
 
   return (
@@ -361,7 +331,39 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
         </Alert>
       )}
 
-      {/* Stripe Connection Card - Light Themed */}
+      {/* Earnings Summary Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+        <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4 sm:p-5">
+          <div className="flex items-center gap-2 mb-2">
+            <DollarSign className="h-4 w-4 text-[#9ca3af]" />
+            <span className="text-[12px] text-[#6b7280] font-medium">Total Earnings</span>
+          </div>
+          <p className="text-[20px] sm:text-[24px] font-bold text-[#1a1a2e]">{formatPrice(initialData.totalEarnings)}</p>
+        </div>
+        <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4 sm:p-5">
+          <div className="flex items-center gap-2 mb-2">
+            <TrendingUp className="h-4 w-4 text-[#9ca3af]" />
+            <span className="text-[12px] text-[#6b7280] font-medium">Net Earnings</span>
+          </div>
+          <p className="text-[20px] sm:text-[24px] font-bold text-[#1a1a2e]">{formatPrice(initialData.netEarnings)}</p>
+        </div>
+        <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4 sm:p-5">
+          <div className="flex items-center gap-2 mb-2">
+            <Clock className="h-4 w-4 text-[#9ca3af]" />
+            <span className="text-[12px] text-[#6b7280] font-medium">Pending</span>
+          </div>
+          <p className="text-[20px] sm:text-[24px] font-bold text-[#1a1a2e]">{formatPrice(initialData.pendingAmount)}</p>
+        </div>
+        <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4 sm:p-5">
+          <div className="flex items-center gap-2 mb-2">
+            <CheckCircle2 className="h-4 w-4 text-[#9ca3af]" />
+            <span className="text-[12px] text-[#6b7280] font-medium">Available</span>
+          </div>
+          <p className="text-[20px] sm:text-[24px] font-bold text-[#1a1a2e]">{formatPrice(initialData.availableBalance)}</p>
+        </div>
+      </div>
+
+      {/* Stripe Connection Card */}
       {!isStripeConnected && (
         <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
           <div className="p-6">
@@ -409,7 +411,6 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
                       </>
                     ) : (
                       <>
-                        <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1"><circle cx="512" cy="512" r="512" fill="#fff" opacity="0.2" /></svg>
                         Connect Stripe
                         <ChevronRight className="ml-1 h-4 w-4" />
                       </>
@@ -448,7 +449,6 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
         </div>
       )}
 
-
       {/* Payout Account & Settings */}
       {isStripeConnected && (
         <div className="grid gap-6 lg:grid-cols-2">
@@ -474,7 +474,7 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
                 <div className="p-2 bg-white rounded-lg border border-[#e5e7eb]/60">
                   <Building2 className="h-6 w-6 text-[#6b7280]" />
                 </div>
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <p className="font-medium text-[14px] text-[#1a1a2e]">
                     {connectionStatus?.bankAccount?.bankName || "Bank Account"}
                   </p>
@@ -482,24 +482,9 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
                     ****{connectionStatus?.bankAccount?.last4 || "4242"} ({currency})
                   </p>
                 </div>
-                <Button variant="outline" size="sm" onClick={handleConnectStripe} className="rounded-lg">
+                <Button variant="outline" size="sm" onClick={handleConnectStripe} className="rounded-lg shrink-0">
                   {t("common.update")}
                 </Button>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-[13px]">
-                  <span className="text-[#6b7280]">Charges enabled</span>
-                  <Badge variant={connectionStatus?.chargesEnabled ? "default" : "destructive"} className="text-[11px]">
-                    {connectionStatus?.chargesEnabled ? "Yes" : "No"}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between text-[13px]">
-                  <span className="text-[#6b7280]">Payouts enabled</span>
-                  <Badge variant={connectionStatus?.payoutsEnabled ? "default" : "destructive"} className="text-[11px]">
-                    {connectionStatus?.payoutsEnabled ? "Yes" : "No"}
-                  </Badge>
-                </div>
               </div>
             </div>
             <div className="p-5 border-t border-[#e5e7eb]/60">
@@ -552,7 +537,7 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
                     </p>
                   </div>
                 </div>
-                <span className="font-medium text-[13px] text-[#1a1a2e]">{payoutThreshold > 0 ? formatPrice(payoutThreshold * 100) : "No minimum"}</span>
+                <span className="font-medium text-[13px] text-[#1a1a2e] shrink-0">{payoutThreshold > 0 ? formatPrice(payoutThreshold * 100) : "No minimum"}</span>
               </div>
 
               <div className="flex items-center justify-between p-3 bg-[#f9fafb] rounded-xl">
@@ -575,40 +560,27 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
       )}
 
       {/* Earnings Chart */}
-      {isStripeConnected && earningsTrend.length > 0 && (
+      {earningsTrend.length > 0 && (
         <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
           <div className="p-5 border-b border-[#e5e7eb]/60">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e]">{t("payouts.earningsOverTime")}</h3>
-                <p className="text-[13px] text-[#6b7280] mt-0.5">Your revenue trend for the selected period</p>
-              </div>
-              <Select value={timeframe} onValueChange={setTimeframe}>
-                <SelectTrigger className="w-[180px] rounded-lg">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="last_7_days">Last 7 days</SelectItem>
-                  <SelectItem value="last_30_days">Last 30 days</SelectItem>
-                  <SelectItem value="last_90_days">Last 90 days</SelectItem>
-                  <SelectItem value="this_year">This year</SelectItem>
-                </SelectContent>
-              </Select>
+            <div>
+              <h3 className="text-[15px] font-semibold text-[#1a1a2e]">{t("payouts.earningsOverTime")}</h3>
+              <p className="text-[13px] text-[#6b7280] mt-0.5">Revenue from the last 30 days</p>
             </div>
           </div>
           <div className="p-5">
-            <div className="h-[300px]">
+            <div className="h-[250px] sm:h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={earningsTrend}>
                   <defs>
                     <linearGradient id="colorNet" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.8} />
-                      <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-                  <YAxis tickFormatter={(value) => formatPrice(value)} tick={{ fontSize: 12 }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="date" tick={{ fontSize: 11 }} interval="preserveStartEnd" />
+                  <YAxis tickFormatter={(value) => formatPrice(value)} tick={{ fontSize: 11 }} width={70} />
                   <Tooltip
                     formatter={(value: number, name: string) => [
                       formatPrice(value),
@@ -619,7 +591,8 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
                   <Area
                     type="monotone"
                     dataKey="net"
-                    stroke="hsl(var(--chart-1))"
+                    stroke="#8b5cf6"
+                    strokeWidth={2}
                     fillOpacity={1}
                     fill="url(#colorNet)"
                     name="net"
@@ -631,147 +604,127 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
         </div>
       )}
 
-      {/* Payout History */}
+      {/* Payments Table — Real Order Data */}
       <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
         <div className="p-5 border-b border-[#e5e7eb]/60">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-[15px] font-semibold text-[#1a1a2e]">Payout History</h3>
-              <p className="text-[13px] text-[#6b7280] mt-0.5">All your past and scheduled payouts</p>
+              <h3 className="text-[15px] font-semibold text-[#1a1a2e]">Payments</h3>
+              <p className="text-[13px] text-[#6b7280] mt-0.5">{initialOrders.length} completed payment{initialOrders.length !== 1 ? "s" : ""}</p>
             </div>
-            {payouts.length > 0 && (
-              <Button variant="outline" size="sm" className="rounded-lg">
-                <Download className="mr-2 h-4 w-4" />
-                Export
-              </Button>
+            {initialOrders.length > 0 && (
+              <span className="text-[13px] font-medium text-[#8b5cf6]">{formatPrice(initialData.totalEarnings)} total</span>
             )}
           </div>
         </div>
-        <div className="p-0 sm:p-5 sm:pt-0">
-          {isLoading ? (
-            <div className="space-y-4 p-4">
-              {[...Array(3)].map((_, i) => (
-                <Skeleton key={i} className="h-16 w-full rounded-xl" />
-              ))}
+
+        {initialOrders.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-center px-4">
+            <div className="p-4 bg-[#f3f4f6] rounded-full mb-4">
+              <Wallet className="h-8 w-8 text-[#9ca3af]" />
             </div>
-          ) : !isStripeConnected ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center px-4">
-              <div className="p-4 bg-[#f3f4f6] rounded-full mb-4">
-                <Wallet className="h-8 w-8 text-[#9ca3af]" />
-              </div>
-              <h3 className="font-medium text-[15px] text-[#1a1a2e] mb-1">No payout history</h3>
-              <p className="text-[13px] text-[#6b7280] max-w-sm">
-                Connect your Stripe account to start receiving payouts from your sales.
-              </p>
-              <Button onClick={handleConnectStripe} disabled={isConnecting} className="mt-4 rounded-xl bg-[#1a1a2e] hover:bg-[#2d2d44]">
-                {isConnecting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Connecting...
-                  </>
-                ) : (
-                  "Connect Stripe"
-                )}
-              </Button>
-            </div>
-          ) : payouts.length > 0 ? (
-            <>
-              {/* Mobile view */}
-              <div className="divide-y divide-[#e5e7eb]/60 sm:hidden">
-                {payouts.map((payout) => (
-                  <div
-                    key={payout.id}
-                    className="p-4 space-y-2 cursor-pointer hover:bg-[#f9fafb] transition-colors"
-                    onClick={() => {
-                      setSelectedPayout(payout)
-                      setPayoutDetailOpen(true)
-                    }}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="font-semibold text-[18px] text-[#1a1a2e]">{formatPrice(payout.amount)}</p>
-                        <p className="text-[12px] text-[#9ca3af]">
-                          {payout.status === "paid" ? "Arrived" : "Expected"} {formatDate(payout.arrival_date)}
-                        </p>
+            <h3 className="font-medium text-[15px] text-[#1a1a2e] mb-1">No payments yet</h3>
+            <p className="text-[13px] text-[#6b7280] max-w-sm">
+              Once you start making sales, all payments will appear here.
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* Mobile card view */}
+            <div className="divide-y divide-[#e5e7eb]/60 sm:hidden">
+              {initialOrders.map((order) => (
+                <div
+                  key={order.id}
+                  className="p-4 cursor-pointer hover:bg-[#f9fafb] transition-colors active:bg-[#f3f4f6]"
+                  onClick={() => {
+                    setSelectedOrder(order)
+                    setDetailOpen(true)
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    {order.product?.thumbnail_url ? (
+                      <img src={order.product.thumbnail_url} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
+                    ) : (
+                      <div className="w-10 h-10 rounded-lg bg-[#f3f4f6] flex items-center justify-center shrink-0">
+                        <Package className="h-4 w-4 text-[#9ca3af]" />
                       </div>
-                      {getPayoutStatusBadge(payout.status)}
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[14px] font-medium text-[#1a1a2e] truncate">
+                        {order.product?.title || "Product"}
+                      </p>
+                      <p className="text-[12px] text-[#9ca3af] truncate">{order.customer_email}</p>
                     </div>
-                    <div className="flex items-center gap-2 text-[13px] text-[#6b7280]">
-                      <Building2 className="h-3 w-3" />
-                      <span>Bank ****{payout.destination_last4}</span>
+                    <div className="text-right shrink-0">
+                      <p className="text-[14px] font-semibold text-[#1a1a2e]">{formatPrice(order.amount_cents)}</p>
+                      <p className="text-[11px] text-[#9ca3af]">{formatDate(order.created_at)}</p>
                     </div>
                   </div>
-                ))}
-              </div>
-
-              {/* Desktop view */}
-              <div className="hidden sm:block">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="border-b border-[#e5e7eb]">
-                      <TableHead className="text-[13px] font-medium text-[#6b7280]">Amount</TableHead>
-                      <TableHead className="text-[13px] font-medium text-[#6b7280]">Status</TableHead>
-                      <TableHead className="text-[13px] font-medium text-[#6b7280]">Destination</TableHead>
-                      <TableHead className="text-[13px] font-medium text-[#6b7280]">Initiated</TableHead>
-                      <TableHead className="text-[13px] font-medium text-[#6b7280]">Arrival</TableHead>
-                      <TableHead></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {payouts.map((payout) => (
-                      <TableRow key={payout.id} className="hover:bg-[#f9fafb] border-b border-[#e5e7eb]/60 last:border-0">
-                        <TableCell className="font-semibold text-[14px] text-[#1a1a2e]">{formatPrice(payout.amount)}</TableCell>
-                        <TableCell>{getPayoutStatusBadge(payout.status)}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2 text-[14px] text-[#1a1a2e]">
-                            <Building2 className="h-4 w-4 text-[#9ca3af]" />
-                            <span>****{payout.destination_last4}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-[14px] text-[#6b7280]">{formatDate(payout.created_at)}</TableCell>
-                        <TableCell className="text-[14px] text-[#6b7280]">{formatDate(payout.arrival_date)}</TableCell>
-                        <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-[#f3f4f6]">
-                                <MoreHorizontal className="h-4 w-4 text-[#9ca3af]" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="rounded-xl">
-                              <DropdownMenuItem
-                                onClick={() => {
-                                  setSelectedPayout(payout)
-                                  setPayoutDetailOpen(true)
-                                }}
-                              >
-                                <Eye className="mr-2 h-4 w-4" />
-                                View Details
-                              </DropdownMenuItem>
-                              <DropdownMenuItem>
-                                <ExternalLink className="mr-2 h-4 w-4" />
-                                View in Stripe
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-12 text-center px-4">
-              <div className="p-4 bg-[#f3f4f6] rounded-full mb-4">
-                <Wallet className="h-8 w-8 text-[#9ca3af]" />
-              </div>
-              <h3 className="font-medium text-[15px] text-[#1a1a2e] mb-1">No payouts yet</h3>
-              <p className="text-[13px] text-[#6b7280] max-w-sm">
-                Once you start making sales, your payouts will appear here.
-              </p>
+                </div>
+              ))}
             </div>
-          )}
-        </div>
+
+            {/* Desktop table view */}
+            <div className="hidden sm:block">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-b border-[#e5e7eb]">
+                    <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Product</TableHead>
+                    <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Customer</TableHead>
+                    <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Date</TableHead>
+                    <TableHead className="text-right text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Amount</TableHead>
+                    <TableHead className="text-right text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Fee</TableHead>
+                    <TableHead className="text-right text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Net</TableHead>
+                    <TableHead className="w-10"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {initialOrders.map((order) => (
+                    <TableRow key={order.id} className="hover:bg-[#f9fafb] border-b border-[#e5e7eb]/60 last:border-0">
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          {order.product?.thumbnail_url ? (
+                            <img src={order.product.thumbnail_url} alt="" className="w-8 h-8 rounded-lg object-cover" />
+                          ) : (
+                            <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+                              <Package className="h-3.5 w-3.5 text-[#9ca3af]" />
+                            </div>
+                          )}
+                          <span className="text-[14px] font-medium text-[#1a1a2e] truncate max-w-[200px]">
+                            {order.product?.title || "Product"}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-[13px] text-[#6b7280] truncate max-w-[180px]">{order.customer_email}</TableCell>
+                      <TableCell className="text-[13px] text-[#6b7280]">{formatDate(order.created_at)}</TableCell>
+                      <TableCell className="text-right text-[14px] font-medium text-[#1a1a2e]">{formatPrice(order.amount_cents)}</TableCell>
+                      <TableCell className="text-right text-[13px] text-[#ef4444]">-{formatPrice(order.fee_cents || 0)}</TableCell>
+                      <TableCell className="text-right text-[14px] font-semibold text-[#1a1a2e]">{formatPrice((order.amount_cents || 0) - (order.fee_cents || 0))}</TableCell>
+                      <TableCell>
+                        <button
+                          onClick={() => {
+                            setSelectedOrder(order)
+                            setDetailOpen(true)
+                          }}
+                          className="p-1.5 rounded-lg hover:bg-[#f3f4f6] transition-colors"
+                        >
+                          <Eye className="h-4 w-4 text-[#9ca3af]" />
+                        </button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Footer */}
+            {initialOrders.length > 0 && (
+              <div className="px-5 py-3 border-t border-[#e5e7eb] text-[12px] text-[#6b7280]">
+                Showing {initialOrders.length} payment{initialOrders.length !== 1 ? "s" : ""}
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {/* Help Section */}
@@ -826,9 +779,6 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">
-                Choose how often you want to receive payouts
-              </p>
             </div>
 
             <div className="space-y-2">
@@ -843,7 +793,7 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
                 placeholder="0"
               />
               <p className="text-xs text-muted-foreground">
-                Payouts will only be sent when your balance exceeds this amount. Set to 0 for no minimum.
+                Payouts will only be sent when your balance exceeds this amount.
               </p>
             </div>
 
@@ -888,63 +838,105 @@ export function PayoutsClient({ creator, initialData }: PayoutsClientProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Payout Detail Dialog */}
-      <Dialog open={payoutDetailOpen} onOpenChange={setPayoutDetailOpen}>
-        <DialogContent className="w-[calc(100%-32px)] max-w-md">
-          <DialogHeader>
-            <DialogTitle>Payout Details</DialogTitle>
-            <DialogDescription>
-              Payout #{selectedPayout?.id.slice(0, 8)}
-            </DialogDescription>
-          </DialogHeader>
-          {selectedPayout && (
-            <div className="space-y-6">
-              <div className="text-center py-4">
-                <p className="text-3xl font-bold">{formatPrice(selectedPayout.amount)}</p>
-                <div className="mt-2">{getPayoutStatusBadge(selectedPayout.status)}</div>
+      {/* Payment Detail — Mobile Bottom Sheet / Desktop Dialog */}
+      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+        <DialogContent
+          showCloseButton={!isMobileSheet}
+          disableDefaultAnimations={isMobileSheet}
+          disableOverlayDefaultAnimations={isMobileSheet}
+          overlayClassName={isMobileSheet ? cn(
+            "bg-black/40 transition-all duration-400",
+            isDetailPresented ? "opacity-100 backdrop-blur-[2px]" : "opacity-0 backdrop-blur-0"
+          ) : undefined}
+          onTouchStart={isMobileSheet ? handleDetailTouchStart : undefined}
+          onTouchMove={isMobileSheet ? handleDetailTouchMove : undefined}
+          onTouchEnd={isMobileSheet ? handleDetailTouchEnd : undefined}
+          className={cn(
+            "p-0 gap-0 overflow-hidden",
+            isMobileSheet
+              ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0"
+              : "w-[calc(100%-32px)] max-w-md rounded-2xl"
+          )}
+          style={isMobileSheet ? {
+            position: "fixed",
+            top: "auto", left: 0, right: 0, bottom: 0,
+            transform: isDetailPresented ? `translate3d(0, ${detailDragY}px, 0)` : "translate3d(0, 100%, 0)",
+            transition: isDetailDragging ? "none" : "transform 400ms cubic-bezier(0.32, 0.72, 0, 1)",
+          } : undefined}
+        >
+          {/* Mobile drag handle */}
+          {isMobileSheet && (
+            <div className="pt-3 pb-1 flex justify-center">
+              <div className="h-1.5 w-10 rounded-full bg-gray-300" />
+            </div>
+          )}
+
+          {selectedOrder && (
+            <div className="p-6 space-y-5">
+              <div className="text-center">
+                <p className="text-[28px] font-bold text-[#1a1a2e]">{formatPrice(selectedOrder.amount_cents)}</p>
+                <Badge className="mt-2 bg-emerald-50 text-emerald-700 border-0">
+                  <CheckCircle2 className="mr-1 h-3 w-3" />
+                  Completed
+                </Badge>
               </div>
 
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Destination</span>
-                  <div className="flex items-center gap-2">
-                    <Building2 className="h-4 w-4 text-muted-foreground" />
-                    <span>Bank ****{selectedPayout.destination_last4}</span>
+              {/* Product */}
+              <div className="flex items-center gap-3 p-3 bg-[#f9fafb] rounded-xl">
+                {selectedOrder.product?.thumbnail_url ? (
+                  <img src={selectedOrder.product.thumbnail_url} alt="" className="w-12 h-12 rounded-lg object-cover" />
+                ) : (
+                  <div className="w-12 h-12 rounded-lg bg-[#e5e7eb] flex items-center justify-center">
+                    <Package className="h-5 w-5 text-[#9ca3af]" />
                   </div>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Initiated</span>
-                  <span>{formatDate(selectedPayout.created_at)}</span>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">
-                    {selectedPayout.status === "paid" ? "Arrived" : "Expected Arrival"}
-                  </span>
-                  <span>{formatDate(selectedPayout.arrival_date)}</span>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Method</span>
-                  <Badge variant="outline" className="capitalize">{selectedPayout.method.replace("_", " ")}</Badge>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-[14px] font-medium text-[#1a1a2e] truncate">{selectedOrder.product?.title || "Product"}</p>
+                  <p className="text-[12px] text-[#9ca3af]">Product sale</p>
                 </div>
               </div>
 
-              {selectedPayout.status === "in_transit" && (
-                <Alert>
-                  <Clock className="h-4 w-4" />
-                  <AlertDescription>
-                    This payout is on its way and should arrive by {formatDate(selectedPayout.arrival_date)}.
-                  </AlertDescription>
-                </Alert>
+              {/* Details */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-[14px]">
+                  <span className="text-[#6b7280] flex items-center gap-2"><Mail className="h-4 w-4" /> Customer</span>
+                  <span className="text-[#1a1a2e] font-medium truncate max-w-[180px]">{selectedOrder.customer_email}</span>
+                </div>
+
+                <div className="flex items-center justify-between text-[14px]">
+                  <span className="text-[#6b7280] flex items-center gap-2"><Calendar className="h-4 w-4" /> Date</span>
+                  <span className="text-[#1a1a2e]">{formatFullDate(selectedOrder.created_at)}</span>
+                </div>
+
+                <div className="flex items-center justify-between text-[14px]">
+                  <span className="text-[#6b7280] flex items-center gap-2"><DollarSign className="h-4 w-4" /> Amount</span>
+                  <span className="text-[#1a1a2e] font-medium">{formatPrice(selectedOrder.amount_cents)}</span>
+                </div>
+
+                <div className="flex items-center justify-between text-[14px]">
+                  <span className="text-[#6b7280]">Platform fee</span>
+                  <span className="text-[#ef4444]">-{formatPrice(selectedOrder.fee_cents || 0)}</span>
+                </div>
+
+                <div className="flex items-center justify-between text-[14px] pt-2 border-t border-[#e5e7eb]">
+                  <span className="text-[#1a1a2e] font-semibold">Net earnings</span>
+                  <span className="text-[#1a1a2e] font-bold">{formatPrice((selectedOrder.amount_cents || 0) - (selectedOrder.fee_cents || 0))}</span>
+                </div>
+              </div>
+
+              {selectedOrder.stripe_payment_intent_id && (
+                <div className="flex items-center justify-between text-[13px] p-3 bg-[#f9fafb] rounded-xl">
+                  <span className="text-[#6b7280] flex items-center gap-2"><CreditCard className="h-4 w-4" /> Payment ID</span>
+                  <span className="text-[#1a1a2e] font-mono text-[12px] truncate max-w-[160px]">{selectedOrder.stripe_payment_intent_id}</span>
+                </div>
               )}
 
-              <Button variant="outline" className="w-full" asChild>
-                <a href="https://dashboard.stripe.com" target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="mr-2 h-4 w-4" />
-                  View in Stripe Dashboard
-                </a>
+              <Button
+                variant="outline"
+                className="w-full rounded-xl"
+                onClick={() => setDetailOpen(false)}
+              >
+                Close
               </Button>
             </div>
           )}

@@ -56,30 +56,109 @@ export function OnePageEditor({ initialOnePage }: OnePageEditorProps) {
 
 type TabType = "design" | "links" | "products" | "settings"
 
-// Unsaved Changes Dialog Component
-function UnsavedChangesDialog({ 
-  open, 
-  onClose, 
-  onSave, 
+// Unsaved Changes Dialog Component — mobile bottom sheet, desktop centered modal
+function UnsavedChangesDialog({
+  open,
+  onClose,
+  onSave,
   onDiscard,
-  isSaving 
-}: { 
+  isSaving
+}: {
   open: boolean
   onClose: () => void
   onSave: () => void
   onDiscard: () => void
   isSaving: boolean
 }) {
+  const [isMobileSheet, setIsMobileSheet] = useState(false)
+  const [isPresented, setIsPresented] = useState(false)
+  const [dragY, setDragY] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+  const dragStartY = useRef(0)
+  const dragCurrentY = useRef(0)
+
+  useEffect(() => {
+    const check = () => setIsMobileSheet(window.innerWidth < 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
+
+  useEffect(() => {
+    if (open && isMobileSheet) {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => setIsPresented(true))
+      })
+    } else {
+      setIsPresented(false)
+      setDragY(0)
+    }
+  }, [open, isMobileSheet])
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    setIsDragging(true)
+    dragStartY.current = e.touches[0].clientY
+    dragCurrentY.current = e.touches[0].clientY
+  }, [])
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    dragCurrentY.current = e.touches[0].clientY
+    const delta = Math.max(0, dragCurrentY.current - dragStartY.current)
+    setDragY(delta)
+  }, [])
+
+  const handleTouchEnd = useCallback(() => {
+    setIsDragging(false)
+    const delta = dragCurrentY.current - dragStartY.current
+    const velocity = delta > 0 ? delta / 300 : 0
+    if (delta > 80 || velocity > 0.5) {
+      setIsPresented(false)
+      setTimeout(() => { onClose(); setDragY(0) }, 400)
+    } else {
+      setDragY(0)
+    }
+  }, [onClose])
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="w-[calc(100%-32px)] max-w-sm md:max-w-[340px] p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+      <DialogContent
+        showCloseButton={!isMobileSheet}
+        disableDefaultAnimations={isMobileSheet}
+        disableOverlayDefaultAnimations={isMobileSheet}
+        overlayClassName={isMobileSheet ? cn(
+          "bg-black/40 transition-all duration-400",
+          isPresented ? "opacity-100 backdrop-blur-[2px]" : "opacity-0 backdrop-blur-0"
+        ) : undefined}
+        onTouchStart={isMobileSheet ? handleTouchStart : undefined}
+        onTouchMove={isMobileSheet ? handleTouchMove : undefined}
+        onTouchEnd={isMobileSheet ? handleTouchEnd : undefined}
+        className={cn(
+          "p-0 gap-0 overflow-hidden",
+          isMobileSheet
+            ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0"
+            : "w-[calc(100%-32px)] max-w-sm md:max-w-[340px] rounded-2xl mx-auto"
+        )}
+        style={isMobileSheet ? {
+          position: 'fixed',
+          top: 'auto', left: 0, right: 0, bottom: 0,
+          transform: isPresented ? `translate3d(0, ${dragY}px, 0)` : 'translate3d(0, 100%, 0)',
+          transition: isDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
+        } : undefined}
+      >
+        {/* Mobile drag handle */}
+        {isMobileSheet && (
+          <div className="pt-3 pb-1 flex justify-center">
+            <div className="h-1.5 w-10 rounded-full bg-gray-300" />
+          </div>
+        )}
+
         <div className="p-6 text-center">
           <h2 className="text-lg font-semibold mb-2">Save changes?</h2>
           <p className="text-sm text-muted-foreground">
             Once saved, they'll appear on your OnePage.
           </p>
         </div>
-        
+
         <div className="px-6 pb-6 space-y-3">
           <button
             onClick={onSave}
@@ -95,7 +174,7 @@ function UnsavedChangesDialog({
               'Save changes'
             )}
           </button>
-          
+
           <button
             onClick={onDiscard}
             disabled={isSaving}
@@ -103,7 +182,7 @@ function UnsavedChangesDialog({
           >
             Discard changes
           </button>
-          
+
           <button
             onClick={onClose}
             disabled={isSaving}
@@ -539,14 +618,12 @@ function EditorLayout() {
         show={saveToastSequence > 0}
         message="Changes saved"
         duration={4000}
-        position="top"
       />
       <SaveNotification
         key={`history-${historyToastSequence}`}
         show={historyToastSequence > 0}
         message={historyToastMessage}
         duration={2200}
-        position="top"
       />
       {/* Header - ALWAYS visible with solid background */}
       <header className="flex items-center justify-between border-b bg-white px-3 sm:px-4 md:px-6 h-[56px] sm:h-[60px] shrink-0 relative z-30 gap-2 overflow-hidden">

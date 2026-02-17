@@ -2817,7 +2817,47 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
               <span className="text-[12px] text-[#6b7280]">By revenue</span>
             </div>
             <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-              <div className="overflow-x-auto">
+              {/* Mobile card view */}
+              <div className="sm:hidden divide-y divide-[#e5e7eb]">
+                {bestProducts.map((product, index) => {
+                  const productData = products.find(p => p.id === product.productId)
+                  const coverImage = productData?.thumbnail_url || product.coverImage
+                  return (
+                    <div key={product.productId} className="p-4 flex items-center gap-3">
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-semibold shrink-0 ${
+                        index === 0
+                          ? "bg-amber-100 text-amber-700"
+                          : index === 1
+                          ? "bg-gray-100 text-gray-600"
+                          : index === 2
+                          ? "bg-orange-100 text-orange-700"
+                          : "bg-[#f3f4f6] text-[#6b7280]"
+                      }`}>
+                        {index + 1}
+                      </div>
+                      {coverImage ? (
+                        <img src={coverImage} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
+                      ) : (
+                        <div className="w-10 h-10 rounded-lg bg-[#f3f4f6] flex items-center justify-center shrink-0">
+                          <Package className="h-4 w-4 text-[#9ca3af]" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[14px] font-medium text-[#1a1a2e] truncate">
+                          {product.title || productData?.title || "Unknown Product"}
+                        </p>
+                        <div className="flex items-center gap-3 mt-1">
+                          <span className="text-[12px] text-[#6b7280]">{product.viewCount.toLocaleString()} views</span>
+                          <span className="text-[12px] text-[#6b7280]">{product.salesCount} sales</span>
+                        </div>
+                      </div>
+                      <span className="text-[14px] font-semibold text-[#1a1a2e] shrink-0">{formatPrice(product.revenue)}</span>
+                    </div>
+                  )
+                })}
+              </div>
+              {/* Desktop table view */}
+              <div className="hidden sm:block">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-[#e5e7eb]">
@@ -2830,7 +2870,6 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
                   </thead>
                   <tbody className="divide-y divide-[#e5e7eb]">
                     {bestProducts.map((product, index) => {
-                      // Get product thumbnail image from products prop
                       const productData = products.find(p => p.id === product.productId)
                       const coverImage = productData?.thumbnail_url || product.coverImage
                       return (

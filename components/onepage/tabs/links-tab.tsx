@@ -2919,32 +2919,27 @@ export function LinksTab() {
         message="Deleted"
         duration={3000}
         icon={DeletedIcon}
-        position="top"
       />
       <SaveNotification
         show={showAddBlockNotification}
         message="New block added"
         duration={4000}
-        position="top"
       />
       <SaveNotification
         show={showUpdateSocialNotification}
         message="Updated"
         duration={3000}
-        position="top"
       />
       <SaveNotification
         show={showBlockRemovedNotification}
         message="Block removed"
         duration={3000}
         icon={DeletedIcon}
-        position="top"
       />
       <SaveNotification
         show={showBlockArchivedNotification}
         message="Block archived"
         duration={3000}
-        position="top"
       />
 
       {/* Streaming Service URL Modal */}

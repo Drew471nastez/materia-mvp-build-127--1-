@@ -40,21 +40,24 @@ export default async function PayoutsPage() {
   const products = productsData || []
   const productIds = products.map((p) => p.id)
 
-  // Calculate totals from orders
+  // Calculate totals from orders and fetch all completed orders with details
   let totalEarnings = 0
   let totalFees = 0
   let pendingAmount = 0
   let availableBalance = 0
+  let allOrders: any[] = []
 
   if (productIds.length > 0) {
-    // Get all completed orders
+    // Get all completed orders with product info
     const { data: completedOrders } = await supabase
       .from("orders")
-      .select("amount_cents, fee_cents, created_at")
+      .select("id, amount_cents, fee_cents, created_at, status, customer_email, product_id, stripe_payment_intent_id, product:products(title, thumbnail_url)")
       .in("product_id", productIds)
       .eq("status", "completed")
+      .order("created_at", { ascending: false })
 
     if (completedOrders) {
+      allOrders = completedOrders
       totalEarnings = completedOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0)
       totalFees = completedOrders.reduce((sum, o) => sum + (o.fee_cents || 0), 0)
 
@@ -113,6 +116,7 @@ export default async function PayoutsPage() {
             pendingAmount,
             availableBalance,
           }}
+          initialOrders={allOrders}
         />
       </div>
     </div>

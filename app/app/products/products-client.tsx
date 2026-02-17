@@ -570,10 +570,6 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                         <span className="text-[14px] font-medium text-[#1a1a2e] hover:text-[#8b5cf6] line-clamp-1 transition-colors">
                           {product.title}
                         </span>
-                        {/* Subtle dot for published status on mobile */}
-                        {product.status === "published" && !product.archived && (
-                          <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-[#9ca3af]" title="Published" />
-                        )}
                       </div>
                       {/* Show status badge only for non-published products on mobile */}
                       {(product.status !== "published" || product.archived) && (

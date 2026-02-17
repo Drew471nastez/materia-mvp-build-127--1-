@@ -775,7 +775,12 @@ export function DashboardClient({
   creatorHandle = "",
   connectedDomain = null,
 }: DashboardClientProps) {
-  const [timeframe, setTimeframe] = useState("last_7_days")
+  const [timeframe, setTimeframe] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("dashboard_timeframe") || "last_7_days"
+    }
+    return "last_7_days"
+  })
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [isProfileAccessOpen, setIsProfileAccessOpen] = useState(false)
   const [isProfileAccessVisible, setIsProfileAccessVisible] = useState(false)
@@ -783,6 +788,11 @@ export function DashboardClient({
   const [isQuickAccessMobileOpen, setIsQuickAccessMobileOpen] = useState(false)
   const profileAccessRef = useRef<HTMLDivElement | null>(null)
   const router = useRouter()
+
+  // Persist timeframe selection to localStorage
+  useEffect(() => {
+    localStorage.setItem("dashboard_timeframe", timeframe)
+  }, [timeframe])
 
   const publicStoreUrl = connectedDomain ? `https://${connectedDomain}` : (creatorHandle ? getStoreUrl(creatorHandle) : "")
   const publicOnePageUrl = connectedDomain ? `https://${connectedDomain}/links` : (creatorHandle ? getLinksUrl(creatorHandle) : "")
