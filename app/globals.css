@@ -519,6 +519,7 @@
   position: relative;
   cursor: pointer;
   font-size: var(--toggle-size);
+  flex-shrink: 0;
 }
 
 .theme-checkbox::before {
@@ -561,6 +562,7 @@
   position: relative;
   cursor: pointer;
   font-size: var(--toggle-size);
+  flex-shrink: 0;
 }
 
 .theme-checkbox-purple::before {
@@ -833,7 +835,7 @@
    browser never triggers auto-zoom. Pinch-to-zoom remains fully functional.
    ──────────────────────────────────────────────────────────────── */
 @media screen and (max-width: 767px) {
-  input,
+  input:not(.theme-checkbox):not(.theme-checkbox-purple),
   select,
   textarea,
   [contenteditable="true"] {
