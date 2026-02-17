@@ -154,15 +154,15 @@ export default async function SalesPage() {
       }
     })
 
-    // Calculate summary
+    // Calculate summary — totalOrders includes both completed + refunded
     const completedOrders = initialOrders.filter(o => o.status === "completed")
-    initialSummary.totalSales = completedOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0)
-    initialSummary.totalOrders = completedOrders.length
-    initialSummary.avgOrderValue = completedOrders.length > 0
-      ? Math.round(initialSummary.totalSales / completedOrders.length)
-      : 0
-
     const refundedOrders = initialOrders.filter(o => o.status === "refunded")
+    const allValidOrders = initialOrders.filter(o => o.status === "completed" || o.status === "refunded")
+    initialSummary.totalSales = completedOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0)
+    initialSummary.totalOrders = allValidOrders.length
+    initialSummary.avgOrderValue = allValidOrders.length > 0
+      ? Math.round(initialSummary.totalSales / allValidOrders.length)
+      : 0
     initialSummary.refundCount = refundedOrders.length
     initialSummary.refundAmount = refundedOrders.reduce((sum, o) => sum + (o.refund_amount_cents || o.amount_cents || 0), 0)
   }

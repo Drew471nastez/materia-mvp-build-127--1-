@@ -1236,20 +1236,21 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
 
       // Get filtered orders for Store Analytics - use the same start/end dates as trend data
       // Filter orders once and use for both summary and trend data
+      // Include both completed + refunded in order counts; revenue from completed only
       const filteredOrders = analyticsMode === "store"
         ? initialOrders.filter(order => {
             const orderDate = new Date(order.created_at)
             const isInTimeframe = orderDate >= start && orderDate <= end
-            const isCompleted = order.status === "completed"
+            const isValidOrder = order.status === "completed" || order.status === "refunded"
             const matchesProduct = selectedProduct === "all" || order.product_id === selectedProduct
-            return isInTimeframe && isCompleted && matchesProduct
+            return isInTimeframe && isValidOrder && matchesProduct
           })
         : []
 
       // Set summary based on analytics mode
       if (analyticsMode === "store") {
         const totalOrdersFromLocal = filteredOrders.length
-        const totalRevenueFromLocal = filteredOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0)
+        const totalRevenueFromLocal = filteredOrders.filter(o => o.status === "completed").reduce((sum, o) => sum + (o.amount_cents || 0), 0)
 
         // Calculate conversion rate
         const conversionRate = periodViews > 0 ? (totalOrdersFromLocal / periodViews) * 100 : 0
@@ -1282,14 +1283,14 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
         )
         const prevPeriodViews = prevUniqueViewKeys.size || 0
 
-        // Previous period orders
+        // Previous period orders — include completed + refunded in counts
         const prevPeriodOrdersData = initialOrders.filter(o => {
           const orderDate = new Date(o.created_at)
           const matchesProduct = selectedProduct === "all" || o.product_id === selectedProduct
-          return o.status === "completed" && orderDate >= prevStart && orderDate <= prevEnd && matchesProduct
+          return (o.status === "completed" || o.status === "refunded") && orderDate >= prevStart && orderDate <= prevEnd && matchesProduct
         })
         const prevPeriodOrders = prevPeriodOrdersData.length
-        const prevPeriodRevenue = prevPeriodOrdersData.reduce((sum, o) => sum + (o.amount_cents || 0), 0)
+        const prevPeriodRevenue = prevPeriodOrdersData.filter(o => o.status === "completed").reduce((sum, o) => sum + (o.amount_cents || 0), 0)
 
         // Fetch all-time views
         let allTimeViewsQuery = supabase
@@ -1312,13 +1313,13 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
         )
         const allTimeViews = allTimeUniqueViewKeys.size || 0
 
-        // All-time orders
+        // All-time orders — include completed + refunded in counts
         const allTimeOrdersData = initialOrders.filter(o => {
           const matchesProduct = selectedProduct === "all" || o.product_id === selectedProduct
-          return o.status === "completed" && matchesProduct
+          return (o.status === "completed" || o.status === "refunded") && matchesProduct
         })
         const allTimeOrders = allTimeOrdersData.length
-        const allTimeRevenue = allTimeOrdersData.reduce((sum, o) => sum + (o.amount_cents || 0), 0)
+        const allTimeRevenue = allTimeOrdersData.filter(o => o.status === "completed").reduce((sum, o) => sum + (o.amount_cents || 0), 0)
 
         // Set summary for Store Analytics
         setSummary({

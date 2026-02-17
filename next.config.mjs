@@ -11,7 +11,7 @@ const nextConfig = {
       bodySizeLimit: '10mb',
     },
   },
-  serverExternalPackages: ['pdfkit', 'fontkit', 'linebreak', 'png-js'],
+  serverExternalPackages: ['pdfkit', 'fontkit', 'linebreak', 'png-js', 'sharp'],
   // Note: Vercel serverless functions have a 4.5MB body size limit.
   // Large file uploads bypass the server via direct-to-storage signed URLs
   // (see /api/v2/upload/prepare). Chunked uploads (/api/v2/upload/chunk)

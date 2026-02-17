@@ -52,6 +52,7 @@ import {
 } from "lucide-react"
 import { useLanguage } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
+import { useToast } from "@/hooks/use-toast"
 
 interface Creator {
   id: string
@@ -567,11 +568,11 @@ function OrderDetailsModal({
 
           {/* Refund info if applicable */}
           {selectedOrder.status === "refunded" && (
-            <div className="mx-6 mb-4 p-3 bg-red-50 rounded-xl space-y-1">
-              <p className="text-[13px] font-medium text-red-700">Refund Details</p>
-              {selectedOrder.refund_amount_cents && <p className="text-[12px] text-red-600">Amount: {formatPrice(selectedOrder.refund_amount_cents)}</p>}
-              {selectedOrder.refunded_at && <p className="text-[12px] text-red-600">Date: {formatFullDate(selectedOrder.refunded_at)}</p>}
-              {selectedOrder.refund_reason && <p className="text-[12px] text-red-600">Reason: {selectedOrder.refund_reason}</p>}
+            <div className="mx-6 mb-4 p-3 bg-[#f9fafb] rounded-xl border border-[#e5e7eb]/60 space-y-1">
+              <p className="text-[13px] font-medium text-[#374151] flex items-center gap-1.5"><RotateCcw className="h-3.5 w-3.5 text-[#9ca3af]" /> Refund Details</p>
+              {selectedOrder.refund_amount_cents && <p className="text-[12px] text-[#6b7280]">Amount: {formatPrice(selectedOrder.refund_amount_cents)}</p>}
+              {selectedOrder.refunded_at && <p className="text-[12px] text-[#6b7280]">Date: {formatFullDate(selectedOrder.refunded_at)}</p>}
+              {selectedOrder.refund_reason && <p className="text-[12px] text-[#6b7280]">Reason: {selectedOrder.refund_reason}</p>}
             </div>
           )}
 
@@ -731,18 +732,18 @@ function OrderDetailsModal({
                   <span className="text-[12px] font-medium text-[#1a1a2e]">{formatFullDate(selectedOrder.created_at)}</span>
                 </div>
               </div>
+
+              {/* Refund info on mobile — inside scrollable area to prevent overlap */}
+              {selectedOrder.status === "refunded" && (
+                <div className="p-3 bg-[#f9fafb] rounded-xl border border-[#e5e7eb]/60 space-y-1">
+                  <p className="text-[12px] font-medium text-[#374151] flex items-center gap-1.5"><RotateCcw className="h-3 w-3 text-[#9ca3af]" /> Refund Details</p>
+                  {selectedOrder.refund_amount_cents && <p className="text-[11px] text-[#6b7280]">Amount: {formatPrice(selectedOrder.refund_amount_cents)}</p>}
+                  {selectedOrder.refunded_at && <p className="text-[11px] text-[#6b7280]">Date: {formatFullDate(selectedOrder.refunded_at)}</p>}
+                  {selectedOrder.refund_reason && <p className="text-[11px] text-[#6b7280]">Reason: {selectedOrder.refund_reason}</p>}
+                </div>
+              )}
             </div>
           </div>
-
-          {/* Refund info on mobile */}
-          {selectedOrder.status === "refunded" && (
-            <div className="mx-4 mb-2 p-3 bg-red-50 rounded-xl space-y-1">
-              <p className="text-[12px] font-medium text-red-700">Refund Details</p>
-              {selectedOrder.refund_amount_cents && <p className="text-[11px] text-red-600">Amount: {formatPrice(selectedOrder.refund_amount_cents)}</p>}
-              {selectedOrder.refunded_at && <p className="text-[11px] text-red-600">Date: {formatFullDate(selectedOrder.refunded_at)}</p>}
-              {selectedOrder.refund_reason && <p className="text-[11px] text-red-600">Reason: {selectedOrder.refund_reason}</p>}
-            </div>
-          )}
 
           {/* Mobile Footer Actions */}
           <div className="px-4 pt-4 pb-5 border-t border-[#e5e7eb] bg-white">
@@ -783,6 +784,7 @@ function OrderDetailsModal({
 export function PayoutsClient({ creator, initialData, initialOrders = [] }: PayoutsClientProps) {
   const router = useRouter()
   const { t } = useLanguage()
+  const { toast } = useToast()
   const [activeTab, setActiveTab] = useState<ActiveTab>("sales")
   const [isConnecting, setIsConnecting] = useState(false)
   const [statusLoading, setStatusLoading] = useState(false)
@@ -996,7 +998,7 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
         throw new Error(data.error || "Failed to process refund")
       }
 
-      setSuccess("Refund processed successfully! Confirmation emails have been sent.")
+      toast({ title: "Refund processed", description: "Refund has been initiated. Confirmation emails have been sent to the buyer and seller." })
       setRefundModalOpen(false)
       setRefundOrder(null)
       setRefundReason("")
@@ -1004,7 +1006,9 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
       setDetailOpen(false)
       router.refresh()
     } catch (err) {
-      setRefundError(err instanceof Error ? err.message : "Something went wrong")
+      const msg = err instanceof Error ? err.message : "Something went wrong"
+      setRefundError(msg)
+      toast({ title: "Refund failed", description: msg, variant: "destructive" })
     } finally {
       setIsRefunding(false)
     }
@@ -1026,9 +1030,10 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
       a.click()
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
+      toast({ title: "Invoice downloaded", description: `Invoice for order #${order.id.slice(0, 8)} has been saved to your device.` })
     } catch (err) {
       console.error("Invoice download failed:", err)
-      setError("Failed to download invoice. Please try again.")
+      toast({ title: "Download failed", description: "Failed to download invoice. Please try again.", variant: "destructive" })
     } finally {
       setInvoiceLoading(false)
     }
@@ -1277,11 +1282,7 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
                   Sales
                 </button>
               </div>
-              {activeTab === "payouts" && isStripeConnected && (
-                <button onClick={fetchStripePayouts} className="p-2 rounded-lg hover:bg-[#f3f4f6] text-[#8b5cf6] hover:text-[#7c3aed] transition-colors cursor-pointer" title="Refresh payouts">
-                  {payoutsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
-                </button>
-              )}
+              {/* Refresh button removed per design */}
             </div>
           </div>
         </div>
@@ -1519,17 +1520,27 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
         )}
 
         {/* Help Section */}
-        <div className="bg-[#f9fafb] rounded-2xl border border-[#e5e7eb]/60 p-5 sm:p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)] flex flex-col justify-between">
-          <div className="flex items-start gap-3 sm:gap-4">
-            <div className="p-2 bg-white rounded-lg border border-[#e5e7eb]/60 shrink-0"><HelpCircle className="h-5 w-5 text-[#6b7280]" /></div>
-            <div>
-              <h3 className="font-medium text-[14px] text-[#1a1a2e]">Need help with payouts?</h3>
-              <p className="text-[13px] text-[#6b7280] mt-1">Learn about payout schedules, fees, and how to optimize your earnings.</p>
+        <div className="bg-gradient-to-br from-[#f9fafb] to-[#f3f0ff]/30 rounded-2xl border border-[#e5e7eb]/60 p-5 sm:p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)] flex flex-col justify-between h-full">
+          <div>
+            <div className="flex items-start gap-3">
+              <div className="p-2.5 bg-white rounded-xl border border-[#e5e7eb]/60 shadow-sm shrink-0">
+                <HelpCircle className="h-5 w-5 text-[#8b5cf6]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-[14px] sm:text-[15px] text-[#1a1a2e]">Need help with payouts?</h3>
+                <p className="text-[12px] sm:text-[13px] text-[#6b7280] mt-1 leading-relaxed">Learn about payout schedules, fees, and how to optimize your earnings.</p>
+              </div>
             </div>
           </div>
-          <div className="flex gap-2 mt-4">
-            <Button variant="outline" size="sm" className="rounded-lg">View FAQ</Button>
-            <Button variant="outline" size="sm" className="rounded-lg">Contact Support</Button>
+          <div className="flex flex-wrap gap-2 mt-4">
+            <Button variant="outline" size="sm" className="rounded-xl text-[12px] sm:text-[13px] border-[#e5e7eb] hover:border-[#8b5cf6]/30 hover:bg-[#f5f3ff] transition-colors">
+              <HelpCircle className="mr-1.5 h-3.5 w-3.5" />
+              View FAQ
+            </Button>
+            <Button variant="outline" size="sm" className="rounded-xl text-[12px] sm:text-[13px] border-[#e5e7eb] hover:border-[#8b5cf6]/30 hover:bg-[#f5f3ff] transition-colors">
+              <Mail className="mr-1.5 h-3.5 w-3.5" />
+              Contact Support
+            </Button>
           </div>
         </div>
       </div>

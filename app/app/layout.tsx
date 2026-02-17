@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { AppSidebar } from "@/components/app/sidebar"
 import { AppLayoutWrapper } from "@/components/app/app-layout-wrapper"
+import { Toaster } from "@/components/ui/toaster"
 
 export default async function AppLayout({
   children,
@@ -125,6 +126,7 @@ export default async function AppLayout({
         <main className="h-svh pt-[68px] md:pl-[220px] md:pt-0 bg-white rounded-t-[20px] md:rounded-none overflow-hidden">
           <div className="h-[calc(100svh-68px)] md:h-svh overflow-y-auto">{children}</div>
         </main>
+        <Toaster />
       </div>
     </AppLayoutWrapper>
   )

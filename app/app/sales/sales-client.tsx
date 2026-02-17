@@ -913,8 +913,7 @@ function OrderDetailsModal({
                 </h3>
                 <div className="text-[13px]">
                   <span className="text-[#6b7280]">Country</span>
-                  <p className="font-medium text-[#1a1a2e] flex items-center gap-2">
-                    {selectedOrder.buyer_country_code && <span className="text-[16px]">{getFlagEmoji(selectedOrder.buyer_country_code)}</span>}
+                  <p className="font-medium text-[#1a1a2e]">
                     {selectedOrder.buyer_country}
                   </p>
                 </div>
@@ -967,11 +966,11 @@ function OrderDetailsModal({
 
           {/* Refund info if applicable */}
           {selectedOrder.status === "refunded" && (
-            <div className="mx-6 mb-4 p-3 bg-red-50 rounded-xl space-y-1">
-              <p className="text-[13px] font-medium text-red-700">Refund Details</p>
-              {selectedOrder.refund_amount_cents && <p className="text-[12px] text-red-600">Amount: {formatPrice(selectedOrder.refund_amount_cents)}</p>}
-              {selectedOrder.refunded_at && <p className="text-[12px] text-red-600">Date: {formatFullDate(selectedOrder.refunded_at)}</p>}
-              {selectedOrder.refund_reason && <p className="text-[12px] text-red-600">Reason: {selectedOrder.refund_reason}</p>}
+            <div className="mx-6 mb-4 p-3 bg-[#f9fafb] rounded-xl border border-[#e5e7eb]/60 space-y-1">
+              <p className="text-[13px] font-medium text-[#374151] flex items-center gap-1.5"><RotateCcw className="h-3.5 w-3.5 text-[#9ca3af]" /> Refund Details</p>
+              {selectedOrder.refund_amount_cents && <p className="text-[12px] text-[#6b7280]">Amount: {formatPrice(selectedOrder.refund_amount_cents)}</p>}
+              {selectedOrder.refunded_at && <p className="text-[12px] text-[#6b7280]">Date: {formatFullDate(selectedOrder.refunded_at)}</p>}
+              {selectedOrder.refund_reason && <p className="text-[12px] text-[#6b7280]">Reason: {selectedOrder.refund_reason}</p>}
             </div>
           )}
 
@@ -980,10 +979,11 @@ function OrderDetailsModal({
             <div className="flex items-center gap-2">
               <button
                 onClick={() => handleDownloadInvoice(selectedOrder)}
-                className="px-4 py-2 text-[13px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg hover:bg-[#e5e7eb] transition-colors flex items-center gap-2"
+                disabled={invoiceLoading}
+                className="px-4 py-2 text-[13px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg hover:bg-[#e5e7eb] transition-colors flex items-center gap-2 disabled:opacity-60"
               >
-                <FileText className="h-4 w-4" />
-                Invoice
+                {invoiceLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+                {invoiceLoading ? "Loading..." : "Invoice"}
               </button>
               <button
                 onClick={() => { handleClose(); setTimeout(() => handleEditEmail(selectedOrder), 450) }}
@@ -1152,8 +1152,7 @@ function OrderDetailsModal({
                   </h4>
                   <div className="flex items-center justify-between">
                     <span className="text-[12px] text-[#6b7280]">Country</span>
-                    <span className="text-[12px] font-medium text-[#1a1a2e] flex items-center gap-1">
-                      {selectedOrder.buyer_country_code && <span>{getFlagEmoji(selectedOrder.buyer_country_code)}</span>}
+                    <span className="text-[12px] font-medium text-[#1a1a2e]">
                       {selectedOrder.buyer_country}
                     </span>
                   </div>
@@ -1198,28 +1197,29 @@ function OrderDetailsModal({
                   <span className="text-[12px] font-medium text-[#1a1a2e]">{formatFullDate(selectedOrder.created_at)}</span>
                 </div>
               </div>
+
+              {/* Refund info on mobile — inside scrollable area to prevent overlap */}
+              {selectedOrder.status === "refunded" && (
+                <div className="p-3 bg-[#f9fafb] rounded-xl border border-[#e5e7eb]/60 space-y-1">
+                  <p className="text-[12px] font-medium text-[#374151] flex items-center gap-1.5"><RotateCcw className="h-3 w-3 text-[#9ca3af]" /> Refund Details</p>
+                  {selectedOrder.refund_amount_cents && <p className="text-[11px] text-[#6b7280]">Amount: {formatPrice(selectedOrder.refund_amount_cents)}</p>}
+                  {selectedOrder.refunded_at && <p className="text-[11px] text-[#6b7280]">Date: {formatFullDate(selectedOrder.refunded_at)}</p>}
+                  {selectedOrder.refund_reason && <p className="text-[11px] text-[#6b7280]">Reason: {selectedOrder.refund_reason}</p>}
+                </div>
+              )}
             </div>
           </div>
-
-          {/* Refund info on mobile */}
-          {selectedOrder.status === "refunded" && (
-            <div className="mx-4 mb-2 p-3 bg-red-50 rounded-xl space-y-1">
-              <p className="text-[12px] font-medium text-red-700">Refund Details</p>
-              {selectedOrder.refund_amount_cents && <p className="text-[11px] text-red-600">Amount: {formatPrice(selectedOrder.refund_amount_cents)}</p>}
-              {selectedOrder.refunded_at && <p className="text-[11px] text-red-600">Date: {formatFullDate(selectedOrder.refunded_at)}</p>}
-              {selectedOrder.refund_reason && <p className="text-[11px] text-red-600">Reason: {selectedOrder.refund_reason}</p>}
-            </div>
-          )}
 
           {/* Mobile Footer Actions */}
           <div className="px-4 pt-4 pb-5 border-t border-[#e5e7eb] bg-white">
             <div className="flex items-center gap-2 mb-2">
               <button
                 onClick={() => handleDownloadInvoice(selectedOrder)}
-                className="flex-1 px-3 py-2.5 text-[12px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg active:bg-[#e5e7eb] transition-colors flex items-center justify-center gap-1.5"
+                disabled={invoiceLoading}
+                className="flex-1 px-3 py-2.5 text-[12px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg active:bg-[#e5e7eb] transition-colors flex items-center justify-center gap-1.5 disabled:opacity-60"
               >
-                <FileText className="h-3.5 w-3.5" />
-                Invoice
+                {invoiceLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
+                {invoiceLoading ? "Loading..." : "Invoice"}
               </button>
               <button
                 onClick={() => handleResendReceipt(selectedOrder)}
@@ -1381,6 +1381,7 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
       a.click()
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
+      showNotification(`Invoice for order #${order.id.slice(0, 8)} downloaded successfully.`)
     } catch (err) {
       console.error("Invoice download failed:", err)
       showNotification("Failed to download invoice. Please try again.")
@@ -1432,14 +1433,16 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
       }
       setAllOrders(prev => prev.map(o => o.id === refundOrder.id ? updatedOrder : o))
       setOrders(prev => prev.map(o => o.id === refundOrder.id ? updatedOrder : o))
-      // Recalculate summary with updated data
+      // Recalculate summary with updated data — totalOrders includes completed + refunded
       setAllOrders(prev => {
         const completedOrders = prev.filter(o => o.status === "completed")
         const refundedOrders = prev.filter(o => o.status === "refunded")
+        const allValidOrders = prev.filter(o => o.status === "completed" || o.status === "refunded")
+        const totalSales = completedOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0)
         setSummary({
-          totalSales: completedOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0),
-          totalOrders: completedOrders.length,
-          avgOrderValue: completedOrders.length > 0 ? Math.round(completedOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0) / completedOrders.length) : 0,
+          totalSales,
+          totalOrders: allValidOrders.length,
+          avgOrderValue: allValidOrders.length > 0 ? Math.round(totalSales / allValidOrders.length) : 0,
           refundCount: refundedOrders.length,
           refundAmount: refundedOrders.reduce((sum, o) => sum + (o.refund_amount_cents || o.amount_cents || 0), 0),
         })
@@ -1727,9 +1730,10 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
       // Calculate summary from filtered orders
       const completedOrders = filteredOrders.filter((o) => o.status === "completed")
       const refundedOrders = filteredOrders.filter((o) => o.status === "refunded")
+      const allValidOrders = filteredOrders.filter((o) => o.status === "completed" || o.status === "refunded")
 
       const totalSales = completedOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0)
-      const totalOrdersCount = completedOrders.length
+      const totalOrdersCount = allValidOrders.length
       const avgOrderValue = totalOrdersCount > 0 ? Math.round(totalSales / totalOrdersCount) : 0
 
       setSummary({

@@ -908,24 +908,31 @@ export function DashboardClient({
 
       const prevPeriodViews = prevUniqueViewKeys.size || 0
 
-      // Filter orders from initialOrders (server-side fetched data - bypasses RLS)
+      // Filter orders from initialOrders — include both completed + refunded in order counts
       const completedOrders = initialOrders.filter(o => o.status === "completed")
+      const allValidOrders = initialOrders.filter(o => o.status === "completed" || o.status === "refunded")
 
       // Current period orders
-      const periodOrdersData = completedOrders.filter(o => {
+      const periodOrdersData = allValidOrders.filter(o => {
         const orderDate = new Date(o.created_at)
         return orderDate >= start && orderDate <= end
       })
       const periodOrders = periodOrdersData.length
-      const periodRevenue = periodOrdersData.reduce((sum, o) => sum + (o.amount_cents || 0), 0)
+      const periodRevenue = completedOrders.filter(o => {
+        const orderDate = new Date(o.created_at)
+        return orderDate >= start && orderDate <= end
+      }).reduce((sum, o) => sum + (o.amount_cents || 0), 0)
 
       // Previous period orders
-      const prevPeriodOrdersData = completedOrders.filter(o => {
+      const prevPeriodOrdersData = allValidOrders.filter(o => {
         const orderDate = new Date(o.created_at)
         return orderDate >= prevStart && orderDate <= prevEnd
       })
       const prevPeriodOrders = prevPeriodOrdersData.length
-      const prevPeriodRevenue = prevPeriodOrdersData.reduce((sum, o) => sum + (o.amount_cents || 0), 0)
+      const prevPeriodRevenue = completedOrders.filter(o => {
+        const orderDate = new Date(o.created_at)
+        return orderDate >= prevStart && orderDate <= prevEnd
+      }).reduce((sum, o) => sum + (o.amount_cents || 0), 0)
 
       // Fetch all-time views
       const { data: allViewEvents } = await supabase
@@ -946,8 +953,8 @@ export function DashboardClient({
 
       const totalViews = allUniqueViewKeys.size || 0
 
-      // All-time orders from initialOrders (already filtered for completed)
-      const totalOrders = completedOrders.length
+      // All-time orders — includes completed + refunded
+      const totalOrders = allValidOrders.length
       const totalRevenue = completedOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0)
 
       const conversionRate = periodViews > 0 ? (periodOrders / periodViews) * 100 : 0

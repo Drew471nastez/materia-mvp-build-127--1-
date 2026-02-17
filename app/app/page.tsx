@@ -76,9 +76,9 @@ export default async function AppDashboard() {
     allOrders = ordersData || []
   }
 
-  // Calculate totals from completed orders
+  // Calculate totals — totalOrders includes completed + refunded
   const completedOrders = allOrders.filter(o => o.status === "completed")
-  const totalOrders = completedOrders.length
+  const totalOrders = allOrders.filter(o => o.status === "completed" || o.status === "refunded").length
   const totalRevenue = completedOrders.reduce((sum: number, o: any) => sum + (o.amount_cents || 0), 0)
 
   // Branding check: has avatar, name, and bio

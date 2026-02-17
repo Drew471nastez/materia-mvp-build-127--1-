@@ -70,6 +70,21 @@ export async function GET(request: Request) {
       ? new Date(order.refunded_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
       : null
 
+    // Fetch Storelib logo for invoice branding
+    let logoPngBuffer: Buffer | null = null
+    try {
+      const logoUrl = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
+      const logoResponse = await fetch(logoUrl)
+      if (logoResponse.ok) {
+        const svgBuffer = Buffer.from(await logoResponse.arrayBuffer())
+        const sharpMod = await import("sharp")
+        const sharpFn = sharpMod.default || sharpMod
+        logoPngBuffer = await (sharpFn as any)(svgBuffer).resize(120, 40, { fit: "inside" }).png().toBuffer()
+      }
+    } catch (logoErr) {
+      console.error("[Invoice] Logo fetch/convert failed:", logoErr)
+    }
+
     // Generate PDF using PDFKit
     // @ts-ignore - pdfkit CJS module
     const pdfkitModule = await import("pdfkit")
@@ -84,8 +99,17 @@ export async function GET(request: Request) {
       doc.on("end", () => resolve(Buffer.concat(chunks)))
     })
 
-    // Header — Store name + INVOICE
-    doc.fontSize(22).font("Helvetica-Bold").fillColor("#1a1a2e").text(storeName, 50, 50)
+    // Header — Storelib logo + Store name + INVOICE
+    if (logoPngBuffer) {
+      try {
+        doc.image(logoPngBuffer, 50, 45, { height: 28 })
+        doc.fontSize(15).font("Helvetica-Bold").fillColor("#1a1a2e").text(storeName, 50, 78)
+      } catch {
+        doc.fontSize(22).font("Helvetica-Bold").fillColor("#1a1a2e").text(storeName, 50, 50)
+      }
+    } else {
+      doc.fontSize(22).font("Helvetica-Bold").fillColor("#1a1a2e").text(storeName, 50, 50)
+    }
 
     doc.fontSize(28).font("Helvetica-Bold").fillColor("#9ca3af").text("INVOICE", 400, 50, { align: "right" })
 
