@@ -114,7 +114,7 @@ export default function PricingPage() {
                 key={plan.id}
                 className={`relative rounded-2xl p-6 sm:p-7 flex flex-col transition-all duration-200 ${
                   plan.highlight
-                    ? "bg-white border-2 border-[#7c3aed] shadow-[0_0_24px_-6px_rgba(124,58,237,0.15)] hover:shadow-[0_0_32px_-6px_rgba(124,58,237,0.22)] scale-[1.02]"
+                    ? "bg-white border-2 border-[#7c3aed] shadow-[0_0_32px_-4px_rgba(124,58,237,0.18),0_0_64px_-8px_rgba(124,58,237,0.1)] hover:shadow-[0_0_40px_-4px_rgba(124,58,237,0.25),0_0_80px_-8px_rgba(124,58,237,0.15)] scale-[1.02] ring-1 ring-[#7c3aed]/10"
                     : "bg-white border-2 border-[#e5e7eb] hover:border-[#d1d5db] shadow-sm hover:shadow-md"
                 }`}
               >
@@ -158,17 +158,17 @@ export default function PricingPage() {
 
                 <Link
                   href={plan.href}
-                  className={`relative w-full h-12 text-[14px] font-semibold rounded-xl transition-all duration-200 flex items-center justify-center gap-2 mb-6 overflow-hidden ${
+                  className={`relative w-full h-12 text-[14px] font-semibold rounded-xl transition-all duration-200 flex items-center justify-center gap-2 mb-6 overflow-hidden btn-shine-hover ${
                     plan.highlight
                       ? "bg-[#7c3aed] hover:bg-[#6d28d9] text-white"
                       : "bg-[#1a1a2e] hover:bg-[#0f1325] text-white"
                   }`}
                 >
                   {plan.highlight && (
-                    <span className="absolute inset-0 pointer-events-none" style={{
-                      background: 'linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.15) 45%, rgba(255,255,255,0.25) 50%, rgba(255,255,255,0.15) 55%, transparent 60%)',
+                    <span className="absolute inset-0 pointer-events-none btn-shine-effect" style={{
+                      background: 'linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.1) 45%, rgba(255,255,255,0.18) 50%, rgba(255,255,255,0.1) 55%, transparent 60%)',
                       backgroundSize: '250% 100%',
-                      animation: 'btn-shine 4s ease-in-out infinite',
+                      animation: 'btn-shine 6s ease-in-out infinite',
                     }} />
                   )}
                   <span className="relative z-10 flex items-center gap-2">

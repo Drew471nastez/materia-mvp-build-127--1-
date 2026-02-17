@@ -758,9 +758,16 @@
   0% {
     background-position: 200% 0;
   }
+  30% {
+    background-position: -50% 0;
+  }
   100% {
     background-position: -50% 0;
   }
+}
+
+.btn-shine-hover:hover .btn-shine-effect {
+  animation-play-state: paused !important;
 }
 
 /* Shimmer animation for skeleton loading */

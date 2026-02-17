@@ -127,7 +127,7 @@ export default async function SalesPage() {
 
     const refundedOrders = initialOrders.filter(o => o.status === "refunded")
     initialSummary.refundCount = refundedOrders.length
-    initialSummary.refundAmount = refundedOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0)
+    initialSummary.refundAmount = refundedOrders.reduce((sum, o) => sum + (o.refund_amount_cents || o.amount_cents || 0), 0)
   }
 
   return (

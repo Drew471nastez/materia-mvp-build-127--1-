@@ -29,7 +29,7 @@ import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { useState, useEffect, useRef } from "react"
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+// Sheet removed — mobile sidebar now uses pure CSS transitions for reliable close animation
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { NotificationsModal, NotificationBadge } from "./notifications-modal"
 import { useLanguage } from "@/lib/i18n"
@@ -721,22 +721,39 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         onePagePublished={onePagePublished}
       />
 
-      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-        <SheetContent
-          side="left"
-          className="w-[260px] max-w-[85vw] p-0 bg-white border-neutral-200/50 rounded-tr-[-5px] rounded-br-[-5px] top-[calc(68px+env(safe-area-inset-top))] bottom-0 h-auto data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left data-[state=closed]:duration-300 data-[state=open]:duration-300 shadow-xl"
-          style={{ transitionTimingFunction: 'cubic-bezier(0.32, 0.72, 0, 1)' }}
-          overlayClassName="top-[calc(68px+env(safe-area-inset-top))] data-[state=closed]:duration-300 data-[state=open]:duration-300"
-          hideCloseButton
-        >
-          <SheetHeader className="sr-only">
-            <SheetTitle>Navigation Menu</SheetTitle>
-          </SheetHeader>
-          <div className="flex h-full flex-col">
-            <MobileSidebarContent onItemClick={() => setMobileMenuOpen(false)} />
-          </div>
-        </SheetContent>
-      </Sheet>
+      {/* Custom Mobile Sidebar — pure CSS transitions for smooth open AND close */}
+      <div
+        className={cn(
+          "fixed inset-0 z-50 md:hidden bg-black/50",
+          mobileMenuOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+        )}
+        style={{
+          top: 'calc(68px + env(safe-area-inset-top))',
+          transitionProperty: 'opacity',
+          transitionDuration: '300ms',
+          transitionTimingFunction: 'cubic-bezier(0.32, 0.72, 0, 1)',
+        }}
+        onClick={() => setMobileMenuOpen(false)}
+        aria-hidden="true"
+      />
+      <div
+        className="fixed z-50 md:hidden w-[260px] max-w-[85vw] bg-white shadow-xl border-r border-neutral-200/50"
+        style={{
+          top: 'calc(68px + env(safe-area-inset-top))',
+          bottom: 0,
+          left: 0,
+          transform: mobileMenuOpen ? 'translateX(0)' : 'translateX(-100%)',
+          transitionProperty: 'transform',
+          transitionDuration: '300ms',
+          transitionTimingFunction: 'cubic-bezier(0.32, 0.72, 0, 1)',
+          willChange: 'transform',
+        }}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Navigation Menu"
+      >
+        <MobileSidebarContent onItemClick={() => setMobileMenuOpen(false)} />
+      </div>
 
       <aside className="fixed left-0 top-0 z-40 hidden h-svh w-[220px] flex-col border-r border-neutral-200/50 md:flex">
         <SidebarContent />

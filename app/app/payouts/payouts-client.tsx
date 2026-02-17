@@ -2,14 +2,11 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Switch } from "@/components/ui/switch"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
   Dialog,
@@ -28,13 +25,8 @@ import {
   Building2,
   Calendar,
   Download,
-  MoreHorizontal,
   Eye,
-  ExternalLink,
-  Settings,
-  Info,
   Loader2,
-  BanknoteIcon,
   TrendingUp,
   Shield,
   Zap,
@@ -45,6 +37,11 @@ import {
   Package,
   Mail,
   CreditCard,
+  FileText,
+  RotateCcw,
+  ArrowDownLeft,
+  ArrowUpRight,
+  ShoppingCart,
 } from "lucide-react"
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
 import { useLanguage } from "@/lib/i18n"
@@ -52,6 +49,7 @@ import { cn } from "@/lib/utils"
 
 interface Creator {
   id: string
+  username?: string
   stripe_account_id?: string
   stripe_onboarding_status?: string
   default_currency?: string
@@ -69,6 +67,9 @@ interface OrderPayment {
   customer_email: string
   product_id: string
   stripe_payment_intent_id?: string
+  refund_reason?: string
+  refund_amount_cents?: number
+  refunded_at?: string
   product?: {
     title: string
     thumbnail_url?: string
@@ -87,6 +88,19 @@ interface PayoutsClientProps {
   initialOrders?: OrderPayment[]
 }
 
+interface StripePayout {
+  id: string
+  amount: number
+  currency: string
+  status: string
+  arrival_date: number
+  created: number
+  method: string
+  type: string
+  description: string | null
+  destination: string | null
+}
+
 interface EarningsTrend {
   date: string
   earnings: number
@@ -94,17 +108,13 @@ interface EarningsTrend {
   net: number
 }
 
-const PAYOUT_SCHEDULES = [
-  { value: "daily", label: "Daily", description: "Receive payouts every business day" },
-  { value: "weekly", label: "Weekly", description: "Receive payouts every Monday" },
-  { value: "monthly", label: "Monthly", description: "Receive payouts on the 1st of each month" },
-]
+type ActiveTab = "payouts" | "sales"
 
 export function PayoutsClient({ creator, initialData, initialOrders = [] }: PayoutsClientProps) {
   const router = useRouter()
   const { t } = useLanguage()
+  const [activeTab, setActiveTab] = useState<ActiveTab>("payouts")
   const [isConnecting, setIsConnecting] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
   const [statusLoading, setStatusLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -123,17 +133,19 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
     }
   } | null>(null)
 
-  // Payout settings
-  const [payoutSchedule, setPayoutSchedule] = useState(creator.payout_schedule || "daily")
-  const [payoutThreshold, setPayoutThreshold] = useState(creator.payout_threshold || 0)
-  const [instantPayoutsEnabled, setInstantPayoutsEnabled] = useState(creator.instant_payouts_enabled || false)
+  // Stripe payouts data
+  const [stripePayouts, setStripePayouts] = useState<StripePayout[]>([])
+  const [payoutsLoading, setPayoutsLoading] = useState(false)
+  const [stripeBalance, setStripeBalance] = useState<{
+    available: { amount: number; currency: string }[]
+    pending: { amount: number; currency: string }[]
+  } | null>(null)
 
-  // Payment detail bottom sheet
+  // Payment detail
   const [selectedOrder, setSelectedOrder] = useState<OrderPayment | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
-  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false)
 
-  // Mobile bottom sheet state for detail
+  // Mobile bottom sheet state
   const [isMobileSheet, setIsMobileSheet] = useState(false)
   const [isDetailPresented, setIsDetailPresented] = useState(false)
   const [detailDragY, setDetailDragY] = useState(0)
@@ -141,8 +153,15 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
   const detailDragStartY = useRef(0)
   const detailDragCurrentY = useRef(0)
 
-  const currency = creator.default_currency || "USD"
+  // Refund modal
+  const [refundModalOpen, setRefundModalOpen] = useState(false)
+  const [refundOrder, setRefundOrder] = useState<OrderPayment | null>(null)
+  const [refundReason, setRefundReason] = useState("")
+  const [refundAmount, setRefundAmount] = useState("")
+  const [isRefunding, setIsRefunding] = useState(false)
+  const [refundError, setRefundError] = useState<string | null>(null)
 
+  const currency = creator.default_currency || "USD"
   const isStripeConnected = creator.stripe_onboarding_status === "connected"
   const isStripePending = creator.stripe_onboarding_status === "pending"
 
@@ -188,7 +207,7 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
     }
   }, [])
 
-  // Build earnings trend from real order data
+  // Earnings trend from real order data
   const earningsTrend: EarningsTrend[] = (() => {
     if (initialOrders.length === 0) return []
     const trendMap: Record<string, { earnings: number; fees: number }> = {}
@@ -199,7 +218,7 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
       const key = d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
       trendMap[key] = { earnings: 0, fees: 0 }
     }
-    initialOrders.forEach((order) => {
+    initialOrders.filter(o => o.status === "completed").forEach((order) => {
       const d = new Date(order.created_at)
       const key = d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
       if (trendMap[key]) {
@@ -231,24 +250,39 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
     }
   }
 
+  // Fetch Stripe payouts
+  const fetchStripePayouts = async () => {
+    setPayoutsLoading(true)
+    try {
+      const response = await fetch("/api/stripe/payouts")
+      if (response.ok) {
+        const data = await response.json()
+        setStripePayouts(data.payouts || [])
+        setStripeBalance(data.balance || null)
+      }
+    } catch (err) {
+      console.error("Error fetching payouts:", err)
+    } finally {
+      setPayoutsLoading(false)
+    }
+  }
+
   useEffect(() => {
     fetchConnectionStatus()
+    if (isStripeConnected) {
+      fetchStripePayouts()
+    }
   }, [creator.stripe_account_id])
 
   const handleConnectStripe = async () => {
     setIsConnecting(true)
     setError(null)
-
     try {
-      const response = await fetch("/api/stripe/connect/start", {
-        method: "POST",
-      })
-
+      const response = await fetch("/api/stripe/connect/start", { method: "POST" })
       if (!response.ok) {
         const data = await response.json()
         throw new Error(data.error || "Failed to start Stripe Connect")
       }
-
       const { url } = await response.json()
       window.location.href = url
     } catch (err) {
@@ -257,35 +291,130 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
     }
   }
 
-  const handleSaveSettings = async () => {
-    setIsSaving(true)
-    setError(null)
-    setSuccess(null)
+  // Refund handler
+  const handleRefund = async () => {
+    if (!refundOrder) return
+    setIsRefunding(true)
+    setRefundError(null)
 
     try {
-      const response = await fetch("/api/settings/payouts", {
+      const maxAmount = refundOrder.amount_cents / 100
+      const amount = refundAmount ? parseFloat(refundAmount) : maxAmount
+
+      if (isNaN(amount) || amount <= 0) {
+        throw new Error("Please enter a valid refund amount")
+      }
+      if (amount > maxAmount) {
+        throw new Error(`Amount cannot exceed $${maxAmount.toFixed(2)}`)
+      }
+
+      const response = await fetch("/api/stripe/refund", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          payoutSchedule,
-          payoutThreshold: payoutThreshold * 100,
-          instantPayoutsEnabled,
+          orderId: refundOrder.id,
+          reason: refundReason || "requested_by_customer",
+          amount,
         }),
       })
 
       if (!response.ok) {
         const data = await response.json()
-        throw new Error(data.error || "Failed to save settings")
+        throw new Error(data.error || "Failed to process refund")
       }
 
-      setSuccess("Payout settings saved successfully!")
-      setSettingsDialogOpen(false)
+      setSuccess("Refund processed successfully! Confirmation emails have been sent.")
+      setRefundModalOpen(false)
+      setRefundOrder(null)
+      setRefundReason("")
+      setRefundAmount("")
+      setDetailOpen(false)
       router.refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong")
+      setRefundError(err instanceof Error ? err.message : "Something went wrong")
     } finally {
-      setIsSaving(false)
+      setIsRefunding(false)
     }
+  }
+
+  // Invoice download handler
+  const handleDownloadInvoice = (order: OrderPayment) => {
+    const invoiceDate = new Date(order.created_at).toLocaleDateString("en-US", {
+      year: "numeric", month: "long", day: "numeric",
+    })
+    const invoiceTime = new Date(order.created_at).toLocaleTimeString("en-US", {
+      hour: "numeric", minute: "2-digit",
+    })
+
+    const isRefunded = order.status === "refunded"
+    const refundDate = order.refunded_at
+      ? new Date(order.refunded_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+      : null
+
+    const html = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>Invoice ${order.id.slice(0, 8)}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:40px;color:#1a1a2e;max-width:700px;margin:0 auto}
+.header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:40px;padding-bottom:20px;border-bottom:2px solid #e5e7eb}
+.logo{font-size:22px;font-weight:700;color:#1a1a2e}
+.invoice-label{font-size:28px;font-weight:700;color:#6b7280;text-align:right}
+.meta{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:32px}
+.meta-block h4{font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#9ca3af;margin-bottom:6px}
+.meta-block p{font-size:14px;color:#1a1a2e}
+table{width:100%;border-collapse:collapse;margin-bottom:24px}
+th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#6b7280;padding:10px 0;border-bottom:2px solid #e5e7eb}
+td{padding:14px 0;font-size:14px;border-bottom:1px solid #f3f4f6}
+.amount{text-align:right}
+.totals{margin-left:auto;width:260px}
+.total-row{display:flex;justify-content:space-between;padding:8px 0;font-size:14px}
+.total-row.final{font-size:18px;font-weight:700;border-top:2px solid #1a1a2e;padding-top:12px;margin-top:4px}
+.refund-badge{display:inline-block;background:#fef2f2;color:#dc2626;padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600;margin-top:16px}
+.refund-section{background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:16px;margin-top:24px}
+.refund-section h3{color:#dc2626;font-size:14px;font-weight:600;margin-bottom:8px}
+.refund-section p{color:#7f1d1d;font-size:13px}
+.footer{margin-top:40px;padding-top:20px;border-top:1px solid #e5e7eb;text-align:center;font-size:12px;color:#9ca3af}
+@media print{body{padding:20px}button{display:none!important}}
+</style></head><body>
+<div class="header">
+  <div><div class="logo">${creator.username || "Storelib"}</div><p style="font-size:13px;color:#6b7280;margin-top:4px">Digital Product Invoice</p></div>
+  <div class="invoice-label">INVOICE</div>
+</div>
+<div class="meta">
+  <div class="meta-block"><h4>Invoice Number</h4><p>#INV-${order.id.slice(0, 8).toUpperCase()}</p></div>
+  <div class="meta-block"><h4>Date</h4><p>${invoiceDate} at ${invoiceTime}</p></div>
+  <div class="meta-block"><h4>Customer</h4><p>${order.customer_email}</p></div>
+  <div class="meta-block"><h4>Status</h4><p>${isRefunded ? '<span style="color:#dc2626">Refunded</span>' : '<span style="color:#059669">Paid</span>'}</p></div>
+</div>
+<table>
+  <thead><tr><th>Item</th><th class="amount">Amount</th></tr></thead>
+  <tbody><tr><td>${order.product?.title || "Digital Product"}</td><td class="amount">${formatPrice(order.amount_cents)}</td></tr></tbody>
+</table>
+<div class="totals">
+  <div class="total-row"><span>Subtotal</span><span>${formatPrice(order.amount_cents)}</span></div>
+  <div class="total-row"><span>Platform Fee</span><span>-${formatPrice(order.fee_cents || 0)}</span></div>
+  <div class="total-row final"><span>Net Amount</span><span>${formatPrice((order.amount_cents || 0) - (order.fee_cents || 0))}</span></div>
+</div>
+${isRefunded ? `<div class="refund-section">
+  <h3>Refund Details</h3>
+  <p>Amount: ${formatPrice(order.refund_amount_cents || order.amount_cents)}</p>
+  ${refundDate ? `<p>Date: ${refundDate}</p>` : ""}
+  ${order.refund_reason ? `<p>Reason: ${order.refund_reason}</p>` : ""}
+</div>` : ""}
+<div class="footer">
+  <p>Thank you for your purchase.</p>
+  <p style="margin-top:8px">${creator.username || "Store"} &mdash; Powered by Storelib</p>
+  <p style="margin-top:4px">Order ID: ${order.id}</p>
+</div>
+<div style="text-align:center;margin-top:24px">
+  <button onclick="window.print()" style="background:#1a1a2e;color:white;border:none;padding:10px 24px;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer">Print / Save as PDF</button>
+</div>
+</body></html>`
+
+    const blob = new Blob([html], { type: "text/html" })
+    const url = URL.createObjectURL(blob)
+    window.open(url, "_blank")
+    setTimeout(() => URL.revokeObjectURL(url), 5000)
   }
 
   const formatPrice = (cents: number) => {
@@ -303,6 +432,14 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
     })
   }
 
+  const formatTimestamp = (ts: number) => {
+    return new Date(ts * 1000).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    })
+  }
+
   const formatFullDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
       weekday: "short",
@@ -314,6 +451,30 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
     })
   }
 
+  const getPayoutStatusBadge = (status: string) => {
+    switch (status) {
+      case "paid":
+        return <Badge className="bg-emerald-50 text-emerald-700 border-0 text-[11px]"><CheckCircle2 className="mr-1 h-3 w-3" />Paid</Badge>
+      case "pending":
+        return <Badge className="bg-amber-50 text-amber-700 border-0 text-[11px]"><Clock className="mr-1 h-3 w-3" />Pending</Badge>
+      case "in_transit":
+        return <Badge className="bg-blue-50 text-blue-700 border-0 text-[11px]"><ArrowUpRight className="mr-1 h-3 w-3" />In Transit</Badge>
+      case "failed":
+        return <Badge className="bg-red-50 text-red-600 border-0 text-[11px]"><XCircle className="mr-1 h-3 w-3" />Failed</Badge>
+      case "canceled":
+        return <Badge className="bg-gray-50 text-gray-600 border-0 text-[11px]">Canceled</Badge>
+      default:
+        return <Badge className="bg-gray-50 text-gray-600 border-0 text-[11px]">{status}</Badge>
+    }
+  }
+
+  // Stripe SVG icon component
+  const StripeIcon = ({ className }: { className?: string }) => (
+    <svg viewBox="0 0 60 25" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M8.14 10.13c0-.66.55-.92 1.46-.92 1.3 0 2.94.39 4.24 1.1V6.43A11.27 11.27 0 009.6 5.63C6.24 5.63 4 7.33 4 10.33c0 4.65 6.4 3.91 6.4 5.91 0 .78-.68 1.03-1.63 1.03-1.41 0-3.22-.58-4.65-1.36v3.95a11.8 11.8 0 004.65.97c3.47 0 5.83-1.71 5.83-4.75-.02-5.02-6.46-4.13-6.46-6.01zm12.88-4.5l-3.42.73v13.68h3.42V5.63zm0-1.3L24.44.37l-3.42.73v3.23h3.42zm6.13 2.6l-.22-1.3H23.9v13.41h3.42V10.4c.81-1.06 2.18-.87 2.6-.72V5.63c-.44-.16-2.04-.46-2.87 1.3zm6.92-1.3h-3.42v13.41h3.42V5.63zm0-4.26l-3.42.73v3.23h3.42V1.37zM42.87 5.4c-1.38 0-2.27.65-2.76 1.1l-.18-.87H36.7v18.04l3.42-.72.01-4.38c.5.37 1.25.89 2.48.89 2.5 0 4.78-2.02 4.78-6.46 0-4.06-2.33-6.6-4.52-6.6zm-.8 10.15c-.83 0-1.32-.3-1.66-.66l-.01-5.25c.37-.41.87-.7 1.67-.7 1.28 0 2.17 1.43 2.17 3.29 0 1.89-.87 3.32-2.17 3.32zm13.01-3.39c0-3.63-1.76-6.5-5.12-6.5s-5.42 2.87-5.42 6.47c0 4.27 2.41 6.43 5.87 6.43 1.69 0 2.96-.38 3.92-.93v-2.84c-.96.48-2.07.78-3.47.78-1.37 0-2.59-.48-2.75-2.15h6.91c.01-.18.06-1.05.06-1.26zm-6.97-1.35c0-1.6.98-2.27 1.87-2.27.86 0 1.78.67 1.78 2.27H48.1z" fill="#635BFF"/>
+    </svg>
+  )
+
   return (
     <div className="space-y-6">
       {/* Alerts */}
@@ -323,7 +484,6 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-
       {success && (
         <Alert className="border-green-200 bg-green-50 text-green-800">
           <CheckCircle2 className="h-4 w-4" />
@@ -394,36 +554,10 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
                   </div>
                 )}
                 <div className="flex items-center gap-3 pt-1">
-                  <Button
-                    onClick={handleConnectStripe}
-                    disabled={isConnecting}
-                    className="rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-medium cursor-pointer"
-                  >
-                    {isConnecting ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Connecting...
-                      </>
-                    ) : isStripePending ? (
-                      <>
-                        Complete Setup
-                        <ChevronRight className="ml-1 h-4 w-4" />
-                      </>
-                    ) : (
-                      <>
-                        Connect Stripe
-                        <ChevronRight className="ml-1 h-4 w-4" />
-                      </>
-                    )}
+                  <Button onClick={handleConnectStripe} disabled={isConnecting} className="rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-medium cursor-pointer">
+                    {isConnecting ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Connecting...</>) : isStripePending ? (<>Complete Setup<ChevronRight className="ml-1 h-4 w-4" /></>) : (<>Connect Stripe<ChevronRight className="ml-1 h-4 w-4" /></>)}
                   </Button>
-                  <a
-                    href="https://stripe.com"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[13px] text-[#6b7280] hover:text-[#1a1a2e] transition-colors"
-                  >
-                    Learn more
-                  </a>
+                  <a href="https://stripe.com" target="_blank" rel="noopener noreferrer" className="text-[13px] text-[#6b7280] hover:text-[#1a1a2e] transition-colors">Learn more</a>
                 </div>
               </div>
             </div>
@@ -431,27 +565,49 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
           {!isStripePending && (
             <div className="px-6 py-4 bg-[#f9fafb] border-t border-[#e5e7eb]/60">
               <div className="flex items-center gap-4 text-[12px] text-[#6b7280]">
-                <div className="flex items-center gap-1.5">
-                  <Shield className="h-3.5 w-3.5" />
-                  <span>Secure payments</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Zap className="h-3.5 w-3.5" />
-                  <span>Instant setup</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Building2 className="h-3.5 w-3.5" />
-                  <span>Bank deposits</span>
-                </div>
+                <div className="flex items-center gap-1.5"><Shield className="h-3.5 w-3.5" /><span>Secure payments</span></div>
+                <div className="flex items-center gap-1.5"><Zap className="h-3.5 w-3.5" /><span>Instant setup</span></div>
+                <div className="flex items-center gap-1.5"><Building2 className="h-3.5 w-3.5" /><span>Bank deposits</span></div>
               </div>
             </div>
           )}
         </div>
       )}
 
-      {/* Payout Account */}
+      {/* Tab Switcher */}
       {isStripeConnected && (
-        <div>
+        <div className="flex gap-1 p-1 bg-[#f3f4f6] rounded-xl w-fit">
+          <button
+            onClick={() => setActiveTab("payouts")}
+            className={cn(
+              "px-4 py-2 rounded-lg text-[14px] font-medium transition-all",
+              activeTab === "payouts"
+                ? "bg-white text-[#1a1a2e] shadow-sm"
+                : "text-[#6b7280] hover:text-[#1a1a2e]"
+            )}
+          >
+            <Landmark className="inline-block mr-1.5 h-4 w-4" />
+            Payouts
+          </button>
+          <button
+            onClick={() => setActiveTab("sales")}
+            className={cn(
+              "px-4 py-2 rounded-lg text-[14px] font-medium transition-all",
+              activeTab === "sales"
+                ? "bg-white text-[#1a1a2e] shadow-sm"
+                : "text-[#6b7280] hover:text-[#1a1a2e]"
+            )}
+          >
+            <ShoppingCart className="inline-block mr-1.5 h-4 w-4" />
+            Sales
+          </button>
+        </div>
+      )}
+
+      {/* ═══════ PAYOUTS TAB ═══════ */}
+      {activeTab === "payouts" && isStripeConnected && (
+        <>
+          {/* Payout Account Card */}
           <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
             <div className="p-5 border-b border-[#e5e7eb]/60">
               <div className="flex items-center justify-between">
@@ -474,276 +630,335 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
                   <Building2 className="h-6 w-6 text-[#6b7280]" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-[14px] text-[#1a1a2e]">
-                    {connectionStatus?.bankAccount?.bankName || "Bank Account"}
-                  </p>
-                  <p className="text-[13px] text-[#6b7280]">
-                    ****{connectionStatus?.bankAccount?.last4 || "····"} ({currency})
-                  </p>
+                  <p className="font-medium text-[14px] text-[#1a1a2e]">{connectionStatus?.bankAccount?.bankName || "Bank Account"}</p>
+                  <p className="text-[13px] text-[#6b7280]">****{connectionStatus?.bankAccount?.last4 || "····"} ({currency})</p>
                 </div>
-                <Button variant="outline" size="sm" onClick={handleConnectStripe} className="rounded-lg shrink-0">
-                  {t("common.update")}
-                </Button>
+                <Button variant="outline" size="sm" onClick={handleConnectStripe} className="rounded-lg shrink-0">{t("common.update")}</Button>
               </div>
+
+              {/* Stripe Balance */}
+              {stripeBalance && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 bg-emerald-50/50 rounded-xl">
+                    <p className="text-[11px] text-emerald-700 font-medium mb-1">Available Balance</p>
+                    <p className="text-[16px] font-bold text-emerald-800">
+                      {stripeBalance.available.length > 0 ? formatPrice(stripeBalance.available[0].amount) : "$0.00"}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-amber-50/50 rounded-xl">
+                    <p className="text-[11px] text-amber-700 font-medium mb-1">Pending Balance</p>
+                    <p className="text-[16px] font-bold text-amber-800">
+                      {stripeBalance.pending.length > 0 ? formatPrice(stripeBalance.pending[0].amount) : "$0.00"}
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
             <div className="p-5 border-t border-[#e5e7eb]/60">
               <Button variant="outline" className="w-full rounded-xl" asChild>
                 <a href="https://dashboard.stripe.com" target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="mr-2 h-4 w-4" />
+                  <StripeIcon className="mr-2 h-4 w-auto" />
                   Open Stripe Dashboard
                 </a>
               </Button>
             </div>
           </div>
-        </div>
-      )}
 
-      {/* Earnings Chart */}
-      {earningsTrend.length > 0 && (
-        <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-          <div className="p-5 border-b border-[#e5e7eb]/60">
-            <div>
-              <h3 className="text-[15px] font-semibold text-[#1a1a2e]">{t("payouts.earningsOverTime")}</h3>
-              <p className="text-[13px] text-[#6b7280] mt-0.5">Revenue from the last 30 days</p>
-            </div>
-          </div>
-          <div className="p-5">
-            <div className="h-[250px] sm:h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={earningsTrend}>
-                  <defs>
-                    <linearGradient id="colorNet" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="date" tick={{ fontSize: 11 }} interval="preserveStartEnd" />
-                  <YAxis tickFormatter={(value) => formatPrice(value)} tick={{ fontSize: 11 }} width={70} />
-                  <Tooltip
-                    formatter={(value: number, name: string) => [
-                      formatPrice(value),
-                      name === "net" ? "Net Earnings" : name === "earnings" ? "Gross" : "Fees",
-                    ]}
-                    labelStyle={{ fontWeight: "bold" }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="net"
-                    stroke="#8b5cf6"
-                    strokeWidth={2}
-                    fillOpacity={1}
-                    fill="url(#colorNet)"
-                    name="net"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Payments Table — Real Order Data */}
-      <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-        <div className="p-5 border-b border-[#e5e7eb]/60">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-[15px] font-semibold text-[#1a1a2e]">Payments</h3>
-              <p className="text-[13px] text-[#6b7280] mt-0.5">{initialOrders.length} completed payment{initialOrders.length !== 1 ? "s" : ""}</p>
-            </div>
-            {initialOrders.length > 0 && (
-              <span className="text-[13px] font-medium text-[#8b5cf6]">{formatPrice(initialData.totalEarnings)} total</span>
-            )}
-          </div>
-        </div>
-
-        {initialOrders.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center px-4">
-            <div className="p-4 bg-[#f3f4f6] rounded-full mb-4">
-              <Wallet className="h-8 w-8 text-[#9ca3af]" />
-            </div>
-            <h3 className="font-medium text-[15px] text-[#1a1a2e] mb-1">No payments yet</h3>
-            <p className="text-[13px] text-[#6b7280] max-w-sm">
-              Once you start making sales, all payments will appear here.
-            </p>
-          </div>
-        ) : (
-          <>
-            {/* Mobile card view */}
-            <div className="divide-y divide-[#e5e7eb]/60 sm:hidden">
-              {initialOrders.map((order) => (
-                <div
-                  key={order.id}
-                  className="p-4 cursor-pointer hover:bg-[#f9fafb] transition-colors active:bg-[#f3f4f6]"
-                  onClick={() => {
-                    setSelectedOrder(order)
-                    setDetailOpen(true)
-                  }}
-                >
-                  <div className="flex items-center gap-3">
-                    {order.product?.thumbnail_url ? (
-                      <img src={order.product.thumbnail_url} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
-                    ) : (
-                      <div className="w-10 h-10 rounded-lg bg-[#f3f4f6] flex items-center justify-center shrink-0">
-                        <Package className="h-4 w-4 text-[#9ca3af]" />
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[14px] font-medium text-[#1a1a2e] truncate">
-                        {order.product?.title || "Product"}
-                      </p>
-                      <p className="text-[12px] text-[#9ca3af] truncate">{order.customer_email}</p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <div className="flex items-center gap-1.5 justify-end">
-                        <p className="text-[14px] font-semibold text-[#1a1a2e]">{formatPrice(order.amount_cents)}</p>
-                        {order.status === "refunded" && (
-                          <Badge className="bg-red-50 text-red-600 border-0 text-[9px] px-1.5 py-0">Refunded</Badge>
-                        )}
-                      </div>
-                      <p className="text-[11px] text-[#9ca3af]">{formatDate(order.created_at)}</p>
-                    </div>
-                  </div>
+          {/* Stripe Payouts List */}
+          <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+            <div className="p-5 border-b border-[#e5e7eb]/60">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-[15px] font-semibold text-[#1a1a2e]">Bank Payouts</h3>
+                  <p className="text-[13px] text-[#6b7280] mt-0.5">Transfers to your bank account</p>
                 </div>
-              ))}
-            </div>
-
-            {/* Desktop table view */}
-            <div className="hidden sm:block">
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-b border-[#e5e7eb]">
-                    <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Customer</TableHead>
-                    <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Product</TableHead>
-                    <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Date</TableHead>
-                    <TableHead className="text-right text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Amount</TableHead>
-                    <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Status</TableHead>
-                    <TableHead className="w-10"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {initialOrders.map((order) => (
-                    <TableRow key={order.id} className="hover:bg-[#f9fafb] border-b border-[#e5e7eb]/60 last:border-0">
-                      <TableCell className="text-[13px] text-[#6b7280] truncate max-w-[180px]">{order.customer_email}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          {order.product?.thumbnail_url ? (
-                            <img src={order.product.thumbnail_url} alt="" className="w-8 h-8 rounded-lg object-cover" />
-                          ) : (
-                            <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
-                              <Package className="h-3.5 w-3.5 text-[#9ca3af]" />
-                            </div>
-                          )}
-                          <span className="text-[14px] font-medium text-[#1a1a2e] truncate max-w-[200px]">
-                            {order.product?.title || "Product"}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-[13px] text-[#6b7280]">{formatDate(order.created_at)}</TableCell>
-                      <TableCell className="text-right text-[14px] font-medium text-[#1a1a2e]">{formatPrice(order.amount_cents)}</TableCell>
-                      <TableCell>
-                        {order.status === "refunded" ? (
-                          <Badge className="bg-red-50 text-red-600 border-0 text-[11px]">Refunded</Badge>
-                        ) : (
-                          <Badge className="bg-emerald-50 text-emerald-700 border-0 text-[11px]">
-                            <CheckCircle2 className="mr-1 h-3 w-3" />
-                            Completed
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <button
-                          onClick={() => {
-                            setSelectedOrder(order)
-                            setDetailOpen(true)
-                          }}
-                          className="p-1.5 rounded-lg hover:bg-[#f3f4f6] transition-colors"
-                        >
-                          <Eye className="h-4 w-4 text-[#9ca3af]" />
-                        </button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-
-            {/* Footer */}
-            {initialOrders.length > 0 && (
-              <div className="px-5 py-3 border-t border-[#e5e7eb] text-[12px] text-[#6b7280]">
-                Showing {initialOrders.length} payment{initialOrders.length !== 1 ? "s" : ""}
+                <button onClick={fetchStripePayouts} className="text-[13px] text-[#8b5cf6] hover:text-[#7c3aed] font-medium transition-colors">
+                  {payoutsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Refresh"}
+                </button>
               </div>
+            </div>
+
+            {payoutsLoading ? (
+              <div className="p-8 flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-[#9ca3af]" /></div>
+            ) : stripePayouts.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center px-4">
+                <div className="p-4 bg-[#f3f4f6] rounded-full mb-4"><Landmark className="h-8 w-8 text-[#9ca3af]" /></div>
+                <h3 className="font-medium text-[15px] text-[#1a1a2e] mb-1">No bank payouts yet</h3>
+                <p className="text-[13px] text-[#6b7280] max-w-sm">Stripe will automatically transfer your earnings to your bank account based on your payout schedule.</p>
+              </div>
+            ) : (
+              <>
+                {/* Mobile card view */}
+                <div className="divide-y divide-[#e5e7eb]/60 sm:hidden">
+                  {stripePayouts.map((payout) => (
+                    <div key={payout.id} className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-[#f3f4f6] flex items-center justify-center shrink-0">
+                            <ArrowDownLeft className="h-4 w-4 text-emerald-600" />
+                          </div>
+                          <div>
+                            <p className="text-[14px] font-medium text-[#1a1a2e]">{formatPrice(payout.amount)}</p>
+                            <p className="text-[12px] text-[#9ca3af]">{formatTimestamp(payout.arrival_date)}</p>
+                          </div>
+                        </div>
+                        <div>{getPayoutStatusBadge(payout.status)}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Desktop table */}
+                <div className="hidden sm:block">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-b border-[#e5e7eb]">
+                        <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Amount</TableHead>
+                        <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Arrival Date</TableHead>
+                        <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Initiated</TableHead>
+                        <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Status</TableHead>
+                        <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Destination</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {stripePayouts.map((payout) => (
+                        <TableRow key={payout.id} className="hover:bg-[#f9fafb] border-b border-[#e5e7eb]/60 last:border-0">
+                          <TableCell className="text-[14px] font-medium text-[#1a1a2e]">{formatPrice(payout.amount)}</TableCell>
+                          <TableCell className="text-[13px] text-[#6b7280]">{formatTimestamp(payout.arrival_date)}</TableCell>
+                          <TableCell className="text-[13px] text-[#6b7280]">{formatTimestamp(payout.created)}</TableCell>
+                          <TableCell>{getPayoutStatusBadge(payout.status)}</TableCell>
+                          <TableCell className="text-[13px] text-[#6b7280]">{payout.destination || "Bank account"}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                <div className="px-5 py-3 border-t border-[#e5e7eb] text-[12px] text-[#6b7280]">
+                  Showing {stripePayouts.length} payout{stripePayouts.length !== 1 ? "s" : ""}
+                </div>
+              </>
             )}
-          </>
-        )}
-      </div>
+          </div>
+        </>
+      )}
+
+      {/* ═══════ SALES TAB ═══════ */}
+      {activeTab === "sales" && isStripeConnected && (
+        <>
+          {/* Earnings Chart */}
+          {earningsTrend.length > 0 && (
+            <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+              <div className="p-5 border-b border-[#e5e7eb]/60">
+                <div>
+                  <h3 className="text-[15px] font-semibold text-[#1a1a2e]">{t("payouts.earningsOverTime")}</h3>
+                  <p className="text-[13px] text-[#6b7280] mt-0.5">Revenue from the last 30 days</p>
+                </div>
+              </div>
+              <div className="p-5">
+                <div className="h-[250px] sm:h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={earningsTrend}>
+                      <defs>
+                        <linearGradient id="colorNet" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis dataKey="date" tick={{ fontSize: 11 }} interval="preserveStartEnd" />
+                      <YAxis tickFormatter={(value) => formatPrice(value)} tick={{ fontSize: 11 }} width={70} />
+                      <Tooltip formatter={(value: number, name: string) => [formatPrice(value), name === "net" ? "Net Earnings" : name === "earnings" ? "Gross" : "Fees"]} labelStyle={{ fontWeight: "bold" }} />
+                      <Area type="monotone" dataKey="net" stroke="#8b5cf6" strokeWidth={2} fillOpacity={1} fill="url(#colorNet)" name="net" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Payments Table */}
+          <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+            <div className="p-5 border-b border-[#e5e7eb]/60">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-[15px] font-semibold text-[#1a1a2e]">Sales</h3>
+                  <p className="text-[13px] text-[#6b7280] mt-0.5">{initialOrders.length} order{initialOrders.length !== 1 ? "s" : ""}</p>
+                </div>
+                {initialOrders.length > 0 && (
+                  <span className="text-[13px] font-medium text-[#8b5cf6]">{formatPrice(initialData.totalEarnings)} total</span>
+                )}
+              </div>
+            </div>
+
+            {initialOrders.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center px-4">
+                <div className="p-4 bg-[#f3f4f6] rounded-full mb-4"><Wallet className="h-8 w-8 text-[#9ca3af]" /></div>
+                <h3 className="font-medium text-[15px] text-[#1a1a2e] mb-1">No sales yet</h3>
+                <p className="text-[13px] text-[#6b7280] max-w-sm">Once you start making sales, all orders will appear here.</p>
+              </div>
+            ) : (
+              <>
+                {/* Mobile card view */}
+                <div className="divide-y divide-[#e5e7eb]/60 sm:hidden">
+                  {initialOrders.map((order) => (
+                    <div key={order.id} className="p-4 cursor-pointer hover:bg-[#f9fafb] transition-colors active:bg-[#f3f4f6]" onClick={() => { setSelectedOrder(order); setDetailOpen(true) }}>
+                      <div className="flex items-center gap-3">
+                        {order.product?.thumbnail_url ? (
+                          <img src={order.product.thumbnail_url} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
+                        ) : (
+                          <div className="w-10 h-10 rounded-lg bg-[#f3f4f6] flex items-center justify-center shrink-0"><Package className="h-4 w-4 text-[#9ca3af]" /></div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[14px] font-medium text-[#1a1a2e] truncate">{order.product?.title || "Product"}</p>
+                          <p className="text-[12px] text-[#9ca3af] truncate">{order.customer_email}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <div className="flex items-center gap-1.5 justify-end">
+                            <p className="text-[14px] font-semibold text-[#1a1a2e]">{formatPrice(order.amount_cents)}</p>
+                            {order.status === "refunded" && <Badge className="bg-red-50 text-red-600 border-0 text-[9px] px-1.5 py-0">Refunded</Badge>}
+                          </div>
+                          <p className="text-[11px] text-[#9ca3af]">{formatDate(order.created_at)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Desktop table */}
+                <div className="hidden sm:block">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-b border-[#e5e7eb]">
+                        <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Customer</TableHead>
+                        <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Product</TableHead>
+                        <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Date</TableHead>
+                        <TableHead className="text-right text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Amount</TableHead>
+                        <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Status</TableHead>
+                        <TableHead className="w-10"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {initialOrders.map((order) => (
+                        <TableRow key={order.id} className="hover:bg-[#f9fafb] border-b border-[#e5e7eb]/60 last:border-0">
+                          <TableCell className="text-[13px] text-[#6b7280] truncate max-w-[180px]">{order.customer_email}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              {order.product?.thumbnail_url ? (
+                                <img src={order.product.thumbnail_url} alt="" className="w-8 h-8 rounded-lg object-cover" />
+                              ) : (
+                                <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center"><Package className="h-3.5 w-3.5 text-[#9ca3af]" /></div>
+                              )}
+                              <span className="text-[14px] font-medium text-[#1a1a2e] truncate max-w-[200px]">{order.product?.title || "Product"}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-[13px] text-[#6b7280]">{formatDate(order.created_at)}</TableCell>
+                          <TableCell className="text-right text-[14px] font-medium text-[#1a1a2e]">{formatPrice(order.amount_cents)}</TableCell>
+                          <TableCell>
+                            {order.status === "refunded" ? (
+                              <Badge className="bg-red-50 text-red-600 border-0 text-[11px]">Refunded</Badge>
+                            ) : (
+                              <Badge className="bg-emerald-50 text-emerald-700 border-0 text-[11px]"><CheckCircle2 className="mr-1 h-3 w-3" />Completed</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <button onClick={() => { setSelectedOrder(order); setDetailOpen(true) }} className="p-1.5 rounded-lg hover:bg-[#f3f4f6] transition-colors">
+                              <Eye className="h-4 w-4 text-[#9ca3af]" />
+                            </button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {initialOrders.length > 0 && (
+                  <div className="px-5 py-3 border-t border-[#e5e7eb] text-[12px] text-[#6b7280]">
+                    Showing {initialOrders.length} order{initialOrders.length !== 1 ? "s" : ""}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* Non-connected: show earnings chart and payments table directly */}
+      {!isStripeConnected && (
+        <>
+          {earningsTrend.length > 0 && (
+            <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+              <div className="p-5 border-b border-[#e5e7eb]/60">
+                <h3 className="text-[15px] font-semibold text-[#1a1a2e]">{t("payouts.earningsOverTime")}</h3>
+                <p className="text-[13px] text-[#6b7280] mt-0.5">Revenue from the last 30 days</p>
+              </div>
+              <div className="p-5">
+                <div className="h-[250px] sm:h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={earningsTrend}>
+                      <defs>
+                        <linearGradient id="colorNet2" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis dataKey="date" tick={{ fontSize: 11 }} interval="preserveStartEnd" />
+                      <YAxis tickFormatter={(value) => formatPrice(value)} tick={{ fontSize: 11 }} width={70} />
+                      <Tooltip formatter={(value: number, name: string) => [formatPrice(value), "Net Earnings"]} labelStyle={{ fontWeight: "bold" }} />
+                      <Area type="monotone" dataKey="net" stroke="#8b5cf6" strokeWidth={2} fillOpacity={1} fill="url(#colorNet2)" name="net" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
 
       {/* Help Section */}
       <div className="bg-[#f9fafb] rounded-2xl border border-[#e5e7eb]/60 p-6 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-4">
-            <div className="p-2 bg-white rounded-lg border border-[#e5e7eb]/60">
-              <HelpCircle className="h-5 w-5 text-[#6b7280]" />
-            </div>
+            <div className="p-2 bg-white rounded-lg border border-[#e5e7eb]/60"><HelpCircle className="h-5 w-5 text-[#6b7280]" /></div>
             <div>
               <h3 className="font-medium text-[14px] text-[#1a1a2e]">Need help with payouts?</h3>
-              <p className="text-[13px] text-[#6b7280]">
-                Learn about payout schedules, fees, and how to optimize your earnings.
-              </p>
+              <p className="text-[13px] text-[#6b7280]">Learn about payout schedules, fees, and how to optimize your earnings.</p>
             </div>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" className="rounded-lg">
-              View FAQ
-            </Button>
-            <Button variant="outline" size="sm" className="rounded-lg">
-              Contact Support
-            </Button>
+            <Button variant="outline" size="sm" className="rounded-lg">View FAQ</Button>
+            <Button variant="outline" size="sm" className="rounded-lg">Contact Support</Button>
           </div>
         </div>
       </div>
 
-      {/* Payment Detail — Mobile Bottom Sheet / Desktop Dialog */}
+      {/* ═══════ ORDER DETAIL MODAL ═══════ */}
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
         <DialogContent
           showCloseButton={!isMobileSheet}
           disableDefaultAnimations={isMobileSheet}
           disableOverlayDefaultAnimations={isMobileSheet}
-          overlayClassName={isMobileSheet ? cn(
-            "bg-black/40 transition-all duration-400",
-            isDetailPresented ? "opacity-100 backdrop-blur-[2px]" : "opacity-0 backdrop-blur-0"
-          ) : undefined}
+          overlayClassName={isMobileSheet ? cn("bg-black/40 transition-all duration-400", isDetailPresented ? "opacity-100 backdrop-blur-[2px]" : "opacity-0 backdrop-blur-0") : undefined}
           onTouchStart={isMobileSheet ? handleDetailTouchStart : undefined}
           onTouchMove={isMobileSheet ? handleDetailTouchMove : undefined}
           onTouchEnd={isMobileSheet ? handleDetailTouchEnd : undefined}
-          className={cn(
-            "p-0 gap-0 overflow-hidden",
-            isMobileSheet
-              ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0"
-              : "w-[calc(100%-32px)] max-w-md rounded-2xl"
-          )}
-          style={isMobileSheet ? {
-            position: "fixed",
-            top: "auto", left: 0, right: 0, bottom: 0,
-            transform: isDetailPresented ? `translate3d(0, ${detailDragY}px, 0)` : "translate3d(0, 100%, 0)",
-            transition: isDetailDragging ? "none" : "transform 400ms cubic-bezier(0.32, 0.72, 0, 1)",
-          } : undefined}
+          className={cn("p-0 gap-0 overflow-hidden", isMobileSheet ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0" : "w-[calc(100%-32px)] max-w-md rounded-2xl")}
+          style={isMobileSheet ? { position: "fixed", top: "auto", left: 0, right: 0, bottom: 0, transform: isDetailPresented ? `translate3d(0, ${detailDragY}px, 0)` : "translate3d(0, 100%, 0)", transition: isDetailDragging ? "none" : "transform 400ms cubic-bezier(0.32, 0.72, 0, 1)" } : undefined}
         >
-          {/* Mobile drag handle */}
           {isMobileSheet && (
-            <div className="pt-3 pb-1 flex justify-center">
-              <div className="h-1.5 w-10 rounded-full bg-gray-300" />
-            </div>
+            <div className="pt-3 pb-1 flex justify-center"><div className="h-1.5 w-10 rounded-full bg-gray-300" /></div>
           )}
 
           {selectedOrder && (
-            <div className="p-6 space-y-5">
+            <div className="p-6 space-y-5 max-h-[85vh] overflow-y-auto overscroll-contain">
               <div className="text-center">
                 <p className="text-[28px] font-bold text-[#1a1a2e]">{formatPrice(selectedOrder.amount_cents)}</p>
-                <Badge className="mt-2 bg-emerald-50 text-emerald-700 border-0">
-                  <CheckCircle2 className="mr-1 h-3 w-3" />
-                  Completed
-                </Badge>
+                {selectedOrder.status === "refunded" ? (
+                  <Badge className="mt-2 bg-red-50 text-red-600 border-0"><XCircle className="mr-1 h-3 w-3" />Refunded</Badge>
+                ) : (
+                  <Badge className="mt-2 bg-emerald-50 text-emerald-700 border-0"><CheckCircle2 className="mr-1 h-3 w-3" />Completed</Badge>
+                )}
               </div>
 
               {/* Product */}
@@ -751,9 +966,7 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
                 {selectedOrder.product?.thumbnail_url ? (
                   <img src={selectedOrder.product.thumbnail_url} alt="" className="w-12 h-12 rounded-lg object-cover" />
                 ) : (
-                  <div className="w-12 h-12 rounded-lg bg-[#e5e7eb] flex items-center justify-center">
-                    <Package className="h-5 w-5 text-[#9ca3af]" />
-                  </div>
+                  <div className="w-12 h-12 rounded-lg bg-[#e5e7eb] flex items-center justify-center"><Package className="h-5 w-5 text-[#9ca3af]" /></div>
                 )}
                 <div className="flex-1 min-w-0">
                   <p className="text-[14px] font-medium text-[#1a1a2e] truncate">{selectedOrder.product?.title || "Product"}</p>
@@ -767,27 +980,33 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
                   <span className="text-[#6b7280] flex items-center gap-2"><Mail className="h-4 w-4" /> Customer</span>
                   <span className="text-[#1a1a2e] font-medium truncate max-w-[180px]">{selectedOrder.customer_email}</span>
                 </div>
-
                 <div className="flex items-center justify-between text-[14px]">
                   <span className="text-[#6b7280] flex items-center gap-2"><Calendar className="h-4 w-4" /> Date</span>
                   <span className="text-[#1a1a2e]">{formatFullDate(selectedOrder.created_at)}</span>
                 </div>
-
                 <div className="flex items-center justify-between text-[14px]">
                   <span className="text-[#6b7280] flex items-center gap-2"><DollarSign className="h-4 w-4" /> Amount</span>
                   <span className="text-[#1a1a2e] font-medium">{formatPrice(selectedOrder.amount_cents)}</span>
                 </div>
-
                 <div className="flex items-center justify-between text-[14px]">
                   <span className="text-[#6b7280]">Platform fee</span>
                   <span className="text-[#ef4444]">-{formatPrice(selectedOrder.fee_cents || 0)}</span>
                 </div>
-
                 <div className="flex items-center justify-between text-[14px] pt-2 border-t border-[#e5e7eb]">
                   <span className="text-[#1a1a2e] font-semibold">Net earnings</span>
                   <span className="text-[#1a1a2e] font-bold">{formatPrice((selectedOrder.amount_cents || 0) - (selectedOrder.fee_cents || 0))}</span>
                 </div>
               </div>
+
+              {/* Refund info */}
+              {selectedOrder.status === "refunded" && (
+                <div className="p-3 bg-red-50 rounded-xl space-y-1">
+                  <p className="text-[13px] font-medium text-red-700">Refund Details</p>
+                  {selectedOrder.refund_amount_cents && <p className="text-[12px] text-red-600">Amount: {formatPrice(selectedOrder.refund_amount_cents)}</p>}
+                  {selectedOrder.refunded_at && <p className="text-[12px] text-red-600">Date: {formatFullDate(selectedOrder.refunded_at)}</p>}
+                  {selectedOrder.refund_reason && <p className="text-[12px] text-red-600">Reason: {selectedOrder.refund_reason}</p>}
+                </div>
+              )}
 
               {selectedOrder.stripe_payment_intent_id && (
                 <div className="flex items-center justify-between text-[13px] p-3 bg-[#f9fafb] rounded-xl">
@@ -796,15 +1015,128 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
                 </div>
               )}
 
-              <Button
-                variant="outline"
-                className="w-full rounded-xl"
-                onClick={() => setDetailOpen(false)}
-              >
-                Close
-              </Button>
+              {/* Action Buttons */}
+              <div className="space-y-2">
+                <Button variant="outline" className="w-full rounded-xl" onClick={() => handleDownloadInvoice(selectedOrder)}>
+                  <FileText className="mr-2 h-4 w-4" />
+                  Download Invoice
+                </Button>
+
+                {selectedOrder.status === "completed" && (
+                  <Button
+                    variant="outline"
+                    className="w-full rounded-xl text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                    onClick={() => {
+                      setRefundOrder(selectedOrder)
+                      setRefundAmount((selectedOrder.amount_cents / 100).toFixed(2))
+                      setRefundReason("")
+                      setRefundError(null)
+                      setDetailOpen(false)
+                      setRefundModalOpen(true)
+                    }}
+                  >
+                    <RotateCcw className="mr-2 h-4 w-4" />
+                    Issue Refund
+                  </Button>
+                )}
+
+                <Button variant="outline" className="w-full rounded-xl" onClick={() => setDetailOpen(false)}>
+                  Close
+                </Button>
+              </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══════ REFUND MODAL ═══════ */}
+      <Dialog open={refundModalOpen} onOpenChange={setRefundModalOpen}>
+        <DialogContent className="w-[calc(100%-32px)] max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-[18px]">Issue Refund</DialogTitle>
+            <DialogDescription className="text-[13px]">
+              Process a refund for this order. The customer will be notified via email.
+            </DialogDescription>
+          </DialogHeader>
+
+          {refundOrder && (
+            <div className="space-y-4 py-2">
+              {/* Order summary */}
+              <div className="flex items-center gap-3 p-3 bg-[#f9fafb] rounded-xl">
+                {refundOrder.product?.thumbnail_url ? (
+                  <img src={refundOrder.product.thumbnail_url} alt="" className="w-10 h-10 rounded-lg object-cover" />
+                ) : (
+                  <div className="w-10 h-10 rounded-lg bg-[#e5e7eb] flex items-center justify-center"><Package className="h-4 w-4 text-[#9ca3af]" /></div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-[14px] font-medium text-[#1a1a2e] truncate">{refundOrder.product?.title || "Product"}</p>
+                  <p className="text-[12px] text-[#9ca3af]">{refundOrder.customer_email}</p>
+                </div>
+                <p className="text-[14px] font-semibold text-[#1a1a2e]">{formatPrice(refundOrder.amount_cents)}</p>
+              </div>
+
+              {/* Refund amount */}
+              <div className="space-y-2">
+                <Label htmlFor="refund-amount" className="text-[13px] font-medium">Refund Amount ($)</Label>
+                <Input
+                  id="refund-amount"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  max={(refundOrder.amount_cents / 100).toFixed(2)}
+                  value={refundAmount}
+                  onChange={(e) => setRefundAmount(e.target.value)}
+                  className="rounded-xl"
+                  placeholder={`Max: $${(refundOrder.amount_cents / 100).toFixed(2)}`}
+                />
+                <p className="text-[11px] text-[#9ca3af]">Maximum refundable: ${(refundOrder.amount_cents / 100).toFixed(2)}</p>
+              </div>
+
+              {/* Reason */}
+              <div className="space-y-2">
+                <Label htmlFor="refund-reason" className="text-[13px] font-medium">Reason</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { value: "requested_by_customer", label: "Customer request" },
+                    { value: "duplicate", label: "Duplicate charge" },
+                    { value: "fraudulent", label: "Fraudulent" },
+                    { value: "other", label: "Other" },
+                  ].map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setRefundReason(opt.value)}
+                      className={cn(
+                        "px-3 py-2 rounded-lg text-[13px] font-medium transition-colors border",
+                        refundReason === opt.value
+                          ? "bg-[#f5f3ff] border-[#8b5cf6] text-[#8b5cf6]"
+                          : "border-[#e5e7eb] text-[#6b7280] hover:bg-[#f9fafb]"
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {refundError && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription className="text-[13px]">{refundError}</AlertDescription>
+                </Alert>
+              )}
+            </div>
+          )}
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setRefundModalOpen(false)} className="rounded-xl">Cancel</Button>
+            <Button
+              onClick={handleRefund}
+              disabled={isRefunding || !refundReason}
+              className="rounded-xl bg-red-600 hover:bg-red-700 text-white"
+            >
+              {isRefunding ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing...</>) : (<><RotateCcw className="mr-2 h-4 w-4" />Confirm Refund</>)}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

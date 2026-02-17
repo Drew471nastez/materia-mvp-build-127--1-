@@ -1763,6 +1763,157 @@ function personalizeContent(content: string, tokens: Record<string, string>): st
   return result
 }
 
+// -------------------------
+// Refund Confirmation Emails (Transactional)
+// -------------------------
+interface SendRefundEmailsParams {
+  buyerEmail?: string
+  sellerEmail?: string
+  productTitle: string
+  refundAmount: number
+  currency: string
+  orderId: string
+  reason: string
+  storeName: string
+}
+
+export async function sendRefundEmails(params: SendRefundEmailsParams): Promise<void> {
+  const { buyerEmail, sellerEmail, productTitle, refundAmount, currency, orderId, reason, storeName } = params
+
+  const formattedAmount = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: currency || "USD",
+  }).format(refundAmount / 100)
+
+  const refundDate = new Date().toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  })
+
+  const refundTime = new Date().toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  })
+
+  // Send buyer refund confirmation
+  if (buyerEmail) {
+    try {
+      await withRetry(
+        () =>
+          sendEmail({
+            to: buyerEmail,
+            from: buildFromHeader(storeName || PLATFORM_BRAND_NAME),
+            replyTo: sellerEmail || DEFAULT_SUPPORT,
+            subject: `Refund Confirmation — ${formattedAmount} for ${productTitle}`,
+            html: `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f9fafb;padding:40px 20px;">
+    <tr><td align="center">
+      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background-color:#ffffff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;">
+        <tr><td style="padding:32px 32px 24px;">
+          <h1 style="margin:0 0 8px;font-size:20px;font-weight:700;color:#1a1a2e;">Refund Processed</h1>
+          <p style="margin:0;font-size:14px;color:#6b7280;">Your refund has been successfully processed.</p>
+        </td></tr>
+        <tr><td style="padding:0 32px;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f9fafb;border-radius:8px;padding:20px;">
+            <tr><td>
+              <p style="margin:0 0 12px;font-size:32px;font-weight:700;color:#1a1a2e;text-align:center;">${formattedAmount}</p>
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr><td style="padding:6px 0;font-size:13px;color:#6b7280;">Product</td><td style="padding:6px 0;font-size:13px;color:#1a1a2e;text-align:right;font-weight:500;">${productTitle}</td></tr>
+                <tr><td style="padding:6px 0;font-size:13px;color:#6b7280;">Order ID</td><td style="padding:6px 0;font-size:13px;color:#1a1a2e;text-align:right;font-family:monospace;">${orderId.slice(0, 8)}...</td></tr>
+                <tr><td style="padding:6px 0;font-size:13px;color:#6b7280;">Date</td><td style="padding:6px 0;font-size:13px;color:#1a1a2e;text-align:right;">${refundDate}</td></tr>
+                <tr><td style="padding:6px 0;font-size:13px;color:#6b7280;">Time</td><td style="padding:6px 0;font-size:13px;color:#1a1a2e;text-align:right;">${refundTime}</td></tr>
+                <tr><td style="padding:6px 0;font-size:13px;color:#6b7280;">Reason</td><td style="padding:6px 0;font-size:13px;color:#1a1a2e;text-align:right;">${reason}</td></tr>
+              </table>
+            </td></tr>
+          </table>
+        </td></tr>
+        <tr><td style="padding:24px 32px 32px;">
+          <p style="margin:0;font-size:13px;color:#6b7280;line-height:1.5;">The refund will appear on your original payment method within 5-10 business days, depending on your bank.</p>
+        </td></tr>
+        <tr><td style="padding:0 32px 24px;"><hr style="border:none;border-top:1px solid #e5e7eb;margin:0;"></td></tr>
+        <tr><td style="padding:0 32px 32px;">
+          <p style="margin:0;font-size:12px;color:#9ca3af;text-align:center;">Sent by ${storeName} via ${PLATFORM_BRAND_NAME}</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`,
+            text: `Refund Processed\n\nYour refund of ${formattedAmount} for "${productTitle}" has been processed.\n\nOrder ID: ${orderId}\nDate: ${refundDate} at ${refundTime}\nReason: ${reason}\n\nThe refund will appear on your original payment method within 5-10 business days.\n\nSent by ${storeName} via ${PLATFORM_BRAND_NAME}`,
+          }),
+        MAX_RETRIES,
+        "buyer refund email"
+      )
+      console.log("[email] ✅ Buyer refund email sent to:", buyerEmail)
+    } catch (err) {
+      console.error("[email] ❌ Failed to send buyer refund email:", err)
+    }
+  }
+
+  // Send seller refund notification
+  if (sellerEmail) {
+    try {
+      await withRetry(
+        () =>
+          sendEmail({
+            to: sellerEmail,
+            from: buildFromHeader(PLATFORM_BRAND_NAME),
+            replyTo: DEFAULT_SUPPORT,
+            subject: `Refund Issued — ${formattedAmount} for ${productTitle}`,
+            html: `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f9fafb;padding:40px 20px;">
+    <tr><td align="center">
+      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background-color:#ffffff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;">
+        <tr><td style="padding:32px 32px 24px;">
+          <h1 style="margin:0 0 8px;font-size:20px;font-weight:700;color:#1a1a2e;">Refund Issued</h1>
+          <p style="margin:0;font-size:14px;color:#6b7280;">A refund has been processed for one of your orders.</p>
+        </td></tr>
+        <tr><td style="padding:0 32px;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f9fafb;border-radius:8px;padding:20px;">
+            <tr><td>
+              <p style="margin:0 0 12px;font-size:28px;font-weight:700;color:#ef4444;text-align:center;">-${formattedAmount}</p>
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr><td style="padding:6px 0;font-size:13px;color:#6b7280;">Product</td><td style="padding:6px 0;font-size:13px;color:#1a1a2e;text-align:right;font-weight:500;">${productTitle}</td></tr>
+                <tr><td style="padding:6px 0;font-size:13px;color:#6b7280;">Customer</td><td style="padding:6px 0;font-size:13px;color:#1a1a2e;text-align:right;">${buyerEmail || "N/A"}</td></tr>
+                <tr><td style="padding:6px 0;font-size:13px;color:#6b7280;">Order ID</td><td style="padding:6px 0;font-size:13px;color:#1a1a2e;text-align:right;font-family:monospace;">${orderId.slice(0, 8)}...</td></tr>
+                <tr><td style="padding:6px 0;font-size:13px;color:#6b7280;">Reason</td><td style="padding:6px 0;font-size:13px;color:#1a1a2e;text-align:right;">${reason}</td></tr>
+              </table>
+            </td></tr>
+          </table>
+        </td></tr>
+        <tr><td style="padding:24px 32px 32px;">
+          <p style="margin:0;font-size:13px;color:#6b7280;line-height:1.5;">This amount will be deducted from your next payout. You can view refund details in your Payouts dashboard.</p>
+        </td></tr>
+        <tr><td style="padding:0 32px 24px;"><hr style="border:none;border-top:1px solid #e5e7eb;margin:0;"></td></tr>
+        <tr><td style="padding:0 32px 32px;">
+          <p style="margin:0;font-size:12px;color:#9ca3af;text-align:center;">${PLATFORM_BRAND_NAME} — Payout Notification</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`,
+            text: `Refund Issued\n\nA refund of ${formattedAmount} has been processed for "${productTitle}".\n\nCustomer: ${buyerEmail || "N/A"}\nOrder ID: ${orderId}\nReason: ${reason}\n\nThis amount will be deducted from your next payout.\n\n${PLATFORM_BRAND_NAME}`,
+          }),
+        MAX_RETRIES,
+        "seller refund email"
+      )
+      console.log("[email] ✅ Seller refund notification sent to:", sellerEmail)
+    } catch (err) {
+      console.error("[email] ❌ Failed to send seller refund notification:", err)
+    }
+  }
+}
+
 function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim()
 }

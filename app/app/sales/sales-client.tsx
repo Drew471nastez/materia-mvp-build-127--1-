@@ -1,7 +1,8 @@
 "use client"
 
-import React, { useState, useEffect, useRef } from "react"
+import React, { useState, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import {
   DollarSign,
   ShoppingCart,
@@ -35,6 +36,7 @@ import {
   Smartphone,
   Tablet,
   MapPin,
+  Loader2,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { useLanguage } from "@/lib/i18n"
@@ -78,6 +80,7 @@ interface Order {
   buyer_first_name?: string
   buyer_last_name?: string
   receipt_token?: string
+  stripe_payment_intent_id?: string
   // Payment method details
   card_brand?: string | null
   card_last4?: string | null
@@ -89,6 +92,12 @@ interface Order {
   buyer_device_type?: string | null
   buyer_os?: string | null
   buyer_browser?: string | null
+  // Refund fields
+  refund_reason?: string | null
+  refund_amount_cents?: number | null
+  refunded_at?: string | null
+  stripe_refund_id?: string | null
+  customer_email?: string
   buyer?: {
     email: string
     display_name: string
@@ -371,6 +380,275 @@ function TimeframeBottomSheet({
   )
 }
 
+// Mobile Bottom Sheet for Filter with swipe-to-close
+function FilterBottomSheet({
+  isOpen,
+  onClose,
+  products,
+  filterDateRange,
+  setFilterDateRange,
+  filterFromDate,
+  setFilterFromDate,
+  filterToDate,
+  setFilterToDate,
+  filterProduct,
+  setFilterProduct,
+  filterMinValue,
+  setFilterMinValue,
+  filterMaxValue,
+  setFilterMaxValue,
+  filterCustomer,
+  setFilterCustomer,
+  filterStatus,
+  setFilterStatus,
+  onApply,
+  onClear,
+}: {
+  isOpen: boolean
+  onClose: () => void
+  products: Product[]
+  filterDateRange: string
+  setFilterDateRange: (v: any) => void
+  filterFromDate: string
+  setFilterFromDate: (v: string) => void
+  filterToDate: string
+  setFilterToDate: (v: string) => void
+  filterProduct: string
+  setFilterProduct: (v: string) => void
+  filterMinValue: string
+  setFilterMinValue: (v: string) => void
+  filterMaxValue: string
+  setFilterMaxValue: (v: string) => void
+  filterCustomer: string
+  setFilterCustomer: (v: string) => void
+  filterStatus: string
+  setFilterStatus: (v: string) => void
+  onApply: () => void
+  onClear: () => void
+}) {
+  const [isVisible, setIsVisible] = useState(false)
+  const [isAnimating, setIsAnimating] = useState(false)
+  const [dragY, setDragY] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+  const startY = React.useRef(0)
+  const sheetRef = React.useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (isOpen && !isVisible) {
+      setIsVisible(true)
+      document.body.style.overflow = "hidden"
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => setIsAnimating(true))
+      })
+    } else if (!isOpen && isVisible) {
+      setIsAnimating(false)
+      document.body.style.overflow = ""
+      const timer = setTimeout(() => {
+        setIsVisible(false)
+        setDragY(0)
+      }, 400)
+      return () => clearTimeout(timer)
+    }
+    return () => { document.body.style.overflow = "" }
+  }, [isOpen, isVisible])
+
+  const handleClose = () => {
+    setIsAnimating(false)
+    setDragY(0)
+    setTimeout(() => onClose(), 400)
+  }
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0]
+    const sheetElement = sheetRef.current
+    if (!sheetElement) return
+    const sheetRect = sheetElement.getBoundingClientRect()
+    const touchYInSheet = touch.clientY - sheetRect.top
+    if (touchYInSheet <= 60) {
+      startY.current = touch.clientY
+      setIsDragging(true)
+    }
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging) return
+    const currentY = e.touches[0].clientY
+    const diff = currentY - startY.current
+    if (diff > 0) setDragY(diff * 0.9)
+  }
+
+  const handleTouchEnd = () => {
+    if (!isDragging) return
+    setIsDragging(false)
+    if (dragY > 90) handleClose()
+    else setDragY(0)
+  }
+
+  if (!isVisible) return null
+
+  return (
+    <div className="fixed inset-0 z-[100] md:hidden">
+      <div
+        className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity duration-400 ease-out ${isAnimating ? "opacity-100" : "opacity-0"}`}
+        style={{ transitionDuration: '400ms' }}
+        onClick={handleClose}
+      />
+      <div
+        ref={sheetRef}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
+        style={{
+          transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)",
+          transition: isDragging ? 'none' : 'transform 360ms cubic-bezier(0.22, 0.9, 0.24, 1)',
+          maxHeight: '85vh',
+        }}
+      >
+        <div className="pt-3 pb-2">
+          <button onClick={handleClose} className="w-full flex justify-center py-2 cursor-pointer touch-none">
+            <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
+          </button>
+        </div>
+        <div className="px-4 pb-4 overflow-y-auto overscroll-contain" style={{ maxHeight: 'calc(85vh - 60px)' }}>
+          <h3 className="text-[16px] font-semibold text-[#1a1a2e] mb-4">Filters</h3>
+          <div className="space-y-4">
+            {/* Date Range */}
+            <div>
+              <label className="block text-[12px] font-medium text-[#6b7280] mb-2">Date range</label>
+              <div className="flex gap-1">
+                {[
+                  { value: "today", label: "Today" },
+                  { value: "7days", label: "7 days" },
+                  { value: "30days", label: "30 days" },
+                ].map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setFilterDateRange(opt.value)}
+                    className={`flex-1 px-2 py-2 text-[13px] font-medium rounded-lg border transition-colors ${
+                      filterDateRange === opt.value
+                        ? "bg-[#8b5cf6] text-white border-[#8b5cf6]"
+                        : "bg-white text-[#374151] border-[#e5e7eb] hover:bg-[#f9fafb]"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* From / To */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[12px] font-medium text-[#6b7280] mb-1.5">From</label>
+                <input
+                  type="date"
+                  value={filterFromDate}
+                  onChange={(e) => setFilterFromDate(e.target.value)}
+                  className="w-full px-2.5 py-2 text-[13px] border border-[#e5e7eb] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#8b5cf6]/20 focus:border-[#8b5cf6]"
+                />
+              </div>
+              <div>
+                <label className="block text-[12px] font-medium text-[#6b7280] mb-1.5">To</label>
+                <input
+                  type="date"
+                  value={filterToDate}
+                  onChange={(e) => setFilterToDate(e.target.value)}
+                  className="w-full px-2.5 py-2 text-[13px] border border-[#e5e7eb] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#8b5cf6]/20 focus:border-[#8b5cf6]"
+                />
+              </div>
+            </div>
+
+            {/* Product */}
+            <div>
+              <label className="block text-[12px] font-medium text-[#6b7280] mb-1.5">Product</label>
+              <select
+                value={filterProduct}
+                onChange={(e) => setFilterProduct(e.target.value)}
+                className="w-full px-2.5 py-2 text-[13px] border border-[#e5e7eb] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#8b5cf6]/20 focus:border-[#8b5cf6] bg-white"
+              >
+                <option value="all">All products</option>
+                {products.map((p) => (
+                  <option key={p.id} value={p.id}>{p.title}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Order Value */}
+            <div>
+              <label className="block text-[12px] font-medium text-[#6b7280] mb-1.5">Order value (optional)</label>
+              <div className="grid grid-cols-2 gap-3">
+                <input
+                  type="number"
+                  value={filterMinValue}
+                  onChange={(e) => setFilterMinValue(e.target.value)}
+                  placeholder="Min"
+                  className="w-full px-2.5 py-2 text-[13px] border border-[#e5e7eb] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#8b5cf6]/20 focus:border-[#8b5cf6]"
+                />
+                <input
+                  type="number"
+                  value={filterMaxValue}
+                  onChange={(e) => setFilterMaxValue(e.target.value)}
+                  placeholder="Max"
+                  className="w-full px-2.5 py-2 text-[13px] border border-[#e5e7eb] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#8b5cf6]/20 focus:border-[#8b5cf6]"
+                />
+              </div>
+            </div>
+
+            {/* Customer */}
+            <div>
+              <label className="block text-[12px] font-medium text-[#6b7280] mb-1.5">Customer</label>
+              <input
+                type="text"
+                value={filterCustomer}
+                onChange={(e) => setFilterCustomer(e.target.value)}
+                placeholder="Email or name"
+                className="w-full px-2.5 py-2 text-[13px] border border-[#e5e7eb] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#8b5cf6]/20 focus:border-[#8b5cf6]"
+              />
+            </div>
+
+            {/* Status */}
+            <div>
+              <label className="block text-[12px] font-medium text-[#6b7280] mb-1.5">Status</label>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="w-full px-2.5 py-2 text-[13px] border border-[#e5e7eb] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#8b5cf6]/20 focus:border-[#8b5cf6] bg-white"
+              >
+                <option value="all">All statuses</option>
+                <option value="completed">Completed</option>
+                <option value="pending">Pending</option>
+                <option value="refunded">Refunded</option>
+                <option value="failed">Failed</option>
+              </select>
+            </div>
+
+            {/* Divider */}
+            <div className="border-t border-[#e5e7eb]" />
+
+            {/* Buttons */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => { onClear(); handleClose() }}
+                className="flex-1 px-3 py-2.5 text-[13px] font-medium text-[#6b7280] bg-white border border-[#e5e7eb] rounded-lg active:bg-[#f3f4f6] transition-colors"
+              >
+                Clear all
+              </button>
+              <button
+                onClick={() => { onApply(); handleClose() }}
+                className="flex-1 px-3 py-2.5 text-[13px] font-medium text-white bg-[#8b5cf6] rounded-lg active:bg-[#7c3aed] transition-colors"
+              >
+                Apply filters
+              </button>
+            </div>
+          </div>
+        </div>
+        <div className="h-[env(safe-area-inset-bottom)]" />
+      </div>
+    </div>
+  )
+}
+
 // Order Details Modal with swipe-to-close on mobile
 function OrderDetailsModal({
   isOpen,
@@ -385,6 +663,8 @@ function OrderDetailsModal({
   handleResendReceipt,
   handleUnsubscribe,
   handleEditEmail,
+  handleDownloadInvoice,
+  handleOpenRefund,
   receiptResendCounts,
   getFlagEmoji,
   setShowOrderModal,
@@ -401,6 +681,8 @@ function OrderDetailsModal({
   handleResendReceipt: (order: Order) => void
   handleUnsubscribe: (order: Order) => void
   handleEditEmail: (order: Order) => void
+  handleDownloadInvoice: (order: Order) => void
+  handleOpenRefund: (order: Order) => void
   receiptResendCounts: Record<string, number>
   getFlagEmoji: (countryCode: string) => string
   setShowOrderModal: (show: boolean) => void
@@ -683,17 +965,39 @@ function OrderDetailsModal({
             </div>
           </div>
 
+          {/* Refund info if applicable */}
+          {selectedOrder.status === "refunded" && (
+            <div className="mx-6 mb-4 p-3 bg-red-50 rounded-xl space-y-1">
+              <p className="text-[13px] font-medium text-red-700">Refund Details</p>
+              {selectedOrder.refund_amount_cents && <p className="text-[12px] text-red-600">Amount: {formatPrice(selectedOrder.refund_amount_cents)}</p>}
+              {selectedOrder.refunded_at && <p className="text-[12px] text-red-600">Date: {formatFullDate(selectedOrder.refunded_at)}</p>}
+              {selectedOrder.refund_reason && <p className="text-[12px] text-red-600">Reason: {selectedOrder.refund_reason}</p>}
+            </div>
+          )}
+
           {/* Desktop Footer */}
           <div className="sticky bottom-0 bg-white border-t border-[#e5e7eb] px-6 py-4 flex items-center justify-between gap-3">
-            <button
-              onClick={() => { handleClose(); setTimeout(() => handleEditEmail(selectedOrder), 450) }}
-              className="px-4 py-2 text-[13px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg hover:bg-[#e5e7eb] transition-colors flex items-center gap-2"
-            >
-              <Mail className="h-4 w-4" />
-              Edit Email
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleDownloadInvoice(selectedOrder)}
+                className="px-4 py-2 text-[13px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg hover:bg-[#e5e7eb] transition-colors flex items-center gap-2"
+              >
+                <FileText className="h-4 w-4" />
+                Invoice
+              </button>
+              <button
+                onClick={() => { handleClose(); setTimeout(() => handleEditEmail(selectedOrder), 450) }}
+                className="px-4 py-2 text-[13px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg hover:bg-[#e5e7eb] transition-colors flex items-center gap-2"
+              >
+                <Mail className="h-4 w-4" />
+                Edit Email
+              </button>
+            </div>
             {selectedOrder.status === "completed" && (
-              <button className="px-4 py-2 text-[13px] font-medium text-rose-600 bg-rose-50 rounded-lg hover:bg-rose-100 transition-colors flex items-center gap-2">
+              <button
+                onClick={() => { handleClose(); setTimeout(() => handleOpenRefund(selectedOrder), 450) }}
+                className="px-4 py-2 text-[13px] font-medium text-rose-600 bg-rose-50 rounded-lg hover:bg-rose-100 transition-colors flex items-center gap-2"
+              >
                 <RotateCcw className="h-4 w-4" />
                 Issue Refund
               </button>
@@ -892,28 +1196,52 @@ function OrderDetailsModal({
             </div>
           </div>
 
+          {/* Refund info on mobile */}
+          {selectedOrder.status === "refunded" && (
+            <div className="mx-4 mb-2 p-3 bg-red-50 rounded-xl space-y-1">
+              <p className="text-[12px] font-medium text-red-700">Refund Details</p>
+              {selectedOrder.refund_amount_cents && <p className="text-[11px] text-red-600">Amount: {formatPrice(selectedOrder.refund_amount_cents)}</p>}
+              {selectedOrder.refunded_at && <p className="text-[11px] text-red-600">Date: {formatFullDate(selectedOrder.refunded_at)}</p>}
+              {selectedOrder.refund_reason && <p className="text-[11px] text-red-600">Reason: {selectedOrder.refund_reason}</p>}
+            </div>
+          )}
+
           {/* Mobile Footer Actions */}
-          <div className="px-4 pt-4 pb-5 border-t border-[#e5e7eb] flex items-center gap-2 bg-white">
-            <button
-              onClick={() => handleResendReceipt(selectedOrder)}
-              className="flex-1 px-3 py-2.5 text-[12px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg active:bg-[#e5e7eb] transition-colors flex items-center justify-center gap-1.5"
-            >
-              <Send className="h-3.5 w-3.5" />
-              Resend
-            </button>
-            <button
-              onClick={() => { handleClose(); setTimeout(() => handleEditEmail(selectedOrder), 450) }}
-              className="flex-1 px-3 py-2.5 text-[12px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg active:bg-[#e5e7eb] transition-colors flex items-center justify-center gap-1.5"
-            >
-              <Mail className="h-3.5 w-3.5" />
-              Edit Email
-            </button>
-            {selectedOrder.status === "completed" && (
-              <button className="flex-1 px-3 py-2.5 text-[12px] font-medium text-rose-600 bg-rose-50 rounded-lg active:bg-rose-100 transition-colors flex items-center justify-center gap-1.5">
-                <RotateCcw className="h-3.5 w-3.5" />
-                Refund
+          <div className="px-4 pt-4 pb-5 border-t border-[#e5e7eb] bg-white">
+            <div className="flex items-center gap-2 mb-2">
+              <button
+                onClick={() => handleDownloadInvoice(selectedOrder)}
+                className="flex-1 px-3 py-2.5 text-[12px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg active:bg-[#e5e7eb] transition-colors flex items-center justify-center gap-1.5"
+              >
+                <FileText className="h-3.5 w-3.5" />
+                Invoice
               </button>
-            )}
+              <button
+                onClick={() => handleResendReceipt(selectedOrder)}
+                className="flex-1 px-3 py-2.5 text-[12px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg active:bg-[#e5e7eb] transition-colors flex items-center justify-center gap-1.5"
+              >
+                <Send className="h-3.5 w-3.5" />
+                Resend
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => { handleClose(); setTimeout(() => handleEditEmail(selectedOrder), 450) }}
+                className="flex-1 px-3 py-2.5 text-[12px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg active:bg-[#e5e7eb] transition-colors flex items-center justify-center gap-1.5"
+              >
+                <Mail className="h-3.5 w-3.5" />
+                Edit Email
+              </button>
+              {selectedOrder.status === "completed" && (
+                <button
+                  onClick={() => { handleClose(); setTimeout(() => handleOpenRefund(selectedOrder), 450) }}
+                  className="flex-1 px-3 py-2.5 text-[12px] font-medium text-rose-600 bg-rose-50 rounded-lg active:bg-rose-100 transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Refund
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Safe area padding for bottom notch */}
@@ -925,6 +1253,7 @@ function OrderDetailsModal({
 }
 
 export function SalesClient({ creatorId, products, initialSummary, initialOrders, currency, stripeConnected, storeName, sellerName }: SalesClientProps) {
+  const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [timeframe, setTimeframe] = useState("last_30_days")
   const [isTimeframeOpen, setIsTimeframeOpen] = useState(false)
@@ -993,6 +1322,17 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
   // Notification state
   const [notification, setNotification] = useState<{ message: string; visible: boolean }>({ message: "", visible: false })
 
+  // Filter bottom sheet state (mobile)
+  const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false)
+
+  // Refund modal state
+  const [refundModalOpen, setRefundModalOpen] = useState(false)
+  const [refundOrder, setRefundOrder] = useState<Order | null>(null)
+  const [refundReason, setRefundReason] = useState("")
+  const [refundAmount, setRefundAmount] = useState("")
+  const [isRefunding, setIsRefunding] = useState(false)
+  const [refundError, setRefundError] = useState<string | null>(null)
+
   // Receipt resend tracking (max 5 per order)
   const [receiptResendCounts, setReceiptResendCounts] = useState<Record<string, number>>(() => {
     if (typeof window !== 'undefined') {
@@ -1005,6 +1345,142 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
   const showNotification = (message: string) => {
     setNotification({ message, visible: true })
     setTimeout(() => setNotification({ message: "", visible: false }), 5000)
+  }
+
+  // Invoice download handler
+  const handleDownloadInvoice = (order: Order) => {
+    const invoiceDate = new Date(order.created_at).toLocaleDateString("en-US", {
+      year: "numeric", month: "long", day: "numeric",
+    })
+    const invoiceTime = new Date(order.created_at).toLocaleTimeString("en-US", {
+      hour: "numeric", minute: "2-digit",
+    })
+
+    const isRefunded = order.status === "refunded"
+    const refundDate = order.refunded_at
+      ? new Date(order.refunded_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+      : null
+
+    const html = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>Invoice ${order.id.slice(0, 8)}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:40px;color:#1a1a2e;max-width:700px;margin:0 auto}
+.header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:40px;padding-bottom:20px;border-bottom:2px solid #e5e7eb}
+.logo{font-size:22px;font-weight:700;color:#1a1a2e}
+.invoice-label{font-size:28px;font-weight:700;color:#6b7280;text-align:right}
+.meta{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:32px}
+.meta-block h4{font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#9ca3af;margin-bottom:6px}
+.meta-block p{font-size:14px;color:#1a1a2e}
+table{width:100%;border-collapse:collapse;margin-bottom:24px}
+th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:#6b7280;padding:10px 0;border-bottom:2px solid #e5e7eb}
+td{padding:14px 0;font-size:14px;border-bottom:1px solid #f3f4f6}
+.amount{text-align:right}
+.totals{margin-left:auto;width:260px}
+.total-row{display:flex;justify-content:space-between;padding:8px 0;font-size:14px}
+.total-row.final{font-size:18px;font-weight:700;border-top:2px solid #1a1a2e;padding-top:12px;margin-top:4px}
+.refund-section{background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:16px;margin-top:24px}
+.refund-section h3{color:#dc2626;font-size:14px;font-weight:600;margin-bottom:8px}
+.refund-section p{color:#7f1d1d;font-size:13px}
+.footer{margin-top:40px;padding-top:20px;border-top:1px solid #e5e7eb;text-align:center;font-size:12px;color:#9ca3af}
+@media print{body{padding:20px}button{display:none!important}}
+</style></head><body>
+<div class="header">
+  <div><div class="logo">${storeName}</div><p style="font-size:13px;color:#6b7280;margin-top:4px">Digital Product Invoice</p></div>
+  <div class="invoice-label">INVOICE</div>
+</div>
+<div class="meta">
+  <div class="meta-block"><h4>Invoice Number</h4><p>#INV-${order.id.slice(0, 8).toUpperCase()}</p></div>
+  <div class="meta-block"><h4>Date</h4><p>${invoiceDate} at ${invoiceTime}</p></div>
+  <div class="meta-block"><h4>Customer</h4><p>${order.buyer_email || order.customer_email || order.buyer?.email || "N/A"}</p></div>
+  <div class="meta-block"><h4>Status</h4><p>${isRefunded ? '<span style="color:#dc2626">Refunded</span>' : '<span style="color:#059669">Paid</span>'}</p></div>
+</div>
+<table>
+  <thead><tr><th>Item</th><th class="amount">Amount</th></tr></thead>
+  <tbody><tr><td>${order.product?.title || "Digital Product"}</td><td class="amount">${formatPrice(order.amount_cents)}</td></tr></tbody>
+</table>
+<div class="totals">
+  <div class="total-row"><span>Subtotal</span><span>${formatPrice(order.amount_cents)}</span></div>
+  <div class="total-row"><span>Platform Fee</span><span>-${formatPrice(order.fee_cents || 0)}</span></div>
+  <div class="total-row final"><span>Net Amount</span><span>${formatPrice((order.amount_cents || 0) - (order.fee_cents || 0))}</span></div>
+</div>
+${isRefunded ? `<div class="refund-section">
+  <h3>Refund Details</h3>
+  <p>Amount: ${formatPrice(order.refund_amount_cents || order.amount_cents)}</p>
+  ${refundDate ? `<p>Date: ${refundDate}</p>` : ""}
+  ${order.refund_reason ? `<p>Reason: ${order.refund_reason}</p>` : ""}
+</div>` : ""}
+<div class="footer">
+  <p>Thank you for your purchase.</p>
+  <p style="margin-top:8px">${storeName} &mdash; Powered by Storelib</p>
+  <p style="margin-top:4px">Order ID: ${order.id}</p>
+</div>
+<div style="text-align:center;margin-top:24px">
+  <button onclick="window.print()" style="background:#1a1a2e;color:white;border:none;padding:10px 24px;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer">Print / Save as PDF</button>
+</div>
+</body></html>`
+
+    const blob = new Blob([html], { type: "text/html" })
+    const url = URL.createObjectURL(blob)
+    window.open(url, "_blank")
+    setTimeout(() => URL.revokeObjectURL(url), 5000)
+  }
+
+  // Refund handler
+  const handleRefund = async () => {
+    if (!refundOrder) return
+    setIsRefunding(true)
+    setRefundError(null)
+
+    try {
+      const maxAmount = refundOrder.amount_cents / 100
+      const amount = refundAmount ? parseFloat(refundAmount) : maxAmount
+
+      if (isNaN(amount) || amount <= 0) {
+        throw new Error("Please enter a valid refund amount")
+      }
+      if (amount > maxAmount) {
+        throw new Error(`Amount cannot exceed ${formatPrice(Math.round(maxAmount * 100))}`)
+      }
+
+      const response = await fetch("/api/stripe/refund", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId: refundOrder.id,
+          reason: refundReason || "requested_by_customer",
+          amount,
+        }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || "Failed to process refund")
+      }
+
+      showNotification("Refund processed successfully! Confirmation emails have been sent.")
+      setRefundModalOpen(false)
+      setRefundOrder(null)
+      setRefundReason("")
+      setRefundAmount("")
+      setShowOrderModal(false)
+      router.refresh()
+    } catch (err) {
+      setRefundError(err instanceof Error ? err.message : "Something went wrong")
+    } finally {
+      setIsRefunding(false)
+    }
+  }
+
+  // Open refund modal for an order
+  const handleOpenRefund = (order: Order) => {
+    setRefundOrder(order)
+    setRefundAmount((order.amount_cents / 100).toFixed(2))
+    setRefundReason("")
+    setRefundError(null)
+    setShowOrderModal(false)
+    setOpenMenuOrderId(null)
+    setRefundModalOpen(true)
   }
 
   const handleResendReceipt = async (order: Order) => {
@@ -1273,7 +1749,7 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
         totalOrders: totalOrdersCount,
         avgOrderValue,
         refundCount: refundedOrders.length,
-        refundAmount: refundedOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0),
+        refundAmount: refundedOrders.reduce((sum, o) => sum + (o.refund_amount_cents || o.amount_cents || 0), 0),
       })
 
       // Generate monthly reports from ALL initialOrders (all time)
@@ -1993,20 +2469,30 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
               </button>
             </div>
 
-            {/* Filter - 15% bigger on mobile to match timeframe button height */}
+            {/* Filter - desktop dropdown, mobile bottom sheet */}
             <div className="relative">
+              {/* Mobile filter button - opens bottom sheet */}
+              <button
+                onClick={() => setIsFilterSheetOpen(true)}
+                className={`filter-button p-2 bg-white border rounded-lg transition-colors shadow-sm cursor-pointer md:hidden ${
+                  appliedFilters ? "border-[#8b5cf6] text-[#8b5cf6]" : "border-[#e5e7eb] text-[#6b7280] hover:bg-[#f9fafb]"
+                }`}
+              >
+                <Filter className="h-4 w-4" />
+              </button>
+              {/* Desktop filter button - opens dropdown */}
               <button
                 onClick={() => setIsFilterOpen(!isFilterOpen)}
-                className={`filter-button p-2 bg-white border rounded-lg transition-colors shadow-sm cursor-pointer ${
+                className={`filter-button p-2 bg-white border rounded-lg transition-colors shadow-sm cursor-pointer hidden md:block ${
                   appliedFilters ? "border-[#8b5cf6] text-[#8b5cf6]" : "border-[#e5e7eb] text-[#6b7280] hover:bg-[#f9fafb]"
                 }`}
               >
                 <Filter className="h-4 w-4" />
               </button>
 
-              {/* Filter Dropdown */}
+              {/* Filter Dropdown - Desktop only */}
               {isFilterOpen && (
-                <div className="filter-dropdown absolute right-0 top-full mt-2 w-[320px] bg-white border border-[#e5e7eb] rounded-xl shadow-xl z-50 p-4 animate-in fade-in-0 zoom-in-95 duration-100">
+                <div className="filter-dropdown absolute right-0 top-full mt-2 w-[320px] bg-white border border-[#e5e7eb] rounded-xl shadow-xl z-50 p-4 animate-in fade-in-0 zoom-in-95 duration-100 hidden md:block">
                   <div className="space-y-4">
                     {/* Date Range */}
                     <div>
@@ -2203,13 +2689,38 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
           )}
         </div>
 
-        {/* Mobile Bottom Sheet */}
+        {/* Mobile Bottom Sheet - Timeframe */}
         <TimeframeBottomSheet
           isOpen={isMobileSheetOpen}
           onClose={() => setIsMobileSheetOpen(false)}
           options={timeframeOptions}
           selectedValue={timeframe}
           onSelect={setTimeframe}
+        />
+
+        {/* Mobile Bottom Sheet - Filters */}
+        <FilterBottomSheet
+          isOpen={isFilterSheetOpen}
+          onClose={() => setIsFilterSheetOpen(false)}
+          products={products}
+          filterDateRange={filterDateRange}
+          setFilterDateRange={setFilterDateRange}
+          filterFromDate={filterFromDate}
+          setFilterFromDate={setFilterFromDate}
+          filterToDate={filterToDate}
+          setFilterToDate={setFilterToDate}
+          filterProduct={filterProduct}
+          setFilterProduct={setFilterProduct}
+          filterMinValue={filterMinValue}
+          setFilterMinValue={setFilterMinValue}
+          filterMaxValue={filterMaxValue}
+          setFilterMaxValue={setFilterMaxValue}
+          filterCustomer={filterCustomer}
+          setFilterCustomer={setFilterCustomer}
+          filterStatus={filterStatus}
+          setFilterStatus={setFilterStatus}
+          onApply={handleApplyFilters}
+          onClear={handleClearFilters}
         />
 
         {/* KPI Cards */}
@@ -2775,8 +3286,7 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
                                         <button
                                           onClick={(e) => {
                                             e.stopPropagation()
-                                            // Refund logic
-                                            setOpenMenuOrderId(null)
+                                            handleOpenRefund(order)
                                           }}
                                           className="w-full text-left px-3 py-2 text-[13px] text-rose-600 hover:bg-rose-50 flex items-center gap-2"
                                         >
@@ -2939,6 +3449,8 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
         handleResendReceipt={handleResendReceipt}
         handleUnsubscribe={handleUnsubscribe}
         handleEditEmail={handleEditEmail}
+        handleDownloadInvoice={handleDownloadInvoice}
+        handleOpenRefund={handleOpenRefund}
         receiptResendCounts={receiptResendCounts}
         getFlagEmoji={getFlagEmoji}
         setShowOrderModal={setShowOrderModal}
@@ -3008,6 +3520,104 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
                 className="px-4 py-2 text-[13px] font-medium text-white bg-[#8b5cf6] rounded-lg hover:bg-[#7c3aed] transition-colors"
               >
                 Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Refund Modal */}
+      {refundModalOpen && refundOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setRefundModalOpen(false)} />
+          <div className="relative bg-white rounded-2xl w-full max-w-md shadow-xl animate-in fade-in-0 zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="border-b border-[#e5e7eb] px-6 py-4">
+              <h2 className="text-[18px] font-semibold text-[#1a1a2e]">Issue Refund</h2>
+              <p className="text-[13px] text-[#6b7280] mt-1">Process a refund for this order. The customer will be notified via email.</p>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-4">
+              {/* Order summary */}
+              <div className="flex items-center gap-3 p-3 bg-[#f9fafb] rounded-xl">
+                {refundOrder.product?.thumbnail_url ? (
+                  <img src={refundOrder.product.thumbnail_url} alt="" className="w-10 h-10 rounded-lg object-cover" />
+                ) : (
+                  <div className="w-10 h-10 rounded-lg bg-[#e5e7eb] flex items-center justify-center"><Package className="h-4 w-4 text-[#9ca3af]" /></div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-[14px] font-medium text-[#1a1a2e] truncate">{refundOrder.product?.title || "Product"}</p>
+                  <p className="text-[12px] text-[#9ca3af]">{refundOrder.buyer_email || refundOrder.customer_email || refundOrder.buyer?.email || "N/A"}</p>
+                </div>
+                <p className="text-[14px] font-semibold text-[#1a1a2e]">{formatPrice(refundOrder.amount_cents)}</p>
+              </div>
+
+              {/* Refund amount */}
+              <div>
+                <label className="block text-[13px] font-medium text-[#374151] mb-1.5">Refund Amount ($)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  max={(refundOrder.amount_cents / 100).toFixed(2)}
+                  value={refundAmount}
+                  onChange={(e) => setRefundAmount(e.target.value)}
+                  className="w-full px-3 py-2 text-[14px] border border-[#e5e7eb] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#8b5cf6]/20 focus:border-[#8b5cf6]"
+                  placeholder={`Max: $${(refundOrder.amount_cents / 100).toFixed(2)}`}
+                />
+                <p className="text-[11px] text-[#9ca3af] mt-1">Maximum refundable: ${(refundOrder.amount_cents / 100).toFixed(2)}</p>
+              </div>
+
+              {/* Reason */}
+              <div>
+                <label className="block text-[13px] font-medium text-[#374151] mb-1.5">Reason</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { value: "requested_by_customer", label: "Customer request" },
+                    { value: "duplicate", label: "Duplicate charge" },
+                    { value: "fraudulent", label: "Fraudulent" },
+                    { value: "other", label: "Other" },
+                  ].map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setRefundReason(opt.value)}
+                      className={`px-3 py-2 rounded-lg text-[13px] font-medium transition-colors border ${
+                        refundReason === opt.value
+                          ? "bg-[#f5f3ff] border-[#8b5cf6] text-[#8b5cf6]"
+                          : "border-[#e5e7eb] text-[#6b7280] hover:bg-[#f9fafb]"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {refundError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-xl">
+                  <p className="text-[13px] text-red-600 flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                    {refundError}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="border-t border-[#e5e7eb] px-6 py-4 flex items-center justify-end gap-3">
+              <button
+                onClick={() => setRefundModalOpen(false)}
+                className="px-4 py-2 text-[13px] font-medium text-[#6b7280] hover:text-[#374151] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRefund}
+                disabled={isRefunding || !refundReason}
+                className="px-4 py-2 text-[13px] font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isRefunding ? (<><Loader2 className="h-4 w-4 animate-spin" />Processing...</>) : (<><RotateCcw className="h-4 w-4" />Confirm Refund</>)}
               </button>
             </div>
           </div>
