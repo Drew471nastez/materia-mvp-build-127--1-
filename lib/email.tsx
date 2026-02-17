@@ -2018,8 +2018,8 @@ export async function sendRefundEmails(params: SendRefundEmailsParams): Promise<
                   <td style="background:#fafaf8;border:1px solid #eeedea;border-radius:10px;padding:10px 14px;">
                     <table role="presentation" cellpadding="0" cellspacing="0">
                       <tr>
-                        <td><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/bimi-svg-tiny-12-ps%20(1).svg" alt="Storelib" height="20" style="height:20px;width:auto;" /></td>
-                        <td style="padding-left:10px;">
+                        <td style="vertical-align:middle;"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/bimi-svg-tiny-12-ps%20(1).svg" alt="Storelib" width="20" height="20" style="display:block;width:20px;height:20px;border:0;outline:none;" /></td>
+                        <td style="padding-left:10px;vertical-align:middle;">
                           <span style="font-size:13.5px;font-weight:600;color:#1a1a1a;letter-spacing:-0.2px;">${PLATFORM_BRAND_NAME}</span>
                         </td>
                       </tr>
@@ -2127,7 +2127,7 @@ export async function sendRefundEmails(params: SendRefundEmailsParams): Promise<
             <td style="background:#fafaf8;padding:28px 36px;text-align:center;border-top:1px solid #f0eeeb;">
               <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin-bottom:12px;">
                 <tr>
-                  <td><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/bimi-svg-tiny-12-ps%20(1).svg" alt="Storelib" height="16" style="height:16px;width:auto;opacity:0.4;" /></td>
+                  <td><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/bimi-svg-tiny-12-ps%20(1).svg" alt="Storelib" width="16" height="16" style="display:block;width:16px;height:16px;border:0;outline:none;opacity:0.4;" /></td>
                 </tr>
               </table>
               <p style="margin:0 0 14px;font-size:11.5px;color:#bbb;line-height:1.65;">

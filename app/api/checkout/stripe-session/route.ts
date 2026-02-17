@@ -15,7 +15,7 @@ export async function POST(request: Request) {
   const body = await request.json()
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.headers.get("origin") || ""
 
-  const { productId, firstName, lastName, email, tipCents = 0, isGift = false, variantId, customPriceCents = null } = body
+  const { productId, firstName, lastName, email, tipCents = 0, isGift = false, variantId, customPriceCents = null, emailOptIn = true } = body
 
   if (!productId || !firstName || !lastName || !email) {
     return NextResponse.json({ error: "All fields are required" }, { status: 400 })
@@ -236,6 +236,7 @@ export async function POST(request: Request) {
         buyer_os: deviceInfo.os,
         buyer_browser: deviceInfo.browser,
         creator_name: creatorProfile?.display_name || "Creator",
+        email_opt_in: emailOptIn ? "true" : "false",
       },
       receipt_email: email,
     }

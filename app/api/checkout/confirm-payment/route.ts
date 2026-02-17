@@ -208,41 +208,46 @@ export async function POST(request: Request) {
         },
       )
 
-      // Add buyer to subscribers
-      const normalizedEmail = buyerEmail.toLowerCase().trim()
-      const { data: existingSub } = await admin
-        .from("subscribers")
-        .select("id, status")
-        .eq("creator_id", creatorId)
-        .eq("email", normalizedEmail)
-        .maybeSingle()
-
-      if (!existingSub) {
-        const unsubscribeToken = uuidv4()
-        const buyerName = `${metadata.buyer_first_name || ""} ${metadata.buyer_last_name || ""}`.trim() || null
-        await admin.from("subscribers").insert({
-          email: normalizedEmail,
-          name: buyerName,
-          source: "checkout",
-          source_id: order.id,
-          creator_id: creatorId,
-          status: "subscribed",
-          is_active: true,
-          subscribed_at: new Date().toISOString(),
-          consent_text: "Subscribed via product checkout",
-          consent_timestamp: new Date().toISOString(),
-          unsubscribe_token: unsubscribeToken,
-        })
-      } else if (existingSub.status === "unsubscribed") {
-        await admin
+      // Add buyer to subscribers only if they opted in
+      const didOptIn = metadata.email_opt_in !== "false"
+      if (didOptIn) {
+        const normalizedEmail = buyerEmail.toLowerCase().trim()
+        const { data: existingSub } = await admin
           .from("subscribers")
-          .update({
+          .select("id, status")
+          .eq("creator_id", creatorId)
+          .eq("email", normalizedEmail)
+          .maybeSingle()
+
+        if (!existingSub) {
+          const unsubscribeToken = uuidv4()
+          const buyerName = `${metadata.buyer_first_name || ""} ${metadata.buyer_last_name || ""}`.trim() || null
+          await admin.from("subscribers").insert({
+            email: normalizedEmail,
+            name: buyerName,
+            source: "checkout",
+            source_id: order.id,
+            creator_id: creatorId,
             status: "subscribed",
             is_active: true,
             subscribed_at: new Date().toISOString(),
-            unsubscribed_at: null,
+            consent_text: "Subscribed via product checkout (opted in)",
+            consent_timestamp: new Date().toISOString(),
+            unsubscribe_token: unsubscribeToken,
           })
-          .eq("id", existingSub.id)
+        } else if (existingSub.status === "unsubscribed") {
+          await admin
+            .from("subscribers")
+            .update({
+              status: "subscribed",
+              is_active: true,
+              subscribed_at: new Date().toISOString(),
+              unsubscribed_at: null,
+            })
+            .eq("id", existingSub.id)
+        }
+      } else {
+        console.log("[confirm-payment] Buyer opted out of marketing emails:", buyerEmail)
       }
     }
 
