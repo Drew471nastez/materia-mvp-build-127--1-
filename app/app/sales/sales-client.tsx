@@ -668,6 +668,7 @@ function OrderDetailsModal({
   receiptResendCounts,
   getFlagEmoji,
   setShowOrderModal,
+  invoiceLoading,
 }: {
   isOpen: boolean
   onClose: () => void
@@ -686,6 +687,7 @@ function OrderDetailsModal({
   receiptResendCounts: Record<string, number>
   getFlagEmoji: (countryCode: string) => string
   setShowOrderModal: (show: boolean) => void
+  invoiceLoading: boolean
 }) {
   const [isVisible, setIsVisible] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
@@ -3464,6 +3466,7 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
         receiptResendCounts={receiptResendCounts}
         getFlagEmoji={getFlagEmoji}
         setShowOrderModal={setShowOrderModal}
+        invoiceLoading={invoiceLoading}
       />
 
       {/* Edit Email Modal */}
