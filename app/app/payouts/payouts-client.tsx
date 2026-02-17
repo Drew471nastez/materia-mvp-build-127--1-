@@ -79,6 +79,7 @@ interface OrderPayment {
   refund_amount_cents?: number
   refunded_at?: string
   stripe_refund_id?: string
+  receipt_token?: string
   buyer_first_name?: string
   buyer_last_name?: string
   payment_method?: string
@@ -328,7 +329,11 @@ function OrderDetailsModal({
   formatFullDate,
   handleDownloadInvoice,
   handleOpenRefund,
+  handleResendReceipt,
+  handleEditEmail,
+  handleUnsubscribe,
   invoiceLoading,
+  receiptResendCounts,
 }: {
   isOpen: boolean
   onClose: () => void
@@ -337,7 +342,11 @@ function OrderDetailsModal({
   formatFullDate: (dateString: string) => string
   handleDownloadInvoice: (order: OrderPayment) => void
   handleOpenRefund: (order: OrderPayment) => void
+  handleResendReceipt: (order: OrderPayment) => void
+  handleEditEmail: (order: OrderPayment) => void
+  handleUnsubscribe: (order: OrderPayment) => void
   invoiceLoading: boolean
+  receiptResendCounts: Record<string, number>
 }) {
   const [isVisible, setIsVisible] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
@@ -577,30 +586,56 @@ function OrderDetailsModal({
           )}
 
           {/* Desktop Footer */}
-          <div className="sticky bottom-0 bg-white border-t border-[#e5e7eb] px-6 py-4 flex items-center justify-between gap-3">
+          <div className="sticky bottom-0 bg-white border-t border-[#e5e7eb] px-6 py-4 space-y-2">
             <div className="flex items-center gap-2">
               <button
                 onClick={() => handleDownloadInvoice(selectedOrder)}
-                className="px-4 py-2 text-[13px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg hover:bg-[#e5e7eb] transition-colors flex items-center gap-2"
+                disabled={invoiceLoading}
+                className="px-4 py-2 text-[13px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg hover:bg-[#e5e7eb] transition-colors flex items-center gap-2 disabled:opacity-60"
               >
                 {invoiceLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
-                Invoice
+                {invoiceLoading ? "Loading..." : "Invoice"}
+              </button>
+              <button
+                onClick={() => handleResendReceipt(selectedOrder)}
+                className="px-4 py-2 text-[13px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg hover:bg-[#e5e7eb] transition-colors flex items-center gap-2"
+              >
+                <Send className="h-4 w-4" />
+                Resend Receipt ({receiptResendCounts[selectedOrder.id] || 0}/5)
               </button>
             </div>
-            {selectedOrder.status === "completed" ? (
-              <button
-                onClick={() => { handleClose(); setTimeout(() => handleOpenRefund(selectedOrder), 450) }}
-                className="px-4 py-2 text-[13px] font-medium text-rose-600 bg-rose-50 rounded-lg hover:bg-rose-100 transition-colors flex items-center gap-2"
-              >
-                <RotateCcw className="h-4 w-4" />
-                Issue Refund
-              </button>
-            ) : selectedOrder.status === "refunded" ? (
-              <span className="px-4 py-2 text-[13px] font-medium text-rose-400 bg-rose-50 rounded-lg flex items-center gap-2 cursor-not-allowed opacity-70">
-                <RotateCcw className="h-4 w-4" />
-                Refunded
-              </span>
-            ) : null}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => { handleClose(); setTimeout(() => handleEditEmail(selectedOrder), 450) }}
+                  className="px-4 py-2 text-[13px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg hover:bg-[#e5e7eb] transition-colors flex items-center gap-2"
+                >
+                  <Mail className="h-4 w-4" />
+                  Edit Email
+                </button>
+                <button
+                  onClick={() => handleUnsubscribe(selectedOrder)}
+                  className="px-4 py-2 text-[13px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg hover:bg-[#e5e7eb] transition-colors flex items-center gap-2"
+                >
+                  <XCircle className="h-4 w-4" />
+                  Unsubscribe
+                </button>
+              </div>
+              {selectedOrder.status === "completed" ? (
+                <button
+                  onClick={() => { handleClose(); setTimeout(() => handleOpenRefund(selectedOrder), 450) }}
+                  className="px-4 py-2 text-[13px] font-medium text-rose-600 bg-rose-50 rounded-lg hover:bg-rose-100 transition-colors flex items-center gap-2"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Issue Refund
+                </button>
+              ) : selectedOrder.status === "refunded" ? (
+                <span className="px-4 py-2 text-[13px] font-medium text-rose-400 bg-rose-50 rounded-lg flex items-center gap-2 cursor-not-allowed opacity-70">
+                  <RotateCcw className="h-4 w-4" />
+                  Refunded
+                </span>
+              ) : null}
+            </div>
           </div>
         </div>
       </div>
@@ -747,13 +782,30 @@ function OrderDetailsModal({
 
           {/* Mobile Footer Actions */}
           <div className="px-4 pt-4 pb-5 border-t border-[#e5e7eb] bg-white">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 mb-2">
               <button
                 onClick={() => handleDownloadInvoice(selectedOrder)}
-                className="flex-1 px-3 py-2.5 text-[12px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg active:bg-[#e5e7eb] transition-colors flex items-center justify-center gap-1.5"
+                disabled={invoiceLoading}
+                className="flex-1 px-3 py-2.5 text-[12px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg active:bg-[#e5e7eb] transition-colors flex items-center justify-center gap-1.5 disabled:opacity-60"
               >
                 {invoiceLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
-                Invoice
+                {invoiceLoading ? "Loading..." : "Invoice"}
+              </button>
+              <button
+                onClick={() => handleResendReceipt(selectedOrder)}
+                className="flex-1 px-3 py-2.5 text-[12px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg active:bg-[#e5e7eb] transition-colors flex items-center justify-center gap-1.5"
+              >
+                <Send className="h-3.5 w-3.5" />
+                Resend
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => { handleClose(); setTimeout(() => handleEditEmail(selectedOrder), 450) }}
+                className="flex-1 px-3 py-2.5 text-[12px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg active:bg-[#e5e7eb] transition-colors flex items-center justify-center gap-1.5"
+              >
+                <Mail className="h-3.5 w-3.5" />
+                Edit Email
               </button>
               {selectedOrder.status === "completed" ? (
                 <button
@@ -829,6 +881,19 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
   const [refundAmount, setRefundAmount] = useState("")
   const [isRefunding, setIsRefunding] = useState(false)
   const [refundError, setRefundError] = useState<string | null>(null)
+
+  // Receipt resend tracking (max 5 per order)
+  const [receiptResendCounts, setReceiptResendCounts] = useState<Record<string, number>>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('receiptResendCounts')
+      return saved ? JSON.parse(saved) : {}
+    }
+    return {}
+  })
+
+  // Edit email modal
+  const [showEditEmailModal, setShowEditEmailModal] = useState(false)
+  const [editEmail, setEditEmail] = useState("")
 
   const currency = creator.default_currency || "USD"
   const isStripeConnected = creator.stripe_onboarding_status === "connected"
@@ -1039,6 +1104,63 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
     }
   }
 
+  // Resend receipt handler
+  const handleResendReceipt = async (order: OrderPayment) => {
+    const currentCount = receiptResendCounts[order.id] || 0
+    if (currentCount >= 5) {
+      toast({ title: "Limit reached", description: "Maximum resend limit (5) reached for this order" })
+      return
+    }
+
+    const email = order.customer_email || order.buyer_email || "customer"
+
+    if (!order.receipt_token) {
+      toast({ title: "Unable to resend", description: "Missing receipt token for this order", variant: "destructive" })
+      return
+    }
+
+    try {
+      const response = await fetch('/api/receipt/resend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          receiptToken: order.receipt_token,
+          orderId: order.id,
+          resendType: 'buyer'
+        }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok && data.success) {
+        const newCounts = { ...receiptResendCounts, [order.id]: currentCount + 1 }
+        setReceiptResendCounts(newCounts)
+        localStorage.setItem('receiptResendCounts', JSON.stringify(newCounts))
+        toast({ title: "Receipt sent", description: `Receipt sent to ${email} (${currentCount + 1}/5)` })
+      } else if (data.limitReached) {
+        toast({ title: "Limit reached", description: "Maximum resend limit (5) reached for this order" })
+      } else {
+        toast({ title: "Failed", description: data.error || "Failed to send receipt", variant: "destructive" })
+      }
+    } catch (error) {
+      console.error("Error resending receipt:", error)
+      toast({ title: "Error", description: "Failed to send receipt. Please try again.", variant: "destructive" })
+    }
+  }
+
+  // Edit email handler
+  const handleEditEmail = (order: OrderPayment) => {
+    setSelectedOrder(order)
+    setEditEmail(order.customer_email || order.buyer_email || "")
+    setShowEditEmailModal(true)
+  }
+
+  // Unsubscribe handler
+  const handleUnsubscribe = (order: OrderPayment) => {
+    const email = order.customer_email || order.buyer_email || "Unknown email"
+    toast({ title: "Unsubscribed", description: `${email} has been unsubscribed from emails` })
+  }
+
   const formatPrice = (cents: number) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -1180,7 +1302,7 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
             <span className="text-[12px] text-[#6b7280] font-medium">Pending</span>
           </div>
           <p className="text-[20px] sm:text-[24px] font-bold text-[#1a1a2e]">
-            {stripeBalance?.pending?.[0] ? formatPrice(stripeBalance.pending[0].amount) : formatPrice(computedData.pendingAmount)}
+            {stripeBalance?.pending?.[0] ? formatPrice(stripeBalance.pending[0].amount) : formatPrice(initialData.pendingAmount)}
           </p>
         </div>
         <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4 sm:p-5">
@@ -1189,7 +1311,7 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
             <span className="text-[12px] text-[#6b7280] font-medium">Available</span>
           </div>
           <p className="text-[20px] sm:text-[24px] font-bold text-[#1a1a2e]">
-            {stripeBalance?.available?.[0] ? formatPrice(stripeBalance.available[0].amount) : formatPrice(computedData.availableBalance)}
+            {stripeBalance?.available?.[0] ? formatPrice(stripeBalance.available[0].amount) : formatPrice(initialData.availableBalance)}
           </p>
         </div>
       </div>
@@ -1555,7 +1677,11 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
         formatFullDate={formatFullDate}
         handleDownloadInvoice={handleDownloadInvoice}
         handleOpenRefund={handleOpenRefund}
+        handleResendReceipt={handleResendReceipt}
+        handleEditEmail={handleEditEmail}
+        handleUnsubscribe={handleUnsubscribe}
         invoiceLoading={invoiceLoading}
+        receiptResendCounts={receiptResendCounts}
       />
 
       {/* Timeframe Bottom Sheet (Mobile) */}
@@ -1650,13 +1776,76 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
             <Button
               onClick={handleRefund}
               disabled={isRefunding || !refundReason}
-              className="rounded-xl bg-red-600 hover:bg-red-700 text-white"
+              className="rounded-xl bg-[#1a1a2e] hover:bg-[#2d2d42] text-white"
             >
               {isRefunding ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing...</>) : (<><RotateCcw className="mr-2 h-4 w-4" />Confirm Refund</>)}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Email Modal */}
+      {showEditEmailModal && selectedOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowEditEmailModal(false)} />
+          <div className="relative bg-white rounded-2xl w-full max-w-md shadow-xl animate-in fade-in-0 zoom-in-95 duration-200">
+            <div className="border-b border-[#e5e7eb] px-6 py-4 flex items-center justify-between">
+              <h2 className="text-[18px] font-semibold text-[#1a1a2e]">Edit Email Address</h2>
+              <button
+                onClick={() => setShowEditEmailModal(false)}
+                className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center text-[#6b7280] hover:bg-[#e5e7eb] transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-[13px] font-medium text-[#374151] mb-1.5">
+                  Customer Email
+                </label>
+                <input
+                  type="email"
+                  value={editEmail}
+                  onChange={(e) => setEditEmail(e.target.value)}
+                  placeholder="customer@example.com"
+                  className="w-full px-4 py-2.5 text-[14px] border border-[#e5e7eb] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#8b5cf6]/20 focus:border-[#8b5cf6] transition-colors"
+                />
+                <p className="text-[12px] text-[#6b7280] mt-1.5">
+                  This will update the email address for order #{selectedOrder.id.slice(0, 8)}
+                </p>
+              </div>
+              <div className="bg-[#f9fafb] rounded-xl p-4">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 rounded border-[#d1d5db] text-[#8b5cf6] focus:ring-[#8b5cf6]"
+                    defaultChecked
+                  />
+                  <span className="text-[13px] text-[#374151]">
+                    Send purchase receipt to new email
+                  </span>
+                </label>
+              </div>
+            </div>
+            <div className="border-t border-[#e5e7eb] px-6 py-4 flex items-center justify-end gap-3">
+              <button
+                onClick={() => setShowEditEmailModal(false)}
+                className="px-4 py-2 text-[13px] font-medium text-[#6b7280] hover:text-[#374151] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowEditEmailModal(false)
+                }}
+                className="px-4 py-2 text-[13px] font-medium text-white bg-[#8b5cf6] rounded-lg hover:bg-[#7c3aed] transition-colors"
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -111,20 +111,21 @@ export default async function PayoutsPage() {
       const paidOrders = ordersData.filter((o) => o.status === "completed")
       totalEarnings = paidOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0)
       totalFees = paidOrders.reduce((sum, o) => sum + (o.fee_cents || 0), 0)
+    }
+  }
 
-      // Calculate pending (orders from last 7 days are pending payout)
-      const sevenDaysAgo = new Date()
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-
-      paidOrders.forEach((order) => {
-        const orderDate = new Date(order.created_at)
-        const netAmount = (order.amount_cents || 0) - (order.fee_cents || 0)
-        if (orderDate > sevenDaysAgo) {
-          pendingAmount += netAmount
-        } else {
-          availableBalance += netAmount
-        }
-      })
+  // Fetch real Stripe balance for pending/available KPIs
+  let stripePendingBalance = 0
+  let stripeAvailableBalance = 0
+  if (creator.stripe_account_id) {
+    try {
+      const balance = await stripe.balance.retrieve(
+        { stripeAccount: creator.stripe_account_id }
+      )
+      stripePendingBalance = balance.pending.reduce((sum, b) => sum + b.amount, 0)
+      stripeAvailableBalance = balance.available.reduce((sum, b) => sum + b.amount, 0)
+    } catch (err) {
+      console.error("[Payouts] Failed to fetch Stripe balance:", err)
     }
   }
 
@@ -164,8 +165,8 @@ export default async function PayoutsPage() {
             totalEarnings,
             totalFees,
             netEarnings,
-            pendingAmount,
-            availableBalance,
+            pendingAmount: stripePendingBalance,
+            availableBalance: stripeAvailableBalance,
           }}
           initialOrders={allOrders}
         />
