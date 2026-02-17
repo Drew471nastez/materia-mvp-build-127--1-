@@ -93,17 +93,28 @@ export async function POST(request: Request) {
       : undefined
     const refund = await stripe.refunds.create(refundParams, stripeOptions)
 
-    // Update order status in database
+    // Update order status in database — split into two updates for column safety
+    // Step 1: Update status (this column always exists)
     await dbClient
       .from("orders")
-      .update({
-        status: "refunded",
-        refunded_at: new Date().toISOString(),
-        refund_reason: reason || "requested_by_customer",
-        refund_amount_cents: refundAmountCents,
-        stripe_refund_id: refund.id,
-      })
+      .update({ status: "refunded" })
       .eq("id", orderId)
+
+    // Step 2: Try to update extra refund tracking columns (may not exist in DB yet)
+    try {
+      await dbClient
+        .from("orders")
+        .update({
+          refunded_at: new Date().toISOString(),
+          refund_reason: reason || "requested_by_customer",
+          refund_amount_cents: refundAmountCents,
+          stripe_refund_id: refund.id,
+        })
+        .eq("id", orderId)
+    } catch {
+      // Extra columns may not exist yet — status is already updated
+      console.log("[Refund] Extra refund columns not yet in DB — run migration 059")
+    }
 
     // Send refund notification emails
     try {

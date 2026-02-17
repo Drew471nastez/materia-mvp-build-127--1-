@@ -808,20 +808,28 @@ export async function POST(request: Request) {
           .maybeSingle()
 
         if (order && order.status !== "refunded") {
-          // Get refund details from charge
-          const refund = charge.refunds?.data?.[0]
-          const refundAmountCents = charge.amount_refunded || order.amount_cents
-
+          // Update status first (column always exists)
           await supabaseAdmin
             .from("orders")
-            .update({
-              status: "refunded",
-              refunded_at: new Date().toISOString(),
-              refund_reason: refund?.reason || "requested_by_customer",
-              refund_amount_cents: refundAmountCents,
-              stripe_refund_id: refund?.id || null,
-            })
+            .update({ status: "refunded" })
             .eq("id", order.id)
+
+          // Try extra refund columns (may not exist yet)
+          try {
+            const refund = charge.refunds?.data?.[0]
+            const refundAmountCents = charge.amount_refunded || order.amount_cents
+            await supabaseAdmin
+              .from("orders")
+              .update({
+                refunded_at: new Date().toISOString(),
+                refund_reason: refund?.reason || "requested_by_customer",
+                refund_amount_cents: refundAmountCents,
+                stripe_refund_id: refund?.id || null,
+              })
+              .eq("id", order.id)
+          } catch {
+            // Extra columns may not exist yet
+          }
 
           console.log("[Webhook] Order", order.id, "marked as refunded via webhook")
         }

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { stripe } from "@/lib/stripe"
 import { SalesClient } from "./sales-client"
 
 export const dynamic = "force-dynamic"
@@ -102,6 +103,41 @@ export default async function SalesPage() {
       .select("*")
       .in("product_id", productIds)
       .order("created_at", { ascending: false })
+
+    // Server-side refund sync: check Stripe for refunded orders still marked completed
+    if (creator.stripe_account_id && ordersData) {
+      const completedWithPI = ordersData.filter(
+        (o: any) => o.status === "completed" && o.stripe_payment_intent_id
+      )
+      for (const order of completedWithPI) {
+        try {
+          const pi = await stripe.paymentIntents.retrieve(
+            order.stripe_payment_intent_id,
+            { expand: ["latest_charge"] },
+            { stripeAccount: creator.stripe_account_id }
+          )
+          const charge = pi.latest_charge as any
+          if (charge && (charge.refunded === true || (charge.amount_refunded && charge.amount_refunded > 0))) {
+            await adminSupabase
+              .from("orders")
+              .update({ status: "refunded" })
+              .eq("id", order.id)
+            order.status = "refunded"
+            // Try extra columns
+            try {
+              await adminSupabase.from("orders").update({
+                refund_amount_cents: charge.amount_refunded || order.amount_cents,
+                refunded_at: new Date().toISOString(),
+              }).eq("id", order.id)
+              order.refund_amount_cents = charge.amount_refunded || order.amount_cents
+              order.refunded_at = new Date().toISOString()
+            } catch { /* columns may not exist */ }
+          }
+        } catch {
+          // Skip — PI might be invalid or rate limited
+        }
+      }
+    }
 
     // Map orders with product info
     initialOrders = (ordersData || []).map(order => {

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { stripe } from "@/lib/stripe"
 
+export const runtime = "nodejs"
+
 function tryCreateAdminClient() {
   try {
     const { createAdminClient } = require("@/lib/supabase/admin")
@@ -27,7 +29,7 @@ export async function POST() {
 
     if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 404 })
 
-    // Get all completed orders with stripe_payment_intent_id
+    // Get all products for this creator
     const { data: products } = await dbClient
       .from("products")
       .select("id")
@@ -39,6 +41,7 @@ export async function POST() {
 
     const productIds = products.map((p: any) => p.id)
 
+    // Get all completed orders that have a stripe_payment_intent_id
     const { data: orders } = await dbClient
       .from("orders")
       .select("id, stripe_payment_intent_id, status, amount_cents")
@@ -51,44 +54,66 @@ export async function POST() {
     }
 
     let synced = 0
+    const errors: string[] = []
 
-    // Check each order's payment intent for refunds
+    // Check each order's payment intent against Stripe for refunds
     for (const order of orders) {
       try {
         if (!order.stripe_payment_intent_id) continue
 
+        // Retrieve the payment intent with charge and refund data expanded
+        const stripeOpts = creator.stripe_account_id
+          ? { stripeAccount: creator.stripe_account_id }
+          : undefined
+
         const paymentIntent = await stripe.paymentIntents.retrieve(
           order.stripe_payment_intent_id,
-          { expand: ["latest_charge.refunds"] },
-          creator.stripe_account_id ? { stripeAccount: creator.stripe_account_id } : undefined
+          { expand: ["latest_charge"] },
+          stripeOpts
         )
 
-        // Check if the charge was refunded
+        // Check if charge was refunded
         const charge = paymentIntent.latest_charge as any
-        if (charge && (charge.refunded || charge.amount_refunded > 0)) {
-          const refund = charge.refunds?.data?.[0]
-          const refundAmountCents = charge.amount_refunded || order.amount_cents
-
-          await dbClient
+        if (charge && (charge.refunded === true || (charge.amount_refunded && charge.amount_refunded > 0))) {
+          // First update just the status (this column definitely exists)
+          const { error: statusError } = await dbClient
             .from("orders")
-            .update({
-              status: "refunded",
-              refunded_at: refund?.created ? new Date(refund.created * 1000).toISOString() : new Date().toISOString(),
-              refund_reason: refund?.reason || "requested_by_customer",
-              refund_amount_cents: refundAmountCents,
-              stripe_refund_id: refund?.id || null,
-            })
+            .update({ status: "refunded" })
             .eq("id", order.id)
+
+          if (statusError) {
+            errors.push(`Failed to update status for order ${order.id}: ${statusError.message}`)
+            continue
+          }
+
+          // Try to update the extra refund columns (may not exist yet)
+          try {
+            const refundAmountCents = charge.amount_refunded || order.amount_cents
+            await dbClient
+              .from("orders")
+              .update({
+                refund_amount_cents: refundAmountCents,
+                refunded_at: new Date().toISOString(),
+                refund_reason: "synced_from_stripe",
+              })
+              .eq("id", order.id)
+          } catch {
+            // Extra columns may not exist — that's OK, status is already updated
+          }
 
           synced++
         }
-      } catch (err) {
-        // Skip individual failures — Stripe may rate limit or PI may be invalid
-        console.error(`[Sync] Failed to check order ${order.id}:`, err)
+      } catch (err: any) {
+        errors.push(`Order ${order.id}: ${err.message}`)
       }
     }
 
-    return NextResponse.json({ synced, total: orders.length, message: `Synced ${synced} refund(s)` })
+    return NextResponse.json({
+      synced,
+      total: orders.length,
+      message: `Synced ${synced} refund(s) from Stripe`,
+      errors: errors.length > 0 ? errors : undefined,
+    })
   } catch (error: any) {
     console.error("[Sync Refunds Error]", error)
     return NextResponse.json({ error: error.message || "Failed to sync refunds" }, { status: 500 })
