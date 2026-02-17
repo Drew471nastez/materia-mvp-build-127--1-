@@ -69,23 +69,16 @@ export default function BlogPage() {
 
   return (
     <div className="bg-neutral-50 min-h-screen">
-      {/* Hero Section — Black */}
-      <section className="relative pt-20 pb-16 overflow-hidden bg-[#0a0a0a]">
-        <div className="absolute top-10 left-10 w-64 h-64 bg-white/[0.02] rounded-full blur-3xl" />
-        <div className="absolute bottom-0 right-10 w-72 h-72 bg-white/[0.02] rounded-full blur-3xl" />
-
+      {/* Hero Section — Light Gray */}
+      <section className="relative pt-20 pb-16 overflow-hidden bg-[#f3f4f6]">
         <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center animate-in fade-in-0 slide-in-from-bottom-1 duration-500">
-            <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium bg-white/10 text-white/80 mb-6 border border-white/10">
-              Insights & Updates
-            </span>
-
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white tracking-tight mb-5">
-              The Storelib Blog
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-neutral-900 tracking-tight mb-5">
+              Storelib Blog
             </h1>
 
-            <p className="text-lg sm:text-xl text-white/60 max-w-2xl mx-auto leading-relaxed">
-              Practical advice for creators who sell digital products. No fluff, no filler — just what works.
+            <p className="text-lg sm:text-xl text-neutral-500 max-w-2xl mx-auto leading-relaxed">
+              Practical advice for creators who sell digital products.
             </p>
           </div>
         </div>

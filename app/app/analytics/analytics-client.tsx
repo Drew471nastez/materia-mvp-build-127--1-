@@ -118,6 +118,7 @@ const AppleIcon = ({ className }: { className?: string }) => (
 interface Product {
   id: string
   title: string
+  thumbnail_url?: string | null
 }
 
 interface Order {
@@ -684,12 +685,15 @@ function AnalyticsProductsSheet({
                 onSelect("all")
                 handleClose()
               }}
-              className={`w-full text-left px-4 py-3 rounded-xl text-[15px] font-medium transition-colors ${
+              className={`w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl text-[15px] font-medium transition-colors ${
                 selectedProduct === "all"
                   ? "bg-[#f3f4f6] text-[#1a1a2e]"
                   : "text-[#374151] hover:bg-[#f9fafb] active:bg-[#f3f4f6]"
               }`}
             >
+              <div className="w-9 h-9 rounded-lg bg-[#f3f4f6] flex items-center justify-center shrink-0">
+                <span className="text-[14px]">📦</span>
+              </div>
               All products
             </button>
             {products.map((p) => (
@@ -699,13 +703,20 @@ function AnalyticsProductsSheet({
                   onSelect(p.id)
                   handleClose()
                 }}
-                className={`w-full text-left px-4 py-3 rounded-xl text-[15px] font-medium transition-colors truncate ${
+                className={`w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl text-[15px] font-medium transition-colors ${
                   selectedProduct === p.id
                     ? "bg-[#f3f4f6] text-[#1a1a2e]"
                     : "text-[#374151] hover:bg-[#f9fafb] active:bg-[#f3f4f6]"
                 }`}
               >
-                {p.title}
+                {p.thumbnail_url ? (
+                  <img src={p.thumbnail_url} alt="" className="w-9 h-9 rounded-lg object-cover shrink-0" />
+                ) : (
+                  <div className="w-9 h-9 rounded-lg bg-[#f3f4f6] flex items-center justify-center shrink-0">
+                    <span className="text-[14px]">📦</span>
+                  </div>
+                )}
+                <span className="truncate">{p.title}</span>
               </button>
             ))}
           </div>
@@ -1985,7 +1996,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
         </div>
 
         {/* Header with Timeframe, Mode Switcher, and Products */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             {/* Timeframe Dropdown - bottom sheet on mobile, dropdown on desktop */}
             <div className="relative timeframe-dropdown">
@@ -2054,10 +2065,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                       setIsProductsOpen(!isProductsOpen)
                     }
                   }}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#e5e7eb] rounded-xl text-[13px] font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors shadow-sm cursor-pointer"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#e5e7eb] rounded-xl text-[13px] font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors shadow-sm cursor-pointer max-w-[180px] sm:max-w-none"
                 >
-                  {selectedProduct === "all" ? "All products" : products.find(p => p.id === selectedProduct)?.title || "All products"}
-                  <ChevronDown className={`h-4 w-4 text-[#9ca3af] transition-transform duration-200 ${isProductsOpen ? "rotate-180" : ""}`} />
+                  <span className="truncate">{selectedProduct === "all" ? "All products" : (() => { const title = products.find(p => p.id === selectedProduct)?.title || "All products"; return title.length > 11 ? title.slice(0, 11) + "..." : title })()}</span>
+                  <ChevronDown className={`h-4 w-4 text-[#9ca3af] transition-transform duration-200 shrink-0 ${isProductsOpen ? "rotate-180" : ""}`} />
                 </button>
                 {isProductsOpen && !isMobile && (
                   <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-[#e5e7eb] rounded-xl shadow-lg z-50 py-1 max-h-[300px] overflow-y-auto">

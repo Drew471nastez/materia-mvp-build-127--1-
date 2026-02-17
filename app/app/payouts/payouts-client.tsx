@@ -449,10 +449,9 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
         </div>
       )}
 
-      {/* Payout Account & Settings */}
+      {/* Payout Account */}
       {isStripeConnected && (
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* Payout Account */}
+        <div>
           <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
             <div className="p-5 border-b border-[#e5e7eb]/60">
               <div className="flex items-center justify-between">
@@ -479,7 +478,7 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
                     {connectionStatus?.bankAccount?.bankName || "Bank Account"}
                   </p>
                   <p className="text-[13px] text-[#6b7280]">
-                    ****{connectionStatus?.bankAccount?.last4 || "4242"} ({currency})
+                    ****{connectionStatus?.bankAccount?.last4 || "····"} ({currency})
                   </p>
                 </div>
                 <Button variant="outline" size="sm" onClick={handleConnectStripe} className="rounded-lg shrink-0">
@@ -494,66 +493,6 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
                   Open Stripe Dashboard
                 </a>
               </Button>
-            </div>
-          </div>
-
-          {/* Payout Settings */}
-          <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-            <div className="p-5 border-b border-[#e5e7eb]/60">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-[15px] font-semibold text-[#1a1a2e] flex items-center gap-2">
-                    <Settings className="h-5 w-5" />
-                    Payout Settings
-                  </h3>
-                  <p className="text-[13px] text-[#6b7280] mt-0.5">Configure how and when you get paid</p>
-                </div>
-                <Button variant="outline" size="sm" onClick={() => setSettingsDialogOpen(true)} className="rounded-lg">
-                  Edit
-                </Button>
-              </div>
-            </div>
-            <div className="p-5 space-y-3">
-              <div className="flex items-center justify-between p-3 bg-[#f9fafb] rounded-xl">
-                <div className="flex items-center gap-3">
-                  <Calendar className="h-5 w-5 text-[#6b7280]" />
-                  <div>
-                    <p className="font-medium text-[13px] text-[#1a1a2e]">Payout Schedule</p>
-                    <p className="text-[12px] text-[#9ca3af]">
-                      {PAYOUT_SCHEDULES.find((s) => s.value === payoutSchedule)?.description}
-                    </p>
-                  </div>
-                </div>
-                <Badge variant="secondary" className="capitalize text-[11px]">{payoutSchedule}</Badge>
-              </div>
-
-              <div className="flex items-center justify-between p-3 bg-[#f9fafb] rounded-xl">
-                <div className="flex items-center gap-3">
-                  <BanknoteIcon className="h-5 w-5 text-[#6b7280]" />
-                  <div>
-                    <p className="font-medium text-[13px] text-[#1a1a2e]">Minimum Payout</p>
-                    <p className="text-[12px] text-[#9ca3af]">
-                      Payouts trigger when balance exceeds this amount
-                    </p>
-                  </div>
-                </div>
-                <span className="font-medium text-[13px] text-[#1a1a2e] shrink-0">{payoutThreshold > 0 ? formatPrice(payoutThreshold * 100) : "No minimum"}</span>
-              </div>
-
-              <div className="flex items-center justify-between p-3 bg-[#f9fafb] rounded-xl">
-                <div className="flex items-center gap-3">
-                  <Zap className="h-5 w-5 text-[#6b7280]" />
-                  <div>
-                    <p className="font-medium text-[13px] text-[#1a1a2e]">Instant Payouts</p>
-                    <p className="text-[12px] text-[#9ca3af]">
-                      Get funds in minutes (1.5% fee)
-                    </p>
-                  </div>
-                </div>
-                <Badge variant={instantPayoutsEnabled ? "default" : "secondary"} className="text-[11px]">
-                  {instantPayoutsEnabled ? "Enabled" : "Disabled"}
-                </Badge>
-              </div>
             </div>
           </div>
         </div>
@@ -656,7 +595,12 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
                       <p className="text-[12px] text-[#9ca3af] truncate">{order.customer_email}</p>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="text-[14px] font-semibold text-[#1a1a2e]">{formatPrice(order.amount_cents)}</p>
+                      <div className="flex items-center gap-1.5 justify-end">
+                        <p className="text-[14px] font-semibold text-[#1a1a2e]">{formatPrice(order.amount_cents)}</p>
+                        {order.status === "refunded" && (
+                          <Badge className="bg-red-50 text-red-600 border-0 text-[9px] px-1.5 py-0">Refunded</Badge>
+                        )}
+                      </div>
                       <p className="text-[11px] text-[#9ca3af]">{formatDate(order.created_at)}</p>
                     </div>
                   </div>
@@ -669,18 +613,18 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
               <Table>
                 <TableHeader>
                   <TableRow className="border-b border-[#e5e7eb]">
-                    <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Product</TableHead>
                     <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Customer</TableHead>
+                    <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Product</TableHead>
                     <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Date</TableHead>
                     <TableHead className="text-right text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Amount</TableHead>
-                    <TableHead className="text-right text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Fee</TableHead>
-                    <TableHead className="text-right text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Net</TableHead>
+                    <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Status</TableHead>
                     <TableHead className="w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {initialOrders.map((order) => (
                     <TableRow key={order.id} className="hover:bg-[#f9fafb] border-b border-[#e5e7eb]/60 last:border-0">
+                      <TableCell className="text-[13px] text-[#6b7280] truncate max-w-[180px]">{order.customer_email}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-3">
                           {order.product?.thumbnail_url ? (
@@ -695,11 +639,18 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
                           </span>
                         </div>
                       </TableCell>
-                      <TableCell className="text-[13px] text-[#6b7280] truncate max-w-[180px]">{order.customer_email}</TableCell>
                       <TableCell className="text-[13px] text-[#6b7280]">{formatDate(order.created_at)}</TableCell>
                       <TableCell className="text-right text-[14px] font-medium text-[#1a1a2e]">{formatPrice(order.amount_cents)}</TableCell>
-                      <TableCell className="text-right text-[13px] text-[#ef4444]">-{formatPrice(order.fee_cents || 0)}</TableCell>
-                      <TableCell className="text-right text-[14px] font-semibold text-[#1a1a2e]">{formatPrice((order.amount_cents || 0) - (order.fee_cents || 0))}</TableCell>
+                      <TableCell>
+                        {order.status === "refunded" ? (
+                          <Badge className="bg-red-50 text-red-600 border-0 text-[11px]">Refunded</Badge>
+                        ) : (
+                          <Badge className="bg-emerald-50 text-emerald-700 border-0 text-[11px]">
+                            <CheckCircle2 className="mr-1 h-3 w-3" />
+                            Completed
+                          </Badge>
+                        )}
+                      </TableCell>
                       <TableCell>
                         <button
                           onClick={() => {
@@ -751,92 +702,6 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
           </div>
         </div>
       </div>
-
-      {/* Payout Settings Dialog */}
-      <Dialog open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen}>
-        <DialogContent className="w-[calc(100%-32px)] max-w-md">
-          <DialogHeader>
-            <DialogTitle>{t("payouts.payoutSettings")}</DialogTitle>
-            <DialogDescription>
-              Configure how and when you receive your earnings
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-6 py-4">
-            <div className="space-y-2">
-              <Label>Payout Schedule</Label>
-              <Select value={payoutSchedule} onValueChange={setPayoutSchedule}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PAYOUT_SCHEDULES.map((schedule) => (
-                    <SelectItem key={schedule.value} value={schedule.value}>
-                      <div>
-                        <span className="font-medium">{schedule.label}</span>
-                        <span className="text-muted-foreground ml-2">- {schedule.description}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="threshold">Minimum Payout Amount ({currency})</Label>
-              <Input
-                id="threshold"
-                type="number"
-                min="0"
-                step="1"
-                value={payoutThreshold}
-                onChange={(e) => setPayoutThreshold(Number(e.target.value))}
-                placeholder="0"
-              />
-              <p className="text-xs text-muted-foreground">
-                Payouts will only be sent when your balance exceeds this amount.
-              </p>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="instant">Instant Payouts</Label>
-                <p className="text-xs text-muted-foreground">
-                  Get funds in minutes (1.5% fee applies)
-                </p>
-              </div>
-              <Switch
-                id="instant"
-                checked={instantPayoutsEnabled}
-                onCheckedChange={setInstantPayoutsEnabled}
-              />
-            </div>
-
-            {instantPayoutsEnabled && (
-              <Alert>
-                <Info className="h-4 w-4" />
-                <AlertDescription>
-                  Instant payouts incur a 1.5% fee. Standard payouts are free.
-                </AlertDescription>
-              </Alert>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSettingsDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSaveSettings} disabled={isSaving}>
-              {isSaving ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                "Save Changes"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Payment Detail — Mobile Bottom Sheet / Desktop Dialog */}
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>

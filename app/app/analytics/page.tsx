@@ -34,7 +34,7 @@ export default async function AnalyticsPage() {
 
   const { data: productsData } = await adminSupabase
     .from("products")
-    .select("id, title")
+    .select("id, title, thumbnail_url")
     .eq("creator_id", creator.id)
 
   const products = productsData || []

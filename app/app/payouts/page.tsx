@@ -48,18 +48,19 @@ export default async function PayoutsPage() {
   let allOrders: any[] = []
 
   if (productIds.length > 0) {
-    // Get all completed orders with product info
+    // Get all orders (completed and refunded) with product info
     const { data: completedOrders } = await supabase
       .from("orders")
       .select("id, amount_cents, fee_cents, created_at, status, customer_email, product_id, stripe_payment_intent_id, product:products(title, thumbnail_url)")
       .in("product_id", productIds)
-      .eq("status", "completed")
+      .in("status", ["completed", "refunded"])
       .order("created_at", { ascending: false })
 
     if (completedOrders) {
       allOrders = completedOrders
-      totalEarnings = completedOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0)
-      totalFees = completedOrders.reduce((sum, o) => sum + (o.fee_cents || 0), 0)
+      const paidOrders = completedOrders.filter(o => o.status === "completed")
+      totalEarnings = paidOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0)
+      totalFees = paidOrders.reduce((sum, o) => sum + (o.fee_cents || 0), 0)
 
       // Calculate pending (orders from last 7 days are pending payout)
       const sevenDaysAgo = new Date()

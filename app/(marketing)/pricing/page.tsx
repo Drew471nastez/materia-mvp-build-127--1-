@@ -91,8 +91,8 @@ export default function PricingPage() {
     <div className="min-h-screen bg-white">
       {/* Hero Section */}
       <section className="relative pt-16 sm:pt-20 pb-10 overflow-hidden">
-        <div className="absolute top-10 left-10 w-72 h-72 bg-neutral-100/30 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 right-10 w-64 h-64 bg-neutral-100/20 rounded-full blur-3xl" />
+        <div className="absolute top-10 left-10 w-72 h-72 bg-violet-100/30 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 right-10 w-64 h-64 bg-pink-100/20 rounded-full blur-3xl" />
         <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 text-center">
           <div className="animate-in fade-in-0 slide-in-from-bottom-1 duration-500">
             <h1 className="text-[32px] sm:text-[42px] lg:text-[48px] font-bold text-[#1a1a2e] tracking-tight mb-4">
@@ -114,20 +114,20 @@ export default function PricingPage() {
                 key={plan.id}
                 className={`relative rounded-2xl p-6 sm:p-7 flex flex-col transition-all duration-200 ${
                   plan.highlight
-                    ? "bg-white border-2 border-[#1a1a2e] shadow-[0_0_24px_-6px_rgba(26,26,46,0.12)] hover:shadow-[0_0_32px_-6px_rgba(26,26,46,0.18)] scale-[1.02]"
+                    ? "bg-white border-2 border-[#7c3aed] shadow-[0_0_24px_-6px_rgba(124,58,237,0.15)] hover:shadow-[0_0_32px_-6px_rgba(124,58,237,0.22)] scale-[1.02]"
                     : "bg-white border-2 border-[#e5e7eb] hover:border-[#d1d5db] shadow-sm hover:shadow-md"
                 }`}
               >
                 {plan.badge === "Most Popular" && (
                   <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
-                    <span className="inline-flex items-center gap-1 px-3.5 py-1 bg-[#1a1a2e] rounded-full text-[11px] font-bold text-white shadow-lg">
+                    <span className="inline-flex items-center gap-1 px-3.5 py-1 bg-[#7c3aed] rounded-full text-[11px] font-bold text-white shadow-lg">
                       Most Popular
                     </span>
                   </div>
                 )}
                 {plan.badge === "Recommended" && (
                   <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
-                    <span className="inline-flex items-center gap-1 px-3.5 py-1 bg-[#1a1a2e] rounded-full text-[11px] font-bold text-white shadow-lg">
+                    <span className="inline-flex items-center gap-1 px-3.5 py-1 bg-[#7c3aed] rounded-full text-[11px] font-bold text-white shadow-lg">
                       Recommended
                     </span>
                   </div>
@@ -160,7 +160,7 @@ export default function PricingPage() {
                   href={plan.href}
                   className={`relative w-full h-12 text-[14px] font-semibold rounded-xl transition-all duration-200 flex items-center justify-center gap-2 mb-6 overflow-hidden ${
                     plan.highlight
-                      ? "bg-[#1a1a2e] hover:bg-[#0f1325] text-white"
+                      ? "bg-[#7c3aed] hover:bg-[#6d28d9] text-white"
                       : "bg-[#1a1a2e] hover:bg-[#0f1325] text-white"
                   }`}
                 >
@@ -180,8 +180,8 @@ export default function PricingPage() {
                 <ul className="space-y-3 flex-1">
                   {plan.features.map((feature) => (
                     <li key={feature} className="flex items-start gap-2.5 text-[13px] text-[#374151]">
-                      <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${plan.highlight ? "bg-[#1a1a2e]" : "bg-[#e5e7eb]"}`}>
-                        <Check className={`h-3 w-3 ${plan.highlight ? "text-white" : "text-[#1a1a2e]"}`} strokeWidth={3} />
+                      <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${plan.highlight ? "bg-[#7c3aed]" : "bg-[#ede9fe]"}`}>
+                        <Check className={`h-3 w-3 ${plan.highlight ? "text-white" : "text-[#7c3aed]"}`} strokeWidth={3} />
                       </div>
                       <span>{feature}</span>
                     </li>
@@ -220,8 +220,8 @@ export default function PricingPage() {
                         return (
                           <td key={planKey} className="px-3 py-3 text-[13px] text-[#374151]">
                             {val === true ? (
-                              <div className="w-5 h-5 rounded-full bg-[#e5e7eb] flex items-center justify-center">
-                                <Check className="h-3 w-3 text-[#1a1a2e]" strokeWidth={3} />
+                              <div className="w-5 h-5 rounded-full bg-[#ede9fe] flex items-center justify-center">
+                                <Check className="h-3 w-3 text-[#7c3aed]" strokeWidth={3} />
                               </div>
                             ) : val === false ? (
                               <span className="text-[#d1d5db]">&mdash;</span>
@@ -262,7 +262,7 @@ export default function PricingPage() {
       {/* CTA Section */}
       <section className="pb-16 sm:pb-20">
         <div className="max-w-5xl mx-auto px-4 sm:px-6">
-          <div className="rounded-2xl border border-neutral-200 bg-neutral-50/60 p-8 sm:p-12 text-center">
+          <div className="rounded-2xl border border-violet-200 bg-violet-50/60 p-8 sm:p-12 text-center">
             <h3 className="text-[24px] sm:text-[28px] font-bold text-[#1a1a2e] mb-3">
               Ready to start selling?
             </h3>
@@ -271,7 +271,7 @@ export default function PricingPage() {
             </p>
             <Link
               href="/signup"
-              className="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl bg-[#1a1a2e] text-white text-[15px] font-semibold hover:bg-[#0f1325] transition-colors"
+              className="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl bg-[#7c3aed] text-white text-[15px] font-semibold hover:bg-[#6d28d9] transition-colors"
             >
               Get Started Free
               <ArrowRight className="h-4 w-4" />
