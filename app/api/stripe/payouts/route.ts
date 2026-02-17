@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
 
 export async function GET() {
   try {
     const supabase = await createClient()
+    const adminSupabase = createAdminClient()
 
     const {
       data: { user },
@@ -12,7 +14,7 @@ export async function GET() {
 
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-    const { data: creator } = await supabase.from("creators").select("*").eq("user_id", user.id).single()
+    const { data: creator } = await adminSupabase.from("creators").select("*").eq("user_id", user.id).single()
     if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 404 })
 
     const stripeAccountId = creator.stripe_account_id

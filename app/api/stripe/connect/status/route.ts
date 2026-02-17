@@ -22,7 +22,7 @@ export async function GET() {
 
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-    const { data: creator } = await supabase.from("creators").select("*").eq("user_id", user.id).single()
+    const { data: creator } = await dbClient.from("creators").select("*").eq("user_id", user.id).single()
     if (!creator) return NextResponse.json({ error: "Creator profile not found" }, { status: 404 })
 
     const stripeAccountId = (creator as any).stripe_account_id || null

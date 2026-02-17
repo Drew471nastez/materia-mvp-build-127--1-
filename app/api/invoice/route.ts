@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 
 export async function GET(request: Request) {
   try {
@@ -11,13 +12,14 @@ export async function GET(request: Request) {
     }
 
     const supabase = await createClient()
+    const adminSupabase = createAdminClient()
     const {
       data: { user },
     } = await supabase.auth.getUser()
 
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-    const { data: creator } = await supabase
+    const { data: creator } = await adminSupabase
       .from("creators")
       .select("id, username, default_currency")
       .eq("user_id", user.id)
@@ -26,7 +28,7 @@ export async function GET(request: Request) {
     if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 404 })
 
     // Fetch order with product info
-    const { data: order, error: orderError } = await supabase
+    const { data: order, error: orderError } = await adminSupabase
       .from("orders")
       .select("*, product:products(id, title, creator_id)")
       .eq("id", orderId)
