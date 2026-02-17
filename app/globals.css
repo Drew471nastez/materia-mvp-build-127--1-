@@ -753,6 +753,16 @@
   pointer-events: none;
 }
 
+/* Button shine animation for pricing CTA */
+@keyframes btn-shine {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -50% 0;
+  }
+}
+
 /* Shimmer animation for skeleton loading */
 @keyframes shimmer {
   0% {

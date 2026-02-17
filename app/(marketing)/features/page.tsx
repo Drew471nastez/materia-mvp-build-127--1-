@@ -70,7 +70,7 @@ export default function FeaturesPage() {
                   key={feature.title}
                   className="group p-6 rounded-2xl bg-white border border-neutral-200 hover:border-neutral-300 hover:shadow-lg transition-all duration-300"
                 >
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center mb-4">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-neutral-800 to-neutral-900 flex items-center justify-center mb-4">
                     <Icon className="w-6 h-6 text-white" />
                   </div>
                   <h3 className="text-lg font-semibold text-neutral-900 mb-2">

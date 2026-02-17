@@ -22,7 +22,7 @@ const BLOG_POSTS: Record<string, {
     category: "Getting Started",
     date: "January 15, 2026",
     readTime: "5 min read",
-    gradient: "from-violet-500 to-purple-500",
+    gradient: "from-neutral-800 to-neutral-900",
     image: "/images/blog/digital-products-2026.svg",
     content: [
       "The digital product economy is booming. In 2026, more creators than ever are turning their skills into passive income streams by selling digital products online. Whether you create templates, courses, ebooks, presets, software tools, or design assets — there's never been a better time to get started.",
@@ -58,7 +58,7 @@ const BLOG_POSTS: Record<string, {
     category: "Creator Tips",
     date: "February 3, 2026",
     readTime: "4 min read",
-    gradient: "from-pink-500 to-rose-500",
+    gradient: "from-neutral-700 to-neutral-800",
     image: "/images/blog/transaction-fees.svg",
     content: [
       "When you're evaluating platforms to sell your digital products, one number matters more than almost anything else: the transaction fee. It might seem like a small detail, but over time, those percentages add up to a massive difference in your earnings.",
@@ -90,6 +90,68 @@ const BLOG_POSTS: Record<string, {
       "Every dollar you save on fees is a dollar you can reinvest in your business. Over the lifetime of your creator career, choosing a low-fee platform like Storelib can mean tens of thousands of dollars in additional earnings. Don't leave money on the table — your work is worth keeping.",
     ],
   },
+  "building-an-audience-before-you-launch": {
+    title: "Building an Audience Before You Launch",
+    excerpt:
+      "The biggest mistake digital product creators make is building in silence. Learn how to cultivate a ready-to-buy audience before your product even exists.",
+    category: "Growth",
+    date: "February 10, 2026",
+    readTime: "6 min read",
+    gradient: "from-neutral-800 to-neutral-700",
+    image: "/images/blog/digital-products-2026.svg",
+    content: [
+      "Most creators spend months perfecting their digital product, then launch it to crickets. No traffic, no sales, no momentum. The problem is not the product — it is the approach. If you wait until launch day to start marketing, you have already lost your biggest advantage: time. Building an audience before you launch is not optional. It is the single highest-leverage activity you can invest in as a digital product creator.",
+      "## Start Before You Are Ready",
+      "You do not need a finished product to start building an audience. In fact, the earlier you start, the better. Begin sharing your journey the moment you decide to create something. Talk about the problem you are solving, the research you are doing, and the decisions you are making along the way. People are drawn to transparency and progress. A simple post like \"I am building a Notion template pack for freelancers — here is what I have learned so far\" can attract exactly the people who will eventually buy from you. Do not wait for perfection. Momentum beats polish every time.",
+      "## Build an Email List From Day One",
+      "Social media followers are rented. An email list is owned. Start collecting email addresses as early as possible, even if you only have a landing page with a description of what you are building. Offer something small in exchange for an email — a free resource, a checklist, a mini version of your product, or simply early access. Tools like Storelib make it easy to set up email collection and send updates to your subscribers. By the time you launch, you will have a list of people who already care about what you are building and are waiting to hear from you.",
+      "## Use Social Media to Tease and Build Anticipation",
+      "Social media is your free megaphone, but only if you use it consistently. Pick one or two platforms where your target audience hangs out and start posting regularly. Share behind-the-scenes content: screenshots of your work in progress, design iterations, problems you solved, and milestones you hit. Create countdown posts as your launch date approaches. Ask questions to involve your audience in decisions — \"Should I include X or Y in the template pack?\" This kind of engagement makes people feel invested in your product before it even exists. When launch day arrives, they are not just aware of your product — they feel like they helped build it.",
+      "## Recruit Beta Users Early",
+      "Beta users are your secret weapon. Before you launch publicly, get your product into the hands of 10 to 20 real users. Offer free or heavily discounted access in exchange for honest feedback and a testimonial. Beta users serve three critical purposes: they help you catch bugs and usability issues you missed, they provide social proof in the form of reviews and quotes you can use on your product page, and they become your first advocates who will spread the word organically. Reach out to people in your network, in relevant online communities, or among your early email subscribers. The feedback you get will make your product significantly better, and the testimonials will make your launch page significantly more convincing.",
+      "## Leverage Content Marketing",
+      "Content marketing is the long game, but it pays off enormously. Start a blog, a YouTube channel, a newsletter, or a Twitter thread series around the topic your product addresses. If you are selling a course on email marketing, write blog posts about email marketing best practices. If you are selling design templates, share design tips and tutorials. This positions you as an expert in your space and builds trust with your audience long before you ask them to buy anything. Every piece of content you publish is a potential entry point for a future customer. Over time, your content library becomes a compounding asset that drives traffic and sales on autopilot.",
+      "## Engage in Communities Where Your Customers Hang Out",
+      "Do not just broadcast — participate. Join Reddit communities, Discord servers, Facebook groups, and forums where your target audience is active. Answer questions, share insights, and be genuinely helpful without constantly promoting your product. When people see you consistently providing value, they naturally become curious about what you are building. Community engagement also gives you invaluable market research. You will learn the exact language your customers use to describe their problems, which you can then mirror in your product descriptions and marketing copy. This is not something you can get from guessing — it comes from listening.",
+      "## Create a Launch Runway",
+      "A launch is not a single day — it is a sequence. Plan a two to four week runway leading up to your launch date. Week one: announce what you are building and why. Week two: share previews and behind-the-scenes content. Week three: open early access or a waitlist. Launch day: go live with a limited-time offer or bonus for early buyers. This runway builds anticipation and ensures that when you finally hit publish, there is already a crowd waiting. Each touchpoint in the sequence warms up your audience a little more, so by launch day, the sale feels like a natural next step rather than a cold pitch.",
+      "## Collaborate With Other Creators",
+      "You do not have to build your audience alone. Find creators in adjacent niches and collaborate. This could be a joint webinar, a guest post swap, a co-created free resource, or simply shouting each other out on social media. Collaboration exposes you to an entirely new audience that already trusts the person recommending you. Look for creators whose audience overlaps with yours but who are not direct competitors. A designer selling icon packs could collaborate with a developer selling website templates — their audiences overlap without competing. These partnerships can accelerate your audience growth faster than almost any solo effort.",
+      "## Consistency Beats Intensity",
+      "The biggest trap in pre-launch audience building is going hard for a week and then disappearing for a month. Consistency matters far more than intensity. Commit to a sustainable pace — three posts per week, one newsletter per week, one community interaction per day — and stick to it. Your audience grows through repeated exposure. People need to see you multiple times before they remember you, trust you, and ultimately buy from you. Set a schedule, batch your content when possible, and treat audience building as a non-negotiable part of your product development process, not something you will get to later.",
+    ],
+  },
+  "pricing-strategies-for-digital-products": {
+    title: "Pricing Strategies That Actually Work for Digital Products",
+    excerpt:
+      "Pricing is one of the hardest decisions a creator faces. Too high and you scare people off. Too low and you leave money on the table. Here is how to find the sweet spot.",
+    category: "Strategy",
+    date: "February 14, 2026",
+    readTime: "7 min read",
+    gradient: "from-neutral-700 to-neutral-900",
+    image: "/images/blog/transaction-fees.svg",
+    content: [
+      "Pricing is where most digital product creators get stuck. You have spent weeks or months building something valuable, and now you have to put a number on it. Price too low and you undervalue your work, attract the wrong customers, and burn out trying to make volume work. Price too high without justification and potential buyers bounce without a second thought. The good news is that pricing is not a guessing game. There are proven strategies that work specifically for digital products, and once you understand them, you can price with confidence.",
+      "## Use Anchoring to Make Your Price Feel Right",
+      "Anchoring is one of the most powerful pricing principles in psychology. The first number a customer sees sets their frame of reference for everything that follows. If you show a $500 course first and then present your $97 product, the $97 feels like a bargain. If the customer sees your $97 product in isolation, they evaluate it differently. You can use anchoring on your product page by referencing the value your product delivers. For example: \"This template saves you 20+ hours of work. At a freelancer rate of $75/hour, that is $1,500 in value — yours for $49.\" The customer is now comparing $49 to $1,500, not evaluating $49 in a vacuum. Anchoring works because humans are terrible at judging absolute value but excellent at comparing relative value.",
+      "## Build Tiered Pricing to Capture Every Segment",
+      "One of the biggest mistakes creators make is offering a single price point. Different customers have different budgets, different needs, and different willingness to pay. Tiered pricing lets you capture value across the entire spectrum. A common structure is three tiers: a basic version with core content, a standard version with additional resources or bonuses, and a premium version with everything plus personal support or exclusive extras. For example, an ebook could be $19 for the PDF, $39 for the PDF plus worksheets and templates, and $79 for the full bundle plus a private Q&A session. The middle tier typically generates the most revenue because it feels like the best value relative to the other options. Tiered pricing is not about tricking people — it is about meeting customers where they are.",
+      "## Launch Discounts: How to Use Them Without Devaluing Your Product",
+      "Launch discounts are a proven way to generate momentum, but they need to be handled carefully. A discount without a clear reason and deadline trains customers to wait for the next sale. The key is to frame your launch discount as a reward for early supporters, not a sign that your product is worth less than the listed price. Use language like \"Launch price: $29 (regular $49) — available for the first 100 buyers only\" or \"Early bird pricing ends Friday.\" This creates urgency and a legitimate reason for the lower price. After the launch window closes, raise the price to the full amount and do not apologize for it. Your product is worth the full price — the discount was a thank-you to the people who took a chance on you early.",
+      "## Value-Based Pricing: Charge for the Outcome, Not the Format",
+      "The biggest pricing mistake creators make is pricing based on the format of the product rather than the outcome it delivers. An ebook is not worth $15 because it is an ebook — it is worth whatever the reader gains from the information inside. If your ebook teaches someone how to land freelance clients and they close a $5,000 project because of it, your ebook was worth far more than $15. Value-based pricing means asking yourself: what is the tangible result my customer gets from this product? How much is that result worth to them? A Notion template that saves a project manager five hours per week is worth hundreds of dollars over a year, even though it took you a weekend to build. Price based on the value delivered, not the time invested or the file format.",
+      "## The Psychology of Price Points",
+      "Specific numbers matter more than you think. There is a reason so many products are priced at $29, $49, and $97 rather than $30, $50, and $100. Prices ending in 7 or 9 consistently outperform round numbers in conversion tests. The difference between $49 and $50 is negligible in real terms, but $49 feels meaningfully cheaper because the customer mentally categorizes it as \"in the forties\" rather than \"fifty dollars.\" For premium products, however, round numbers can actually work better. A $500 course signals confidence and quality in a way that $497 does not. The rule of thumb: use charm pricing (ending in 7 or 9) for products under $100, and consider round numbers for products above $200 where you want to signal premium positioning.",
+      "## When and How to Raise Your Prices",
+      "Most creators keep their prices static for far too long. If your product is selling consistently and you are getting positive feedback, it is time to raise your prices. The fear is always the same — \"what if people stop buying?\" In practice, moderate price increases rarely cause a significant drop in sales volume. A 20% price increase with only a 10% drop in volume still means more revenue. The best time to raise prices is when you add new content or features to your product. This gives you a natural reason to announce the increase and lets existing customers feel like they got a deal by buying at the old price. You can also grandfather in existing customers at the old price while new customers pay the updated rate. Raise your prices at least once a year. If you never raise prices, you are almost certainly leaving money on the table.",
+      "## Competitor Research Without Competitor Copying",
+      "Knowing what others charge in your niche is useful context, but it should not dictate your pricing. If every competitor prices their Figma template kit at $39, that does not mean $39 is the right price for you. Your product might include more templates, better documentation, ongoing updates, or a stronger brand. All of those factors justify a higher price. Use competitor pricing as a data point, not a ceiling. Look at the range of prices in your market, identify where your product fits based on quality and scope, and price accordingly. If your product is genuinely better, charge more and communicate why. Customers who buy on quality rather than price are better customers in every way — they leave fewer refund requests, appreciate your work more, and are more likely to buy from you again.",
+      "## Free Trials, Freemium, and Free Samples",
+      "Giving away part of your product for free is a legitimate pricing strategy when done intentionally. A free sample — like the first chapter of an ebook, a single template from a bundle, or a limited version of a tool — lets potential customers experience your quality before committing money. This reduces perceived risk and increases conversions on the paid version. The key is to make the free sample genuinely useful but incomplete. It should solve a small problem while making the customer aware of the bigger problem your paid product solves. Storelib makes it easy to offer both free and paid products in your store, so you can use free products as a funnel to drive sales of your premium offerings.",
+      "## Test, Iterate, and Do Not Overthink It",
+      "Here is the truth most pricing guides will not tell you: your first price does not have to be perfect. It just has to be reasonable enough to start generating sales and data. Once you have real customers, you can learn from their behavior. Are people buying without hesitation? You might be priced too low. Are people visiting your product page but not converting? Price could be a factor. Are customers consistently saying your product is worth way more than they paid? Raise your prices. Pricing is an ongoing process, not a one-time decision. Set a price, launch, observe, and adjust. The creators who earn the most are not the ones who found the perfect price on day one — they are the ones who kept iterating until the numbers worked.",
+    ],
+  },
 }
 
 const POST_SLUGS = Object.keys(BLOG_POSTS)
@@ -107,7 +169,7 @@ export default function BlogPostPage() {
           <p className="text-neutral-600 mb-6">The blog post you're looking for doesn't exist.</p>
           <Link
             href="/blog"
-            className="inline-flex items-center gap-2 text-violet-600 hover:text-violet-700 font-medium"
+            className="inline-flex items-center gap-2 text-neutral-900 hover:text-neutral-700 font-medium"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to Blog
@@ -143,7 +205,7 @@ export default function BlogPostPage() {
         </div>
 
         {/* Category badge */}
-        <span className="inline-block px-3 py-1 rounded-full text-xs font-medium bg-violet-100 text-violet-700 mb-4">
+        <span className="inline-block px-3 py-1 rounded-full text-xs font-medium bg-neutral-100 text-neutral-700 mb-4">
           {post.category}
         </span>
 
@@ -220,14 +282,14 @@ export default function BlogPostPage() {
           </div>
 
           {/* CTA */}
-          <div className="mt-12 p-6 sm:p-8 bg-gradient-to-r from-violet-50 to-purple-50 rounded-2xl border border-violet-100">
+          <div className="mt-12 p-6 sm:p-8 bg-gradient-to-r from-neutral-50 to-neutral-100 rounded-2xl border border-neutral-200">
             <h3 className="text-lg sm:text-xl font-bold text-neutral-900 mb-2">Ready to start selling?</h3>
             <p className="text-sm sm:text-base text-neutral-600 mb-5">
               Create your free Storelib store and start earning from your digital products today.
             </p>
             <Link
               href="/signup"
-              className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3 rounded-xl text-sm font-semibold bg-violet-600 text-white hover:bg-violet-700 transition-colors"
+              className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3 rounded-xl text-sm font-semibold bg-neutral-900 text-white hover:bg-neutral-800 transition-colors"
             >
               Get Started Free
               <ArrowRight className="w-4 h-4" />
@@ -239,13 +301,13 @@ export default function BlogPostPage() {
             {prevSlug ? (
               <Link
                 href={`/blog/${prevSlug}`}
-                className="group flex flex-col p-4 rounded-xl border border-neutral-200 hover:border-violet-200 hover:bg-violet-50/50 transition-colors"
+                className="group flex flex-col p-4 rounded-xl border border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50 transition-colors"
               >
                 <span className="text-xs text-neutral-500 mb-1 flex items-center gap-1">
                   <ArrowLeft className="w-3 h-3" />
                   Previous
                 </span>
-                <span className="text-sm font-medium text-neutral-900 group-hover:text-violet-700 transition-colors line-clamp-2">
+                <span className="text-sm font-medium text-neutral-900 group-hover:text-neutral-600 transition-colors line-clamp-2">
                   {BLOG_POSTS[prevSlug].title}
                 </span>
               </Link>
@@ -255,13 +317,13 @@ export default function BlogPostPage() {
             {nextSlug ? (
               <Link
                 href={`/blog/${nextSlug}`}
-                className="group flex flex-col items-end text-right p-4 rounded-xl border border-neutral-200 hover:border-violet-200 hover:bg-violet-50/50 transition-colors"
+                className="group flex flex-col items-end text-right p-4 rounded-xl border border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50 transition-colors"
               >
                 <span className="text-xs text-neutral-500 mb-1 flex items-center gap-1">
                   Next
                   <ArrowRight className="w-3 h-3" />
                 </span>
-                <span className="text-sm font-medium text-neutral-900 group-hover:text-violet-700 transition-colors line-clamp-2">
+                <span className="text-sm font-medium text-neutral-900 group-hover:text-neutral-600 transition-colors line-clamp-2">
                   {BLOG_POSTS[nextSlug].title}
                 </span>
               </Link>

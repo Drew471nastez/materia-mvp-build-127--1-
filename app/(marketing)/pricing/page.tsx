@@ -91,22 +91,22 @@ export default function PricingPage() {
     <div className="min-h-screen bg-white">
       {/* Hero Section */}
       <section className="relative pt-16 sm:pt-20 pb-10 overflow-hidden">
-        <div className="absolute top-10 left-10 w-72 h-72 bg-violet-100/30 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 right-10 w-64 h-64 bg-pink-100/20 rounded-full blur-3xl" />
+        <div className="absolute top-10 left-10 w-72 h-72 bg-neutral-100/30 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 right-10 w-64 h-64 bg-neutral-100/20 rounded-full blur-3xl" />
         <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 text-center">
           <div className="animate-in fade-in-0 slide-in-from-bottom-1 duration-500">
             <h1 className="text-[32px] sm:text-[42px] lg:text-[48px] font-bold text-[#1a1a2e] tracking-tight mb-4">
               Pricing
             </h1>
             <p className="text-[15px] sm:text-[17px] text-[#6b7280] max-w-2xl mx-auto">
-              Scale your business with the right plan for you. Start free, upgrade when you're ready.
+              Simple, transparent pricing that grows with you. No hidden fees, no surprises — just more revenue in your pocket.
             </p>
           </div>
         </div>
       </section>
 
       {/* Pricing Cards */}
-      <section className="pb-16 sm:pb-20">
+      <section className="pb-16 sm:pb-20 pt-4">
         <div className="max-w-5xl mx-auto px-4 sm:px-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
             {pricingPlans.map((plan) => (
@@ -114,13 +114,13 @@ export default function PricingPage() {
                 key={plan.id}
                 className={`relative rounded-2xl p-6 sm:p-7 flex flex-col transition-all duration-200 ${
                   plan.highlight
-                    ? "bg-white border border-[#7c3aed]/25 shadow-[0_0_24px_-6px_rgba(124,58,237,0.12)] hover:shadow-[0_0_32px_-6px_rgba(124,58,237,0.18)] ring-1 ring-[#7c3aed]/5 scale-[1.02]"
+                    ? "bg-white border-2 border-[#1a1a2e] shadow-[0_0_24px_-6px_rgba(26,26,46,0.12)] hover:shadow-[0_0_32px_-6px_rgba(26,26,46,0.18)] scale-[1.02]"
                     : "bg-white border-2 border-[#e5e7eb] hover:border-[#d1d5db] shadow-sm hover:shadow-md"
                 }`}
               >
                 {plan.badge === "Most Popular" && (
                   <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
-                    <span className="inline-flex items-center gap-1 px-3.5 py-1 bg-[#7c3aed] rounded-full text-[11px] font-bold text-white shadow-lg">
+                    <span className="inline-flex items-center gap-1 px-3.5 py-1 bg-[#1a1a2e] rounded-full text-[11px] font-bold text-white shadow-lg">
                       Most Popular
                     </span>
                   </div>
@@ -128,7 +128,6 @@ export default function PricingPage() {
                 {plan.badge === "Recommended" && (
                   <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
                     <span className="inline-flex items-center gap-1 px-3.5 py-1 bg-[#1a1a2e] rounded-full text-[11px] font-bold text-white shadow-lg">
-                      <Star className="h-3 w-3 fill-white" />
                       Recommended
                     </span>
                   </div>
@@ -159,21 +158,30 @@ export default function PricingPage() {
 
                 <Link
                   href={plan.href}
-                  className={`w-full h-12 text-[14px] font-semibold rounded-xl transition-all duration-200 flex items-center justify-center gap-2 mb-6 ${
+                  className={`relative w-full h-12 text-[14px] font-semibold rounded-xl transition-all duration-200 flex items-center justify-center gap-2 mb-6 overflow-hidden ${
                     plan.highlight
-                      ? "bg-[#7c3aed] hover:bg-[#6d28d9] text-white"
+                      ? "bg-[#1a1a2e] hover:bg-[#0f1325] text-white"
                       : "bg-[#1a1a2e] hover:bg-[#0f1325] text-white"
                   }`}
                 >
-                  {plan.cta}
-                  <ArrowRight className="h-4 w-4" />
+                  {plan.highlight && (
+                    <span className="absolute inset-0 pointer-events-none" style={{
+                      background: 'linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.15) 45%, rgba(255,255,255,0.25) 50%, rgba(255,255,255,0.15) 55%, transparent 60%)',
+                      backgroundSize: '250% 100%',
+                      animation: 'btn-shine 4s ease-in-out infinite',
+                    }} />
+                  )}
+                  <span className="relative z-10 flex items-center gap-2">
+                    {plan.cta}
+                    <ArrowRight className="h-4 w-4" />
+                  </span>
                 </Link>
 
                 <ul className="space-y-3 flex-1">
                   {plan.features.map((feature) => (
                     <li key={feature} className="flex items-start gap-2.5 text-[13px] text-[#374151]">
-                      <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${plan.highlight ? "bg-[#7c3aed]" : "bg-[#ede9fe]"}`}>
-                        <Check className={`h-3 w-3 ${plan.highlight ? "text-white" : "text-[#7c3aed]"}`} strokeWidth={3} />
+                      <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${plan.highlight ? "bg-[#1a1a2e]" : "bg-[#e5e7eb]"}`}>
+                        <Check className={`h-3 w-3 ${plan.highlight ? "text-white" : "text-[#1a1a2e]"}`} strokeWidth={3} />
                       </div>
                       <span>{feature}</span>
                     </li>
@@ -190,7 +198,7 @@ export default function PricingPage() {
         <div className="max-w-5xl mx-auto px-4 sm:px-6">
           <div className="rounded-2xl border border-[#e5e7eb] bg-white p-5 sm:p-8">
             <div className="mb-6 flex items-center gap-2 text-[#1a1a2e]">
-              <ShieldCheck className="h-5 w-5 text-[#7c3aed]" />
+              <ShieldCheck className="h-5 w-5 text-[#1a1a2e]" />
               <h3 className="text-xl font-semibold">Plan comparison</h3>
             </div>
             <div className="overflow-x-auto -mx-2">
@@ -199,7 +207,7 @@ export default function PricingPage() {
                   <tr className="border-b border-[#e5e7eb]">
                     <th className="px-3 py-3 font-medium text-[#6b7280]">Feature</th>
                     <th className="px-3 py-3 font-medium text-[#6b7280]">Free</th>
-                    <th className="px-3 py-3 font-medium text-[#7c3aed]">Growth</th>
+                    <th className="px-3 py-3 font-semibold text-[#1a1a2e]">Growth</th>
                     <th className="px-3 py-3 font-medium text-[#6b7280]">Professional</th>
                   </tr>
                 </thead>
@@ -212,8 +220,8 @@ export default function PricingPage() {
                         return (
                           <td key={planKey} className="px-3 py-3 text-[13px] text-[#374151]">
                             {val === true ? (
-                              <div className="w-5 h-5 rounded-full bg-[#ede9fe] flex items-center justify-center">
-                                <Check className="h-3 w-3 text-[#7c3aed]" strokeWidth={3} />
+                              <div className="w-5 h-5 rounded-full bg-[#e5e7eb] flex items-center justify-center">
+                                <Check className="h-3 w-3 text-[#1a1a2e]" strokeWidth={3} />
                               </div>
                             ) : val === false ? (
                               <span className="text-[#d1d5db]">&mdash;</span>
@@ -254,7 +262,7 @@ export default function PricingPage() {
       {/* CTA Section */}
       <section className="pb-16 sm:pb-20">
         <div className="max-w-5xl mx-auto px-4 sm:px-6">
-          <div className="rounded-2xl border border-violet-200 bg-violet-50/60 p-8 sm:p-12 text-center">
+          <div className="rounded-2xl border border-neutral-200 bg-neutral-50/60 p-8 sm:p-12 text-center">
             <h3 className="text-[24px] sm:text-[28px] font-bold text-[#1a1a2e] mb-3">
               Ready to start selling?
             </h3>
@@ -263,7 +271,7 @@ export default function PricingPage() {
             </p>
             <Link
               href="/signup"
-              className="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl bg-[#7c3aed] text-white text-[15px] font-semibold hover:bg-[#6d28d9] transition-colors"
+              className="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl bg-[#1a1a2e] text-white text-[15px] font-semibold hover:bg-[#0f1325] transition-colors"
             >
               Get Started Free
               <ArrowRight className="h-4 w-4" />

@@ -724,7 +724,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
       <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
         <SheetContent
           side="left"
-          className="w-[260px] max-w-[85vw] p-0 bg-white border-neutral-200/50 rounded-tr-[-5px] rounded-br-[-5px] top-[calc(68px+env(safe-area-inset-top))] bottom-0 h-auto data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left data-[state=closed]:duration-200 data-[state=open]:duration-300 ease-out shadow-xl"
+          className="w-[260px] max-w-[85vw] p-0 bg-white border-neutral-200/50 rounded-tr-[-5px] rounded-br-[-5px] top-[calc(68px+env(safe-area-inset-top))] bottom-0 h-auto data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left data-[state=closed]:duration-300 data-[state=open]:duration-300 ease-out shadow-xl"
           overlayClassName="top-[calc(68px+env(safe-area-inset-top))]"
           hideCloseButton
         >
@@ -762,7 +762,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           }}
           className={cn(
             "fixed bottom-6 right-4 md:right-6 z-40 flex items-center gap-2 bg-white rounded-full pl-2 pr-3 py-2 md:pl-2.5 md:pr-4 md:py-2.5 shadow-lg border border-neutral-200/70 transition-all duration-200 hover:shadow-xl hover:scale-105 active:scale-95",
-            (pathname.startsWith("/app/settings") || pathname.startsWith("/app/emails")) && "hidden"
+            (pathname.startsWith("/app/settings") || pathname.startsWith("/app/emails")) && "hidden",
+            pathname.startsWith("/app/analytics") && "hidden md:flex"
           )}
         >
           <div className="relative shrink-0 w-8 h-8 md:w-[37px] md:h-[37px]">

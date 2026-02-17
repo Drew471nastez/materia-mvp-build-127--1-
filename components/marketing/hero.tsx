@@ -498,7 +498,7 @@ export function Hero() {
                   <h1 className="text-[22px] sm:text-3xl md:text-[38px] md:leading-[1.2] font-bold text-neutral-900 leading-tight min-h-[2.5em] sm:min-h-[2.4em] flex items-center justify-center">
                     <span>
                       {typedText}
-                      <span className="inline-block w-[3px] h-[0.85em] bg-violet-500 ml-0.5 animate-pulse align-middle rounded-full" />
+                      <span className="inline-block w-[3px] h-[0.85em] bg-neutral-900 ml-0.5 animate-pulse align-middle rounded-full" />
                     </span>
                   </h1>
                 </>
@@ -517,7 +517,7 @@ export function Hero() {
         </Link>
         <Link
           href={isAuthenticated ? "/app" : "/signup"}
-          className="inline-flex items-center gap-2 px-6 sm:px-7 py-2.5 sm:py-3 rounded-full text-sm font-semibold bg-violet-600 text-white hover:bg-violet-700 transition-colors"
+          className="inline-flex items-center gap-2 px-6 sm:px-7 py-2.5 sm:py-3 rounded-full text-sm font-semibold bg-neutral-900 text-white hover:bg-neutral-800 transition-colors"
         >
           {isAuthenticated ? "Dashboard" : "Sign Up"}
           <ArrowRight className="w-3.5 h-3.5" />

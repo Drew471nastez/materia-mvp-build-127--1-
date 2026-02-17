@@ -545,7 +545,7 @@ function LaunchCountdownBar({ onCanonicalNav }: { onCanonicalNav: (e: React.Mous
   }, [])
 
   return (
-    <div className="bg-violet-600 text-white">
+    <div className="bg-[#0a0a0a] text-white">
       <div className="py-2 px-4 md:py-2.5">
         <div className="max-w-[1400px] mx-auto flex items-center justify-center gap-2 md:gap-3 text-center">
           <span className="text-[12px] md:text-[14px] text-white/90">

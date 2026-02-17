@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import Link from "next/link"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -379,6 +379,343 @@ function getDateKey(date: Date | string): string {
   return `${months[d.getMonth()]} ${d.getDate()}`
 }
 
+// Mobile Bottom Sheet for Timeframe selection
+function AnalyticsTimeframeSheet({
+  isOpen,
+  onClose,
+  options,
+  selectedValue,
+  onSelect,
+}: {
+  isOpen: boolean
+  onClose: () => void
+  options: TimeframeOption[]
+  selectedValue: string
+  onSelect: (value: string) => void
+}) {
+  const [isVisible, setIsVisible] = useState(false)
+  const [isAnimating, setIsAnimating] = useState(false)
+  const [dragY, setDragY] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+  const startYRef = useRef(0)
+  const lastYRef = useRef(0)
+  const lastTimeRef = useRef(0)
+  const velocityRef = useRef(0)
+  const sheetRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (isOpen && !isVisible) {
+      setIsVisible(true)
+      document.body.style.overflow = "hidden"
+      document.documentElement.style.overscrollBehavior = 'none'
+      document.body.style.overscrollBehavior = 'none'
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setIsAnimating(true)
+        })
+      })
+    } else if (!isOpen && isVisible) {
+      setIsAnimating(false)
+      document.body.style.overflow = ""
+      document.documentElement.style.overscrollBehavior = ''
+      document.body.style.overscrollBehavior = ''
+      const timer = setTimeout(() => {
+        setIsVisible(false)
+        setDragY(0)
+      }, 400)
+      return () => clearTimeout(timer)
+    }
+    return () => {
+      document.body.style.overflow = ""
+      document.documentElement.style.overscrollBehavior = ''
+      document.body.style.overscrollBehavior = ''
+    }
+  }, [isOpen, isVisible])
+
+  const handleClose = () => {
+    setIsAnimating(false)
+    setIsDragging(false)
+    setDragY(0)
+    velocityRef.current = 0
+    setTimeout(() => {
+      onClose()
+    }, 400)
+  }
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0]
+    const sheetElement = sheetRef.current
+    if (!sheetElement) return
+    const sheetRect = sheetElement.getBoundingClientRect()
+    const touchYInSheet = touch.clientY - sheetRect.top
+    if (touchYInSheet <= 0 || touchYInSheet <= 100) {
+      startYRef.current = touch.clientY
+      lastYRef.current = touch.clientY
+      lastTimeRef.current = Date.now()
+      velocityRef.current = 0
+      setIsDragging(true)
+    }
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging) return
+    const currentY = e.touches[0].clientY
+    const diff = currentY - startYRef.current
+    if (diff > 0) {
+      e.preventDefault()
+      const now = Date.now()
+      const dt = Math.max(1, now - lastTimeRef.current)
+      velocityRef.current = (currentY - lastYRef.current) / dt
+      lastYRef.current = currentY
+      lastTimeRef.current = now
+      const resisted = diff <= 160 ? diff * 0.92 : 147 + (diff - 160) * 0.4
+      setDragY(resisted)
+    }
+  }
+
+  const handleTouchEnd = () => {
+    if (!isDragging) return
+    setIsDragging(false)
+    if (dragY > 92 || velocityRef.current > 0.55) {
+      handleClose()
+    } else {
+      setDragY(0)
+    }
+  }
+
+  if (!isVisible) return null
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] md:hidden"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      <div
+        className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
+        style={{
+          opacity: isAnimating ? 1 : 0,
+          transition: isDragging ? 'none' : 'opacity 400ms cubic-bezier(0.32, 0.72, 0, 1)',
+        }}
+        onClick={handleClose}
+      />
+      <div
+        ref={sheetRef}
+        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
+        style={{
+          transform: isAnimating ? `translate3d(0, ${dragY}px, 0)` : "translate3d(0, 100%, 0)",
+          transition: isDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
+          willChange: 'transform',
+          backfaceVisibility: 'hidden',
+          WebkitBackfaceVisibility: 'hidden',
+        }}
+      >
+        <div className="pt-3 pb-1 flex justify-center cursor-grab active:cursor-grabbing touch-none">
+          <div className="h-[5px] w-10 rounded-full bg-gray-300" />
+        </div>
+        <div className="px-4 pb-4">
+          <h3 className="text-[16px] font-semibold text-[#1a1a2e] mb-4">Select time period</h3>
+          <div className="space-y-1 max-h-[50vh] overflow-y-auto overscroll-contain">
+            {options.map((option) => (
+              <button
+                key={option.value}
+                onClick={() => {
+                  onSelect(option.value)
+                  handleClose()
+                }}
+                className={`w-full text-left px-4 py-3 rounded-xl text-[15px] font-medium transition-colors ${
+                  selectedValue === option.value
+                    ? "bg-[#f3f4f6] text-[#1a1a2e]"
+                    : "text-[#374151] hover:bg-[#f9fafb] active:bg-[#f3f4f6]"
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="h-[env(safe-area-inset-bottom)]" />
+      </div>
+    </div>
+  )
+}
+
+// Mobile Bottom Sheet for Products selection
+function AnalyticsProductsSheet({
+  isOpen,
+  onClose,
+  products,
+  selectedProduct,
+  onSelect,
+}: {
+  isOpen: boolean
+  onClose: () => void
+  products: Product[]
+  selectedProduct: string
+  onSelect: (value: string) => void
+}) {
+  const [isVisible, setIsVisible] = useState(false)
+  const [isAnimating, setIsAnimating] = useState(false)
+  const [dragY, setDragY] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+  const startYRef = useRef(0)
+  const lastYRef = useRef(0)
+  const lastTimeRef = useRef(0)
+  const velocityRef = useRef(0)
+  const sheetRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (isOpen && !isVisible) {
+      setIsVisible(true)
+      document.body.style.overflow = "hidden"
+      document.documentElement.style.overscrollBehavior = 'none'
+      document.body.style.overscrollBehavior = 'none'
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setIsAnimating(true)
+        })
+      })
+    } else if (!isOpen && isVisible) {
+      setIsAnimating(false)
+      document.body.style.overflow = ""
+      document.documentElement.style.overscrollBehavior = ''
+      document.body.style.overscrollBehavior = ''
+      const timer = setTimeout(() => {
+        setIsVisible(false)
+        setDragY(0)
+      }, 400)
+      return () => clearTimeout(timer)
+    }
+    return () => {
+      document.body.style.overflow = ""
+      document.documentElement.style.overscrollBehavior = ''
+      document.body.style.overscrollBehavior = ''
+    }
+  }, [isOpen, isVisible])
+
+  const handleClose = () => {
+    setIsAnimating(false)
+    setIsDragging(false)
+    setDragY(0)
+    velocityRef.current = 0
+    setTimeout(() => {
+      onClose()
+    }, 400)
+  }
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0]
+    const sheetElement = sheetRef.current
+    if (!sheetElement) return
+    const sheetRect = sheetElement.getBoundingClientRect()
+    const touchYInSheet = touch.clientY - sheetRect.top
+    if (touchYInSheet <= 0 || touchYInSheet <= 100) {
+      startYRef.current = touch.clientY
+      lastYRef.current = touch.clientY
+      lastTimeRef.current = Date.now()
+      velocityRef.current = 0
+      setIsDragging(true)
+    }
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging) return
+    const currentY = e.touches[0].clientY
+    const diff = currentY - startYRef.current
+    if (diff > 0) {
+      e.preventDefault()
+      const now = Date.now()
+      const dt = Math.max(1, now - lastTimeRef.current)
+      velocityRef.current = (currentY - lastYRef.current) / dt
+      lastYRef.current = currentY
+      lastTimeRef.current = now
+      const resisted = diff <= 160 ? diff * 0.92 : 147 + (diff - 160) * 0.4
+      setDragY(resisted)
+    }
+  }
+
+  const handleTouchEnd = () => {
+    if (!isDragging) return
+    setIsDragging(false)
+    if (dragY > 92 || velocityRef.current > 0.55) {
+      handleClose()
+    } else {
+      setDragY(0)
+    }
+  }
+
+  if (!isVisible) return null
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] md:hidden"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      <div
+        className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
+        style={{
+          opacity: isAnimating ? 1 : 0,
+          transition: isDragging ? 'none' : 'opacity 400ms cubic-bezier(0.32, 0.72, 0, 1)',
+        }}
+        onClick={handleClose}
+      />
+      <div
+        ref={sheetRef}
+        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
+        style={{
+          transform: isAnimating ? `translate3d(0, ${dragY}px, 0)` : "translate3d(0, 100%, 0)",
+          transition: isDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
+          willChange: 'transform',
+          backfaceVisibility: 'hidden',
+          WebkitBackfaceVisibility: 'hidden',
+        }}
+      >
+        <div className="pt-3 pb-1 flex justify-center cursor-grab active:cursor-grabbing touch-none">
+          <div className="h-[5px] w-10 rounded-full bg-gray-300" />
+        </div>
+        <div className="px-4 pb-4">
+          <h3 className="text-[16px] font-semibold text-[#1a1a2e] mb-4">Select product</h3>
+          <div className="space-y-1 max-h-[50vh] overflow-y-auto overscroll-contain">
+            <button
+              onClick={() => {
+                onSelect("all")
+                handleClose()
+              }}
+              className={`w-full text-left px-4 py-3 rounded-xl text-[15px] font-medium transition-colors ${
+                selectedProduct === "all"
+                  ? "bg-[#f3f4f6] text-[#1a1a2e]"
+                  : "text-[#374151] hover:bg-[#f9fafb] active:bg-[#f3f4f6]"
+              }`}
+            >
+              All products
+            </button>
+            {products.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => {
+                  onSelect(p.id)
+                  handleClose()
+                }}
+                className={`w-full text-left px-4 py-3 rounded-xl text-[15px] font-medium transition-colors truncate ${
+                  selectedProduct === p.id
+                    ? "bg-[#f3f4f6] text-[#1a1a2e]"
+                    : "text-[#374151] hover:bg-[#f9fafb] active:bg-[#f3f4f6]"
+                }`}
+              >
+                {p.title}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="h-[env(safe-area-inset-bottom)]" />
+      </div>
+    </div>
+  )
+}
+
 export function AnalyticsClient({ creatorId, userId, products, initialOrders }: AnalyticsClientProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -390,6 +727,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
   const [isTimeframeOpen, setIsTimeframeOpen] = useState(false)
   const [isProductsOpen, setIsProductsOpen] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState("all")
+  // Mobile bottom sheet states
+  const [isTimeframeSheetOpen, setIsTimeframeSheetOpen] = useState(false)
+  const [isProductsSheetOpen, setIsProductsSheetOpen] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
   const [customStart, setCustomStart] = useState("")
   const [customEnd, setCustomEnd] = useState("")
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
@@ -408,6 +749,14 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
   const [chartViewType, setChartViewType] = useState<"bars" | "line">("line")
   const [chartMetricFilter, setChartMetricFilter] = useState<ChartMetricFilter>("views")
   const [onePageChartFilter, setOnePageChartFilter] = useState<OnePageChartFilter>("views")
+
+  // Detect mobile for bottom sheet usage
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768)
+    checkMobile()
+    window.addEventListener("resize", checkMobile)
+    return () => window.removeEventListener("resize", checkMobile)
+  }, [])
 
   // KPI Modal state
   const [openKPIModal, setOpenKPIModal] = useState<KPIType>(null)
@@ -1638,16 +1987,22 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
         {/* Header with Timeframe, Mode Switcher, and Products */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            {/* Timeframe Dropdown - rounded-xl to match Sales page */}
+            {/* Timeframe Dropdown - bottom sheet on mobile, dropdown on desktop */}
             <div className="relative timeframe-dropdown">
               <button
-                onClick={() => setIsTimeframeOpen(!isTimeframeOpen)}
+                onClick={() => {
+                  if (isMobile) {
+                    setIsTimeframeSheetOpen(true)
+                  } else {
+                    setIsTimeframeOpen(!isTimeframeOpen)
+                  }
+                }}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#e5e7eb] rounded-xl text-[13px] font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors shadow-sm cursor-pointer"
               >
                 {selectedTimeframeOption?.label || "Last 7 days"}
                 <ChevronDown className={`h-4 w-4 text-[#9ca3af] transition-transform duration-200 ${isTimeframeOpen ? "rotate-180" : ""}`} />
               </button>
-              {isTimeframeOpen && (
+              {isTimeframeOpen && !isMobile && (
                 <div className="absolute left-0 top-full mt-2 w-48 bg-white border border-[#e5e7eb] rounded-xl shadow-lg z-50 py-1">
                   {timeframeOptions.map((option) => (
                     <button
@@ -1687,18 +2042,24 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
             </div>
           </div>
 
-          {/* Products Dropdown - Only show for Store Analytics */}
+          {/* Products Dropdown - bottom sheet on mobile, dropdown on desktop */}
           {analyticsMode === "store" && (
             <div className="flex items-center gap-2">
               <div className="relative products-dropdown">
                 <button
-                  onClick={() => setIsProductsOpen(!isProductsOpen)}
+                  onClick={() => {
+                    if (isMobile) {
+                      setIsProductsSheetOpen(true)
+                    } else {
+                      setIsProductsOpen(!isProductsOpen)
+                    }
+                  }}
                   className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#e5e7eb] rounded-xl text-[13px] font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors shadow-sm cursor-pointer"
                 >
                   {selectedProduct === "all" ? "All products" : products.find(p => p.id === selectedProduct)?.title || "All products"}
                   <ChevronDown className={`h-4 w-4 text-[#9ca3af] transition-transform duration-200 ${isProductsOpen ? "rotate-180" : ""}`} />
                 </button>
-                {isProductsOpen && (
+                {isProductsOpen && !isMobile && (
                   <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-[#e5e7eb] rounded-xl shadow-lg z-50 py-1 max-h-[300px] overflow-y-auto">
                     <button
                       onClick={() => { setSelectedProduct("all"); setIsProductsOpen(false) }}
@@ -2785,6 +3146,22 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
         </Card>
 
       </div>
+
+      {/* Mobile Bottom Sheets */}
+      <AnalyticsTimeframeSheet
+        isOpen={isTimeframeSheetOpen}
+        onClose={() => setIsTimeframeSheetOpen(false)}
+        options={timeframeOptions}
+        selectedValue={timeframe}
+        onSelect={(value) => setTimeframe(value)}
+      />
+      <AnalyticsProductsSheet
+        isOpen={isProductsSheetOpen}
+        onClose={() => setIsProductsSheetOpen(false)}
+        products={products}
+        selectedProduct={selectedProduct}
+        onSelect={(value) => setSelectedProduct(value)}
+      />
     </div>
   )
 }
