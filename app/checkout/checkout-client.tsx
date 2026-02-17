@@ -447,6 +447,7 @@ function StripeCardForm({
   productTitle,
   onGooglePaySubmit,
   emailContent,
+  contactContent,
 }: {
   onSubmit: (stripe: any, elements: any) => void
   isSubmitting: boolean
@@ -462,6 +463,7 @@ function StripeCardForm({
   productTitle: string
   onGooglePaySubmit: (paymentMethodId: string) => void
   emailContent?: React.ReactNode
+  contactContent?: React.ReactNode
 }) {
   const stripe = useStripe()
   const elements = useElements()
@@ -592,15 +594,6 @@ function StripeCardForm({
       {/* Email input + marketing opt-in (injected from parent) */}
       {emailContent}
 
-      {/* OR PAY WITH CARD divider + Card Fields */}
-      {!isFree && (
-        <div className="flex items-center gap-3 mb-1">
-          <div className="flex-1 h-px bg-gray-200" />
-          <span className="text-xs text-gray-400 font-medium">OR PAY WITH CARD</span>
-          <div className="flex-1 h-px bg-gray-200" />
-        </div>
-      )}
-
       {/* Card Fields - Renders immediately, no clientSecret needed */}
       {!isFree && (
         <div className="bg-white rounded-2xl border border-gray-200 p-5 space-y-4">
@@ -647,6 +640,9 @@ function StripeCardForm({
           </div>
         </div>
       )}
+
+      {/* Contact Info + VAT (injected from parent) */}
+      {contactContent}
 
       {/* Error message */}
       {error && (
@@ -1130,7 +1126,6 @@ export default function CheckoutPageClient({
           className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20"
           required
         />
-        <p className="text-xs text-gray-400">We&apos;ll send your download link to this email</p>
       </div>
       <div className="flex items-center gap-2.5">
         <Checkbox
@@ -1144,6 +1139,36 @@ export default function CheckoutPageClient({
         </Label>
       </div>
     </div>
+  )
+
+  // Shared contact info + VAT content (rendered inside StripeCardForm via contactContent prop)
+  const contactSectionContent = (idSuffix: string = "") => (
+    <>
+      <section className="bg-white rounded-2xl border border-gray-200 p-5">
+        <h3 className="text-sm font-semibold text-gray-900 mb-4">Contact information</h3>
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor={`firstName${idSuffix}`} className="text-xs font-medium text-gray-600">First Name *</Label>
+              <Input id={`firstName${idSuffix}`} type="text" placeholder="John" value={firstName} onChange={(e) => setFirstName(e.target.value)} className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20" required />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor={`lastName${idSuffix}`} className="text-xs font-medium text-gray-600">Last Name *</Label>
+              <Input id={`lastName${idSuffix}`} type="text" placeholder="Doe" value={lastName} onChange={(e) => setLastName(e.target.value)} className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20" required />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-gray-600">Country</Label>
+            <CountrySelector value={country} onChange={setCountry} />
+          </div>
+        </div>
+      </section>
+      <section className="bg-white rounded-2xl border border-gray-200 p-5">
+        <h3 className="text-sm font-semibold text-gray-900 mb-3">Business VAT ID (optional)</h3>
+        <Input placeholder="e.g. DE123456789" value={vatId} onChange={(e) => setVatId(e.target.value)} className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20" />
+        <p className="text-xs text-gray-400 mt-1.5">Only required for EU B2B transactions</p>
+      </section>
+    </>
   )
 
   // Payment content - Elements renders immediately without clientSecret
@@ -1164,12 +1189,16 @@ export default function CheckoutPageClient({
         productTitle={product.title}
         onGooglePaySubmit={handleGooglePayPayment}
         emailContent={emailSectionContent("")}
+        contactContent={contactSectionContent("")}
       />
     </Elements>
   ) : (
     <div className="space-y-4">
       {/* Email + opt-in for free products */}
       {emailSectionContent("-free")}
+
+      {/* Contact Info + VAT for free products */}
+      {contactSectionContent("-free")}
 
       {/* Terms */}
       <div className="bg-white rounded-2xl border border-gray-200 p-5">
@@ -1235,31 +1264,10 @@ export default function CheckoutPageClient({
           </div>
 
           <div className="flex flex-col gap-5">
-            {/* 1. Payment Elements (Express Checkout → Email + Opt-in → Card → Terms → Pay) */}
+            {/* All content (Express Checkout → Email → Card → Contact Info → VAT → Terms → Pay) */}
             <div>
               {paymentElementsContent}
             </div>
-
-            {/* 2. Contact Information (first name, last name, country) */}
-            <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
-              <h3 className="text-sm font-semibold text-gray-900 mb-4">Contact information</h3>
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="firstName-m" className="text-xs font-medium text-gray-600">First Name *</Label>
-                    <Input id="firstName-m" type="text" placeholder="John" value={firstName} onChange={(e) => setFirstName(e.target.value)} className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20" required />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="lastName-m" className="text-xs font-medium text-gray-600">Last Name *</Label>
-                    <Input id="lastName-m" type="text" placeholder="Doe" value={lastName} onChange={(e) => setLastName(e.target.value)} className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20" required />
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-gray-600">Country</Label>
-                  <CountrySelector value={country} onChange={setCountry} />
-                </div>
-              </div>
-            </section>
 
             {/* Discount - Mobile */}
             <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
@@ -1312,13 +1320,6 @@ export default function CheckoutPageClient({
                 <Switch id="gift" checked={isGift} onCheckedChange={setIsGift} className="shrink-0" />
               </div>
             </section>
-
-            {/* Business VAT ID */}
-            <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3">Business VAT ID (optional)</h3>
-              <Input placeholder="e.g. DE123456789" value={vatId} onChange={(e) => setVatId(e.target.value)} className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20" />
-              <p className="text-xs text-gray-400 mt-1.5">Only required for EU B2B transactions</p>
-            </section>
           </div>
         </div>
       </div>
@@ -1328,40 +1329,8 @@ export default function CheckoutPageClient({
         {/* LEFT HALF - White background */}
         <div className="w-1/2 bg-white">
           <div className="max-w-[640px] ml-auto py-10 px-10 xl:px-16">
-            <div className="flex flex-col gap-5">
-              {/* 1. Payment Elements (Express Checkout → Email + Opt-in → Card → Terms → Pay) */}
-              <div>
-                {paymentElementsContent}
-              </div>
-
-              {/* 2. Contact Information (first name, last name, country — email is above in payment) */}
-              <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
-                <h3 className="text-sm font-semibold text-gray-900 mb-4">Contact information</h3>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="firstName" className="text-xs font-medium text-gray-600">First Name *</Label>
-                      <Input id="firstName" type="text" placeholder="John" value={firstName} onChange={(e) => setFirstName(e.target.value)} className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20" required />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="lastName" className="text-xs font-medium text-gray-600">Last Name *</Label>
-                      <Input id="lastName" type="text" placeholder="Doe" value={lastName} onChange={(e) => setLastName(e.target.value)} className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20" required />
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-medium text-gray-600">Country</Label>
-                    <CountrySelector value={country} onChange={setCountry} />
-                  </div>
-                </div>
-              </section>
-
-              {/* 3. Business VAT ID */}
-              <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">Business VAT ID (optional)</h3>
-                <Input placeholder="e.g. DE123456789" value={vatId} onChange={(e) => setVatId(e.target.value)} className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20" />
-                <p className="text-xs text-gray-400 mt-1.5">Only required for EU B2B transactions</p>
-              </section>
-            </div>
+            {/* All content (Express Checkout → Email → Card → Contact Info → VAT → Terms → Pay) */}
+            {paymentElementsContent}
           </div>
         </div>
 
@@ -1370,7 +1339,7 @@ export default function CheckoutPageClient({
 
         {/* RIGHT HALF - Light gray background, sticky order summary */}
         <div className="w-1/2 bg-[#f7f7f8]">
-          <div className="max-w-[560px] mr-auto py-10 px-10 xl:px-16 sticky top-[57px] max-h-[calc(100vh-57px)] overflow-y-auto">
+          <div className="max-w-[560px] mr-auto py-10 px-10 xl:px-16 sticky top-[57px]">
             {rightColumnContent}
           </div>
         </div>
