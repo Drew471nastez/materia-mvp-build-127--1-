@@ -1339,26 +1339,12 @@ export default function CheckoutPageClient({
 
         {/* RIGHT HALF - Light gray background, sticky order summary */}
         <div className="w-1/2 bg-[#f7f7f8]">
-          <div className="max-w-[560px] mr-auto py-10 px-10 xl:px-16 sticky top-[57px]">
+          <div className="sticky top-[57px] max-w-[560px] mr-auto py-10 px-10 xl:px-16">
             {rightColumnContent}
           </div>
         </div>
       </div>
 
-      {/* Mobile sticky pay button */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 z-50" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
-        <div className="pt-3">
-          <button
-            type="button"
-            disabled={isSubmitting || !isFormValid}
-            className="w-full flex items-center justify-center gap-2 h-13 rounded-2xl text-base font-semibold bg-[#2563eb] hover:bg-[#1d4ed8] text-white shadow-lg shadow-blue-500/20 transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isSubmitting ? (<><Loader2 className="h-5 w-5 animate-spin" />Processing...</>) : isFree ? (<>Get for Free &rarr;</>) : (<>Pay {formatPrice(total)}</>)}
-          </button>
-        </div>
-      </div>
-
-      <div className="lg:hidden h-20" />
 
       {/* Variant Modal */}
       {showVariantModal && selectedVariant && (
