@@ -2,9 +2,11 @@ import { redirect } from "next/navigation"
 import Link from "next/link"
 import { Sparkles } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { PayoutsClient } from "./payouts-client"
 
 export const dynamic = "force-dynamic"
+export const revalidate = 0
 
 export const metadata = {
   title: "Payouts",
@@ -12,6 +14,7 @@ export const metadata = {
 
 export default async function PayoutsPage() {
   const supabase = await createClient()
+  const adminSupabase = createAdminClient()
 
   const {
     data: { user },
@@ -21,7 +24,7 @@ export default async function PayoutsPage() {
     redirect("/login")
   }
 
-  const { data: creator, error: creatorError } = await supabase
+  const { data: creator, error: creatorError } = await adminSupabase
     .from("creators")
     .select("*")
     .eq("user_id", user.id)
@@ -32,9 +35,9 @@ export default async function PayoutsPage() {
   }
 
   // Get products for this creator
-  const { data: productsData } = await supabase
+  const { data: productsData } = await adminSupabase
     .from("products")
-    .select("id")
+    .select("*")
     .eq("creator_id", creator.id)
 
   const products = productsData || []
@@ -48,17 +51,30 @@ export default async function PayoutsPage() {
   let allOrders: any[] = []
 
   if (productIds.length > 0) {
-    // Get all orders (completed and refunded) with product info
-    const { data: completedOrders } = await supabase
+    // Get all orders (completed and refunded) — use select("*") to avoid column-not-found errors
+    const { data: ordersData } = await adminSupabase
       .from("orders")
-      .select("id, amount_cents, fee_cents, created_at, status, customer_email, product_id, stripe_payment_intent_id, refund_reason, refund_amount_cents, refunded_at, stripe_refund_id, product:products(title, thumbnail_url)")
+      .select("*")
       .in("product_id", productIds)
       .in("status", ["completed", "refunded"])
       .order("created_at", { ascending: false })
 
-    if (completedOrders) {
-      allOrders = completedOrders
-      const paidOrders = completedOrders.filter(o => o.status === "completed")
+    if (ordersData) {
+      // Map orders with product info (like sales page does)
+      allOrders = ordersData.map((order) => {
+        const product = products.find((p) => p.id === order.product_id)
+        return {
+          ...order,
+          product: product
+            ? {
+                title: product.title,
+                thumbnail_url: product.thumbnail_url || product.gallery_images?.[0] || null,
+              }
+            : null,
+        }
+      })
+
+      const paidOrders = ordersData.filter((o) => o.status === "completed")
       totalEarnings = paidOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0)
       totalFees = paidOrders.reduce((sum, o) => sum + (o.fee_cents || 0), 0)
 
@@ -66,7 +82,7 @@ export default async function PayoutsPage() {
       const sevenDaysAgo = new Date()
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
 
-      completedOrders.forEach((order) => {
+      paidOrders.forEach((order) => {
         const orderDate = new Date(order.created_at)
         const netAmount = (order.amount_cents || 0) - (order.fee_cents || 0)
         if (orderDate > sevenDaysAgo) {

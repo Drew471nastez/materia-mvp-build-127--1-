@@ -64,15 +64,17 @@ interface OrderPayment {
   fee_cents: number
   created_at: string
   status: string
-  customer_email: string
+  customer_email?: string
+  buyer_email?: string
   product_id: string
   stripe_payment_intent_id?: string
   refund_reason?: string
   refund_amount_cents?: number
   refunded_at?: string
+  stripe_refund_id?: string
   product?: {
     title: string
-    thumbnail_url?: string
+    thumbnail_url?: string | null
   } | null
 }
 
@@ -113,7 +115,9 @@ type ActiveTab = "payouts" | "sales"
 export function PayoutsClient({ creator, initialData, initialOrders = [] }: PayoutsClientProps) {
   const router = useRouter()
   const { t } = useLanguage()
-  const [activeTab, setActiveTab] = useState<ActiveTab>("payouts")
+  const [activeTab, setActiveTab] = useState<ActiveTab>(
+    creator.stripe_onboarding_status === "connected" ? "payouts" : "sales"
+  )
   const [isConnecting, setIsConnecting] = useState(false)
   const [statusLoading, setStatusLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -522,18 +526,18 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
         </div>
       )}
 
-      {/* ═══════ MAIN CONTENT (when Stripe connected) ═══════ */}
-      {isStripeConnected && (
-        <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-          {/* Section header with tab switcher */}
-          <div className="p-5 border-b border-[#e5e7eb]/60">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div>
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e]">Bank Payouts</h3>
-                <p className="text-[13px] text-[#6b7280] mt-0.5">Transfers to your bank account & sales</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="flex gap-1 p-1 bg-[#f3f4f6] rounded-xl">
+      {/* ═══════ MAIN CONTENT — Orders & Payouts ═══════ */}
+      <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+        {/* Section header with tab switcher */}
+        <div className="p-4 sm:p-5 border-b border-[#e5e7eb]/60">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <h3 className="text-[15px] font-semibold text-[#1a1a2e]">Bank Payouts</h3>
+              <p className="text-[13px] text-[#6b7280] mt-0.5">Transfers to your bank account & sales</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex gap-1 p-1 bg-[#f3f4f6] rounded-xl">
+                {isStripeConnected && (
                   <button
                     onClick={() => setActiveTab("payouts")}
                     className={cn(
@@ -546,190 +550,188 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
                     <Landmark className="inline-block mr-1 h-3.5 w-3.5" />
                     Payouts
                   </button>
-                  <button
-                    onClick={() => setActiveTab("sales")}
-                    className={cn(
-                      "px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all",
-                      activeTab === "sales"
-                        ? "bg-white text-[#1a1a2e] shadow-sm"
-                        : "text-[#6b7280] hover:text-[#1a1a2e]"
-                    )}
-                  >
-                    <ShoppingCart className="inline-block mr-1 h-3.5 w-3.5" />
-                    Sales
-                  </button>
-                </div>
-                {activeTab === "payouts" && (
-                  <button onClick={fetchStripePayouts} className="text-[13px] text-[#8b5cf6] hover:text-[#7c3aed] font-medium transition-colors">
-                    {payoutsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Refresh"}
-                  </button>
                 )}
+                <button
+                  onClick={() => setActiveTab("sales")}
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all",
+                    activeTab === "sales"
+                      ? "bg-white text-[#1a1a2e] shadow-sm"
+                      : "text-[#6b7280] hover:text-[#1a1a2e]"
+                  )}
+                >
+                  <ShoppingCart className="inline-block mr-1 h-3.5 w-3.5" />
+                  Sales
+                </button>
               </div>
+              {activeTab === "payouts" && isStripeConnected && (
+                <button onClick={fetchStripePayouts} className="text-[13px] text-[#8b5cf6] hover:text-[#7c3aed] font-medium transition-colors">
+                  {payoutsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Refresh"}
+                </button>
+              )}
             </div>
           </div>
-
-          {/* ═══ Payouts Tab Content ═══ */}
-          {activeTab === "payouts" && (
-            <>
-              {payoutsLoading ? (
-                <div className="p-8 flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-[#9ca3af]" /></div>
-              ) : stripePayouts.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-center px-4">
-                  <div className="p-4 bg-[#f3f4f6] rounded-full mb-4"><Landmark className="h-8 w-8 text-[#9ca3af]" /></div>
-                  <h3 className="font-medium text-[15px] text-[#1a1a2e] mb-1">No payouts yet</h3>
-                  <p className="text-[13px] text-[#6b7280] max-w-sm">Stripe sends payouts to the seller&apos;s bank based on their payout schedule. Once a payout is created, it&apos;ll appear here.</p>
-                </div>
-              ) : (
-                <>
-                  {/* Mobile card view */}
-                  <div className="divide-y divide-[#e5e7eb]/60 sm:hidden">
-                    {stripePayouts.map((payout) => (
-                      <div key={payout.id} className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-[#f3f4f6] flex items-center justify-center shrink-0">
-                              <ArrowDownLeft className="h-4 w-4 text-emerald-600" />
-                            </div>
-                            <div>
-                              <p className="text-[14px] font-medium text-[#1a1a2e]">{formatPrice(payout.amount)}</p>
-                              <p className="text-[12px] text-[#9ca3af]">{formatTimestamp(payout.arrival_date)}</p>
-                            </div>
-                          </div>
-                          <div>{getPayoutStatusBadge(payout.status)}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Desktop table */}
-                  <div className="hidden sm:block">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="border-b border-[#e5e7eb]">
-                          <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Amount</TableHead>
-                          <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Arrival Date</TableHead>
-                          <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Initiated</TableHead>
-                          <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Status</TableHead>
-                          <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Destination</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {stripePayouts.map((payout) => (
-                          <TableRow key={payout.id} className="hover:bg-[#f9fafb] border-b border-[#e5e7eb]/60 last:border-0">
-                            <TableCell className="text-[14px] font-medium text-[#1a1a2e]">{formatPrice(payout.amount)}</TableCell>
-                            <TableCell className="text-[13px] text-[#6b7280]">{formatTimestamp(payout.arrival_date)}</TableCell>
-                            <TableCell className="text-[13px] text-[#6b7280]">{formatTimestamp(payout.created)}</TableCell>
-                            <TableCell>{getPayoutStatusBadge(payout.status)}</TableCell>
-                            <TableCell className="text-[13px] text-[#6b7280]">{payout.destination || "Bank account"}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-
-                  <div className="px-5 py-3 border-t border-[#e5e7eb] text-[12px] text-[#6b7280]">
-                    Showing {stripePayouts.length} payout{stripePayouts.length !== 1 ? "s" : ""}
-                  </div>
-                </>
-              )}
-            </>
-          )}
-
-          {/* ═══ Sales Tab Content ═══ */}
-          {activeTab === "sales" && (
-            <>
-              {initialOrders.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-center px-4">
-                  <div className="p-4 bg-[#f3f4f6] rounded-full mb-4"><Wallet className="h-8 w-8 text-[#9ca3af]" /></div>
-                  <h3 className="font-medium text-[15px] text-[#1a1a2e] mb-1">No sales yet</h3>
-                  <p className="text-[13px] text-[#6b7280] max-w-sm">Once you start making sales, all orders will appear here.</p>
-                </div>
-              ) : (
-                <>
-                  {/* Mobile card view */}
-                  <div className="divide-y divide-[#e5e7eb]/60 sm:hidden">
-                    {initialOrders.map((order) => (
-                      <div key={order.id} className="p-4 cursor-pointer hover:bg-[#f9fafb] transition-colors active:bg-[#f3f4f6]" onClick={() => { setSelectedOrder(order); setDetailOpen(true) }}>
-                        <div className="flex items-center gap-3">
-                          {order.product?.thumbnail_url ? (
-                            <img src={order.product.thumbnail_url} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
-                          ) : (
-                            <div className="w-10 h-10 rounded-lg bg-[#f3f4f6] flex items-center justify-center shrink-0"><Package className="h-4 w-4 text-[#9ca3af]" /></div>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[14px] font-medium text-[#1a1a2e] truncate">{order.product?.title || "Product"}</p>
-                            <p className="text-[12px] text-[#9ca3af] truncate">{order.customer_email}</p>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <div className="flex items-center gap-1.5 justify-end">
-                              <p className="text-[14px] font-semibold text-[#1a1a2e]">{formatPrice(order.amount_cents)}</p>
-                              {order.status === "refunded" && <Badge className="bg-red-50 text-red-600 border-0 text-[9px] px-1.5 py-0">Refunded</Badge>}
-                            </div>
-                            <p className="text-[11px] text-[#9ca3af]">{formatDate(order.created_at)}</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Desktop table */}
-                  <div className="hidden sm:block">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="border-b border-[#e5e7eb]">
-                          <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Customer</TableHead>
-                          <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Product</TableHead>
-                          <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Date</TableHead>
-                          <TableHead className="text-right text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Amount</TableHead>
-                          <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Status</TableHead>
-                          <TableHead className="w-10"></TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {initialOrders.map((order) => (
-                          <TableRow key={order.id} className="hover:bg-[#f9fafb] border-b border-[#e5e7eb]/60 last:border-0">
-                            <TableCell className="text-[13px] text-[#6b7280] truncate max-w-[180px]">{order.customer_email}</TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-3">
-                                {order.product?.thumbnail_url ? (
-                                  <img src={order.product.thumbnail_url} alt="" className="w-8 h-8 rounded-lg object-cover" />
-                                ) : (
-                                  <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center"><Package className="h-3.5 w-3.5 text-[#9ca3af]" /></div>
-                                )}
-                                <span className="text-[14px] font-medium text-[#1a1a2e] truncate max-w-[200px]">{order.product?.title || "Product"}</span>
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-[13px] text-[#6b7280]">{formatDate(order.created_at)}</TableCell>
-                            <TableCell className="text-right text-[14px] font-medium text-[#1a1a2e]">{formatPrice(order.amount_cents)}</TableCell>
-                            <TableCell>
-                              {order.status === "refunded" ? (
-                                <Badge className="bg-red-50 text-red-600 border-0 text-[11px]">Refunded</Badge>
-                              ) : (
-                                <Badge className="bg-emerald-50 text-emerald-700 border-0 text-[11px]"><CheckCircle2 className="mr-1 h-3 w-3" />Completed</Badge>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              <button onClick={() => { setSelectedOrder(order); setDetailOpen(true) }} className="p-1.5 rounded-lg hover:bg-[#f3f4f6] transition-colors">
-                                <Eye className="h-4 w-4 text-[#9ca3af]" />
-                              </button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-
-                  {initialOrders.length > 0 && (
-                    <div className="px-5 py-3 border-t border-[#e5e7eb] text-[12px] text-[#6b7280]">
-                      Showing {initialOrders.length} order{initialOrders.length !== 1 ? "s" : ""}
-                    </div>
-                  )}
-                </>
-              )}
-            </>
-          )}
         </div>
-      )}
+
+        {/* ═══ Payouts Tab Content ═══ */}
+        {activeTab === "payouts" && isStripeConnected && (
+          <>
+            {payoutsLoading ? (
+              <div className="p-8 flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-[#9ca3af]" /></div>
+            ) : stripePayouts.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center px-4">
+                <div className="p-4 bg-[#f3f4f6] rounded-full mb-4"><Landmark className="h-8 w-8 text-[#9ca3af]" /></div>
+                <h3 className="font-medium text-[15px] text-[#1a1a2e] mb-1">No payouts yet</h3>
+                <p className="text-[13px] text-[#6b7280] max-w-sm">Stripe sends payouts to your bank based on your payout schedule. Once a payout is created, it&apos;ll appear here.</p>
+              </div>
+            ) : (
+              <>
+                {/* Mobile card view */}
+                <div className="divide-y divide-[#e5e7eb]/60 sm:hidden">
+                  {stripePayouts.map((payout) => (
+                    <div key={payout.id} className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-[#f3f4f6] flex items-center justify-center shrink-0">
+                            <ArrowDownLeft className="h-4 w-4 text-emerald-600" />
+                          </div>
+                          <div>
+                            <p className="text-[14px] font-medium text-[#1a1a2e]">{formatPrice(payout.amount)}</p>
+                            <p className="text-[12px] text-[#9ca3af]">{formatTimestamp(payout.arrival_date)}</p>
+                          </div>
+                        </div>
+                        <div>{getPayoutStatusBadge(payout.status)}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Desktop table */}
+                <div className="hidden sm:block">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-b border-[#e5e7eb]">
+                        <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Amount</TableHead>
+                        <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Arrival Date</TableHead>
+                        <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Initiated</TableHead>
+                        <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Status</TableHead>
+                        <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Destination</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {stripePayouts.map((payout) => (
+                        <TableRow key={payout.id} className="hover:bg-[#f9fafb] border-b border-[#e5e7eb]/60 last:border-0">
+                          <TableCell className="text-[14px] font-medium text-[#1a1a2e]">{formatPrice(payout.amount)}</TableCell>
+                          <TableCell className="text-[13px] text-[#6b7280]">{formatTimestamp(payout.arrival_date)}</TableCell>
+                          <TableCell className="text-[13px] text-[#6b7280]">{formatTimestamp(payout.created)}</TableCell>
+                          <TableCell>{getPayoutStatusBadge(payout.status)}</TableCell>
+                          <TableCell className="text-[13px] text-[#6b7280]">{payout.destination || "Bank account"}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                <div className="px-5 py-3 border-t border-[#e5e7eb] text-[12px] text-[#6b7280]">
+                  Showing {stripePayouts.length} payout{stripePayouts.length !== 1 ? "s" : ""}
+                </div>
+              </>
+            )}
+          </>
+        )}
+
+        {/* ═══ Sales Tab Content ═══ */}
+        {activeTab === "sales" && (
+          <>
+            {initialOrders.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center px-4">
+                <div className="p-4 bg-[#f3f4f6] rounded-full mb-4"><Wallet className="h-8 w-8 text-[#9ca3af]" /></div>
+                <h3 className="font-medium text-[15px] text-[#1a1a2e] mb-1">No sales yet</h3>
+                <p className="text-[13px] text-[#6b7280] max-w-sm">Once you start making sales, all orders will appear here.</p>
+              </div>
+            ) : (
+              <>
+                {/* Mobile card view */}
+                <div className="divide-y divide-[#e5e7eb]/60 sm:hidden">
+                  {initialOrders.map((order) => (
+                    <div key={order.id} className="p-4 cursor-pointer hover:bg-[#f9fafb] transition-colors active:bg-[#f3f4f6]" onClick={() => { setSelectedOrder(order); setDetailOpen(true) }}>
+                      <div className="flex items-center gap-3">
+                        {order.product?.thumbnail_url ? (
+                          <img src={order.product.thumbnail_url} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
+                        ) : (
+                          <div className="w-10 h-10 rounded-lg bg-[#f3f4f6] flex items-center justify-center shrink-0"><Package className="h-4 w-4 text-[#9ca3af]" /></div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[14px] font-medium text-[#1a1a2e] truncate">{order.product?.title || "Product"}</p>
+                          <p className="text-[12px] text-[#9ca3af] truncate">{order.customer_email || order.buyer_email || "—"}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <div className="flex items-center gap-1.5 justify-end">
+                            <p className="text-[14px] font-semibold text-[#1a1a2e]">{formatPrice(order.amount_cents)}</p>
+                            {order.status === "refunded" && <Badge className="bg-red-50 text-red-600 border-0 text-[9px] px-1.5 py-0">Refunded</Badge>}
+                          </div>
+                          <p className="text-[11px] text-[#9ca3af]">{formatDate(order.created_at)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Desktop table */}
+                <div className="hidden sm:block overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-b border-[#e5e7eb]">
+                        <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Customer</TableHead>
+                        <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Product</TableHead>
+                        <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Date</TableHead>
+                        <TableHead className="text-right text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Amount</TableHead>
+                        <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Status</TableHead>
+                        <TableHead className="w-10"></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {initialOrders.map((order) => (
+                        <TableRow key={order.id} className="hover:bg-[#f9fafb] border-b border-[#e5e7eb]/60 last:border-0 cursor-pointer" onClick={() => { setSelectedOrder(order); setDetailOpen(true) }}>
+                          <TableCell className="text-[13px] text-[#6b7280] truncate max-w-[180px]">{order.customer_email || order.buyer_email || "—"}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              {order.product?.thumbnail_url ? (
+                                <img src={order.product.thumbnail_url} alt="" className="w-8 h-8 rounded-lg object-cover shrink-0" />
+                              ) : (
+                                <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center shrink-0"><Package className="h-3.5 w-3.5 text-[#9ca3af]" /></div>
+                              )}
+                              <span className="text-[14px] font-medium text-[#1a1a2e] truncate max-w-[200px]">{order.product?.title || "Product"}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-[13px] text-[#6b7280] whitespace-nowrap">{formatDate(order.created_at)}</TableCell>
+                          <TableCell className="text-right text-[14px] font-medium text-[#1a1a2e] whitespace-nowrap">{formatPrice(order.amount_cents)}</TableCell>
+                          <TableCell>
+                            {order.status === "refunded" ? (
+                              <Badge className="bg-red-50 text-red-600 border-0 text-[11px]">Refunded</Badge>
+                            ) : (
+                              <Badge className="bg-emerald-50 text-emerald-700 border-0 text-[11px]"><CheckCircle2 className="mr-1 h-3 w-3" />Completed</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <button onClick={(e) => { e.stopPropagation(); setSelectedOrder(order); setDetailOpen(true) }} className="p-1.5 rounded-lg hover:bg-[#f3f4f6] transition-colors">
+                              <Eye className="h-4 w-4 text-[#9ca3af]" />
+                            </button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                <div className="px-5 py-3 border-t border-[#e5e7eb] text-[12px] text-[#6b7280]">
+                  Showing {initialOrders.length} order{initialOrders.length !== 1 ? "s" : ""}
+                </div>
+              </>
+            )}
+          </>
+        )}
+      </div>
 
       {/* Payout Account Card — positioned under Bank Payouts section */}
       {isStripeConnected && (
@@ -790,37 +792,33 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
         </div>
       )}
 
-      {/* Non-connected: show earnings chart and payments table directly */}
-      {!isStripeConnected && (
-        <>
-          {earningsTrend.length > 0 && (
-            <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-              <div className="p-5 border-b border-[#e5e7eb]/60">
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e]">{t("payouts.earningsOverTime")}</h3>
-                <p className="text-[13px] text-[#6b7280] mt-0.5">Revenue from the last 30 days</p>
-              </div>
-              <div className="p-5">
-                <div className="h-[250px] sm:h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={earningsTrend}>
-                      <defs>
-                        <linearGradient id="colorNet2" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
-                          <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                      <XAxis dataKey="date" tick={{ fontSize: 11 }} interval="preserveStartEnd" />
-                      <YAxis tickFormatter={(value) => formatPrice(value)} tick={{ fontSize: 11 }} width={70} />
-                      <Tooltip formatter={(value: number, name: string) => [formatPrice(value), "Net Earnings"]} labelStyle={{ fontWeight: "bold" }} />
-                      <Area type="monotone" dataKey="net" stroke="#8b5cf6" strokeWidth={2} fillOpacity={1} fill="url(#colorNet2)" name="net" />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
+      {/* Earnings Chart — show when there's data */}
+      {earningsTrend.length > 0 && earningsTrend.some(d => d.net > 0) && (
+        <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+          <div className="p-4 sm:p-5 border-b border-[#e5e7eb]/60">
+            <h3 className="text-[15px] font-semibold text-[#1a1a2e]">{t("payouts.earningsOverTime")}</h3>
+            <p className="text-[13px] text-[#6b7280] mt-0.5">Revenue from the last 30 days</p>
+          </div>
+          <div className="p-4 sm:p-5">
+            <div className="h-[220px] sm:h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={earningsTrend}>
+                  <defs>
+                    <linearGradient id="colorNet2" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="date" tick={{ fontSize: 11 }} interval="preserveStartEnd" />
+                  <YAxis tickFormatter={(value) => formatPrice(value)} tick={{ fontSize: 11 }} width={70} />
+                  <Tooltip formatter={(value: number, name: string) => [formatPrice(value), "Net Earnings"]} labelStyle={{ fontWeight: "bold" }} />
+                  <Area type="monotone" dataKey="net" stroke="#8b5cf6" strokeWidth={2} fillOpacity={1} fill="url(#colorNet2)" name="net" />
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
-          )}
-        </>
+          </div>
+        </div>
       )}
 
       {/* Help Section */}
@@ -885,7 +883,7 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
               <div className="space-y-3">
                 <div className="flex items-center justify-between text-[14px]">
                   <span className="text-[#6b7280] flex items-center gap-2"><Mail className="h-4 w-4" /> Customer</span>
-                  <span className="text-[#1a1a2e] font-medium truncate max-w-[180px]">{selectedOrder.customer_email}</span>
+                  <span className="text-[#1a1a2e] font-medium truncate max-w-[180px]">{selectedOrder.customer_email || selectedOrder.buyer_email || "—"}</span>
                 </div>
                 <div className="flex items-center justify-between text-[14px]">
                   <span className="text-[#6b7280] flex items-center gap-2"><Calendar className="h-4 w-4" /> Date</span>
@@ -987,7 +985,7 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
                 )}
                 <div className="flex-1 min-w-0">
                   <p className="text-[14px] font-medium text-[#1a1a2e] truncate">{refundOrder.product?.title || "Product"}</p>
-                  <p className="text-[12px] text-[#9ca3af]">{refundOrder.customer_email}</p>
+                  <p className="text-[12px] text-[#9ca3af]">{refundOrder.customer_email || refundOrder.buyer_email || "—"}</p>
                 </div>
                 <p className="text-[14px] font-semibold text-[#1a1a2e]">{formatPrice(refundOrder.amount_cents)}</p>
               </div>
