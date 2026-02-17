@@ -1769,34 +1769,46 @@ function personalizeContent(content: string, tokens: Record<string, string>): st
 interface SendRefundEmailsParams {
   buyerEmail?: string
   sellerEmail?: string
+  sellerContactEmail?: string
   productTitle: string
   refundAmount: number
   currency: string
   orderId: string
   reason: string
   storeName: string
+  orderDate?: string
+}
+
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/)
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase()
+  return name.slice(0, 2).toUpperCase()
 }
 
 export async function sendRefundEmails(params: SendRefundEmailsParams): Promise<void> {
-  const { buyerEmail, sellerEmail, productTitle, refundAmount, currency, orderId, reason, storeName } = params
+  const { buyerEmail, sellerEmail, sellerContactEmail, productTitle, refundAmount, currency, orderId, reason, storeName, orderDate } = params
 
   const formattedAmount = new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: currency || "USD",
   }).format(refundAmount / 100)
 
-  const refundDate = new Date().toLocaleDateString("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
+  const refundDateFormatted = new Date().toLocaleDateString("en-US", {
+    month: "short",
     day: "numeric",
+    year: "numeric",
   })
 
-  const refundTime = new Date().toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    timeZoneName: "short",
-  })
+  const orderDateFormatted = orderDate
+    ? new Date(orderDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+    : "N/A"
+
+  const sellerInitials = getInitials(storeName || "ST")
+  const escapedStoreName = safeText(storeName || "Store")
+  const escapedProduct = safeText(productTitle)
+  const shortOrderId = `#${orderId.slice(0, 8).toUpperCase()}`
+  const contactEmail = sellerContactEmail || sellerEmail || DEFAULT_SUPPORT
+  const baseUrl = getStableBaseUrl()
 
   // Send buyer refund confirmation
   if (buyerEmail) {
@@ -1805,47 +1817,163 @@ export async function sendRefundEmails(params: SendRefundEmailsParams): Promise<
         () =>
           sendEmail({
             to: buyerEmail,
-            from: buildFromHeader(storeName || PLATFORM_BRAND_NAME),
-            replyTo: sellerEmail || DEFAULT_SUPPORT,
-            subject: `Refund Confirmation — ${formattedAmount} for ${productTitle}`,
+            from: buildFromHeader(escapedStoreName),
+            replyTo: contactEmail,
+            subject: `Your ${formattedAmount} refund has been processed — ${escapedProduct}`,
             html: `<!DOCTYPE html>
 <html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-<body style="margin:0;padding:0;background-color:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f9fafb;padding:40px 20px;">
-    <tr><td align="center">
-      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background-color:#ffffff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;">
-        <tr><td style="padding:32px 32px 24px;">
-          <h1 style="margin:0 0 8px;font-size:20px;font-weight:700;color:#1a1a2e;">Refund Processed</h1>
-          <p style="margin:0;font-size:14px;color:#6b7280;">Your refund has been successfully processed.</p>
-        </td></tr>
-        <tr><td style="padding:0 32px;">
-          <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f9fafb;border-radius:8px;padding:20px;">
-            <tr><td>
-              <p style="margin:0 0 12px;font-size:32px;font-weight:700;color:#1a1a2e;text-align:center;">${formattedAmount}</p>
-              <table width="100%" cellpadding="0" cellspacing="0">
-                <tr><td style="padding:6px 0;font-size:13px;color:#6b7280;">Product</td><td style="padding:6px 0;font-size:13px;color:#1a1a2e;text-align:right;font-weight:500;">${productTitle}</td></tr>
-                <tr><td style="padding:6px 0;font-size:13px;color:#6b7280;">Order ID</td><td style="padding:6px 0;font-size:13px;color:#1a1a2e;text-align:right;font-family:monospace;">${orderId.slice(0, 8)}...</td></tr>
-                <tr><td style="padding:6px 0;font-size:13px;color:#6b7280;">Date</td><td style="padding:6px 0;font-size:13px;color:#1a1a2e;text-align:right;">${refundDate}</td></tr>
-                <tr><td style="padding:6px 0;font-size:13px;color:#6b7280;">Time</td><td style="padding:6px 0;font-size:13px;color:#1a1a2e;text-align:right;">${refundTime}</td></tr>
-                <tr><td style="padding:6px 0;font-size:13px;color:#6b7280;">Reason</td><td style="padding:6px 0;font-size:13px;color:#1a1a2e;text-align:right;">${reason}</td></tr>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Refund Confirmation</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f0eeeb;font-family:-apple-system,'Segoe UI',Helvetica,sans-serif;color:#1a1a1a;-webkit-font-smoothing:antialiased;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f0eeeb;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <!-- Email Card -->
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.04),0 8px 30px rgba(0,0,0,0.06);">
+
+          <!-- Header -->
+          <tr>
+            <td style="padding:36px 36px 28px;border-bottom:1px solid #f0eeeb;">
+              <!-- Seller Info Badge -->
+              <table role="presentation" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+                <tr>
+                  <td style="background:#fafaf8;border:1px solid #eeedea;border-radius:10px;padding:10px 14px;">
+                    <table role="presentation" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="width:32px;height:32px;background:#e8e5e0;border-radius:8px;text-align:center;vertical-align:middle;font-weight:700;font-size:13px;color:#888;">${sellerInitials}</td>
+                        <td style="padding-left:10px;">
+                          <span style="font-size:13.5px;font-weight:600;color:#1a1a1a;letter-spacing:-0.2px;">${escapedStoreName}</span>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
               </table>
-            </td></tr>
-          </table>
-        </td></tr>
-        <tr><td style="padding:24px 32px 32px;">
-          <p style="margin:0;font-size:13px;color:#6b7280;line-height:1.5;">The refund will appear on your original payment method within 5-10 business days, depending on your bank.</p>
-        </td></tr>
-        <tr><td style="padding:0 32px 24px;"><hr style="border:none;border-top:1px solid #e5e7eb;margin:0;"></td></tr>
-        <tr><td style="padding:0 32px 32px;">
-          <p style="margin:0;font-size:12px;color:#9ca3af;text-align:center;">Sent by ${storeName} via ${PLATFORM_BRAND_NAME}</p>
-        </td></tr>
-      </table>
-    </td></tr>
+              <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;letter-spacing:-0.5px;color:#1a1a1a;line-height:1.3;">Your refund has been processed</h1>
+              <p style="margin:0;font-size:14.5px;color:#6b6b6b;line-height:1.55;">We've issued a full refund for your recent purchase. No further action is needed on your end.</p>
+            </td>
+          </tr>
+
+          <!-- Refund Amount Hero -->
+          <tr>
+            <td style="padding:32px 36px;text-align:center;background:#fafaf8;border-bottom:1px solid #f0eeeb;">
+              <p style="margin:0 0 8px;font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px;color:#16a34a;">Refund Amount</p>
+              <p style="margin:0 0 12px;font-size:44px;font-weight:800;letter-spacing:-2px;color:#1a1a1a;line-height:1;">${formattedAmount}</p>
+              <table role="presentation" cellpadding="0" cellspacing="0" align="center">
+                <tr>
+                  <td style="background:#dcfce7;color:#15803d;font-size:12.5px;font-weight:600;padding:6px 16px;border-radius:100px;letter-spacing:0.1px;">
+                    &#10003; Processed
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Refund Details -->
+          <tr>
+            <td style="padding:28px 36px;border-bottom:1px solid #f0eeeb;">
+              <p style="margin:0 0 12px;font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#aaa;">Refund Details</p>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafaf8;border:1px solid #eeedea;border-radius:12px;overflow:hidden;">
+                <tr>
+                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13px;color:#888;font-weight:500;">Product</td>
+                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13.5px;color:#1a1a1a;font-weight:600;text-align:right;">${escapedProduct}</td>
+                </tr>
+                <tr>
+                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13px;color:#888;font-weight:500;">Order date</td>
+                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13.5px;color:#1a1a1a;font-weight:600;text-align:right;">${orderDateFormatted}</td>
+                </tr>
+                <tr>
+                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13px;color:#888;font-weight:500;">Refund date</td>
+                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13.5px;color:#1a1a1a;font-weight:600;text-align:right;">${refundDateFormatted}</td>
+                </tr>
+                <tr>
+                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13px;color:#888;font-weight:500;">Reason</td>
+                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13.5px;color:#1a1a1a;font-weight:600;text-align:right;">${safeText(reason)}</td>
+                </tr>
+                <tr>
+                  <td style="padding:13px 18px;font-size:13px;color:#888;font-weight:500;">Order ID</td>
+                  <td style="padding:13px 18px;font-size:13.5px;color:#1a1a1a;font-weight:600;text-align:right;font-family:monospace;">${shortOrderId}</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Notices -->
+          <tr>
+            <td style="padding:24px 36px;border-bottom:1px solid #f0eeeb;">
+              <!-- Timeline notice -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;margin-bottom:10px;">
+                <tr>
+                  <td style="padding:14px 16px;vertical-align:top;width:30px;">
+                    <span style="font-size:16px;color:#d97706;">&#9200;</span>
+                  </td>
+                  <td style="padding:14px 16px 14px 0;font-size:13.5px;line-height:1.5;color:#92400e;">
+                    Please allow <strong style="color:#78350f;">5–10 business days</strong> for the refund to appear on your statement. Timing depends on your bank or card issuer.
+                  </td>
+                </tr>
+              </table>
+              <!-- Access notice -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafaf8;border:1px solid #eeedea;border-radius:12px;">
+                <tr>
+                  <td style="padding:14px 16px;vertical-align:top;width:30px;">
+                    <span style="font-size:16px;color:#999;">&#9432;</span>
+                  </td>
+                  <td style="padding:14px 16px 14px 0;font-size:13.5px;line-height:1.5;color:#6b6b6b;">
+                    Access to this product's download links has been revoked as part of this refund.
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Support CTA -->
+          <tr>
+            <td style="padding:28px 36px;text-align:center;">
+              <p style="margin:0 0 16px;font-size:13.5px;color:#888;line-height:1.6;">Have questions about this refund?</p>
+              <table role="presentation" cellpadding="0" cellspacing="0" align="center">
+                <tr>
+                  <td style="background:#1a1a1a;border-radius:10px;">
+                    <a href="mailto:${contactEmail}" style="display:inline-block;color:#ffffff;font-size:13.5px;font-weight:600;padding:12px 30px;text-decoration:none;letter-spacing:-0.1px;">Contact ${escapedStoreName}</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background:#fafaf8;padding:28px 36px;text-align:center;border-top:1px solid #f0eeeb;">
+              <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin-bottom:12px;">
+                <tr>
+                  <td><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg" alt="Storelib" height="16" style="height:16px;width:auto;opacity:0.4;" /></td>
+                </tr>
+              </table>
+              <p style="margin:0 0 14px;font-size:11.5px;color:#bbb;line-height:1.65;">
+                This email was sent by ${PLATFORM_BRAND_NAME} on behalf of ${escapedStoreName}.<br>
+                You received this because you made a purchase on storelib.com.
+              </p>
+              <p style="margin:0;font-size:11.5px;color:#aaa;">
+                <a href="${baseUrl}" style="color:#aaa;text-decoration:none;">Storelib.com</a>
+                <span style="color:#ddd;font-size:8px;">&nbsp;&middot;&nbsp;</span>
+                <a href="${baseUrl}/help" style="color:#aaa;text-decoration:none;">Help Center</a>
+                <span style="color:#ddd;font-size:8px;">&nbsp;&middot;&nbsp;</span>
+                <a href="${baseUrl}/terms" style="color:#aaa;text-decoration:none;">Terms</a>
+                <span style="color:#ddd;font-size:8px;">&nbsp;&middot;&nbsp;</span>
+                <a href="${baseUrl}/privacy" style="color:#aaa;text-decoration:none;">Privacy</a>
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
   </table>
 </body>
 </html>`,
-            text: `Refund Processed\n\nYour refund of ${formattedAmount} for "${productTitle}" has been processed.\n\nOrder ID: ${orderId}\nDate: ${refundDate} at ${refundTime}\nReason: ${reason}\n\nThe refund will appear on your original payment method within 5-10 business days.\n\nSent by ${storeName} via ${PLATFORM_BRAND_NAME}`,
+            text: `Your refund has been processed\n\nWe've issued a full refund for your recent purchase from ${escapedStoreName}.\n\nRefund Amount: ${formattedAmount} (Processed)\n\nRefund Details:\n- Product: ${escapedProduct}\n- Order date: ${orderDateFormatted}\n- Refund date: ${refundDateFormatted}\n- Reason: ${reason}\n- Order ID: ${shortOrderId}\n\nPlease allow 5-10 business days for the refund to appear on your statement.\n\nHave questions? Contact ${escapedStoreName} at ${contactEmail}\n\nThis email was sent by ${PLATFORM_BRAND_NAME} on behalf of ${escapedStoreName}.`,
           }),
         MAX_RETRIES,
         "buyer refund email"
@@ -1865,44 +1993,165 @@ export async function sendRefundEmails(params: SendRefundEmailsParams): Promise<
             to: sellerEmail,
             from: buildFromHeader(PLATFORM_BRAND_NAME),
             replyTo: DEFAULT_SUPPORT,
-            subject: `Refund Issued — ${formattedAmount} for ${productTitle}`,
+            subject: `Refund Issued — ${formattedAmount} for ${escapedProduct}`,
             html: `<!DOCTYPE html>
 <html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-<body style="margin:0;padding:0;background-color:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f9fafb;padding:40px 20px;">
-    <tr><td align="center">
-      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background-color:#ffffff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;">
-        <tr><td style="padding:32px 32px 24px;">
-          <h1 style="margin:0 0 8px;font-size:20px;font-weight:700;color:#1a1a2e;">Refund Issued</h1>
-          <p style="margin:0;font-size:14px;color:#6b7280;">A refund has been processed for one of your orders.</p>
-        </td></tr>
-        <tr><td style="padding:0 32px;">
-          <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f9fafb;border-radius:8px;padding:20px;">
-            <tr><td>
-              <p style="margin:0 0 12px;font-size:28px;font-weight:700;color:#ef4444;text-align:center;">-${formattedAmount}</p>
-              <table width="100%" cellpadding="0" cellspacing="0">
-                <tr><td style="padding:6px 0;font-size:13px;color:#6b7280;">Product</td><td style="padding:6px 0;font-size:13px;color:#1a1a2e;text-align:right;font-weight:500;">${productTitle}</td></tr>
-                <tr><td style="padding:6px 0;font-size:13px;color:#6b7280;">Customer</td><td style="padding:6px 0;font-size:13px;color:#1a1a2e;text-align:right;">${buyerEmail || "N/A"}</td></tr>
-                <tr><td style="padding:6px 0;font-size:13px;color:#6b7280;">Order ID</td><td style="padding:6px 0;font-size:13px;color:#1a1a2e;text-align:right;font-family:monospace;">${orderId.slice(0, 8)}...</td></tr>
-                <tr><td style="padding:6px 0;font-size:13px;color:#6b7280;">Reason</td><td style="padding:6px 0;font-size:13px;color:#1a1a2e;text-align:right;">${reason}</td></tr>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Refund Issued</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f0eeeb;font-family:-apple-system,'Segoe UI',Helvetica,sans-serif;color:#1a1a1a;-webkit-font-smoothing:antialiased;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f0eeeb;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <!-- Email Card -->
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.04),0 8px 30px rgba(0,0,0,0.06);">
+
+          <!-- Header -->
+          <tr>
+            <td style="padding:36px 36px 28px;border-bottom:1px solid #f0eeeb;">
+              <!-- Storelib Badge -->
+              <table role="presentation" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+                <tr>
+                  <td style="background:#fafaf8;border:1px solid #eeedea;border-radius:10px;padding:10px 14px;">
+                    <table role="presentation" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg" alt="Storelib" height="20" style="height:20px;width:auto;" /></td>
+                        <td style="padding-left:10px;">
+                          <span style="font-size:13.5px;font-weight:600;color:#1a1a1a;letter-spacing:-0.2px;">${PLATFORM_BRAND_NAME}</span>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
               </table>
-            </td></tr>
-          </table>
-        </td></tr>
-        <tr><td style="padding:24px 32px 32px;">
-          <p style="margin:0;font-size:13px;color:#6b7280;line-height:1.5;">This amount will be deducted from your next payout. You can view refund details in your Payouts dashboard.</p>
-        </td></tr>
-        <tr><td style="padding:0 32px 24px;"><hr style="border:none;border-top:1px solid #e5e7eb;margin:0;"></td></tr>
-        <tr><td style="padding:0 32px 32px;">
-          <p style="margin:0;font-size:12px;color:#9ca3af;text-align:center;">${PLATFORM_BRAND_NAME} — Payout Notification</p>
-        </td></tr>
-      </table>
-    </td></tr>
+              <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;letter-spacing:-0.5px;color:#1a1a1a;line-height:1.3;">A refund has been issued</h1>
+              <p style="margin:0;font-size:14.5px;color:#6b6b6b;line-height:1.55;">A refund was processed for one of your orders. This amount will be deducted from your next payout.</p>
+            </td>
+          </tr>
+
+          <!-- Refund Amount Hero -->
+          <tr>
+            <td style="padding:32px 36px;text-align:center;background:#fef8f8;border-bottom:1px solid #f0eeeb;">
+              <p style="margin:0 0 8px;font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px;color:#dc2626;">Refund Amount</p>
+              <p style="margin:0 0 12px;font-size:44px;font-weight:800;letter-spacing:-2px;color:#dc2626;line-height:1;">-${formattedAmount}</p>
+              <table role="presentation" cellpadding="0" cellspacing="0" align="center">
+                <tr>
+                  <td style="background:#fee2e2;color:#b91c1c;font-size:12.5px;font-weight:600;padding:6px 16px;border-radius:100px;letter-spacing:0.1px;">
+                    Deducted from payout
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Refund Details -->
+          <tr>
+            <td style="padding:28px 36px;border-bottom:1px solid #f0eeeb;">
+              <p style="margin:0 0 12px;font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#aaa;">Refund Details</p>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafaf8;border:1px solid #eeedea;border-radius:12px;overflow:hidden;">
+                <tr>
+                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13px;color:#888;font-weight:500;">Product</td>
+                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13.5px;color:#1a1a1a;font-weight:600;text-align:right;">${escapedProduct}</td>
+                </tr>
+                <tr>
+                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13px;color:#888;font-weight:500;">Customer</td>
+                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13.5px;color:#1a1a1a;font-weight:600;text-align:right;">${buyerEmail || "N/A"}</td>
+                </tr>
+                <tr>
+                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13px;color:#888;font-weight:500;">Order date</td>
+                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13.5px;color:#1a1a1a;font-weight:600;text-align:right;">${orderDateFormatted}</td>
+                </tr>
+                <tr>
+                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13px;color:#888;font-weight:500;">Refund date</td>
+                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13.5px;color:#1a1a1a;font-weight:600;text-align:right;">${refundDateFormatted}</td>
+                </tr>
+                <tr>
+                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13px;color:#888;font-weight:500;">Reason</td>
+                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13.5px;color:#1a1a1a;font-weight:600;text-align:right;">${safeText(reason)}</td>
+                </tr>
+                <tr>
+                  <td style="padding:13px 18px;font-size:13px;color:#888;font-weight:500;">Order ID</td>
+                  <td style="padding:13px 18px;font-size:13.5px;color:#1a1a1a;font-weight:600;text-align:right;font-family:monospace;">${shortOrderId}</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Notices -->
+          <tr>
+            <td style="padding:24px 36px;border-bottom:1px solid #f0eeeb;">
+              <!-- Payout notice -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fef8f8;border:1px solid #fecaca;border-radius:12px;margin-bottom:10px;">
+                <tr>
+                  <td style="padding:14px 16px;vertical-align:top;width:30px;">
+                    <span style="font-size:16px;color:#dc2626;">&#9888;</span>
+                  </td>
+                  <td style="padding:14px 16px 14px 0;font-size:13.5px;line-height:1.5;color:#991b1b;">
+                    <strong style="color:#7f1d1d;">${formattedAmount}</strong> will be deducted from your next payout. If no future payout covers the amount, it may be debited from your bank account.
+                  </td>
+                </tr>
+              </table>
+              <!-- Dashboard notice -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafaf8;border:1px solid #eeedea;border-radius:12px;">
+                <tr>
+                  <td style="padding:14px 16px;vertical-align:top;width:30px;">
+                    <span style="font-size:16px;color:#999;">&#9432;</span>
+                  </td>
+                  <td style="padding:14px 16px 14px 0;font-size:13.5px;line-height:1.5;color:#6b6b6b;">
+                    You can view full refund details and payout impact in your Payouts dashboard.
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Dashboard CTA -->
+          <tr>
+            <td style="padding:28px 36px;text-align:center;">
+              <p style="margin:0 0 16px;font-size:13.5px;color:#888;line-height:1.6;">Review this refund in your dashboard</p>
+              <table role="presentation" cellpadding="0" cellspacing="0" align="center">
+                <tr>
+                  <td style="background:#1a1a1a;border-radius:10px;">
+                    <a href="${baseUrl}/dashboard/payouts" style="display:inline-block;color:#ffffff;font-size:13.5px;font-weight:600;padding:12px 30px;text-decoration:none;letter-spacing:-0.1px;">View Payouts</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background:#fafaf8;padding:28px 36px;text-align:center;border-top:1px solid #f0eeeb;">
+              <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin-bottom:12px;">
+                <tr>
+                  <td><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg" alt="Storelib" height="16" style="height:16px;width:auto;opacity:0.4;" /></td>
+                </tr>
+              </table>
+              <p style="margin:0 0 14px;font-size:11.5px;color:#bbb;line-height:1.65;">
+                This is an automated notification from ${PLATFORM_BRAND_NAME}.<br>
+                You received this because a refund was issued on your store.
+              </p>
+              <p style="margin:0;font-size:11.5px;color:#aaa;">
+                <a href="${baseUrl}" style="color:#aaa;text-decoration:none;">Storelib.com</a>
+                <span style="color:#ddd;font-size:8px;">&nbsp;&middot;&nbsp;</span>
+                <a href="${baseUrl}/help" style="color:#aaa;text-decoration:none;">Help Center</a>
+                <span style="color:#ddd;font-size:8px;">&nbsp;&middot;&nbsp;</span>
+                <a href="${baseUrl}/terms" style="color:#aaa;text-decoration:none;">Terms</a>
+                <span style="color:#ddd;font-size:8px;">&nbsp;&middot;&nbsp;</span>
+                <a href="${baseUrl}/privacy" style="color:#aaa;text-decoration:none;">Privacy</a>
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
   </table>
 </body>
 </html>`,
-            text: `Refund Issued\n\nA refund of ${formattedAmount} has been processed for "${productTitle}".\n\nCustomer: ${buyerEmail || "N/A"}\nOrder ID: ${orderId}\nReason: ${reason}\n\nThis amount will be deducted from your next payout.\n\n${PLATFORM_BRAND_NAME}`,
+            text: `Refund Issued\n\nA refund of ${formattedAmount} has been issued for "${escapedProduct}".\n\nRefund Details:\n- Product: ${escapedProduct}\n- Customer: ${buyerEmail || "N/A"}\n- Order date: ${orderDateFormatted}\n- Refund date: ${refundDateFormatted}\n- Reason: ${reason}\n- Order ID: ${shortOrderId}\n\n${formattedAmount} will be deducted from your next payout.\n\nView details: ${baseUrl}/dashboard/payouts\n\n${PLATFORM_BRAND_NAME}`,
           }),
         MAX_RETRIES,
         "seller refund email"

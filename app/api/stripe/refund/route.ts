@@ -117,16 +117,30 @@ export async function POST(request: Request) {
 
     // Send refund notification emails
     try {
-      const { sendRefundEmails } = await import("@/lib/email")
+      const { sendRefundEmails, resolveCreatorIdentity } = await import("@/lib/email")
+
+      // Resolve proper creator display name and email
+      let storeName = creator.username || "Store"
+      let sellerContactEmail = user.email || ""
+      try {
+        const identity = await resolveCreatorIdentity(dbClient, creator.id)
+        storeName = identity.fromName || storeName
+        sellerContactEmail = identity.sellerEmail || sellerContactEmail
+      } catch (identityErr) {
+        console.log("[Refund] Could not resolve creator identity, using fallback:", identityErr)
+      }
+
       await sendRefundEmails({
         buyerEmail: order.customer_email || order.buyer_email,
         sellerEmail: user.email,
+        sellerContactEmail,
         productTitle: product.title,
         refundAmount: refundAmountCents,
         currency: creator.default_currency || "USD",
         orderId,
         reason: reason || "Requested by seller",
-        storeName: creator.username || "Store",
+        storeName,
+        orderDate: order.created_at || order.order_date,
       })
     } catch (emailErr) {
       console.error("[Refund] Email notification failed:", emailErr)
