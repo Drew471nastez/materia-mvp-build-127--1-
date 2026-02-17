@@ -47,8 +47,6 @@ export default async function PayoutsPage() {
   // Calculate totals from orders and fetch all completed orders with details
   let totalEarnings = 0
   let totalFees = 0
-  let pendingAmount = 0
-  let availableBalance = 0
   let allOrders: any[] = []
 
   if (productIds.length > 0) {
@@ -103,6 +101,7 @@ export default async function PayoutsPage() {
             ? {
                 title: product.title,
                 thumbnail_url: product.thumbnail_url || product.gallery_images?.[0] || null,
+                type: product.type || null,
               }
             : null,
         }

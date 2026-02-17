@@ -49,6 +49,11 @@ import {
   Copy,
   Check,
   Send,
+  MapPin,
+  Monitor,
+  Smartphone,
+  Tablet,
+  UserX,
 } from "lucide-react"
 import { useLanguage } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
@@ -85,9 +90,15 @@ interface OrderPayment {
   payment_method?: string
   card_brand?: string | null
   card_last4?: string | null
+  paypal_email?: string
+  buyer_country?: string
+  buyer_device_type?: string
+  buyer_os?: string
+  buyer_browser?: string
   product?: {
     title: string
     thumbnail_url?: string | null
+    type?: string
   } | null
 }
 
@@ -441,6 +452,7 @@ function OrderDetailsModal({
 
   const coverImage = selectedOrder.product?.thumbnail_url
   const productTitle = selectedOrder.product?.title || "Unknown Product"
+  const productType = selectedOrder.product?.type || "Digital Product"
 
   if (typeof window === "undefined") return null
 
@@ -496,18 +508,26 @@ function OrderDetailsModal({
               </h3>
               <div className="grid grid-cols-2 gap-3 text-[13px]">
                 <div>
-                  <span className="text-[#6b7280]">Email</span>
-                  <p className="font-medium text-[#1a1a2e] break-all">
-                    {selectedOrder.customer_email || selectedOrder.buyer_email || "N/A"}
-                  </p>
-                </div>
-                <div>
                   <span className="text-[#6b7280]">Name</span>
                   <p className="font-medium text-[#1a1a2e]">
                     {selectedOrder.buyer_first_name && selectedOrder.buyer_last_name
                       ? `${selectedOrder.buyer_first_name} ${selectedOrder.buyer_last_name}`
                       : "Unknown"}
                   </p>
+                </div>
+                <div>
+                  <span className="text-[#6b7280]">Email</span>
+                  <p className="font-medium text-[#1a1a2e] break-all">
+                    {selectedOrder.customer_email || selectedOrder.buyer_email || "N/A"}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[#6b7280]">First Name</span>
+                  <p className="font-medium text-[#1a1a2e]">{selectedOrder.buyer_first_name || "N/A"}</p>
+                </div>
+                <div>
+                  <span className="text-[#6b7280]">Last Name</span>
+                  <p className="font-medium text-[#1a1a2e]">{selectedOrder.buyer_last_name || "N/A"}</p>
                 </div>
               </div>
             </div>
@@ -528,6 +548,7 @@ function OrderDetailsModal({
                 )}
                 <div>
                   <p className="font-medium text-[#1a1a2e]">{productTitle}</p>
+                  <p className="text-[12px] text-[#6b7280] capitalize">{productType}</p>
                 </div>
               </div>
             </div>
@@ -551,19 +572,56 @@ function OrderDetailsModal({
                   <span className="text-[#6b7280]">Payment Method</span>
                   <p className="font-medium text-[#1a1a2e] capitalize">
                     {selectedOrder.payment_method === "card" && selectedOrder.card_brand ? (
-                      <span className="flex items-center gap-1">
+                      <span className="flex items-center gap-1.5">
                         <span className="capitalize">{selectedOrder.card_brand}</span>
                         {selectedOrder.card_last4 && <span className="text-[#6b7280]">•••• {selectedOrder.card_last4}</span>}
                       </span>
-                    ) : selectedOrder.payment_method || "Card"}
+                    ) : selectedOrder.payment_method === "paypal" ? "PayPal" : selectedOrder.payment_method === "free" ? "Free" : selectedOrder.payment_method || "Card"}
                   </p>
                 </div>
                 <div>
                   <span className="text-[#6b7280]">Net Revenue</span>
                   <p className="font-medium text-[#1a1a2e]">{formatPrice(selectedOrder.amount_cents - (selectedOrder.fee_cents || 0))}</p>
                 </div>
+                {selectedOrder.payment_method === "paypal" && selectedOrder.paypal_email && (
+                  <div className="col-span-2">
+                    <span className="text-[#6b7280]">PayPal Email</span>
+                    <p className="font-medium text-[#1a1a2e] break-all">{selectedOrder.paypal_email}</p>
+                  </div>
+                )}
               </div>
             </div>
+
+            {/* Location Info */}
+            {selectedOrder.buyer_country && (
+              <div className="bg-[#f9fafb] rounded-xl p-4 space-y-3">
+                <h3 className="text-[13px] font-semibold text-[#1a1a2e] flex items-center gap-2">
+                  <MapPin className="h-4 w-4 text-[#8b5cf6]" />
+                  Location
+                </h3>
+                <div className="text-[13px]">
+                  <span className="text-[#6b7280]">Country</span>
+                  <p className="font-medium text-[#1a1a2e]">
+                    {selectedOrder.buyer_country}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Device Info */}
+            {(selectedOrder.buyer_device_type || selectedOrder.buyer_os || selectedOrder.buyer_browser) && (
+              <div className="bg-[#f9fafb] rounded-xl p-4 space-y-3">
+                <h3 className="text-[13px] font-semibold text-[#1a1a2e] flex items-center gap-2">
+                  {selectedOrder.buyer_device_type === "Mobile" ? <Smartphone className="h-4 w-4 text-[#8b5cf6]" /> : selectedOrder.buyer_device_type === "Tablet" ? <Tablet className="h-4 w-4 text-[#8b5cf6]" /> : <Monitor className="h-4 w-4 text-[#8b5cf6]" />}
+                  Device Information
+                </h3>
+                <div className="grid grid-cols-3 gap-3 text-[13px]">
+                  {selectedOrder.buyer_device_type && <div><span className="text-[#6b7280]">Device</span><p className="font-medium text-[#1a1a2e]">{selectedOrder.buyer_device_type}</p></div>}
+                  {selectedOrder.buyer_os && <div><span className="text-[#6b7280]">OS</span><p className="font-medium text-[#1a1a2e]">{selectedOrder.buyer_os}</p></div>}
+                  {selectedOrder.buyer_browser && <div><span className="text-[#6b7280]">Browser</span><p className="font-medium text-[#1a1a2e]">{selectedOrder.buyer_browser}</p></div>}
+                </div>
+              </div>
+            )}
 
             {/* Order Date & Time */}
             <div className="bg-[#f9fafb] rounded-xl p-4 space-y-3">
@@ -572,6 +630,25 @@ function OrderDetailsModal({
                 Order Date & Time
               </h3>
               <p className="text-[13px] font-medium text-[#1a1a2e]">{formatFullDate(selectedOrder.created_at)}</p>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleResendReceipt(selectedOrder)}
+                className="flex-1 px-4 py-2.5 text-[13px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg hover:bg-[#e5e7eb] transition-colors flex items-center justify-center gap-2"
+              >
+                <Send className="h-4 w-4" />
+                Resend Receipt
+                <span className="text-[11px] text-[#9ca3af]">({receiptResendCounts[selectedOrder.id] || 0}/5)</span>
+              </button>
+              <button
+                onClick={() => handleUnsubscribe(selectedOrder)}
+                className="flex-1 px-4 py-2.5 text-[13px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg hover:bg-[#e5e7eb] transition-colors flex items-center justify-center gap-2"
+              >
+                <UserX className="h-4 w-4" />
+                Unsubscribe
+              </button>
             </div>
           </div>
 
@@ -586,7 +663,7 @@ function OrderDetailsModal({
           )}
 
           {/* Desktop Footer */}
-          <div className="sticky bottom-0 bg-white border-t border-[#e5e7eb] px-6 py-4 space-y-2">
+          <div className="sticky bottom-0 bg-white border-t border-[#e5e7eb] px-6 py-4 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <button
                 onClick={() => handleDownloadInvoice(selectedOrder)}
@@ -597,45 +674,27 @@ function OrderDetailsModal({
                 {invoiceLoading ? "Loading..." : "Invoice"}
               </button>
               <button
-                onClick={() => handleResendReceipt(selectedOrder)}
+                onClick={() => { handleClose(); setTimeout(() => handleEditEmail(selectedOrder), 450) }}
                 className="px-4 py-2 text-[13px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg hover:bg-[#e5e7eb] transition-colors flex items-center gap-2"
               >
-                <Send className="h-4 w-4" />
-                Resend Receipt ({receiptResendCounts[selectedOrder.id] || 0}/5)
+                <Mail className="h-4 w-4" />
+                Edit Email
               </button>
             </div>
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => { handleClose(); setTimeout(() => handleEditEmail(selectedOrder), 450) }}
-                  className="px-4 py-2 text-[13px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg hover:bg-[#e5e7eb] transition-colors flex items-center gap-2"
-                >
-                  <Mail className="h-4 w-4" />
-                  Edit Email
-                </button>
-                <button
-                  onClick={() => handleUnsubscribe(selectedOrder)}
-                  className="px-4 py-2 text-[13px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg hover:bg-[#e5e7eb] transition-colors flex items-center gap-2"
-                >
-                  <XCircle className="h-4 w-4" />
-                  Unsubscribe
-                </button>
-              </div>
-              {selectedOrder.status === "completed" ? (
-                <button
-                  onClick={() => { handleClose(); setTimeout(() => handleOpenRefund(selectedOrder), 450) }}
-                  className="px-4 py-2 text-[13px] font-medium text-rose-600 bg-rose-50 rounded-lg hover:bg-rose-100 transition-colors flex items-center gap-2"
-                >
-                  <RotateCcw className="h-4 w-4" />
-                  Issue Refund
-                </button>
-              ) : selectedOrder.status === "refunded" ? (
-                <span className="px-4 py-2 text-[13px] font-medium text-rose-400 bg-rose-50 rounded-lg flex items-center gap-2 cursor-not-allowed opacity-70">
-                  <RotateCcw className="h-4 w-4" />
-                  Refunded
-                </span>
-              ) : null}
-            </div>
+            {selectedOrder.status === "completed" ? (
+              <button
+                onClick={() => { handleClose(); setTimeout(() => handleOpenRefund(selectedOrder), 450) }}
+                className="px-4 py-2 text-[13px] font-medium text-rose-600 bg-rose-50 rounded-lg hover:bg-rose-100 transition-colors flex items-center gap-2"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Issue Refund
+              </button>
+            ) : selectedOrder.status === "refunded" ? (
+              <span className="px-4 py-2 text-[13px] font-medium text-rose-400 bg-rose-50 rounded-lg flex items-center gap-2 cursor-not-allowed opacity-70">
+                <RotateCcw className="h-4 w-4" />
+                Refunded
+              </span>
+            ) : null}
           </div>
         </div>
       </div>
@@ -692,16 +751,24 @@ function OrderDetailsModal({
                 </h4>
                 <div className="grid grid-cols-2 gap-2 text-[12px]">
                   <div>
-                    <span className="text-[#6b7280]">Email</span>
-                    <p className="font-medium text-[#1a1a2e] break-all">{selectedOrder.customer_email || selectedOrder.buyer_email || "N/A"}</p>
-                  </div>
-                  <div>
                     <span className="text-[#6b7280]">Name</span>
                     <p className="font-medium text-[#1a1a2e]">
                       {selectedOrder.buyer_first_name && selectedOrder.buyer_last_name
                         ? `${selectedOrder.buyer_first_name} ${selectedOrder.buyer_last_name}`
                         : "Unknown"}
                     </p>
+                  </div>
+                  <div>
+                    <span className="text-[#6b7280]">Email</span>
+                    <p className="font-medium text-[#1a1a2e] break-all">{selectedOrder.customer_email || selectedOrder.buyer_email || "N/A"}</p>
+                  </div>
+                  <div>
+                    <span className="text-[#6b7280]">First Name</span>
+                    <p className="font-medium text-[#1a1a2e]">{selectedOrder.buyer_first_name || "N/A"}</p>
+                  </div>
+                  <div>
+                    <span className="text-[#6b7280]">Last Name</span>
+                    <p className="font-medium text-[#1a1a2e]">{selectedOrder.buyer_last_name || "N/A"}</p>
                   </div>
                 </div>
               </div>
@@ -722,6 +789,7 @@ function OrderDetailsModal({
                   )}
                   <div>
                     <p className="text-[13px] font-medium text-[#1a1a2e]">{productTitle}</p>
+                    <p className="text-[11px] text-[#6b7280] capitalize">{productType}</p>
                   </div>
                 </div>
               </div>
@@ -752,10 +820,60 @@ function OrderDetailsModal({
                         <span className="capitalize">{selectedOrder.card_brand}</span>
                         {selectedOrder.card_last4 && <span className="text-[#6b7280]">•••• {selectedOrder.card_last4}</span>}
                       </span>
-                    ) : selectedOrder.payment_method || "Card"}
+                    ) : selectedOrder.payment_method === "paypal" ? "PayPal" : selectedOrder.payment_method === "free" ? "Free" : selectedOrder.payment_method || "Card"}
                   </span>
                 </div>
+                {selectedOrder.payment_method === "paypal" && selectedOrder.paypal_email && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-[12px] text-[#6b7280]">PayPal Email</span>
+                    <span className="text-[12px] font-medium text-[#1a1a2e] break-all max-w-[60%] text-right">{selectedOrder.paypal_email}</span>
+                  </div>
+                )}
               </div>
+
+              {/* Location */}
+              {selectedOrder.buyer_country && (
+                <div className="bg-[#f9fafb] rounded-xl p-3 space-y-2">
+                  <h4 className="text-[12px] font-semibold text-[#1a1a2e] flex items-center gap-1.5">
+                    <MapPin className="h-3.5 w-3.5 text-[#8b5cf6]" />
+                    Location
+                  </h4>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[12px] text-[#6b7280]">Country</span>
+                    <span className="text-[12px] font-medium text-[#1a1a2e]">
+                      {selectedOrder.buyer_country}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Device Info */}
+              {(selectedOrder.buyer_device_type || selectedOrder.buyer_os || selectedOrder.buyer_browser) && (
+                <div className="bg-[#f9fafb] rounded-xl p-3 space-y-2">
+                  <h4 className="text-[12px] font-semibold text-[#1a1a2e] flex items-center gap-1.5">
+                    {selectedOrder.buyer_device_type === "Mobile" ? <Smartphone className="h-3.5 w-3.5 text-[#8b5cf6]" /> : selectedOrder.buyer_device_type === "Tablet" ? <Tablet className="h-3.5 w-3.5 text-[#8b5cf6]" /> : <Monitor className="h-3.5 w-3.5 text-[#8b5cf6]" />}
+                    Device
+                  </h4>
+                  {selectedOrder.buyer_device_type && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-[12px] text-[#6b7280]">Type</span>
+                      <span className="text-[12px] font-medium text-[#1a1a2e]">{selectedOrder.buyer_device_type}</span>
+                    </div>
+                  )}
+                  {selectedOrder.buyer_os && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-[12px] text-[#6b7280]">OS</span>
+                      <span className="text-[12px] font-medium text-[#1a1a2e]">{selectedOrder.buyer_os}</span>
+                    </div>
+                  )}
+                  {selectedOrder.buyer_browser && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-[12px] text-[#6b7280]">Browser</span>
+                      <span className="text-[12px] font-medium text-[#1a1a2e]">{selectedOrder.buyer_browser}</span>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Date */}
               <div className="bg-[#f9fafb] rounded-xl p-3">
@@ -824,7 +942,7 @@ function OrderDetailsModal({
             </div>
           </div>
 
-          {/* Safe area padding */}
+          {/* Safe area padding for bottom notch */}
           <div className="h-[env(safe-area-inset-bottom)] min-h-[16px] bg-white" />
         </div>
       </div>
@@ -1302,7 +1420,7 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
             <span className="text-[12px] text-[#6b7280] font-medium">Pending</span>
           </div>
           <p className="text-[20px] sm:text-[24px] font-bold text-[#1a1a2e]">
-            {stripeBalance?.pending?.[0] ? formatPrice(stripeBalance.pending[0].amount) : formatPrice(initialData.pendingAmount)}
+            {stripeBalance?.pending?.length ? formatPrice(stripeBalance.pending.reduce((sum, b) => sum + b.amount, 0)) : formatPrice(initialData.pendingAmount)}
           </p>
         </div>
         <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4 sm:p-5">
@@ -1311,7 +1429,7 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
             <span className="text-[12px] text-[#6b7280] font-medium">Available</span>
           </div>
           <p className="text-[20px] sm:text-[24px] font-bold text-[#1a1a2e]">
-            {stripeBalance?.available?.[0] ? formatPrice(stripeBalance.available[0].amount) : formatPrice(initialData.availableBalance)}
+            {stripeBalance?.available?.length ? formatPrice(stripeBalance.available.reduce((sum, b) => sum + b.amount, 0)) : formatPrice(initialData.availableBalance)}
           </p>
         </div>
       </div>
