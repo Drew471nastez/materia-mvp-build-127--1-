@@ -694,6 +694,12 @@ function StripeCardForm({
         )}
       </button>
 
+      {/* Secured by Stripe */}
+      <div className="flex items-center justify-center gap-1.5 pt-2">
+        <Shield className="w-3 h-3 text-gray-300" />
+        <span className="text-[11px] text-gray-300 font-medium">Secured checkout by Stripe</span>
+      </div>
+
       {/* Policy links */}
       <div className="flex items-center justify-center gap-3 pt-1">
         <Link href="/terms" target="_blank" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Terms</Link>
@@ -1237,6 +1243,12 @@ export default function CheckoutPageClient({
         {isSubmitting ? (<><Loader2 className="h-5 w-5 animate-spin" />Processing...</>) : (<>Get for Free<span className="ml-1">&rarr;</span></>)}
       </button>
 
+      {/* Secured by Stripe */}
+      <div className="flex items-center justify-center gap-1.5 pt-2">
+        <Shield className="w-3 h-3 text-gray-300" />
+        <span className="text-[11px] text-gray-300 font-medium">Secured checkout by Stripe</span>
+      </div>
+
       {/* Policy links */}
       <div className="flex items-center justify-center gap-3 pt-1">
         <Link href="/terms" target="_blank" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Terms</Link>
@@ -1407,9 +1419,13 @@ function OrderSummaryContent({
   onVariantChange?: (variant: SelectedVariant) => void
 }) {
   const [variantOpen, setVariantOpen] = useState(false)
+  const [sheetVisible, setSheetVisible] = useState(false)
   const variantRef = useRef<HTMLDivElement>(null)
+  const sheetDragStartY = useRef(0)
+  const [sheetDragY, setSheetDragY] = useState(0)
+  const [sheetIsDragging, setSheetIsDragging] = useState(false)
 
-  // Close variant dropdown on outside click
+  // Close variant dropdown on outside click (desktop only)
   useEffect(() => {
     if (!variantOpen) return
     const handleClick = (e: MouseEvent) => {
@@ -1422,6 +1438,54 @@ function OrderSummaryContent({
   }, [variantOpen])
 
   const hasMultipleVariants = allVariants && allVariants.length > 1
+
+  // Mobile bottom sheet open/close with smooth animation
+  const openSheet = () => {
+    setSheetVisible(true)
+  }
+  const closeSheet = () => {
+    setSheetVisible(false)
+    setSheetDragY(0)
+  }
+
+  const handleSheetTouchStart = (e: React.TouchEvent) => {
+    sheetDragStartY.current = e.touches[0].clientY
+    setSheetIsDragging(true)
+  }
+  const handleSheetTouchMove = (e: React.TouchEvent) => {
+    if (!sheetIsDragging) return
+    const diff = e.touches[0].clientY - sheetDragStartY.current
+    if (diff > 0) setSheetDragY(diff)
+  }
+  const handleSheetTouchEnd = () => {
+    setSheetIsDragging(false)
+    if (sheetDragY > 100) {
+      closeSheet()
+    }
+    setSheetDragY(0)
+  }
+
+  // Variant list used in both desktop dropdown and mobile sheet
+  const variantListItems = allVariants?.map((v) => (
+    <button
+      key={v.id}
+      type="button"
+      onClick={() => {
+        onVariantChange?.(v)
+        setVariantOpen(false)
+        closeSheet()
+      }}
+      className={`w-full flex items-center justify-between px-3 py-3 text-sm transition-colors cursor-pointer ${
+        selectedVariant?.id === v.id ? "bg-gray-50 font-medium text-gray-900" : "text-gray-700 hover:bg-gray-50"
+      }`}
+    >
+      <span className="flex items-center gap-2">
+        {selectedVariant?.id === v.id && <Check className="w-3.5 h-3.5 text-gray-900 shrink-0" />}
+        <span>{v.name}</span>
+      </span>
+      <span className="text-xs text-gray-500 shrink-0">{v.priceCents === 0 ? "Free" : formatPrice(v.priceCents)}</span>
+    </button>
+  ))
 
   return (
     <div className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
@@ -1448,36 +1512,61 @@ function OrderSummaryContent({
             <div className="relative mt-1" ref={variantRef}>
               {hasMultipleVariants ? (
                 <>
+                  {/* Desktop: dropdown trigger */}
                   <button
                     type="button"
                     onClick={() => setVariantOpen(!variantOpen)}
-                    className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-md px-2 py-1 transition-colors cursor-pointer"
+                    className="hidden lg:inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-md px-2 py-1 transition-colors cursor-pointer"
                   >
                     <span className="font-medium">{selectedVariant.name}</span>
                     <ChevronDown className={`w-3 h-3 transition-transform ${variantOpen ? "rotate-180" : ""}`} />
                   </button>
+                  {/* Mobile: bottom sheet trigger */}
+                  <button
+                    type="button"
+                    onClick={openSheet}
+                    className="lg:hidden inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-md px-2 py-1 transition-colors cursor-pointer"
+                  >
+                    <span className="font-medium">{selectedVariant.name}</span>
+                    <ChevronDown className="w-3 h-3" />
+                  </button>
+                  {/* Desktop dropdown */}
                   {variantOpen && (
-                    <div className="absolute top-full left-0 mt-1 w-56 bg-white rounded-xl border border-gray-200 shadow-lg z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
+                    <div className="hidden lg:block absolute top-full left-0 mt-1 w-56 bg-white rounded-xl border border-gray-200 shadow-lg z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
                       <div className="py-1">
-                        {allVariants!.map((v) => (
-                          <button
-                            key={v.id}
-                            type="button"
-                            onClick={() => {
-                              onVariantChange?.(v)
-                              setVariantOpen(false)
-                            }}
-                            className={`w-full flex items-center justify-between px-3 py-2.5 text-sm transition-colors cursor-pointer ${
-                              selectedVariant.id === v.id ? "bg-gray-50 font-medium text-gray-900" : "text-gray-700 hover:bg-gray-50"
-                            }`}
-                          >
-                            <span className="flex items-center gap-2">
-                              {selectedVariant.id === v.id && <Check className="w-3.5 h-3.5 text-gray-900 shrink-0" />}
-                              <span>{v.name}</span>
-                            </span>
-                            <span className="text-xs text-gray-500 shrink-0">{v.priceCents === 0 ? "Free" : formatPrice(v.priceCents)}</span>
-                          </button>
-                        ))}
+                        {variantListItems}
+                      </div>
+                    </div>
+                  )}
+                  {/* Mobile bottom sheet */}
+                  {sheetVisible && (
+                    <div className="lg:hidden fixed inset-0 z-[100]">
+                      <div
+                        className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200"
+                        onClick={closeSheet}
+                      />
+                      <div
+                        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl animate-in slide-in-from-bottom duration-300 max-h-[70vh] flex flex-col"
+                        style={{
+                          transform: sheetDragY > 0 ? `translateY(${sheetDragY}px)` : undefined,
+                          transition: sheetIsDragging ? "none" : "transform 0.3s ease-out",
+                        }}
+                      >
+                        {/* Drag handle */}
+                        <div
+                          className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing"
+                          onTouchStart={handleSheetTouchStart}
+                          onTouchMove={handleSheetTouchMove}
+                          onTouchEnd={handleSheetTouchEnd}
+                        >
+                          <div className="w-10 h-1 bg-gray-300 rounded-full" />
+                        </div>
+                        <div className="px-4 pb-3">
+                          <h3 className="text-base font-semibold text-gray-900">Select variant</h3>
+                        </div>
+                        <div className="flex-1 overflow-y-auto px-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
+                          {variantListItems}
+                        </div>
                       </div>
                     </div>
                   )}
@@ -1496,7 +1585,12 @@ function OrderSummaryContent({
         <span className="text-sm font-semibold text-gray-900 whitespace-nowrap shrink-0">{subtotal === 0 ? "Free" : formatPrice(subtotal)}</span>
       </div>
       <Separator className="my-3" />
+      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Order summary</h3>
       <div className="space-y-2.5">
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-500">{isPwyw ? "Your price" : "Subtotal"}</span>
+          <span className="text-gray-900">{formatPrice(subtotal)}</span>
+        </div>
         {discountApplied && discountCents > 0 && (
           <div className="flex justify-between text-sm">
             <span className="text-green-600">Discount</span>
@@ -1510,7 +1604,7 @@ function OrderSummaryContent({
           </div>
         )}
       </div>
-      {(discountApplied && discountCents > 0) || tipCents > 0 ? <Separator className="my-3" /> : null}
+      <Separator className="my-3" />
       <div className="flex justify-between">
         <span className="text-base font-semibold text-gray-900">Total</span>
         <span className="text-lg font-bold text-gray-900">{formatPrice(total)}</span>
