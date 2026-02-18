@@ -2000,7 +2000,16 @@ export async function sendRefundEmails(params: SendRefundEmailsParams): Promise<
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
   <title>Refund Issued</title>
+  <style>
+    :root { color-scheme: light; }
+    [data-ogsc] .storelib-logo, [data-ogsb] .storelib-logo { filter: brightness(0) invert(1) !important; }
+    @media (prefers-color-scheme: dark) {
+      .storelib-logo { filter: brightness(0) invert(1) !important; }
+    }
+  </style>
 </head>
 <body style="margin:0;padding:0;background-color:#f0eeeb;font-family:-apple-system,'Segoe UI',Helvetica,sans-serif;color:#1a1a1a;-webkit-font-smoothing:antialiased;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f0eeeb;padding:40px 16px;">
@@ -2012,18 +2021,12 @@ export async function sendRefundEmails(params: SendRefundEmailsParams): Promise<
           <!-- Header -->
           <tr>
             <td style="padding:36px 36px 28px;border-bottom:1px solid #f0eeeb;">
-              <!-- Storelib Badge -->
+              <!-- Storelib Logo -->
               <table role="presentation" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
                 <tr>
-                  <td style="background:#fafaf8;border:1px solid #eeedea;border-radius:10px;padding:10px 14px;">
-                    <table role="presentation" cellpadding="0" cellspacing="0">
-                      <tr>
-                        <td style="vertical-align:middle;width:24px;height:24px;background-color:#8B56FA;border-radius:6px;text-align:center;"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib_pixian_ai.png" alt="Storelib" width="18" height="18" style="display:block;width:18px;height:18px;border:0;outline:none;margin:3px auto;filter:brightness(0) invert(1);" /></td>
-                        <td style="padding-left:10px;vertical-align:middle;">
-                          <span style="font-size:13.5px;font-weight:600;color:#1a1a1a;letter-spacing:-0.2px;">${PLATFORM_BRAND_NAME}</span>
-                        </td>
-                      </tr>
-                    </table>
+                  <td style="vertical-align:middle;width:29px;height:29px;background-color:#8B56FA !important;border-radius:7px;text-align:center;"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib_pixian_ai.png" alt="S" width="22" height="22" style="display:block;width:22px;height:22px;border:0;outline:none;margin:3px auto;filter:brightness(0) invert(1);" class="storelib-logo" /></td>
+                  <td style="padding-left:12px;vertical-align:middle;">
+                    <span style="font-size:16px;font-weight:600;color:#1a1a1a;letter-spacing:-0.2px;">${PLATFORM_BRAND_NAME}</span>
                   </td>
                 </tr>
               </table>
@@ -2127,7 +2130,7 @@ export async function sendRefundEmails(params: SendRefundEmailsParams): Promise<
             <td style="background:#fafaf8;padding:28px 36px;text-align:center;border-top:1px solid #f0eeeb;">
               <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin-bottom:12px;">
                 <tr>
-                  <td style="width:20px;height:20px;background-color:#8B56FA;border-radius:5px;text-align:center;opacity:0.5;"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib_pixian_ai.png" alt="Storelib" width="14" height="14" style="display:block;width:14px;height:14px;border:0;outline:none;margin:3px auto;filter:brightness(0) invert(1);" /></td>
+                  <td style="width:20px;height:20px;background-color:#8B56FA !important;border-radius:5px;text-align:center;"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib_pixian_ai.png" alt="S" width="14" height="14" style="display:block;width:14px;height:14px;border:0;outline:none;margin:3px auto;filter:brightness(0) invert(1);" class="storelib-logo" /></td>
                 </tr>
               </table>
               <p style="margin:0 0 14px;font-size:11.5px;color:#bbb;line-height:1.65;">
