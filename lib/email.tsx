@@ -2018,7 +2018,7 @@ export async function sendRefundEmails(params: SendRefundEmailsParams): Promise<
                   <td style="background:#fafaf8;border:1px solid #eeedea;border-radius:10px;padding:10px 14px;">
                     <table role="presentation" cellpadding="0" cellspacing="0">
                       <tr>
-                        <td style="vertical-align:middle;width:24px;height:24px;background-color:#8B56FA;border-radius:6px;text-align:center;"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib_pixian_ai.png" alt="Storelib" width="18" height="18" style="display:block;width:18px;height:18px;border:0;outline:none;margin:3px auto;" /></td>
+                        <td style="vertical-align:middle;width:24px;height:24px;background-color:#8B56FA;border-radius:6px;text-align:center;"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib_pixian_ai.png" alt="Storelib" width="18" height="18" style="display:block;width:18px;height:18px;border:0;outline:none;margin:3px auto;filter:brightness(0) invert(1);" /></td>
                         <td style="padding-left:10px;vertical-align:middle;">
                           <span style="font-size:13.5px;font-weight:600;color:#1a1a1a;letter-spacing:-0.2px;">${PLATFORM_BRAND_NAME}</span>
                         </td>
@@ -2127,7 +2127,7 @@ export async function sendRefundEmails(params: SendRefundEmailsParams): Promise<
             <td style="background:#fafaf8;padding:28px 36px;text-align:center;border-top:1px solid #f0eeeb;">
               <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin-bottom:12px;">
                 <tr>
-                  <td style="width:20px;height:20px;background-color:#8B56FA;border-radius:5px;text-align:center;opacity:0.5;"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib_pixian_ai.png" alt="Storelib" width="14" height="14" style="display:block;width:14px;height:14px;border:0;outline:none;margin:3px auto;" /></td>
+                  <td style="width:20px;height:20px;background-color:#8B56FA;border-radius:5px;text-align:center;opacity:0.5;"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib_pixian_ai.png" alt="Storelib" width="14" height="14" style="display:block;width:14px;height:14px;border:0;outline:none;margin:3px auto;filter:brightness(0) invert(1);" /></td>
                 </tr>
               </table>
               <p style="margin:0 0 14px;font-size:11.5px;color:#bbb;line-height:1.65;">
