@@ -5,7 +5,6 @@ import Image from "next/image"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { DownloadButton } from "@/components/download-button"
@@ -24,6 +23,7 @@ import {
   KeyRound,
   X,
   RefreshCw,
+  UserPlus,
 } from "lucide-react"
 import { getProductUrl } from "@/lib/url-helpers"
 
@@ -45,6 +45,7 @@ interface CheckoutReceiptClientProps {
     thumbnail_url: string | null
     creator: {
       display_name: string
+      avatar_url: string | null
       username: string
       slug: string
     } | null
@@ -102,6 +103,7 @@ export default function CheckoutReceiptClient({
   const searchParams = useSearchParams()
   const orderId = order.id
   const creatorName = product.creator?.display_name || "the creator"
+  const creatorAvatar = product.creator?.avatar_url || null
   const creatorUsername = product.creator?.username || product.creator?.slug || ""
   const productUrl = creatorUsername ? getProductUrl(creatorUsername, product.slug) : "/explore"
 
@@ -138,7 +140,7 @@ export default function CheckoutReceiptClient({
   } | null>(null)
   const [isLoadingReviewStatus, setIsLoadingReviewStatus] = useState(true)
 
-  // Toast state — only show once per order, even across refreshes
+  // Toast state
   const [toastVisible, setToastVisible] = useState(false)
   const [toastLeaving, setToastLeaving] = useState(false)
   const [toastMessage, setToastMessage] = useState("")
@@ -185,7 +187,7 @@ export default function CheckoutReceiptClient({
     } catch {}
   }, [hasAccess, order.product_id, order.variant_id, receiptToken, assets])
 
-  // Auto toast: only show once per order using sessionStorage
+  // Auto toast: only once per order per session
   useEffect(() => {
     const toastKey = `checkout_receipt_toast_${orderId}`
     try {
@@ -200,7 +202,7 @@ export default function CheckoutReceiptClient({
     } else if (allSent || searchParams.get("emailSent") === "1") {
       showToast("Your download link is now in your inbox. Check spam if you don't see it.", "success")
     } else {
-      return // Nothing to toast
+      return
     }
 
     try { sessionStorage.setItem(toastKey, "1") } catch {}
@@ -353,7 +355,7 @@ export default function CheckoutReceiptClient({
     }
   }
 
-  // ---------- TOAST COMPONENT ----------
+  // ---------- TOAST ----------
   const toastEl = toastVisible ? (
     <div
       className="fixed top-5 left-1/2 z-[200] w-full max-w-sm px-4"
@@ -366,10 +368,7 @@ export default function CheckoutReceiptClient({
     >
       <div
         className="rounded-xl px-4 py-3 flex items-center gap-3 shadow-2xl"
-        style={{
-          backgroundColor: toastType === "error" ? "#dc2626" : "#111",
-          color: "#fff",
-        }}
+        style={{ backgroundColor: toastType === "error" ? "#dc2626" : "#111", color: "#fff" }}
       >
         {toastType === "error" ? (
           <AlertCircle className="h-4 w-4 shrink-0 text-white/80" />
@@ -378,10 +377,7 @@ export default function CheckoutReceiptClient({
         )}
         <p className="text-sm font-medium flex-1 leading-snug">{toastMessage}</p>
         <button
-          onClick={() => {
-            setToastLeaving(true)
-            setTimeout(() => { setToastVisible(false); setToastLeaving(false) }, 400)
-          }}
+          onClick={() => { setToastLeaving(true); setTimeout(() => { setToastVisible(false); setToastLeaving(false) }, 400) }}
           className="shrink-0 text-white/50 hover:text-white transition-colors p-0.5"
         >
           <X className="h-3.5 w-3.5" />
@@ -404,9 +400,7 @@ export default function CheckoutReceiptClient({
         fileName={asset.file_name}
         size="lg"
         className={`w-full h-auto min-h-[48px] rounded-xl text-sm font-medium px-4 py-3 ${
-          idx === 0
-            ? "bg-[#111] hover:bg-[#222] text-white"
-            : "bg-gray-100 hover:bg-gray-200 text-gray-900"
+          idx === 0 ? "bg-[#111] hover:bg-[#222] text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-900"
         }`}
       >
         <span className="flex items-center gap-2 w-full min-w-0">
@@ -424,130 +418,145 @@ export default function CheckoutReceiptClient({
   // ---------- VERIFICATION GATE ----------
   if (initialRequiresVerification && !hasAccess) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-amber-50/50 to-gray-50">
+      <div className="min-h-screen bg-[#0a0a0a]">
         {toastEl}
-        <div className="mx-auto max-w-md px-4 py-12 sm:py-16">
-          <div className="mb-8 text-center">
-            <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-100 shadow-sm">
-              <Shield className="h-8 w-8 text-amber-600" />
+        <div className="mx-auto max-w-[420px] px-5 py-12 sm:py-16">
+          {/* Overlapping circles: seller avatar + security shield */}
+          <div className="flex justify-center mb-8">
+            <div className="relative flex items-center">
+              {/* Seller avatar circle */}
+              <div className="relative z-10 h-16 w-16 rounded-full overflow-hidden border-2 border-[#1a1a1a] bg-[#1a1a1a]">
+                {creatorAvatar ? (
+                  <Image src={creatorAvatar} alt={creatorName} width={64} height={64} className="h-full w-full object-cover" />
+                ) : (
+                  <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-gray-700 to-gray-800 text-white text-lg font-bold">
+                    {creatorName.charAt(0).toUpperCase()}
+                  </div>
+                )}
+              </div>
+              {/* Security shield square — overlapping 10% of avatar */}
+              <div className="relative z-20 -ml-3 h-12 w-12 rounded-lg bg-[#7c3aed] border-2 border-[#0a0a0a] flex items-center justify-center shadow-lg">
+                <Shield className="h-5 w-5 text-white" />
+              </div>
             </div>
-            <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Verify your identity</h1>
-            <p className="mt-3 text-sm leading-relaxed text-gray-600 max-w-sm mx-auto">
+          </div>
+
+          <div className="text-center mb-8">
+            <h1 className="text-2xl font-semibold tracking-tight text-white">Verify your identity</h1>
+            <p className="mt-3 text-sm leading-relaxed text-gray-400 max-w-sm mx-auto">
               You&apos;re accessing this receipt from a new device. Quick verification keeps your purchase secure.
             </p>
           </div>
 
-          <Card className="border-0 shadow-lg shadow-gray-200/50 rounded-2xl overflow-hidden">
-            <CardContent className="pt-6 pb-6 px-6 space-y-5">
-              <form autoComplete="off" className="hidden">
-                <input type="text" name="username" autoComplete="username" />
-                <input type="password" name="password" autoComplete="current-password" />
-              </form>
+          <div className="rounded-2xl bg-[#141414] border border-[#252525] p-6 space-y-5">
+            <form autoComplete="off" className="hidden">
+              <input type="text" name="username" autoComplete="username" />
+              <input type="password" name="password" autoComplete="current-password" />
+            </form>
 
-              {verifyStep === "email" ? (
-                <div className="space-y-5">
-                  <div className="space-y-2">
-                    <Label htmlFor="verify-email" className="text-sm font-medium text-gray-700">
-                      Purchase email
-                    </Label>
-                    <Input
-                      id="verify-email"
-                      type="email"
-                      name="buyer_email_input"
-                      value={verifyEmail}
-                      onChange={(e) => setVerifyEmail(e.target.value)}
-                      placeholder="you@example.com"
-                      disabled={verifyLoading}
-                      autoComplete="off"
-                      autoCorrect="off"
-                      autoCapitalize="none"
-                      spellCheck={false}
-                      inputMode="email"
-                      className="h-11 rounded-xl border-gray-200 focus:border-amber-400 focus:ring-amber-400/20"
-                    />
-                    <p className="text-xs text-gray-500">We&apos;ll send a 6-digit code to verify it&apos;s you.</p>
+            {verifyStep === "email" ? (
+              <div className="space-y-5">
+                <div className="space-y-2">
+                  <Label htmlFor="verify-email" className="text-sm font-medium text-gray-300">
+                    Purchase email
+                  </Label>
+                  <Input
+                    id="verify-email"
+                    type="email"
+                    name="buyer_email_input"
+                    value={verifyEmail}
+                    onChange={(e) => setVerifyEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    disabled={verifyLoading}
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    inputMode="email"
+                    className="h-11 rounded-xl bg-[#0a0a0a] border-[#333] text-white placeholder:text-gray-600 focus:border-[#7c3aed] focus:ring-[#7c3aed]/20"
+                  />
+                  <p className="text-xs text-gray-500">We&apos;ll send a 6-digit code to verify it&apos;s you.</p>
+                </div>
+
+                {verifyError && (
+                  <div className="rounded-xl bg-red-500/10 border border-red-500/20 p-3 flex items-start gap-2.5">
+                    <AlertCircle className="h-4 w-4 text-red-400 mt-0.5 flex-shrink-0" />
+                    <p className="text-sm text-red-400">{verifyError}</p>
                   </div>
+                )}
 
-                  {verifyError && (
-                    <div className="rounded-xl bg-red-50 border border-red-100 p-3 flex items-start gap-2.5">
-                      <AlertCircle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
-                      <p className="text-sm text-red-700">{verifyError}</p>
-                    </div>
-                  )}
+                {verifySuccess && (
+                  <div className="rounded-xl bg-green-500/10 border border-green-500/20 p-3 flex items-start gap-2.5">
+                    <CheckCircle className="h-4 w-4 text-green-400 mt-0.5 flex-shrink-0" />
+                    <p className="text-sm text-green-400">{verifySuccess}</p>
+                  </div>
+                )}
 
-                  {verifySuccess && (
-                    <div className="rounded-xl bg-green-50 border border-green-100 p-3 flex items-start gap-2.5">
-                      <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                      <p className="text-sm text-green-700">{verifySuccess}</p>
-                    </div>
-                  )}
+                <Button
+                  onClick={handleSendCode}
+                  disabled={verifyLoading || !verifyEmail}
+                  className="w-full h-11 rounded-xl gap-2 bg-[#7c3aed] hover:bg-[#6d28d9] text-white font-medium shadow-sm"
+                >
+                  {verifyLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                  Send verification code
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-5">
+                <div className="space-y-2">
+                  <Label htmlFor="verify-code" className="text-sm font-medium text-gray-300">
+                    Verification code
+                  </Label>
+                  <Input
+                    id="verify-code"
+                    type="text"
+                    value={verificationCode}
+                    onChange={(e) => setVerificationCode(e.target.value)}
+                    placeholder="123456"
+                    maxLength={6}
+                    disabled={verifyLoading}
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    className="h-11 rounded-xl bg-[#0a0a0a] border-[#333] text-white placeholder:text-gray-600 focus:border-[#7c3aed] focus:ring-[#7c3aed]/20 text-center text-lg tracking-widest font-mono"
+                  />
+                  <p className="text-xs text-gray-500">Check your inbox for the 6-digit code.</p>
+                </div>
 
+                {verifyError && (
+                  <div className="rounded-xl bg-red-500/10 border border-red-500/20 p-3 flex items-start gap-2.5">
+                    <AlertCircle className="h-4 w-4 text-red-400 mt-0.5 flex-shrink-0" />
+                    <p className="text-sm text-red-400">{verifyError}</p>
+                  </div>
+                )}
+
+                <div className="space-y-3">
                   <Button
-                    onClick={handleSendCode}
-                    disabled={verifyLoading || !verifyEmail}
-                    className="w-full h-11 rounded-xl gap-2 bg-amber-500 hover:bg-amber-600 text-white font-medium shadow-sm"
+                    onClick={handleVerifyCode}
+                    disabled={verifyLoading || verificationCode.length !== 6}
+                    className="w-full h-11 rounded-xl gap-2 bg-[#7c3aed] hover:bg-[#6d28d9] text-white font-medium shadow-sm"
                   >
-                    {verifyLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-                    Send verification code
+                    {verifyLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
+                    Verify & unlock download
                   </Button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setVerifyStep("email")
+                      setVerificationCode("")
+                      setVerifyError("")
+                      setVerifySuccess("")
+                    }}
+                    disabled={verifyLoading}
+                    className="w-full text-sm text-gray-500 hover:text-gray-300 transition-colors py-2"
+                  >
+                    Didn&apos;t receive it? Send again
+                  </button>
                 </div>
-              ) : (
-                <div className="space-y-5">
-                  <div className="space-y-2">
-                    <Label htmlFor="verify-code" className="text-sm font-medium text-gray-700">
-                      Verification code
-                    </Label>
-                    <Input
-                      id="verify-code"
-                      type="text"
-                      value={verificationCode}
-                      onChange={(e) => setVerificationCode(e.target.value)}
-                      placeholder="123456"
-                      maxLength={6}
-                      disabled={verifyLoading}
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                      className="h-11 rounded-xl border-gray-200 focus:border-amber-400 focus:ring-amber-400/20 text-center text-lg tracking-widest font-mono"
-                    />
-                    <p className="text-xs text-gray-500">Check your inbox for the 6-digit code.</p>
-                  </div>
+              </div>
+            )}
+          </div>
 
-                  {verifyError && (
-                    <div className="rounded-xl bg-red-50 border border-red-100 p-3 flex items-start gap-2.5">
-                      <AlertCircle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
-                      <p className="text-sm text-red-700">{verifyError}</p>
-                    </div>
-                  )}
-
-                  <div className="space-y-3">
-                    <Button
-                      onClick={handleVerifyCode}
-                      disabled={verifyLoading || verificationCode.length !== 6}
-                      className="w-full h-11 rounded-xl gap-2 bg-amber-500 hover:bg-amber-600 text-white font-medium shadow-sm"
-                    >
-                      {verifyLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
-                      Verify & unlock download
-                    </Button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setVerifyStep("email")
-                        setVerificationCode("")
-                        setVerifyError("")
-                        setVerifySuccess("")
-                      }}
-                      disabled={verifyLoading}
-                      className="w-full text-sm text-gray-500 hover:text-gray-700 transition-colors py-2"
-                    >
-                      Didn&apos;t receive it? Send again
-                    </button>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <p className="mt-6 text-center text-xs text-gray-500 max-w-xs mx-auto">
+          <p className="mt-6 text-center text-xs text-gray-600 max-w-xs mx-auto">
             This verification protects your purchase. If you didn&apos;t request access, you can safely ignore this.
           </p>
         </div>
@@ -645,16 +654,26 @@ export default function CheckoutReceiptClient({
                 View in Library
               </Link>
             )}
-            <Link href={`/receipt/${receiptToken}`} className="flex items-center justify-center gap-2 w-full h-11 rounded-xl bg-white border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+            <a
+              href={`/api/receipt/view?orderId=${orderId}&receiptToken=${receiptToken}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 w-full h-11 rounded-xl bg-white border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+            >
               <FileText className="h-4 w-4" />
               View Receipt
-            </Link>
+            </a>
           </div>
 
           {/* Account CTA for guests */}
           {!isLoggedIn && (
             <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-100 p-5">
-              <p className="text-sm font-semibold text-gray-900 mb-1">Create an account</p>
+              <div className="flex items-center gap-2.5 mb-3">
+                <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
+                  <UserPlus className="h-4 w-4 text-blue-600" />
+                </div>
+                <p className="text-sm font-semibold text-gray-900">Create an account</p>
+              </div>
               <p className="text-xs text-gray-600 mb-3">Access your purchases from any device, leave reviews, and manage downloads.</p>
               <div className="flex gap-2">
                 <Link
@@ -792,10 +811,15 @@ export default function CheckoutReceiptClient({
                   View in Library
                 </Link>
               )}
-              <Link href={`/receipt/${receiptToken}`} className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl bg-white border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+              <a
+                href={`/api/receipt/view?orderId=${orderId}&receiptToken=${receiptToken}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl bg-white border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              >
                 <FileText className="h-4 w-4" />
                 View Receipt
-              </Link>
+              </a>
             </div>
 
             {/* Email options */}
@@ -865,7 +889,7 @@ export default function CheckoutReceiptClient({
 
         {/* RIGHT HALF — Review + Account CTA */}
         <div className="w-1/2 bg-[#f7f7f8]">
-          <div className="sticky top-[57px] max-w-[560px] mr-auto py-10 px-10 xl:px-16 animate-in fade-in-0 slide-in-from-bottom-2 duration-500 space-y-5" style={{ animationDelay: "150ms" }}>
+          <div className="sticky top-[57px] w-full py-10 px-8 xl:px-12 animate-in fade-in-0 slide-in-from-bottom-2 duration-500 space-y-5" style={{ animationDelay: "150ms" }}>
             {/* Review section */}
             {hasAccess && !isLoadingReviewStatus && (
               <ReviewForm
@@ -888,7 +912,7 @@ export default function CheckoutReceiptClient({
               <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
                 <div className="flex items-start gap-3 mb-4">
                   <div className="h-10 w-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
-                    <BookOpen className="h-5 w-5 text-blue-600" />
+                    <UserPlus className="h-5 w-5 text-blue-600" />
                   </div>
                   <div className="flex-1">
                     <h3 className="font-semibold text-gray-900">Create an account</h3>
