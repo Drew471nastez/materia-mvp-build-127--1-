@@ -4,7 +4,7 @@ import type Stripe from "stripe"
 import { stripe } from "@/lib/stripe"
 import { createClient } from "@supabase/supabase-js"
 import { generateReceiptToken } from "@/lib/security"
-import { sendOrderEmails, triggerEmailFlows } from "@/lib/email"
+import { sendOrderEmails, triggerEmailFlows, sendPayoutNotificationEmail } from "@/lib/email"
 import { v4 as uuidv4 } from "uuid"
 
 export const runtime = "nodejs"
@@ -835,6 +835,140 @@ export async function POST(request: Request) {
         }
       } catch (error) {
         console.error("[Webhook] Error processing charge.refunded:", error)
+      }
+    }
+
+    return NextResponse.json({ received: true })
+  }
+
+  // ============================================================================
+  // PAYOUT EVENTS (Connected Account) — notify seller via email
+  // ============================================================================
+
+  if (
+    event.type === "payout.created" ||
+    event.type === "payout.paid" ||
+    event.type === "payout.failed" ||
+    event.type === "payout.updated"
+  ) {
+    const payout = event.data.object as Stripe.Payout
+    // For connected account events, event.account contains the connected account ID
+    const connectedAccountId = (event as any).account as string | undefined
+
+    console.log("[Webhook] Payout event:", event.type, "Payout:", payout.id, "Account:", connectedAccountId)
+
+    if (connectedAccountId) {
+      try {
+        // Find the creator by stripe_account_id
+        const { data: creator } = await supabaseAdmin
+          .from("creators")
+          .select("id, user_id")
+          .eq("stripe_account_id", connectedAccountId)
+          .maybeSingle()
+
+        if (creator) {
+          // Determine status for our system
+          let emailStatus: "created" | "paid" | "in_transit" | "failed" = "created"
+          if (payout.status === "paid") emailStatus = "paid"
+          else if (payout.status === "in_transit") emailStatus = "in_transit"
+          else if (payout.status === "failed") emailStatus = "failed"
+          else if (event.type === "payout.created") emailStatus = "created"
+
+          // Upsert payout event in DB
+          const { data: existingPayout } = await supabaseAdmin
+            .from("payout_events")
+            .select("id")
+            .eq("stripe_payout_id", payout.id)
+            .maybeSingle()
+
+          if (existingPayout) {
+            await supabaseAdmin
+              .from("payout_events")
+              .update({
+                status: payout.status,
+                arrival_date: payout.arrival_date
+                  ? new Date(payout.arrival_date * 1000).toISOString()
+                  : null,
+                failure_code: (payout as any).failure_code || null,
+                failure_message: (payout as any).failure_message || null,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("stripe_payout_id", payout.id)
+          } else {
+            await supabaseAdmin.from("payout_events").insert({
+              creator_id: creator.id,
+              stripe_payout_id: payout.id,
+              amount: payout.amount,
+              currency: payout.currency,
+              status: payout.status,
+              method: payout.method,
+              destination:
+                typeof payout.destination === "string"
+                  ? payout.destination
+                  : (payout.destination as any)?.last4
+                    ? `****${(payout.destination as any).last4}`
+                    : null,
+              arrival_date: payout.arrival_date
+                ? new Date(payout.arrival_date * 1000).toISOString()
+                : null,
+              failure_code: (payout as any).failure_code || null,
+              failure_message: (payout as any).failure_message || null,
+            })
+          }
+
+          // Log webhook event for idempotency
+          try {
+            await supabaseAdmin.from("webhook_events").insert({
+              stripe_event_id: event.id,
+              event_type: event.type,
+              stripe_account_id: connectedAccountId,
+              payload: { payout_id: payout.id, status: payout.status, amount: payout.amount },
+            })
+          } catch {
+            // Duplicate event — already processed
+          }
+
+          // Send payout notification email
+          // Only send for key status changes (not every minor update)
+          const shouldEmail =
+            event.type === "payout.created" ||
+            event.type === "payout.paid" ||
+            event.type === "payout.failed" ||
+            (event.type === "payout.updated" && payout.status === "in_transit")
+
+          if (shouldEmail) {
+            // Resolve seller email
+            const { data: profile } = await supabaseAdmin
+              .from("profiles")
+              .select("email")
+              .eq("id", creator.user_id)
+              .maybeSingle()
+
+            const sellerEmail = profile?.email
+            if (sellerEmail) {
+              try {
+                await sendPayoutNotificationEmail(supabaseAdmin, {
+                  creatorId: creator.id,
+                  sellerEmail,
+                  payoutId: payout.id,
+                  amount: payout.amount,
+                  currency: payout.currency,
+                  status: emailStatus,
+                  arrivalDate: payout.arrival_date
+                    ? new Date(payout.arrival_date * 1000).toISOString()
+                    : null,
+                  failureMessage: (payout as any).failure_message || null,
+                })
+              } catch (emailErr) {
+                console.error("[Webhook] Failed to send payout email:", emailErr)
+              }
+            }
+          }
+
+          console.log("[Webhook] Payout event processed:", payout.id, "status:", payout.status)
+        }
+      } catch (error) {
+        console.error("[Webhook] Error processing payout event:", error)
       }
     }
 
