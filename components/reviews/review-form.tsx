@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { Star, Loader2, LogIn, CheckCircle, Lock, UserPlus } from "lucide-react"
+import { Star, Loader2, LogIn, CheckCircle, Lock, UserPlus, MessageSquare } from "lucide-react"
+import Image from "next/image"
 import { cn } from "@/lib/utils"
 
 interface ReviewFormProps {
@@ -20,6 +21,8 @@ interface ReviewFormProps {
   } | null
   onSuccess?: () => void
   redirectUrl?: string
+  creatorAvatarUrl?: string | null
+  creatorName?: string
 }
 
 const PENDING_REVIEW_PREFIX = "storelib_pending_review_v1"
@@ -34,6 +37,8 @@ export function ReviewForm({
   existingReview,
   onSuccess,
   redirectUrl,
+  creatorAvatarUrl,
+  creatorName,
 }: ReviewFormProps) {
   const storageKey = useMemo(() => `${PENDING_REVIEW_PREFIX}:${productId}`, [productId])
 
@@ -231,13 +236,38 @@ export function ReviewForm({
 
   return (
     <div className="rounded-2xl bg-white border border-gray-200 shadow-sm p-5 space-y-4">
+      {/* Overlapping circles: seller avatar + review icon */}
+      {creatorAvatarUrl !== undefined && (
+        <div className="flex justify-center mb-1">
+          <div className="relative flex items-center">
+            {/* Seller avatar circle */}
+            <div className="relative z-10 h-14 w-14 rounded-full overflow-hidden border-2 border-white bg-gray-100">
+              {creatorAvatarUrl ? (
+                <Image src={creatorAvatarUrl} alt={creatorName || "Creator"} width={56} height={56} className="h-full w-full object-cover" />
+              ) : (
+                <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-gray-200 to-gray-300 text-gray-600 text-base font-bold">
+                  {(creatorName || "S").charAt(0).toUpperCase()}
+                </div>
+              )}
+            </div>
+            {/* Review icon — overlapping 10% of avatar */}
+            <div className="relative z-20 -ml-2.5 h-10 w-10 rounded-lg bg-[#7c3aed] border-2 border-white flex items-center justify-center shadow-sm">
+              <MessageSquare className="h-4 w-4 text-white" />
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="text-center">
         <h3 className="font-semibold text-gray-900 text-lg">Leave a review</h3>
         <p className="text-sm text-gray-500 mt-1">Share your experience with {productTitle}</p>
       </div>
 
-      {/* Star Rating */}
-      <div className="flex justify-center gap-1">
+      {/* Star Rating — wrap in single container for smooth hover */}
+      <div
+        className="flex justify-center gap-1"
+        onMouseLeave={() => setHoveredRating(0)}
+      >
         {[1, 2, 3, 4, 5].map((star) => (
           <button
             key={star}
@@ -247,16 +277,15 @@ export function ReviewForm({
               setRating(star)
             }}
             onMouseEnter={() => setHoveredRating(star)}
-            onMouseLeave={() => setHoveredRating(0)}
             className="p-1 transition-transform hover:scale-110 focus:outline-none"
             aria-label={`${star} star`}
           >
             <Star
               className={cn(
-                "h-8 w-8 transition-colors",
+                "h-8 w-8 transition-colors duration-150",
                 (hoveredRating || rating) >= star
                   ? "fill-yellow-400 text-yellow-400"
-                  : "text-gray-300 hover:text-yellow-200",
+                  : "text-gray-300",
               )}
             />
           </button>
@@ -289,7 +318,7 @@ export function ReviewForm({
         <Button
           onClick={handleSubmit}
           disabled={isSubmitting || rating === 0 || content.trim().length < 10}
-          className="w-full h-11 rounded-xl font-medium"
+          className="w-full h-11 rounded-xl font-medium bg-[#7c3aed] hover:bg-[#6d28d9] text-white"
         >
           {isSubmitting ? (
             <>
@@ -334,7 +363,7 @@ export function ReviewForm({
                 const currentUrl = redirectUrl || window.location.pathname
                 window.location.href = `/signup?redirect=${encodeURIComponent(currentUrl)}&pendingReview=true`
               }}
-              className="flex-1 h-11 rounded-xl font-medium"
+              className="flex-1 h-11 rounded-xl font-medium bg-[#7c3aed] hover:bg-[#6d28d9] text-white"
             >
               <UserPlus className="h-4 w-4 mr-2" />
               Sign up

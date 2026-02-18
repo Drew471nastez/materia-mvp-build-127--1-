@@ -418,37 +418,37 @@ export default function CheckoutReceiptClient({
   // ---------- VERIFICATION GATE ----------
   if (initialRequiresVerification && !hasAccess) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a]">
+      <div className="min-h-screen bg-gray-50">
         {toastEl}
         <div className="mx-auto max-w-[420px] px-5 py-12 sm:py-16">
           {/* Overlapping circles: seller avatar + security shield */}
           <div className="flex justify-center mb-8">
             <div className="relative flex items-center">
               {/* Seller avatar circle */}
-              <div className="relative z-10 h-16 w-16 rounded-full overflow-hidden border-2 border-[#1a1a1a] bg-[#1a1a1a]">
+              <div className="relative z-10 h-16 w-16 rounded-full overflow-hidden border-2 border-white bg-gray-100 shadow-sm">
                 {creatorAvatar ? (
                   <Image src={creatorAvatar} alt={creatorName} width={64} height={64} className="h-full w-full object-cover" />
                 ) : (
-                  <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-gray-700 to-gray-800 text-white text-lg font-bold">
+                  <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-gray-200 to-gray-300 text-gray-600 text-lg font-bold">
                     {creatorName.charAt(0).toUpperCase()}
                   </div>
                 )}
               </div>
               {/* Security shield square — overlapping 10% of avatar */}
-              <div className="relative z-20 -ml-3 h-12 w-12 rounded-lg bg-[#7c3aed] border-2 border-[#0a0a0a] flex items-center justify-center shadow-lg">
+              <div className="relative z-20 -ml-3 h-12 w-12 rounded-lg bg-[#7c3aed] border-2 border-white flex items-center justify-center shadow-md">
                 <Shield className="h-5 w-5 text-white" />
               </div>
             </div>
           </div>
 
           <div className="text-center mb-8">
-            <h1 className="text-2xl font-semibold tracking-tight text-white">Verify your identity</h1>
-            <p className="mt-3 text-sm leading-relaxed text-gray-400 max-w-sm mx-auto">
+            <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Verify your identity</h1>
+            <p className="mt-3 text-sm leading-relaxed text-gray-500 max-w-sm mx-auto">
               You&apos;re accessing this receipt from a new device. Quick verification keeps your purchase secure.
             </p>
           </div>
 
-          <div className="rounded-2xl bg-[#141414] border border-[#252525] p-6 space-y-5">
+          <div className="rounded-2xl bg-white border border-gray-200 shadow-sm p-6 space-y-5">
             <form autoComplete="off" className="hidden">
               <input type="text" name="username" autoComplete="username" />
               <input type="password" name="password" autoComplete="current-password" />
@@ -457,7 +457,7 @@ export default function CheckoutReceiptClient({
             {verifyStep === "email" ? (
               <div className="space-y-5">
                 <div className="space-y-2">
-                  <Label htmlFor="verify-email" className="text-sm font-medium text-gray-300">
+                  <Label htmlFor="verify-email" className="text-sm font-medium text-gray-700">
                     Purchase email
                   </Label>
                   <Input
@@ -473,22 +473,22 @@ export default function CheckoutReceiptClient({
                     autoCapitalize="none"
                     spellCheck={false}
                     inputMode="email"
-                    className="h-11 rounded-xl bg-[#0a0a0a] border-[#333] text-white placeholder:text-gray-600 focus:border-[#7c3aed] focus:ring-[#7c3aed]/20"
+                    className="h-11 rounded-xl border-gray-200 focus:border-[#7c3aed] focus:ring-[#7c3aed]/20"
                   />
                   <p className="text-xs text-gray-500">We&apos;ll send a 6-digit code to verify it&apos;s you.</p>
                 </div>
 
                 {verifyError && (
-                  <div className="rounded-xl bg-red-500/10 border border-red-500/20 p-3 flex items-start gap-2.5">
-                    <AlertCircle className="h-4 w-4 text-red-400 mt-0.5 flex-shrink-0" />
-                    <p className="text-sm text-red-400">{verifyError}</p>
+                  <div className="rounded-xl bg-red-50 border border-red-100 p-3 flex items-start gap-2.5">
+                    <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+                    <p className="text-sm text-red-700">{verifyError}</p>
                   </div>
                 )}
 
                 {verifySuccess && (
-                  <div className="rounded-xl bg-green-500/10 border border-green-500/20 p-3 flex items-start gap-2.5">
-                    <CheckCircle className="h-4 w-4 text-green-400 mt-0.5 flex-shrink-0" />
-                    <p className="text-sm text-green-400">{verifySuccess}</p>
+                  <div className="rounded-xl bg-green-50 border border-green-100 p-3 flex items-start gap-2.5">
+                    <CheckCircle className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+                    <p className="text-sm text-green-700">{verifySuccess}</p>
                   </div>
                 )}
 
@@ -504,7 +504,7 @@ export default function CheckoutReceiptClient({
             ) : (
               <div className="space-y-5">
                 <div className="space-y-2">
-                  <Label htmlFor="verify-code" className="text-sm font-medium text-gray-300">
+                  <Label htmlFor="verify-code" className="text-sm font-medium text-gray-700">
                     Verification code
                   </Label>
                   <Input
@@ -517,15 +517,15 @@ export default function CheckoutReceiptClient({
                     disabled={verifyLoading}
                     inputMode="numeric"
                     autoComplete="one-time-code"
-                    className="h-11 rounded-xl bg-[#0a0a0a] border-[#333] text-white placeholder:text-gray-600 focus:border-[#7c3aed] focus:ring-[#7c3aed]/20 text-center text-lg tracking-widest font-mono"
+                    className="h-11 rounded-xl border-gray-200 focus:border-[#7c3aed] focus:ring-[#7c3aed]/20 text-center text-lg tracking-widest font-mono"
                   />
                   <p className="text-xs text-gray-500">Check your inbox for the 6-digit code.</p>
                 </div>
 
                 {verifyError && (
-                  <div className="rounded-xl bg-red-500/10 border border-red-500/20 p-3 flex items-start gap-2.5">
-                    <AlertCircle className="h-4 w-4 text-red-400 mt-0.5 flex-shrink-0" />
-                    <p className="text-sm text-red-400">{verifyError}</p>
+                  <div className="rounded-xl bg-red-50 border border-red-100 p-3 flex items-start gap-2.5">
+                    <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+                    <p className="text-sm text-red-700">{verifyError}</p>
                   </div>
                 )}
 
@@ -547,7 +547,7 @@ export default function CheckoutReceiptClient({
                       setVerifySuccess("")
                     }}
                     disabled={verifyLoading}
-                    className="w-full text-sm text-gray-500 hover:text-gray-300 transition-colors py-2"
+                    className="w-full text-sm text-gray-500 hover:text-gray-700 transition-colors py-2"
                   >
                     Didn&apos;t receive it? Send again
                   </button>
@@ -556,7 +556,7 @@ export default function CheckoutReceiptClient({
             )}
           </div>
 
-          <p className="mt-6 text-center text-xs text-gray-600 max-w-xs mx-auto">
+          <p className="mt-6 text-center text-xs text-gray-400 max-w-xs mx-auto">
             This verification protects your purchase. If you didn&apos;t request access, you can safely ignore this.
           </p>
         </div>
@@ -640,6 +640,8 @@ export default function CheckoutReceiptClient({
               hasReviewed={reviewStatus?.hasReviewed || false}
               existingReview={reviewStatus?.existingReview}
               redirectUrl={`/checkout/receipt?token=${receiptToken}`}
+              creatorAvatarUrl={creatorAvatar}
+              creatorName={creatorName}
               onSuccess={() => {
                 setReviewStatus((prev) => (prev ? { ...prev, hasReviewed: true, canReview: false } : null))
               }}
@@ -901,6 +903,8 @@ export default function CheckoutReceiptClient({
                 hasReviewed={reviewStatus?.hasReviewed || false}
                 existingReview={reviewStatus?.existingReview}
                 redirectUrl={`/checkout/receipt?token=${receiptToken}`}
+                creatorAvatarUrl={creatorAvatar}
+                creatorName={creatorName}
                 onSuccess={() => {
                   setReviewStatus((prev) => (prev ? { ...prev, hasReviewed: true, canReview: false } : null))
                 }}

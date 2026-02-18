@@ -16,7 +16,7 @@ export async function GET(request: Request) {
     // Verify the order and token match
     const { data: order, error: orderError } = await admin
       .from("orders")
-      .select(`*, product:products(*)`)
+      .select(`*, product:products(*, creator:creators(id, slug, user_id, support_email))`)
       .eq("id", orderId)
       .eq("receipt_token", receiptToken)
       .single()
@@ -33,6 +33,23 @@ export async function GET(request: Request) {
     })
     const total = order.amount_cents === 0 ? "Free" : `$${(order.amount_cents / 100).toFixed(2)}`
 
+    // Fetch creator profile for display name and email
+    let creatorName = "Seller"
+    let creatorEmail = ""
+    if (product?.creator?.user_id) {
+      const { data: profile } = await admin
+        .from("profiles")
+        .select("display_name, email")
+        .eq("id", product.creator.user_id)
+        .single()
+      if (profile) {
+        creatorName = profile.display_name || "Seller"
+        creatorEmail = product.creator.support_email || profile.email || ""
+      }
+    }
+
+    const escHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+
     // Return a simple HTML receipt page
     const html = `
 <!DOCTYPE html>
@@ -40,7 +57,7 @@ export async function GET(request: Request) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Receipt #${order.id.slice(0, 8)} - Storelib</title>
+  <title>Receipt #${order.id.slice(0, 8)} - ${escHtml(creatorName)}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; padding: 40px 20px; }
@@ -58,13 +75,15 @@ export async function GET(request: Request) {
     .product-info p { color: #666; font-size: 14px; }
     .total { display: flex; justify-content: space-between; font-size: 18px; font-weight: 600; }
     .footer { text-align: center; padding: 24px; background: #f9fafb; color: #666; font-size: 12px; }
+    .footer a { color: #7c3aed; text-decoration: none; }
+    .footer a:hover { text-decoration: underline; }
     @media print { body { background: white; padding: 0; } .receipt { box-shadow: none; } }
   </style>
 </head>
 <body>
   <div class="receipt">
     <div class="header">
-      <h1>Storelib Receipt</h1>
+      <h1>${escHtml(creatorName)} Receipt</h1>
     </div>
     <div class="content">
       <div class="order-info">
@@ -78,18 +97,18 @@ export async function GET(request: Request) {
         </div>
         <div>
           <label>Email</label>
-          <span>${order.buyer_email}</span>
+          <span>${escHtml(order.buyer_email)}</span>
         </div>
       </div>
-      
+
       <div class="product">
-        ${product?.thumbnail_url ? `<img src="${product.thumbnail_url}" alt="${product.title}" />` : '<div style="width:80px;height:80px;background:#f5f5f5;border-radius:8px;"></div>'}
+        ${product?.thumbnail_url ? `<img src="${escHtml(product.thumbnail_url)}" alt="${escHtml(product.title)}" />` : '<div style="width:80px;height:80px;background:#f5f5f5;border-radius:8px;"></div>'}
         <div class="product-info">
-          <h2>${product?.title || "Digital Product"}</h2>
+          <h2>${escHtml(product?.title || "Digital Product")}</h2>
           <p>Digital download</p>
         </div>
       </div>
-      
+
       <div class="total">
         <span>Total</span>
         <span>${total}</span>
@@ -97,7 +116,7 @@ export async function GET(request: Request) {
     </div>
     <div class="footer">
       Thank you for your purchase!<br/>
-      Questions? Contact support@storelib.com
+      Questions? Contact <a href="mailto:${escHtml(creatorEmail)}">${escHtml(creatorEmail)}</a>
     </div>
   </div>
 </body>

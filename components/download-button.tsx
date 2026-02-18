@@ -56,29 +56,22 @@ export async function downloadEntitledFile(
       throw new Error(data.error || data.message || "Failed to get download link")
     }
 
-    // Step 2: fetch the actual file
-    const fileResponse = await fetch(data.downloadUrl)
-    if (!fileResponse.ok) {
-      throw new Error("Failed to download file")
-    }
-
-    const blob = await fileResponse.blob()
-    const downloadFileName = data.fileName || "download"
-
-    // Step 3: trigger browser download
-    const url = window.URL.createObjectURL(blob)
+    // Step 2: trigger browser download via direct navigation
+    // The signed URL has Content-Disposition: attachment set server-side,
+    // so the browser will download rather than navigate away.
     const link = document.createElement("a")
-    link.href = url
-    link.download = downloadFileName
+    link.href = data.downloadUrl
     link.style.display = "none"
+    // target _blank ensures current page stays intact if Content-Disposition is missing
+    link.target = "_blank"
+    link.rel = "noopener noreferrer"
 
     document.body.appendChild(link)
     link.click()
 
     setTimeout(() => {
       document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
-    }, 100)
+    }, 200)
 
     return { success: true }
   } catch (err) {
