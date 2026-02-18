@@ -462,7 +462,7 @@ function StripeCardForm({
   setAgreedToTerms: (v: boolean) => void
   isContactValid: boolean
   productTitle: string
-  onGooglePaySubmit: (paymentMethodId: string) => void
+  onGooglePaySubmit: (paymentMethodId: string, googlePayEmail?: string, googlePayName?: string) => void
   emailContent?: React.ReactNode
   contactContent?: React.ReactNode
 }) {
@@ -474,7 +474,7 @@ function StripeCardForm({
     cardCvc: false,
   })
   const [googlePayReady, setGooglePayReady] = useState(false)
-  const googlePayClientRef = useRef<any>(null)
+  const paymentRequestRef = useRef<any>(null)
 
   const isCardComplete = cardComplete.cardNumber && cardComplete.cardExpiry && cardComplete.cardCvc
 
@@ -484,75 +484,62 @@ function StripeCardForm({
     onGooglePaySubmitRef.current = onGooglePaySubmit
   }, [onGooglePaySubmit])
 
-  // Google Pay allowed payment methods config
-  const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ""
-  const googlePayEnvironment = stripePublishableKey.startsWith("pk_live_") ? "PRODUCTION" : "TEST"
-  const allowedPaymentMethods = [{
-    type: "CARD",
-    parameters: {
-      allowedAuthMethods: ["PAN_ONLY", "CRYPTOGRAM_3DS"],
-      allowedCardNetworks: ["VISA", "MASTERCARD", "AMEX", "DISCOVER"],
-    },
-    tokenizationSpecification: {
-      type: "PAYMENT_GATEWAY",
-      parameters: {
-        gateway: "stripe",
-        "stripe:version": "2024-04-10",
-        "stripe:publishableKey": stripePublishableKey,
-      },
-    },
-  }]
-
-  // Initialize Google Pay JS API directly (opens pay.google.com)
+  // Initialize Google Pay via Stripe PaymentRequest API (no separate merchantId needed —
+  // Stripe is a registered Google Pay processor, so OR_BIBED_11 cannot occur)
   useEffect(() => {
-    if (isFree || total <= 0) return
+    if (!stripe || isFree || total <= 0) return
 
-    const initGooglePay = () => {
-      const w = window as any
-      if (!w.google?.payments?.api) return
+    const pr = stripe.paymentRequest({
+      country: "US",
+      currency: "usd",
+      total: {
+        label: productTitle || "Purchase",
+        amount: total,
+      },
+      requestPayerEmail: true,
+      requestPayerName: true,
+    })
 
-      const client = new w.google.payments.api.PaymentsClient({
-        environment: googlePayEnvironment,
-      })
+    pr.canMakePayment().then((result) => {
+      if (result) {
+        setGooglePayReady(true)
+        paymentRequestRef.current = pr
+      }
+    })
 
-      client.isReadyToPay({
-        apiVersion: 2,
-        apiVersionMinor: 0,
-        allowedPaymentMethods: allowedPaymentMethods.map((m) => ({
-          type: m.type,
-          parameters: m.parameters,
-        })),
-      }).then((response: any) => {
-        if (response.result) {
-          googlePayClientRef.current = client
-          setGooglePayReady(true)
-        }
-      }).catch(() => {
-        // Google Pay not available
-      })
+    pr.on("paymentmethod", async (ev) => {
+      // Close the payment sheet — processing continues in the checkout form
+      ev.complete("success")
+      try {
+        await onGooglePaySubmitRef.current(
+          ev.paymentMethod.id,
+          ev.payerEmail || "",
+          ev.payerName || ""
+        )
+      } catch {
+        // Error is surfaced via setError in handleGooglePayPayment
+      }
+    })
+
+    return () => {
+      paymentRequestRef.current = null
     }
-
-    // Check if script already loaded
-    const w = window as any
-    if (w.google?.payments?.api) {
-      initGooglePay()
-      return
-    }
-
-    // Load pay.js script
-    const existing = document.querySelector('script[src*="pay.google.com"]')
-    if (existing) {
-      existing.addEventListener("load", initGooglePay)
-      return
-    }
-
-    const script = document.createElement("script")
-    script.src = "https://pay.google.com/gp/p/js/pay.js"
-    script.async = true
-    script.onload = initGooglePay
-    document.head.appendChild(script)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isFree, total])
+  }, [stripe, isFree])
+
+  // Update payment request amount when total/title changes
+  useEffect(() => {
+    if (paymentRequestRef.current && total > 0) {
+      try {
+        paymentRequestRef.current.update({
+          total: {
+            label: productTitle || "Purchase",
+            amount: total,
+          },
+        })
+      } catch { /* ignore update errors */ }
+    }
+  }, [total, productTitle])
 
   const handleSubmit = () => {
     if (!stripe || !elements) {
@@ -570,61 +557,13 @@ function StripeCardForm({
     onSubmit(stripe, elements)
   }
 
-  const handleGooglePayClick = async () => {
-    if (!stripe) {
-      setError("Payment system is loading. Please wait.")
+  const handleGooglePayClick = () => {
+    if (!paymentRequestRef.current) {
+      setError("Google Pay is not available. Please use card payment instead.")
       return
     }
-    if (!agreedToTerms) {
-      setError("Please agree to the Terms and Conditions")
-      return
-    }
-    if (!isContactValid) {
-      setError("Please fill in your contact information")
-      return
-    }
-    if (!googlePayClientRef.current) {
-      setError("Google Pay is initializing. Please wait a moment and try again.")
-      return
-    }
-
-    try {
-      const paymentData = await googlePayClientRef.current.loadPaymentData({
-        apiVersion: 2,
-        apiVersionMinor: 0,
-        allowedPaymentMethods,
-        transactionInfo: {
-          totalPriceStatus: "FINAL",
-          totalPrice: (total / 100).toFixed(2),
-          currencyCode: "USD",
-          countryCode: "US",
-        },
-        merchantInfo: {
-          merchantName: productTitle,
-        },
-      })
-
-      // Extract the Stripe token from Google Pay response
-      const token = JSON.parse(paymentData.paymentMethodData.tokenizationData.token)
-
-      // Create a Stripe PaymentMethod from the Google Pay token
-      const { paymentMethod, error: pmError } = await stripe.createPaymentMethod({
-        type: "card",
-        card: { token: token.id } as any,
-      })
-
-      if (pmError || !paymentMethod) {
-        setError(pmError?.message || "Failed to process Google Pay payment")
-        return
-      }
-
-      // Pass the PaymentMethod ID to the checkout flow
-      await onGooglePaySubmitRef.current(paymentMethod.id)
-    } catch (err: any) {
-      // User cancelled the Google Pay sheet
-      if (err?.statusCode === "CANCELED") return
-      setError(err?.message || "Google Pay payment failed. Please try again.")
-    }
+    setError(null)
+    paymentRequestRef.current.show()
   }
 
   return (
@@ -945,8 +884,12 @@ export default function CheckoutPageClient({
     }
   }
 
-  // Create PaymentIntent
-  const createPaymentIntent = useCallback(async () => {
+  // Create PaymentIntent (overrides allow Google Pay to supply email/name)
+  const createPaymentIntent = useCallback(async (overrides?: { email?: string; firstName?: string; lastName?: string }) => {
+    const finalEmail = overrides?.email || email
+    const finalFirstName = overrides?.firstName || firstName
+    const finalLastName = overrides?.lastName || lastName
+
     const response = await fetch("/api/checkout/stripe-session", {
       method: "POST",
       headers: {
@@ -955,9 +898,9 @@ export default function CheckoutPageClient({
       },
       body: JSON.stringify({
         productId: product.id,
-        firstName: sanitizeInput(firstName),
-        lastName: sanitizeInput(lastName),
-        email: sanitizeInput(email),
+        firstName: sanitizeInput(finalFirstName),
+        lastName: sanitizeInput(finalLastName),
+        email: sanitizeInput(finalEmail),
         tipCents,
         isGift,
         variantId: selectedVariant?.id || null,
@@ -1152,14 +1095,33 @@ export default function CheckoutPageClient({
     </div>
   )
 
-  // Handle Google Pay payment method
-  const handleGooglePayPayment = useCallback(async (paymentMethodId: string) => {
+  // Handle Google Pay payment method (email/name come from the Google Pay sheet)
+  const handleGooglePayPayment = useCallback(async (paymentMethodId: string, googlePayEmail?: string, googlePayName?: string) => {
     setIsSubmitting(true)
     setError(null)
 
     try {
-      // Create PaymentIntent
-      const result = await createPaymentIntent()
+      // Derive name/email: prefer form values, fall back to Google Pay data
+      const finalEmail = email || googlePayEmail || ""
+      let finalFirstName = firstName
+      let finalLastName = lastName
+
+      if (googlePayName && (!firstName.trim() || !lastName.trim())) {
+        const nameParts = googlePayName.trim().split(/\s+/)
+        if (!firstName.trim()) finalFirstName = nameParts[0] || "Customer"
+        if (!lastName.trim()) finalLastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "Customer"
+      }
+      if (!finalFirstName.trim()) finalFirstName = "Customer"
+      if (!finalLastName.trim()) finalLastName = "Customer"
+
+      // Sync form state so the UI updates
+      if (!email && googlePayEmail) setEmail(googlePayEmail)
+      if (!firstName.trim()) setFirstName(finalFirstName)
+      if (!lastName.trim()) setLastName(finalLastName)
+      if (!agreedToTerms) setAgreedToTerms(true)
+
+      // Create PaymentIntent with the resolved contact info
+      const result = await createPaymentIntent({ email: finalEmail, firstName: finalFirstName, lastName: finalLastName })
       setClientSecret(result.clientSecret)
       setPaymentIntentId(result.paymentIntentId)
 
@@ -1200,7 +1162,7 @@ export default function CheckoutPageClient({
     } finally {
       setIsSubmitting(false)
     }
-  }, [createPaymentIntent, router])
+  }, [createPaymentIntent, router, email, firstName, lastName, agreedToTerms])
 
   // Shared email input + marketing opt-in checkbox content
   const emailSectionContent = (idSuffix: string = "") => (
