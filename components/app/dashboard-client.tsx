@@ -2014,8 +2014,7 @@ export function DashboardClient({
         {/* Main Content Grid - Store Setup + Quick Actions */}
         <div className="grid gap-6 lg:grid-cols-[370px_1fr]">
           {/* Left Column - Store Setup Checklist */}
-          {!allCompleted && (
-            <div id="store-setup-section" className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] h-fit">
+          <div id="store-setup-section" className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] h-fit">
               <div className="flex items-center justify-between mb-5">
                 <h2 className="text-[15px] font-semibold text-[#1a1a2e]">{t("dashboard.storeSetup")}</h2>
                 <span className="text-[13px] font-medium text-[#6b7280] bg-[#f3f4f6] px-2.5 py-1 rounded-full">
@@ -2122,7 +2121,7 @@ export function DashboardClient({
                 })}
               </div>
             </div>
-          )}
+          </div>
 
           {/* Right Column - Quick Actions */}
           <div className="space-y-4">
@@ -2131,7 +2130,7 @@ export function DashboardClient({
               href="/app/products/new"
               className="group flex items-center gap-5 bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#8b5cf6]/30 hover:shadow-[0_4px_12px_rgba(139,92,246,0.08)] transition-all duration-200"
             >
-              <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-to-br from-[#f5f3ff] to-[#ede9fe] overflow-hidden">
+              <div className="flex h-16 w-16 items-center justify-center rounded-xl overflow-hidden shrink-0">
                 <img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/httpsskgtqglupjcnfhfscink.supabase.costoragev1objectpublicplatform%2020imagesbimi-svg-tiny-12-ps%2020(1).svg%20(1).webp" alt="" className="h-full w-full object-cover" />
               </div>
               <div className="flex-1">
@@ -2204,25 +2203,6 @@ export function DashboardClient({
           </div>
         </div>
 
-        {/* All setup completed celebration */}
-        {allCompleted && (
-          <div className="mt-6 bg-gradient-to-r from-[#f5f3ff] via-[#ede9fe] to-[#f5f3ff] rounded-2xl border border-[#8b5cf6]/20 p-6">
-            <div className="flex items-center gap-5">
-              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-[#8b5cf6]">
-                <Trophy className="h-7 w-7 text-white" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-[17px] font-semibold text-[#1a1a2e]">{t("dashboard.allSetUp")}</h3>
-                  <Sparkles className="h-5 w-5 text-[#8b5cf6]" />
-                </div>
-                <p className="text-[14px] text-[#6b7280] mt-1">
-                  {t("dashboard.allSetUpDesc")}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Dashboard Scrollbar Styles */}
