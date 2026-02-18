@@ -94,6 +94,13 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
     }
   }
 
+  // Fetch all variants for this product (for variant selector)
+  const { data: allVariants } = await supabase
+    .from("product_variants")
+    .select("id, name, description, price_cents")
+    .eq("product_id", productId)
+    .order("price_cents", { ascending: true })
+
   // Determine if PWYW is active
   const isVariantPwyw = selectedVariant && (selectedVariant as any).pay_what_you_want
   const isProductPwyw = !selectedVariant && (product as any).pay_what_you_want
@@ -151,6 +158,12 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
       // Pass PWYW info for display
       isPwyw={isPwywActive}
       customPriceCents={customPriceCents}
+      allVariants={(allVariants || []).map(v => ({
+        id: v.id,
+        name: v.name,
+        description: v.description,
+        priceCents: v.price_cents,
+      }))}
     />
   )
 }

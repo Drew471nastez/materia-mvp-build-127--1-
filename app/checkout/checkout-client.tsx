@@ -69,6 +69,7 @@ interface CheckoutPageClientProps {
   selectedVariant?: SelectedVariant | null
   isPwyw?: boolean
   customPriceCents?: number | null
+  allVariants?: SelectedVariant[]
 }
 
 // ---------- Helpers ----------
@@ -711,9 +712,10 @@ export default function CheckoutPageClient({
   creator,
   userEmail,
   isLoggedIn,
-  selectedVariant,
+  selectedVariant: initialVariant,
   isPwyw,
   customPriceCents,
+  allVariants = [],
 }: CheckoutPageClientProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -733,6 +735,9 @@ export default function CheckoutPageClient({
   const [customTip, setCustomTip] = useState("")
   const [isGift, setIsGift] = useState(false)
 
+  // Variant selection state
+  const [selectedVariant, setSelectedVariant] = useState<SelectedVariant | null | undefined>(initialVariant)
+
   const [discountCode, setDiscountCode] = useState(() => loadSessionField(SESSION_KEYS.discountCode))
   const [discountApplied, setDiscountApplied] = useState(false)
   const [discountPercent, setDiscountPercent] = useState(0)
@@ -743,6 +748,12 @@ export default function CheckoutPageClient({
   const [mobileOrderOpen, setMobileOrderOpen] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showVariantModal, setShowVariantModal] = useState(false)
+
+  // Reset payment intent when variant changes (price may differ)
+  useEffect(() => {
+    setClientSecret(null)
+    setPaymentIntentId(null)
+  }, [selectedVariant?.id])
 
   const lastSubmitTime = useRef(0)
 
@@ -1006,6 +1017,8 @@ export default function CheckoutPageClient({
         isPwyw={isPwyw}
         formatPrice={formatPrice}
         productUrl={productUrl}
+        allVariants={allVariants}
+        onVariantChange={setSelectedVariant}
       />
 
       <section className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
@@ -1258,7 +1271,7 @@ export default function CheckoutPageClient({
             <OrderSummaryMobileToggle isOpen={mobileOrderOpen} onToggle={() => setMobileOrderOpen(!mobileOrderOpen)} total={total} />
             {mobileOrderOpen && (
               <div className="mt-3 animate-in slide-in-from-top-2 duration-200">
-                <OrderSummaryContent product={product} creator={creator} selectedVariant={selectedVariant} subtotal={subtotal} tipCents={tipCents} discountApplied={discountApplied} discountCents={discountCents} total={total} isPwyw={isPwyw} formatPrice={formatPrice} productUrl={productUrl} />
+                <OrderSummaryContent product={product} creator={creator} selectedVariant={selectedVariant} subtotal={subtotal} tipCents={tipCents} discountApplied={discountApplied} discountCents={discountCents} total={total} isPwyw={isPwyw} formatPrice={formatPrice} productUrl={productUrl} allVariants={allVariants} onVariantChange={setSelectedVariant} />
               </div>
             )}
           </div>
@@ -1339,7 +1352,7 @@ export default function CheckoutPageClient({
 
         {/* RIGHT HALF - Light gray background, sticky order summary */}
         <div className="w-1/2 bg-[#f7f7f8]">
-          <div className="sticky top-[57px] max-w-[560px] mr-auto py-10 px-10 xl:px-16">
+          <div className="sticky top-[57px] max-w-[644px] mr-auto py-10 px-10 xl:px-16">
             {rightColumnContent}
           </div>
         </div>
@@ -1377,7 +1390,7 @@ export default function CheckoutPageClient({
 
 // ---------- Order Summary ----------
 function OrderSummaryContent({
-  product, creator, selectedVariant, subtotal, tipCents, discountApplied, discountCents, total, isPwyw, formatPrice, productUrl,
+  product, creator, selectedVariant, subtotal, tipCents, discountApplied, discountCents, total, isPwyw, formatPrice, productUrl, allVariants, onVariantChange,
 }: {
   product: CheckoutPageClientProps["product"]
   creator: CheckoutPageClientProps["creator"]
@@ -1390,34 +1403,100 @@ function OrderSummaryContent({
   isPwyw?: boolean
   formatPrice: (cents: number) => string
   productUrl?: string
+  allVariants?: SelectedVariant[]
+  onVariantChange?: (variant: SelectedVariant) => void
 }) {
+  const [variantOpen, setVariantOpen] = useState(false)
+  const variantRef = useRef<HTMLDivElement>(null)
+
+  // Close variant dropdown on outside click
+  useEffect(() => {
+    if (!variantOpen) return
+    const handleClick = (e: MouseEvent) => {
+      if (variantRef.current && !variantRef.current.contains(e.target as Node)) {
+        setVariantOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClick)
+    return () => document.removeEventListener("mousedown", handleClick)
+  }, [variantOpen])
+
+  const hasMultipleVariants = allVariants && allVariants.length > 1
+
   return (
     <div className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
-      {/* Product thumbnail + name + Remove — displayed first */}
-      <div className="flex gap-3 mb-4">
-        <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-gray-100">
-          {product.thumbnail_url ? (
-            <Image src={product.thumbnail_url} alt={product.title} fill className="object-cover" />
-          ) : (
-            <div className="flex h-full items-center justify-center"><Package className="h-6 w-6 text-gray-300" /></div>
-          )}
+      {/* Product thumbnail + name + variant */}
+      <div className="flex gap-4 mb-4">
+        {/* Thumbnail with quantity badge */}
+        <div className="relative h-[74px] w-[74px] shrink-0">
+          <div className="relative h-full w-full overflow-hidden rounded-xl bg-gray-100">
+            {product.thumbnail_url ? (
+              <Image src={product.thumbnail_url} alt={product.title} fill className="object-cover" />
+            ) : (
+              <div className="flex h-full items-center justify-center"><Package className="h-7 w-7 text-gray-300" /></div>
+            )}
+          </div>
+          {/* Quantity bubble badge */}
+          <div className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-gray-700 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm">
+            1
+          </div>
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-gray-900 line-clamp-2">{product.title}</p>
-          {selectedVariant && <p className="text-xs text-gray-500 mt-0.5">{selectedVariant.name}</p>}
+          {/* Variant display + selector */}
+          {selectedVariant && (
+            <div className="relative mt-1" ref={variantRef}>
+              {hasMultipleVariants ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setVariantOpen(!variantOpen)}
+                    className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-md px-2 py-1 transition-colors cursor-pointer"
+                  >
+                    <span className="font-medium">{selectedVariant.name}</span>
+                    <ChevronDown className={`w-3 h-3 transition-transform ${variantOpen ? "rotate-180" : ""}`} />
+                  </button>
+                  {variantOpen && (
+                    <div className="absolute top-full left-0 mt-1 w-56 bg-white rounded-xl border border-gray-200 shadow-lg z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
+                      <div className="py-1">
+                        {allVariants!.map((v) => (
+                          <button
+                            key={v.id}
+                            type="button"
+                            onClick={() => {
+                              onVariantChange?.(v)
+                              setVariantOpen(false)
+                            }}
+                            className={`w-full flex items-center justify-between px-3 py-2.5 text-sm transition-colors cursor-pointer ${
+                              selectedVariant.id === v.id ? "bg-gray-50 font-medium text-gray-900" : "text-gray-700 hover:bg-gray-50"
+                            }`}
+                          >
+                            <span className="flex items-center gap-2">
+                              {selectedVariant.id === v.id && <Check className="w-3.5 h-3.5 text-gray-900 shrink-0" />}
+                              <span>{v.name}</span>
+                            </span>
+                            <span className="text-xs text-gray-500 shrink-0">{v.priceCents === 0 ? "Free" : formatPrice(v.priceCents)}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <span className="inline-flex items-center text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-md px-2 py-1">
+                  {selectedVariant.name}
+                </span>
+              )}
+            </div>
+          )}
           {productUrl && (
-            <a href={productUrl} className="text-xs text-gray-400 hover:text-red-500 transition-colors mt-1 inline-block">Remove</a>
+            <a href={productUrl} className="text-xs text-gray-400 hover:text-red-500 transition-colors mt-1.5 inline-block">Remove</a>
           )}
         </div>
         <span className="text-sm font-semibold text-gray-900 whitespace-nowrap shrink-0">{subtotal === 0 ? "Free" : formatPrice(subtotal)}</span>
       </div>
       <Separator className="my-3" />
-      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Order summary</h3>
       <div className="space-y-2.5">
-        <div className="flex justify-between text-sm">
-          <span className="text-gray-500">{isPwyw ? "Your price" : "Subtotal"}</span>
-          <span className="text-gray-900">{formatPrice(subtotal)}</span>
-        </div>
         {discountApplied && discountCents > 0 && (
           <div className="flex justify-between text-sm">
             <span className="text-green-600">Discount</span>
@@ -1431,7 +1510,7 @@ function OrderSummaryContent({
           </div>
         )}
       </div>
-      <Separator className="my-3" />
+      {(discountApplied && discountCents > 0) || tipCents > 0 ? <Separator className="my-3" /> : null}
       <div className="flex justify-between">
         <span className="text-base font-semibold text-gray-900">Total</span>
         <span className="text-lg font-bold text-gray-900">{formatPrice(total)}</span>
