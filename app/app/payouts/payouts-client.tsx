@@ -325,7 +325,7 @@ function TimeframeBottomSheet({
             ))}
           </div>
         </div>
-        <div className="h-[env(safe-area-inset-bottom)]" />
+        <div style={{ height: 'max(env(safe-area-inset-bottom), 0px)', minHeight: '0' }} />
       </div>
     </div>
   )
@@ -711,28 +711,28 @@ function OrderDetailsModal({
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
-          className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
+          className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl flex flex-col"
           style={{
             transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)",
             transition: isDragging ? 'none' : 'transform 360ms cubic-bezier(0.22, 0.9, 0.24, 1)',
-            maxHeight: '76.5vh',
+            maxHeight: '90vh',
           }}
         >
           {/* Handle bar area */}
-          <div className="pt-3 pb-2">
+          <div className="pt-3 pb-2 flex-shrink-0">
             <button onClick={handleClose} className="w-full flex justify-center py-2 cursor-pointer touch-none">
               <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
             </button>
           </div>
 
           {/* Header */}
-          <div className="px-4 pb-3 flex items-center justify-between border-b border-[#e5e7eb]">
+          <div className="px-4 pb-3 flex items-center justify-between border-b border-[#e5e7eb] flex-shrink-0">
             <h3 className="text-[16px] font-semibold text-[#1a1a2e]">Order Details</h3>
             {getStatusBadge(selectedOrder.status)}
           </div>
 
           {/* Scrollable Content */}
-          <div className="px-4 py-4 overflow-y-auto overscroll-contain" style={{ maxHeight: 'calc(76.5vh - 160px)' }}>
+          <div className="px-4 py-4 overflow-y-auto overscroll-contain flex-1 min-h-0">
             <div className="space-y-4">
               {/* Order ID */}
               <div className="flex items-center gap-2">
@@ -899,7 +899,7 @@ function OrderDetailsModal({
           </div>
 
           {/* Mobile Footer Actions */}
-          <div className="px-4 pt-4 pb-5 border-t border-[#e5e7eb] bg-white">
+          <div className="px-4 pt-4 border-t border-[#e5e7eb] bg-white flex-shrink-0" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 20px)' }}>
             <div className="flex items-center gap-2 mb-2">
               <button
                 onClick={() => handleDownloadInvoice(selectedOrder)}
@@ -942,8 +942,6 @@ function OrderDetailsModal({
             </div>
           </div>
 
-          {/* Safe area padding for bottom notch */}
-          <div className="h-[env(safe-area-inset-bottom)] min-h-[16px] bg-white" />
         </div>
       </div>
     </>,
