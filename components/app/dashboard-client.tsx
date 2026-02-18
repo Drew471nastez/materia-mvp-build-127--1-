@@ -2121,7 +2121,6 @@ export function DashboardClient({
                 })}
               </div>
             </div>
-          </div>
 
           {/* Right Column - Quick Actions */}
           <div className="space-y-4">
