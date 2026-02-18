@@ -666,8 +666,6 @@ function OrderDetailsModal({
   handleDownloadInvoice,
   handleOpenRefund,
   receiptResendCounts,
-  refundResendCounts,
-  handleResendRefund,
   getFlagEmoji,
   setShowOrderModal,
   invoiceLoading,
@@ -687,8 +685,6 @@ function OrderDetailsModal({
   handleDownloadInvoice: (order: Order) => void
   handleOpenRefund: (order: Order) => void
   receiptResendCounts: Record<string, number>
-  refundResendCounts: Record<string, number>
-  handleResendRefund: (order: Order) => void
   getFlagEmoji: (countryCode: string) => string
   setShowOrderModal: (show: boolean) => void
   invoiceLoading: boolean
@@ -977,14 +973,6 @@ function OrderDetailsModal({
               {selectedOrder.refund_amount_cents && <p className="text-[12px] text-[#6b7280]">Amount: {formatPrice(selectedOrder.refund_amount_cents)}</p>}
               {selectedOrder.refunded_at && <p className="text-[12px] text-[#6b7280]">Date: {formatFullDate(selectedOrder.refunded_at)}</p>}
               {selectedOrder.refund_reason && <p className="text-[12px] text-[#6b7280]">Reason: {selectedOrder.refund_reason}</p>}
-              <button
-                onClick={() => handleResendRefund(selectedOrder)}
-                className="w-full mt-1 px-3 py-2 text-[12px] font-medium text-[#374151] bg-white border border-[#e5e7eb] rounded-lg hover:bg-[#f3f4f6] transition-colors flex items-center justify-center gap-2"
-              >
-                <Send className="h-3.5 w-3.5" />
-                Resend Refund Confirmation
-                <span className="text-[11px] text-[#9ca3af]">({refundResendCounts[selectedOrder.id] || 0}/10)</span>
-              </button>
             </div>
           )}
 
@@ -1219,14 +1207,6 @@ function OrderDetailsModal({
                   {selectedOrder.refund_amount_cents && <p className="text-[11px] text-[#6b7280]">Amount: {formatPrice(selectedOrder.refund_amount_cents)}</p>}
                   {selectedOrder.refunded_at && <p className="text-[11px] text-[#6b7280]">Date: {formatFullDate(selectedOrder.refunded_at)}</p>}
                   {selectedOrder.refund_reason && <p className="text-[11px] text-[#6b7280]">Reason: {selectedOrder.refund_reason}</p>}
-                  <button
-                    onClick={() => handleResendRefund(selectedOrder)}
-                    className="w-full mt-1 px-3 py-2 text-[11px] font-medium text-[#374151] bg-white border border-[#e5e7eb] rounded-lg active:bg-[#f3f4f6] transition-colors flex items-center justify-center gap-1.5"
-                  >
-                    <Send className="h-3 w-3" />
-                    Resend Refund Confirmation
-                    <span className="text-[10px] text-[#9ca3af]">({refundResendCounts[selectedOrder.id] || 0}/10)</span>
-                  </button>
                 </div>
               )}
             </div>
@@ -1377,15 +1357,6 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
   const [receiptResendCounts, setReceiptResendCounts] = useState<Record<string, number>>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('receiptResendCounts')
-      return saved ? JSON.parse(saved) : {}
-    }
-    return {}
-  })
-
-  // Refund email resend tracking (max 10 per order)
-  const [refundResendCounts, setRefundResendCounts] = useState<Record<string, number>>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('refundResendCounts')
       return saved ? JSON.parse(saved) : {}
     }
     return {}
@@ -1552,39 +1523,6 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
     } catch (error) {
       console.error("Error resending receipt:", error)
       showNotification("Failed to send receipt. Please try again.")
-    }
-  }
-
-  const handleResendRefund = async (order: Order) => {
-    const currentCount = refundResendCounts[order.id] || 0
-    if (currentCount >= 10) {
-      showNotification("Maximum refund email resend limit (10) reached for this order")
-      return
-    }
-
-    try {
-      const response = await fetch('/api/refund/resend', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId: order.id }),
-      })
-
-      const data = await response.json()
-
-      if (response.ok && data.success) {
-        const newCounts = { ...refundResendCounts, [order.id]: currentCount + 1 }
-        setRefundResendCounts(newCounts)
-        localStorage.setItem('refundResendCounts', JSON.stringify(newCounts))
-        const email = order.buyer?.email || order.buyer_email || "customer"
-        showNotification(`Refund confirmation resent to ${email} (${currentCount + 1}/10)`)
-      } else if (data.limitReached) {
-        showNotification("Maximum refund email resend limit (10) reached for this order")
-      } else {
-        showNotification(data.error || "Failed to resend refund confirmation")
-      }
-    } catch (error) {
-      console.error("Error resending refund emails:", error)
-      showNotification("Failed to resend refund confirmation. Please try again.")
     }
   }
 
@@ -3526,8 +3464,6 @@ export function SalesClient({ creatorId, products, initialSummary, initialOrders
         handleDownloadInvoice={handleDownloadInvoice}
         handleOpenRefund={handleOpenRefund}
         receiptResendCounts={receiptResendCounts}
-        refundResendCounts={refundResendCounts}
-        handleResendRefund={handleResendRefund}
         getFlagEmoji={getFlagEmoji}
         setShowOrderModal={setShowOrderModal}
         invoiceLoading={invoiceLoading}

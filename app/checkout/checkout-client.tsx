@@ -478,6 +478,12 @@ function StripeCardForm({
 
   const isCardComplete = cardComplete.cardNumber && cardComplete.cardExpiry && cardComplete.cardCvc
 
+  // Use ref to always have the latest callback without recreating the payment request
+  const onGooglePaySubmitRef = useRef(onGooglePaySubmit)
+  useEffect(() => {
+    onGooglePaySubmitRef.current = onGooglePaySubmit
+  }, [onGooglePaySubmit])
+
   // Initialize Stripe Payment Request (Google Pay / Apple Pay)
   useEffect(() => {
     if (!stripe || isFree || total <= 0) return
@@ -496,16 +502,16 @@ function StripeCardForm({
     pr.canMakePayment().then((result: any) => {
       if (result) {
         setCanMakePayment(true)
-        setPaymentRequest(pr)
       }
+      setPaymentRequest(pr)
     })
 
     pr.on("paymentmethod", async (ev: any) => {
       try {
+        await onGooglePaySubmitRef.current(ev.paymentMethod.id)
         ev.complete("success")
-        await onGooglePaySubmit(ev.paymentMethod.id)
       } catch {
-        // Payment processing errors handled by onGooglePaySubmit
+        ev.complete("fail")
       }
     })
 
@@ -514,17 +520,21 @@ function StripeCardForm({
       setCanMakePayment(false)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stripe, isFree, total, productTitle])
+  }, [stripe, isFree])
 
   // Update payment request amount when total changes
   useEffect(() => {
     if (!paymentRequest || total <= 0) return
-    paymentRequest.update({
-      total: {
-        label: productTitle,
-        amount: total,
-      },
-    })
+    try {
+      paymentRequest.update({
+        total: {
+          label: productTitle,
+          amount: total,
+        },
+      })
+    } catch {
+      // Payment request may not support update if not yet shown
+    }
   }, [paymentRequest, total, productTitle])
 
   const handleSubmit = () => {
@@ -544,7 +554,14 @@ function StripeCardForm({
   }
 
   const handleGooglePayClick = () => {
-    if (!paymentRequest) return
+    if (!paymentRequest) {
+      setError("Google Pay is initializing. Please wait a moment and try again.")
+      return
+    }
+    if (!canMakePayment) {
+      setError("Google Pay is not available on this device or browser. Please use card payment instead.")
+      return
+    }
     if (!agreedToTerms) {
       setError("Please agree to the Terms and Conditions")
       return
@@ -553,7 +570,11 @@ function StripeCardForm({
       setError("Please fill in your contact information")
       return
     }
-    paymentRequest.show()
+    try {
+      paymentRequest.show()
+    } catch {
+      setError("Could not open Google Pay. Please try again or use card payment.")
+    }
   }
 
   return (
@@ -567,7 +588,7 @@ function StripeCardForm({
             <button
               type="button"
               onClick={handleGooglePayClick}
-              disabled={isSubmitting || !canMakePayment || !stripe}
+              disabled={isSubmitting || !stripe}
               className="flex items-center justify-center h-[48px] rounded-xl bg-black hover:bg-gray-900 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <GooglePayIcon className="h-[22px] w-auto" />

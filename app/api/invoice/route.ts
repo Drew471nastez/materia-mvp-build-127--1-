@@ -73,13 +73,13 @@ export async function GET(request: Request) {
     // Fetch Storelib logo for invoice branding
     let logoPngBuffer: Buffer | null = null
     try {
-      const logoUrl = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
+      const logoUrl = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/bimi-svg-tiny-12-ps%20(1).svg"
       const logoResponse = await fetch(logoUrl)
       if (logoResponse.ok) {
         const svgBuffer = Buffer.from(await logoResponse.arrayBuffer())
         const sharpMod = await import("sharp")
         const sharpFn = sharpMod.default || sharpMod
-        logoPngBuffer = await (sharpFn as any)(svgBuffer).resize(120, 40, { fit: "inside" }).png().toBuffer()
+        logoPngBuffer = await (sharpFn as any)(svgBuffer).resize(80, 80, { fit: "inside" }).png().toBuffer()
       }
     } catch (logoErr) {
       console.error("[Invoice] Logo fetch/convert failed:", logoErr)
@@ -99,11 +99,12 @@ export async function GET(request: Request) {
       doc.on("end", () => resolve(Buffer.concat(chunks)))
     })
 
-    // Header — Storelib logo + Store name + INVOICE
+    // Header — Storelib logo next to Store name + INVOICE
     if (logoPngBuffer) {
       try {
-        doc.image(logoPngBuffer, 50, 45, { height: 28 })
-        doc.fontSize(15).font("Helvetica-Bold").fillColor("#1a1a2e").text(storeName, 50, 78)
+        const logoHeight = 26
+        doc.image(logoPngBuffer, 50, 48, { height: logoHeight })
+        doc.fontSize(17).font("Helvetica-Bold").fillColor("#1a1a2e").text(storeName, 50 + logoHeight + 8, 50)
       } catch {
         doc.fontSize(22).font("Helvetica-Bold").fillColor("#1a1a2e").text(storeName, 50, 50)
       }

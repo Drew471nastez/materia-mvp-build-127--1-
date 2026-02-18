@@ -40,7 +40,7 @@ export default async function AppLayout({
 
   const { data: onepage } = await supabase
     .from("onepages")
-    .select("id, avatar_url, published, draft_blocks")
+    .select("id, avatar_url, published, draft_blocks, bio")
     .eq("owner_id", user.id)
     .maybeSingle()
 
@@ -68,22 +68,17 @@ export default async function AppLayout({
   const hasProducts = (products?.length || 0) > 0
   const productIds = products?.map((p: any) => p.id) || []
 
-  // Check for Stripe connection
-  const { data: stripeAccount } = await supabase
-    .from("stripe_accounts")
-    .select("stripe_account_id, payouts_enabled")
-    .eq("user_id", user.id)
-    .maybeSingle()
-  const hasPayoutsSetup = stripeAccount?.payouts_enabled === true
+  // Check for Stripe connection — read from creators table (source of truth)
+  const hasPayoutsSetup = creator.payouts_enabled === true || creator.stripe_onboarding_status === "connected"
 
   // OnePage check
   const hasOnePage = !!onepage
   const hasOnePageBlock = onepage?.draft_blocks && onepage.draft_blocks.length > 1
 
-  // Branding check
-  const hasBranding = !!(profile?.avatar_url || creator.avatar_url) &&
-                      !!(profile?.display_name || creator.display_name) &&
-                      !!creator.bio
+  // Branding check — check each item independently, including onepage data
+  const hasBranding = !!(profile?.avatar_url || creator.avatar_url || onepage?.avatar_url) &&
+                      !!(profile?.display_name || creator.display_name || profile?.username || creator.username || creator.slug) &&
+                      !!(creator.bio || onepage?.bio)
 
   // First sale check
   let hasFirstSale = false

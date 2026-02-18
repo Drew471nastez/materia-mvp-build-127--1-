@@ -48,21 +48,15 @@ export default async function AppDashboard() {
   // Check for OnePage
   const { data: onepage } = await adminSupabase
     .from("onepages")
-    .select("id, status, draft_blocks")
+    .select("id, status, draft_blocks, bio, avatar_url, title")
     .eq("owner_id", user.id)
     .maybeSingle()
 
   const hasOnePage = !!onepage
   const hasOnePageBlock = onepage?.draft_blocks && onepage.draft_blocks.length > 1
 
-  // Check for Stripe connection
-  const { data: stripeAccount } = await adminSupabase
-    .from("stripe_accounts")
-    .select("stripe_account_id, payouts_enabled")
-    .eq("user_id", user.id)
-    .maybeSingle()
-
-  const hasPayoutsSetup = stripeAccount?.payouts_enabled === true
+  // Check for Stripe connection — read from creators table (source of truth)
+  const hasPayoutsSetup = creator.payouts_enabled === true || creator.stripe_onboarding_status === "connected"
 
   // Fetch ALL orders for this creator's products (same source as Sales page)
   let allOrders: any[] = []
@@ -81,10 +75,11 @@ export default async function AppDashboard() {
   const totalOrders = allOrders.filter(o => o.status === "completed" || o.status === "refunded").length
   const totalRevenue = completedOrders.reduce((sum: number, o: any) => sum + (o.amount_cents || 0), 0)
 
-  // Branding check: has avatar, name, and bio
-  const hasBranding = !!(profile?.avatar_url || creator.avatar_url) &&
-                      !!(profile?.display_name || creator.display_name) &&
-                      !!creator.bio
+  // Branding check: check each item independently
+  const hasAvatar = !!(profile?.avatar_url || creator.avatar_url || onepage?.avatar_url)
+  const hasName = !!(profile?.display_name || creator.display_name || profile?.username || creator.username || creator.slug)
+  const hasBio = !!(creator.bio || onepage?.bio)
+  const hasBranding = hasAvatar && hasName && hasBio
 
   // First sale check
   const hasFirstSale = totalOrders > 0
@@ -162,6 +157,7 @@ export default async function AppDashboard() {
       initialTotalRevenue={totalRevenue}
       creatorHandle={profile?.username || creator.slug || ""}
       connectedDomain={activeDomain?.domain || null}
+      brandingDetail={{ hasAvatar, hasName, hasBio }}
     />
   )
 }

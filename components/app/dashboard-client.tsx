@@ -108,6 +108,7 @@ interface DashboardClientProps {
   initialTotalRevenue?: number
   creatorHandle?: string
   connectedDomain?: string | null
+  brandingDetail?: { hasAvatar: boolean; hasName: boolean; hasBio: boolean }
 }
 
 function ChainLinkIcon({ className = "w-4 h-4", stroke = "#ffffff" }: { className?: string; stroke?: string }) {
@@ -774,6 +775,7 @@ export function DashboardClient({
   initialTotalRevenue = 0,
   creatorHandle = "",
   connectedDomain = null,
+  brandingDetail,
 }: DashboardClientProps) {
   const [timeframe, setTimeframe] = useState(() => {
     if (typeof window !== "undefined") {
@@ -1455,9 +1457,9 @@ export function DashboardClient({
   // Build substep data based on step completion
   const getSubstepData = (step: SetupStep) => {
     return {
-      hasAvatar: step.id === "branding" ? step.completed : false,
-      hasName: step.id === "branding" ? step.completed : false,
-      hasBio: step.id === "branding" ? step.completed : false,
+      hasAvatar: step.id === "branding" ? (brandingDetail?.hasAvatar ?? step.completed) : false,
+      hasName: step.id === "branding" ? (brandingDetail?.hasName ?? step.completed) : false,
+      hasBio: step.id === "branding" ? (brandingDetail?.hasBio ?? step.completed) : false,
       hasProducts: step.id === "product" ? step.completed : false,
       hasPayouts: step.id === "payouts" ? step.completed : false,
       hasOnePage: step.id === "onepage" ? step.completed : false,
@@ -2129,8 +2131,8 @@ export function DashboardClient({
               href="/app/products/new"
               className="group flex items-center gap-5 bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#8b5cf6]/30 hover:shadow-[0_4px_12px_rgba(139,92,246,0.08)] transition-all duration-200"
             >
-              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-[#f5f3ff] to-[#ede9fe]">
-                <Package className="h-6 w-6 text-[#8b5cf6]" />
+              <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-to-br from-[#f5f3ff] to-[#ede9fe] overflow-hidden">
+                <img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/httpsskgtqglupjcnfhfscink.supabase.costoragev1objectpublicplatform%2020imagesbimi-svg-tiny-12-ps%2020(1).svg%20(1).webp" alt="" className="h-full w-full object-cover" />
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
@@ -2141,11 +2143,6 @@ export function DashboardClient({
                 </div>
                 <p className="text-[13px] text-[#6b7280] mt-0.5">{t("dashboard.createProductDesc")}</p>
               </div>
-              <div className="hidden sm:block w-20 h-20 rounded-xl bg-[#f3f4f6] overflow-hidden">
-                <div className="w-full h-full flex items-center justify-center">
-                  <ImageIcon className="h-8 w-8 text-[#9ca3af]" />
-                </div>
-              </div>
             </Link>
 
             {/* Market your products card */}
@@ -2153,8 +2150,8 @@ export function DashboardClient({
               href="/app/onepage"
               className="group flex items-center gap-5 bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#8b5cf6]/30 hover:shadow-[0_4px_12px_rgba(139,92,246,0.08)] transition-all duration-200"
             >
-              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-[#ecfdf5] to-[#d1fae5]">
-                <Link2 className="h-6 w-6 text-[#10b981]" />
+              <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-to-br from-[#ecfdf5] to-[#d1fae5]">
+                <Link2 className="h-7 w-7 text-[#10b981]" />
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
@@ -2172,8 +2169,8 @@ export function DashboardClient({
               href="/app/analytics"
               className="group flex items-center gap-5 bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#8b5cf6]/30 hover:shadow-[0_4px_12px_rgba(139,92,246,0.08)] transition-all duration-200"
             >
-              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-[#fef3c7] to-[#fde68a]">
-                <TrendingUp className="h-6 w-6 text-[#f59e0b]" />
+              <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-to-br from-[#fef3c7] to-[#fde68a]">
+                <TrendingUp className="h-7 w-7 text-[#f59e0b]" />
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
@@ -2191,8 +2188,8 @@ export function DashboardClient({
               href="/app/settings?tab=domains"
               className="group flex items-center gap-5 bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#8b5cf6]/30 hover:shadow-[0_4px_12px_rgba(139,92,246,0.08)] transition-all duration-200"
             >
-              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-[#e0e7ff] to-[#c7d2fe]">
-                <Globe className="h-6 w-6 text-[#6366f1]" />
+              <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-to-br from-[#e0e7ff] to-[#c7d2fe]">
+                <Globe className="h-7 w-7 text-[#6366f1]" />
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
