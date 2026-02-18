@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useMemo, useRef, useEffect } from "react"
+import { useState, useCallback, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
@@ -25,7 +25,6 @@ import {
   X,
   RefreshCw,
 } from "lucide-react"
-import { getStoreUrl } from "@/lib/url-helpers"
 import { getProductUrl } from "@/lib/url-helpers"
 
 interface CheckoutReceiptClientProps {
@@ -71,8 +70,23 @@ const formatFileSize = (bytes?: number) => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-const formatPrice = (cents: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100)
+const formatPrice = (cents: number) => {
+  if (cents == null || isNaN(cents)) return "Free"
+  if (cents === 0) return "Free"
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100)
+}
+
+/** Truncate a filename to maxLen chars, preserving the extension */
+const truncateFileName = (name: string, maxLen = 32) => {
+  if (!name || name.length <= maxLen) return name
+  const dotIdx = name.lastIndexOf(".")
+  if (dotIdx === -1) return name.slice(0, maxLen - 3) + "..."
+  const ext = name.slice(dotIdx)
+  const base = name.slice(0, dotIdx)
+  const maxBase = maxLen - ext.length - 3
+  if (maxBase < 4) return name.slice(0, maxLen - 3) + "..."
+  return base.slice(0, maxBase) + "..." + ext
+}
 
 export default function CheckoutReceiptClient({
   order,
@@ -124,10 +138,25 @@ export default function CheckoutReceiptClient({
   } | null>(null)
   const [isLoadingReviewStatus, setIsLoadingReviewStatus] = useState(true)
 
-  // Toast state
-  const [showSuccessToast, setShowSuccessToast] = useState(false)
-  const [showErrorToast, setShowErrorToast] = useState(false)
-  const didAutoToastRef = useRef(false)
+  // Toast state — only show once per order, even across refreshes
+  const [toastVisible, setToastVisible] = useState(false)
+  const [toastLeaving, setToastLeaving] = useState(false)
+  const [toastMessage, setToastMessage] = useState("")
+  const [toastType, setToastType] = useState<"success" | "error">("success")
+
+  const showToast = useCallback((message: string, type: "success" | "error" = "success") => {
+    setToastMessage(message)
+    setToastType(type)
+    setToastLeaving(false)
+    setToastVisible(true)
+    setTimeout(() => {
+      setToastLeaving(true)
+      setTimeout(() => {
+        setToastVisible(false)
+        setToastLeaving(false)
+      }, 400)
+    }, 5000)
+  }, [])
 
   // Save purchase to localStorage
   useEffect(() => {
@@ -156,37 +185,26 @@ export default function CheckoutReceiptClient({
     } catch {}
   }, [hasAccess, order.product_id, order.variant_id, receiptToken, assets])
 
-  // Auto toast on mount
+  // Auto toast: only show once per order using sessionStorage
   useEffect(() => {
-    if (didAutoToastRef.current) return
-    const emailSent = searchParams.get("emailSent")
-    if (emailSent === "1") {
-      didAutoToastRef.current = true
-      setShowSuccessToast(true)
-      return
-    }
-    if (emailStatus.buyerEmailSent && emailStatus.sellerEmailSent) {
-      didAutoToastRef.current = true
-      setShowSuccessToast(true)
-    } else if (emailStatus.buyerEmailError || emailStatus.sellerEmailError) {
-      didAutoToastRef.current = true
-      setShowErrorToast(true)
-    }
-  }, [searchParams, emailStatus])
+    const toastKey = `checkout_receipt_toast_${orderId}`
+    try {
+      if (sessionStorage.getItem(toastKey)) return
+    } catch {}
 
-  // Auto-hide toasts
-  useEffect(() => {
-    if (showSuccessToast) {
-      const t = setTimeout(() => setShowSuccessToast(false), 6000)
-      return () => clearTimeout(t)
+    const hasError = !!emailStatus.buyerEmailError || !!emailStatus.sellerEmailError
+    const allSent = emailStatus.buyerEmailSent && emailStatus.sellerEmailSent
+
+    if (hasError) {
+      showToast("We couldn't send one of the emails. Try Resend below.", "error")
+    } else if (allSent || searchParams.get("emailSent") === "1") {
+      showToast("Your download link is now in your inbox. Check spam if you don't see it.", "success")
+    } else {
+      return // Nothing to toast
     }
-  }, [showSuccessToast])
-  useEffect(() => {
-    if (showErrorToast) {
-      const t = setTimeout(() => setShowErrorToast(false), 7000)
-      return () => clearTimeout(t)
-    }
-  }, [showErrorToast])
+
+    try { sessionStorage.setItem(toastKey, "1") } catch {}
+  }, [orderId, emailStatus, searchParams, showToast])
 
   // Check review status
   useEffect(() => {
@@ -287,7 +305,7 @@ export default function CheckoutReceiptClient({
       if (res.ok && data.success) {
         setResendSuccess(true)
         setResendCount((c) => c + 1)
-        setShowSuccessToast(true)
+        showToast("Email resent successfully!", "success")
         setTimeout(() => setResendSuccess(false), 5000)
       } else {
         setResendError(data.error || "Failed to resend email.")
@@ -326,7 +344,7 @@ export default function CheckoutReceiptClient({
       setResendSuccess(true)
       setShowWrongEmail(false)
       setNewEmail("")
-      setShowSuccessToast(true)
+      showToast("Email updated and receipt resent!", "success")
       setTimeout(() => setResendSuccess(false), 5000)
     } catch {
       setUpdateEmailError("Network error. Please try again.")
@@ -335,10 +353,79 @@ export default function CheckoutReceiptClient({
     }
   }
 
+  // ---------- TOAST COMPONENT ----------
+  const toastEl = toastVisible ? (
+    <div
+      className="fixed top-5 left-1/2 z-[200] w-full max-w-sm px-4"
+      style={{
+        transform: toastLeaving ? "translate(-50%, -20px)" : "translate(-50%, 0)",
+        opacity: toastLeaving ? 0 : 1,
+        transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+        pointerEvents: toastLeaving ? "none" : "auto",
+      }}
+    >
+      <div
+        className="rounded-xl px-4 py-3 flex items-center gap-3 shadow-2xl"
+        style={{
+          backgroundColor: toastType === "error" ? "#dc2626" : "#111",
+          color: "#fff",
+        }}
+      >
+        {toastType === "error" ? (
+          <AlertCircle className="h-4 w-4 shrink-0 text-white/80" />
+        ) : (
+          <CheckCircle className="h-4 w-4 shrink-0 text-white/80" />
+        )}
+        <p className="text-sm font-medium flex-1 leading-snug">{toastMessage}</p>
+        <button
+          onClick={() => {
+            setToastLeaving(true)
+            setTimeout(() => { setToastVisible(false); setToastLeaving(false) }, 400)
+          }}
+          className="shrink-0 text-white/50 hover:text-white transition-colors p-0.5"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    </div>
+  ) : null
+
+  // ---------- DOWNLOAD FILE ITEM ----------
+  const renderDownloadItem = (asset: any, idx: number) => {
+    const fileName = asset.file_name || "Download"
+    const fileSize = formatFileSize(asset.file_size)
+    const displayName = truncateFileName(fileName, 36)
+
+    return (
+      <DownloadButton
+        key={asset.id}
+        assetId={asset.id}
+        receiptToken={receiptToken}
+        fileName={asset.file_name}
+        size="lg"
+        className={`w-full h-auto min-h-[48px] rounded-xl text-sm font-medium px-4 py-3 ${
+          idx === 0
+            ? "bg-[#111] hover:bg-[#222] text-white"
+            : "bg-gray-100 hover:bg-gray-200 text-gray-900"
+        }`}
+      >
+        <span className="flex items-center gap-2 w-full min-w-0">
+          <span className="truncate">{displayName}</span>
+          {fileSize && (
+            <span className={`shrink-0 text-xs font-normal ${idx === 0 ? "text-white/60" : "text-gray-400"}`}>
+              {fileSize}
+            </span>
+          )}
+        </span>
+      </DownloadButton>
+    )
+  }
+
   // ---------- VERIFICATION GATE ----------
   if (initialRequiresVerification && !hasAccess) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-amber-50/50 to-gray-50">
+        {toastEl}
         <div className="mx-auto max-w-md px-4 py-12 sm:py-16">
           <div className="mb-8 text-center">
             <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-100 shadow-sm">
@@ -471,41 +558,7 @@ export default function CheckoutReceiptClient({
   // ---------- MAIN RECEIPT VIEW ----------
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Success Toast */}
-      {showSuccessToast && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] w-full max-w-md px-4">
-          <div className="bg-white border border-green-200 rounded-xl shadow-lg shadow-green-100/50 p-4 flex items-start gap-3 animate-in slide-in-from-top-2 fade-in duration-300">
-            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-              <CheckCircle className="w-5 h-5 text-green-600" />
-            </div>
-            <div className="flex-1 pt-0.5">
-              <p className="font-medium text-gray-900 text-sm">Emails sent successfully</p>
-              <p className="text-sm text-gray-600 mt-0.5">Your download link is now in your inbox. Check spam if you don&apos;t see it.</p>
-            </div>
-            <button onClick={() => setShowSuccessToast(false)} className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Error Toast */}
-      {showErrorToast && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] w-full max-w-md px-4">
-          <div className="bg-white border border-red-200 rounded-xl shadow-lg shadow-red-100/50 p-4 flex items-start gap-3 animate-in slide-in-from-top-2 fade-in duration-300">
-            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
-              <AlertCircle className="w-5 h-5 text-red-600" />
-            </div>
-            <div className="flex-1 pt-0.5">
-              <p className="font-medium text-gray-900 text-sm">Email delivery issue</p>
-              <p className="text-sm text-gray-600 mt-0.5">We couldn&apos;t send one of the emails. Try Resend below.</p>
-            </div>
-            <button onClick={() => setShowErrorToast(false)} className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
+      {toastEl}
 
       {/* Header */}
       <header className="border-b border-gray-200 bg-white pt-[env(safe-area-inset-top)]">
@@ -520,7 +573,7 @@ export default function CheckoutReceiptClient({
         </div>
       </header>
 
-      {/* Mobile layout */}
+      {/* ========== MOBILE LAYOUT ========== */}
       <div className="lg:hidden">
         <div className="mx-auto max-w-[640px] px-6 sm:px-10 py-8 pb-[max(2rem,env(safe-area-inset-bottom))] space-y-6 animate-in fade-in-0 duration-500">
           {/* Success header */}
@@ -558,18 +611,7 @@ export default function CheckoutReceiptClient({
             </h3>
             {assets.length > 0 ? (
               <div className="space-y-2">
-                {assets.map((asset: any, idx: number) => (
-                  <DownloadButton
-                    key={asset.id}
-                    assetId={asset.id}
-                    receiptToken={receiptToken}
-                    fileName={asset.file_name}
-                    size="lg"
-                    className={`w-full h-12 rounded-xl text-sm font-semibold ${idx === 0 ? "bg-[#111] hover:bg-[#222] text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-900"}`}
-                  >
-                    {asset.file_name}{asset.file_size ? ` (${formatFileSize(asset.file_size)})` : ""}
-                  </DownloadButton>
-                ))}
+                {assets.map((asset: any, idx: number) => renderDownloadItem(asset, idx))}
               </div>
             ) : (
               <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/50 p-6 text-center">
@@ -693,11 +735,11 @@ export default function CheckoutReceiptClient({
         </div>
       </div>
 
-      {/* Desktop layout: split-screen — left 45%, right 55% (review 20% wider) */}
+      {/* ========== DESKTOP LAYOUT: 50/50 split ========== */}
       <div className="hidden lg:flex min-h-[calc(100vh-57px)]">
         {/* LEFT HALF — Downloads + actions */}
-        <div className="w-[45%] bg-white">
-          <div className="max-w-[580px] ml-auto py-10 px-10 xl:px-16 animate-in fade-in-0 slide-in-from-bottom-2 duration-500">
+        <div className="w-1/2 bg-white">
+          <div className="max-w-[600px] ml-auto py-10 px-10 xl:px-16 animate-in fade-in-0 slide-in-from-bottom-2 duration-500">
             {/* Success header */}
             <div className="mb-8">
               <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center mb-4 animate-in zoom-in-50 duration-300">
@@ -733,18 +775,7 @@ export default function CheckoutReceiptClient({
               </h3>
               {assets.length > 0 ? (
                 <div className="space-y-2">
-                  {assets.map((asset: any, idx: number) => (
-                    <DownloadButton
-                      key={asset.id}
-                      assetId={asset.id}
-                      receiptToken={receiptToken}
-                      fileName={asset.file_name}
-                      size="lg"
-                      className={`w-full h-12 rounded-xl text-sm font-semibold ${idx === 0 ? "bg-[#111] hover:bg-[#222] text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-900"}`}
-                    >
-                      {asset.file_name}{asset.file_size ? ` (${formatFileSize(asset.file_size)})` : ""}
-                    </DownloadButton>
-                  ))}
+                  {assets.map((asset: any, idx: number) => renderDownloadItem(asset, idx))}
                 </div>
               ) : (
                 <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/50 p-6 text-center">
@@ -832,9 +863,9 @@ export default function CheckoutReceiptClient({
         {/* Subtle vertical divider */}
         <div className="w-px bg-gray-200 shrink-0" />
 
-        {/* RIGHT HALF — Review + Account CTA (55% width, 20% wider) */}
-        <div className="w-[55%] bg-[#f7f7f8]">
-          <div className="sticky top-[57px] max-w-[600px] mr-auto py-10 px-10 xl:px-16 animate-in fade-in-0 slide-in-from-bottom-2 duration-500" style={{ animationDelay: "150ms" }}>
+        {/* RIGHT HALF — Review + Account CTA */}
+        <div className="w-1/2 bg-[#f7f7f8]">
+          <div className="sticky top-[57px] max-w-[560px] mr-auto py-10 px-10 xl:px-16 animate-in fade-in-0 slide-in-from-bottom-2 duration-500 space-y-5" style={{ animationDelay: "150ms" }}>
             {/* Review section */}
             {hasAccess && !isLoadingReviewStatus && (
               <ReviewForm
@@ -854,13 +885,20 @@ export default function CheckoutReceiptClient({
 
             {/* Account CTA for guests */}
             {!isLoggedIn && (
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-100 p-6 mt-5">
-                <p className="text-[15px] font-semibold text-gray-900 mb-1">Create an account</p>
-                <p className="text-sm text-gray-600 mb-4">Access your purchases from any device, leave reviews, and manage downloads.</p>
+              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                <div className="flex items-start gap-3 mb-4">
+                  <div className="h-10 w-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
+                    <BookOpen className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-gray-900">Create an account</h3>
+                    <p className="text-sm text-gray-500 mt-0.5">Access your purchases from any device, leave reviews, and manage downloads.</p>
+                  </div>
+                </div>
                 <div className="flex gap-3">
                   <Link
                     href={`/signup?redirect=${encodeURIComponent(`/checkout/receipt?token=${receiptToken}`)}&autoBuyer=1&receiptToken=${receiptToken}`}
-                    className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors"
+                    className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl bg-[#111] hover:bg-[#222] text-white text-sm font-semibold transition-colors"
                   >
                     Create Account
                   </Link>
