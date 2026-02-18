@@ -2025,7 +2025,7 @@ export async function sendRefundEmails(params: SendRefundEmailsParams): Promise<
               <!-- Storelib Logo -->
               <table role="presentation" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
                 <tr>
-                  <td style="vertical-align:middle;"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logos.png" alt="${PLATFORM_BRAND_NAME}" width="32" height="32" style="display:block;width:32px;height:32px;border:0;outline:none;border-radius:8px;" class="storelib-logo" /></td>
+                  <td style="vertical-align:middle;"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/storelilgoo.png" alt="${PLATFORM_BRAND_NAME}" width="32" height="32" style="display:block;width:32px;height:32px;border:0;outline:none;border-radius:8px;" class="storelib-logo" /></td>
                   <td style="padding-left:14px;vertical-align:middle;">
                     <span style="font-size:18px;font-weight:600;color:#1a1a1a;letter-spacing:-0.2px;">${PLATFORM_BRAND_NAME}</span>
                   </td>
@@ -2131,7 +2131,7 @@ export async function sendRefundEmails(params: SendRefundEmailsParams): Promise<
             <td style="background:#fafaf8;padding:28px 36px;text-align:center;border-top:1px solid #eeedea;">
               <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin-bottom:12px;">
                 <tr>
-                  <td><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logos.png" alt="${PLATFORM_BRAND_NAME}" width="20" height="20" style="display:block;width:20px;height:20px;border:0;outline:none;border-radius:5px;" class="storelib-logo" /></td>
+                  <td><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/storelilgoo.png" alt="${PLATFORM_BRAND_NAME}" width="20" height="20" style="display:block;width:20px;height:20px;border:0;outline:none;border-radius:5px;" class="storelib-logo" /></td>
                 </tr>
               </table>
               <p style="margin:0 0 14px;font-size:11.5px;color:#bbb;line-height:1.65;">
