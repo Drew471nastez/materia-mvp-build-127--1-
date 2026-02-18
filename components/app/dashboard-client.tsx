@@ -755,7 +755,7 @@ function QuickAccessBottomSheet({
                 window.open(storeUrl, "_blank", "noopener,noreferrer")
                 handleClose()
               }}
-              icon={<div className="w-8 h-8 rounded-full bg-black flex items-center justify-center overflow-hidden"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/image2vector.svg" alt="" width={20} height={20} className="w-5 h-5" loading="eager" decoding="async" /></div>}
+              icon={<div className="w-8 h-8 rounded-full bg-black flex items-center justify-center overflow-hidden"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/image2vector%20(2).webp" alt="" width={20} height={20} className="w-5 h-5" loading="eager" decoding="async" /></div>}
             />
           </div>
         </div>
@@ -1633,7 +1633,7 @@ export function DashboardClient({
                         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { window.open(publicStoreUrl, "_blank", "noopener,noreferrer"); setIsProfileAccessOpen(false) } }}
                         className="w-full text-left rounded-xl p-3 hover:bg-[#f9fafb] transition-colors cursor-pointer group"
                       >
-                        <div className="flex items-center gap-2 text-[13px] font-semibold text-[#111827]"><span className="w-5 h-5 rounded-full bg-black flex items-center justify-center overflow-hidden"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/logostorelib_pixian_ai.png" alt="Storelib" className="w-3.5 h-3.5 object-contain" /></span>Store</div>
+                        <div className="flex items-center gap-2 text-[13px] font-semibold text-[#111827]"><span className="w-5 h-5 rounded-full bg-black flex items-center justify-center overflow-hidden"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/image2vector%20(2).webp" alt="Storelib" width={14} height={14} className="w-3.5 h-3.5 object-contain" loading="eager" decoding="async" /></span>Store</div>
                         <div className="mt-1 flex items-center justify-between gap-2"><p className="text-[11px] text-[#6b7280] truncate">{publicStoreUrl}</p><button type="button" onClick={(e) => { e.stopPropagation(); copyQuickAccessUrl("store") }} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] transition-all ${copiedTarget === "store" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-[#e5e7eb] text-[#6b7280] bg-white"}`}>{copiedTarget === "store" ? <Check className="h-3 w-3" /> : <CopyLinkIcon className="h-3 w-3" />}{copiedTarget === "store" ? "Copied" : "Copy"}</button></div>
                       </div>
                     </div>
@@ -2130,7 +2130,7 @@ export function DashboardClient({
               className="group flex items-center gap-5 bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#8b5cf6]/30 hover:shadow-[0_4px_12px_rgba(139,92,246,0.08)] transition-all duration-200"
             >
               <div className="flex h-16 w-16 items-center justify-center rounded-xl overflow-hidden shrink-0">
-                <img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/httpsskgtqglupjcnfhfscink.supabase.costoragev1objectpublicplatform%2020imagesbimi-svg-tiny-12-ps%2020(1).svg%20(1).webp" alt="" className="h-full w-full object-cover" />
+                <img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/iiii.png" alt="" className="h-full w-full object-cover" loading="eager" decoding="async" />
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
@@ -2148,8 +2148,8 @@ export function DashboardClient({
               href="/app/onepage"
               className="group flex items-center gap-5 bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#8b5cf6]/30 hover:shadow-[0_4px_12px_rgba(139,92,246,0.08)] transition-all duration-200"
             >
-              <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-to-br from-[#ecfdf5] to-[#d1fae5]">
-                <Link2 className="h-7 w-7 text-[#10b981]" />
+              <div className="flex h-16 w-16 items-center justify-center rounded-xl overflow-hidden shrink-0">
+                <img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/onepaegee.png" alt="" className="h-full w-full object-cover" loading="eager" decoding="async" />
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
@@ -2167,8 +2167,8 @@ export function DashboardClient({
               href="/app/analytics"
               className="group flex items-center gap-5 bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#8b5cf6]/30 hover:shadow-[0_4px_12px_rgba(139,92,246,0.08)] transition-all duration-200"
             >
-              <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-to-br from-[#fef3c7] to-[#fde68a]">
-                <TrendingUp className="h-7 w-7 text-[#f59e0b]" />
+              <div className="flex h-16 w-16 items-center justify-center rounded-xl overflow-hidden shrink-0">
+                <img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/naaly.png" alt="" className="h-full w-full object-cover" loading="eager" decoding="async" />
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
@@ -2186,8 +2186,8 @@ export function DashboardClient({
               href="/app/settings?tab=domains"
               className="group flex items-center gap-5 bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#8b5cf6]/30 hover:shadow-[0_4px_12px_rgba(139,92,246,0.08)] transition-all duration-200"
             >
-              <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-to-br from-[#e0e7ff] to-[#c7d2fe]">
-                <Globe className="h-7 w-7 text-[#6366f1]" />
+              <div className="flex h-16 w-16 items-center justify-center rounded-xl overflow-hidden shrink-0">
+                <img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/domani.png" alt="" className="h-full w-full object-cover" loading="eager" decoding="async" />
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
