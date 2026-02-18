@@ -178,6 +178,15 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { href: "/library", label: "Library", icon: Library },
   ]
 
+  // Optimize Supabase avatar URLs with render/image transform
+  const optimizedAvatar = (size: number) => {
+    if (!avatarUrl) return ""
+    if (avatarUrl.includes("supabase.co/storage/")) {
+      return avatarUrl.replace("/object/public/", "/render/image/public/") + `?width=${size}&height=${size}&resize=cover`
+    }
+    return avatarUrl
+  }
+
   const storeUrl = username || creatorSlug
   const userDisplayName = displayName || username || creatorSlug || "User"
   const userInitials = userDisplayName.slice(0, 2).toUpperCase()
@@ -287,8 +296,10 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           {/* Image on top when available */}
           {avatarUrl && (
             <img
-              src={avatarUrl}
+              src={optimizedAvatar(80)}
               alt={userDisplayName}
+              width={40}
+              height={40}
               className="absolute inset-0 w-full h-full object-cover"
               loading="eager"
               decoding="async"
@@ -414,6 +425,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => setNotificationsOpen(true)}
+              aria-label="Notifications"
               className="flex h-6 w-6 xl:h-[22px] xl:w-[22px] items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 transition-colors relative cursor-pointer"
             >
               <Bell className="h-[19px] w-[19px] xl:h-[17px] xl:w-[17px]" strokeWidth={1.5} />
@@ -421,6 +433,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             </button>
             <Link
               href="/app/settings"
+              aria-label="Settings"
               className="flex h-7 w-7 xl:h-[26px] xl:w-[26px] items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 transition-colors cursor-pointer"
             >
               <Settings className="h-[19px] w-[19px] xl:h-[17px] xl:w-[17px]" strokeWidth={1.5} />
@@ -631,8 +644,10 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                 {/* Image on top when available */}
                 {avatarUrl && (
                   <img
-                    src={avatarUrl}
+                    src={optimizedAvatar(48)}
                     alt={userDisplayName}
+                    width={24}
+                    height={24}
                     className="absolute inset-0 w-full h-full object-cover"
                     loading="eager"
                     decoding="async"

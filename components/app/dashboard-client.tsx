@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, type ReactNode } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { useRouter } from "next/navigation"
 import {
   Eye,
@@ -1761,7 +1762,7 @@ export function DashboardClient({
                     <span className="text-[11px] font-medium text-violet-600">{t("dashboard.views")}</span>
                     <span className="text-[10px] text-[#9ca3af] hidden sm:inline">• {selectedOption?.label}</span>
                   </div>
-                  <button onClick={(e) => { e.stopPropagation(); setOpenKPIModal(null) }} className="w-6 h-6 aspect-square rounded-md bg-violet-100 text-violet-600 flex items-center justify-center hover:bg-violet-200 transition-colors flex-shrink-0">
+                  <button aria-label="Close" onClick={(e) => { e.stopPropagation(); setOpenKPIModal(null) }} className="w-6 h-6 aspect-square rounded-md bg-violet-100 text-violet-600 flex items-center justify-center hover:bg-violet-200 transition-colors flex-shrink-0">
                     <X className="h-3.5 w-3.5" />
                   </button>
                 </div>
@@ -1831,7 +1832,7 @@ export function DashboardClient({
                     <span className="text-[11px] font-medium text-violet-600">{t("dashboard.orders")}</span>
                     <span className="text-[10px] text-[#9ca3af] hidden sm:inline">• {selectedOption?.label}</span>
                   </div>
-                  <button onClick={(e) => { e.stopPropagation(); setOpenKPIModal(null) }} className="w-6 h-6 aspect-square rounded-md bg-violet-100 text-violet-600 flex items-center justify-center hover:bg-violet-200 transition-colors flex-shrink-0">
+                  <button aria-label="Close" onClick={(e) => { e.stopPropagation(); setOpenKPIModal(null) }} className="w-6 h-6 aspect-square rounded-md bg-violet-100 text-violet-600 flex items-center justify-center hover:bg-violet-200 transition-colors flex-shrink-0">
                     <X className="h-3.5 w-3.5" />
                   </button>
                 </div>
@@ -1901,7 +1902,7 @@ export function DashboardClient({
                     <span className="text-[11px] font-medium text-violet-600">{t("dashboard.revenue")}</span>
                     <span className="text-[10px] text-[#9ca3af] hidden sm:inline">• {selectedOption?.label}</span>
                   </div>
-                  <button onClick={(e) => { e.stopPropagation(); setOpenKPIModal(null) }} className="w-6 h-6 aspect-square rounded-md bg-violet-100 text-violet-600 flex items-center justify-center hover:bg-violet-200 transition-colors flex-shrink-0">
+                  <button aria-label="Close" onClick={(e) => { e.stopPropagation(); setOpenKPIModal(null) }} className="w-6 h-6 aspect-square rounded-md bg-violet-100 text-violet-600 flex items-center justify-center hover:bg-violet-200 transition-colors flex-shrink-0">
                     <X className="h-3.5 w-3.5" />
                   </button>
                 </div>
@@ -1975,14 +1976,15 @@ export function DashboardClient({
 
         {/* Storelib Promotional Banner - Responsive for all devices */}
         <div className="mb-8">
-          <div
-            className="relative overflow-hidden rounded-2xl"
-            style={{
-              backgroundImage: `url('https://images.unsplash.com/photo-1541367777708-7905fe3296c0?w=1200&h=300&fit=crop')`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-            }}
-          >
+          <div className="relative overflow-hidden rounded-2xl">
+            <Image
+              src="https://images.unsplash.com/photo-1541367777708-7905fe3296c0?w=1200&h=300&fit=crop"
+              alt=""
+              width={1200}
+              height={300}
+              priority
+              className="absolute inset-0 w-full h-full object-cover"
+            />
             <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-black/30" />
             <div className="relative z-10 px-5 py-5 sm:px-8 sm:py-6">
               <div className="flex items-center gap-2 mb-1">
@@ -2130,7 +2132,7 @@ export function DashboardClient({
               className="group flex items-center gap-5 bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#8b5cf6]/30 hover:shadow-[0_4px_12px_rgba(139,92,246,0.08)] transition-all duration-200"
             >
               <div className="flex h-16 w-16 items-center justify-center rounded-xl overflow-hidden shrink-0">
-                <img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/iiii.png" alt="" className="h-full w-full object-cover" loading="eager" decoding="async" />
+                <Image src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/iiii.png" alt="Create product" width={128} height={128} className="h-full w-full object-cover" />
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
@@ -2149,7 +2151,7 @@ export function DashboardClient({
               className="group flex items-center gap-5 bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#8b5cf6]/30 hover:shadow-[0_4px_12px_rgba(139,92,246,0.08)] transition-all duration-200"
             >
               <div className="flex h-16 w-16 items-center justify-center rounded-xl overflow-hidden shrink-0">
-                <img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/oooo.png" alt="" className="h-full w-full object-cover" loading="eager" decoding="async" />
+                <Image src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/oooo.png" alt="Edit OnePage" width={128} height={128} className="h-full w-full object-cover" />
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
@@ -2168,7 +2170,7 @@ export function DashboardClient({
               className="group flex items-center gap-5 bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#8b5cf6]/30 hover:shadow-[0_4px_12px_rgba(139,92,246,0.08)] transition-all duration-200"
             >
               <div className="flex h-16 w-16 items-center justify-center rounded-xl overflow-hidden shrink-0">
-                <img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/naaly.png" alt="" className="h-full w-full object-cover" loading="eager" decoding="async" />
+                <Image src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/naaly.png" alt="View analytics" width={128} height={128} className="h-full w-full object-cover" />
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
@@ -2187,7 +2189,7 @@ export function DashboardClient({
               className="group flex items-center gap-5 bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#8b5cf6]/30 hover:shadow-[0_4px_12px_rgba(139,92,246,0.08)] transition-all duration-200"
             >
               <div className="flex h-16 w-16 items-center justify-center rounded-xl overflow-hidden shrink-0">
-                <img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/domani.png" alt="" className="h-full w-full object-cover" loading="eager" decoding="async" />
+                <Image src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/domani.png" alt="Add domain" width={128} height={128} className="h-full w-full object-cover" />
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
