@@ -34,11 +34,15 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { NotificationsModal, NotificationBadge } from "./notifications-modal"
 import { useLanguage } from "@/lib/i18n"
 
-// Custom Store Builder icon - simple shop/storefront icon
+// Custom Store Builder icon - storefront/shop icon
 const StoreBuilderIcon = ({ className }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-    <polyline points="9 22 9 12 15 12 15 22"/>
+    <path d="M2 7l2-4h16l2 4" />
+    <path d="M2 7h20" />
+    <path d="M6 7v0a3 3 0 0 0 6 0v0" />
+    <path d="M12 7v0a3 3 0 0 0 6 0v0" />
+    <path d="M4 7v13a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V7" />
+    <path d="M9 21v-6h6v6" />
   </svg>
 )
 
