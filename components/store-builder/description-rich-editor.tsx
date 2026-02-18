@@ -245,26 +245,36 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
     }
   }, [])
 
-  // Mobile: entry animation + body scroll lock on mount (component only mounts when isOpen=true)
+  // Mobile: entry animation + body scroll lock — re-runs every time isOpen becomes true
+  // NOTE: component stays mounted (returns null) when isOpen=false, so [] deps would only
+  // fire on first open. We watch isOpen so animation re-triggers on every subsequent open.
   useEffect(() => {
     const isMobileView = isMobile || (typeof window !== "undefined" && window.innerWidth < 640)
-    if (!isMobileView) return
+    if (!isMobileView || !isOpen) {
+      // When closed on mobile, release scroll lock and reset animation state
+      if (isMobileView && !isOpen) {
+        document.body.style.overflow = ""
+        document.documentElement.style.overscrollBehavior = ""
+        document.body.style.overscrollBehavior = ""
+      }
+      return
+    }
+    // Opening: lock scroll, then trigger slide-up via double rAF
     document.body.style.overflow = "hidden"
     document.documentElement.style.overscrollBehavior = "none"
     document.body.style.overscrollBehavior = "none"
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
-    // Double rAF to ensure DOM is painted before triggering CSS transition
+    // Reset to off-screen first, then double rAF to trigger CSS transition
+    setIsAnimating(false)
+    setDragY(0)
+    setIsDragging(false)
     const raf = requestAnimationFrame(() => {
       requestAnimationFrame(() => setIsAnimating(true))
     })
     return () => {
       cancelAnimationFrame(raf)
-      document.body.style.overflow = ""
-      document.documentElement.style.overscrollBehavior = ""
-      document.body.style.overscrollBehavior = ""
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // Run once on mount only
+  }, [isOpen, isMobile])
 
   useEffect(() => {
     if (!isOpen) return
