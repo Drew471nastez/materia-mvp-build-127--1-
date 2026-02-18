@@ -2149,7 +2149,7 @@ export function DashboardClient({
               className="group flex items-center gap-5 bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#8b5cf6]/30 hover:shadow-[0_4px_12px_rgba(139,92,246,0.08)] transition-all duration-200"
             >
               <div className="flex h-16 w-16 items-center justify-center rounded-xl overflow-hidden shrink-0">
-                <img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/onepa.png" alt="" className="h-full w-full object-cover" loading="eager" decoding="async" />
+                <img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/oooo.png" alt="" className="h-full w-full object-cover" loading="eager" decoding="async" />
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2">

@@ -36,7 +36,14 @@ import {
   AlertCircle,
   Globe,
   Search,
+  Download,
+  Mail,
+  BookOpen,
+  FileText,
+  Star,
+  CheckCircle,
 } from "lucide-react"
+import { DownloadButton } from "@/components/download-button"
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
@@ -766,6 +773,20 @@ export default function CheckoutPageClient({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showVariantModal, setShowVariantModal] = useState(false)
 
+  // Post-purchase inline receipt state
+  const [orderComplete, setOrderComplete] = useState(false)
+  const [orderReceiptToken, setOrderReceiptToken] = useState<string | null>(null)
+  const [orderAssets, setOrderAssets] = useState<Array<{ id: string; file_name: string; file_size?: number; mime_type?: string }>>([])
+  const [assetsLoading, setAssetsLoading] = useState(false)
+  const [orderId, setOrderId] = useState<string | null>(null)
+  const [reviewRating, setReviewRating] = useState(0)
+  const [reviewHoverRating, setReviewHoverRating] = useState(0)
+  const [reviewContent, setReviewContent] = useState("")
+  const [reviewSubmitting, setReviewSubmitting] = useState(false)
+  const [reviewSubmitted, setReviewSubmitted] = useState(false)
+  const [resendingEmail, setResendingEmail] = useState(false)
+  const [emailResent, setEmailResent] = useState(false)
+
   // Reset payment intent when variant changes (price may differ)
   useEffect(() => {
     setClientSecret(null)
@@ -818,6 +839,63 @@ export default function CheckoutPageClient({
       validateEmail(email)
     )
   }, [firstName, lastName, email])
+
+  // Handle successful order: fetch assets and show inline receipt
+  const completeOrder = useCallback(async (receiptToken: string, newOrderId?: string) => {
+    setOrderComplete(true)
+    setOrderReceiptToken(receiptToken)
+    if (newOrderId) setOrderId(newOrderId)
+    setAssetsLoading(true)
+
+    // Fetch assets from receipt page data
+    try {
+      const res = await fetch(`/api/receipt/${encodeURIComponent(receiptToken)}/assets`)
+      if (res.ok) {
+        const data = await res.json()
+        setOrderAssets(data.assets || [])
+        if (data.orderId) setOrderId(data.orderId)
+      }
+    } catch {
+      // Assets will be empty — user can still use receipt link
+    } finally {
+      setAssetsLoading(false)
+    }
+  }, [])
+
+  // Submit review
+  const handleReviewSubmit = async () => {
+    if (!orderId || reviewRating === 0 || reviewContent.trim().length < 10) return
+    setReviewSubmitting(true)
+    try {
+      const res = await fetch("/api/reviews", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productId: product.id,
+          rating: reviewRating,
+          content: reviewContent.trim(),
+          orderId,
+        }),
+      })
+      if (res.ok) setReviewSubmitted(true)
+    } catch { /* silent */ }
+    finally { setReviewSubmitting(false) }
+  }
+
+  // Resend receipt email
+  const handleResendEmail = async () => {
+    if (!orderReceiptToken || !orderId) return
+    setResendingEmail(true)
+    try {
+      await fetch("/api/receipt/resend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ receiptToken: orderReceiptToken, orderId }),
+      })
+      setEmailResent(true)
+    } catch { /* silent */ }
+    finally { setResendingEmail(false) }
+  }
 
   // Full form validation: includes terms
   const isFormValid = useMemo(() => {
@@ -877,7 +955,7 @@ export default function CheckoutPageClient({
         throw new Error((data.error || "Checkout failed") + errorDetails + errorCode)
       }
 
-      router.push(`${data.redirectUrl}?emailSent=1`)
+      await completeOrder(data.receiptToken, data.orderId)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Checkout failed. Please try again.")
     } finally {
@@ -990,7 +1068,10 @@ export default function CheckoutPageClient({
           throw new Error(completeData.error || "Failed to complete order")
         }
 
-        router.push(`${completeData.redirectUrl}?emailSent=1`)
+        // Extract receipt token from redirect URL
+        const receiptTokenMatch = completeData.redirectUrl?.match(/\/receipt\/([^?]+)/)
+        const token = receiptTokenMatch?.[1] || ""
+        await completeOrder(token)
       } else if (confirmedIntent?.status === "requires_action") {
         setError("Additional authentication required. Please complete the verification.")
       }
@@ -1156,7 +1237,9 @@ export default function CheckoutPageClient({
           throw new Error(completeData.error || "Failed to complete order")
         }
 
-        router.push(`${completeData.redirectUrl}?emailSent=1`)
+        const receiptTokenMatch = completeData.redirectUrl?.match(/\/receipt\/([^?]+)/)
+        const token = receiptTokenMatch?.[1] || ""
+        await completeOrder(token)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to process Google Pay payment")
@@ -1293,6 +1376,344 @@ export default function CheckoutPageClient({
       </div>
     </div>
   )
+
+  // ---------- INLINE RECEIPT VIEW ----------
+  if (orderComplete) {
+    const formatFileSize = (bytes?: number) => {
+      if (!bytes) return ""
+      if (bytes < 1024) return `${bytes} B`
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+    }
+
+    return (
+      <div className="min-h-screen bg-gray-50">
+        {/* Header */}
+        <header className="border-b border-gray-200 bg-white pt-[env(safe-area-inset-top)]">
+          <div className="mx-auto flex h-14 max-w-[1400px] items-center justify-between px-6 sm:px-10 lg:px-16">
+            <a href={productUrl} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 min-h-[44px] transition-colors">
+              <ArrowLeft className="h-4 w-4 shrink-0" />
+              <span className="truncate">Back to product</span>
+            </a>
+            <Link href="/explore" className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+              Continue Shopping
+            </Link>
+          </div>
+        </header>
+
+        {/* Mobile layout */}
+        <div className="lg:hidden">
+          <div className="mx-auto max-w-[640px] px-6 sm:px-10 py-8 pb-[max(2rem,env(safe-area-inset-bottom))] space-y-6 animate-in fade-in-0 duration-500">
+            {/* Success header */}
+            <div className="text-center">
+              <div className="mx-auto w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mb-4 animate-in zoom-in-50 duration-300">
+                <CheckCircle className="h-8 w-8 text-emerald-600" />
+              </div>
+              <h1 className="text-2xl font-bold text-gray-900">Order Complete</h1>
+              <p className="text-sm text-gray-500 mt-1">Your download is ready</p>
+            </div>
+
+            {/* Product info */}
+            <div className="bg-white rounded-2xl border border-gray-200 p-5">
+              <div className="flex gap-4">
+                <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-gray-100">
+                  {product.thumbnail_url ? (
+                    <Image src={product.thumbnail_url} alt={product.title} width={64} height={64} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full items-center justify-center"><Package className="h-6 w-6 text-gray-300" /></div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 line-clamp-2">{product.title}</p>
+                  {selectedVariant && <p className="text-xs text-gray-500 mt-0.5">{selectedVariant.name}</p>}
+                  <p className="text-xs text-gray-400 mt-1">by {creator.name}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Download files */}
+            <div className="bg-white rounded-2xl border border-gray-200 p-5">
+              <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                <Download className="h-4 w-4 text-gray-500" />
+                Download Files
+              </h3>
+              {assetsLoading ? (
+                <div className="space-y-3">
+                  {[1, 2].map((i) => (
+                    <div key={i} className="h-12 rounded-xl bg-gray-100 animate-pulse" />
+                  ))}
+                </div>
+              ) : orderAssets.length > 0 ? (
+                <div className="space-y-2">
+                  {orderAssets.map((asset, idx) => (
+                    <DownloadButton
+                      key={asset.id}
+                      assetId={asset.id}
+                      receiptToken={orderReceiptToken}
+                      fileName={asset.file_name}
+                      size="lg"
+                      className={`w-full h-12 rounded-xl text-sm font-semibold ${idx === 0 ? "bg-[#111] hover:bg-[#222] text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-900"}`}
+                    >
+                      {asset.file_name}{asset.file_size ? ` (${formatFileSize(asset.file_size)})` : ""}
+                    </DownloadButton>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">No files available for download.</p>
+              )}
+            </div>
+
+            {/* Review section */}
+            <div className="bg-white rounded-2xl border border-gray-200 p-5">
+              <h3 className="text-sm font-semibold text-gray-900 mb-1">Leave a review</h3>
+              <p className="text-xs text-gray-500 mb-3">Share your experience with {creator.name}</p>
+              {reviewSubmitted ? (
+                <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 rounded-xl p-4">
+                  <CheckCircle className="h-5 w-5" />
+                  <span className="text-sm font-medium">Thank you for your review!</span>
+                </div>
+              ) : (
+                <>
+                  <div className="flex gap-1 mb-3">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => setReviewRating(star)}
+                        onMouseEnter={() => setReviewHoverRating(star)}
+                        onMouseLeave={() => setReviewHoverRating(0)}
+                        className="p-0.5 cursor-pointer transition-transform hover:scale-110"
+                      >
+                        <Star className={`h-6 w-6 ${star <= (reviewHoverRating || reviewRating) ? "text-yellow-400 fill-yellow-400" : "text-gray-200"} transition-colors`} />
+                      </button>
+                    ))}
+                  </div>
+                  <textarea
+                    value={reviewContent}
+                    onChange={(e) => setReviewContent(e.target.value)}
+                    placeholder="What did you think of this product?"
+                    maxLength={1000}
+                    rows={3}
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400/20 resize-none"
+                  />
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="text-xs text-gray-400">{reviewContent.length}/1000 characters{reviewContent.length > 0 && reviewContent.length < 10 ? " · Min 10 characters" : ""}</span>
+                    <button
+                      type="button"
+                      onClick={handleReviewSubmit}
+                      disabled={reviewSubmitting || reviewRating === 0 || reviewContent.trim().length < 10}
+                      className="px-5 py-2 rounded-xl bg-[#111] text-white text-sm font-semibold hover:bg-[#222] transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                    >
+                      {reviewSubmitting ? "Posting..." : "Post Review"}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="space-y-3">
+              {isLoggedIn && (
+                <Link href="/library" className="flex items-center justify-center gap-2 w-full h-11 rounded-xl bg-white border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                  <BookOpen className="h-4 w-4" />
+                  View in Library
+                </Link>
+              )}
+              {orderReceiptToken && (
+                <Link href={`/receipt/${orderReceiptToken}`} className="flex items-center justify-center gap-2 w-full h-11 rounded-xl bg-white border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                  <FileText className="h-4 w-4" />
+                  View Receipt
+                </Link>
+              )}
+            </div>
+
+            {/* Resend email */}
+            <div className="text-center space-y-2 pt-2">
+              <p className="text-xs text-gray-400">
+                Need the email again?{" "}
+                <button
+                  type="button"
+                  onClick={handleResendEmail}
+                  disabled={resendingEmail || emailResent}
+                  className="text-gray-600 hover:text-gray-900 underline underline-offset-2 cursor-pointer disabled:opacity-50"
+                >
+                  {emailResent ? "Sent!" : resendingEmail ? "Sending..." : "Resend"}
+                </button>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop layout: split-screen */}
+        <div className="hidden lg:flex min-h-[calc(100vh-57px)]">
+          {/* LEFT HALF - Order complete + downloads */}
+          <div className="w-1/2 bg-white">
+            <div className="max-w-[640px] ml-auto py-10 px-10 xl:px-16 animate-in fade-in-0 slide-in-from-bottom-2 duration-500">
+              {/* Success header */}
+              <div className="mb-8">
+                <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center mb-4 animate-in zoom-in-50 duration-300">
+                  <CheckCircle className="h-7 w-7 text-emerald-600" />
+                </div>
+                <h1 className="text-[28px] font-bold text-gray-900">Order Complete</h1>
+                <p className="text-sm text-gray-500 mt-1">Your purchase was successful. Download your files below.</p>
+              </div>
+
+              {/* Product card */}
+              <div className="bg-white rounded-2xl border border-gray-200 p-5 mb-6">
+                <div className="flex gap-4">
+                  <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-gray-100">
+                    {product.thumbnail_url ? (
+                      <Image src={product.thumbnail_url} alt={product.title} width={64} height={64} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full items-center justify-center"><Package className="h-6 w-6 text-gray-300" /></div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[15px] font-semibold text-gray-900 line-clamp-2">{product.title}</p>
+                    {selectedVariant && <p className="text-xs text-gray-500 mt-0.5">{selectedVariant.name}</p>}
+                    <p className="text-xs text-gray-400 mt-1">by {creator.name} · {formatPrice(total)}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Download files */}
+              <div className="bg-white rounded-2xl border border-gray-200 p-5 mb-6">
+                <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <Download className="h-4 w-4 text-gray-500" />
+                  Download Files
+                </h3>
+                {assetsLoading ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="h-12 rounded-xl bg-gray-100 animate-pulse" style={{ animationDelay: `${i * 150}ms` }} />
+                    ))}
+                  </div>
+                ) : orderAssets.length > 0 ? (
+                  <div className="space-y-2">
+                    {orderAssets.map((asset, idx) => (
+                      <DownloadButton
+                        key={asset.id}
+                        assetId={asset.id}
+                        receiptToken={orderReceiptToken}
+                        fileName={asset.file_name}
+                        size="lg"
+                        className={`w-full h-12 rounded-xl text-sm font-semibold ${idx === 0 ? "bg-[#111] hover:bg-[#222] text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-900"}`}
+                      >
+                        {asset.file_name}{asset.file_size ? ` (${formatFileSize(asset.file_size)})` : ""}
+                      </DownloadButton>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500">No files available for download.</p>
+                )}
+              </div>
+
+              {/* Actions row */}
+              <div className="flex gap-3 mb-6">
+                {isLoggedIn && (
+                  <Link href="/library" className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl bg-white border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                    <BookOpen className="h-4 w-4" />
+                    View in Library
+                  </Link>
+                )}
+                {orderReceiptToken && (
+                  <Link href={`/receipt/${orderReceiptToken}`} className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl bg-white border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                    <FileText className="h-4 w-4" />
+                    View Receipt
+                  </Link>
+                )}
+              </div>
+
+              {/* Resend email */}
+              <div className="text-center space-y-1">
+                <p className="text-xs text-gray-400">
+                  Need the email again?{" "}
+                  <button
+                    type="button"
+                    onClick={handleResendEmail}
+                    disabled={resendingEmail || emailResent}
+                    className="text-gray-600 hover:text-gray-900 underline underline-offset-2 cursor-pointer disabled:opacity-50"
+                  >
+                    {emailResent ? "Sent!" : resendingEmail ? "Sending..." : "Resend"}
+                  </button>
+                </p>
+                <p className="text-[11px] text-gray-300">Wrong email address? Contact the seller.</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Subtle vertical divider */}
+          <div className="w-px bg-gray-200 shrink-0" />
+
+          {/* RIGHT HALF - Review */}
+          <div className="w-1/2 bg-[#f7f7f8]">
+            <div className="sticky top-[57px] max-w-[520px] mr-auto py-10 px-10 xl:px-16 animate-in fade-in-0 slide-in-from-bottom-2 duration-500" style={{ animationDelay: "150ms" }}>
+              <div className="bg-white rounded-2xl border border-gray-200 p-6">
+                <h3 className="text-[15px] font-semibold text-gray-900 mb-1">Leave a review</h3>
+                <p className="text-xs text-gray-500 mb-4">Share your experience with {creator.name}</p>
+                {reviewSubmitted ? (
+                  <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 rounded-xl p-4">
+                    <CheckCircle className="h-5 w-5" />
+                    <span className="text-sm font-medium">Thank you for your review!</span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex gap-1.5 mb-4">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          onClick={() => setReviewRating(star)}
+                          onMouseEnter={() => setReviewHoverRating(star)}
+                          onMouseLeave={() => setReviewHoverRating(0)}
+                          className="p-0.5 cursor-pointer transition-transform hover:scale-110"
+                        >
+                          <Star className={`h-7 w-7 ${star <= (reviewHoverRating || reviewRating) ? "text-yellow-400 fill-yellow-400" : "text-gray-200"} transition-colors`} />
+                        </button>
+                      ))}
+                    </div>
+                    <textarea
+                      value={reviewContent}
+                      onChange={(e) => setReviewContent(e.target.value)}
+                      placeholder="What did you think of this product?"
+                      maxLength={1000}
+                      rows={4}
+                      className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400/20 resize-none"
+                    />
+                    <div className="flex items-center justify-between mt-3">
+                      <span className="text-xs text-gray-400">{reviewContent.length}/1000 characters{reviewContent.length > 0 && reviewContent.length < 10 ? " · Min 10 characters" : ""}</span>
+                      <button
+                        type="button"
+                        onClick={handleReviewSubmit}
+                        disabled={reviewSubmitting || reviewRating === 0 || reviewContent.trim().length < 10}
+                        className="px-6 py-2.5 rounded-xl bg-[#111] text-white text-sm font-semibold hover:bg-[#222] transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                      >
+                        {reviewSubmitting ? "Posting..." : "Post Review"}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Not logged in? Encourage account creation */}
+              {!isLoggedIn && (
+                <div className="bg-white rounded-2xl border border-gray-200 p-5 mt-5">
+                  <p className="text-sm font-semibold text-gray-900 mb-1">Create an account</p>
+                  <p className="text-xs text-gray-500 mb-3">Access your purchases from any device, leave reviews, and manage downloads.</p>
+                  <Link
+                    href={`/signup?email=${encodeURIComponent(email)}`}
+                    className="flex items-center justify-center gap-2 w-full h-11 rounded-xl bg-[#111] text-white text-sm font-semibold hover:bg-[#222] transition-colors"
+                  >
+                    Create Account
+                  </Link>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
