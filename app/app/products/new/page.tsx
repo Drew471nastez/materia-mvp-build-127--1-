@@ -4796,8 +4796,8 @@ export default function NewProductPage() {
                   </Button>
                 </div>
 
-                {/* Category Modal - Bottom Sheet on Mobile */}
-                <Dialog open={showCategoryModal} onOpenChange={(open) => {
+                {/* Category Modal - Desktop Dialog only (mobile uses MobileSheet below) */}
+                <Dialog open={showCategoryModal && !isMobileViewport} onOpenChange={(open) => {
                   if (!open) closeCategoryModal()
                   else setShowCategoryModal(true)
                 }}>
@@ -4987,6 +4987,164 @@ export default function NewProductPage() {
                     </div>
                   </DialogContent>
                 </Dialog>
+
+                {/* Mobile Category Bottom Sheet — smooth MobileSheet matching CTA pattern */}
+                {isMobileViewport && (
+                  <MobileSheet
+                    isOpen={showCategoryModal}
+                    onClose={() => { setShowCategoryModal(false); setCategorySearch("") }}
+                    maxHeight="92vh"
+                    zIndex={100}
+                  >
+                    {/* Title row */}
+                    <div className="px-5 pb-2">
+                      <div className="flex items-center justify-between mb-0.5">
+                        <h3 className="text-base font-semibold text-gray-900">Select Category</h3>
+                        {selectedCategory && (
+                          <button
+                            type="button"
+                            onClick={() => { setSelectedCategory(null); setShowCategoryModal(false); setCategorySearch("") }}
+                            className="text-xs text-rose-400 hover:text-rose-600 font-medium px-2 py-1 rounded-md active:bg-rose-50 transition-colors"
+                          >
+                            Clear
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500">Choose the best category for your product.</p>
+                    </div>
+
+                    {/* Search — sticky just below the drag handle (~28px) */}
+                    <div className="px-5 py-2.5 sticky top-7 z-10 bg-white border-b border-gray-100">
+                      <Input
+                        placeholder="Search 300+ categories..."
+                        value={categorySearch}
+                        onChange={(e) => setCategorySearch(e.target.value)}
+                        className="h-10 text-sm rounded-lg"
+                        autoComplete="off"
+                        autoCorrect="off"
+                        autoCapitalize="off"
+                      />
+                    </div>
+
+                    {/* Category list */}
+                    <div className="px-5 py-3 pb-8">
+                      {/* AI Suggestion */}
+                      {suggestedCategory && !categorySearch && (
+                        <div className="mb-4">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedCategory(suggestedCategory)
+                              setShowCategoryModal(false)
+                              setCategorySearch("")
+                            }}
+                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-all duration-200 ${
+                              selectedCategory === suggestedCategory
+                                ? "bg-gradient-to-r from-violet-500 to-purple-500 text-white shadow-md"
+                                : "bg-gradient-to-r from-violet-50 to-purple-50 active:from-violet-100 active:to-purple-100 border border-violet-200"
+                            }`}
+                          >
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${
+                              selectedCategory === suggestedCategory ? "bg-white/20 text-white" : "bg-violet-500 text-white"
+                            }`}>
+                              ✨ AI Suggested
+                            </span>
+                            <span className={`font-medium ${selectedCategory === suggestedCategory ? "text-white" : "text-violet-900"}`}>
+                              {suggestedCategory}
+                            </span>
+                            {selectedCategory === suggestedCategory && <Check className="ml-auto h-4 w-4" />}
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Search results — flat list */}
+                      {categorySearch ? (
+                        <div className="space-y-0.5">
+                          {ALL_CATEGORIES.filter(cat =>
+                            cat.toLowerCase().includes(categorySearch.toLowerCase())
+                          ).map((category) => (
+                            <button
+                              key={category}
+                              type="button"
+                              onClick={() => {
+                                setSelectedCategory(category)
+                                setShowCategoryModal(false)
+                                setCategorySearch("")
+                              }}
+                              className={`w-full flex items-center gap-3 text-left px-3 py-2.5 rounded-lg text-sm transition-all duration-150 ${
+                                selectedCategory === category
+                                  ? "bg-violet-100 text-violet-900 font-medium"
+                                  : "active:bg-gray-50 text-gray-700"
+                              }`}
+                            >
+                              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                                selectedCategory === category ? "bg-violet-500" : "bg-gray-300"
+                              }`} />
+                              <span className="flex-1">{category}</span>
+                              <span className="text-xs text-gray-400">{findCategoryGroup(category)}</span>
+                              {selectedCategory === category && <Check className="h-4 w-4 text-violet-500 flex-shrink-0" />}
+                            </button>
+                          ))}
+                          {ALL_CATEGORIES.filter(cat =>
+                            cat.toLowerCase().includes(categorySearch.toLowerCase())
+                          ).length === 0 && (
+                            <p className="text-sm text-gray-500 text-center py-6">No categories found</p>
+                          )}
+                        </div>
+                      ) : (
+                        /* Grouped categories */
+                        <div className="space-y-1">
+                          {Object.entries(CATEGORY_GROUPS).map(([groupName, group]) => (
+                            <div key={groupName} className="rounded-lg border border-gray-100 overflow-hidden">
+                              <button
+                                type="button"
+                                onClick={() => toggleGroupExpansion(groupName)}
+                                className={`w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm font-medium transition-all duration-150 ${
+                                  expandedGroups.has(groupName)
+                                    ? "bg-gray-50 text-gray-900"
+                                    : "bg-white active:bg-gray-50 text-gray-700"
+                                }`}
+                              >
+                                <span className="text-lg">{group.icon}</span>
+                                <span className="flex-1">{groupName}</span>
+                                <span className="text-xs text-gray-400 mr-1">{group.categories.length}</span>
+                                <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${
+                                  expandedGroups.has(groupName) ? "rotate-180" : ""
+                                }`} />
+                              </button>
+                              {expandedGroups.has(groupName) && (
+                                <div className="border-t border-gray-100 bg-gray-50/50 p-2 space-y-0.5">
+                                  {group.categories.map((category) => (
+                                    <button
+                                      key={category}
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedCategory(category)
+                                        setShowCategoryModal(false)
+                                        setCategorySearch("")
+                                      }}
+                                      className={`w-full flex items-center gap-2 text-left px-3 py-2 rounded-md text-sm transition-all duration-150 ${
+                                        selectedCategory === category
+                                          ? "bg-violet-100 text-violet-900 font-medium"
+                                          : "active:bg-white text-gray-600"
+                                      }`}
+                                    >
+                                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                                        selectedCategory === category ? "bg-violet-500" : "bg-gray-300"
+                                      }`} />
+                                      <span className="flex-1">{category}</span>
+                                      {selectedCategory === category && <Check className="h-4 w-4 text-violet-500 flex-shrink-0" />}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </MobileSheet>
+                )}
               </div>
 
               {/* FAQ Section */}
