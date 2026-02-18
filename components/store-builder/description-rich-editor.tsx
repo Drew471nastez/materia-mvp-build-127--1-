@@ -157,107 +157,73 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
     left: number
     transformOrigin: string
   }>({ top: 0, left: 0, transformOrigin: "top left" })
-  const [isDismissing, setIsDismissing] = useState(false)
-  const swipeStartY = useRef<number | null>(null)
-  const swipeCurrentY = useRef(0)
-  const swipeLastY = useRef(0)
-  const swipeLastTime = useRef(0)
-  const swipeVelocity = useRef(0)
-  const sheetRef = useRef<HTMLDivElement>(null)
+  // GPU-accelerated animation state (mobile only — matches MobileSheet pattern)
+  const [isAnimating, setIsAnimating] = useState(false)
+  const [dragY, setDragY] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+  const startYRef = useRef(0)
+  const lastYRef = useRef(0)
+  const lastTimeRef = useRef(0)
+  const velocityRef = useRef(0)
+  const sheetRef = useRef<HTMLDivElement | null>(null)
 
-  // Animated close handler
+  // Smooth close — triggers exit animation then calls onClose (mobile) or immediate (desktop)
   const handleClose = useCallback(() => {
     const isMobileView = isMobile || (typeof window !== "undefined" && window.innerWidth < 640)
     if (isMobileView) {
-      setIsDismissing(true)
-      setTimeout(() => {
-        setIsDismissing(false)
-        onClose()
-      }, 400)
+      setIsAnimating(false)
+      setIsDragging(false)
+      setDragY(0)
+      velocityRef.current = 0
+      setTimeout(() => onClose(), 350)
     } else {
       onClose()
     }
   }, [onClose, isMobile])
 
-  // Swipe-down-to-close handlers for mobile bottom sheet
+  // Touch handlers — identical to MobileSheet: React state-driven, 1:1 tracking,
+  // elastic resistance, velocity-based dismiss (>100px drag OR >0.6px/ms flick)
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    const target = e.target as HTMLElement
-    // Only start swipe from the drag handle area or when scrolled to top
-    const sheet = sheetRef.current
-    if (!sheet) return
-    const scrollContainer = sheet.querySelector("[data-scroll-container]") as HTMLElement
-    const isAtTop = !scrollContainer || scrollContainer.scrollTop <= 0
-    const isDragHandle = target.closest("[data-drag-handle]")
-    const touchY = e.touches[0].clientY
-    const bounds = sheet.getBoundingClientRect()
-    const nearTop = touchY - bounds.top <= 72
-    if (isDragHandle || (isAtTop && nearTop)) {
-      swipeStartY.current = touchY
-      swipeCurrentY.current = 0
-      swipeLastY.current = touchY
-      swipeLastTime.current = Date.now()
-      swipeVelocity.current = 0
+    const touch = e.touches[0]
+    const sheetElement = sheetRef.current
+    if (!sheetElement) return
+    const touchYInSheet = touch.clientY - sheetElement.getBoundingClientRect().top
+    // Activate drag from backdrop (touchYInSheet <= 0) or top 120px of sheet
+    if (touchYInSheet <= 0 || touchYInSheet <= 120) {
+      startYRef.current = touch.clientY
+      lastYRef.current = touch.clientY
+      lastTimeRef.current = Date.now()
+      velocityRef.current = 0
+      setIsDragging(true)
     }
   }, [])
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (swipeStartY.current === null) return
-    const deltaY = e.touches[0].clientY - swipeStartY.current
-    const now = Date.now()
-    const dt = Math.max(1, now - swipeLastTime.current)
-    swipeVelocity.current = (e.touches[0].clientY - swipeLastY.current) / dt
-    swipeLastY.current = e.touches[0].clientY
-    swipeLastTime.current = now
-
-    const trackedY = deltaY > 0 ? deltaY : deltaY * 0.18
-    if (deltaY > 0) e.preventDefault()
-
-    swipeCurrentY.current = Math.max(0, deltaY)
-    if (sheetRef.current) {
-      sheetRef.current.style.transform = `translate3d(0, ${trackedY}px, 0)`
-      sheetRef.current.style.transition = "none"
+    if (!isDragging) return
+    const currentY = e.touches[0].clientY
+    const diff = currentY - startYRef.current
+    if (diff > 0) {
+      e.preventDefault()
+      const now = Date.now()
+      const dt = Math.max(1, now - lastTimeRef.current)
+      velocityRef.current = (currentY - lastYRef.current) / dt
+      lastYRef.current = currentY
+      lastTimeRef.current = now
+      // Elastic resistance: 95% for first 180px, 35% beyond — same as MobileSheet
+      const resisted = diff <= 180 ? diff * 0.95 : 171 + (diff - 180) * 0.35
+      setDragY(resisted)
     }
-  }, [])
+  }, [isDragging])
 
   const handleTouchEnd = useCallback(() => {
-    if (swipeStartY.current === null) return
-    swipeStartY.current = null
-    const activeSheet = sheetRef.current
-
-    if (swipeCurrentY.current > 92 || swipeVelocity.current > 0.55) {
-      setIsDismissing(true)
-      if (activeSheet) {
-        activeSheet.style.transition = "transform 400ms cubic-bezier(0.32, 0.72, 0, 1)"
-        activeSheet.style.transform = "translate3d(0, 100%, 0)"
-      }
-      setTimeout(() => {
-        if (activeSheet) {
-          activeSheet.style.transition = ""
-          activeSheet.style.transform = ""
-        }
-        sheetRef.current = null
-        setIsDismissing(false)
-        onClose()
-      }, 400)
-      swipeCurrentY.current = 0
-      swipeVelocity.current = 0
-      return
+    if (!isDragging) return
+    setIsDragging(false)
+    if (dragY > 100 || velocityRef.current > 0.6) {
+      handleClose()
+    } else {
+      setDragY(0)
     }
-
-    if (activeSheet) {
-      activeSheet.style.transition = "transform 400ms cubic-bezier(0.32, 0.72, 0, 1)"
-      activeSheet.style.transform = "translate3d(0, 0, 0)"
-      setTimeout(() => {
-        if (activeSheet) {
-          activeSheet.style.transition = ""
-          activeSheet.style.transform = ""
-        }
-        sheetRef.current = null
-      }, 400)
-    }
-    swipeCurrentY.current = 0
-    swipeVelocity.current = 0
-  }, [onClose])
+  }, [isDragging, dragY, handleClose])
 
   // Create portal container on mount
   useEffect(() => {
@@ -279,18 +245,39 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
     }
   }, [])
 
+  // Mobile: entry animation + body scroll lock on mount (component only mounts when isOpen=true)
+  useEffect(() => {
+    const isMobileView = isMobile || (typeof window !== "undefined" && window.innerWidth < 640)
+    if (!isMobileView) return
+    document.body.style.overflow = "hidden"
+    document.documentElement.style.overscrollBehavior = "none"
+    document.body.style.overscrollBehavior = "none"
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
+    // Double rAF to ensure DOM is painted before triggering CSS transition
+    const raf = requestAnimationFrame(() => {
+      requestAnimationFrame(() => setIsAnimating(true))
+    })
+    return () => {
+      cancelAnimationFrame(raf)
+      document.body.style.overflow = ""
+      document.documentElement.style.overscrollBehavior = ""
+      document.body.style.overscrollBehavior = ""
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Run once on mount only
+
   useEffect(() => {
     if (!isOpen) return
 
     const handleClickOutside = (e: MouseEvent) => {
       if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
-        onClose()
+        handleClose()
       }
     }
 
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        onClose()
+        handleClose()
       }
     }
 
@@ -372,7 +359,7 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
       window.removeEventListener("resize", calculatePosition)
       window.removeEventListener("scroll", calculatePosition, true)
     }
-  }, [isOpen, onClose, isMobile, triggerRef, anchorRef])
+  }, [isOpen, handleClose, isMobile, triggerRef, anchorRef])
 
   if (!isOpen) return null
 
@@ -384,31 +371,28 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
 
   const popoverContent = (
     <>
-      {/* Backdrop */}
+      {/* Backdrop — opacity proportional to drag distance, fades with sheet */}
       <div
-        className={isMobileView && isDismissing ? "fixed inset-0" : "fixed inset-0 animate-backdrop-in"}
         style={{
-          backgroundColor: isMobileView ? "rgba(0,0,0,0.4)" : "transparent",
+          position: "fixed",
+          inset: 0,
           zIndex: 2147483645,
           pointerEvents: "auto",
-          opacity: isDismissing ? 0 : undefined,
-          transition: isDismissing ? "opacity 400ms cubic-bezier(0.32, 0.72, 0, 1)" : undefined,
+          backgroundColor: isMobileView ? "rgba(0,0,0,0.4)" : "transparent",
+          opacity: isMobileView ? (isAnimating ? Math.max(0, 1 - dragY / 300) : 0) : 1,
+          transition: isDragging ? "none" : "opacity 350ms cubic-bezier(0.25, 0.46, 0.45, 0.94)",
         }}
         onClick={handleClose}
         onMouseDown={(e) => e.stopPropagation()}
       />
       {isMobileView ? (
-        /* Mobile: Bottom sheet with swipe-to-close */
+        /* Mobile: GPU-accelerated bottom sheet — matches MobileSheet pattern exactly */
         <div
           ref={(node) => {
             (popoverRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
             (sheetRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
           }}
-          className={cn(
-            "shadow-xl border-t flex flex-col",
-            isDismissing ? "animate-bottom-sheet-out" : "animate-bottom-sheet-in",
-            className
-          )}
+          className={cn("shadow-xl border-t flex flex-col", className)}
           style={{
             position: "fixed",
             bottom: 0,
@@ -425,6 +409,9 @@ function InlinePopover({ isOpen, onClose, children, className, anchorRef, themeC
             overflow: "hidden",
             willChange: "transform",
             backfaceVisibility: "hidden",
+            // GPU-accelerated: slides up on open, slides down on close/drag
+            transform: isAnimating ? `translate3d(0, ${dragY}px, 0)` : "translate3d(0, 100%, 0)",
+            transition: isDragging ? "none" : "transform 350ms cubic-bezier(0.25, 0.46, 0.45, 0.94)",
           }}
           onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}

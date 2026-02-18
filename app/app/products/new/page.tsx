@@ -4993,7 +4993,7 @@ export default function NewProductPage() {
                   <MobileSheet
                     isOpen={showCategoryModal}
                     onClose={() => { setShowCategoryModal(false); setCategorySearch("") }}
-                    maxHeight="92vh"
+                    maxHeight="64vh"
                     zIndex={100}
                   >
                     {/* Title row */}
