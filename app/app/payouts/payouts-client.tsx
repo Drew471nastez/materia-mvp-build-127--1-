@@ -50,6 +50,7 @@ import {
   ArrowRight,
   ChevronDown,
   Download,
+  Mail,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -431,14 +432,15 @@ function ChartTimeframeSheet({
           backfaceVisibility: "hidden",
         }}
       >
-        <div className="pt-3 pb-1 flex justify-center cursor-grab active:cursor-grabbing touch-none">
-          <div className="h-[5px] w-10 rounded-full bg-gray-300" />
+        {/* Drag handle */}
+        <div className="pt-4 pb-1 flex justify-center touch-none select-none">
+          <div className="h-[5px] w-10 rounded-full bg-[#d1d5db]" />
         </div>
-        <div className="px-4 pb-4">
-          <h3 className="text-[16px] font-semibold text-[#1a1a2e] mb-4">
+        <div className="px-5 pt-5 pb-4">
+          <h3 className="text-[17px] font-semibold text-[#1a1a2e] mb-4">
             Select time period
           </h3>
-          <div className="space-y-1 max-h-[50vh] overflow-y-auto overscroll-contain">
+          <div className="space-y-1 max-h-[55vh] overflow-y-auto overscroll-contain">
             {CHART_TIMEFRAMES.map((opt) => (
               <button
                 key={opt.value}
@@ -447,10 +449,10 @@ function ChartTimeframeSheet({
                   handleClose();
                 }}
                 className={cn(
-                  "w-full text-left px-4 py-3 rounded-xl text-[15px] font-medium transition-colors",
+                  "w-full text-left px-4 py-3.5 rounded-xl text-[15px] font-medium transition-colors active:scale-[0.98]",
                   selected === opt.value
                     ? "bg-[#f5f3ff] text-[#8b5cf6]"
-                    : "text-[#374151] hover:bg-[#f9fafb] active:bg-[#f3f4f6]",
+                    : "text-[#374151] active:bg-[#f3f4f6]",
                 )}
               >
                 {opt.label}
@@ -458,7 +460,7 @@ function ChartTimeframeSheet({
             ))}
           </div>
         </div>
-        <div style={{ height: "max(env(safe-area-inset-bottom), 12px)" }} />
+        <div style={{ height: "max(env(safe-area-inset-bottom), 20px)" }} />
       </div>
     </div>,
     document.body,
@@ -732,7 +734,7 @@ function RevenueChart() {
               axisLine={false}
               domain={[0, "auto"]}
               tickFormatter={(v) => fmtCompact(v, currency)}
-              width={56}
+              width={40}
             />
             <Tooltip content={<CustomTooltip />} />
             <Area
@@ -821,6 +823,11 @@ function WithdrawPanel({
   const [dragY, setDragY] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const startY = useRef(0);
+  // Smooth animation states for mobile bottom sheets
+  const [breakdownVisible, setBreakdownVisible] = useState(false);
+  const [breakdownAnimating, setBreakdownAnimating] = useState(false);
+  const [detailsVisible, setDetailsVisible] = useState(false);
+  const [detailsAnimating, setDetailsAnimating] = useState(false);
   const [successPayout, setSuccessPayout] = useState<{
     amount: number;
     currency: string;
@@ -873,6 +880,30 @@ function WithdrawPanel({
     }
   };
 
+  // Drive smooth slide-in/out animations for the breakdown mobile sheet
+  useEffect(() => {
+    if (openBreakdown) {
+      setBreakdownVisible(true);
+      requestAnimationFrame(() => requestAnimationFrame(() => setBreakdownAnimating(true)));
+    } else {
+      setBreakdownAnimating(false);
+      const t = setTimeout(() => setBreakdownVisible(false), 400);
+      return () => clearTimeout(t);
+    }
+  }, [openBreakdown]);
+
+  // Drive smooth slide-in/out animations for the details mobile sheet
+  useEffect(() => {
+    if (openDetails) {
+      setDetailsVisible(true);
+      requestAnimationFrame(() => requestAnimationFrame(() => setDetailsAnimating(true)));
+    } else {
+      setDetailsAnimating(false);
+      const t = setTimeout(() => setDetailsVisible(false), 400);
+      return () => clearTimeout(t);
+    }
+  }, [openDetails]);
+
   if (successPayout) {
     return (
       <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-6 flex flex-col items-center justify-center text-center h-full min-h-[260px]">
@@ -901,8 +932,8 @@ function WithdrawPanel({
 
   const helper =
     availableBalance <= 0
-      ? "No funds yet — clears in 1–3 days."
-      : "Arrives in 1–3 business days.";
+      ? "No funds available yet. Clears in 1–3 business days."
+      : "Funds arrive in 1–3 business days.";
 
   return (
     <div className="bg-[#f8fafc] rounded-2xl border border-[#e5e7eb] p-5 sm:p-6 flex flex-col gap-5 min-w-[240px]">
@@ -910,12 +941,7 @@ function WithdrawPanel({
         <div className="grid grid-cols-2 gap-4">
           <div>
             <p className="text-[10px] text-[#6b7280] font-semibold tracking-widest uppercase leading-tight">
-              Available for cashout{" "}
-              <TouchTooltip text="Ready to withdraw now">
-                <span className="inline-flex items-center justify-center w-[13px] h-[13px] rounded-full bg-[#e5e7eb] hover:bg-[#d1d5db] transition-colors cursor-help align-middle">
-                  <Info className="h-2 w-2 text-[#6b7280]" />
-                </span>
-              </TouchTooltip>
+              Available for cashout
             </p>
             {balanceReady ? (
               <p className="text-[28px] sm:text-[32px] leading-none font-bold text-[#1a1a2e] mt-2 tabular-nums">
@@ -927,12 +953,7 @@ function WithdrawPanel({
           </div>
           <div className="text-right">
             <p className="text-[10px] text-[#6b7280] font-semibold tracking-widest uppercase leading-tight text-right">
-              Arriving soon{" "}
-              <TouchTooltip text="Processes in 1–3 days">
-                <span className="inline-flex items-center justify-center w-[13px] h-[13px] rounded-full bg-[#e5e7eb] hover:bg-[#d1d5db] transition-colors cursor-help align-middle">
-                  <Info className="h-2 w-2 text-[#6b7280]" />
-                </span>
-              </TouchTooltip>
+              Arriving soon
             </p>
             {balanceReady ? (
               <p className="text-[24px] sm:text-[28px] leading-none font-bold text-[#6b7280] mt-2 tabular-nums">
@@ -966,7 +987,7 @@ function WithdrawPanel({
               <p className="text-[12px] text-red-700">{error}</p>
             </div>
           )}
-          <div className="flex gap-2 relative">
+          <div className="flex flex-col sm:flex-row gap-2 relative">
             {/* Withdraw button — faded + tooltip when no funds available */}
             <div className="flex-1 relative group">
               <button
@@ -989,8 +1010,10 @@ function WithdrawPanel({
               >
                 {loading ? (
                   <><Loader2 className="h-4 w-4 animate-spin" /> Processing…</>
+                ) : availableBalance <= 0 ? (
+                  <><Clock className="h-4 w-4" /> Withdraw</>
                 ) : (
-                  <><Banknote className="h-4 w-4" /> Withdraw</>
+                  <><Plus className="h-4 w-4" /> Withdraw</>
                 )}
               </button>
               {/* Desktop hover tooltip when no funds */}
@@ -1011,7 +1034,7 @@ function WithdrawPanel({
             )}
             <button
               onClick={openDetailsModal}
-              className="px-4 py-3 text-[14px] font-medium text-[#1f2937] bg-[#f1f3f5] rounded-xl hover:bg-[#e5e7eb] transition-colors whitespace-nowrap"
+              className="px-4 py-3 text-[14px] font-medium text-[#374151] bg-white border border-[#e2e8f0] rounded-xl hover:bg-[#f8fafc] hover:border-[#cbd5e1] transition-all whitespace-nowrap shadow-sm"
             >
               See details
             </button>
@@ -1112,110 +1135,96 @@ function WithdrawPanel({
             </div>
           </div>
 
-          {/* Mobile breakdown bottom sheet */}
-          <div className="fixed inset-0 z-[80] sm:hidden">
-            <div
-              className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
-              style={{
-                opacity: dragY > 0 ? Math.max(0, 1 - dragY / 300) : 1,
-                transition: isDragging ? "none" : "opacity 350ms ease-out",
-              }}
-              onClick={() => setOpenBreakdown(false)}
-            />
-            <div
-              className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
-              onTouchStart={(e) => {
-                startY.current = e.touches[0].clientY;
-                setIsDragging(true);
-              }}
-              onTouchMove={(e) => {
-                if (!isDragging) return;
-                const diff = e.touches[0].clientY - startY.current;
-                if (diff > 0) setDragY(diff * 0.85);
-              }}
-              onTouchEnd={() => {
-                if (dragY > 80) setOpenBreakdown(false);
-                setDragY(0);
-                setIsDragging(false);
-              }}
-              style={{
-                transform: `translateY(${dragY}px)`,
-                transition: isDragging
-                  ? "none"
-                  : "transform 380ms cubic-bezier(0.32,0.72,0,1)",
-                willChange: "transform",
-              }}
-            >
-              <div className="pt-3 pb-2 flex justify-center">
-                <div className="w-10 h-1.5 rounded-full bg-[#d1d5db]" />
-              </div>
-              <div className="px-5 pb-5">
-                <h3 className="text-[18px] font-semibold text-[#1a1a2e]">
-                  Earnings Breakdown
-                </h3>
-                <p className="text-[13px] text-[#6b7280] mt-0.5">
-                  Your Stripe connected account balance.
-                </p>
-
-                <div className="mt-4 space-y-2">
-                  <div className="flex items-center justify-between bg-[#f9fafb] border border-[#f0f0f0] rounded-xl p-3.5">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
-                        <Clock className="h-3.5 w-3.5 text-[#6b7280]" />
-                      </div>
-                      <div>
-                        <p className="text-[13px] font-medium text-[#1a1a2e]">Available soon</p>
-                        <p className="text-[10px] text-[#9ca3af]">Processing by Stripe</p>
-                      </div>
-                    </div>
-                    <span className="text-[14px] font-semibold text-[#1a1a2e]">
-                      {fmt(pendingBalance, currency)}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between bg-[#f9fafb] border border-[#f0f0f0] rounded-xl p-3.5">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-lg bg-[#ede9fe] flex items-center justify-center">
-                        <CheckCircle2 className="h-3.5 w-3.5 text-[#8b5cf6]" />
-                      </div>
-                      <div>
-                        <p className="text-[13px] font-medium text-[#1a1a2e]">Available for cashout</p>
-                        <p className="text-[10px] text-[#9ca3af]">Ready to withdraw</p>
-                      </div>
-                    </div>
-                    <span className="text-[14px] font-semibold text-[#1a1a2e]">
-                      {fmt(availableBalance, currency)}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-3 border-t border-[#e5e7eb] px-1">
-                    <span className="text-[13px] font-medium text-[#1a1a2e]">Total balance</span>
-                    <span className="text-[16px] font-bold text-[#8b5cf6]">
-                      {fmt(availableBalance + pendingBalance, currency)}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="mt-4 bg-[#f9fafb] border border-[#f0f0f0] rounded-xl p-3">
-                  <div className="flex items-start gap-2">
-                    <Info className="h-3.5 w-3.5 text-[#9ca3af] mt-0.5 shrink-0" />
-                    <p className="text-[11px] text-[#6b7280] leading-relaxed">
-                      Pending funds typically become available within 2–7 business days.
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => setOpenBreakdown(false)}
-                  className="w-full mt-5 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white rounded-xl py-3 text-[14px] font-medium transition-colors"
-                >
-                  Okay
-                </button>
-              </div>
-              <div style={{ height: "max(env(safe-area-inset-bottom), 12px)" }} />
-            </div>
-          </div>
         </>
+      )}
+
+      {/* Mobile Earnings Breakdown bottom sheet — rendered separately for smooth animation */}
+      {breakdownVisible && (
+        <div className="fixed inset-0 z-[80] sm:hidden">
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
+            style={{
+              opacity: breakdownAnimating ? (dragY > 0 ? Math.max(0, 1 - dragY / 300) : 1) : 0,
+              transition: isDragging ? "none" : "opacity 400ms cubic-bezier(0.32,0.72,0,1)",
+            }}
+            onClick={() => setOpenBreakdown(false)}
+          />
+          <div
+            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
+            onTouchStart={(e) => {
+              startY.current = e.touches[0].clientY;
+              setIsDragging(true);
+            }}
+            onTouchMove={(e) => {
+              if (!isDragging) return;
+              const diff = e.touches[0].clientY - startY.current;
+              if (diff > 0) setDragY(diff * 0.85);
+            }}
+            onTouchEnd={() => {
+              if (dragY > 80) setOpenBreakdown(false);
+              setDragY(0);
+              setIsDragging(false);
+            }}
+            style={{
+              transform: breakdownAnimating ? `translateY(${dragY}px)` : "translateY(100%)",
+              transition: isDragging ? "none" : "transform 420ms cubic-bezier(0.32,0.72,0,1)",
+              willChange: "transform",
+            }}
+          >
+            <div className="pt-3 pb-2 flex justify-center">
+              <div className="w-10 h-1.5 rounded-full bg-[#d1d5db]" />
+            </div>
+            <div className="px-5 pb-5">
+              <h3 className="text-[18px] font-semibold text-[#1a1a2e]">Earnings Breakdown</h3>
+              <p className="text-[13px] text-[#6b7280] mt-0.5">Your Stripe connected account balance.</p>
+              <div className="mt-4 space-y-2">
+                <div className="flex items-center justify-between bg-[#f9fafb] border border-[#f0f0f0] rounded-xl p-3.5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+                      <Clock className="h-3.5 w-3.5 text-[#6b7280]" />
+                    </div>
+                    <div>
+                      <p className="text-[13px] font-medium text-[#1a1a2e]">Available soon</p>
+                      <p className="text-[10px] text-[#9ca3af]">Processing by Stripe</p>
+                    </div>
+                  </div>
+                  <span className="text-[14px] font-semibold text-[#1a1a2e]">{fmt(pendingBalance, currency)}</span>
+                </div>
+                <div className="flex items-center justify-between bg-[#f9fafb] border border-[#f0f0f0] rounded-xl p-3.5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-[#ede9fe] flex items-center justify-center">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-[#8b5cf6]" />
+                    </div>
+                    <div>
+                      <p className="text-[13px] font-medium text-[#1a1a2e]">Available for cashout</p>
+                      <p className="text-[10px] text-[#9ca3af]">Ready to withdraw</p>
+                    </div>
+                  </div>
+                  <span className="text-[14px] font-semibold text-[#1a1a2e]">{fmt(availableBalance, currency)}</span>
+                </div>
+                <div className="flex items-center justify-between pt-3 border-t border-[#e5e7eb] px-1">
+                  <span className="text-[13px] font-medium text-[#1a1a2e]">Total balance</span>
+                  <span className="text-[16px] font-bold text-[#8b5cf6]">{fmt(availableBalance + pendingBalance, currency)}</span>
+                </div>
+              </div>
+              <div className="mt-4 bg-[#f9fafb] border border-[#f0f0f0] rounded-xl p-3">
+                <div className="flex items-start gap-2">
+                  <Info className="h-3.5 w-3.5 text-[#9ca3af] mt-0.5 shrink-0" />
+                  <p className="text-[11px] text-[#6b7280] leading-relaxed">
+                    Pending funds typically become available within 2–7 business days.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setOpenBreakdown(false)}
+                className="w-full mt-5 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white rounded-xl py-3 text-[14px] font-medium transition-colors"
+              >
+                Okay
+              </button>
+            </div>
+            <div style={{ height: "max(env(safe-area-inset-bottom), 12px)" }} />
+          </div>
+        </div>
       )}
 
       {/* ── See Details Modal ── */}
@@ -1309,116 +1318,116 @@ function WithdrawPanel({
             </div>
           </div>
 
-          {/* Mobile bottom sheet */}
-          <div className="fixed inset-0 z-[90] sm:hidden">
-            <div
-              className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
-              style={{
-                opacity: detailsDragY > 0 ? Math.max(0, 1 - detailsDragY / 300) : 1,
-                transition: detailsIsDragging ? "none" : "opacity 350ms ease-out",
-              }}
-              onClick={() => setOpenDetails(false)}
-            />
-            <div
-              className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
-              onTouchStart={(e) => {
-                detailsStartY.current = e.touches[0].clientY;
-                setDetailsIsDragging(true);
-              }}
-              onTouchMove={(e) => {
-                if (!detailsIsDragging) return;
-                const diff = e.touches[0].clientY - detailsStartY.current;
-                if (diff > 0) setDetailsDragY(diff * 0.85);
-              }}
-              onTouchEnd={() => {
-                if (detailsDragY > 80) setOpenDetails(false);
-                setDetailsDragY(0);
-                setDetailsIsDragging(false);
-              }}
-              style={{
-                transform: `translateY(${detailsDragY}px)`,
-                transition: detailsIsDragging ? "none" : "transform 380ms cubic-bezier(0.32,0.72,0,1)",
-                willChange: "transform",
-              }}
-            >
-              <div className="pt-3 pb-1 flex justify-center">
-                <div className="w-10 h-1.5 rounded-full bg-[#d1d5db]" />
-              </div>
-              <div className="px-5 pb-5">
-                <h3 className="text-[18px] font-semibold text-[#1a1a2e] mt-1 mb-4">Your balance</h3>
+        </>
+      )}
 
-                <div className="space-y-0 rounded-2xl border border-[#e5e7eb] overflow-hidden">
-                  {[
-                    { label: "On the way to your bank", value: inTransitAmount, icon: <Send className="h-3.5 w-3.5 text-[#6b7280]" /> },
-                    { label: "Available to pay out soon", value: pendingBalance, icon: <Clock className="h-3.5 w-3.5 text-[#6b7280]" /> },
-                    { label: "Available in your balance", value: availableBalance, icon: <CheckCircle2 className="h-3.5 w-3.5 text-[#6b7280]" /> },
-                  ].map(({ label, value, icon }, i) => (
-                    <div key={i} className="flex items-center justify-between px-4 py-3 border-b border-[#f3f4f6] last:border-0">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-lg bg-[#f3f4f6] flex items-center justify-center">{icon}</div>
-                        <span className="text-[12px] text-[#374151]">{label}</span>
-                      </div>
-                      <span className="text-[13px] font-semibold text-[#1a1a2e]">{fmt(value, currency)}</span>
+      {/* Mobile See Details bottom sheet — rendered separately for smooth animation */}
+      {detailsVisible && (
+        <div className="fixed inset-0 z-[90] sm:hidden">
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
+            style={{
+              opacity: detailsAnimating ? (detailsDragY > 0 ? Math.max(0, 1 - detailsDragY / 300) : 1) : 0,
+              transition: detailsIsDragging ? "none" : "opacity 400ms cubic-bezier(0.32,0.72,0,1)",
+            }}
+            onClick={() => setOpenDetails(false)}
+          />
+          <div
+            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
+            onTouchStart={(e) => {
+              detailsStartY.current = e.touches[0].clientY;
+              setDetailsIsDragging(true);
+            }}
+            onTouchMove={(e) => {
+              if (!detailsIsDragging) return;
+              const diff = e.touches[0].clientY - detailsStartY.current;
+              if (diff > 0) setDetailsDragY(diff * 0.85);
+            }}
+            onTouchEnd={() => {
+              if (detailsDragY > 80) setOpenDetails(false);
+              setDetailsDragY(0);
+              setDetailsIsDragging(false);
+            }}
+            style={{
+              transform: detailsAnimating ? `translateY(${detailsDragY}px)` : "translateY(100%)",
+              transition: detailsIsDragging ? "none" : "transform 420ms cubic-bezier(0.32,0.72,0,1)",
+              willChange: "transform",
+            }}
+          >
+            <div className="pt-3 pb-1 flex justify-center">
+              <div className="w-10 h-1.5 rounded-full bg-[#d1d5db]" />
+            </div>
+            <div className="px-5 pb-5">
+              <h3 className="text-[18px] font-semibold text-[#1a1a2e] mt-1 mb-4">Your balance</h3>
+              <div className="space-y-0 rounded-2xl border border-[#e5e7eb] overflow-hidden">
+                {[
+                  { label: "On the way to your bank", value: inTransitAmount, icon: <Send className="h-3.5 w-3.5 text-[#6b7280]" /> },
+                  { label: "Available to pay out soon", value: pendingBalance, icon: <Clock className="h-3.5 w-3.5 text-[#6b7280]" /> },
+                  { label: "Available in your balance", value: availableBalance, icon: <CheckCircle2 className="h-3.5 w-3.5 text-[#6b7280]" /> },
+                ].map(({ label, value, icon }, i) => (
+                  <div key={i} className="flex items-center justify-between px-4 py-3 border-b border-[#f3f4f6] last:border-0">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-lg bg-[#f3f4f6] flex items-center justify-center">{icon}</div>
+                      <span className="text-[12px] text-[#374151]">{label}</span>
                     </div>
-                  ))}
-                  <div className="flex items-center justify-between px-4 py-3 bg-[#f9fafb]">
-                    <span className="text-[13px] font-semibold text-[#374151]">Total balance</span>
-                    <span className="text-[14px] font-bold text-[#1a1a2e]">{fmt(availableBalance + pendingBalance, currency)}</span>
+                    <span className="text-[13px] font-semibold text-[#1a1a2e]">{fmt(value, currency)}</span>
                   </div>
+                ))}
+                <div className="flex items-center justify-between px-4 py-3 bg-[#f9fafb]">
+                  <span className="text-[13px] font-semibold text-[#374151]">Total balance</span>
+                  <span className="text-[14px] font-bold text-[#1a1a2e]">{fmt(availableBalance + pendingBalance, currency)}</span>
                 </div>
-
-                <button
-                  onClick={handleWithdraw}
-                  disabled={loading}
-                  className={cn(
-                    "w-full mt-4 flex items-center justify-center gap-2 px-4 py-3 text-[14px] font-medium text-white bg-[#635bff] rounded-xl transition-colors",
-                    availableBalance <= 0
-                      ? "opacity-40 cursor-not-allowed"
-                      : "hover:bg-[#564de8] disabled:opacity-50 disabled:cursor-not-allowed",
-                  )}
-                >
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Banknote className="h-4 w-4" />}
-                  {availableBalance <= 0 ? "No funds yet" : "Withdraw"}
-                </button>
-
-                <div className="mt-4 pt-4 border-t border-[#f3f4f6]">
-                  {detailsLoading ? (
-                    <div className="h-4 w-48 bg-gray-100 rounded animate-pulse" />
-                  ) : detailsBank ? (
-                    <p className="text-[12px] text-[#9ca3af] leading-relaxed">
-                      Your funds are manually paid out to{" "}
-                      <span className="font-medium text-[#6b7280]">
-                        {detailsBank.bankName || "Bank account"} ••••{detailsBank.last4}
-                      </span>.{" "}
-                      <button
-                        onClick={async () => {
-                          const r = await fetch("/api/stripe/login-link", { method: "POST" });
-                          const j = await r.json();
-                          if (j.url) window.open(j.url, "_blank", "noopener,noreferrer");
-                        }}
-                        className="text-[#8b5cf6] hover:underline font-medium"
-                      >
-                        Update payout settings
-                      </button>
-                    </p>
-                  ) : (
+              </div>
+              <button
+                onClick={handleWithdraw}
+                disabled={loading}
+                className={cn(
+                  "w-full mt-4 flex items-center justify-center gap-2 px-4 py-3 text-[14px] font-medium text-white bg-[#635bff] rounded-xl transition-colors",
+                  availableBalance <= 0
+                    ? "opacity-40 cursor-not-allowed"
+                    : "hover:bg-[#564de8] disabled:opacity-50 disabled:cursor-not-allowed",
+                )}
+              >
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Banknote className="h-4 w-4" />}
+                {availableBalance <= 0 ? "No funds yet" : "Withdraw"}
+              </button>
+              <div className="mt-4 pt-4 border-t border-[#f3f4f6]">
+                {detailsLoading ? (
+                  <div className="h-4 w-48 bg-gray-100 rounded animate-pulse" />
+                ) : detailsBank ? (
+                  <p className="text-[12px] text-[#9ca3af] leading-relaxed">
+                    Your funds are manually paid out to{" "}
+                    <span className="font-medium text-[#6b7280]">
+                      {detailsBank.bankName || "Bank account"} ••••{detailsBank.last4}
+                    </span>.{" "}
                     <button
                       onClick={async () => {
                         const r = await fetch("/api/stripe/login-link", { method: "POST" });
                         const j = await r.json();
                         if (j.url) window.open(j.url, "_blank", "noopener,noreferrer");
                       }}
-                      className="text-[12px] text-[#8b5cf6] hover:underline font-medium"
+                      className="text-[#8b5cf6] hover:underline font-medium"
                     >
-                      Update payout settings →
+                      Update payout settings
                     </button>
-                  )}
-                </div>
+                  </p>
+                ) : (
+                  <button
+                    onClick={async () => {
+                      const r = await fetch("/api/stripe/login-link", { method: "POST" });
+                      const j = await r.json();
+                      if (j.url) window.open(j.url, "_blank", "noopener,noreferrer");
+                    }}
+                    className="text-[12px] text-[#8b5cf6] hover:underline font-medium"
+                  >
+                    Update payout settings →
+                  </button>
+                )}
               </div>
-              <div style={{ height: "max(env(safe-area-inset-bottom), 16px)" }} />
             </div>
+            <div style={{ height: "max(env(safe-area-inset-bottom), 16px)" }} />
           </div>
-        </>
+        </div>
       )}
     </div>
   );
@@ -1572,6 +1581,17 @@ function OrderDetailsModal({
   const [showRefundConfirm, setShowRefundConfirm] = useState(false);
   const [refundReason, setRefundReason] = useState("");
   const [refundError, setRefundError] = useState<string | null>(null);
+  // Edit Email + Resend
+  const [showEditEmail, setShowEditEmail] = useState(false);
+  const [editEmail, setEditEmail] = useState("");
+  const [resendLoading, setResendLoading] = useState(false);
+  const [receiptResendCounts, setReceiptResendCounts] = useState<Record<string, number>>({});
+  // Smooth refund sheet states
+  const [refundSheetVisible, setRefundSheetVisible] = useState(false);
+  const [refundSheetAnimating, setRefundSheetAnimating] = useState(false);
+  const [refundDragY, setRefundDragY] = useState(0);
+  const [refundIsDragging, setRefundIsDragging] = useState(false);
+  const refundStartY = useRef(0);
   const startY = useRef(0);
   const sheetRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
@@ -1619,6 +1639,68 @@ function OrderDetailsModal({
     setIsAnimating(false);
     setDragY(0);
     setTimeout(() => onClose(), 400);
+  };
+
+  // Drive smooth animation for the refund mobile bottom sheet
+  useEffect(() => {
+    if (showRefundConfirm) {
+      setRefundSheetVisible(true);
+      requestAnimationFrame(() => requestAnimationFrame(() => setRefundSheetAnimating(true)));
+    } else if (refundSheetVisible) {
+      // Animate out, then unmount
+      setRefundSheetAnimating(false);
+      const t = setTimeout(() => {
+        setRefundSheetVisible(false);
+        setRefundDragY(0);
+      }, 420);
+      return () => clearTimeout(t);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showRefundConfirm]);
+
+  const closeRefundSheet = () => {
+    if (refundLoading) return;
+    setShowRefundConfirm(false); // useEffect handles the animation
+  };
+
+  const handleResend = async () => {
+    if (!order) return;
+    const currentCount = receiptResendCounts[order.id] || 0;
+    if (currentCount >= 5) {
+      toast({ title: "Resend limit reached", description: "Maximum 5 resends per order." });
+      return;
+    }
+    if (!order.receipt_token) {
+      toast({ title: "Cannot resend", description: "No receipt token available for this order." });
+      return;
+    }
+    setResendLoading(true);
+    try {
+      const r = await fetch("/api/receipt/resend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ receiptToken: order.receipt_token, orderId: order.id, resendType: "buyer" }),
+      });
+      const data = await r.json();
+      if (r.ok && data.success) {
+        const newCounts = { ...receiptResendCounts, [order.id]: currentCount + 1 };
+        setReceiptResendCounts(newCounts);
+        toast({ title: "Receipt sent", description: `Sent to buyer (${currentCount + 1}/5)` });
+      } else {
+        toast({ title: "Failed to resend", description: data.error || "Please try again." });
+      }
+    } catch {
+      toast({ title: "Failed to resend", description: "Please try again.", variant: "destructive" });
+    } finally {
+      setResendLoading(false);
+    }
+  };
+
+  const openEditEmail = () => {
+    if (!order) return;
+    const email = order.buyer?.email || order.buyer_email || order.customer_email || "";
+    setEditEmail(email);
+    setShowEditEmail(true);
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -2187,7 +2269,7 @@ function OrderDetailsModal({
       </div>
 
       {/* Action buttons */}
-      <div className={cn("flex gap-2", compact ? "flex-col" : "flex-row")}>
+      <div className={cn("flex gap-2", compact ? "flex-col" : "flex-row flex-wrap")}>
         {/* Invoice button — light gray */}
         {order.stripe_payment_intent_id && (
           <a
@@ -2203,6 +2285,31 @@ function OrderDetailsModal({
             Invoice
           </a>
         )}
+
+        {/* Resend Receipt */}
+        <button
+          onClick={handleResend}
+          disabled={resendLoading}
+          className={cn(
+            "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-[#374151] bg-[#f3f4f6] rounded-xl hover:bg-[#e5e7eb] active:bg-[#e5e7eb] transition-colors disabled:opacity-60",
+            compact ? "text-[12px]" : "text-[13px]",
+          )}
+        >
+          <Send className={compact ? "h-3 w-3" : "h-3.5 w-3.5"} />
+          {resendLoading ? "Sending…" : `Resend${receiptResendCounts[order.id] ? ` (${receiptResendCounts[order.id]}/5)` : ""}`}
+        </button>
+
+        {/* Edit Email */}
+        <button
+          onClick={openEditEmail}
+          className={cn(
+            "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-[#374151] bg-[#f3f4f6] rounded-xl hover:bg-[#e5e7eb] active:bg-[#e5e7eb] transition-colors",
+            compact ? "text-[12px]" : "text-[13px]",
+          )}
+        >
+          <Mail className={compact ? "h-3 w-3" : "h-3.5 w-3.5"} />
+          Edit Email
+        </button>
 
         {/* Refund button — light gray, opens confirmation modal */}
         {order.status === "completed" && !refundDone && (
@@ -2438,103 +2545,191 @@ function OrderDetailsModal({
             </div>
           </div>
 
-          {/* Mobile: bottom sheet */}
-          <div className="fixed inset-0 z-[60] sm:hidden">
-            <div
-              className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
-              onClick={() => !refundLoading && setShowRefundConfirm(false)}
-            />
-            <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl animate-in slide-in-from-bottom duration-300">
-              {/* Drag handle */}
-              <div className="pt-3 pb-1 flex justify-center">
-                <div className="w-10 h-[5px] rounded-full bg-[#d1d5db]" />
+        </>
+      )}
+
+      {/* Mobile refund bottom sheet — separate block for smooth slide animation */}
+      {refundSheetVisible && (
+        <div className="fixed inset-0 z-[60] sm:hidden">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
+            style={{
+              opacity: refundSheetAnimating ? (refundDragY > 0 ? Math.max(0, 1 - refundDragY / 280) : 1) : 0,
+              transition: refundIsDragging ? "none" : "opacity 400ms cubic-bezier(0.32,0.72,0,1)",
+            }}
+            onClick={closeRefundSheet}
+          />
+          <div
+            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
+            onTouchStart={(e) => {
+              refundStartY.current = e.touches[0].clientY;
+              setRefundIsDragging(true);
+            }}
+            onTouchMove={(e) => {
+              if (!refundIsDragging) return;
+              const diff = e.touches[0].clientY - refundStartY.current;
+              if (diff > 0) setRefundDragY(diff * 0.85);
+            }}
+            onTouchEnd={() => {
+              setRefundIsDragging(false);
+              if (refundDragY > 80) { closeRefundSheet(); }
+              else setRefundDragY(0);
+            }}
+            style={{
+              transform: refundSheetAnimating ? `translateY(${refundDragY}px)` : "translateY(100%)",
+              transition: refundIsDragging ? "none" : "transform 420ms cubic-bezier(0.32,0.72,0,1)",
+              willChange: "transform",
+            }}
+          >
+            {/* Drag handle */}
+            <div className="pt-3 pb-1 flex justify-center touch-none select-none">
+              <div className="w-10 h-[5px] rounded-full bg-[#d1d5db]" />
+            </div>
+            {/* Header */}
+            <div className="px-5 pt-2 pb-4 border-b border-[#f3f4f6]">
+              <div className="flex items-center justify-between">
+                <h2 className="text-[17px] font-semibold text-[#1a1a2e]">Issue Refund</h2>
+                <button
+                  onClick={closeRefundSheet}
+                  className="w-7 h-7 rounded-full bg-[#f3f4f6] flex items-center justify-center text-[#6b7280]"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
               </div>
-              {/* Header */}
-              <div className="px-5 pt-2 pb-4 border-b border-[#f3f4f6]">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-[17px] font-semibold text-[#1a1a2e]">Issue Refund</h2>
-                  <button
-                    onClick={() => !refundLoading && setShowRefundConfirm(false)}
-                    className="w-7 h-7 rounded-full bg-[#f3f4f6] flex items-center justify-center text-[#6b7280]"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-                <p className="text-[12px] text-[#6b7280] mt-0.5">The customer will be notified via email.</p>
-              </div>
-              {/* Content */}
-              <div className="px-5 py-4 space-y-4">
-                <div className="flex items-center gap-3 p-3 bg-[#f9fafb] rounded-xl">
-                  {order.product?.thumbnail_url ? (
-                    <img src={order.product.thumbnail_url} alt="" className="w-10 h-10 rounded-xl object-cover" />
-                  ) : (
-                    <div className="w-10 h-10 rounded-xl bg-[#e5e7eb] flex items-center justify-center">
-                      <Package className="h-4 w-4 text-[#9ca3af]" />
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[14px] font-medium text-[#1a1a2e] truncate">{order.product?.title || "Product"}</p>
-                    <p className="text-[12px] text-[#9ca3af]">{order.buyer_email || order.customer_email || ""}</p>
-                  </div>
-                  <p className="text-[14px] font-semibold text-[#1a1a2e] shrink-0">{fmt(order.amount_cents, currency)}</p>
-                </div>
-                <div>
-                  <label className="block text-[13px] font-medium text-[#374151] mb-2.5">Select a reason</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      { value: "requested_by_customer", label: "Customer request" },
-                      { value: "duplicate", label: "Duplicate charge" },
-                      { value: "fraudulent", label: "Fraudulent" },
-                      { value: "other", label: "Other" },
-                    ].map((opt) => (
-                      <button
-                        key={opt.value}
-                        onClick={() => setRefundReason(opt.value)}
-                        className={cn(
-                          "px-3 py-3 rounded-xl text-[13px] font-medium transition-colors border active:scale-95",
-                          refundReason === opt.value
-                            ? "bg-[#f5f3ff] border-[#8b5cf6] text-[#8b5cf6]"
-                            : "border-[#e5e7eb] text-[#6b7280] bg-white",
-                        )}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                {refundError && (
-                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl">
-                    <p className="text-[12px] text-red-600 flex items-center gap-2">
-                      <AlertCircle className="h-4 w-4 shrink-0" />{refundError}
-                    </p>
+              <p className="text-[12px] text-[#6b7280] mt-0.5">The customer will be notified via email.</p>
+            </div>
+            {/* Content */}
+            <div className="px-5 py-4 space-y-4">
+              <div className="flex items-center gap-3 p-3 bg-[#f9fafb] rounded-xl">
+                {order.product?.thumbnail_url ? (
+                  <img src={order.product.thumbnail_url} alt="" className="w-10 h-10 rounded-xl object-cover" />
+                ) : (
+                  <div className="w-10 h-10 rounded-xl bg-[#e5e7eb] flex items-center justify-center">
+                    <Package className="h-4 w-4 text-[#9ca3af]" />
                   </div>
                 )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-[14px] font-medium text-[#1a1a2e] truncate">{order.product?.title || "Product"}</p>
+                  <p className="text-[12px] text-[#9ca3af]">{order.buyer_email || order.customer_email || ""}</p>
+                </div>
+                <p className="text-[14px] font-semibold text-[#1a1a2e] shrink-0">{fmt(order.amount_cents, currency)}</p>
               </div>
-              {/* Actions */}
-              <div className="px-5 pb-4 flex flex-col gap-2.5">
-                <button
-                  onClick={handleRefundConfirm}
-                  disabled={refundLoading || !refundReason}
-                  className="w-full py-3.5 text-[15px] font-semibold text-white bg-red-600 rounded-2xl hover:bg-red-700 active:bg-red-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {refundLoading ? (
-                    <><Loader2 className="h-4 w-4 animate-spin" /> Processing…</>
-                  ) : (
-                    <><RotateCcw className="h-4 w-4" /> Confirm Refund</>
-                  )}
-                </button>
-                <button
-                  onClick={() => setShowRefundConfirm(false)}
-                  disabled={refundLoading}
-                  className="w-full py-3.5 text-[15px] font-medium text-[#374151] bg-[#f3f4f6] rounded-2xl hover:bg-[#e5e7eb] active:bg-[#d1d5db] transition-colors disabled:opacity-50"
-                >
-                  Cancel
-                </button>
+              <div>
+                <label className="block text-[13px] font-medium text-[#374151] mb-2.5">Select a reason</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { value: "requested_by_customer", label: "Customer request" },
+                    { value: "duplicate", label: "Duplicate charge" },
+                    { value: "fraudulent", label: "Fraudulent" },
+                    { value: "other", label: "Other" },
+                  ].map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setRefundReason(opt.value)}
+                      className={cn(
+                        "px-3 py-3 rounded-xl text-[13px] font-medium transition-colors border active:scale-95",
+                        refundReason === opt.value
+                          ? "bg-[#f5f3ff] border-[#8b5cf6] text-[#8b5cf6]"
+                          : "border-[#e5e7eb] text-[#6b7280] bg-white",
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div style={{ height: "max(env(safe-area-inset-bottom), 12px)" }} />
+              {refundError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-xl">
+                  <p className="text-[12px] text-red-600 flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 shrink-0" />{refundError}
+                  </p>
+                </div>
+              )}
+            </div>
+            {/* Actions */}
+            <div className="px-5 pb-4 flex flex-col gap-2.5">
+              <button
+                onClick={handleRefundConfirm}
+                disabled={refundLoading || !refundReason}
+                className="w-full py-3.5 text-[15px] font-semibold text-white bg-red-600 rounded-2xl hover:bg-red-700 active:bg-red-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {refundLoading ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Processing…</>
+                ) : (
+                  <><RotateCcw className="h-4 w-4" /> Confirm Refund</>
+                )}
+              </button>
+              <button
+                onClick={closeRefundSheet}
+                disabled={refundLoading}
+                className="w-full py-3.5 text-[15px] font-medium text-[#374151] bg-[#f3f4f6] rounded-2xl hover:bg-[#e5e7eb] active:bg-[#d1d5db] transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+            <div style={{ height: "max(env(safe-area-inset-bottom), 12px)" }} />
+          </div>
+        </div>
+      )}
+
+      {/* ── Edit Email Modal ── */}
+      {showEditEmail && order && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/50 animate-in fade-in duration-200"
+            onClick={() => setShowEditEmail(false)}
+          />
+          <div className="relative bg-white rounded-2xl w-full max-w-md shadow-xl animate-in fade-in-0 zoom-in-95 duration-200">
+            <div className="border-b border-[#e5e7eb] px-6 py-4 flex items-center justify-between">
+              <h2 className="text-[18px] font-semibold text-[#1a1a2e]">Edit Email Address</h2>
+              <button
+                onClick={() => setShowEditEmail(false)}
+                className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center text-[#6b7280] hover:bg-[#e5e7eb] transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-[13px] font-medium text-[#374151] mb-1.5">Customer Email</label>
+                <input
+                  type="email"
+                  value={editEmail}
+                  onChange={(e) => setEditEmail(e.target.value)}
+                  placeholder="customer@example.com"
+                  className="w-full px-4 py-2.5 text-[14px] border border-[#e5e7eb] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#8b5cf6]/20 focus:border-[#8b5cf6] transition-colors"
+                />
+                <p className="text-[12px] text-[#6b7280] mt-1.5">
+                  This will update the email for order #{order.id.slice(0, 8)}
+                </p>
+              </div>
+              <div className="bg-[#f9fafb] rounded-xl p-4">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 rounded border-[#d1d5db] text-[#8b5cf6] focus:ring-[#8b5cf6]"
+                    defaultChecked
+                  />
+                  <span className="text-[13px] text-[#374151]">Send purchase receipt to new email</span>
+                </label>
+              </div>
+            </div>
+            <div className="border-t border-[#e5e7eb] px-6 py-4 flex items-center justify-end gap-3">
+              <button
+                onClick={() => setShowEditEmail(false)}
+                className="px-4 py-2 text-[13px] font-medium text-[#6b7280] hover:text-[#374151] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => setShowEditEmail(false)}
+                className="px-4 py-2 text-[13px] font-medium text-white bg-[#8b5cf6] rounded-lg hover:bg-[#7c3aed] transition-colors"
+              >
+                Save Changes
+              </button>
             </div>
           </div>
-        </>
+        </div>
       )}
     </>,
     document.body,
@@ -3448,8 +3643,25 @@ export function PayoutsClient({
     );
   }
 
+  const hasNoOrders = initialOrders.length === 0;
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      {/* No-data blurred overlay — shown when seller has no orders yet */}
+      {hasNoOrders && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
+          <div className="absolute inset-0 bg-white/60 backdrop-blur-[6px] rounded-2xl" />
+          <div className="relative z-10 text-center px-6 pointer-events-auto">
+            <div className="w-16 h-16 rounded-full bg-[#f5f3ff] flex items-center justify-center mx-auto mb-4 shadow-sm">
+              <DollarSign className="h-8 w-8 text-[#8b5cf6]" />
+            </div>
+            <p className="text-[18px] font-semibold text-[#1a1a2e] mb-1">No sales yet</p>
+            <p className="text-[14px] text-[#6b7280] max-w-xs mx-auto">
+              Your first sale will appear here. Share your store to get started.
+            </p>
+          </div>
+        </div>
+      )}
       <div className="space-y-6">
         {/* Chart + Withdraw panel side-by-side on desktop */}
         <div className="flex flex-col lg:flex-row gap-5">
@@ -3487,22 +3699,13 @@ export function PayoutsClient({
                     }, 150);
                   }}
                   className={cn(
-                    "relative flex items-center gap-2 px-4 py-2.5 text-[13px] font-semibold rounded-t-xl border border-b-0 transition-colors duration-150 whitespace-nowrap",
+                    "relative px-5 py-2.5 text-[13px] font-semibold rounded-t-xl border border-b-0 transition-colors duration-150 whitespace-nowrap",
                     recentTab === "sales"
                       ? "bg-white border-[#e5e7eb] text-[#1a1a2e] z-10"
                       : "bg-transparent border-transparent text-[#6b7280] hover:text-[#374151]",
                   )}
                 >
-                  <ShoppingCart className={cn("h-3.5 w-3.5", recentTab === "sales" ? "text-[#8b5cf6]" : "text-[#9ca3af]")} />
                   Sales
-                  {initialOrders.length > 0 && (
-                    <span className={cn(
-                      "inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold",
-                      recentTab === "sales" ? "bg-[#f0eeff] text-[#8b5cf6]" : "bg-[#f3f4f6] text-[#9ca3af]",
-                    )}>
-                      {initialOrders.length}
-                    </span>
-                  )}
                 </button>
                 <button
                   onClick={() => {
@@ -3515,22 +3718,13 @@ export function PayoutsClient({
                     }, 150);
                   }}
                   className={cn(
-                    "relative flex items-center gap-2 px-4 py-2.5 text-[13px] font-semibold rounded-t-xl border border-b-0 transition-colors duration-150 whitespace-nowrap ml-1",
+                    "relative px-5 py-2.5 text-[13px] font-semibold rounded-t-xl border border-b-0 transition-colors duration-150 whitespace-nowrap ml-1",
                     recentTab === "payouts"
                       ? "bg-white border-[#e5e7eb] text-[#1a1a2e] z-10"
                       : "bg-transparent border-transparent text-[#6b7280] hover:text-[#374151]",
                   )}
                 >
-                  <Landmark className={cn("h-3.5 w-3.5", recentTab === "payouts" ? "text-[#8b5cf6]" : "text-[#9ca3af]")} />
                   Payouts
-                  {payoutCount > 0 && (
-                    <span className={cn(
-                      "inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold",
-                      recentTab === "payouts" ? "bg-[#f0eeff] text-[#8b5cf6]" : "bg-[#f3f4f6] text-[#9ca3af]",
-                    )}>
-                      {payoutCount}
-                    </span>
-                  )}
                 </button>
               </div>
               {/* Pagination + export */}
