@@ -73,6 +73,7 @@ export default async function PayoutsPage() {
       });
 
       const paidOrders = ordersData.filter((o) => o.status === "completed");
+      // DB fallback values — overridden by Stripe balance transactions below
       totalEarnings = paidOrders.reduce(
         (sum, o) => sum + (o.amount_cents || 0),
         0,
@@ -137,6 +138,7 @@ export default async function PayoutsPage() {
 
       if (selected) {
         detectedCurrency = selected[0];
+        // Use actual Stripe balances — these are the source of truth
         stripeAvailableBalance = selected[1].available;
         stripePendingBalance = selected[1].pending;
         paidOut = payouts.data
@@ -146,25 +148,54 @@ export default async function PayoutsPage() {
     } catch (err) {
       console.error("[Payouts] Failed to fetch Stripe balance:", err);
     }
+
+    // Fetch all-time balance transactions from Stripe to get accurate gross
+    // revenue and net earnings (after Stripe's processing fees).
+    try {
+      let stripeGross = 0;
+      let stripeNet = 0;
+      let hasMore = true;
+      let startingAfter: string | undefined = undefined;
+
+      while (hasMore) {
+        const listParams: any = { type: "payment", limit: 100 };
+        if (startingAfter) listParams.starting_after = startingAfter;
+
+        const result = await stripe.balanceTransactions.list(listParams, {
+          stripeAccount: creator.stripe_account_id,
+        });
+
+        for (const tx of result.data) {
+          stripeGross += tx.amount; // gross charge amount
+          stripeNet += tx.net;     // after Stripe processing fee
+        }
+
+        hasMore = result.has_more;
+        if (hasMore && result.data.length > 0) {
+          startingAfter = result.data[result.data.length - 1].id;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      if (stripeGross > 0) {
+        // Use Stripe balance transactions as the authoritative revenue source.
+        // stripeGross = total charged to buyers (Revenue)
+        // stripeNet   = what the seller receives after Stripe's own cut
+        // The platform/Storelib fee is the difference between stripeNet and
+        // what actually lands in the connected account balance.
+        totalEarnings = stripeGross;
+        // totalFees: derive from what's actually been withheld (gross - net)
+        // so that netEarnings = stripeNet = earnings after all fees
+        totalFees = stripeGross - stripeNet;
+      }
+    } catch (err) {
+      console.error("[Payouts] Failed to fetch Stripe balance transactions:", err);
+      // Fall back to DB values computed above
+    }
   }
 
-  // Cap Stripe pending balance to what non-refunded orders could actually
-  // contribute.  When every order has been refunded the cap is 0 — even if
-  // Stripe's balance.pending still contains in-flight refund adjustments.
-  const completedOrders = allOrders.filter(
-    (o: any) => o.status === "completed",
-  );
-  const maxPossiblePending = completedOrders.reduce(
-    (sum: number, o: any) => sum + (o.amount_cents || 0),
-    0,
-  );
-  stripePendingBalance = Math.max(
-    0,
-    Math.min(stripePendingBalance, maxPossiblePending),
-  );
-
-  // No local fallback math here: keep payout balances strictly sourced from Stripe.
-
+  // Net earnings = what seller keeps after all fees (Stripe + platform)
   const netEarnings = totalEarnings - totalFees;
 
   return (

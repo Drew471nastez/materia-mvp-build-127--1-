@@ -584,9 +584,9 @@ function WithdrawPanel({
               className="absolute inset-0 bg-black/45 animate-in fade-in duration-200"
               onClick={() => setOpenBreakdown(false)}
             />
-            <div className="relative bg-white rounded-3xl border border-[#e5e7eb] shadow-2xl w-full max-w-xl p-7 animate-in fade-in zoom-in-95 duration-200">
-              <div className="flex justify-between items-center">
-                <h3 className="text-[26px] font-semibold text-[#1a1a2e]">
+            <div className="relative bg-white rounded-3xl border border-[#e5e7eb] shadow-2xl w-full max-w-md p-7 animate-in fade-in zoom-in-95 duration-200">
+              <div className="flex justify-between items-center mb-1">
+                <h3 className="text-[22px] font-semibold text-[#1a1a2e]">
                   Earnings Breakdown
                 </h3>
                 <button
@@ -596,75 +596,64 @@ function WithdrawPanel({
                   <X className="h-4 w-4" />
                 </button>
               </div>
-              <p className="text-[14px] text-[#6b7280] mt-1">
-                See how your earnings are split in Storelib.
+              <p className="text-[13px] text-[#6b7280]">
+                Your Stripe connected account balance.
               </p>
 
-              <div className="mt-6 space-y-3">
-                <div className="flex items-center justify-between bg-[#f9fafb] rounded-xl p-4">
+              <div className="mt-5 space-y-2">
+                <div className="flex items-center justify-between bg-[#f9fafb] border border-[#f0f0f0] rounded-xl p-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center">
-                      <Clock className="h-4 w-4 text-amber-600" />
+                    <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+                      <Clock className="h-4 w-4 text-[#6b7280]" />
                     </div>
                     <div>
-                      <p className="text-[14px] font-medium text-[#1a1a2e]">Available soon</p>
-                      <p className="text-[11px] text-[#9ca3af]">Funds being processed by Stripe</p>
+                      <p className="text-[13px] font-medium text-[#1a1a2e]">Available soon</p>
+                      <p className="text-[11px] text-[#9ca3af]">Processing by Stripe</p>
                     </div>
                   </div>
-                  <span className="text-[16px] font-semibold text-[#1a1a2e]">
+                  <span className="text-[15px] font-semibold text-[#1a1a2e]">
                     {fmt(pendingBalance, currency)}
                   </span>
                 </div>
 
-                <div className="flex items-center justify-between bg-[#f9fafb] rounded-xl p-4">
+                <div className="flex items-center justify-between bg-[#f9fafb] border border-[#f0f0f0] rounded-xl p-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center">
-                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    <div className="w-8 h-8 rounded-lg bg-[#ede9fe] flex items-center justify-center">
+                      <CheckCircle2 className="h-4 w-4 text-[#8b5cf6]" />
                     </div>
                     <div>
-                      <p className="text-[14px] font-medium text-[#1a1a2e]">Available for cashout</p>
-                      <p className="text-[11px] text-[#9ca3af]">Ready to withdraw to your bank</p>
+                      <p className="text-[13px] font-medium text-[#1a1a2e]">Available for cashout</p>
+                      <p className="text-[11px] text-[#9ca3af]">Ready to withdraw</p>
                     </div>
                   </div>
-                  <span className="text-[16px] font-semibold text-[#1a1a2e]">
+                  <span className="text-[15px] font-semibold text-[#1a1a2e]">
                     {fmt(availableBalance, currency)}
                   </span>
                 </div>
 
-                <div className="border-t border-[#e5e7eb] pt-3 mt-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[14px] font-medium text-[#1a1a2e]">Total balance</span>
-                    <span className="text-[18px] font-bold text-[#8b5cf6]">
-                      {fmt(availableBalance + pendingBalance, currency)}
-                    </span>
-                  </div>
+                <div className="flex items-center justify-between pt-3 border-t border-[#e5e7eb] px-1">
+                  <span className="text-[14px] font-medium text-[#1a1a2e]">Total balance</span>
+                  <span className="text-[17px] font-bold text-[#8b5cf6]">
+                    {fmt(availableBalance + pendingBalance, currency)}
+                  </span>
                 </div>
               </div>
 
-              <div className="mt-5 bg-[#f5f3ff] rounded-xl p-4">
-                <div className="flex items-start gap-2.5">
-                  <Info className="h-4 w-4 text-[#8b5cf6] mt-0.5 shrink-0" />
-                  <div>
-                    <p className="text-[12px] text-[#6b7280] leading-relaxed">
-                      Pending funds typically become available within 2–7 business days.
-                      Stripe processes payouts on a rolling basis depending on your region.
-                    </p>
-                  </div>
+              <div className="mt-4 bg-[#f9fafb] border border-[#f0f0f0] rounded-xl p-3.5">
+                <div className="flex items-start gap-2">
+                  <Info className="h-3.5 w-3.5 text-[#9ca3af] mt-0.5 shrink-0" />
+                  <p className="text-[12px] text-[#6b7280] leading-relaxed">
+                    Pending funds typically become available within 2–7 business days depending on your region.
+                  </p>
                 </div>
               </div>
 
               <button
                 onClick={() => setOpenBreakdown(false)}
-                className="w-full mt-6 bg-[#635bff] hover:bg-[#564de8] text-white rounded-xl py-3 font-medium transition-colors"
+                className="w-full mt-5 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white rounded-xl py-3 text-[14px] font-medium transition-colors"
               >
                 Okay
               </button>
-              <a
-                href="/help-center"
-                className="w-full mt-3 flex items-center justify-center gap-1.5 text-[13px] font-medium text-[#8b5cf6] hover:text-[#7c3aed] transition-colors"
-              >
-                Learn more <ExternalLink className="h-3 w-3" />
-              </a>
             </div>
           </div>
 
@@ -710,53 +699,51 @@ function WithdrawPanel({
                   Earnings Breakdown
                 </h3>
                 <p className="text-[13px] text-[#6b7280] mt-0.5">
-                  See how your earnings are split.
+                  Your Stripe connected account balance.
                 </p>
 
-                <div className="mt-4 space-y-2.5">
-                  <div className="flex items-center justify-between bg-[#f9fafb] rounded-xl p-3.5">
+                <div className="mt-4 space-y-2">
+                  <div className="flex items-center justify-between bg-[#f9fafb] border border-[#f0f0f0] rounded-xl p-3.5">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center">
-                        <Clock className="h-3.5 w-3.5 text-amber-600" />
+                      <div className="w-7 h-7 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+                        <Clock className="h-3.5 w-3.5 text-[#6b7280]" />
                       </div>
                       <div>
                         <p className="text-[13px] font-medium text-[#1a1a2e]">Available soon</p>
-                        <p className="text-[10px] text-[#9ca3af]">Processing</p>
+                        <p className="text-[10px] text-[#9ca3af]">Processing by Stripe</p>
                       </div>
                     </div>
-                    <span className="text-[14px] font-semibold">
+                    <span className="text-[14px] font-semibold text-[#1a1a2e]">
                       {fmt(pendingBalance, currency)}
                     </span>
                   </div>
 
-                  <div className="flex items-center justify-between bg-[#f9fafb] rounded-xl p-3.5">
+                  <div className="flex items-center justify-between bg-[#f9fafb] border border-[#f0f0f0] rounded-xl p-3.5">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-lg bg-green-100 flex items-center justify-center">
-                        <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+                      <div className="w-7 h-7 rounded-lg bg-[#ede9fe] flex items-center justify-center">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-[#8b5cf6]" />
                       </div>
                       <div>
                         <p className="text-[13px] font-medium text-[#1a1a2e]">Available for cashout</p>
                         <p className="text-[10px] text-[#9ca3af]">Ready to withdraw</p>
                       </div>
                     </div>
-                    <span className="text-[14px] font-semibold">
+                    <span className="text-[14px] font-semibold text-[#1a1a2e]">
                       {fmt(availableBalance, currency)}
                     </span>
                   </div>
 
-                  <div className="border-t border-[#e5e7eb] pt-2.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[13px] font-medium text-[#1a1a2e]">Total balance</span>
-                      <span className="text-[16px] font-bold text-[#8b5cf6]">
-                        {fmt(availableBalance + pendingBalance, currency)}
-                      </span>
-                    </div>
+                  <div className="flex items-center justify-between pt-3 border-t border-[#e5e7eb] px-1">
+                    <span className="text-[13px] font-medium text-[#1a1a2e]">Total balance</span>
+                    <span className="text-[16px] font-bold text-[#8b5cf6]">
+                      {fmt(availableBalance + pendingBalance, currency)}
+                    </span>
                   </div>
                 </div>
 
-                <div className="mt-4 bg-[#f5f3ff] rounded-xl p-3">
+                <div className="mt-4 bg-[#f9fafb] border border-[#f0f0f0] rounded-xl p-3">
                   <div className="flex items-start gap-2">
-                    <Info className="h-3.5 w-3.5 text-[#8b5cf6] mt-0.5 shrink-0" />
+                    <Info className="h-3.5 w-3.5 text-[#9ca3af] mt-0.5 shrink-0" />
                     <p className="text-[11px] text-[#6b7280] leading-relaxed">
                       Pending funds typically become available within 2–7 business days.
                     </p>
@@ -765,16 +752,10 @@ function WithdrawPanel({
 
                 <button
                   onClick={() => setOpenBreakdown(false)}
-                  className="w-full mt-5 bg-[#635bff] text-white rounded-xl py-3 font-medium"
+                  className="w-full mt-5 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white rounded-xl py-3 text-[14px] font-medium transition-colors"
                 >
                   Okay
                 </button>
-                <a
-                  href="/help-center"
-                  className="w-full mt-3 flex items-center justify-center gap-1.5 text-[13px] font-medium text-[#8b5cf6]"
-                >
-                  Learn more <ExternalLink className="h-3 w-3" />
-                </a>
               </div>
               <div style={{ height: "max(env(safe-area-inset-bottom), 12px)" }} />
             </div>
@@ -939,13 +920,15 @@ function OrderDetailsModal({
   }, []);
 
   useEffect(() => {
-    if (isOpen && !isVisible) {
-      setIsVisible(true);
+    if (isOpen) {
+      // Open (or re-open while closing) — always re-trigger the open animation
       document.body.style.overflow = "hidden";
+      setIsVisible(true);
       requestAnimationFrame(() =>
         requestAnimationFrame(() => setIsAnimating(true)),
       );
-    } else if (!isOpen && isVisible) {
+    } else {
+      // Close animation
       setIsAnimating(false);
       document.body.style.overflow = "";
       const t = setTimeout(() => {
@@ -957,7 +940,8 @@ function OrderDetailsModal({
     return () => {
       document.body.style.overflow = "";
     };
-  }, [isOpen, isVisible]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]); // Only depend on isOpen to avoid re-trigger loops
 
   useEffect(() => {
     setShowTimeline(false);
@@ -1692,6 +1676,7 @@ function PayoutsHistoryList({
   pageSwitchLoading = false,
   convertCents = (c) => c,
   onCountChange,
+  flat = false,
 }: {
   refreshKey: number;
   page?: number;
@@ -1699,6 +1684,7 @@ function PayoutsHistoryList({
   pageSwitchLoading?: boolean;
   convertCents?: (cents: number) => number;
   onCountChange?: (count: number) => void;
+  flat?: boolean;
 }) {
   const [payouts, setPayouts] = useState<StripePayout[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1734,7 +1720,7 @@ function PayoutsHistoryList({
 
   if (loading) {
     return (
-      <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+      <div className={cn("overflow-hidden", !flat && "bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)]")}>
         {[1, 2, 3].map((i) => (
           <div
             key={i}
@@ -1751,7 +1737,7 @@ function PayoutsHistoryList({
 
   if (error) {
     return (
-      <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-6 flex items-center gap-2">
+      <div className={cn("p-6 flex items-center gap-2", !flat && "bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)]")}>
         <AlertCircle className="h-4 w-4 text-rose-500" />
         <p className="text-[13px] text-rose-600">{error}</p>
       </div>
@@ -1760,7 +1746,7 @@ function PayoutsHistoryList({
 
   if (!payouts.length) {
     return (
-      <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-12 text-center">
+      <div className={cn("p-12 text-center", !flat && "bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)]")}>
         <div className="w-16 h-16 rounded-2xl bg-[#f3f4f6] flex items-center justify-center mx-auto mb-4">
           <Landmark className="h-7 w-7 text-[#9ca3af]" />
         </div>
@@ -1775,7 +1761,7 @@ function PayoutsHistoryList({
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+    <div className={cn("overflow-hidden", !flat && "bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)]")}>
       {/* Mobile card view */}
       <div className="sm:hidden divide-y divide-[#e5e7eb]">
         {(pageSwitchLoading ? [] : visiblePayouts).map((p) => {
@@ -2026,18 +2012,9 @@ export function PayoutsClient({
     (cents: number) => Math.round(cents * fxRate),
     [fxRate],
   );
-  const openOrderDetails = useCallback(
-    (order: OrderPayment) => {
-      if (selectedOrder) {
-        // Switching between orders – close first, then reopen
-        setSelectedOrder(null);
-        setTimeout(() => setSelectedOrder(order), 420);
-      } else {
-        setSelectedOrder(order);
-      }
-    },
-    [selectedOrder],
-  );
+  const openOrderDetails = useCallback((order: OrderPayment) => {
+    setSelectedOrder(order);
+  }, []);
   const pageItems =
     recentTab === "sales" ? initialOrders : new Array(payoutCount);
   const pageCount = Math.max(1, Math.ceil(pageItems.length / 6));
@@ -2179,14 +2156,14 @@ export function PayoutsClient({
         {/* Recent activity */}
         {initialOrders.length > 0 ? (
           <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-            <div className="px-5 py-3 border-b border-[#e5e7eb] flex items-center justify-between gap-3">
-              <div className="relative flex items-center gap-1 bg-[#f3f4f6] rounded-lg p-1">
+            <div className="px-4 sm:px-5 py-3.5 border-b border-[#e5e7eb] flex items-center justify-between gap-3">
+              <div className="relative flex items-center bg-[#f3f4f6] rounded-xl p-1 gap-0.5">
                 {/* Sliding indicator */}
                 <div
-                  className="absolute top-1 bottom-1 bg-white rounded-md shadow-sm transition-all duration-300 ease-out"
+                  className="absolute top-1 bottom-1 bg-white rounded-lg shadow-sm transition-all duration-300 ease-out"
                   style={{
-                    left: recentTab === "sales" ? "4px" : "50%",
-                    width: "calc(50% - 4px)",
+                    left: recentTab === "sales" ? "4px" : "calc(50% + 2px)",
+                    width: "calc(50% - 6px)",
                   }}
                 />
                 <button
@@ -2200,7 +2177,7 @@ export function PayoutsClient({
                     }, 150);
                   }}
                   className={cn(
-                    "relative z-10 px-3 py-1.5 text-[12px] font-medium rounded-md transition-colors duration-200",
+                    "relative z-10 px-3.5 py-1.5 text-[12px] font-medium rounded-lg transition-colors duration-200 whitespace-nowrap",
                     recentTab === "sales"
                       ? "text-[#1a1a2e]"
                       : "text-[#6b7280] hover:text-[#374151]",
@@ -2219,7 +2196,7 @@ export function PayoutsClient({
                     }, 150);
                   }}
                   className={cn(
-                    "relative z-10 px-3 py-1.5 text-[12px] font-medium rounded-md transition-colors duration-200",
+                    "relative z-10 px-3.5 py-1.5 text-[12px] font-medium rounded-lg transition-colors duration-200 whitespace-nowrap",
                     recentTab === "payouts"
                       ? "text-[#1a1a2e]"
                       : "text-[#6b7280] hover:text-[#374151]",
@@ -2228,11 +2205,14 @@ export function PayoutsClient({
                   Recent Payouts
                 </button>
               </div>
-              <div className="flex items-center gap-1 text-[#6b7280]">
+              <div className="flex items-center gap-0.5 text-[#6b7280]">
+                <span className="text-[12px] text-[#9ca3af] hidden sm:inline mr-1">
+                  {recentPage + 1} / {pageCount}
+                </span>
                 <button
                   disabled={recentPage <= 0}
                   onClick={() => changePage(Math.max(0, recentPage - 1))}
-                  className="p-1.5 rounded-md disabled:opacity-40"
+                  className="p-1.5 rounded-lg hover:bg-[#f3f4f6] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
@@ -2241,7 +2221,7 @@ export function PayoutsClient({
                   onClick={() =>
                     changePage(Math.min(pageCount - 1, recentPage + 1))
                   }
-                  className="p-1.5 rounded-md disabled:opacity-40"
+                  className="p-1.5 rounded-lg hover:bg-[#f3f4f6] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   <ChevronRight className="h-4 w-4" />
                 </button>
@@ -2260,6 +2240,7 @@ export function PayoutsClient({
                   pageSwitchLoading={isPageLoading}
                   convertCents={toUsd}
                   onCountChange={setPayoutCount}
+                  flat={true}
                 />
               ) : (
                 <>
@@ -2275,7 +2256,7 @@ export function PayoutsClient({
                   )}
 
                   {/* Mobile card list */}
-                  <div className="sm:hidden divide-y divide-[#e5e7eb]">
+                  <div className="sm:hidden divide-y divide-[#f3f4f6]">
                     {(isPageLoading ? [] : pagedOrders).map((order) => {
                       const productImage = order.product?.thumbnail_url;
                       const customerName =
@@ -2292,54 +2273,37 @@ export function PayoutsClient({
                       return (
                         <div
                           key={order.id}
-                          className="px-3 py-3 active:bg-[#f9fafb]"
+                          className="px-4 py-3.5 active:bg-[#f9fafb] transition-colors"
+                          onClick={() => openOrderDetails(order)}
                         >
                           <div className="flex items-center gap-3">
                             {productImage ? (
                               <img
                                 src={productImage}
                                 alt=""
-                                className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+                                className="w-11 h-11 rounded-xl object-cover flex-shrink-0"
                               />
                             ) : (
-                              <div className="w-10 h-10 rounded-lg bg-[#f3f4f6] flex items-center justify-center flex-shrink-0">
-                                <Package className="h-4 w-4 text-[#9ca3af]" />
+                              <div className="w-11 h-11 rounded-xl bg-[#f3f4f6] flex items-center justify-center flex-shrink-0">
+                                <Package className="h-5 w-5 text-[#9ca3af]" />
                               </div>
                             )}
                             <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-1.5 mb-0.5">
-                                <p className="text-[13px] font-medium text-[#1a1a2e] truncate max-w-[100px]">
-                                  {customerName.length > 10
-                                    ? customerName.slice(0, 10) + "…"
-                                    : customerName}
-                                </p>
-                                <span className="text-[10px] text-[#9ca3af]">
-                                  •
-                                </span>
-                                <span className="text-[10px] text-[#6b7280]">
-                                  {mobileDate}
-                                </span>
-                              </div>
-                              <p className="text-[11px] text-[#6b7280] truncate max-w-[120px]">
-                                {(order.product?.title || "Product").slice(
-                                  0,
-                                  18,
-                                )}
-                                {(order.product?.title || "").length > 18
-                                  ? "…"
-                                  : ""}
+                              <p className="text-[13px] font-semibold text-[#1a1a2e] truncate">
+                                {customerName}
+                              </p>
+                              <p className="text-[12px] text-[#6b7280] truncate mt-0.5">
+                                {order.product?.title || "Product"}
+                              </p>
+                              <p className="text-[11px] text-[#9ca3af] mt-0.5">
+                                {mobileDate}
                               </p>
                             </div>
-                            <div className="flex items-center gap-2 flex-shrink-0">
-                              <p className="text-[13px] font-semibold text-[#1a1a2e]">
+                            <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                              <p className="text-[14px] font-semibold text-[#1a1a2e]">
                                 {fmt(order.amount_cents, currency)}
                               </p>
-                              <button
-                                onClick={() => openOrderDetails(order)}
-                                className="px-2.5 py-1.5 text-[12px] font-medium text-[#6b7280] bg-[#f3f4f6] rounded-lg hover:bg-[#e5e7eb] transition-colors"
-                              >
-                                View
-                              </button>
+                              {getStatusBadge(order.status)}
                             </div>
                           </div>
                         </div>
