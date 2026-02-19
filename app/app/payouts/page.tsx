@@ -148,6 +148,15 @@ export default async function PayoutsPage() {
     }
   }
 
+  // If there are no successful (non-refunded) Storelib orders,
+  // don't surface a Stripe pending amount in KPI cards.
+  const hasCompletedOrders = allOrders.some(
+    (o: any) => o.status === "completed",
+  );
+  if (!hasCompletedOrders) {
+    stripePendingBalance = 0;
+  }
+
   // No local fallback math here: keep payout balances strictly sourced from Stripe.
 
   const netEarnings = totalEarnings - totalFees;

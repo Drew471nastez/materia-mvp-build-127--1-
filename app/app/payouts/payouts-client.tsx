@@ -1826,6 +1826,10 @@ export function PayoutsClient({
   const refreshBalances = useCallback(async () => {
     setRefreshKey((k) => k + 1);
 
+    const hasCompletedOrders = initialOrders.some(
+      (o) => o.status === "completed",
+    );
+
     try {
       const r = await fetch("/api/stripe/payouts");
       const json = await r.json();
@@ -1863,13 +1867,13 @@ export function PayoutsClient({
 
         if (selected) {
           setAvailableBalance(selected[1].available);
-          setPendingBalance(selected[1].pending);
+          setPendingBalance(hasCompletedOrders ? selected[1].pending : 0);
         }
       }
     } catch {
       /* non-fatal */
     }
-  }, [sourceCurrency]);
+  }, [initialOrders, sourceCurrency]);
 
   useEffect(() => {
     if (sourceCurrency === "usd") return;
