@@ -58,6 +58,7 @@ import {
 import { useLanguage } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from "recharts"
 
 interface Creator {
   id: string
@@ -114,6 +115,17 @@ interface PayoutsClientProps {
   initialOrders?: OrderPayment[]
 }
 
+
+interface RevenuePoint {
+  date: string
+  amount: number
+}
+
+interface TimelineEvent {
+  label: string
+  timestamp: string
+  type: string
+}
 interface StripePayout {
   id: string
   amount: number
@@ -127,7 +139,7 @@ interface StripePayout {
   destination: string | null
 }
 
-type ActiveTab = "payouts" | "sales"
+type ActiveTab = "payouts" | "sales" | "withdraw"
 
 type TimeframeOption = {
   value: string
@@ -345,6 +357,9 @@ function OrderDetailsModal({
   handleUnsubscribe,
   invoiceLoading,
   receiptResendCounts,
+  timelineEvents,
+  timelineLoading,
+  isFreeOrderTimeline,
 }: {
   isOpen: boolean
   onClose: () => void
@@ -358,6 +373,9 @@ function OrderDetailsModal({
   handleUnsubscribe: (order: OrderPayment) => void
   invoiceLoading: boolean
   receiptResendCounts: Record<string, number>
+  timelineEvents: TimelineEvent[]
+  timelineLoading: boolean
+  isFreeOrderTimeline: boolean
 }) {
   const [isVisible, setIsVisible] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
@@ -631,6 +649,25 @@ function OrderDetailsModal({
               </h3>
               <p className="text-[13px] font-medium text-[#1a1a2e]">{formatFullDate(selectedOrder.created_at)}</p>
             </div>
+            <div className="bg-[#f9fafb] rounded-xl p-4 space-y-3">
+              <h3 className="text-[13px] font-semibold text-[#1a1a2e]">Timeline</h3>
+              {timelineLoading ? (
+                <p className="text-[12px] text-[#6b7280]">Loading timeline...</p>
+              ) : isFreeOrderTimeline ? (
+                <p className="text-[12px] text-[#6b7280]">No payout timeline for free orders.</p>
+              ) : timelineEvents.length === 0 ? (
+                <p className="text-[12px] text-[#6b7280]">No payout events yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {timelineEvents.map((event, idx) => (
+                    <div key={`${event.type}-${idx}`} className="flex items-center justify-between text-[12px]">
+                      <span className="text-[#374151]">{event.label}</span>
+                      <span className="text-[#6b7280]">{formatFullDate(event.timestamp)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* Quick Actions */}
             <div className="flex items-center gap-2">
@@ -886,6 +923,16 @@ function OrderDetailsModal({
                 </div>
               </div>
 
+              <div className="bg-[#f9fafb] rounded-xl p-3 space-y-2">
+                <h4 className="text-[12px] font-semibold text-[#1a1a2e]">Timeline</h4>
+                {timelineLoading ? <p className="text-[11px] text-[#6b7280]">Loading timeline...</p> : isFreeOrderTimeline ? <p className="text-[11px] text-[#6b7280]">No payout timeline for free orders.</p> : timelineEvents.length === 0 ? <p className="text-[11px] text-[#6b7280]">No payout events yet.</p> : timelineEvents.map((event, idx) => (
+                  <div key={`${event.type}-m-${idx}`} className="flex items-center justify-between text-[11px]">
+                    <span className="text-[#374151]">{event.label}</span>
+                    <span className="text-[#6b7280]">{formatFullDate(event.timestamp)}</span>
+                  </div>
+                ))}
+              </div>
+
               {/* Refund info on mobile — inside scrollable area to prevent overlap */}
               {selectedOrder.status === "refunded" && (
                 <div className="p-3 bg-[#f9fafb] rounded-xl border border-[#e5e7eb]/60 space-y-1">
@@ -985,6 +1032,14 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
     available: { amount: number; currency: string }[]
     pending: { amount: number; currency: string }[]
   } | null>(null)
+  const [paidOut, setPaidOut] = useState<{ amount: number; currency: string }[]>([])
+  const [withdrawLoading, setWithdrawLoading] = useState(false)
+  const [revenueTimeframe, setRevenueTimeframe] = useState<"7d" | "30d" | "90d" | "all">("30d")
+  const [revenueData, setRevenueData] = useState<RevenuePoint[]>([])
+  const [revenueLoading, setRevenueLoading] = useState(false)
+  const [orderTimeline, setOrderTimeline] = useState<TimelineEvent[]>([])
+  const [timelineLoading, setTimelineLoading] = useState(false)
+  const [isFreeOrderTimeline, setIsFreeOrderTimeline] = useState(false)
 
   // Payment detail
   const [selectedOrder, setSelectedOrder] = useState<OrderPayment | null>(null)
@@ -1089,11 +1144,57 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
         const data = await response.json()
         setStripePayouts(data.payouts || [])
         setStripeBalance(data.balance || null)
+        setPaidOut(data.paidOut || [])
       }
     } catch (err) {
       console.error("Error fetching payouts:", err)
     } finally {
       setPayoutsLoading(false)
+    }
+  }
+
+
+
+  const fetchRevenue = async (tf: "7d" | "30d" | "90d" | "all") => {
+    setRevenueLoading(true)
+    try {
+      const response = await fetch(`/api/stripe/payouts/revenue?timeframe=${tf}`)
+      const data = await response.json()
+      if (response.ok) setRevenueData(data.points || [])
+    } catch (err) {
+      console.error("Error fetching revenue:", err)
+    } finally {
+      setRevenueLoading(false)
+    }
+  }
+
+  const loadOrderTimeline = async (orderId: string) => {
+    setTimelineLoading(true)
+    try {
+      const response = await fetch(`/api/stripe/payouts/order-timeline?orderId=${orderId}`)
+      const data = await response.json()
+      if (response.ok) {
+        setOrderTimeline(data.events || [])
+        setIsFreeOrderTimeline(!!data.freeOrder)
+      }
+    } finally {
+      setTimelineLoading(false)
+    }
+  }
+
+  const handleWithdraw = async () => {
+    setWithdrawLoading(true)
+    setError(null)
+    try {
+      const response = await fetch("/api/stripe/payouts", { method: "POST" })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || "Failed to withdraw")
+      setSuccess("Payout created successfully.")
+      await fetchStripePayouts()
+    } catch (err: any) {
+      setError(err.message || "Failed to withdraw")
+    } finally {
+      setWithdrawLoading(false)
     }
   }
 
@@ -1116,9 +1217,18 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
     fetchConnectionStatus()
     if (isStripeConnected) {
       fetchStripePayouts()
+      fetchRevenue(revenueTimeframe)
     }
     syncRefunds()
   }, [creator.stripe_account_id])
+
+  useEffect(() => {
+    if (isStripeConnected) fetchRevenue(revenueTimeframe)
+  }, [revenueTimeframe, isStripeConnected])
+
+  useEffect(() => {
+    if (selectedOrder?.id) loadOrderTimeline(selectedOrder.id)
+  }, [selectedOrder?.id])
 
   const handleConnectStripe = async () => {
     setIsConnecting(true)
@@ -1440,6 +1550,49 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
         </div>
       </div>
 
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-[#e5e7eb]/60 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-[15px] font-semibold text-[#1a1a2e]">Revenue</h3>
+            <div className="flex gap-1">
+              {(["7d","30d","90d","all"] as const).map((tf) => (
+                <button key={tf} onClick={() => setRevenueTimeframe(tf)} className={`px-2.5 py-1 rounded-md text-[11px] ${revenueTimeframe === tf ? "bg-[#635bff] text-white" : "bg-[#f3f4f6] text-[#374151]"}`}>{tf.toUpperCase()}</button>
+              ))}
+            </div>
+          </div>
+          <div className="h-52">
+            {revenueLoading ? (
+              <div className="h-full animate-pulse rounded-xl bg-[#f3f4f6]" />
+            ) : revenueData.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-[13px] text-[#6b7280]">No revenue yet</div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={revenueData}>
+                  <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip formatter={(value: any) => formatPrice(Number(value))} />
+                  <Area type="monotone" dataKey="amount" stroke="#635bff" fill="#c4b5fd" fillOpacity={0.35} />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+        <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-4 space-y-3">
+          <h3 className="text-[15px] font-semibold text-[#1a1a2e]">Balances</h3>
+          <div className="text-[12px] text-[#6b7280]">Available to cash out</div>
+          <div className="space-y-1">{(stripeBalance?.available || []).map((b) => <div key={`av-${b.currency}`} className="text-[14px] font-semibold text-[#1a1a2e]">{new Intl.NumberFormat("en-US", { style: "currency", currency: b.currency.toUpperCase() }).format(b.amount / 100)}</div>)}</div>
+          <div className="text-[12px] text-[#6b7280]">Available soon</div>
+          <div className="space-y-1">{(stripeBalance?.pending || []).map((b) => <div key={`pe-${b.currency}`} className="text-[14px] font-semibold text-[#1a1a2e]">{new Intl.NumberFormat("en-US", { style: "currency", currency: b.currency.toUpperCase() }).format(b.amount / 100)}</div>)}</div>
+          <div className="text-[12px] text-[#6b7280]">Paid out</div>
+          <div className="space-y-1">{paidOut.length ? paidOut.map((b) => <div key={`po-${b.currency}`} className="text-[14px] font-semibold text-[#1a1a2e]">{new Intl.NumberFormat("en-US", { style: "currency", currency: b.currency.toUpperCase() }).format(b.amount / 100)}</div>) : <div className="text-[13px] text-[#9ca3af]">No payouts yet</div>}</div>
+          <Button className="w-full rounded-xl bg-[#635bff] hover:bg-[#5146e5]" disabled={withdrawLoading || !(stripeBalance?.available || []).some((b) => b.amount > 0)} onClick={handleWithdraw}>
+            {withdrawLoading ? "Withdrawing..." : "Cash Out"}
+          </Button>
+          {!(stripeBalance?.available || []).some((b) => b.amount > 0) && <p className="text-[12px] text-[#9ca3af]">No funds available.</p>}
+        </div>
+      </div>
+
       {/* Stripe Connection Card */}
       {!isStripeConnected && (
         <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
@@ -1516,6 +1669,20 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
                     Payouts
                   </button>
                 )}
+                {isStripeConnected && (
+                  <button
+                    onClick={() => setActiveTab("withdraw")}
+                    className={cn(
+                      "px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all cursor-pointer",
+                      activeTab === "withdraw"
+                        ? "bg-white text-[#1a1a2e] shadow-sm"
+                        : "text-[#6b7280] hover:text-[#1a1a2e]"
+                    )}
+                  >
+                    <Wallet className="inline-block mr-1 h-3.5 w-3.5" />
+                    Withdraw
+                  </button>
+                )}
                 <button
                   onClick={() => setActiveTab("sales")}
                   className={cn(
@@ -1576,7 +1743,8 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
                         <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Arrival Date</TableHead>
                         <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Initiated</TableHead>
                         <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Status</TableHead>
-                        <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider pr-5">Destination</TableHead>
+                        <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Destination</TableHead>
+                        <TableHead className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider pr-5">Payout ID</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1586,20 +1754,34 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
                           <TableCell className="text-[13px] text-[#6b7280]">{formatTimestamp(payout.arrival_date)}</TableCell>
                           <TableCell className="text-[13px] text-[#6b7280]">{formatTimestamp(payout.created)}</TableCell>
                           <TableCell>{getPayoutStatusBadge(payout.status)}</TableCell>
-                          <TableCell className="text-[13px] text-[#6b7280] pr-5">{payout.destination || "Bank account"}</TableCell>
+                          <TableCell className="text-[13px] text-[#6b7280]">{payout.destination || "Bank account"}</TableCell>
+                          <TableCell className="text-[12px] text-[#6b7280] font-mono pr-5">{payout.id}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
                   </Table>
                 </div>
 
-                <div className="px-5 py-3 border-t border-[#e5e7eb] text-[12px] text-[#6b7280]">
-                  Showing {stripePayouts.length} payout{stripePayouts.length !== 1 ? "s" : ""}
+                <div className="px-5 py-3 border-t border-[#e5e7eb] text-[12px] text-[#6b7280] space-y-1">
+                  <p>Showing {stripePayouts.length} payout{stripePayouts.length !== 1 ? "s" : ""}</p>
+                  <p>Most payouts arrive in 1–3 business days depending on your bank.</p>
                 </div>
               </>
             )}
           </>
         )}
+
+        {activeTab === "withdraw" && isStripeConnected && (
+          <div className="p-5 space-y-3">
+            <p className="text-[13px] text-[#6b7280]">Available to cash out</p>
+            <div className="space-y-1">{(stripeBalance?.available || []).map((b) => <div key={`w-${b.currency}`} className="text-[18px] font-bold text-[#1a1a2e]">{new Intl.NumberFormat("en-US", { style: "currency", currency: b.currency.toUpperCase() }).format(b.amount / 100)}</div>)}</div>
+            <Button className="rounded-xl bg-[#635bff] hover:bg-[#5146e5]" onClick={handleWithdraw} disabled={withdrawLoading || !(stripeBalance?.available || []).some((b) => b.amount > 0)}>
+              {withdrawLoading ? "Withdrawing..." : "Withdraw"}
+            </Button>
+            <p className="text-[12px] text-[#6b7280]">Most payouts arrive in 1–3 business days depending on your bank.</p>
+          </div>
+        )}
+
 
         {/* Sales Tab Content */}
         {activeTab === "sales" && (
@@ -1806,6 +1988,9 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
         handleUnsubscribe={handleUnsubscribe}
         invoiceLoading={invoiceLoading}
         receiptResendCounts={receiptResendCounts}
+        timelineEvents={orderTimeline}
+        timelineLoading={timelineLoading}
+        isFreeOrderTimeline={isFreeOrderTimeline}
       />
 
       {/* Timeframe Bottom Sheet (Mobile) */}

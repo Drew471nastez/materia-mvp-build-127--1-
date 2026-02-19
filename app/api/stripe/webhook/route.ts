@@ -4,7 +4,7 @@ import type Stripe from "stripe"
 import { stripe } from "@/lib/stripe"
 import { createClient } from "@supabase/supabase-js"
 import { generateReceiptToken } from "@/lib/security"
-import { sendOrderEmails, triggerEmailFlows } from "@/lib/email"
+import { sendOrderEmails, triggerEmailFlows, sendPayoutStatusEmail } from "@/lib/email"
 import { v4 as uuidv4 } from "uuid"
 
 export const runtime = "nodejs"
@@ -56,6 +56,29 @@ export async function POST(request: Request) {
   try {
     event = stripe.webhooks.constructEvent(body, signature, process.env.STRIPE_WEBHOOK_SECRET)
     console.log("[Webhook] Event type:", event.type)
+
+
+  // idempotency + audit log
+  try {
+    const { data: existingEvent } = await supabaseAdmin
+      .from("stripe_webhook_events")
+      .select("id")
+      .eq("stripe_event_id", event.id)
+      .maybeSingle()
+
+    if (existingEvent) {
+      return NextResponse.json({ received: true, duplicate: true })
+    }
+
+    await supabaseAdmin.from("stripe_webhook_events").insert({
+      stripe_event_id: event.id,
+      event_type: event.type,
+      account_id: (event as any).account || null,
+      payload: event as any,
+    })
+  } catch (e) {
+    console.error("[Webhook] failed to log webhook event", e)
+  }
   } catch (err) {
     console.error("[Webhook] Signature verification failed:", err)
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 })
@@ -746,7 +769,59 @@ export async function POST(request: Request) {
     return NextResponse.json({ received: true })
   }
 
+  
   // ============================================================================
+  // CONNECTED ACCOUNT PAYOUT EVENTS
+  // ============================================================================
+  if (["payout.created", "payout.updated", "payout.failed", "payout.paid", "payout.canceled"].includes(event.type)) {
+    const payout = event.data.object as Stripe.Payout
+    const accountId = (event as any).account as string | undefined
+
+    if (accountId) {
+      const { data: creator } = await supabaseAdmin
+        .from("creators")
+        .select("id,user_id,display_name")
+        .eq("stripe_account_id", accountId)
+        .maybeSingle()
+
+      if (creator) {
+        await supabaseAdmin.from("stripe_payout_events").insert({
+          creator_id: creator.id,
+          user_id: creator.user_id,
+          stripe_account_id: accountId,
+          stripe_payout_id: payout.id,
+          amount: payout.amount,
+          currency: payout.currency,
+          status: payout.status,
+          destination: typeof payout.destination === "string" ? payout.destination : null,
+          arrival_date: payout.arrival_date ? new Date(payout.arrival_date * 1000).toISOString() : null,
+          event_type: event.type,
+          metadata: { failure_message: payout.failure_message || null },
+        }).select("id").maybeSingle()
+
+        const { data: profile } = await supabaseAdmin
+          .from("profiles")
+          .select("email")
+          .eq("id", creator.user_id)
+          .maybeSingle()
+
+        if (profile?.email && ["payout.created", "payout.updated", "payout.failed", "payout.paid"].includes(event.type)) {
+          await sendPayoutStatusEmail({
+            sellerEmail: profile.email,
+            sellerName: creator.display_name || undefined,
+            amount: payout.amount,
+            currency: payout.currency,
+            status: payout.status,
+            payoutId: payout.id,
+            estimatedArrival: payout.arrival_date ? new Date(payout.arrival_date * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null,
+          })
+        }
+      }
+    }
+
+    return NextResponse.json({ received: true })
+  }
+// ============================================================================
   // CONNECT ACCOUNT EVENTS
   // ============================================================================
 
