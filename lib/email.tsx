@@ -2203,3 +2203,44 @@ function wrapFlowEmailHtml(bodyContent: string, fromName: string): string {
 </body>
 </html>`
 }
+
+export async function sendPayoutStatusEmail(params: {
+  sellerEmail: string
+  sellerName?: string
+  amount: number
+  currency: string
+  status: string
+  payoutId: string
+  estimatedArrival?: string | null
+}) {
+  if (!isSmtpConfigured() || !params.sellerEmail) return { success: false, error: "SMTP not configured or missing email" }
+
+  const baseUrl = getStableBaseUrl()
+  const amount = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: params.currency.toUpperCase(),
+    minimumFractionDigits: 2,
+  }).format((params.amount || 0) / 100)
+
+  const statusLabel = params.status.replace(/_/g, " ")
+  const shortId = params.payoutId.slice(0, 14)
+  const eta = params.estimatedArrival || "Most payouts arrive in 1–3 business days depending on your bank."
+
+  return sendEmail({
+    to: params.sellerEmail,
+    from: buildFromHeader(params.sellerName || PLATFORM_BRAND_NAME),
+    replyTo: DEFAULT_SUPPORT,
+    subject: `Payout update: ${statusLabel} (${amount})`,
+    html: `
+      <div style="font-family:Inter,system-ui,Segoe UI,Arial,sans-serif;padding:20px;color:#111827">
+        <h2 style="margin:0 0 12px">Payout ${statusLabel}</h2>
+        <p style="margin:0 0 8px">Amount: <strong>${amount}</strong></p>
+        <p style="margin:0 0 8px">Status: <strong>${statusLabel}</strong></p>
+        <p style="margin:0 0 8px">Reference: <strong>${shortId}</strong></p>
+        <p style="margin:0 0 16px">Estimated arrival: ${eta}</p>
+        <a href="${baseUrl}/app/payouts" style="display:inline-block;background:#635bff;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none">View payout details</a>
+      </div>
+    `,
+    text: `Payout ${statusLabel}\nAmount: ${amount}\nStatus: ${statusLabel}\nReference: ${shortId}\nEstimated arrival: ${eta}\n\nView payout details: ${baseUrl}/app/payouts`,
+  })
+}

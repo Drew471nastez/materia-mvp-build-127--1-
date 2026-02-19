@@ -123,9 +123,7 @@ export default async function PayoutsPage() {
 
   if (creator.stripe_account_id) {
     try {
-      const balance = await stripe.balance.retrieve(
-        { stripeAccount: creator.stripe_account_id }
-      )
+      const balance = await stripe.balance.retrieve({}, { stripeAccount: creator.stripe_account_id })
       // Filter for entries matching the sales currency only
       const pendingInCurrency = balance.pending.filter(b => b.currency === salesCurrency)
       const availableInCurrency = balance.available.filter(b => b.currency === salesCurrency)
