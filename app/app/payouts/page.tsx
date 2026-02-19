@@ -1,52 +1,52 @@
-import { redirect } from "next/navigation"
-import Link from "next/link"
-import { Sparkles } from "lucide-react"
-import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
-import { stripe } from "@/lib/stripe"
-import { PayoutsClient } from "./payouts-client"
+import { redirect } from "next/navigation";
+import Link from "next/link";
+import { Sparkles } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { stripe } from "@/lib/stripe";
+import { PayoutsClient } from "./payouts-client";
 
-export const dynamic = "force-dynamic"
-export const revalidate = 0
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export const metadata = {
   title: "Payouts",
-}
+};
 
 export default async function PayoutsPage() {
-  const supabase = await createClient()
-  const adminSupabase = createAdminClient()
+  const supabase = await createClient();
+  const adminSupabase = createAdminClient();
 
   const {
     data: { user },
-  } = await supabase.auth.getUser()
+  } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect("/login")
+    redirect("/login");
   }
 
   const { data: creator, error: creatorError } = await adminSupabase
     .from("creators")
     .select("*")
     .eq("user_id", user.id)
-    .single()
+    .single();
 
   if (creatorError || !creator) {
-    redirect("/onboarding")
+    redirect("/onboarding");
   }
 
   // Fetch this creator's products
   const { data: productsData } = await adminSupabase
     .from("products")
     .select("*")
-    .eq("creator_id", creator.id)
+    .eq("creator_id", creator.id);
 
-  const products = productsData || []
-  const productIds = products.map((p) => p.id)
+  const products = productsData || [];
+  const productIds = products.map((p) => p.id);
 
-  let totalEarnings = 0
-  let totalFees = 0
-  let allOrders: any[] = []
+  let totalEarnings = 0;
+  let totalFees = 0;
+  let allOrders: any[] = [];
 
   if (productIds.length > 0) {
     const { data: ordersData } = await adminSupabase
@@ -54,81 +54,112 @@ export default async function PayoutsPage() {
       .select("*")
       .in("product_id", productIds)
       .in("status", ["completed", "refunded"])
-      .order("created_at", { ascending: false })
+      .order("created_at", { ascending: false });
 
     if (ordersData) {
       allOrders = ordersData.map((order) => {
-        const product = products.find((p) => p.id === order.product_id)
+        const product = products.find((p) => p.id === order.product_id);
         return {
           ...order,
           product: product
             ? {
                 title: product.title,
-                thumbnail_url: product.thumbnail_url || product.gallery_images?.[0] || null,
+                thumbnail_url:
+                  product.thumbnail_url || product.gallery_images?.[0] || null,
                 type: product.type || null,
               }
             : null,
-        }
-      })
+        };
+      });
 
-      const paidOrders = ordersData.filter((o) => o.status === "completed")
-      totalEarnings = paidOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0)
-      totalFees = paidOrders.reduce((sum, o) => sum + (o.fee_cents || 0), 0)
+      const paidOrders = ordersData.filter((o) => o.status === "completed");
+      totalEarnings = paidOrders.reduce(
+        (sum, o) => sum + (o.amount_cents || 0),
+        0,
+      );
+      totalFees = paidOrders.reduce((sum, o) => sum + (o.fee_cents || 0), 0);
     }
   }
 
   // Fetch real Stripe balance for the connected seller account.
   // Important: connected accounts may hold funds in a different currency than creator.default_currency
   // (e.g. a RON account while default_currency says "usd"). We pick the currency with the most funds.
-  let stripePendingBalance = 0
-  let stripeAvailableBalance = 0
-  let detectedCurrency = (creator.default_currency || "usd").toLowerCase()
+  let stripePendingBalance = 0;
+  let stripeAvailableBalance = 0;
+  let paidOut = 0;
+  let detectedCurrency = (creator.default_currency || "usd").toLowerCase();
 
   if (creator.stripe_account_id) {
     try {
-      const balance = await stripe.balance.retrieve({}, { stripeAccount: creator.stripe_account_id })
+      const [balance, payouts, account] = await Promise.all([
+        stripe.balance.retrieve(
+          {},
+          { stripeAccount: creator.stripe_account_id },
+        ),
+        stripe.payouts.list(
+          { limit: 100, status: "paid" },
+          { stripeAccount: creator.stripe_account_id },
+        ),
+        stripe.accounts.retrieve(creator.stripe_account_id),
+      ]);
 
-      // Pick the currency that has actual funds; fall back to default_currency
-      const availableWithFunds = balance.available.filter((b) => b.amount > 0)
-      const pendingWithFunds   = balance.pending.filter((b) => b.amount > 0)
+      const preferredCurrency = (
+        account.default_currency ||
+        creator.default_currency ||
+        "usd"
+      ).toLowerCase();
 
-      if (availableWithFunds.length > 0) {
-        detectedCurrency = availableWithFunds[0].currency
-        stripeAvailableBalance = availableWithFunds.reduce((s, b) => s + b.amount, 0)
-      } else {
-        stripeAvailableBalance = balance.available
-          .filter((b) => b.currency === detectedCurrency)
-          .reduce((s, b) => s + b.amount, 0)
+      // Pick one dominant connected-account balance currency to avoid mixing stale cross-currency cents.
+      const byCurrency = new Map<
+        string,
+        { available: number; pending: number }
+      >();
+      for (const b of balance.available) {
+        const row = byCurrency.get(b.currency) || { available: 0, pending: 0 };
+        row.available += b.amount;
+        byCurrency.set(b.currency, row);
+      }
+      for (const b of balance.pending) {
+        const row = byCurrency.get(b.currency) || { available: 0, pending: 0 };
+        row.pending += b.amount;
+        byCurrency.set(b.currency, row);
       }
 
-      if (pendingWithFunds.length > 0) {
-        stripePendingBalance = pendingWithFunds.reduce((s, b) => s + b.amount, 0)
-      } else {
-        stripePendingBalance = balance.pending
-          .filter((b) => b.currency === detectedCurrency)
-          .reduce((s, b) => s + b.amount, 0)
+      const dominant =
+        [...byCurrency.entries()].sort(
+          (a, b) =>
+            b[1].available + b[1].pending - (a[1].available + a[1].pending),
+        )[0] || null;
+
+      const selected = byCurrency.get(preferredCurrency)
+        ? ([preferredCurrency, byCurrency.get(preferredCurrency)!] as const)
+        : dominant;
+
+      if (selected) {
+        detectedCurrency = selected[0];
+        stripeAvailableBalance = selected[1].available;
+        stripePendingBalance = selected[1].pending;
+        paidOut = payouts.data
+          .filter((p) => p.currency?.toLowerCase() === detectedCurrency)
+          .reduce((sum, p) => sum + p.amount, 0);
       }
     } catch (err) {
-      console.error("[Payouts] Failed to fetch Stripe balance:", err)
+      console.error("[Payouts] Failed to fetch Stripe balance:", err);
     }
   }
 
-  // Fallback: compute from order data when Stripe balance is empty (currency mismatch / test mode)
-  if (stripePendingBalance === 0 && stripeAvailableBalance === 0 && allOrders.length > 0) {
-    const sevenDaysAgo = new Date()
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-    const completedOrders = allOrders.filter((o: any) => o.status === "completed")
-    completedOrders.forEach((order: any) => {
-      const net = (order.amount_cents || 0) - (order.fee_cents || 0)
-      if (new Date(order.created_at) > sevenDaysAgo) {
-        stripePendingBalance += net
-      } else {
-        stripeAvailableBalance += net
-      }
-    })
+  // If there are no successful (non-refunded) Storelib orders,
+  // don't surface a Stripe pending amount in KPI cards.
+  const hasCompletedOrders = allOrders.some(
+    (o: any) => o.status === "completed",
+  );
+  if (!hasCompletedOrders) {
+    stripePendingBalance = 0;
   }
 
-  const netEarnings = totalEarnings - totalFees
+  // No local fallback math here: keep payout balances strictly sourced from Stripe.
+
+  const netEarnings = totalEarnings - totalFees;
 
   return (
     <div className="h-full overflow-y-auto page-scroll bg-[#fafafa]">
@@ -138,7 +169,10 @@ export default async function PayoutsPage() {
           <div className="max-w-[1200px] mx-auto flex items-center justify-center gap-2 md:gap-3 text-center">
             <span className="text-[12px] md:text-[14px] text-white/90">
               <span className="font-semibold text-white">Try Pro</span>
-              <span className="hidden md:inline"> — our most popular plan for content creators and businesses.</span>
+              <span className="hidden md:inline">
+                {" "}
+                — our most popular plan for content creators and businesses.
+              </span>
             </span>
             <Link
               href="/upgrade"
@@ -154,8 +188,12 @@ export default async function PayoutsPage() {
 
       <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto space-y-6">
         <div>
-          <h1 className="text-[24px] sm:text-[28px] font-bold text-[#1a1a2e]">Payouts</h1>
-          <p className="text-[14px] text-[#6b7280] mt-1">Manage your earnings and withdraw funds to your bank</p>
+          <h1 className="text-[24px] sm:text-[28px] font-bold text-[#1a1a2e]">
+            Payouts
+          </h1>
+          <p className="text-[14px] text-[#6b7280] mt-1">
+            Manage your earnings and withdraw funds to your bank
+          </p>
         </div>
 
         <PayoutsClient
@@ -166,10 +204,11 @@ export default async function PayoutsPage() {
             netEarnings,
             pendingAmount: stripePendingBalance,
             availableBalance: stripeAvailableBalance,
+            paidOut,
           }}
           initialOrders={allOrders}
         />
       </div>
     </div>
-  )
+  );
 }
