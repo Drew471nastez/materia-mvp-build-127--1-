@@ -89,6 +89,7 @@ export default async function PayoutsPage() {
   let stripeAvailableBalance = 0;
   let paidOut = 0;
   let detectedCurrency = (creator.default_currency || "usd").toLowerCase();
+  let stripeExchangeRate: number | null = null;
 
   if (creator.stripe_account_id) {
     try {
@@ -162,6 +163,8 @@ export default async function PayoutsPage() {
       let stripeNet = 0;
       let hasMore = true;
       let startingAfter: string | undefined = undefined;
+      // Stripe's exchange_rate: presentment_amount × rate = account_amount
+      // For USD buyer → RON account: USD × rate = RON. To convert RON → USD: RON / rate.
 
       while (hasMore) {
         const listParams: any = { limit: 100 };
@@ -172,6 +175,9 @@ export default async function PayoutsPage() {
         });
 
         for (const tx of result.data) {
+          if (!stripeExchangeRate && (tx as any).exchange_rate) {
+            stripeExchangeRate = (tx as any).exchange_rate as number;
+          }
           if (PAYMENT_TYPES.has(tx.type)) {
             stripeGross += tx.amount;
             stripeNet += tx.net;
@@ -249,6 +255,7 @@ export default async function PayoutsPage() {
             pendingAmount: stripePendingBalance,
             availableBalance: stripeAvailableBalance,
             paidOut,
+            exchangeRate: stripeExchangeRate,
           }}
           initialOrders={allOrders}
         />

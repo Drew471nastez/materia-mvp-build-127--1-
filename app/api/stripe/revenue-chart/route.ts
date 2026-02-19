@@ -120,7 +120,6 @@ export async function GET(request: Request) {
     const refunds: Array<{ date: string; net: number; gross: number }> = []
     let hasMore = true
     let startingAfter: string | undefined = undefined
-    let detectedCurrency: string | null = null
 
     while (hasMore) {
       const listParams: any = { ...baseParams, limit: 100 }
@@ -135,10 +134,6 @@ export async function GET(request: Request) {
         const isRefund = REFUND_TYPES.has(tx.type)
         if (!isPayment && !isRefund) continue
 
-        if (!detectedCurrency && tx.currency) {
-          detectedCurrency = tx.currency.toLowerCase()
-        }
-
         const date = new Date(tx.created * 1000)
         // Hourly mode: bucket by UTC hour (zero-padded "00"–"23")
         // Daily mode: bucket by UTC date "YYYY-MM-DD"
@@ -146,7 +141,15 @@ export async function GET(request: Request) {
           ? String(date.getUTCHours()).padStart(2, "0")
           : date.toISOString().split("T")[0]
 
-        const entry = { date: dateKey, net: tx.net, gross: tx.amount }
+        // Use Stripe's own exchange_rate for accurate USD conversion.
+        // Stripe defines: presentment_amount × exchange_rate = account_amount
+        // So to get USD: account_amount / exchange_rate = USD amount.
+        // For USD accounts exchange_rate is null/undefined — use amounts as-is.
+        const rate = (tx as any).exchange_rate as number | null | undefined
+        const toUsdCents = (amount: number) =>
+          rate ? Math.round(amount / rate) : amount
+
+        const entry = { date: dateKey, net: toUsdCents(tx.net), gross: toUsdCents(tx.amount) }
 
         if (isPayment) {
           payments.push(entry)
@@ -236,7 +239,7 @@ export async function GET(request: Request) {
       total,          // net after Stripe fees and refunds (can be 0 or negative → clamped in UI)
       totalGross,     // sum of charges (before fees, before refunds)
       totalRefunds,   // sum of refunded amounts (positive number)
-      currency: detectedCurrency || (creator.default_currency || "usd").toLowerCase(),
+      currency: "usd",
       isHourly: isHourlyMode,
     })
   } catch (error: any) {

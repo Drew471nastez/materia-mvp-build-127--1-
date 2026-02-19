@@ -28,8 +28,8 @@ export async function GET() {
       return NextResponse.json({ payouts: [], balance: null })
     }
 
-    // Fetch payouts + balance in parallel from the connected seller account
-    const [payoutsResult, balanceResult] = await Promise.all([
+    // Fetch payouts + balance + recent balance transactions (for exchange_rate) in parallel
+    const [payoutsResult, balanceResult, balanceTxResult] = await Promise.all([
       stripe.payouts.list(
         { limit: 100, expand: ["data.destination"] },
         { stripeAccount: stripeAccountId }
@@ -37,7 +37,18 @@ export async function GET() {
       stripe.balance.retrieve(
         { stripeAccount: stripeAccountId }
       ).catch(() => null),
+      stripe.balanceTransactions.list(
+        { limit: 5 },
+        { stripeAccount: stripeAccountId }
+      ).catch(() => ({ data: [] })),
     ])
+
+    // Extract the exchange_rate from the most recent transaction that has one.
+    // Stripe defines: presentment_amount × exchange_rate = account_amount.
+    // For USD → RON: USD × rate = RON. To convert RON → USD: RON / rate = USD.
+    const exchangeRate: number | null =
+      (balanceTxResult.data as any[]).find((tx: any) => tx.exchange_rate)
+        ?.exchange_rate ?? null
 
     const payouts = payoutsResult.data.map((p) => {
       // Extract readable destination string
@@ -85,7 +96,7 @@ export async function GET() {
         }
       : null
 
-    return NextResponse.json({ payouts, balance })
+    return NextResponse.json({ payouts, balance, exchangeRate })
   } catch (error: any) {
     console.error("[Stripe Payouts Error]", error)
     return NextResponse.json(

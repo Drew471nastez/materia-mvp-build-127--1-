@@ -716,7 +716,6 @@ function WithdrawPanel({
   currency,
   payoutsEnabled,
   balanceReady = true,
-  totalFees = 0,
   onSuccess,
 }: {
   availableBalance: number;
@@ -724,7 +723,6 @@ function WithdrawPanel({
   currency: string;
   payoutsEnabled: boolean;
   balanceReady?: boolean;
-  totalFees?: number;
   onSuccess: () => void;
 }) {
   const [loading, setLoading] = useState(false);
@@ -905,7 +903,7 @@ function WithdrawPanel({
             </button>
             <button
               onClick={openDetailsModal}
-              className="px-4 py-3 text-[14px] font-medium text-[#6b7280] bg-[#f3f4f6] rounded-xl hover:bg-[#e5e7eb] transition-colors whitespace-nowrap"
+              className="px-4 py-3 text-[14px] font-medium text-[#374151] bg-[#eaecef] rounded-xl hover:bg-[#dde0e4] transition-colors whitespace-nowrap"
             >
               See details
             </button>
@@ -979,23 +977,6 @@ function WithdrawPanel({
                     {fmt(availableBalance, currency)}
                   </span>
                 </div>
-
-                {totalFees > 0 && (
-                  <div className="flex items-center justify-between bg-[#fff7ed] border border-[#fed7aa] rounded-xl p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-[#ffedd5] flex items-center justify-center">
-                        <CreditCard className="h-4 w-4 text-[#f97316]" />
-                      </div>
-                      <div>
-                        <p className="text-[13px] font-medium text-[#1a1a2e]">Stripe fees taken</p>
-                        <p className="text-[11px] text-[#9ca3af]">Processing & platform fees</p>
-                      </div>
-                    </div>
-                    <span className="text-[15px] font-semibold text-rose-500">
-                      −{fmt(totalFees, currency)}
-                    </span>
-                  </div>
-                )}
 
                 <div className="flex items-center justify-between pt-3 border-t border-[#e5e7eb] px-1">
                   <span className="text-[14px] font-medium text-[#1a1a2e]">Total balance</span>
@@ -1098,23 +1079,6 @@ function WithdrawPanel({
                       {fmt(availableBalance, currency)}
                     </span>
                   </div>
-
-                  {totalFees > 0 && (
-                    <div className="flex items-center justify-between bg-[#fff7ed] border border-[#fed7aa] rounded-xl p-3.5">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 rounded-lg bg-[#ffedd5] flex items-center justify-center">
-                          <CreditCard className="h-3.5 w-3.5 text-[#f97316]" />
-                        </div>
-                        <div>
-                          <p className="text-[13px] font-medium text-[#1a1a2e]">Stripe fees taken</p>
-                          <p className="text-[10px] text-[#9ca3af]">Processing fees</p>
-                        </div>
-                      </div>
-                      <span className="text-[14px] font-semibold text-rose-500">
-                        −{fmt(totalFees, currency)}
-                      </span>
-                    </div>
-                  )}
 
                   <div className="flex items-center justify-between pt-3 border-t border-[#e5e7eb] px-1">
                     <span className="text-[13px] font-medium text-[#1a1a2e]">Total balance</span>
@@ -3126,6 +3090,7 @@ interface PayoutsClientProps {
     pendingAmount: number;
     availableBalance: number;
     paidOut?: number;
+    exchangeRate?: number | null;
   };
   initialOrders?: OrderPayment[];
 }
@@ -3135,10 +3100,11 @@ export function PayoutsClient({
   initialData,
   initialOrders = [],
 }: PayoutsClientProps) {
-  const [fxRate, setFxRate] = useState(1);
-  // fxReady: instantly true for USD accounts; waits for /api/fx for others
-  const [fxReady, setFxReady] = useState(
-    (creator.default_currency || "usd").toLowerCase() === "usd",
+  // Use Stripe's own exchange_rate from balance transactions for accurate USD conversion.
+  // Stripe defines: presentment_amount × rate = account_amount
+  // To convert native currency → USD: nativeAmount / rate = usdAmount
+  const [stripeExchangeRate, setStripeExchangeRate] = useState(
+    initialData.exchangeRate || 1,
   );
   const [recentTab, setRecentTab] = useState<"sales" | "payouts">("sales");
   const [recentPage, setRecentPage] = useState(0);
@@ -3165,6 +3131,8 @@ export function PayoutsClient({
     try {
       const r = await fetch("/api/stripe/payouts");
       const json = await r.json();
+      // Update exchange rate from Stripe's balance transactions if provided
+      if (json.exchangeRate) setStripeExchangeRate(json.exchangeRate);
       if (json.balance) {
         const byCurrency = new Map<
           string,
@@ -3209,26 +3177,10 @@ export function PayoutsClient({
     }
   }, [initialOrders, sourceCurrency]);
 
-  useEffect(() => {
-    if (sourceCurrency === "usd") {
-      setFxReady(true);
-      return;
-    }
-    fetch(`/api/fx?from=${sourceCurrency}&to=usd`)
-      .then((r) => r.json())
-      .then((json) => {
-        setFxRate(json.rate || 1);
-        setFxReady(true);
-      })
-      .catch(() => {
-        setFxRate(1);
-        setFxReady(true);
-      });
-  }, [sourceCurrency]);
-
   const toUsd = useCallback(
-    (cents: number) => Math.round(cents * fxRate),
-    [fxRate],
+    (cents: number) =>
+      sourceCurrency === "usd" ? cents : Math.round(cents / stripeExchangeRate),
+    [sourceCurrency, stripeExchangeRate],
   );
   const openOrderDetails = useCallback((order: OrderPayment) => {
     setSelectedOrder(order);
@@ -3288,8 +3240,7 @@ export function PayoutsClient({
               pendingBalance={toUsd(pendingBalance)}
               currency={currency}
               payoutsEnabled={payoutsEnabled}
-              balanceReady={fxReady}
-              totalFees={toUsd(initialData.totalFees || 0)}
+              balanceReady={true}
               onSuccess={() => {
                 refreshBalances();
                 setRecentTab("payouts");
