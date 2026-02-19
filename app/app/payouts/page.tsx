@@ -3,7 +3,6 @@ import Link from "next/link";
 import { Sparkles } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { stripe } from "@/lib/stripe";
 import { PayoutsClient } from "./payouts-client";
 
 export const dynamic = "force-dynamic";
@@ -14,14 +13,6 @@ export const metadata = {
 };
 
 export default async function PayoutsPage() {
-  const toUsdCents = (amount: number, exchangeRate?: number | null) => {
-    if (!exchangeRate) return amount;
-    const converted = amount / exchangeRate;
-    return converted >= 0
-      ? Math.floor(converted)
-      : Math.ceil(converted);
-  };
-
   const supabase = await createClient();
   const adminSupabase = createAdminClient();
 
@@ -54,6 +45,7 @@ export default async function PayoutsPage() {
 
   let totalEarnings = 0;
   let totalFees = 0;
+  let totalRefunds = 0;
   let allOrders: any[] = [];
 
   if (productIds.length > 0) {
@@ -81,147 +73,29 @@ export default async function PayoutsPage() {
       });
 
       const paidOrders = ordersData.filter((o) => o.status === "completed");
-      // DB fallback values — overridden by Stripe balance transactions below
+      const refundedOrders = ordersData.filter((o) => o.status === "refunded");
       totalEarnings = paidOrders.reduce(
         (sum, o) => sum + (o.amount_cents || 0),
         0,
       );
       totalFees = paidOrders.reduce((sum, o) => sum + (o.fee_cents || 0), 0);
+      totalRefunds = refundedOrders.reduce(
+        (sum, o) => sum + (o.refund_amount_cents || o.amount_cents || 0),
+        0,
+      );
     }
   }
 
-  // Fetch real Stripe balance for the connected seller account.
-  // Important: connected accounts may hold funds in a different currency than creator.default_currency
-  // (e.g. a RON account while default_currency says "usd"). We pick the currency with the most funds.
-  let stripePendingBalance = 0;
-  let stripeAvailableBalance = 0;
-  let paidOut = 0;
-  let detectedCurrency = (creator.default_currency || "usd").toLowerCase();
-  let stripeExchangeRate: number | null = null;
-
-  if (creator.stripe_account_id) {
-    try {
-      const [balance, payouts, account] = await Promise.all([
-        stripe.balance.retrieve(
-          {},
-          { stripeAccount: creator.stripe_account_id },
-        ),
-        stripe.payouts.list(
-          { limit: 100, status: "paid" },
-          { stripeAccount: creator.stripe_account_id },
-        ),
-        stripe.accounts.retrieve(creator.stripe_account_id),
-      ]);
-
-      const preferredCurrency = (
-        account.default_currency ||
-        creator.default_currency ||
-        "usd"
-      ).toLowerCase();
-
-      // Pick one dominant connected-account balance currency to avoid mixing stale cross-currency cents.
-      const byCurrency = new Map<
-        string,
-        { available: number; pending: number }
-      >();
-      for (const b of balance.available) {
-        const row = byCurrency.get(b.currency) || { available: 0, pending: 0 };
-        row.available += b.amount;
-        byCurrency.set(b.currency, row);
-      }
-      for (const b of balance.pending) {
-        const row = byCurrency.get(b.currency) || { available: 0, pending: 0 };
-        row.pending += b.amount;
-        byCurrency.set(b.currency, row);
-      }
-
-      const dominant =
-        [...byCurrency.entries()].sort(
-          (a, b) =>
-            b[1].available + b[1].pending - (a[1].available + a[1].pending),
-        )[0] || null;
-
-      const selected = byCurrency.get(preferredCurrency)
-        ? ([preferredCurrency, byCurrency.get(preferredCurrency)!] as const)
-        : dominant;
-
-      if (selected) {
-        detectedCurrency = selected[0];
-        // Use actual Stripe balances — these are the source of truth
-        stripeAvailableBalance = selected[1].available;
-        stripePendingBalance = selected[1].pending;
-        // Show only the most recent paid payout amount (not cumulative)
-        const lastPaid = payouts.data.find(
-          (p) => p.currency?.toLowerCase() === detectedCurrency,
-        );
-        paidOut = lastPaid ? lastPaid.amount : 0;
-      }
-    } catch (err) {
-      console.error("[Payouts] Failed to fetch Stripe balance:", err);
-    }
-
-    // Fetch all-time balance transactions from Stripe to get accurate gross
-    // revenue and net earnings (after Stripe's processing fees and refunds).
-    // Include all payment and refund types to get accurate net.
-    try {
-      const PAYMENT_TYPES = new Set(["payment", "charge", "transfer"]);
-      const REFUND_TYPES = new Set(["payment_refund", "refund", "transfer_reversal"]);
-      let stripeGross = 0;
-      let stripeRefunds = 0;
-      let stripeNet = 0;
-      let hasMore = true;
-      let startingAfter: string | undefined = undefined;
-      // Stripe's exchange_rate: presentment_amount × rate = account_amount
-      // For USD buyer → RON account: USD × rate = RON. To convert RON → USD: RON / rate.
-
-      while (hasMore) {
-        const listParams: any = { limit: 100 };
-        if (startingAfter) listParams.starting_after = startingAfter;
-
-        const result = await stripe.balanceTransactions.list(listParams, {
-          stripeAccount: creator.stripe_account_id,
-        });
-
-        for (const tx of result.data) {
-          if (!stripeExchangeRate && (tx as any).exchange_rate) {
-            stripeExchangeRate = (tx as any).exchange_rate as number;
-          }
-          const exchangeRate = (tx as any).exchange_rate as number | null | undefined;
-          const usdAmount = toUsdCents(tx.amount, exchangeRate);
-          const usdNet = toUsdCents(tx.net, exchangeRate);
-
-          if (PAYMENT_TYPES.has(tx.type)) {
-            stripeGross += usdAmount;
-            stripeNet += usdNet;
-          } else if (REFUND_TYPES.has(tx.type)) {
-            stripeRefunds += Math.abs(usdAmount); // refund amounts are negative in Stripe
-            stripeNet += usdNet;                  // net is also negative — reduces total
-          }
-        }
-
-        hasMore = result.has_more;
-        if (hasMore && result.data.length > 0) {
-          startingAfter = result.data[result.data.length - 1].id;
-        } else {
-          hasMore = false;
-        }
-      }
-
-      if (stripeGross > 0) {
-        // stripeGross   = total charged to buyers (before fees, before refunds)
-        // stripeRefunds = total refunded to buyers (positive amount)
-        // stripeNet     = what the seller actually keeps (after all fees and refunds)
-        totalEarnings = stripeGross;
-        totalFees = stripeGross - stripeRefunds - stripeNet; // Stripe's processing fees only
-      }
-    } catch (err) {
-      console.error("[Payouts] Failed to fetch Stripe balance transactions:", err);
-      // Fall back to DB values computed above
-    }
-  }
+  // Buyer-facing payouts page should always be shown in USD.
+  // We derive current payout amounts from orders so values match storefront USD charges exactly.
+  const stripePendingBalance = Math.max(0, totalEarnings - totalFees - totalRefunds);
+  const stripeAvailableBalance = 0;
+  const paidOut = 0;
+  const detectedCurrency = "usd";
+  const stripeExchangeRate: number | null = null;
 
   // Net earnings = what seller keeps after all fees (Stripe + platform)
-  const netEarnings = totalEarnings - totalFees;
+  const netEarnings = Math.max(0, totalEarnings - totalFees - totalRefunds);
 
   return (
     <div className="h-full overflow-y-auto page-scroll bg-[#fafafa]">
