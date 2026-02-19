@@ -3255,8 +3255,8 @@ export function PayoutsClient({
         {/* Recent activity */}
         {initialOrders.length > 0 ? (
           <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-            <div className="px-4 sm:px-5 py-3.5 border-b border-[#e5e7eb] flex items-center justify-between gap-3">
-              <div className="relative flex items-center bg-[#f3f4f6] rounded-full p-1">
+            <div className="px-4 sm:px-5 py-3.5 border-b border-[#e5e7eb] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="relative grid grid-cols-2 w-full sm:w-auto sm:min-w-[320px] items-center bg-[#f3f4f6] rounded-xl p-1">
                 {/* Sliding pill indicator — flex-1 buttons ensure equal halves */}
                 <div
                   className="absolute top-1 bottom-1 bg-white rounded-full shadow-sm transition-all duration-300 ease-out"
@@ -3276,7 +3276,7 @@ export function PayoutsClient({
                     }, 150);
                   }}
                   className={cn(
-                    "relative z-10 flex-1 px-5 py-1.5 text-[12px] font-medium rounded-full transition-colors duration-200 whitespace-nowrap text-center",
+                    "relative z-10 px-3 sm:px-5 py-2 text-[12px] font-medium rounded-lg transition-colors duration-200 whitespace-nowrap text-center",
                     recentTab === "sales"
                       ? "text-[#1a1a2e]"
                       : "text-[#6b7280] hover:text-[#374151]",
@@ -3295,7 +3295,7 @@ export function PayoutsClient({
                     }, 150);
                   }}
                   className={cn(
-                    "relative z-10 flex-1 px-5 py-1.5 text-[12px] font-medium rounded-full transition-colors duration-200 whitespace-nowrap text-center",
+                    "relative z-10 px-3 sm:px-5 py-2 text-[12px] font-medium rounded-lg transition-colors duration-200 whitespace-nowrap text-center",
                     recentTab === "payouts"
                       ? "text-[#1a1a2e]"
                       : "text-[#6b7280] hover:text-[#374151]",
@@ -3304,31 +3304,37 @@ export function PayoutsClient({
                   Recent Payouts
                 </button>
               </div>
-              <div className="flex items-center gap-1.5 text-[#6b7280]">
+              <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-1.5 text-[#6b7280]">
                 {/* CSV export dropdown */}
-                <ExportDropdown
-                  orders={initialOrders}
-                  currency={currency}
-                />
-                <span className="text-[12px] text-[#9ca3af] hidden sm:inline mr-1">
+                <div className="hidden sm:block">
+                  <ExportDropdown
+                    orders={initialOrders}
+                    currency={currency}
+                  />
+                </div>
+                <span className="text-[12px] text-[#9ca3af] mr-1">
                   {recentPage + 1} / {pageCount}
                 </span>
-                <button
-                  disabled={recentPage <= 0}
-                  onClick={() => changePage(Math.max(0, recentPage - 1))}
-                  className="p-1.5 rounded-lg hover:bg-[#f3f4f6] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-                <button
-                  disabled={recentPage >= pageCount - 1}
-                  onClick={() =>
-                    changePage(Math.min(pageCount - 1, recentPage + 1))
-                  }
-                  className="p-1.5 rounded-lg hover:bg-[#f3f4f6] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    disabled={recentPage <= 0}
+                    onClick={() => changePage(Math.max(0, recentPage - 1))}
+                    className="h-8 w-8 sm:h-7 sm:w-7 flex items-center justify-center rounded-lg border border-[#e5e7eb] bg-white hover:bg-[#f9fafb] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    aria-label="Previous page"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <button
+                    disabled={recentPage >= pageCount - 1}
+                    onClick={() =>
+                      changePage(Math.min(pageCount - 1, recentPage + 1))
+                    }
+                    className="h-8 w-8 sm:h-7 sm:w-7 flex items-center justify-center rounded-lg border border-[#e5e7eb] bg-white hover:bg-[#f9fafb] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    aria-label="Next page"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             </div>
 
