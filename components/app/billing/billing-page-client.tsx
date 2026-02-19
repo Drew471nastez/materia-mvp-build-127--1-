@@ -360,7 +360,6 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                   {/* Free plan -> Upgrade link */}
                   {currentPlan.id === "free" && (
                     <a href="/app/settings/billing/upgrade" className="h-10 px-5 text-[13px] font-semibold text-white bg-[#7c3aed] rounded-xl hover:bg-[#6d28d9] active:bg-[#5b21b6] transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2 no-underline cursor-pointer">
-                      <Rocket className="h-4 w-4" />
                       Upgrade
                     </a>
                   )}
@@ -377,7 +376,6 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                   {/* If cancel_at_period_end, show upgrade option to reactivate */}
                   {isSubscribed && subscription.cancel_at_period_end && (
                     <a href="/app/settings/billing/upgrade" className="h-10 px-5 text-[13px] font-semibold text-white bg-[#7c3aed] rounded-xl hover:bg-[#6d28d9] active:bg-[#5b21b6] transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2 no-underline cursor-pointer">
-                      <Rocket className="h-4 w-4" />
                       Upgrade
                     </a>
                   )}
@@ -389,11 +387,17 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                     </button>
                   )}
                 </div>
-                {/* Subtle cancel notice */}
+                {/* Cancel notice — prominent confirmation */}
                 {isSubscribed && subscription.cancel_at_period_end && (
-                  <p className="text-[12px] text-[#9ca3af] mt-3">
-                    Your plan will be canceled on {formatDate(subscription.current_period_end)}
-                  </p>
+                  <div className="flex items-start gap-3 p-3.5 bg-amber-50 border border-amber-200 rounded-xl mt-3">
+                    <AlertCircle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-[13px] font-semibold text-amber-800">Subscription cancelled</p>
+                      <p className="text-[12px] text-amber-700 mt-0.5">
+                        Your plan remains active until {formatDate(subscription.current_period_end)}. No further charges will be made.
+                      </p>
+                    </div>
+                  </div>
                 )}
               </div>
 
@@ -477,7 +481,12 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
               </div>
             )}
             {subscription?.current_period_end && subscription.cancel_at_period_end && (
-              <p className="text-[13px] text-[#9ca3af] mb-4">Your subscription ends on <span className="font-medium text-[#6b7280]">{formatDateLong(subscription.current_period_end)}</span>.</p>
+              <div className="flex items-start gap-2.5 p-3 bg-amber-50 border border-amber-200 rounded-xl mb-4">
+                <AlertCircle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+                <p className="text-[13px] text-amber-700">
+                  Plan cancelled — active until <span className="font-semibold text-amber-800">{formatDateLong(subscription.current_period_end)}</span>. No further charges.
+                </p>
+              </div>
             )}
             {!isSubscribed && !subscription?.cancel_at_period_end && (
               <p className="text-[13px] text-[#6b7280] mb-4">No active subscription.</p>

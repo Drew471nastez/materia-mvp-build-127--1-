@@ -1,16 +1,15 @@
+import { AnnouncementBarMobile } from "@/components/app/announcement-bar-mobile"
+
 export default function AnalyticsLoading() {
   return (
     <div className="h-full overflow-y-auto bg-[#f8f9fa]">
-      {/* Announcement Bar Skeleton */}
-      <div className="bg-[#8b5cf6] text-white">
-        <div className="py-2 px-4 md:py-2.5">
-          <div className="max-w-[1200px] mx-auto flex items-center justify-center gap-2 md:gap-3">
-            <div className="h-4 w-32 bg-white/20 rounded animate-pulse" />
-            <div className="h-6 w-20 bg-white/30 rounded-full animate-pulse" />
-          </div>
+      {/* Announcement Bar — fixed above black header on mobile */}
+      <AnnouncementBarMobile>
+        <div className="max-w-[1200px] mx-auto flex items-center justify-center gap-2 md:gap-3">
+          <div className="h-4 w-32 bg-white/20 rounded animate-pulse" />
+          <div className="h-6 w-20 bg-white/30 rounded-full animate-pulse" />
         </div>
-        <div className="h-[2px] bg-white/10" />
-      </div>
+      </AnnouncementBarMobile>
 
       <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto space-y-6">
         {/* Header Skeleton */}

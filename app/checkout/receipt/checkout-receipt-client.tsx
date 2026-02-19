@@ -400,7 +400,7 @@ export default function CheckoutReceiptClient({
         fileName={asset.file_name}
         size="lg"
         className={`w-full h-auto min-h-[48px] rounded-xl text-sm font-medium px-4 py-3 ${
-          idx === 0 ? "bg-[#111] hover:bg-[#222] text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-900"
+          idx === 0 ? "bg-[#7c3aed] hover:bg-[#6d28d9] text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-900"
         }`}
       >
         <span className="flex items-center gap-2 w-full min-w-0">
@@ -680,7 +680,7 @@ export default function CheckoutReceiptClient({
               <div className="flex gap-2">
                 <Link
                   href={`/signup?redirect=${encodeURIComponent(`/checkout/receipt?token=${receiptToken}`)}&autoBuyer=1&receiptToken=${receiptToken}`}
-                  className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors"
+                  className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl bg-[#7c3aed] hover:bg-[#6d28d9] text-white text-sm font-semibold transition-colors"
                 >
                   Create Account
                 </Link>
@@ -926,7 +926,7 @@ export default function CheckoutReceiptClient({
                 <div className="flex gap-3">
                   <Link
                     href={`/signup?redirect=${encodeURIComponent(`/checkout/receipt?token=${receiptToken}`)}&autoBuyer=1&receiptToken=${receiptToken}`}
-                    className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl bg-[#111] hover:bg-[#222] text-white text-sm font-semibold transition-colors"
+                    className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl bg-[#7c3aed] hover:bg-[#6d28d9] text-white text-sm font-semibold transition-colors"
                   >
                     Create Account
                   </Link>

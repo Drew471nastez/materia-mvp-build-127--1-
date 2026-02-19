@@ -56,6 +56,7 @@ import {
   Minus,
 } from "lucide-react"
 import Link from "next/link"
+import { AnnouncementBarMobile } from "@/components/app/announcement-bar-mobile"
 import { EmailEditor } from "@/components/email/email-editor"
 import {
   DropdownMenu,
@@ -2581,25 +2582,23 @@ Tips:
         </div>
       )}
 
-      {/* Announcement Bar - Pro */}
-      <div className="bg-[#8b5cf6] text-white">
-        <div className="py-2 px-4 md:py-2.5">
-          <div className="max-w-[1200px] mx-auto flex items-center justify-center gap-2 md:gap-3 text-center">
-            <span className="text-[12px] md:text-[14px] text-white/90">
-              <span className="font-semibold text-white">Try Pro</span>
-              <span className="hidden md:inline"> — our most popular plan for content creators and businesses.</span>
-            </span>
-            <Link
-              href="/upgrade"
-              className="relative inline-flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3 py-0.5 md:py-1 bg-gradient-to-r from-gray-900 to-black text-white text-[11px] md:text-[13px] font-medium rounded-full transition-all shrink-0 overflow-hidden group"
-            >
-              <span className="absolute inset-0 rounded-full border border-white/30 group-hover:border-white/50 transition-colors" />
-              <Sparkles className="h-3 w-3 md:h-3.5 md:w-3.5 relative z-10" />
-              <span className="relative z-10">Upgrade</span>
-            </Link>
-          </div>
+      {/* Announcement Bar — fixed above black header on mobile */}
+      <AnnouncementBarMobile>
+        <div className="max-w-[1200px] mx-auto flex items-center justify-center gap-2 md:gap-3 text-center">
+          <span className="text-[12px] md:text-[14px] text-white/90">
+            <span className="font-semibold text-white">Try Pro</span>
+            <span className="hidden md:inline"> — our most popular plan for content creators and businesses.</span>
+          </span>
+          <Link
+            href="/upgrade"
+            className="relative inline-flex items-center gap-1 md:gap-1.5 px-2.5 md:px-3 py-0.5 md:py-1 bg-gradient-to-r from-gray-900 to-black text-white text-[11px] md:text-[13px] font-medium rounded-full transition-all shrink-0 overflow-hidden group"
+          >
+            <span className="absolute inset-0 rounded-full border border-white/30 group-hover:border-white/50 transition-colors" />
+            <Sparkles className="h-3 w-3 md:h-3.5 md:w-3.5 relative z-10" />
+            <span className="relative z-10">Upgrade</span>
+          </Link>
         </div>
-      </div>
+      </AnnouncementBarMobile>
 
       {/* Header */}
       <div className="bg-white border-b sticky top-0 z-10">

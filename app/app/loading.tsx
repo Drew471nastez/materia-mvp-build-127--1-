@@ -1,15 +1,16 @@
 import { Skeleton } from "@/components/ui/skeleton"
+import { AnnouncementBarMobile } from "@/components/app/announcement-bar-mobile"
 
 export default function AppLoading() {
   return (
     <div className="h-full overflow-y-auto bg-[#f8f9fa]">
-      {/* Announcement Bar */}
-      <div className="bg-[#8b5cf6] py-2.5 px-4">
+      {/* Announcement Bar — fixed above black header on mobile */}
+      <AnnouncementBarMobile>
         <div className="max-w-[1200px] mx-auto flex items-center justify-center gap-3">
           <Skeleton className="h-4 w-48 bg-white/20" />
           <Skeleton className="h-7 w-20 rounded-full bg-white/20" />
         </div>
-      </div>
+      </AnnouncementBarMobile>
 
       <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto">
         {/* Header */}

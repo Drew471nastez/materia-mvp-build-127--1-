@@ -1016,17 +1016,8 @@ function WithdrawPanel({
                   <><Plus className="h-4 w-4" /> Withdraw</>
                 )}
               </button>
-              {/* Desktop hover tooltip when no funds */}
-              {availableBalance <= 0 && !loading && (
-                <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 -top-11 hidden group-hover:flex items-center whitespace-nowrap z-40">
-                  <div className="bg-[#111827] text-white text-[11px] font-medium px-3 py-2 rounded-lg shadow-lg">
-                    No funds ready yet — check pending balance
-                    <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-[5px] border-r-[5px] border-t-[5px] border-l-transparent border-r-transparent border-t-[#111827]" />
-                  </div>
-                </div>
-              )}
             </div>
-            {/* Mobile tap tooltip */}
+            {/* Tooltip when no funds — shows on tap (mobile) and hover (desktop) */}
             {showWithdrawHint && (
               <div className="absolute left-2 right-2 -top-11 z-30 rounded-xl bg-[#111827] px-3 py-2.5 text-[11px] text-white text-center shadow-lg">
                 No funds ready yet — check "See details" for pending balance
@@ -1778,7 +1769,7 @@ function OrderDetailsModal({
   const productTitle = order.product?.title || "Unknown Product";
   const productType = order.product?.type || "Digital Product";
 
-  const ContentSections = ({ compact = false }: { compact?: boolean }) => (
+  const ContentSections = ({ compact = false, hideActions = false }: { compact?: boolean; hideActions?: boolean }) => (
     <>
       {/* Order ID */}
       <div className="flex items-center gap-2">
@@ -2268,80 +2259,82 @@ function OrderDetailsModal({
         )}
       </div>
 
-      {/* Action buttons */}
-      <div className={cn("flex gap-2", compact ? "flex-col" : "flex-row flex-wrap")}>
-        {/* Invoice button — light gray */}
-        {order.stripe_payment_intent_id && (
-          <a
-            href={`/api/stripe/invoice?orderId=${order.id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={cn(
-              "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-[#374151] bg-[#f3f4f6] rounded-xl hover:bg-[#e5e7eb] transition-colors",
-              compact ? "text-[12px]" : "text-[13px]",
-            )}
-          >
-            <FileText className="h-3.5 w-3.5" />
-            Invoice
-          </a>
-        )}
-
-        {/* Resend Receipt */}
-        <button
-          onClick={handleResend}
-          disabled={resendLoading}
-          className={cn(
-            "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-[#374151] bg-[#f3f4f6] rounded-xl hover:bg-[#e5e7eb] active:bg-[#e5e7eb] transition-colors disabled:opacity-60",
-            compact ? "text-[12px]" : "text-[13px]",
+      {/* Action buttons — hidden when mobile sheet has sticky footer */}
+      {!hideActions && (
+        <div className={cn("flex gap-2", compact ? "flex-col" : "flex-row flex-wrap")}>
+          {/* Invoice button — light gray */}
+          {order.stripe_payment_intent_id && (
+            <a
+              href={`/api/stripe/invoice?orderId=${order.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={cn(
+                "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-[#374151] bg-[#f3f4f6] rounded-xl hover:bg-[#e5e7eb] transition-colors",
+                compact ? "text-[12px]" : "text-[13px]",
+              )}
+            >
+              <FileText className="h-3.5 w-3.5" />
+              Invoice
+            </a>
           )}
-        >
-          <Send className={compact ? "h-3 w-3" : "h-3.5 w-3.5"} />
-          {resendLoading ? "Sending…" : `Resend${receiptResendCounts[order.id] ? ` (${receiptResendCounts[order.id]}/5)` : ""}`}
-        </button>
 
-        {/* Edit Email */}
-        <button
-          onClick={openEditEmail}
-          className={cn(
-            "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-[#374151] bg-[#f3f4f6] rounded-xl hover:bg-[#e5e7eb] active:bg-[#e5e7eb] transition-colors",
-            compact ? "text-[12px]" : "text-[13px]",
-          )}
-        >
-          <Mail className={compact ? "h-3 w-3" : "h-3.5 w-3.5"} />
-          Edit Email
-        </button>
-
-        {/* Refund button — light gray, opens confirmation modal */}
-        {order.status === "completed" && !refundDone && (
+          {/* Resend Receipt */}
           <button
-            onClick={() => {
-              setRefundReason("");
-              setRefundError(null);
-              setShowRefundConfirm(true);
-            }}
+            onClick={handleResend}
+            disabled={resendLoading}
             className={cn(
-              "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-[#374151] bg-[#f3f4f6] rounded-xl hover:bg-[#e5e7eb] transition-colors",
+              "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-[#374151] bg-[#f3f4f6] rounded-xl hover:bg-[#e5e7eb] active:bg-[#e5e7eb] transition-colors disabled:opacity-60",
               compact ? "text-[12px]" : "text-[13px]",
             )}
           >
-            <RotateCcw className="h-3.5 w-3.5" />
-            Issue Refund
+            <Send className={compact ? "h-3 w-3" : "h-3.5 w-3.5"} />
+            {resendLoading ? "Sending…" : `Resend${receiptResendCounts[order.id] ? ` (${receiptResendCounts[order.id]}/5)` : ""}`}
           </button>
-        )}
 
-        {/* Refunded state */}
-        {(order.status === "refunded" || refundDone) && (
-          <span
+          {/* Edit Email */}
+          <button
+            onClick={openEditEmail}
             className={cn(
-              "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-[#9ca3af] bg-[#f3f4f6] rounded-xl cursor-not-allowed",
+              "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-[#374151] bg-[#f3f4f6] rounded-xl hover:bg-[#e5e7eb] active:bg-[#e5e7eb] transition-colors",
               compact ? "text-[12px]" : "text-[13px]",
             )}
           >
-            <RotateCcw className="h-3.5 w-3.5" />
-            Refunded
-          </span>
-        )}
-      </div>
+            <Mail className={compact ? "h-3 w-3" : "h-3.5 w-3.5"} />
+            Edit Email
+          </button>
+
+          {/* Refund button — light gray, opens confirmation modal */}
+          {order.status === "completed" && !refundDone && (
+            <button
+              onClick={() => {
+                setRefundReason("");
+                setRefundError(null);
+                setShowRefundConfirm(true);
+              }}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-[#374151] bg-[#f3f4f6] rounded-xl hover:bg-[#e5e7eb] transition-colors",
+                compact ? "text-[12px]" : "text-[13px]",
+              )}
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              Issue Refund
+            </button>
+          )}
+
+          {/* Refunded state */}
+          {(order.status === "refunded" || refundDone) && (
+            <span
+              className={cn(
+                "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-[#9ca3af] bg-[#f3f4f6] rounded-xl cursor-not-allowed",
+                compact ? "text-[12px]" : "text-[13px]",
+              )}
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              Refunded
+            </span>
+          )}
+        </div>
+      )}
 
       {refundDone && (
         <div className="flex items-center gap-2 p-3 bg-green-50 rounded-xl">
@@ -2420,7 +2413,7 @@ function OrderDetailsModal({
             transition: isDragging
               ? "none"
               : "transform 420ms cubic-bezier(0.32,0.72,0,1)",
-            maxHeight: "78vh",
+            maxHeight: "90vh",
             willChange: "transform",
           }}
         >
@@ -2442,9 +2435,72 @@ function OrderDetailsModal({
           </div>
           {/* Scrollable content */}
           <div className="px-4 py-4 overflow-y-auto overscroll-contain flex-1 min-h-0 space-y-3 [-webkit-overflow-scrolling:touch]">
-            <ContentSections compact={true} />
+            <ContentSections compact={true} hideActions={true} />
           </div>
-          <div style={{ height: "max(env(safe-area-inset-bottom), 16px)" }} />
+          {/* Sticky footer — 2×2 action buttons matching Sales page */}
+          <div
+            className="px-4 pt-4 border-t border-[#e5e7eb] bg-white flex-shrink-0"
+            style={{ paddingBottom: "max(env(safe-area-inset-bottom), 20px)" }}
+          >
+            {/* Row 1: Invoice + Resend */}
+            <div className="flex items-center gap-2 mb-2">
+              {order.stripe_payment_intent_id ? (
+                <a
+                  href={`/api/stripe/invoice?orderId=${order.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 px-3 py-2.5 text-[12px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg active:bg-[#e5e7eb] transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  Invoice
+                </a>
+              ) : (
+                <span className="flex-1 px-3 py-2.5 text-[12px] font-medium text-[#9ca3af] bg-[#f3f4f6] rounded-lg flex items-center justify-center gap-1.5 cursor-not-allowed opacity-60">
+                  <FileText className="h-3.5 w-3.5" />
+                  Invoice
+                </span>
+              )}
+              <button
+                onClick={handleResend}
+                disabled={resendLoading}
+                className="flex-1 px-3 py-2.5 text-[12px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg active:bg-[#e5e7eb] transition-colors flex items-center justify-center gap-1.5 disabled:opacity-60"
+              >
+                {resendLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                {resendLoading ? "Sending…" : "Resend"}
+              </button>
+            </div>
+            {/* Row 2: Edit Email + Refund */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => { handleClose(); setTimeout(() => openEditEmail(), 450); }}
+                className="flex-1 px-3 py-2.5 text-[12px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg active:bg-[#e5e7eb] transition-colors flex items-center justify-center gap-1.5"
+              >
+                <Mail className="h-3.5 w-3.5" />
+                Edit Email
+              </button>
+              {order.status === "completed" && !refundDone ? (
+                <button
+                  onClick={() => {
+                    handleClose();
+                    setTimeout(() => {
+                      setRefundReason("");
+                      setRefundError(null);
+                      setShowRefundConfirm(true);
+                    }, 450);
+                  }}
+                  className="flex-1 px-3 py-2.5 text-[12px] font-medium text-rose-600 bg-rose-50 rounded-lg active:bg-rose-100 transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Refund
+                </button>
+              ) : order.status === "refunded" || refundDone ? (
+                <span className="flex-1 px-3 py-2.5 text-[12px] font-medium text-rose-400 bg-rose-50 rounded-lg flex items-center justify-center gap-1.5 cursor-not-allowed opacity-70">
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Refunded
+                </span>
+              ) : null}
+            </div>
+          </div>
         </div>
       </div>
 
