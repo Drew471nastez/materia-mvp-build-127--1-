@@ -141,9 +141,11 @@ export default async function PayoutsPage() {
         // Use actual Stripe balances — these are the source of truth
         stripeAvailableBalance = selected[1].available;
         stripePendingBalance = selected[1].pending;
-        paidOut = payouts.data
-          .filter((p) => p.currency?.toLowerCase() === detectedCurrency)
-          .reduce((sum, p) => sum + p.amount, 0);
+        // Show only the most recent paid payout amount (not cumulative)
+        const lastPaid = payouts.data.find(
+          (p) => p.currency?.toLowerCase() === detectedCurrency,
+        );
+        paidOut = lastPaid ? lastPaid.amount : 0;
       }
     } catch (err) {
       console.error("[Payouts] Failed to fetch Stripe balance:", err);

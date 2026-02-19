@@ -2074,10 +2074,10 @@ export function PayoutsClient({
               </div>
             </div>
             <div className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-              {fmtCompact(toUsd(initialData.totalEarnings), currency)}
+              {fmtCompact(toUsd(availableBalance + pendingBalance), currency)}
             </div>
             <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">
-              Gross sales
+              Current unpaid balance
             </p>
           </div>
 
@@ -2095,7 +2095,7 @@ export function PayoutsClient({
               {fmtCompact(toUsd(pendingBalance), currency)}
             </div>
             <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">
-              Processing
+              Processing by Stripe
             </p>
           </div>
 
@@ -2110,10 +2110,10 @@ export function PayoutsClient({
               </div>
             </div>
             <div className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-              {fmtCompact(toUsd(initialData.netEarnings), currency)}
+              {fmtCompact(toUsd(availableBalance), currency)}
             </div>
             <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">
-              After platform fees
+              Available for withdrawal
             </p>
           </div>
 
@@ -2131,7 +2131,7 @@ export function PayoutsClient({
               {fmtCompact(toUsd(initialData.paidOut || 0), currency)}
             </div>
             <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">
-              Stripe payouts to bank
+              Last bank payout
             </p>
           </div>
         </div>
@@ -2157,10 +2157,10 @@ export function PayoutsClient({
         {initialOrders.length > 0 ? (
           <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
             <div className="px-4 sm:px-5 py-3.5 border-b border-[#e5e7eb] flex items-center justify-between gap-3">
-              <div className="relative flex items-center bg-[#f3f4f6] rounded-xl p-1 gap-0.5">
-                {/* Sliding indicator */}
+              <div className="relative flex items-center bg-[#f3f4f6] rounded-full p-1 gap-0.5">
+                {/* Sliding pill indicator */}
                 <div
-                  className="absolute top-1 bottom-1 bg-white rounded-lg shadow-sm transition-all duration-300 ease-out"
+                  className="absolute top-1 bottom-1 bg-white rounded-full shadow-sm transition-all duration-300 ease-out"
                   style={{
                     left: recentTab === "sales" ? "4px" : "calc(50% + 2px)",
                     width: "calc(50% - 6px)",
@@ -2177,7 +2177,7 @@ export function PayoutsClient({
                     }, 150);
                   }}
                   className={cn(
-                    "relative z-10 px-3.5 py-1.5 text-[12px] font-medium rounded-lg transition-colors duration-200 whitespace-nowrap",
+                    "relative z-10 px-4 py-1.5 text-[12px] font-medium rounded-full transition-colors duration-200 whitespace-nowrap",
                     recentTab === "sales"
                       ? "text-[#1a1a2e]"
                       : "text-[#6b7280] hover:text-[#374151]",
@@ -2196,7 +2196,7 @@ export function PayoutsClient({
                     }, 150);
                   }}
                   className={cn(
-                    "relative z-10 px-3.5 py-1.5 text-[12px] font-medium rounded-lg transition-colors duration-200 whitespace-nowrap",
+                    "relative z-10 px-4 py-1.5 text-[12px] font-medium rounded-full transition-colors duration-200 whitespace-nowrap",
                     recentTab === "payouts"
                       ? "text-[#1a1a2e]"
                       : "text-[#6b7280] hover:text-[#374151]",
