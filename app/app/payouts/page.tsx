@@ -81,6 +81,10 @@ export default async function PayoutsPage() {
     }
   }
 
+  const completedOrders = allOrders.filter(
+    (o: any) => o.status === "completed",
+  );
+
   // Fetch real Stripe balance for the connected seller account.
   // Important: connected accounts may hold funds in a different currency than creator.default_currency
   // (e.g. a RON account while default_currency says "usd"). We pick the currency with the most funds.
@@ -133,6 +137,12 @@ export default async function PayoutsPage() {
     }
   }
 
+  // Safety guard: when there are no non-refunded completed orders in Storelib,
+  // pending should not display a phantom amount.
+  if (completedOrders.length === 0) {
+    stripePendingBalance = 0;
+  }
+
   // Fallback: compute from order data when Stripe balance is empty (currency mismatch / test mode)
   if (
     stripePendingBalance === 0 &&
@@ -141,9 +151,6 @@ export default async function PayoutsPage() {
   ) {
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const completedOrders = allOrders.filter(
-      (o: any) => o.status === "completed",
-    );
     completedOrders.forEach((order: any) => {
       const net = (order.amount_cents || 0) - (order.fee_cents || 0);
       if (new Date(order.created_at) > sevenDaysAgo) {
