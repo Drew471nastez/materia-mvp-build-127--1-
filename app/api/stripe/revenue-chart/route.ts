@@ -57,6 +57,7 @@ export async function GET(request: Request) {
     const allTransactions: Array<{ date: string; net: number; gross: number }> = []
     let hasMore = true
     let startingAfter: string | undefined = undefined
+    let detectedCurrency: string | null = null
 
     while (hasMore) {
       const listParams: any = { ...params, limit: 100 }
@@ -67,6 +68,10 @@ export async function GET(request: Request) {
       })
 
       for (const tx of result.data) {
+        // Detect the actual currency from the first balance transaction
+        if (!detectedCurrency && tx.currency) {
+          detectedCurrency = tx.currency.toLowerCase()
+        }
         const date = new Date(tx.created * 1000)
         const dateKey = date.toISOString().split("T")[0] // YYYY-MM-DD
         allTransactions.push({
@@ -126,7 +131,7 @@ export async function GET(request: Request) {
       data: series,
       total,
       totalGross,
-      currency: (creator.default_currency || "usd").toLowerCase(),
+      currency: detectedCurrency || (creator.default_currency || "usd").toLowerCase(),
     })
   } catch (error: any) {
     console.error("[Revenue Chart Error]", error)

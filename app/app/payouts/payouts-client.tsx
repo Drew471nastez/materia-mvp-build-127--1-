@@ -1,16 +1,16 @@
 "use client"
 
-import React, { useState, useEffect, useCallback } from "react"
+import React, { useState, useEffect, useCallback, useRef } from "react"
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts"
-import { Button } from "@/components/ui/button"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
   Wallet, DollarSign, Clock, CheckCircle2, AlertCircle, Building2,
   Loader2, TrendingUp, X, RotateCcw,
-  ArrowDownLeft, ArrowUpRight, Package, Copy, Check,
-  Landmark, Send, Zap, HelpCircle, Eye, XCircle,
+  ArrowDownLeft, Package, Copy, Check,
+  Landmark, Send, Zap, XCircle, MoreHorizontal,
+  ShoppingCart, CreditCard, Users, Calendar,
+  Monitor, Smartphone, Tablet, MapPin, Eye,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
@@ -38,17 +38,22 @@ interface OrderPayment {
   buyer_email?: string
   product_id: string
   stripe_payment_intent_id?: string
-  refund_reason?: string
-  refund_amount_cents?: number
-  refunded_at?: string
-  stripe_refund_id?: string
+  refund_reason?: string | null
+  refund_amount_cents?: number | null
+  refunded_at?: string | null
+  stripe_refund_id?: string | null
   receipt_token?: string
-  buyer_first_name?: string
-  buyer_last_name?: string
+  buyer_first_name?: string | null
+  buyer_last_name?: string | null
   payment_method?: string
   card_brand?: string | null
   card_last4?: string | null
-  product?: { title: string; thumbnail_url?: string | null; type?: string } | null
+  buyer_country?: string | null
+  buyer_device_type?: string | null
+  buyer_os?: string | null
+  buyer_browser?: string | null
+  product?: { id?: string; title: string; thumbnail_url?: string | null; type?: string } | null
+  buyer?: { email: string; display_name: string } | null
 }
 
 interface StripePayout {
@@ -88,14 +93,21 @@ function fmt(cents: number, currency = "usd") {
   }).format(cents / 100)
 }
 
-function fmtShort(dateStr: string) {
+function fmtCompact(cents: number, currency = "usd") {
+  const val = cents / 100
+  if (val >= 1_000_000) return `${(val / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`
+  if (val >= 1_000) return `${(val / 1_000).toFixed(1).replace(/\.0$/, "")}K`
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: currency.toUpperCase(), minimumFractionDigits: 0, maximumFractionDigits: val % 1 === 0 ? 0 : 2 }).format(val)
+}
+
+function fmtDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
 }
 
-function fmtFull(dateStr: string) {
-  return new Date(dateStr).toLocaleString("en-US", {
-    month: "long", day: "numeric", year: "numeric",
-    hour: "numeric", minute: "2-digit",
+function fmtFullDate(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString("en-US", {
+    weekday: "long", month: "long", day: "numeric", year: "numeric",
+    hour: "2-digit", minute: "2-digit", timeZoneName: "short",
   })
 }
 
@@ -105,45 +117,48 @@ function fmtUnix(ts: number) {
 
 function payoutStatusConfig(status: string) {
   switch (status) {
-    case "paid":       return { label: "Paid",       color: "bg-green-100 text-green-700",  icon: CheckCircle2 }
-    case "in_transit": return { label: "In transit",  color: "bg-blue-100 text-blue-700",    icon: ArrowUpRight }
-    case "pending":    return { label: "Pending",     color: "bg-yellow-100 text-yellow-700", icon: Clock }
-    case "failed":     return { label: "Failed",      color: "bg-red-100 text-red-700",      icon: XCircle }
-    case "canceled":   return { label: "Canceled",    color: "bg-gray-100 text-gray-600",    icon: X }
-    default:           return { label: status,        color: "bg-gray-100 text-gray-600",    icon: HelpCircle }
+    case "paid":       return { label: "Paid",       cls: "bg-violet-100 text-violet-700", Icon: CheckCircle2 }
+    case "in_transit": return { label: "In transit",  cls: "bg-blue-100 text-blue-700",    Icon: ArrowDownLeft }
+    case "pending":    return { label: "Pending",     cls: "bg-amber-100 text-amber-700",  Icon: Clock }
+    case "failed":     return { label: "Failed",      cls: "bg-rose-100 text-rose-700",    Icon: XCircle }
+    case "canceled":   return { label: "Canceled",    cls: "bg-gray-100 text-gray-600",    Icon: X }
+    default:           return { label: status,        cls: "bg-gray-100 text-gray-600",    Icon: Clock }
   }
 }
 
-// ─── Skeleton ─────────────────────────────────────────────────────────────────
-
-function Skeleton({ className }: { className?: string }) {
-  return <div className={cn("animate-pulse rounded-lg bg-gray-200", className)} />
-}
-
-// ─── KPI Card ─────────────────────────────────────────────────────────────────
-
-function KpiCard({
-  label, value, sub, icon: Icon, loading, accent,
-}: {
-  label: string; value: string; sub?: string
-  icon: React.ElementType; loading?: boolean; accent?: string
-}) {
-  return (
-    <div className="bg-white rounded-2xl border border-gray-100 p-5 flex gap-4 items-start shadow-sm">
-      <div className={cn("p-2.5 rounded-xl shrink-0", accent || "bg-violet-50")}>
-        <Icon className={cn("h-5 w-5", accent ? "text-white" : "text-violet-600")} />
-      </div>
-      <div className="min-w-0">
-        <p className="text-[12px] text-gray-500 font-medium uppercase tracking-wide">{label}</p>
-        {loading ? (
-          <Skeleton className="h-7 w-28 mt-1" />
-        ) : (
-          <p className="text-[22px] font-bold text-gray-900 mt-0.5 leading-none">{value}</p>
-        )}
-        {sub && !loading && <p className="text-[12px] text-gray-400 mt-1">{sub}</p>}
-      </div>
-    </div>
-  )
+function getStatusBadge(status: string) {
+  switch (status) {
+    case "completed":
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-violet-100 text-violet-700">
+          <CheckCircle2 className="h-3 w-3" /> Completed
+        </span>
+      )
+    case "pending":
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-100 text-amber-700">
+          <Clock className="h-3 w-3" /> Pending
+        </span>
+      )
+    case "refunded":
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-rose-100 text-rose-700">
+          <RotateCcw className="h-3 w-3" /> Refunded
+        </span>
+      )
+    case "failed":
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-700">
+          <XCircle className="h-3 w-3" /> Failed
+        </span>
+      )
+    default:
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-700">
+          {status}
+        </span>
+      )
+  }
 }
 
 // ─── Revenue Chart ────────────────────────────────────────────────────────────
@@ -155,23 +170,23 @@ const CHART_DAYS = [
   { label: "All", value: "all" },
 ]
 
-function RevenueChart({ currency }: { currency: string }) {
+function RevenueChart() {
   const [days, setDays] = useState("30")
   const [data, setData] = useState<ChartPoint[]>([])
   const [total, setTotal] = useState(0)
+  const [currency, setCurrency] = useState("usd")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async (d: string) => {
-    setLoading(true)
-    setError(null)
+    setLoading(true); setError(null)
     try {
       const r = await fetch(`/api/stripe/revenue-chart?days=${d}`)
-      if (!r.ok) throw new Error("Failed to load chart")
       const json = await r.json()
       if (json.error) throw new Error(json.error)
       setData(json.data || [])
       setTotal(json.total || 0)
+      if (json.currency) setCurrency(json.currency.toLowerCase())
     } catch (e: any) {
       setError(e.message)
     } finally {
@@ -186,37 +201,35 @@ function RevenueChart({ currency }: { currency: string }) {
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null
     return (
-      <div className="bg-white border border-gray-200 rounded-xl p-3 shadow-lg text-[13px]">
-        <p className="text-gray-500 mb-1">{label}</p>
-        <p className="font-bold text-gray-900">{fmt(payload[0].value, currency)}</p>
+      <div className="bg-white border border-[#e5e7eb] rounded-xl p-3 shadow-lg text-[13px]">
+        <p className="text-[#6b7280] mb-1">{label}</p>
+        <p className="font-bold text-[#1a1a2e]">{fmt(payload[0].value, currency)}</p>
         {payload[0].payload.count > 0 && (
-          <p className="text-gray-400">{payload[0].payload.count} sale{payload[0].payload.count !== 1 ? "s" : ""}</p>
+          <p className="text-[#9ca3af]">{payload[0].payload.count} sale{payload[0].payload.count !== 1 ? "s" : ""}</p>
         )}
       </div>
     )
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+    <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5 flex-1 min-w-0">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div>
-          <p className="text-[13px] text-gray-500 font-medium">Revenue (net received)</p>
+          <p className="text-[13px] font-medium text-[#6b7280]">Revenue ({currency.toUpperCase()})</p>
           {loading ? (
-            <Skeleton className="h-7 w-32 mt-1" />
+            <div className="h-7 w-32 mt-1 rounded-lg bg-gray-200 animate-pulse" />
           ) : (
-            <p className="text-[24px] font-bold text-gray-900">{fmt(total, currency)}</p>
+            <p className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">{fmt(total, currency)}</p>
           )}
         </div>
-        <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
+        <div className="flex gap-1 bg-[#f3f4f6] rounded-xl p-1">
           {CHART_DAYS.map((opt) => (
             <button
               key={opt.value}
               onClick={() => setDays(opt.value)}
               className={cn(
                 "px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all",
-                days === opt.value
-                  ? "bg-white text-violet-700 shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
+                days === opt.value ? "bg-white text-[#8b5cf6] shadow-sm" : "text-[#6b7280] hover:text-[#374151]"
               )}
             >
               {opt.label}
@@ -226,55 +239,43 @@ function RevenueChart({ currency }: { currency: string }) {
       </div>
 
       {loading ? (
-        <Skeleton className="h-48 w-full" />
+        <div className="h-48 w-full rounded-lg bg-gray-100 animate-pulse" />
       ) : error ? (
         <div className="h-48 flex items-center justify-center">
-          <p className="text-[13px] text-red-500">{error}</p>
+          <p className="text-[13px] text-rose-500">{error}</p>
         </div>
       ) : !hasData ? (
         <div className="h-48 flex flex-col items-center justify-center gap-2 text-center">
-          <TrendingUp className="h-8 w-8 text-gray-300" />
-          <p className="text-[14px] text-gray-400">No revenue in this period yet</p>
-          <p className="text-[12px] text-gray-300">Sales will appear here once processed</p>
+          <TrendingUp className="h-8 w-8 text-[#d1d5db]" />
+          <p className="text-[14px] text-[#6b7280]">No revenue in this period yet</p>
+          <p className="text-[12px] text-[#9ca3af]">Sales will appear here once processed</p>
         </div>
       ) : (
         <ResponsiveContainer width="100%" height={200}>
           <AreaChart data={data} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
             <defs>
-              <linearGradient id="revGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%"  stopColor="#7c3aed" stopOpacity={0.18} />
-                <stop offset="95%" stopColor="#7c3aed" stopOpacity={0} />
+              <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%"  stopColor="#8b5cf6" stopOpacity={0.18} />
+                <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
             <XAxis
               dataKey="date"
               tick={{ fontSize: 11, fill: "#9ca3af" }}
-              tickLine={false}
-              axisLine={false}
-              tickFormatter={(v) => {
-                const d = new Date(v + "T00:00:00")
-                return d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
-              }}
+              tickLine={false} axisLine={false}
+              tickFormatter={(v) => new Date(v + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
               interval="preserveStartEnd"
             />
             <YAxis
               tick={{ fontSize: 11, fill: "#9ca3af" }}
-              tickLine={false}
-              axisLine={false}
-              tickFormatter={(v) => `$${(v / 100).toFixed(0)}`}
-              width={48}
+              tickLine={false} axisLine={false}
+              tickFormatter={(v) => `${currency === "usd" ? "$" : ""}${(v / 100).toFixed(0)}${currency !== "usd" ? ` ${currency.toUpperCase()}` : ""}`}
+              width={52}
             />
             <Tooltip content={<CustomTooltip />} />
-            <Area
-              type="monotone"
-              dataKey="revenue"
-              stroke="#7c3aed"
-              strokeWidth={2.5}
-              fill="url(#revGradient)"
-              dot={false}
-              activeDot={{ r: 4, fill: "#7c3aed", strokeWidth: 0 }}
-            />
+            <Area type="monotone" dataKey="revenue" stroke="#8b5cf6" strokeWidth={2.5}
+              fill="url(#revGrad)" dot={false} activeDot={{ r: 4, fill: "#8b5cf6", strokeWidth: 0 }} />
           </AreaChart>
         </ResponsiveContainer>
       )}
@@ -282,141 +283,14 @@ function RevenueChart({ currency }: { currency: string }) {
   )
 }
 
-// ─── Payouts List ──────────────────────────────────────────────────────────────
+// ─── Withdraw Panel ────────────────────────────────────────────────────────────
 
-function PayoutsList({
-  stripeAccountId, currency, refreshKey,
+function WithdrawPanel({
+  availableBalance, currency, payoutsEnabled,
+  onSuccess,
 }: {
-  stripeAccountId: string; currency: string; refreshKey: number
-}) {
-  const [payouts, setPayouts] = useState<StripePayout[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const r = await fetch("/api/stripe/payouts")
-      const json = await r.json()
-      if (json.error) throw new Error(json.error)
-      setPayouts(json.payouts || [])
-    } catch (e: any) {
-      setError(e.message)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => { load() }, [load, refreshKey])
-
-  if (loading) {
-    return (
-      <div className="space-y-3">
-        {[1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-16 w-full" />
-        ))}
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <Alert className="border-red-200 bg-red-50">
-        <AlertCircle className="h-4 w-4 text-red-500" />
-        <AlertDescription className="text-red-700">{error}</AlertDescription>
-      </Alert>
-    )
-  }
-
-  if (!payouts.length) {
-    return (
-      <div className="text-center py-12 bg-white rounded-2xl border border-gray-100">
-        <Landmark className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-        <p className="text-[15px] font-semibold text-gray-500">No payouts yet</p>
-        <p className="text-[13px] text-gray-400 mt-1">Your payout history will appear here after your first withdrawal.</p>
-      </div>
-    )
-  }
-
-  return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-[13px]">
-          <thead>
-            <tr className="border-b border-gray-100">
-              <th className="text-left px-5 py-3 text-[11px] text-gray-400 font-semibold uppercase tracking-wide">Date</th>
-              <th className="text-left px-5 py-3 text-[11px] text-gray-400 font-semibold uppercase tracking-wide">Amount</th>
-              <th className="text-left px-5 py-3 text-[11px] text-gray-400 font-semibold uppercase tracking-wide">Status</th>
-              <th className="text-left px-5 py-3 text-[11px] text-gray-400 font-semibold uppercase tracking-wide hidden md:table-cell">Destination</th>
-              <th className="text-left px-5 py-3 text-[11px] text-gray-400 font-semibold uppercase tracking-wide hidden lg:table-cell">Arrival</th>
-              <th className="text-left px-5 py-3 text-[11px] text-gray-400 font-semibold uppercase tracking-wide hidden lg:table-cell">Payout ID</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-50">
-            {payouts.map((p) => {
-              const cfg = payoutStatusConfig(p.status)
-              const Icon = cfg.icon
-
-              // Arrival display — exact wording per spec
-              const arrivalNode = p.arrival_date
-                ? p.status === "paid"
-                  ? <span className="text-green-600 font-medium">Arrived {fmtUnix(p.arrival_date)}</span>
-                  : <span className="text-gray-600">Estimated arrival: {fmtUnix(p.arrival_date)}</span>
-                : <span className="text-gray-400 text-[11px]">Most payouts arrive in 1–3 business days depending on your bank.</span>
-
-              return (
-                <tr key={p.id} className="hover:bg-gray-50/60 transition-colors">
-                  <td className="px-5 py-4 text-gray-700 whitespace-nowrap">{fmtUnix(p.created)}</td>
-                  <td className="px-5 py-4 font-semibold text-gray-900 whitespace-nowrap">
-                    <div>{fmt(p.amount, p.currency)}</div>
-                    {/* Show arrival on mobile (hidden on lg where there's a column) */}
-                    <div className="lg:hidden mt-0.5 text-[11px] font-normal text-gray-400">
-                      {p.arrival_date
-                        ? (p.status === "paid" ? `Arrived ${fmtUnix(p.arrival_date)}` : `Est. ${fmtUnix(p.arrival_date)}`)
-                        : "1–3 business days"}
-                    </div>
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className={cn("inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold", cfg.color)}>
-                      <Icon className="h-3 w-3" />
-                      {cfg.label}
-                    </span>
-                  </td>
-                  <td className="px-5 py-4 text-gray-600 hidden md:table-cell text-[13px]">
-                    {p.destination ? (
-                      <span>{p.destination}</span>
-                    ) : (
-                      <span className="text-gray-300">—</span>
-                    )}
-                  </td>
-                  <td className="px-5 py-4 hidden lg:table-cell text-[13px]">
-                    {arrivalNode}
-                  </td>
-                  <td className="px-5 py-4 hidden lg:table-cell">
-                    <span className="font-mono text-[11px] text-gray-400 select-all">{p.id}</span>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
-      <div className="px-5 py-3 border-t border-gray-50 bg-gray-50/40">
-        <p className="text-[12px] text-gray-400">
-          Most payouts arrive in 1–3 business days depending on your bank and region.
-        </p>
-      </div>
-    </div>
-  )
-}
-
-// ─── Withdraw Tab ──────────────────────────────────────────────────────────────
-
-function WithdrawTab({
-  availableBalance, currency, onSuccess,
-}: {
-  availableBalance: number; currency: string; onSuccess: () => void
+  availableBalance: number; currency: string; payoutsEnabled: boolean
+  onSuccess: () => void
 }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -424,18 +298,13 @@ function WithdrawTab({
   const { toast } = useToast()
 
   const handleWithdraw = async () => {
-    setLoading(true)
-    setError(null)
+    setLoading(true); setError(null)
     try {
       const r = await fetch("/api/stripe/withdraw", { method: "POST" })
       const json = await r.json()
       if (!r.ok || json.error) throw new Error(json.error || "Withdrawal failed")
-      // Show success screen — do NOT call onSuccess yet (that switches tabs)
       setSuccessPayout({ amount: json.payout.amount, currency: json.payout.currency })
-      toast({
-        title: "Withdrawal created!",
-        description: `${fmt(json.payout.amount, json.payout.currency)} is on its way to your bank.`,
-      })
+      toast({ title: "Withdrawal created!", description: `${fmt(json.payout.amount, json.payout.currency)} is on its way to your bank.` })
     } catch (e: any) {
       setError(e.message)
     } finally {
@@ -445,78 +314,70 @@ function WithdrawTab({
 
   if (successPayout) {
     return (
-      <div className="bg-white rounded-2xl border border-green-200 shadow-sm p-8 text-center">
-        <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <CheckCircle2 className="h-7 w-7 text-green-600" />
+      <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-6 flex flex-col items-center justify-center text-center h-full min-h-[260px]">
+        <div className="w-12 h-12 bg-violet-100 rounded-full flex items-center justify-center mx-auto mb-3">
+          <CheckCircle2 className="h-6 w-6 text-violet-600" />
         </div>
-        <h3 className="text-[18px] font-bold text-gray-900 mb-1">Withdrawal initiated!</h3>
-        <p className="text-[14px] text-gray-500 mb-1">
-          <strong>{fmt(successPayout.amount, successPayout.currency)}</strong> is on its way to your bank account.
+        <h3 className="text-[16px] font-semibold text-[#1a1a2e] mb-1">Withdrawal initiated!</h3>
+        <p className="text-[13px] text-[#6b7280] mb-1">
+          <strong>{fmt(successPayout.amount, successPayout.currency)}</strong> is on its way to your bank.
         </p>
-        <p className="text-[13px] text-gray-400 mb-6">
-          Most payouts arrive in 1–3 business days depending on your bank.
-        </p>
-        {/* onSuccess refreshes balances + switches to History tab */}
-        <Button className="bg-violet-600 hover:bg-violet-700 text-white" onClick={onSuccess}>
-          View payout history →
-        </Button>
+        <p className="text-[12px] text-[#9ca3af] mb-4">Most payouts arrive in 1–3 business days.</p>
+        <button
+          onClick={onSuccess}
+          className="px-4 py-2 text-[13px] font-medium text-white bg-[#8b5cf6] rounded-lg hover:bg-[#7c3aed] transition-colors"
+        >
+          View history →
+        </button>
       </div>
     )
   }
 
   return (
-    <div className="space-y-5">
-      {/* Balance Card */}
-      <div className="bg-gradient-to-br from-violet-600 to-violet-700 rounded-2xl p-6 text-white">
-        <p className="text-[13px] text-violet-200 uppercase tracking-wide font-medium mb-1">Available to cash out</p>
-        <p className="text-[36px] font-bold leading-none">{fmt(availableBalance, currency)}</p>
-        <p className="text-[13px] text-violet-300 mt-2">
-          {availableBalance > 0 ? "Ready to transfer to your bank account." : "No funds available right now."}
+    <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5 flex flex-col gap-4 min-w-[240px]">
+      {/* Balance */}
+      <div className="bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed] rounded-xl p-4 text-white">
+        <p className="text-[11px] text-white/70 uppercase tracking-wide font-medium mb-1">Available to cash out</p>
+        <p className="text-[28px] font-bold leading-none tracking-tight">{fmt(availableBalance, currency)}</p>
+        <p className="text-[11px] text-white/60 mt-1.5">
+          {availableBalance > 0 ? "Ready to transfer to your bank." : "No funds available right now."}
         </p>
       </div>
 
-      {/* Withdraw card */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-        <h3 className="text-[16px] font-semibold text-gray-900 mb-1">Withdraw funds</h3>
-        <p className="text-[13px] text-gray-500 mb-5">
-          This will withdraw your full available balance to your connected bank account.
-          Stripe typically transfers funds within 1–3 business days.
-        </p>
-
-        {error && (
-          <Alert className="border-red-200 bg-red-50 mb-4">
-            <AlertCircle className="h-4 w-4 text-red-500" />
-            <AlertDescription className="text-red-700">{error}</AlertDescription>
-          </Alert>
-        )}
-
-        <div className="flex items-center gap-3">
-          <Button
+      {!payoutsEnabled ? (
+        <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl">
+          <AlertCircle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+          <p className="text-[12px] text-amber-800">Payouts not enabled. Complete Stripe onboarding first.</p>
+        </div>
+      ) : (
+        <>
+          {error && (
+            <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-xl">
+              <AlertCircle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
+              <p className="text-[12px] text-red-700">{error}</p>
+            </div>
+          )}
+          <button
             onClick={handleWithdraw}
             disabled={loading || availableBalance <= 0}
-            className="bg-violet-600 hover:bg-violet-700 text-white px-6 h-11 rounded-xl font-semibold"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-[13px] font-medium text-white bg-[#8b5cf6] rounded-xl hover:bg-[#7c3aed] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? (
-              <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Processing…</>
+              <><Loader2 className="h-4 w-4 animate-spin" /> Processing…</>
             ) : availableBalance <= 0 ? (
               "No funds available"
             ) : (
-              <><Send className="h-4 w-4 mr-2" />Withdraw {fmt(availableBalance, currency)}</>
+              <><Send className="h-4 w-4" /> Withdraw {fmt(availableBalance, currency)}</>
             )}
-          </Button>
-          {availableBalance <= 0 && (
-            <p className="text-[13px] text-gray-400">Funds will appear once Stripe clears them.</p>
-          )}
-        </div>
-
-        <div className="mt-5 flex items-start gap-2.5 p-3.5 bg-blue-50 rounded-xl">
-          <Zap className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
-          <p className="text-[12px] text-blue-700">
-            Withdrawals are processed by Stripe and sent to your connected bank account.
-            If payouts aren't enabled, complete your Stripe onboarding first.
-          </p>
-        </div>
-      </div>
+          </button>
+          <div className="flex items-start gap-2 p-3 bg-[#f9fafb] rounded-xl">
+            <Zap className="h-3.5 w-3.5 text-[#8b5cf6] mt-0.5 shrink-0" />
+            <p className="text-[11px] text-[#6b7280] leading-relaxed">
+              Funds transfer to your connected bank within 1–3 business days.
+            </p>
+          </div>
+        </>
+      )}
     </div>
   )
 }
@@ -524,15 +385,13 @@ function WithdrawTab({
 // ─── Order Timeline ────────────────────────────────────────────────────────────
 
 function OrderTimeline({ orderId, amountCents }: { orderId: string; amountCents: number }) {
-  const isFreeOrder = !amountCents || amountCents === 0
+  const isFree = !amountCents || amountCents === 0
   const [timeline, setTimeline] = useState<TimelineItem[]>([])
-  const [loading, setLoading] = useState(!isFreeOrder)
+  const [loading, setLoading] = useState(!isFree)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    // Never fetch for free orders
-    if (isFreeOrder) return
-
+    if (isFree) return
     let cancelled = false
     async function load() {
       setLoading(true)
@@ -550,70 +409,43 @@ function OrderTimeline({ orderId, amountCents }: { orderId: string; amountCents:
     }
     load()
     return () => { cancelled = true }
-  }, [orderId, isFreeOrder])
+  }, [orderId, isFree])
 
-  if (isFreeOrder) {
-    return (
-      <div className="p-3 bg-gray-50 rounded-xl text-[13px] text-gray-400 text-center">
-        No payout timeline for free orders.
-      </div>
-    )
-  }
-
-  if (loading) {
-    return (
-      <div className="space-y-3">
-        {[1, 2, 3].map((i) => <Skeleton key={i} className="h-12 w-full" />)}
-      </div>
-    )
-  }
-
-  if (error) {
-    return <p className="text-[12px] text-red-500">{error}</p>
-  }
+  if (isFree) return <p className="text-[12px] text-[#9ca3af] italic">No payout timeline for free orders.</p>
+  if (loading) return <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-10 w-full rounded-lg bg-gray-100 animate-pulse" />)}</div>
+  if (error) return <p className="text-[12px] text-rose-500">{error}</p>
+  if (!timeline.length) return <p className="text-[12px] text-[#9ca3af]">No timeline data available.</p>
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-0.5">
       {timeline.map((item, i) => {
         const isLast = i === timeline.length - 1
         return (
           <div key={item.id} className="flex gap-3">
-            {/* Dot + Line */}
             <div className="flex flex-col items-center">
               <div className={cn(
-                "w-7 h-7 rounded-full flex items-center justify-center shrink-0",
-                item.status === "completed" ? "bg-violet-600" :
-                item.status === "pending"   ? "bg-yellow-400" :
-                                              "bg-gray-200"
+                "w-6 h-6 rounded-full flex items-center justify-center shrink-0",
+                item.status === "completed" ? "bg-[#8b5cf6]" : item.status === "pending" ? "bg-amber-400" : "bg-[#e5e7eb]"
               )}>
                 {item.status === "completed" ? (
-                  <CheckCircle2 className="h-3.5 w-3.5 text-white" />
+                  <CheckCircle2 className="h-3 w-3 text-white" />
                 ) : item.status === "pending" ? (
-                  <Clock className="h-3.5 w-3.5 text-white" />
+                  <Clock className="h-3 w-3 text-white" />
                 ) : (
-                  <div className="w-2 h-2 rounded-full bg-gray-400" />
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#9ca3af]" />
                 )}
               </div>
               {!isLast && (
-                <div className={cn(
-                  "w-px flex-1 mt-1 min-h-[20px]",
-                  item.status === "completed" ? "bg-violet-200" : "bg-gray-200"
-                )} />
+                <div className={cn("w-px flex-1 mt-0.5 min-h-[16px]", item.status === "completed" ? "bg-[#ddd6fe]" : "bg-[#e5e7eb]")} />
               )}
             </div>
-            {/* Content */}
-            <div className={cn("pb-4 min-w-0", isLast ? "" : "")}>
-              <p className={cn(
-                "text-[13px] font-semibold leading-none",
-                item.status === "upcoming" ? "text-gray-400" : "text-gray-900"
-              )}>
+            <div className="pb-3 min-w-0">
+              <p className={cn("text-[12px] font-semibold", item.status === "upcoming" ? "text-[#9ca3af]" : "text-[#1a1a2e]")}>
                 {item.label}
               </p>
-              <p className="text-[12px] text-gray-400 mt-0.5 leading-snug">{item.description}</p>
+              <p className="text-[11px] text-[#6b7280] mt-0.5 leading-snug">{item.description}</p>
               {item.timestamp && (
-                <p className="text-[11px] text-gray-300 mt-0.5 font-mono">
-                  {fmtShort(item.timestamp)}
-                </p>
+                <p className="text-[10px] text-[#9ca3af] mt-0.5 font-mono">{fmtDate(item.timestamp)}</p>
               )}
             </div>
           </div>
@@ -623,34 +455,79 @@ function OrderTimeline({ orderId, amountCents }: { orderId: string; amountCents:
   )
 }
 
-// ─── Order Details Sheet ───────────────────────────────────────────────────────
+// ─── Order Details Modal (Desktop centered + Mobile bottom sheet) ──────────────
 
-function OrderDetailsSheet({
-  order, onClose, currency,
+function OrderDetailsModal({
+  order, currency, onClose,
 }: {
-  order: OrderPayment | null; onClose: () => void; currency: string
+  order: OrderPayment | null; currency: string; onClose: () => void
 }) {
+  const [isVisible, setIsVisible] = useState(false)
+  const [isAnimating, setIsAnimating] = useState(false)
+  const [dragY, setDragY] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
   const [showTimeline, setShowTimeline] = useState(false)
-  const [copied, setCopied] = useState(false)
+  const [copiedId, setCopiedId] = useState(false)
   const [refundLoading, setRefundLoading] = useState(false)
   const [refundDone, setRefundDone] = useState(false)
+  const startY = useRef(0)
+  const sheetRef = useRef<HTMLDivElement>(null)
   const { toast } = useToast()
 
-  useEffect(() => { setShowTimeline(false); setRefundDone(false) }, [order])
+  const isOpen = !!order
 
-  if (!order) return null
+  useEffect(() => {
+    if (isOpen && !isVisible) {
+      setIsVisible(true)
+      document.body.style.overflow = "hidden"
+      requestAnimationFrame(() => requestAnimationFrame(() => setIsAnimating(true)))
+    } else if (!isOpen && isVisible) {
+      setIsAnimating(false)
+      document.body.style.overflow = ""
+      const t = setTimeout(() => { setIsVisible(false); setDragY(0) }, 400)
+      return () => clearTimeout(t)
+    }
+    return () => { document.body.style.overflow = "" }
+  }, [isOpen, isVisible])
 
-  const net = order.amount_cents - order.fee_cents
-  const buyerName = [order.buyer_first_name, order.buyer_last_name].filter(Boolean).join(" ")
-  const buyerEmail = order.buyer_email || order.customer_email || "—"
+  useEffect(() => {
+    setShowTimeline(false)
+    setRefundDone(false)
+    setCopiedId(false)
+  }, [order?.id])
 
-  const copyId = () => {
+  const handleClose = () => {
+    setIsAnimating(false); setDragY(0)
+    setTimeout(() => onClose(), 400)
+  }
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0]
+    const el = sheetRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    if (touch.clientY - rect.top <= 60) { startY.current = touch.clientY; setIsDragging(true) }
+  }
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging) return
+    const diff = e.touches[0].clientY - startY.current
+    if (diff > 0) setDragY(diff * 0.9)
+  }
+  const handleTouchEnd = () => {
+    if (!isDragging) return
+    setIsDragging(false)
+    if (dragY > 90) handleClose(); else setDragY(0)
+  }
+
+  const handleCopyId = () => {
+    if (!order) return
     navigator.clipboard.writeText(order.id)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    setCopiedId(true)
+    setTimeout(() => setCopiedId(false), 2000)
   }
 
   const handleRefund = async () => {
+    if (!order) return
     setRefundLoading(true)
     try {
       const r = await fetch("/api/stripe/refund", {
@@ -669,132 +546,395 @@ function OrderDetailsSheet({
     }
   }
 
-  return (
-    <div className="fixed inset-0 z-50 flex">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      {/* Panel */}
-      <div className="relative ml-auto w-full max-w-md bg-white h-full overflow-y-auto shadow-2xl">
-        {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-100 px-5 py-4 flex items-center justify-between">
-          <div>
-            <p className="text-[16px] font-bold text-gray-900">{order.product?.title || "Order"}</p>
-            <p className="text-[12px] text-gray-400 mt-0.5 font-mono">{order.id.slice(0, 8).toUpperCase()}</p>
-          </div>
-          <button onClick={onClose} className="p-2 rounded-xl hover:bg-gray-100 transition-colors">
-            <X className="h-4 w-4 text-gray-500" />
-          </button>
-        </div>
+  if (!isVisible || !order) return null
 
-        <div className="p-5 space-y-5">
-          {/* Amounts */}
-          <div className="bg-gray-50 rounded-2xl p-4 space-y-2">
-            <Row label="Gross sale" value={fmt(order.amount_cents, currency)} />
-            <Row label="Platform fee" value={`−${fmt(order.fee_cents, currency)}`} valueClass="text-red-500" />
-            <div className="border-t border-gray-200 pt-2">
-              <Row label="Net earnings" value={fmt(net, currency)} valueClass="font-bold text-violet-700" />
-            </div>
-          </div>
+  const net = order.amount_cents - (order.fee_cents || 0)
+  const buyerName = order.buyer?.display_name ||
+    (order.buyer_first_name && order.buyer_last_name ? `${order.buyer_first_name} ${order.buyer_last_name}` : null)
+  const buyerEmail = order.buyer?.email || order.buyer_email || order.customer_email || "N/A"
+  const coverImage = order.product?.thumbnail_url
+  const productTitle = order.product?.title || "Unknown Product"
+  const productType = order.product?.type || "Digital Product"
 
-          {/* Buyer */}
-          <Section title="Buyer">
-            <Row label="Name"  value={buyerName || "—"} />
-            <Row label="Email" value={buyerEmail} />
-            {order.card_brand && (
-              <Row label="Card" value={`${order.card_brand.toUpperCase()} ••••${order.card_last4}`} />
-            )}
-          </Section>
+  const ContentSections = ({ compact = false }: { compact?: boolean }) => (
+    <>
+      {/* Order ID */}
+      <div className="flex items-center gap-2">
+        <span className={cn("text-[#6b7280]", compact ? "text-[12px]" : "text-[12px]")}>Order ID:</span>
+        <code className={cn("font-mono bg-[#f3f4f6] px-2 py-0.5 rounded", compact ? "text-[11px]" : "text-[12px]")}>
+          #{order.id.slice(0, 8)}
+        </code>
+        <button onClick={handleCopyId} className="p-1 text-[#9ca3af] hover:text-[#6b7280] transition-colors">
+          {copiedId ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+        </button>
+      </div>
 
-          {/* Status */}
-          <Section title="Status">
-            <Row label="Order status" value={
-              <span className={cn(
-                "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold",
-                order.status === "completed" ? "bg-violet-100 text-violet-700" :
-                order.status === "refunded"  ? "bg-red-100 text-red-700" :
-                                               "bg-gray-100 text-gray-600"
-              )}>
-                {order.status === "completed" ? <CheckCircle2 className="h-3 w-3" /> :
-                 order.status === "refunded"  ? <RotateCcw className="h-3 w-3" /> :
-                                               <Clock className="h-3 w-3" />}
-                {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-              </span>
-            } />
-            <Row label="Date" value={fmtFull(order.created_at)} />
-          </Section>
-
-          {/* Payout Timeline */}
-          <Section title="Payout timeline">
-            {order.amount_cents === 0 ? (
-              <p className="text-[13px] text-gray-400 italic">No payout timeline for free orders.</p>
-            ) : !showTimeline ? (
-              <button
-                onClick={() => setShowTimeline(true)}
-                className="text-[13px] text-violet-600 hover:text-violet-700 font-medium flex items-center gap-1"
-              >
-                <Eye className="h-3.5 w-3.5" /> View timeline
-              </button>
-            ) : (
-              <OrderTimeline orderId={order.id} amountCents={order.amount_cents} />
-            )}
-          </Section>
-
-          {/* Actions */}
-          {order.status === "completed" && !refundDone && (
-            <div className="flex flex-col gap-2 pt-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full border-red-200 text-red-600 hover:bg-red-50"
-                onClick={handleRefund}
-                disabled={refundLoading}
-              >
-                {refundLoading ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Processing…</> : <><RotateCcw className="h-3.5 w-3.5 mr-1.5" />Issue refund</>}
-              </Button>
-            </div>
-          )}
-          {refundDone && (
-            <div className="flex items-center gap-2 p-3 bg-green-50 rounded-xl">
-              <CheckCircle2 className="h-4 w-4 text-green-500" />
-              <p className="text-[13px] text-green-700 font-medium">Refund issued successfully.</p>
-            </div>
-          )}
-
-          {/* Copy ID */}
-          <button
-            onClick={copyId}
-            className="w-full flex items-center justify-between p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
-          >
-            <span className="text-[12px] text-gray-500 font-mono">{order.id}</span>
-            {copied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5 text-gray-400" />}
-          </button>
+      {/* Customer */}
+      <div className={cn("bg-[#f9fafb] rounded-xl space-y-2", compact ? "p-3" : "p-4")}>
+        <h4 className={cn("font-semibold text-[#1a1a2e] flex items-center gap-1.5", compact ? "text-[12px]" : "text-[13px]")}>
+          <Users className={cn("text-[#8b5cf6]", compact ? "h-3.5 w-3.5" : "h-4 w-4")} /> Customer
+        </h4>
+        <div className={cn("grid grid-cols-2 gap-2", compact ? "text-[12px]" : "text-[13px]")}>
+          <div><span className="text-[#6b7280]">Name</span><p className="font-medium text-[#1a1a2e]">{buyerName || "Unknown"}</p></div>
+          <div><span className="text-[#6b7280]">Email</span><p className="font-medium text-[#1a1a2e] break-all">{buyerEmail}</p></div>
+          {order.buyer_first_name && <div><span className="text-[#6b7280]">First Name</span><p className="font-medium text-[#1a1a2e]">{order.buyer_first_name}</p></div>}
+          {order.buyer_last_name && <div><span className="text-[#6b7280]">Last Name</span><p className="font-medium text-[#1a1a2e]">{order.buyer_last_name}</p></div>}
         </div>
       </div>
-    </div>
+
+      {/* Product */}
+      <div className={cn("bg-[#f9fafb] rounded-xl", compact ? "p-3" : "p-4")}>
+        <h4 className={cn("font-semibold text-[#1a1a2e] flex items-center gap-1.5 mb-2", compact ? "text-[12px]" : "text-[13px]")}>
+          <Package className={cn("text-[#8b5cf6]", compact ? "h-3.5 w-3.5" : "h-4 w-4")} /> Product
+        </h4>
+        <div className="flex items-center gap-3">
+          {coverImage ? (
+            <img src={coverImage} alt="" className={cn("rounded-lg object-cover", compact ? "w-10 h-10" : "w-12 h-12")} />
+          ) : (
+            <div className={cn("rounded-lg bg-[#e5e7eb] flex items-center justify-center", compact ? "w-10 h-10" : "w-12 h-12")}>
+              <Package className="h-4 w-4 text-[#9ca3af]" />
+            </div>
+          )}
+          <div>
+            <p className={cn("font-medium text-[#1a1a2e]", compact ? "text-[13px]" : "text-[14px]")}>{productTitle}</p>
+            <p className={cn("text-[#6b7280] capitalize", compact ? "text-[11px]" : "text-[12px]")}>{productType}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Payment */}
+      <div className={cn("bg-[#f9fafb] rounded-xl space-y-2", compact ? "p-3" : "p-4")}>
+        <h4 className={cn("font-semibold text-[#1a1a2e] flex items-center gap-1.5", compact ? "text-[12px]" : "text-[13px]")}>
+          <CreditCard className={cn("text-[#8b5cf6]", compact ? "h-3.5 w-3.5" : "h-4 w-4")} /> Payment
+        </h4>
+        <div className="flex items-center justify-between">
+          <span className={cn("text-[#6b7280]", compact ? "text-[12px]" : "text-[13px]")}>Amount</span>
+          <span className={cn("font-semibold text-[#1a1a2e]", compact ? "text-[13px]" : "text-[16px]")}>{fmt(order.amount_cents, currency)}</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className={cn("text-[#6b7280]", compact ? "text-[12px]" : "text-[13px]")}>Platform fee</span>
+          <span className={cn("font-medium text-[#1a1a2e]", compact ? "text-[12px]" : "text-[13px]")}>{fmt(order.fee_cents || 0, currency)}</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className={cn("text-[#6b7280]", compact ? "text-[12px]" : "text-[13px]")}>Net earnings</span>
+          <span className={cn("font-semibold text-[#8b5cf6]", compact ? "text-[12px]" : "text-[13px]")}>{fmt(net, currency)}</span>
+        </div>
+        {order.card_brand && (
+          <div className="flex items-center justify-between">
+            <span className={cn("text-[#6b7280]", compact ? "text-[12px]" : "text-[13px]")}>Card</span>
+            <span className={cn("font-medium text-[#1a1a2e]", compact ? "text-[12px]" : "text-[13px]")}>
+              {order.card_brand.toUpperCase()} •••• {order.card_last4}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Location */}
+      {order.buyer_country && (
+        <div className={cn("bg-[#f9fafb] rounded-xl", compact ? "p-3" : "p-4")}>
+          <h4 className={cn("font-semibold text-[#1a1a2e] flex items-center gap-1.5 mb-2", compact ? "text-[12px]" : "text-[13px]")}>
+            <MapPin className={cn("text-[#8b5cf6]", compact ? "h-3.5 w-3.5" : "h-4 w-4")} /> Location
+          </h4>
+          <div className="flex items-center justify-between">
+            <span className={cn("text-[#6b7280]", compact ? "text-[12px]" : "text-[13px]")}>Country</span>
+            <span className={cn("font-medium text-[#1a1a2e]", compact ? "text-[12px]" : "text-[13px]")}>{order.buyer_country}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Device */}
+      {(order.buyer_device_type || order.buyer_os || order.buyer_browser) && (
+        <div className={cn("bg-[#f9fafb] rounded-xl space-y-2", compact ? "p-3" : "p-4")}>
+          <h4 className={cn("font-semibold text-[#1a1a2e] flex items-center gap-1.5", compact ? "text-[12px]" : "text-[13px]")}>
+            {order.buyer_device_type === "Mobile" ? <Smartphone className={cn("text-[#8b5cf6]", compact ? "h-3.5 w-3.5" : "h-4 w-4")} /> : order.buyer_device_type === "Tablet" ? <Tablet className={cn("text-[#8b5cf6]", compact ? "h-3.5 w-3.5" : "h-4 w-4")} /> : <Monitor className={cn("text-[#8b5cf6]", compact ? "h-3.5 w-3.5" : "h-4 w-4")} />}
+            Device
+          </h4>
+          {order.buyer_device_type && <div className="flex items-center justify-between"><span className={cn("text-[#6b7280]", compact ? "text-[12px]" : "text-[13px]")}>Type</span><span className={cn("font-medium text-[#1a1a2e]", compact ? "text-[12px]" : "text-[13px]")}>{order.buyer_device_type}</span></div>}
+          {order.buyer_os && <div className="flex items-center justify-between"><span className={cn("text-[#6b7280]", compact ? "text-[12px]" : "text-[13px]")}>OS</span><span className={cn("font-medium text-[#1a1a2e]", compact ? "text-[12px]" : "text-[13px]")}>{order.buyer_os}</span></div>}
+          {order.buyer_browser && <div className="flex items-center justify-between"><span className={cn("text-[#6b7280]", compact ? "text-[12px]" : "text-[13px]")}>Browser</span><span className={cn("font-medium text-[#1a1a2e]", compact ? "text-[12px]" : "text-[13px]")}>{order.buyer_browser}</span></div>}
+        </div>
+      )}
+
+      {/* Date */}
+      <div className={cn("bg-[#f9fafb] rounded-xl", compact ? "p-3" : "p-4")}>
+        <div className="flex items-center justify-between">
+          <span className={cn("text-[#6b7280] flex items-center gap-1.5", compact ? "text-[12px]" : "text-[13px]")}>
+            <Calendar className={cn("text-[#8b5cf6]", compact ? "h-3.5 w-3.5" : "h-4 w-4")} /> Date
+          </span>
+          <span className={cn("font-medium text-[#1a1a2e]", compact ? "text-[12px]" : "text-[13px]")}>{fmtFullDate(order.created_at)}</span>
+        </div>
+      </div>
+
+      {/* Refund details */}
+      {order.status === "refunded" && (
+        <div className={cn("bg-[#f9fafb] rounded-xl border border-[#e5e7eb]/60 space-y-1.5", compact ? "p-3" : "p-4")}>
+          <p className={cn("font-medium text-[#374151] flex items-center gap-1.5", compact ? "text-[12px]" : "text-[13px]")}>
+            <RotateCcw className="h-3.5 w-3.5 text-[#9ca3af]" /> Refund Details
+          </p>
+          {order.refund_amount_cents && <p className={cn("text-[#6b7280]", compact ? "text-[11px]" : "text-[12px]")}>Amount: {fmt(order.refund_amount_cents, currency)}</p>}
+          {order.refunded_at && <p className={cn("text-[#6b7280]", compact ? "text-[11px]" : "text-[12px]")}>Date: {fmtFullDate(order.refunded_at)}</p>}
+          {order.refund_reason && <p className={cn("text-[#6b7280]", compact ? "text-[11px]" : "text-[12px]")}>Reason: {order.refund_reason}</p>}
+        </div>
+      )}
+
+      {/* Payout Timeline */}
+      <div className={cn("bg-[#f9fafb] rounded-xl", compact ? "p-3" : "p-4")}>
+        <h4 className={cn("font-semibold text-[#1a1a2e] flex items-center gap-1.5 mb-2", compact ? "text-[12px]" : "text-[13px]")}>
+          <TrendingUp className={cn("text-[#8b5cf6]", compact ? "h-3.5 w-3.5" : "h-4 w-4")} /> Payout timeline
+        </h4>
+        {order.amount_cents === 0 ? (
+          <p className="text-[12px] text-[#9ca3af] italic">No payout for free orders.</p>
+        ) : !showTimeline ? (
+          <button
+            onClick={() => setShowTimeline(true)}
+            className="text-[12px] text-[#8b5cf6] hover:text-[#7c3aed] font-medium flex items-center gap-1 transition-colors"
+          >
+            <Eye className="h-3.5 w-3.5" /> View timeline
+          </button>
+        ) : (
+          <OrderTimeline orderId={order.id} amountCents={order.amount_cents} />
+        )}
+      </div>
+
+      {/* Refund action */}
+      {order.status === "completed" && !refundDone && (
+        <button
+          onClick={handleRefund}
+          disabled={refundLoading}
+          className={cn(
+            "w-full flex items-center justify-center gap-2 px-3 py-2.5 text-rose-600 bg-rose-50 rounded-xl hover:bg-rose-100 transition-colors disabled:opacity-50",
+            compact ? "text-[12px]" : "text-[13px]"
+          )}
+        >
+          {refundLoading ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Processing…</> : <><RotateCcw className="h-3.5 w-3.5" />Issue refund</>}
+        </button>
+      )}
+      {refundDone && (
+        <div className="flex items-center gap-2 p-3 bg-green-50 rounded-xl">
+          <CheckCircle2 className="h-4 w-4 text-green-500" />
+          <p className="text-[12px] text-green-700 font-medium">Refund issued successfully.</p>
+        </div>
+      )}
+    </>
+  )
+
+  return (
+    <>
+      {/* ── Desktop Modal ── */}
+      <div className="fixed inset-0 z-50 hidden sm:flex items-center justify-center p-4">
+        <div
+          className={cn("absolute inset-0 bg-black/50 transition-opacity", isAnimating ? "opacity-100" : "opacity-0")}
+          style={{ transitionDuration: "400ms" }}
+          onClick={handleClose}
+        />
+        <div
+          className={cn(
+            "relative bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl transition-all",
+            isAnimating ? "opacity-100 scale-100" : "opacity-0 scale-95"
+          )}
+          style={{ transitionDuration: "400ms", transitionTimingFunction: "cubic-bezier(0.32,0.72,0,1)" }}
+        >
+          {/* Desktop Header */}
+          <div className="sticky top-0 bg-white border-b border-[#e5e7eb] px-6 py-4 flex items-center justify-between">
+            <h2 className="text-[18px] font-semibold text-[#1a1a2e]">Order Details</h2>
+            <div className="flex items-center gap-3">
+              {getStatusBadge(order.status)}
+              <button onClick={handleClose} className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center text-[#6b7280] hover:bg-[#e5e7eb] transition-colors">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+          <div className="p-6 space-y-4">
+            <ContentSections compact={false} />
+          </div>
+        </div>
+      </div>
+
+      {/* ── Mobile Bottom Sheet ── */}
+      <div className="fixed inset-0 z-50 sm:hidden">
+        <div
+          className={cn("absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity", isAnimating ? "opacity-100" : "opacity-0")}
+          style={{ transitionDuration: "400ms" }}
+          onClick={handleClose}
+        />
+        <div
+          ref={sheetRef}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl flex flex-col"
+          style={{
+            transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)",
+            transition: isDragging ? "none" : "transform 360ms cubic-bezier(0.22,0.9,0.24,1)",
+            maxHeight: "90vh",
+          }}
+        >
+          {/* Handle */}
+          <div className="pt-3 pb-2 flex-shrink-0">
+            <button onClick={handleClose} className="w-full flex justify-center py-2 cursor-pointer touch-none">
+              <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
+            </button>
+          </div>
+          {/* Header */}
+          <div className="px-4 pb-3 flex items-center justify-between border-b border-[#e5e7eb] flex-shrink-0">
+            <h3 className="text-[16px] font-semibold text-[#1a1a2e]">Order Details</h3>
+            {getStatusBadge(order.status)}
+          </div>
+          {/* Scrollable content */}
+          <div className="px-4 py-4 overflow-y-auto overscroll-contain flex-1 min-h-0 space-y-3">
+            <ContentSections compact={true} />
+          </div>
+          <div style={{ height: "max(env(safe-area-inset-bottom), 16px)" }} />
+        </div>
+      </div>
+    </>
   )
 }
 
-function Row({ label, value, valueClass }: { label: string; value: React.ReactNode; valueClass?: string }) {
-  return (
-    <div className="flex items-center justify-between gap-3 text-[13px]">
-      <span className="text-gray-400 shrink-0">{label}</span>
-      <span className={cn("text-gray-900 text-right", valueClass)}>{value}</span>
-    </div>
-  )
-}
+// ─── Payouts History List ─────────────────────────────────────────────────────
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function PayoutsHistoryList({ refreshKey }: { refreshKey: number }) {
+  const [payouts, setPayouts] = useState<StripePayout[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    setLoading(true); setError(null)
+    try {
+      const r = await fetch("/api/stripe/payouts")
+      const json = await r.json()
+      if (json.error) throw new Error(json.error)
+      setPayouts(json.payouts || [])
+    } catch (e: any) {
+      setError(e.message)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { load() }, [load, refreshKey])
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+        {[1,2,3].map(i => (
+          <div key={i} className="px-5 py-4 border-b border-[#e5e7eb] flex items-center gap-4">
+            <div className="h-4 w-24 rounded bg-gray-100 animate-pulse" />
+            <div className="h-4 w-20 rounded bg-gray-100 animate-pulse" />
+            <div className="h-5 w-16 rounded-full bg-gray-100 animate-pulse" />
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-6 flex items-center gap-2">
+        <AlertCircle className="h-4 w-4 text-rose-500" />
+        <p className="text-[13px] text-rose-600">{error}</p>
+      </div>
+    )
+  }
+
+  if (!payouts.length) {
+    return (
+      <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-12 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-[#f3f4f6] flex items-center justify-center mx-auto mb-4">
+          <Landmark className="h-7 w-7 text-[#9ca3af]" />
+        </div>
+        <p className="text-[15px] font-semibold text-[#1a1a2e]">No payouts yet</p>
+        <p className="text-[13px] text-[#6b7280] mt-1">Your payout history will appear here after your first withdrawal.</p>
+      </div>
+    )
+  }
+
   return (
-    <div>
-      <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2">{title}</p>
-      <div className="bg-gray-50 rounded-xl p-4 space-y-2">{children}</div>
+    <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+      {/* Mobile card view */}
+      <div className="sm:hidden divide-y divide-[#e5e7eb]">
+        {payouts.map((p) => {
+          const cfg = payoutStatusConfig(p.status)
+          return (
+            <div key={p.id} className="px-4 py-3">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[13px] font-semibold text-[#1a1a2e]">{fmt(p.amount, p.currency)}</span>
+                <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium", cfg.cls)}>
+                  <cfg.Icon className="h-3 w-3" /> {cfg.label}
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-[12px] text-[#6b7280]">{fmtUnix(p.created)}</span>
+                {p.arrival_date && (
+                  <>
+                    <span className="text-[#d1d5db]">·</span>
+                    <span className="text-[12px] text-[#6b7280]">
+                      {p.status === "paid" ? `Arrived ${fmtUnix(p.arrival_date)}` : `Est. ${fmtUnix(p.arrival_date)}`}
+                    </span>
+                  </>
+                )}
+              </div>
+              {p.destination && <p className="text-[11px] text-[#9ca3af] mt-0.5">{p.destination}</p>}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden sm:block overflow-x-auto">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-[#e5e7eb]">
+              <th className="text-left px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Date</th>
+              <th className="text-left px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Amount</th>
+              <th className="text-left px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Status</th>
+              <th className="text-left px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider hidden md:table-cell">Destination</th>
+              <th className="text-left px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider hidden lg:table-cell">Arrival</th>
+              <th className="text-left px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider hidden xl:table-cell">Payout ID</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[#e5e7eb]">
+            {payouts.map((p) => {
+              const cfg = payoutStatusConfig(p.status)
+              const arrivalNode = p.arrival_date
+                ? p.status === "paid"
+                  ? <span className="text-green-600 font-medium">Arrived {fmtUnix(p.arrival_date)}</span>
+                  : <span className="text-[#6b7280]">Est. {fmtUnix(p.arrival_date)}</span>
+                : <span className="text-[#9ca3af] text-[11px]">Most payouts arrive in 1–3 business days depending on your bank.</span>
+              return (
+                <tr key={p.id} className="hover:bg-[#f9fafb] transition-colors">
+                  <td className="px-5 py-4 text-[14px] text-[#6b7280] whitespace-nowrap">{fmtUnix(p.created)}</td>
+                  <td className="px-5 py-4">
+                    <span className="text-[14px] font-semibold text-[#1a1a2e]">{fmt(p.amount, p.currency)}</span>
+                  </td>
+                  <td className="px-5 py-4">
+                    <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium", cfg.cls)}>
+                      <cfg.Icon className="h-3 w-3" /> {cfg.label}
+                    </span>
+                  </td>
+                  <td className="px-5 py-4 hidden md:table-cell text-[13px] text-[#6b7280]">
+                    {p.destination || <span className="text-[#d1d5db]">—</span>}
+                  </td>
+                  <td className="px-5 py-4 hidden lg:table-cell text-[13px]">{arrivalNode}</td>
+                  <td className="px-5 py-4 hidden xl:table-cell">
+                    <span className="font-mono text-[11px] text-[#9ca3af] select-all">{p.id}</span>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div className="px-5 py-3 border-t border-[#e5e7eb] text-[12px] text-[#9ca3af]">
+        Most payouts arrive in 1–3 business days depending on your bank and region.
+      </div>
     </div>
   )
 }
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 
-type Tab = "overview" | "withdraw" | "history"
+type Tab = "overview" | "history"
 
 interface PayoutsClientProps {
   creator: Creator
@@ -815,195 +955,331 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
   const [refreshKey, setRefreshKey] = useState(0)
   const [availableBalance, setAvailableBalance] = useState(initialData.availableBalance)
   const [pendingBalance, setPendingBalance] = useState(initialData.pendingAmount)
+  const [openMenuOrderId, setOpenMenuOrderId] = useState<string | null>(null)
 
   const currency = (creator.default_currency || "usd").toLowerCase()
   const hasStripe = !!creator.stripe_account_id
   const payoutsEnabled = creator.payouts_enabled !== false
 
-  // Refresh balances after a withdraw
   const refreshBalances = useCallback(async () => {
-    setRefreshKey((k) => k + 1)
+    setRefreshKey(k => k + 1)
     try {
       const r = await fetch("/api/stripe/payouts")
       const json = await r.json()
       if (json.balance) {
         const avail = json.balance.available?.find((b: any) => b.currency === currency)
-        const pend = json.balance.pending?.find((b: any) => b.currency === currency)
+        const pend  = json.balance.pending?.find((b: any) => b.currency === currency)
         if (avail) setAvailableBalance(avail.amount)
-        if (pend) setPendingBalance(pend.amount)
+        if (pend)  setPendingBalance(pend.amount)
       }
     } catch { /* non-fatal */ }
   }, [currency])
 
-  const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
-    { id: "overview",  label: "Overview",  icon: TrendingUp },
-    { id: "withdraw",  label: "Withdraw",  icon: ArrowDownLeft },
-    { id: "history",   label: "History",   icon: Landmark },
-  ]
+  // Close order action menu on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement).closest(".order-menu")) setOpenMenuOrderId(null)
+    }
+    document.addEventListener("mousedown", handler)
+    return () => document.removeEventListener("mousedown", handler)
+  }, [])
 
   if (!hasStripe) {
     return (
-      <div className="bg-white rounded-2xl border border-dashed border-gray-200 p-10 text-center">
-        <Building2 className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-        <h3 className="text-[17px] font-bold text-gray-700 mb-1">Connect Stripe to unlock payouts</h3>
-        <p className="text-[14px] text-gray-400 mb-5">
-          You need a connected Stripe account to view balances, revenue charts, and withdraw funds.
+      <div className="bg-white rounded-2xl border border-dashed border-[#e5e7eb] p-10 text-center">
+        <Building2 className="h-10 w-10 text-[#d1d5db] mx-auto mb-3" />
+        <h3 className="text-[17px] font-semibold text-[#1a1a2e] mb-1">Connect Stripe to unlock payouts</h3>
+        <p className="text-[14px] text-[#6b7280] mb-5 max-w-sm mx-auto">
+          Connect a Stripe account to view balances, revenue charts, and withdraw funds.
         </p>
-        <Button asChild className="bg-violet-600 hover:bg-violet-700 text-white">
-          <a href="/app/settings?tab=payments">Connect Stripe</a>
-        </Button>
+        <a
+          href="/app/settings?tab=payments"
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#8b5cf6] text-white text-[14px] font-medium rounded-full hover:bg-[#7c3aed] transition-colors"
+        >
+          Connect Stripe
+        </a>
       </div>
     )
   }
 
   return (
-    <div className="space-y-5">
-      {/* Tab bar */}
-      <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
-        {TABS.map(({ id, label, icon: Icon }) => (
+    <div className="space-y-6">
+      {/* ── Tab pills ── */}
+      <div className="flex items-center gap-1 overflow-x-auto pb-1 -mb-1 scrollbar-hide">
+        {(["overview", "history"] as Tab[]).map((t) => (
           <button
-            key={id}
-            onClick={() => setTab(id)}
+            key={t}
+            onClick={() => setTab(t)}
             className={cn(
-              "flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-semibold transition-all",
-              tab === id
-                ? "bg-white text-violet-700 shadow-sm"
-                : "text-gray-500 hover:text-gray-700"
+              "px-3 sm:px-4 py-2 sm:py-2.5 rounded-full text-[13px] sm:text-[14px] font-medium transition-colors whitespace-nowrap flex-shrink-0 border",
+              tab === t
+                ? "bg-[#f3f4f6] text-[#1a1a2e] border-[#e5e7eb]"
+                : "text-[#6b7280] hover:text-[#374151] hover:bg-[#f3f4f6] border-transparent"
             )}
           >
-            <Icon className="h-3.5 w-3.5" />
-            {label}
+            {t === "overview" ? "Overview" : "Payout History"}
           </button>
         ))}
       </div>
 
       {/* ── OVERVIEW TAB ── */}
       {tab === "overview" && (
-        <div className="space-y-5">
+        <div className="space-y-6">
           {/* KPI Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <KpiCard
-              label="Available to cash out"
-              value={fmt(availableBalance, currency)}
-              sub="Ready to withdraw now"
-              icon={Wallet}
-              accent={availableBalance > 0 ? "bg-violet-600" : undefined}
-            />
-            <KpiCard
-              label="Available soon"
-              value={fmt(pendingBalance, currency)}
-              sub="Processing, not yet available"
-              icon={Clock}
-            />
-            <KpiCard
-              label="Total net earnings"
-              value={fmt(initialData.netEarnings, currency)}
-              sub={`Gross: ${fmt(initialData.totalEarnings, currency)}`}
-              icon={DollarSign}
-            />
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Available */}
+            <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[13px] font-medium text-[#6b7280]">Available</span>
+                <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+                  <Wallet className="h-4 w-4 text-[#9ca3af]" />
+                </div>
+              </div>
+              <div className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
+                {fmtCompact(availableBalance, currency)}
+              </div>
+              <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">Ready to withdraw</p>
+            </div>
+
+            {/* Pending */}
+            <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[13px] font-medium text-[#6b7280]">Available soon</span>
+                <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+                  <Clock className="h-4 w-4 text-[#9ca3af]" />
+                </div>
+              </div>
+              <div className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
+                {fmtCompact(pendingBalance, currency)}
+              </div>
+              <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">Processing</p>
+            </div>
+
+            {/* Net Earnings */}
+            <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[13px] font-medium text-[#6b7280]">Net earnings</span>
+                <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+                  <DollarSign className="h-4 w-4 text-[#9ca3af]" />
+                </div>
+              </div>
+              <div className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
+                {fmtCompact(initialData.netEarnings, currency)}
+              </div>
+              <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">After platform fees</p>
+            </div>
+
+            {/* Orders */}
+            <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[13px] font-medium text-[#6b7280]">Total sales</span>
+                <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+                  <ShoppingCart className="h-4 w-4 text-[#9ca3af]" />
+                </div>
+              </div>
+              <div className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
+                {initialOrders.filter(o => o.status === "completed").length}
+              </div>
+              <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">Completed orders</p>
+            </div>
           </div>
 
-          {/* Revenue Chart */}
-          <RevenueChart currency={currency} />
+          {/* Chart + Withdraw panel side-by-side on desktop */}
+          <div className="flex flex-col lg:flex-row gap-5">
+            <RevenueChart />
+            <div className="lg:w-72 xl:w-80 shrink-0">
+              <WithdrawPanel
+                availableBalance={availableBalance}
+                currency={currency}
+                payoutsEnabled={payoutsEnabled}
+                onSuccess={() => { refreshBalances(); setTab("history") }}
+              />
+            </div>
+          </div>
 
-          {/* Recent sales */}
-          {initialOrders.length > 0 && (
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-              <div className="px-5 py-4 border-b border-gray-50">
-                <h3 className="text-[14px] font-semibold text-gray-900">Recent sales</h3>
+          {/* Recent Sales — matching Sales page order table */}
+          {initialOrders.length > 0 ? (
+            <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+              <div className="px-5 py-3 border-b border-[#e5e7eb]">
+                <h3 className="text-[14px] font-semibold text-[#1a1a2e]">Recent Sales</h3>
               </div>
-              <div className="divide-y divide-gray-50">
-                {initialOrders.slice(0, 20).map((order) => {
-                  const net = order.amount_cents - order.fee_cents
+
+              {/* Mobile card list */}
+              <div className="sm:hidden divide-y divide-[#e5e7eb]">
+                {initialOrders.slice(0, 30).map((order) => {
+                  const productImage = order.product?.thumbnail_url
+                  const customerName = order.buyer?.display_name ||
+                    (order.buyer_first_name && order.buyer_last_name ? `${order.buyer_first_name} ${order.buyer_last_name}` : "Customer")
+                  const mobileDate = new Date(order.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })
                   return (
-                    <button
-                      key={order.id}
-                      onClick={() => setSelectedOrder(order)}
-                      className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50/60 transition-colors text-left"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className={cn(
-                          "w-8 h-8 rounded-xl flex items-center justify-center shrink-0",
-                          order.status === "completed" ? "bg-violet-100" : "bg-red-100"
-                        )}>
-                          {order.status === "completed"
-                            ? <Package className="h-3.5 w-3.5 text-violet-600" />
-                            : <RotateCcw className="h-3.5 w-3.5 text-red-500" />}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-[13px] font-semibold text-gray-900 truncate">
-                            {order.product?.title || "Product"}
-                          </p>
-                          <p className="text-[11px] text-gray-400">
-                            {order.buyer_email || order.customer_email || "—"} · {fmtShort(order.created_at)}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right shrink-0 ml-3">
-                        <p className={cn("text-[13px] font-bold", order.status === "completed" ? "text-gray-900" : "text-red-400 line-through")}>
-                          {fmt(order.amount_cents, currency)}
-                        </p>
-                        {order.status === "completed" && (
-                          <p className="text-[11px] text-violet-600">+{fmt(net, currency)} net</p>
+                    <div key={order.id} className="px-3 py-3 active:bg-[#f9fafb]">
+                      <div className="flex items-center gap-3">
+                        {productImage ? (
+                          <img src={productImage} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+                        ) : (
+                          <div className="w-10 h-10 rounded-lg bg-[#f3f4f6] flex items-center justify-center flex-shrink-0">
+                            <Package className="h-4 w-4 text-[#9ca3af]" />
+                          </div>
                         )}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            <p className="text-[13px] font-medium text-[#1a1a2e] truncate max-w-[100px]">
+                              {customerName.length > 10 ? customerName.slice(0, 10) + "…" : customerName}
+                            </p>
+                            <span className="text-[10px] text-[#9ca3af]">•</span>
+                            <span className="text-[10px] text-[#6b7280]">{mobileDate}</span>
+                          </div>
+                          <p className="text-[11px] text-[#6b7280] truncate max-w-[120px]">
+                            {(order.product?.title || "Product").slice(0, 18)}{(order.product?.title || "").length > 18 ? "…" : ""}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <p className="text-[13px] font-semibold text-[#1a1a2e]">{fmt(order.amount_cents, currency)}</p>
+                          <button
+                            onClick={() => setSelectedOrder(order)}
+                            className="px-2.5 py-1.5 text-[12px] font-medium text-[#6b7280] bg-[#f3f4f6] rounded-lg hover:bg-[#e5e7eb] transition-colors"
+                          >
+                            View
+                          </button>
+                        </div>
                       </div>
-                    </button>
+                    </div>
                   )
                 })}
               </div>
-            </div>
-          )}
 
-          {initialOrders.length === 0 && (
-            <div className="bg-white rounded-2xl border border-dashed border-gray-200 p-10 text-center">
-              <Package className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-              <p className="text-[15px] font-semibold text-gray-500">No sales yet</p>
-              <p className="text-[13px] text-gray-400 mt-1">Your first sale will appear here.</p>
-            </div>
-          )}
-        </div>
-      )}
+              {/* Desktop table */}
+              <div className="hidden sm:block overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-[#e5e7eb]">
+                      <th className="text-left px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Customer</th>
+                      <th className="text-left px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Product</th>
+                      <th className="text-left px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Date</th>
+                      <th className="text-right px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Amount</th>
+                      <th className="text-left px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Status</th>
+                      <th className="text-right px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#e5e7eb]">
+                    {initialOrders.slice(0, 30).map((order) => {
+                      const productImage = order.product?.thumbnail_url
+                      return (
+                        <tr
+                          key={order.id}
+                          className="hover:bg-[#f9fafb] transition-colors cursor-pointer"
+                          onClick={(e) => {
+                            if ((e.target as HTMLElement).closest(".order-actions")) return
+                            setSelectedOrder(order)
+                          }}
+                        >
+                          <td className="px-5 py-4">
+                            <p className="text-[14px] font-medium text-[#1a1a2e]">
+                              {order.buyer?.display_name || (order.buyer_first_name && order.buyer_last_name ? `${order.buyer_first_name} ${order.buyer_last_name}` : "Customer")}
+                            </p>
+                            <p className="text-[12px] text-[#6b7280]">{order.buyer?.email || order.buyer_email || ""}</p>
+                          </td>
+                          <td className="px-5 py-4">
+                            <div className="flex items-center gap-3">
+                              {productImage ? (
+                                <img src={productImage} alt="" className="w-10 h-10 rounded-lg object-cover" />
+                              ) : (
+                                <div className="w-10 h-10 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+                                  <Package className="h-4 w-4 text-[#9ca3af]" />
+                                </div>
+                              )}
+                              <span className="text-[14px] text-[#1a1a2e] truncate max-w-[200px]">{order.product?.title || "Product"}</span>
+                            </div>
+                          </td>
+                          <td className="px-5 py-4">
+                            <span className="text-[14px] text-[#6b7280]">{fmtDate(order.created_at)}</span>
+                          </td>
+                          <td className="px-5 py-4 text-right">
+                            <span className="text-[14px] font-medium text-[#1a1a2e]">{fmt(order.amount_cents, currency)}</span>
+                          </td>
+                          <td className="px-5 py-4">
+                            {getStatusBadge(order.status)}
+                          </td>
+                          <td className="px-5 py-4 text-right">
+                            <div className="flex items-center justify-end gap-2 order-actions">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setSelectedOrder(order) }}
+                                className="px-3 py-1.5 text-[12px] font-medium text-[#1a1a2e] bg-[#f3f4f6] rounded-lg hover:bg-[#e5e7eb] transition-colors"
+                              >
+                                View
+                              </button>
+                              <div className="relative order-menu">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setOpenMenuOrderId(openMenuOrderId === order.id ? null : order.id) }}
+                                  className="p-1.5 text-[#9ca3af] hover:text-[#6b7280] hover:bg-[#f3f4f6] rounded-lg transition-colors"
+                                >
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </button>
+                                {openMenuOrderId === order.id && (
+                                  <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-[#e5e7eb] rounded-xl shadow-lg z-50 py-1 animate-in fade-in-0 zoom-in-95 duration-100">
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); setSelectedOrder(order); setOpenMenuOrderId(null) }}
+                                      className="w-full text-left px-3 py-2 text-[13px] text-[#374151] hover:bg-[#f9fafb] flex items-center gap-2"
+                                    >
+                                      <Eye className="h-4 w-4 text-[#9ca3af]" /> View details
+                                    </button>
+                                    {order.status === "completed" && (
+                                      <>
+                                        <div className="border-t border-[#e5e7eb] my-1" />
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); setSelectedOrder(order); setOpenMenuOrderId(null) }}
+                                          className="w-full text-left px-3 py-2 text-[13px] text-rose-600 hover:bg-rose-50 flex items-center gap-2"
+                                        >
+                                          <RotateCcw className="h-4 w-4" /> Issue refund
+                                        </button>
+                                      </>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
 
-      {/* ── WITHDRAW TAB ── */}
-      {tab === "withdraw" && (
-        <div className="max-w-lg">
-          {!payoutsEnabled ? (
-            <Alert className="border-yellow-200 bg-yellow-50">
-              <AlertCircle className="h-4 w-4 text-yellow-600" />
-              <AlertDescription className="text-yellow-800">
-                Payouts are not yet enabled on your Stripe account.
-                Please complete your Stripe onboarding to enable withdrawals.
-              </AlertDescription>
-            </Alert>
+              {initialOrders.length > 0 && (
+                <div className="px-5 py-3 border-t border-[#e5e7eb] text-[12px] text-[#6b7280]">
+                  Showing {Math.min(initialOrders.length, 30)} of {initialOrders.length} orders
+                </div>
+              )}
+            </div>
           ) : (
-            <WithdrawTab
-              availableBalance={availableBalance}
-              currency={currency}
-              onSuccess={() => { refreshBalances(); setTab("history") }}
-            />
+            <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-12 text-center">
+              <div className="w-16 h-16 rounded-full bg-[#f5f3ff] flex items-center justify-center mx-auto mb-4">
+                <DollarSign className="h-8 w-8 text-[#8b5cf6]" />
+              </div>
+              <p className="text-[15px] font-semibold text-[#1a1a2e]">No sales yet</p>
+              <p className="text-[13px] text-[#6b7280] mt-1">Your first sale will appear here once customers purchase.</p>
+            </div>
           )}
         </div>
       )}
 
       {/* ── HISTORY TAB ── */}
       {tab === "history" && (
-        <div>
-          <PayoutsList
-            stripeAccountId={creator.stripe_account_id!}
-            currency={currency}
-            refreshKey={refreshKey}
-          />
-        </div>
+        <PayoutsHistoryList refreshKey={refreshKey} />
       )}
 
-      {/* Order Details Side Panel */}
-      {selectedOrder && (
-        <OrderDetailsSheet
-          order={selectedOrder}
-          onClose={() => setSelectedOrder(null)}
-          currency={currency}
-        />
-      )}
+      {/* Order Details Modal */}
+      <OrderDetailsModal
+        order={selectedOrder}
+        currency={currency}
+        onClose={() => setSelectedOrder(null)}
+      />
+
+      <style jsx>{`
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+      `}</style>
     </div>
   )
 }

@@ -77,21 +77,37 @@ export default async function PayoutsPage() {
     }
   }
 
-  // Fetch real Stripe balance for the connected seller account
+  // Fetch real Stripe balance for the connected seller account.
+  // Important: connected accounts may hold funds in a different currency than creator.default_currency
+  // (e.g. a RON account while default_currency says "usd"). We pick the currency with the most funds.
   let stripePendingBalance = 0
   let stripeAvailableBalance = 0
-  const salesCurrency = (creator.default_currency || "USD").toLowerCase()
+  let detectedCurrency = (creator.default_currency || "usd").toLowerCase()
 
   if (creator.stripe_account_id) {
     try {
-      const balance = await stripe.balance.retrieve(
-        { stripeAccount: creator.stripe_account_id }
-      )
-      const pendingInCurrency = balance.pending.filter((b) => b.currency === salesCurrency)
-      const availableInCurrency = balance.available.filter((b) => b.currency === salesCurrency)
+      const balance = await stripe.balance.retrieve({}, { stripeAccount: creator.stripe_account_id })
 
-      stripePendingBalance = pendingInCurrency.reduce((sum, b) => sum + b.amount, 0)
-      stripeAvailableBalance = availableInCurrency.reduce((sum, b) => sum + b.amount, 0)
+      // Pick the currency that has actual funds; fall back to default_currency
+      const availableWithFunds = balance.available.filter((b) => b.amount > 0)
+      const pendingWithFunds   = balance.pending.filter((b) => b.amount > 0)
+
+      if (availableWithFunds.length > 0) {
+        detectedCurrency = availableWithFunds[0].currency
+        stripeAvailableBalance = availableWithFunds.reduce((s, b) => s + b.amount, 0)
+      } else {
+        stripeAvailableBalance = balance.available
+          .filter((b) => b.currency === detectedCurrency)
+          .reduce((s, b) => s + b.amount, 0)
+      }
+
+      if (pendingWithFunds.length > 0) {
+        stripePendingBalance = pendingWithFunds.reduce((s, b) => s + b.amount, 0)
+      } else {
+        stripePendingBalance = balance.pending
+          .filter((b) => b.currency === detectedCurrency)
+          .reduce((s, b) => s + b.amount, 0)
+      }
     } catch (err) {
       console.error("[Payouts] Failed to fetch Stripe balance:", err)
     }
@@ -143,7 +159,7 @@ export default async function PayoutsPage() {
         </div>
 
         <PayoutsClient
-          creator={creator}
+          creator={{ ...creator, default_currency: detectedCurrency }}
           initialData={{
             totalEarnings,
             totalFees,

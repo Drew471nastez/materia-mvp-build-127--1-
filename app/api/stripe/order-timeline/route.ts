@@ -44,7 +44,7 @@ export async function GET(request: Request) {
     // Load the order
     const { data: order } = await adminSupabase
       .from("orders")
-      .select("id, amount_cents, status, created_at, stripe_payment_intent_id, product_id")
+      .select("id, amount_cents, status, created_at, stripe_payment_intent_id, product_id, refunded_at, refund_amount_cents, refund_reason")
       .eq("id", orderId)
       .single()
 
@@ -166,7 +166,21 @@ export async function GET(request: Request) {
       status: isFundsAvailable ? "completed" : paymentCompletedAt ? "pending" : "upcoming",
     })
 
-    // Step 5: Payout created/paid — look up in DB payouts table
+    // Step 5: Refund (if applicable)
+    if (order.status === "refunded" && order.refunded_at) {
+      const refundAmountStr = order.refund_amount_cents
+        ? formatCents(order.refund_amount_cents, "usd")
+        : formatCents(order.amount_cents, "usd")
+      timeline.push({
+        id: "refund_issued",
+        label: "Refund issued",
+        description: `${refundAmountStr} refunded to buyer${order.refund_reason ? ` — ${order.refund_reason}` : ""}`,
+        timestamp: order.refunded_at,
+        status: "completed",
+      })
+    }
+
+    // Step 6: Payout created/paid — look up in DB payouts table
     const { data: relatedPayouts } = await adminSupabase
       .from("payouts")
       .select("stripe_payout_id, status, amount_cents, currency, arrival_date, stripe_created")
