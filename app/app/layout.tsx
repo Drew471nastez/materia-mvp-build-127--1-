@@ -118,7 +118,7 @@ export default async function AppLayout({
           onePagePublished={onepage?.published || false}
           setupProgress={{ completed: completedSteps, total: totalSteps }}
         />
-        <main className="h-svh pt-[68px] md:pl-[220px] md:pt-0 bg-white rounded-t-[20px] md:rounded-none overflow-hidden app-main-content">
+        <main className="h-svh pt-[68px] md:pt-0 md:pl-[220px] bg-white rounded-t-[20px] md:rounded-none overflow-hidden app-main-content">
           <div className="h-[calc(100svh-68px)] md:h-svh overflow-y-auto app-content-scroll">{children}</div>
         </main>
         <Toaster />

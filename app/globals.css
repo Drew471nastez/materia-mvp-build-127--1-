@@ -900,3 +900,12 @@
     height: calc(100svh - 68px - var(--announcement-h)) !important;
   }
 }
+
+@media screen and (min-width: 768px) {
+  .app-main-content {
+    padding-top: var(--announcement-h) !important;
+  }
+  .app-content-scroll {
+    height: calc(100svh - var(--announcement-h)) !important;
+  }
+}

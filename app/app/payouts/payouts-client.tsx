@@ -1261,7 +1261,6 @@ function WithdrawPanel({
               <button
                 onClick={handleWithdraw}
                 disabled={loading}
-                title={availableBalance <= 0 ? "No funds available to withdraw yet" : undefined}
                 className={cn(
                   "w-full mt-4 flex items-center justify-center gap-2 px-4 py-3 text-[14px] font-medium text-white bg-[#635bff] rounded-xl transition-colors",
                   availableBalance <= 0
@@ -1820,7 +1819,7 @@ function OrderDetailsModal({
               compact ? "h-3.5 w-3.5" : "h-4 w-4",
             )}
           />{" "}
-          Customer
+          Customer Information
         </h4>
         <div
           className={cn(
@@ -1838,22 +1837,18 @@ function OrderDetailsModal({
             <span className="text-[#6b7280]">Email</span>
             <p className="font-medium text-[#1a1a2e] break-all">{buyerEmail}</p>
           </div>
-          {order.buyer_first_name && (
-            <div>
-              <span className="text-[#6b7280]">First Name</span>
-              <p className="font-medium text-[#1a1a2e]">
-                {order.buyer_first_name}
-              </p>
-            </div>
-          )}
-          {order.buyer_last_name && (
-            <div>
-              <span className="text-[#6b7280]">Last Name</span>
-              <p className="font-medium text-[#1a1a2e]">
-                {order.buyer_last_name}
-              </p>
-            </div>
-          )}
+          <div>
+            <span className="text-[#6b7280]">First Name</span>
+            <p className="font-medium text-[#1a1a2e]">
+              {order.buyer_first_name || "N/A"}
+            </p>
+          </div>
+          <div>
+            <span className="text-[#6b7280]">Last Name</span>
+            <p className="font-medium text-[#1a1a2e]">
+              {order.buyer_last_name || "N/A"}
+            </p>
+          </div>
         </div>
       </div>
 
@@ -1960,7 +1955,7 @@ function OrderDetailsModal({
               compact ? "text-[12px]" : "text-[13px]",
             )}
           >
-            Platform fee
+            Fee
           </span>
           <span
             className={cn(
@@ -1978,37 +1973,48 @@ function OrderDetailsModal({
               compact ? "text-[12px]" : "text-[13px]",
             )}
           >
-            Net earnings
+            Net Revenue
           </span>
           <span
             className={cn(
-              "font-semibold text-[#8b5cf6]",
+              "font-medium text-[#1a1a2e]",
               compact ? "text-[12px]" : "text-[13px]",
             )}
           >
             {fmt(net, currency)}
           </span>
         </div>
-        {order.card_brand && (
-          <div className="flex items-center justify-between">
-            <span
-              className={cn(
-                "text-[#6b7280]",
-                compact ? "text-[12px]" : "text-[13px]",
-              )}
-            >
-              Card
-            </span>
-            <span
-              className={cn(
-                "font-medium text-[#1a1a2e]",
-                compact ? "text-[12px]" : "text-[13px]",
-              )}
-            >
-              {order.card_brand.toUpperCase()} •••• {order.card_last4}
-            </span>
-          </div>
-        )}
+        <div className="flex items-center justify-between">
+          <span
+            className={cn(
+              "text-[#6b7280]",
+              compact ? "text-[12px]" : "text-[13px]",
+            )}
+          >
+            Payment Method
+          </span>
+          <span
+            className={cn(
+              "font-medium text-[#1a1a2e] capitalize",
+              compact ? "text-[12px]" : "text-[13px]",
+            )}
+          >
+            {order.payment_method === "card" && order.card_brand ? (
+              <span className="flex items-center gap-1">
+                <span className="capitalize">{order.card_brand}</span>
+                {order.card_last4 && (
+                  <span className="text-[#6b7280]">•••• {order.card_last4}</span>
+                )}
+              </span>
+            ) : order.payment_method === "paypal" ? (
+              "PayPal"
+            ) : order.payment_method === "free" ? (
+              "Free"
+            ) : (
+              order.payment_method || "Card"
+            )}
+          </span>
+        </div>
       </div>
 
       {/* Location */}
@@ -2228,25 +2234,21 @@ function OrderDetailsModal({
       )}
 
       {/* Payout Timeline */}
-      <div className={cn("bg-[#f9fafb] rounded-xl", compact ? "p-3" : "p-4")}>
+      <div className={cn("bg-[#f9fafb] rounded-xl space-y-2", compact ? "p-3" : "p-4")}>
         <h4
           className={cn(
-            "font-semibold text-[#1a1a2e] flex items-center gap-1.5 mb-2",
+            "font-semibold text-[#1a1a2e]",
             compact ? "text-[12px]" : "text-[13px]",
           )}
         >
-          <TrendingUp
-            className={cn(
-              "text-[#8b5cf6]",
-              compact ? "h-3.5 w-3.5" : "h-4 w-4",
-            )}
-          />{" "}
-          Payout timeline
+          Payout Timeline
         </h4>
         {order.amount_cents === 0 ? (
           <p className="text-[12px] text-[#9ca3af] italic">
             No payout for free orders.
           </p>
+        ) : compact ? (
+          <OrderTimeline orderId={order.id} amountCents={order.amount_cents} />
         ) : !showTimeline ? (
           <button
             onClick={() => setShowTimeline(true)}

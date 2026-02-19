@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import {
   Settings, Shield, ToggleLeft, Wallet, Store, CreditCard,
   Check, Loader2, Download, FileText, Clock, CheckCircle, XCircle, AlertCircle,
-  Rocket, Lock, Pencil, ExternalLink, X, ArrowUpRight, ChevronDown, Globe,
+  Lock, Pencil, ExternalLink, X, ArrowUpRight, ChevronDown, Globe,
 } from "lucide-react"
 import { useLanguage } from "@/lib/i18n"
 
@@ -369,7 +369,6 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                       onClick={() => openUpgradeModal(nextUpgradePlan.id, nextUpgradePlan.name, nextUpgradePlan.price_cents)}
                       className="h-10 px-5 text-[13px] font-semibold text-white bg-[#7c3aed] rounded-xl hover:bg-[#6d28d9] active:bg-[#5b21b6] transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2 cursor-pointer"
                     >
-                      <ArrowUpRight className="h-4 w-4" />
                       Upgrade to {nextUpgradePlan.name}
                     </button>
                   )}

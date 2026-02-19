@@ -717,7 +717,7 @@ export default function ReceiptContent({
                     size="lg"
                     className={`w-full h-12 rounded-xl font-medium ${
                       index === 0
-                        ? "bg-green-600 hover:bg-green-700 text-white shadow-sm"
+                        ? "bg-[#7c3aed] hover:bg-[#6d28d9] text-white shadow-sm"
                         : "bg-gray-100 hover:bg-gray-200 text-gray-700"
                     }`}
                   >
@@ -762,7 +762,7 @@ export default function ReceiptContent({
               </div>
 
               <div className="flex flex-col sm:flex-row gap-2.5">
-                <Button className="flex-1 h-11 rounded-xl bg-blue-600 hover:bg-blue-700 shadow-sm" asChild>
+                <Button className="flex-1 h-11 rounded-xl bg-[#7c3aed] hover:bg-[#6d28d9] shadow-sm" asChild>
                   <Link href={`/signup?redirect=${encodeURIComponent(`/receipt/${receiptToken}`)}&autoBuyer=1&receiptToken=${receiptToken}`}>
                     <User className="mr-2 h-4 w-4" />
                     Create Account
