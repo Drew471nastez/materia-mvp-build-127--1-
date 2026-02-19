@@ -623,13 +623,41 @@ function OrderDetailsModal({
               </div>
             )}
 
-            {/* Order Date & Time */}
+            {/* Activity Timeline */}
             <div className="bg-[#f9fafb] rounded-xl p-4 space-y-3">
               <h3 className="text-[13px] font-semibold text-[#1a1a2e] flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-[#8b5cf6]" />
-                Order Date & Time
+                Activity Timeline
               </h3>
-              <p className="text-[13px] font-medium text-[#1a1a2e]">{formatFullDate(selectedOrder.created_at)}</p>
+              <div className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 w-2 h-2 rounded-full flex-shrink-0 bg-green-500" />
+                  <div>
+                    <p className="text-[12px] font-medium text-[#1a1a2e]">Order Placed</p>
+                    <p className="text-[11px] text-[#6b7280]">{formatFullDate(selectedOrder.created_at)}</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 w-2 h-2 rounded-full flex-shrink-0 bg-blue-500" />
+                  <div>
+                    <p className="text-[12px] font-medium text-[#1a1a2e]">Payment Received</p>
+                    <p className="text-[11px] text-[#6b7280]">{formatPrice(selectedOrder.amount_cents)}</p>
+                  </div>
+                </div>
+                {selectedOrder.status === "refunded" && (
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5 w-2 h-2 rounded-full flex-shrink-0 bg-red-500" />
+                    <div>
+                      <p className="text-[12px] font-medium text-[#1a1a2e]">Refunded</p>
+                      <p className="text-[11px] text-[#6b7280]">
+                        {formatPrice(selectedOrder.refund_amount_cents || selectedOrder.amount_cents)}
+                        {selectedOrder.refunded_at && ` · ${formatFullDate(selectedOrder.refunded_at)}`}
+                        {selectedOrder.refund_reason && ` · ${selectedOrder.refund_reason.replace(/_/g, " ")}`}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Quick Actions */}
@@ -651,16 +679,6 @@ function OrderDetailsModal({
               </button>
             </div>
           </div>
-
-          {/* Refund info if applicable */}
-          {selectedOrder.status === "refunded" && (
-            <div className="mx-6 mb-4 p-3 bg-[#f9fafb] rounded-xl border border-[#e5e7eb]/60 space-y-1">
-              <p className="text-[13px] font-medium text-[#374151] flex items-center gap-1.5"><RotateCcw className="h-3.5 w-3.5 text-[#9ca3af]" /> Refund Details</p>
-              {selectedOrder.refund_amount_cents && <p className="text-[12px] text-[#6b7280]">Amount: {formatPrice(selectedOrder.refund_amount_cents)}</p>}
-              {selectedOrder.refunded_at && <p className="text-[12px] text-[#6b7280]">Date: {formatFullDate(selectedOrder.refunded_at)}</p>}
-              {selectedOrder.refund_reason && <p className="text-[12px] text-[#6b7280]">Reason: {selectedOrder.refund_reason}</p>}
-            </div>
-          )}
 
           {/* Desktop Footer */}
           <div className="sticky bottom-0 bg-white border-t border-[#e5e7eb] px-6 py-4 flex items-center justify-between gap-3">
@@ -875,26 +893,41 @@ function OrderDetailsModal({
                 </div>
               )}
 
-              {/* Date */}
-              <div className="bg-[#f9fafb] rounded-xl p-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[12px] text-[#6b7280] flex items-center gap-1.5">
-                    <Calendar className="h-3.5 w-3.5 text-[#8b5cf6]" />
-                    Date
-                  </span>
-                  <span className="text-[12px] font-medium text-[#1a1a2e]">{formatFullDate(selectedOrder.created_at)}</span>
+              {/* Activity Timeline - Mobile */}
+              <div className="bg-[#f9fafb] rounded-xl p-3 space-y-2">
+                <h4 className="text-[12px] font-semibold text-[#1a1a2e] flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5 text-[#8b5cf6]" />
+                  Activity Timeline
+                </h4>
+                <div className="space-y-2">
+                  <div className="flex items-start gap-2">
+                    <div className="mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0 bg-green-500" />
+                    <div>
+                      <p className="text-[11px] font-medium text-[#1a1a2e]">Order Placed</p>
+                      <p className="text-[10px] text-[#6b7280]">{formatFullDate(selectedOrder.created_at)}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <div className="mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0 bg-blue-500" />
+                    <div>
+                      <p className="text-[11px] font-medium text-[#1a1a2e]">Payment Received</p>
+                      <p className="text-[10px] text-[#6b7280]">{formatPrice(selectedOrder.amount_cents)}</p>
+                    </div>
+                  </div>
+                  {selectedOrder.status === "refunded" && (
+                    <div className="flex items-start gap-2">
+                      <div className="mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0 bg-red-500" />
+                      <div>
+                        <p className="text-[11px] font-medium text-[#1a1a2e]">Refunded</p>
+                        <p className="text-[10px] text-[#6b7280]">
+                          {formatPrice(selectedOrder.refund_amount_cents || selectedOrder.amount_cents)}
+                          {selectedOrder.refunded_at && ` · ${formatFullDate(selectedOrder.refunded_at)}`}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
-
-              {/* Refund info on mobile — inside scrollable area to prevent overlap */}
-              {selectedOrder.status === "refunded" && (
-                <div className="p-3 bg-[#f9fafb] rounded-xl border border-[#e5e7eb]/60 space-y-1">
-                  <p className="text-[12px] font-medium text-[#374151] flex items-center gap-1.5"><RotateCcw className="h-3 w-3 text-[#9ca3af]" /> Refund Details</p>
-                  {selectedOrder.refund_amount_cents && <p className="text-[11px] text-[#6b7280]">Amount: {formatPrice(selectedOrder.refund_amount_cents)}</p>}
-                  {selectedOrder.refunded_at && <p className="text-[11px] text-[#6b7280]">Date: {formatFullDate(selectedOrder.refunded_at)}</p>}
-                  {selectedOrder.refund_reason && <p className="text-[11px] text-[#6b7280]">Reason: {selectedOrder.refund_reason}</p>}
-                </div>
-              )}
             </div>
           </div>
 
@@ -1010,6 +1043,9 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
   // Edit email modal
   const [showEditEmailModal, setShowEditEmailModal] = useState(false)
   const [editEmail, setEditEmail] = useState("")
+
+  // Cash Out modal
+  const [cashoutModalOpen, setCashoutModalOpen] = useState(false)
 
   const currency = creator.default_currency || "USD"
   const isStripeConnected = creator.stripe_onboarding_status === "connected"
@@ -1437,6 +1473,115 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
               return m.length ? formatPrice(m.reduce((s, b) => s + b.amount, 0)) : formatPrice(initialData.availableBalance)
             })()}
           </p>
+        </div>
+      </div>
+
+      {/* Earnings Chart + Cash Out Panel — side by side on desktop */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
+        {/* Earnings Chart */}
+        <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-[15px] font-semibold text-[#1a1a2e]">Earnings Overview</h3>
+              <p className="text-[12px] text-[#6b7280] mt-0.5">Revenue from completed orders</p>
+            </div>
+          </div>
+          {(() => {
+            // Build last 7 days chart data from initialOrders
+            const days: { label: string; value: number }[] = []
+            for (let i = 6; i >= 0; i--) {
+              const d = new Date()
+              d.setDate(d.getDate() - i)
+              const dayStart = new Date(d); dayStart.setHours(0, 0, 0, 0)
+              const dayEnd = new Date(d); dayEnd.setHours(23, 59, 59, 999)
+              const dayOrders = initialOrders.filter(o => {
+                if (o.status !== "completed") return false
+                const od = new Date(o.created_at)
+                return od >= dayStart && od <= dayEnd
+              })
+              days.push({
+                label: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+                value: dayOrders.reduce((s, o) => s + (o.amount_cents || 0), 0),
+              })
+            }
+            const maxVal = Math.max(...days.map(d => d.value), 1)
+            const hasData = days.some(d => d.value > 0)
+            if (!hasData) {
+              return (
+                <div className="h-[120px] flex flex-col items-center justify-center gap-2">
+                  <DollarSign className="h-8 w-8 text-[#e5e7eb]" />
+                  <p className="text-[13px] text-[#9ca3af]">No earnings in the last 7 days</p>
+                </div>
+              )
+            }
+            return (
+              <div className="h-[120px] flex items-end gap-2">
+                {days.map((day, i) => {
+                  const barH = Math.max((day.value / maxVal) * 100, day.value > 0 ? 6 : 2)
+                  return (
+                    <div key={i} className="flex-1 flex flex-col justify-end items-center gap-1 group relative">
+                      <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-[#1a1a2e] text-white text-[9px] px-1.5 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">
+                        {day.label}: {formatPrice(day.value)}
+                      </div>
+                      <div
+                        className="w-full rounded-t-sm bg-violet-400 hover:bg-violet-500 transition-colors cursor-pointer"
+                        style={{ height: `${barH}%` }}
+                      />
+                      <span className="text-[9px] text-[#9ca3af] hidden sm:block truncate w-full text-center">{day.label.split(" ")[1]}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })()}
+        </div>
+
+        {/* Cash Out / Withdraw Panel */}
+        <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <Wallet className="h-5 w-5 text-[#8b5cf6]" />
+              <h3 className="text-[15px] font-semibold text-[#1a1a2e]">Withdraw</h3>
+            </div>
+
+            {/* Available for Cashout */}
+            <div className="mb-3">
+              <p className="text-[12px] font-medium text-[#6b7280] mb-1">Available for Cashout</p>
+              <p className="text-[28px] font-bold text-[#1a1a2e] leading-none">
+                {(() => {
+                  const cl = currency.toLowerCase()
+                  const m = stripeBalance?.available?.filter(b => b.currency === cl) || []
+                  return m.length ? formatPrice(m.reduce((s, b) => s + b.amount, 0)) : formatPrice(initialData.availableBalance)
+                })()}
+              </p>
+            </div>
+
+            {/* Available Soon */}
+            <div className="p-3 bg-[#f9fafb] rounded-xl mb-4">
+              <p className="text-[11px] font-medium text-[#6b7280] mb-0.5">Available Soon</p>
+              <p className="text-[16px] font-semibold text-[#374151]">
+                {(() => {
+                  const cl = currency.toLowerCase()
+                  const m = stripeBalance?.pending?.filter(b => b.currency === cl) || []
+                  return m.length ? formatPrice(m.reduce((s, b) => s + b.amount, 0)) : formatPrice(initialData.pendingAmount)
+                })()}
+              </p>
+              <p className="text-[10px] text-[#9ca3af] mt-0.5">Processing (2–7 business days)</p>
+            </div>
+          </div>
+
+          {/* Cash Out Button */}
+          <button
+            onClick={() => setCashoutModalOpen(true)}
+            disabled={!isStripeConnected}
+            className="w-full py-3 px-4 bg-[#1a1a2e] hover:bg-[#2d2d42] disabled:bg-[#e5e7eb] disabled:text-[#9ca3af] text-white rounded-xl text-[14px] font-semibold transition-colors flex items-center justify-center gap-2"
+          >
+            <Wallet className="h-4 w-4" />
+            Cash Out
+          </button>
+          {!isStripeConnected && (
+            <p className="text-[11px] text-[#9ca3af] text-center mt-2">Connect Stripe to enable cashout</p>
+          )}
         </div>
       </div>
 
@@ -1967,6 +2112,81 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
                 Save Changes
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cash Out Modal */}
+      {cashoutModalOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" onClick={() => setCashoutModalOpen(false)} />
+          <div className="relative bg-white rounded-2xl w-full max-w-sm shadow-2xl animate-in fade-in-0 zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="px-6 pt-6 pb-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-[#f5f3ff] flex items-center justify-center">
+                  <Wallet className="h-5 w-5 text-[#8b5cf6]" />
+                </div>
+                <h2 className="text-[18px] font-semibold text-[#1a1a2e]">Cash Out</h2>
+              </div>
+              <button
+                onClick={() => setCashoutModalOpen(false)}
+                className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center text-[#6b7280] hover:bg-[#e5e7eb] transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Available for Cashout */}
+            <div className="px-6 pb-3">
+              <div className="bg-[#f9fafb] rounded-2xl p-5 mb-3">
+                <p className="text-[12px] font-medium text-[#6b7280] mb-1">Available for Cashout</p>
+                <p className="text-[36px] font-bold text-[#1a1a2e] leading-none">
+                  {(() => {
+                    const cl = currency.toLowerCase()
+                    const m = stripeBalance?.available?.filter(b => b.currency === cl) || []
+                    return m.length ? formatPrice(m.reduce((s, b) => s + b.amount, 0)) : formatPrice(initialData.availableBalance)
+                  })()}
+                </p>
+                <p className="text-[12px] text-[#9ca3af] mt-2">Ready to transfer to your bank account</p>
+              </div>
+
+              {/* Available Soon */}
+              <div className="bg-[#f9fafb] rounded-2xl p-4 mb-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[12px] font-medium text-[#6b7280]">Available Soon</p>
+                    <p className="text-[22px] font-bold text-[#374151] mt-0.5">
+                      {(() => {
+                        const cl = currency.toLowerCase()
+                        const m = stripeBalance?.pending?.filter(b => b.currency === cl) || []
+                        return m.length ? formatPrice(m.reduce((s, b) => s + b.amount, 0)) : formatPrice(initialData.pendingAmount)
+                      })()}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-amber-50 px-2.5 py-1 rounded-full">
+                    <Clock className="h-3 w-3 text-amber-600" />
+                    <span className="text-[10px] font-medium text-amber-700">2–7 days</span>
+                  </div>
+                </div>
+                <p className="text-[11px] text-[#9ca3af] mt-1">Currently processing through Stripe</p>
+              </div>
+
+              {/* Cash Out Button */}
+              <a
+                href="https://dashboard.stripe.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block w-full py-3.5 px-4 bg-[#1a1a2e] hover:bg-[#2d2d42] text-white rounded-xl text-[15px] font-semibold transition-colors text-center"
+                onClick={() => setCashoutModalOpen(false)}
+              >
+                Cash Out via Stripe
+              </a>
+              <p className="text-[11px] text-[#9ca3af] text-center mt-2.5">
+                Payouts are managed through your Stripe dashboard
+              </p>
+            </div>
+            <div className="h-2" />
           </div>
         </div>
       )}

@@ -937,13 +937,41 @@ function OrderDetailsModal({
               </div>
             )}
 
-            {/* Order Date & Time */}
+            {/* Activity Timeline */}
             <div className="bg-[#f9fafb] rounded-xl p-4 space-y-3">
               <h3 className="text-[13px] font-semibold text-[#1a1a2e] flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-[#8b5cf6]" />
-                Order Date & Time
+                Activity Timeline
               </h3>
-              <p className="text-[13px] font-medium text-[#1a1a2e]">{formatFullDate(selectedOrder.created_at)}</p>
+              <div className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 w-2 h-2 rounded-full flex-shrink-0 bg-green-500" />
+                  <div>
+                    <p className="text-[12px] font-medium text-[#1a1a2e]">Order Placed</p>
+                    <p className="text-[11px] text-[#6b7280]">{formatFullDate(selectedOrder.created_at)}</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 w-2 h-2 rounded-full flex-shrink-0 bg-blue-500" />
+                  <div>
+                    <p className="text-[12px] font-medium text-[#1a1a2e]">Payment Received</p>
+                    <p className="text-[11px] text-[#6b7280]">{formatPrice(selectedOrder.amount_cents)}</p>
+                  </div>
+                </div>
+                {selectedOrder.status === "refunded" && (
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5 w-2 h-2 rounded-full flex-shrink-0 bg-red-500" />
+                    <div>
+                      <p className="text-[12px] font-medium text-[#1a1a2e]">Refunded</p>
+                      <p className="text-[11px] text-[#6b7280]">
+                        {formatPrice(selectedOrder.refund_amount_cents || selectedOrder.amount_cents)}
+                        {selectedOrder.refunded_at && ` · ${formatFullDate(selectedOrder.refunded_at)}`}
+                        {selectedOrder.refund_reason && ` · ${selectedOrder.refund_reason.replace(/_/g, " ")}`}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Quick Actions */}
@@ -965,16 +993,6 @@ function OrderDetailsModal({
               </button>
             </div>
           </div>
-
-          {/* Refund info if applicable */}
-          {selectedOrder.status === "refunded" && (
-            <div className="mx-6 mb-4 p-3 bg-[#f9fafb] rounded-xl border border-[#e5e7eb]/60 space-y-2">
-              <p className="text-[13px] font-medium text-[#374151] flex items-center gap-1.5"><RotateCcw className="h-3.5 w-3.5 text-[#9ca3af]" /> Refund Details</p>
-              {selectedOrder.refund_amount_cents && <p className="text-[12px] text-[#6b7280]">Amount: {formatPrice(selectedOrder.refund_amount_cents)}</p>}
-              {selectedOrder.refunded_at && <p className="text-[12px] text-[#6b7280]">Date: {formatFullDate(selectedOrder.refunded_at)}</p>}
-              {selectedOrder.refund_reason && <p className="text-[12px] text-[#6b7280]">Reason: {selectedOrder.refund_reason}</p>}
-            </div>
-          )}
 
           {/* Desktop Footer */}
           <div className="sticky bottom-0 bg-white border-t border-[#e5e7eb] px-6 py-4 flex items-center justify-between gap-3">
@@ -1189,26 +1207,41 @@ function OrderDetailsModal({
                 </div>
               )}
 
-              {/* Date */}
-              <div className="bg-[#f9fafb] rounded-xl p-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[12px] text-[#6b7280] flex items-center gap-1.5">
-                    <Calendar className="h-3.5 w-3.5 text-[#8b5cf6]" />
-                    Date
-                  </span>
-                  <span className="text-[12px] font-medium text-[#1a1a2e]">{formatFullDate(selectedOrder.created_at)}</span>
+              {/* Activity Timeline - Mobile */}
+              <div className="bg-[#f9fafb] rounded-xl p-3 space-y-2">
+                <h4 className="text-[12px] font-semibold text-[#1a1a2e] flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5 text-[#8b5cf6]" />
+                  Activity Timeline
+                </h4>
+                <div className="space-y-2">
+                  <div className="flex items-start gap-2">
+                    <div className="mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0 bg-green-500" />
+                    <div>
+                      <p className="text-[11px] font-medium text-[#1a1a2e]">Order Placed</p>
+                      <p className="text-[10px] text-[#6b7280]">{formatFullDate(selectedOrder.created_at)}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <div className="mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0 bg-blue-500" />
+                    <div>
+                      <p className="text-[11px] font-medium text-[#1a1a2e]">Payment Received</p>
+                      <p className="text-[10px] text-[#6b7280]">{formatPrice(selectedOrder.amount_cents)}</p>
+                    </div>
+                  </div>
+                  {selectedOrder.status === "refunded" && (
+                    <div className="flex items-start gap-2">
+                      <div className="mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0 bg-red-500" />
+                      <div>
+                        <p className="text-[11px] font-medium text-[#1a1a2e]">Refunded</p>
+                        <p className="text-[10px] text-[#6b7280]">
+                          {formatPrice(selectedOrder.refund_amount_cents || selectedOrder.amount_cents)}
+                          {selectedOrder.refunded_at && ` · ${formatFullDate(selectedOrder.refunded_at)}`}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
-
-              {/* Refund info on mobile — inside scrollable area to prevent overlap */}
-              {selectedOrder.status === "refunded" && (
-                <div className="p-3 bg-[#f9fafb] rounded-xl border border-[#e5e7eb]/60 space-y-1.5">
-                  <p className="text-[12px] font-medium text-[#374151] flex items-center gap-1.5"><RotateCcw className="h-3 w-3 text-[#9ca3af]" /> Refund Details</p>
-                  {selectedOrder.refund_amount_cents && <p className="text-[11px] text-[#6b7280]">Amount: {formatPrice(selectedOrder.refund_amount_cents)}</p>}
-                  {selectedOrder.refunded_at && <p className="text-[11px] text-[#6b7280]">Date: {formatFullDate(selectedOrder.refunded_at)}</p>}
-                  {selectedOrder.refund_reason && <p className="text-[11px] text-[#6b7280]">Reason: {selectedOrder.refund_reason}</p>}
-                </div>
-              )}
             </div>
           </div>
 

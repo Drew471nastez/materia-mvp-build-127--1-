@@ -138,6 +138,7 @@ interface AnalyticsClientProps {
   userId: string
   products: Product[]
   initialOrders: Order[]
+  currency?: string
 }
 
 interface Summary {
@@ -727,7 +728,7 @@ function AnalyticsProductsSheet({
   )
 }
 
-export function AnalyticsClient({ creatorId, userId, products, initialOrders }: AnalyticsClientProps) {
+export function AnalyticsClient({ creatorId, userId, products, initialOrders, currency = "USD" }: AnalyticsClientProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { t } = useLanguage()
@@ -1851,7 +1852,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
   const hasKpiChartData = kpiChartData.some(d => d.value > 0)
 
   const formatPrice = (cents: number) => {
-    return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100)
+    return new Intl.NumberFormat("en-US", { style: "currency", currency: currency }).format(cents / 100)
   }
 
   const formatCompactNumber = (num: number) => {
@@ -1930,7 +1931,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
               const maxValue = Math.max(...displayData.map((d) => d.value), 1)
               return displayData.map((point, index) => {
                 const barHeight = Math.max((point.value / maxValue) * 65, 3)
-                const displayValue = kpiType === "revenue" ? `$${point.value.toFixed(2)}` : point.value.toLocaleString()
+                const displayValue = kpiType === "revenue" ? formatPrice(Math.round(point.value * 100)) : point.value.toLocaleString()
                 return (
                   <div key={index} className="flex-1 min-w-0 flex flex-col justify-end items-center group relative">
                     <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-[#1a1a2e] text-white text-[9px] px-1.5 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">

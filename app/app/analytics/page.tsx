@@ -24,7 +24,7 @@ export default async function AnalyticsPage() {
 
   const { data: creator, error: creatorError } = await adminSupabase
     .from("creators")
-    .select("id, views")
+    .select("id, views, default_currency")
     .eq("user_id", user.id)
     .single()
 
@@ -58,5 +58,5 @@ export default async function AnalyticsPage() {
     })
   }
 
-  return <AnalyticsClient creatorId={creator.id} userId={user.id} products={products} initialOrders={initialOrders} />
+  return <AnalyticsClient creatorId={creator.id} userId={user.id} products={products} initialOrders={initialOrders} currency={(creator as any).default_currency || "USD"} />
 }
