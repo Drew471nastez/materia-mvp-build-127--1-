@@ -49,6 +49,7 @@ import {
   Banknote,
   ArrowRight,
   ChevronDown,
+  Download,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -483,7 +484,10 @@ function RevenueChart() {
   const toUsd = (cents: number) => Math.round(cents * fxRate);
   // Stripe fees = gross charges - refunds - net
   const fees = Math.max(0, totalGross - totalRefunds - total);
-  const hasData = data.some((d) => Math.abs(d.revenue) > 0);
+  // Clamp each day's revenue to >= 0 for clean chart display.
+  // Refunds are already reflected in the stats beneath the chart.
+  const chartData = data.map((d) => ({ ...d, revenue: Math.max(0, d.revenue) }));
+  const hasData = chartData.some((d) => d.revenue > 0);
   const selectedLabel =
     CHART_TIMEFRAMES.find((t) => t.value === timeframe)?.label ?? "Last 7 days";
 
@@ -587,7 +591,7 @@ function RevenueChart() {
       ) : (
         <ResponsiveContainer width="100%" height={200}>
           <AreaChart
-            data={data}
+            data={chartData}
             margin={{ top: 4, right: 4, left: 0, bottom: 0 }}
           >
             <defs>
@@ -618,6 +622,7 @@ function RevenueChart() {
               tick={{ fontSize: 11, fill: "#9ca3af" }}
               tickLine={false}
               axisLine={false}
+              domain={[0, "auto"]}
               tickFormatter={(v) => `$${(toUsd(v) / 100).toFixed(0)}`}
               width={52}
             />
@@ -2075,6 +2080,315 @@ function OrderDetailsModal({
   );
 }
 
+// ─── CSV Export helpers + Dropdown ────────────────────────────────────────────
+
+function downloadCsv(filename: string, rows: string[][]): void {
+  const header = rows[0];
+  const body = rows.slice(1);
+  const escape = (v: string) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const csv = [header, ...body].map((r) => r.map(escape).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportOrdersCsv(orders: OrderPayment[], currency: string): void {
+  const fmt = (cents: number) =>
+    (cents / 100).toLocaleString("en-US", {
+      style: "currency",
+      currency: currency.toUpperCase(),
+    });
+  const rows: string[][] = [
+    ["Date", "Order ID", "Product", "Customer Email", "Amount", "Status", "Refunded Amount"],
+    ...orders.map((o) => [
+      new Date(o.created_at).toLocaleDateString("en-US"),
+      o.id,
+      o.product?.title || "",
+      o.buyer_email || o.customer_email || "",
+      fmt(o.amount_cents),
+      o.status,
+      o.refund_amount_cents ? fmt(o.refund_amount_cents) : "",
+    ]),
+  ];
+  downloadCsv(`earnings-${new Date().toISOString().split("T")[0]}.csv`, rows);
+}
+
+async function exportPayoutsCsv(): Promise<void> {
+  const r = await fetch("/api/stripe/payouts");
+  const json = await r.json();
+  if (!json.payouts?.length) return;
+  const rows: string[][] = [
+    ["Date", "Amount", "Currency", "Status", "Arrival Date", "Destination"],
+    ...json.payouts.map((p: any) => [
+      new Date(p.created * 1000).toLocaleDateString("en-US"),
+      (p.amount / 100).toFixed(2),
+      p.currency.toUpperCase(),
+      p.status,
+      p.arrival_date
+        ? new Date(p.arrival_date * 1000).toLocaleDateString("en-US")
+        : "",
+      p.destination || "",
+    ]),
+  ];
+  downloadCsv(`payouts-${new Date().toISOString().split("T")[0]}.csv`, rows);
+}
+
+function ExportDropdown({
+  orders,
+  currency,
+}: {
+  orders: OrderPayment[];
+  currency: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [payoutsLoading, setPayoutsLoading] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node))
+        setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        title="Download CSV"
+        onClick={() => setOpen((o) => !o)}
+        className="p-1.5 rounded-lg hover:bg-[#f3f4f6] transition-colors text-[#9ca3af] hover:text-[#6b7280]"
+      >
+        <Download className="h-4 w-4" />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1.5 w-56 bg-white border border-[#e5e7eb] rounded-xl shadow-lg z-50 py-1 animate-in fade-in-0 zoom-in-95 duration-100">
+          <p className="px-4 pt-2 pb-1 text-[11px] font-semibold text-[#9ca3af] uppercase tracking-wide">
+            Export
+          </p>
+          <button
+            onClick={() => {
+              exportOrdersCsv(orders, currency);
+              setOpen(false);
+            }}
+            className="w-full text-left px-4 py-2.5 text-[13px] text-[#374151] hover:bg-[#f9fafb] flex items-center gap-2"
+          >
+            <Download className="h-3.5 w-3.5 text-[#9ca3af]" />
+            Earnings summary (CSV)
+          </button>
+          <button
+            disabled={payoutsLoading}
+            onClick={async () => {
+              setPayoutsLoading(true);
+              try {
+                await exportPayoutsCsv();
+              } finally {
+                setPayoutsLoading(false);
+                setOpen(false);
+              }
+            }}
+            className="w-full text-left px-4 py-2.5 text-[13px] text-[#374151] hover:bg-[#f9fafb] flex items-center gap-2 disabled:opacity-50"
+          >
+            {payoutsLoading ? (
+              <Loader2 className="h-3.5 w-3.5 text-[#9ca3af] animate-spin" />
+            ) : (
+              <Download className="h-3.5 w-3.5 text-[#9ca3af]" />
+            )}
+            Payouts history (CSV)
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Payout Method Card ───────────────────────────────────────────────────────
+
+type PayoutMethodData = {
+  bankAccount: {
+    bankName: string | null;
+    last4: string;
+    currency: string;
+    routingNumber: string | null;
+    accountHolderName: string | null;
+    status: string | null;
+  } | null;
+  payoutSchedule: {
+    interval: string;
+    weeklyAnchor: string | null;
+    monthlyAnchor: number | null;
+    delayDays: number | null;
+  } | null;
+  payoutsEnabled: boolean;
+};
+
+function payoutSpeedLabel(schedule: PayoutMethodData["payoutSchedule"]): string {
+  if (!schedule) return "Standard";
+  const { interval, weeklyAnchor, monthlyAnchor, delayDays } = schedule;
+  if (interval === "daily") return "Daily (automatic)";
+  if (interval === "weekly") {
+    const day = weeklyAnchor
+      ? weeklyAnchor.charAt(0).toUpperCase() + weeklyAnchor.slice(1)
+      : "Monday";
+    return `Weekly on ${day}s`;
+  }
+  if (interval === "monthly") {
+    const d = monthlyAnchor ?? 1;
+    const suffix = d === 1 ? "st" : d === 2 ? "nd" : d === 3 ? "rd" : "th";
+    return `Monthly on the ${d}${suffix}`;
+  }
+  if (interval === "manual") return "Manual (you control)";
+  if (delayDays != null) {
+    return `${delayDays} business day${delayDays !== 1 ? "s" : ""}`;
+  }
+  return "Standard (2–3 days)";
+}
+
+function PayoutMethodCard() {
+  const [data, setData] = useState<PayoutMethodData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    fetch("/api/stripe/payout-method")
+      .then((r) => r.json())
+      .then((json) => setData(json))
+      .catch(() => setData(null))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const openStripe = async () => {
+    setActionLoading(true);
+    try {
+      const r = await fetch("/api/stripe/login-link", { method: "POST" });
+      const json = await r.json();
+      if (json.url) {
+        window.open(json.url, "_blank", "noopener,noreferrer");
+      } else {
+        throw new Error("No URL returned");
+      }
+    } catch {
+      toast({
+        title: "Could not open Stripe",
+        description: "Please visit dashboard.stripe.com directly.",
+        variant: "destructive",
+      });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const bank = data?.bankAccount;
+
+  return (
+    <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-9 h-9 rounded-xl bg-[#f5f3ff] flex items-center justify-center shrink-0">
+          <Building2 className="h-4 w-4 text-[#8b5cf6]" />
+        </div>
+        <div>
+          <h3 className="text-[15px] font-semibold text-[#1a1a2e]">
+            Payout account
+          </h3>
+          <p className="text-[12px] text-[#9ca3af]">
+            Where your earnings are sent
+          </p>
+        </div>
+      </div>
+
+      {/* Bank info */}
+      {loading ? (
+        <div className="space-y-2 mb-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="flex justify-between">
+              <div className="h-3.5 w-20 bg-gray-100 rounded animate-pulse" />
+              <div className="h-3.5 w-32 bg-gray-100 rounded animate-pulse" />
+            </div>
+          ))}
+        </div>
+      ) : bank ? (
+        <div className="space-y-2.5 mb-4 p-3.5 bg-[#f9fafb] rounded-xl">
+          <div className="flex items-center justify-between text-[13px]">
+            <span className="text-[#6b7280]">Bank</span>
+            <span className="font-medium text-[#1a1a2e]">
+              {bank.bankName || "Bank account"}{" "}
+              <span className="text-[#9ca3af]">••••{bank.last4}</span>
+            </span>
+          </div>
+          <div className="flex items-center justify-between text-[13px]">
+            <span className="text-[#6b7280]">Currency</span>
+            <span className="font-medium text-[#1a1a2e] uppercase">
+              {bank.currency}
+            </span>
+          </div>
+          <div className="flex items-center justify-between text-[13px]">
+            <span className="text-[#6b7280]">Payout speed</span>
+            <span className="font-medium text-[#1a1a2e]">
+              {payoutSpeedLabel(data?.payoutSchedule ?? null)}
+            </span>
+          </div>
+          {bank.status && bank.status !== "new" && (
+            <div className="flex items-center justify-between text-[13px]">
+              <span className="text-[#6b7280]">Status</span>
+              <span
+                className={cn(
+                  "font-medium capitalize",
+                  bank.status === "verified"
+                    ? "text-green-600"
+                    : "text-amber-600",
+                )}
+              >
+                {bank.status}
+              </span>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="mb-4 p-3.5 bg-amber-50 border border-amber-200/60 rounded-xl">
+          <p className="text-[13px] text-amber-700 font-medium">
+            No bank account connected
+          </p>
+          <p className="text-[12px] text-amber-600 mt-0.5">
+            Add a bank account in your Stripe dashboard to receive payouts.
+          </p>
+        </div>
+      )}
+
+      {/* Action buttons */}
+      <div className="flex flex-col sm:flex-row gap-2">
+        <button
+          onClick={openStripe}
+          disabled={actionLoading}
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-[13px] font-medium text-white bg-[#8b5cf6] rounded-xl hover:bg-[#7c3aed] transition-colors disabled:opacity-60"
+        >
+          {actionLoading ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <ExternalLink className="h-3.5 w-3.5" />
+          )}
+          Update bank account
+        </button>
+        <button
+          onClick={openStripe}
+          disabled={actionLoading}
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-[13px] font-medium text-[#374151] bg-[#f3f4f6] rounded-xl hover:bg-[#e5e7eb] transition-colors disabled:opacity-60"
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+          View Stripe account
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Payouts History List ─────────────────────────────────────────────────────
 
 function PayoutsHistoryList({
@@ -2529,7 +2843,12 @@ export function PayoutsClient({
                   Recent Payouts
                 </button>
               </div>
-              <div className="flex items-center gap-0.5 text-[#6b7280]">
+              <div className="flex items-center gap-1.5 text-[#6b7280]">
+                {/* CSV export dropdown */}
+                <ExportDropdown
+                  orders={initialOrders}
+                  currency={currency}
+                />
                 <span className="text-[12px] text-[#9ca3af] hidden sm:inline mr-1">
                   {recentPage + 1} / {pageCount}
                 </span>
@@ -2812,6 +3131,9 @@ export function PayoutsClient({
             </p>
           </div>
         )}
+
+        {/* Payout method card */}
+        <PayoutMethodCard />
       </div>
 
       {/* Order Details Modal */}
