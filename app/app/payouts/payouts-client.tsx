@@ -247,6 +247,52 @@ function getStatusBadge(status: string) {
   }
 }
 
+function TouchTooltip({
+  text,
+  children,
+  className,
+}: {
+  text: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = (e: MouseEvent | TouchEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("touchstart", onDocClick);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("touchstart", onDocClick);
+    };
+  }, [open]);
+
+  return (
+    <div ref={ref} className={cn("relative inline-flex", className)}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+        className="inline-flex"
+        aria-label={text}
+      >
+        {children}
+      </button>
+      {open && (
+        <div className="absolute z-40 -top-10 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[#111827] px-2.5 py-1.5 text-[11px] text-white shadow-lg">
+          {text}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Revenue Chart ────────────────────────────────────────────────────────────
 
 const CHART_TIMEFRAMES = [
@@ -746,6 +792,7 @@ function WithdrawPanel({
     amount: number;
     currency: string;
   } | null>(null);
+  const [showWithdrawHint, setShowWithdrawHint] = useState(false);
   const { toast } = useToast();
 
   const handleWithdraw = async () => {
@@ -833,9 +880,9 @@ function WithdrawPanel({
               <p className="text-[12px] text-[#6b7280] font-medium tracking-wide uppercase">
                 Available for cashout
               </p>
-              <span title="Funds ready to transfer to your bank account now">
+              <TouchTooltip text="Funds ready to transfer to your bank account now">
                 <Info className="h-3.5 w-3.5 text-[#9ca3af] cursor-help" />
-              </span>
+              </TouchTooltip>
             </div>
             {balanceReady ? (
               <p className="text-[28px] sm:text-[32px] leading-none font-semibold text-[#1a1a2e] mt-2">
@@ -881,10 +928,18 @@ function WithdrawPanel({
               <p className="text-[12px] text-red-700">{error}</p>
             </div>
           )}
-          <div className="flex gap-2">
+          <div className="flex gap-2 relative">
             <button
-              onClick={handleWithdraw}
-              disabled={loading || availableBalance <= 0}
+              onClick={() => {
+                if (loading) return;
+                if (availableBalance <= 0) {
+                  setShowWithdrawHint(true);
+                  window.setTimeout(() => setShowWithdrawHint(false), 1800);
+                  return;
+                }
+                handleWithdraw();
+              }}
+              disabled={loading}
               className="flex-1 flex items-center justify-center gap-2 px-4 py-3 text-[15px] font-medium text-white bg-[#635bff] rounded-xl hover:bg-[#564de8] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
@@ -901,6 +956,11 @@ function WithdrawPanel({
                 </>
               )}
             </button>
+            {showWithdrawHint && (
+              <div className="absolute left-2 right-2 -top-10 z-30 rounded-md bg-[#111827] px-3 py-2 text-[11px] text-white text-center shadow-lg">
+                No funds ready yet. Tap “See details” to view pending funds.
+              </div>
+            )}
             <button
               onClick={openDetailsModal}
               className="px-4 py-3 text-[14px] font-medium text-[#1f2937] bg-[#f1f3f5] rounded-xl hover:bg-[#e5e7eb] transition-colors whitespace-nowrap"
@@ -3256,10 +3316,10 @@ export function PayoutsClient({
         {initialOrders.length > 0 ? (
           <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
             <div className="px-4 sm:px-5 py-3.5 border-b border-[#e5e7eb] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="relative grid grid-cols-2 w-full sm:w-auto sm:min-w-[320px] items-center bg-[#f3f4f6] rounded-xl p-1">
+              <div className="relative grid grid-cols-2 w-full sm:w-auto sm:min-w-[320px] items-center bg-[#f3f4f6] rounded-xl p-1 will-change-transform">
                 {/* Sliding pill indicator — flex-1 buttons ensure equal halves */}
                 <div
-                  className="absolute top-1 bottom-1 bg-white rounded-full shadow-sm transition-all duration-300 ease-out"
+                  className="absolute top-1 bottom-1 bg-white rounded-full shadow-sm transition-all duration-300 ease-out will-change-transform"
                   style={{
                     left: recentTab === "sales" ? "4px" : "calc(50% + 1px)",
                     width: "calc(50% - 5px)",
