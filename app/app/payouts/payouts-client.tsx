@@ -497,12 +497,14 @@ function RevenueChart() {
 
   const toUsd = (cents: number) => Math.round(cents * fxRate);
   const numReady = !loading && fxReady; // only show amounts when both data + rate are ready
-  // Stripe fees = gross charges - refunds - net
-  const fees = Math.max(0, totalGross - totalRefunds - total);
-  // Clamp each bucket's revenue to >= 0 for clean chart display.
-  // Refunds are already reflected in the stats beneath the chart.
-  const chartData = data.map((d) => ({ ...d, revenue: Math.max(0, d.revenue) }));
-  const hasData = chartData.some((d) => d.revenue > 0);
+  // Clamp each bucket to >= 0 for a clean chart.
+  // gross = what customers paid (before Stripe fees), net of same-bucket refunds
+  const chartData = data.map((d) => ({
+    ...d,
+    gross: Math.max(0, d.gross),
+    revenue: Math.max(0, d.revenue),
+  }));
+  const hasData = chartData.some((d) => d.gross > 0);
   const selectedLabel =
     CHART_TIMEFRAMES.find((t) => t.value === timeframe)?.label ?? "Last 7 days";
 
@@ -545,13 +547,13 @@ function RevenueChart() {
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div>
           <p className="text-[13px] font-medium text-[#6b7280]">
-            Net Earnings
+            Revenue
           </p>
           {!numReady ? (
             <div className="h-7 w-32 mt-1 rounded-lg bg-gray-200 animate-pulse" />
           ) : (
             <p className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-              {fmt(toUsd(Math.max(0, total)), "usd")}
+              {fmt(toUsd(Math.max(0, totalGross - totalRefunds)), "usd")}
             </p>
           )}
         </div>
@@ -623,7 +625,7 @@ function RevenueChart() {
           </div>
           <div className="text-center">
             <p className="text-[28px] font-bold text-[#1a1a2e] tracking-tight">
-              {numReady ? fmt(toUsd(Math.max(0, total)), "usd") : "—"}
+              {numReady ? fmt(toUsd(Math.max(0, totalGross - totalRefunds)), "usd") : "—"}
             </p>
             <p className="text-[13px] text-[#6b7280] mt-0.5">
               {chartData[0]?.count
@@ -678,7 +680,7 @@ function RevenueChart() {
             <Tooltip content={<CustomTooltip />} />
             <Area
               type="monotone"
-              dataKey="revenue"
+              dataKey="gross"
               stroke="#8b5cf6"
               strokeWidth={2.5}
               fill="url(#revGrad)"
@@ -689,35 +691,6 @@ function RevenueChart() {
         </ResponsiveContainer>
       )}
 
-      {/* Under-chart stats: Gross sales • Refunds (if any) • Net */}
-      {numReady && !error && (
-        <div className="mt-3 pt-3 border-t border-[#f3f4f6] flex items-center gap-3 flex-wrap text-[11px] text-[#9ca3af]">
-          <span>
-            Gross{" "}
-            <span className="font-medium text-[#6b7280]">
-              {fmt(toUsd(totalGross), "usd")}
-            </span>
-          </span>
-          {totalRefunds > 0 && (
-            <>
-              <span className="text-[#d1d5db]">•</span>
-              <span>
-                Refunds{" "}
-                <span className="font-medium text-rose-500">
-                  −{fmt(toUsd(totalRefunds), "usd")}
-                </span>
-              </span>
-            </>
-          )}
-          <span className="text-[#d1d5db]">•</span>
-          <span>
-            Net{" "}
-            <span className="font-medium text-[#8b5cf6]">
-              {fmt(toUsd(Math.max(0, total)), "usd")}
-            </span>
-          </span>
-        </div>
-      )}
 
       <ChartTimeframeSheet
         isOpen={isSheetOpen}
@@ -1226,7 +1199,7 @@ function OrderDetailsModal({
   order: OrderPayment | null;
   currency: string;
   onClose: () => void;
-  onRefundSuccess?: () => void;
+  onRefundSuccess?: (refundedAmountCents: number) => void;
 }) {
   const [isVisible, setIsVisible] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -1332,7 +1305,8 @@ function OrderDetailsModal({
       if (!r.ok || json.error) throw new Error(json.error || "Refund failed");
       setRefundDone(true);
       setShowRefundConfirm(false);
-      onRefundSuccess?.();
+      // Pass the refunded amount so the parent can instantly update the balance UI
+      onRefundSuccess?.(order.amount_cents);
       toast({
         title: "Refund issued",
         description: "The buyer will be notified.",
@@ -3397,11 +3371,18 @@ export function PayoutsClient({
         order={selectedOrder}
         currency={currency}
         onClose={() => setSelectedOrder(null)}
-        onRefundSuccess={() => {
-          // Refresh immediately, then again after 2.5 s in case Stripe's
-          // balance API takes a moment to reflect the transfer reversal.
+        onRefundSuccess={(refundedAmountCents) => {
+          // Optimistically subtract the refunded amount from the displayed
+          // balance immediately — the user sees $0 the instant the refund
+          // confirms, without waiting for Stripe's API propagation.
+          // Refunded amounts may sit in pending or available; reduce both
+          // by the refund amount (clamped to 0) so the UI is always correct.
+          setPendingBalance((prev) => Math.max(0, prev - refundedAmountCents));
+          setAvailableBalance((prev) => Math.max(0, prev - refundedAmountCents));
+          // Then re-fetch real Stripe balances: immediately + after 3 s
+          // in case the transfer-reversal propagation takes a moment.
           refreshBalances();
-          setTimeout(() => refreshBalances(), 2500);
+          setTimeout(() => refreshBalances(), 3000);
         }}
       />
 
