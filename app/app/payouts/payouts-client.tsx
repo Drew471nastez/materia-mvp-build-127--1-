@@ -42,6 +42,12 @@ import {
   Info,
   ChevronLeft,
   ChevronRight,
+  FileText,
+  ExternalLink,
+  Plus,
+  HelpCircle,
+  Banknote,
+  ArrowRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -489,27 +495,27 @@ function WithdrawPanel({
   const helper = "Transfers typically arrive within 1–3 business days.";
 
   return (
-    <div className="bg-[#f8fafc] rounded-2xl border border-[#e5e7eb] p-5 flex flex-col gap-4 min-w-[240px]">
-      <div className="rounded-xl border border-[#e5e7eb] bg-white p-4">
-        <div className="grid grid-cols-2 gap-3">
+    <div className="bg-[#f8fafc] rounded-2xl border border-[#e5e7eb] p-5 sm:p-6 flex flex-col gap-5 min-w-[240px]">
+      <div className="rounded-xl border border-[#e5e7eb] bg-white p-5">
+        <div className="grid grid-cols-2 gap-4">
           <div>
-            <p className="text-[11px] text-[#6b7280] font-medium">
+            <p className="text-[12px] text-[#6b7280] font-medium tracking-wide uppercase">
               Available for cashout
             </p>
-            <p className="text-[34px] leading-none font-semibold text-[#1a1a2e] mt-1">
+            <p className="text-[28px] sm:text-[32px] leading-none font-semibold text-[#1a1a2e] mt-2">
               {fmt(availableBalance, currency)}
             </p>
           </div>
           <div className="text-right">
-            <p className="text-[11px] text-[#6b7280] font-medium">
+            <p className="text-[12px] text-[#6b7280] font-medium tracking-wide uppercase">
               Available soon
             </p>
-            <p className="text-[32px] leading-none font-semibold text-[#1a1a2e] mt-1">
+            <p className="text-[26px] sm:text-[30px] leading-none font-semibold text-[#1a1a2e] mt-2">
               {fmt(pendingBalance, currency)}
             </p>
             <button
               onClick={() => setOpenBreakdown(true)}
-              className="text-[13px] font-medium text-[#4f46e5] hover:underline mt-3"
+              className="text-[13px] font-medium text-[#8b5cf6] hover:text-[#7c3aed] hover:underline mt-3 transition-colors"
             >
               See breakdown
             </button>
@@ -532,91 +538,148 @@ function WithdrawPanel({
               <p className="text-[12px] text-red-700">{error}</p>
             </div>
           )}
-          <button
-            onClick={handleWithdraw}
-            disabled={loading || availableBalance <= 0}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 text-[15px] font-medium text-white bg-[#635bff] rounded-xl hover:bg-[#564de8] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" /> Processing…
-              </>
-            ) : availableBalance <= 0 ? (
-              "No funds available"
-            ) : (
-              <>
-                <Send className="h-4 w-4" /> Withdraw
-              </>
-            )}
-          </button>
-          <div className="flex items-start gap-2 p-3 bg-[#f3f4f6] rounded-xl">
-            <button title={helper} className="mt-0.5">
-              <Info className="h-3.5 w-3.5 text-[#9ca3af]" />
+          <div className="relative group">
+            <button
+              onClick={handleWithdraw}
+              disabled={loading || availableBalance <= 0}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 text-[15px] font-medium text-white bg-[#635bff] rounded-xl hover:bg-[#564de8] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" /> Processing…
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4" /> Withdraw
+                </>
+              )}
             </button>
+            {availableBalance <= 0 && !loading && (
+              <div className="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-[#1a1a2e] text-white text-[12px] rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 shadow-lg">
+                No funds available
+                <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-x-[5px] border-x-transparent border-t-[5px] border-t-[#1a1a2e]" />
+              </div>
+            )}
+          </div>
+          <div className="flex items-start gap-2.5 p-3 bg-[#f3f4f6] rounded-xl">
+            <Info className="h-3.5 w-3.5 text-[#9ca3af] mt-0.5 shrink-0" />
             <p className="text-[11px] text-[#6b7280] leading-relaxed">
               {helper}
             </p>
           </div>
+          <a
+            href="/help-center"
+            className="flex items-center justify-center gap-1.5 text-[13px] font-medium text-[#8b5cf6] hover:text-[#7c3aed] transition-colors"
+          >
+            Learn More <ArrowRight className="h-3.5 w-3.5" />
+          </a>
         </>
       )}
 
       {openBreakdown && (
         <>
+          {/* Desktop breakdown modal */}
           <div className="fixed inset-0 z-[80] hidden sm:flex items-center justify-center">
             <div
-              className="absolute inset-0 bg-black/45"
+              className="absolute inset-0 bg-black/45 animate-in fade-in duration-200"
               onClick={() => setOpenBreakdown(false)}
             />
-            <div className="relative bg-white rounded-3xl border border-[#e5e7eb] shadow-2xl w-full max-w-xl p-6 animate-in fade-in zoom-in-95 duration-200">
+            <div className="relative bg-white rounded-3xl border border-[#e5e7eb] shadow-2xl w-full max-w-xl p-7 animate-in fade-in zoom-in-95 duration-200">
               <div className="flex justify-between items-center">
-                <h3 className="text-[32px] font-semibold text-[#1a1a2e]">
+                <h3 className="text-[26px] font-semibold text-[#1a1a2e]">
                   Earnings Breakdown
                 </h3>
                 <button
                   onClick={() => setOpenBreakdown(false)}
-                  className="text-[#9ca3af] hover:text-[#6b7280]"
+                  className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center text-[#6b7280] hover:bg-[#e5e7eb] transition-colors"
                 >
-                  <X className="h-5 w-5" />
+                  <X className="h-4 w-4" />
                 </button>
               </div>
               <p className="text-[14px] text-[#6b7280] mt-1">
                 See how your earnings are split in Storelib.
               </p>
-              <div className="mt-7 space-y-3 text-[14px]">
-                <div className="flex justify-between">
-                  <span className="text-[#6b7280]">Available soon</span>
-                  <span className="font-semibold text-[#1a1a2e]">
+
+              <div className="mt-6 space-y-3">
+                <div className="flex items-center justify-between bg-[#f9fafb] rounded-xl p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center">
+                      <Clock className="h-4 w-4 text-amber-600" />
+                    </div>
+                    <div>
+                      <p className="text-[14px] font-medium text-[#1a1a2e]">Available soon</p>
+                      <p className="text-[11px] text-[#9ca3af]">Funds being processed by Stripe</p>
+                    </div>
+                  </div>
+                  <span className="text-[16px] font-semibold text-[#1a1a2e]">
                     {fmt(pendingBalance, currency)}
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-[#6b7280]">Available for cashout</span>
-                  <span className="font-semibold text-[#1a1a2e]">
+
+                <div className="flex items-center justify-between bg-[#f9fafb] rounded-xl p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center">
+                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="text-[14px] font-medium text-[#1a1a2e]">Available for cashout</p>
+                      <p className="text-[11px] text-[#9ca3af]">Ready to withdraw to your bank</p>
+                    </div>
+                  </div>
+                  <span className="text-[16px] font-semibold text-[#1a1a2e]">
                     {fmt(availableBalance, currency)}
                   </span>
                 </div>
+
+                <div className="border-t border-[#e5e7eb] pt-3 mt-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[14px] font-medium text-[#1a1a2e]">Total balance</span>
+                    <span className="text-[18px] font-bold text-[#8b5cf6]">
+                      {fmt(availableBalance + pendingBalance, currency)}
+                    </span>
+                  </div>
+                </div>
               </div>
+
+              <div className="mt-5 bg-[#f5f3ff] rounded-xl p-4">
+                <div className="flex items-start gap-2.5">
+                  <Info className="h-4 w-4 text-[#8b5cf6] mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-[12px] text-[#6b7280] leading-relaxed">
+                      Pending funds typically become available within 2–7 business days.
+                      Stripe processes payouts on a rolling basis depending on your region.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               <button
                 onClick={() => setOpenBreakdown(false)}
-                className="w-full mt-8 bg-[#635bff] text-white rounded-xl py-3 font-medium"
+                className="w-full mt-6 bg-[#635bff] hover:bg-[#564de8] text-white rounded-xl py-3 font-medium transition-colors"
               >
                 Okay
               </button>
               <a
                 href="/help-center"
-                className="w-full mt-2 block text-center text-[13px] font-medium text-[#635bff] hover:underline"
+                className="w-full mt-3 flex items-center justify-center gap-1.5 text-[13px] font-medium text-[#8b5cf6] hover:text-[#7c3aed] transition-colors"
               >
-                Learn more
+                Learn more <ExternalLink className="h-3 w-3" />
               </a>
             </div>
           </div>
+
+          {/* Mobile breakdown bottom sheet */}
           <div className="fixed inset-0 z-[80] sm:hidden">
             <div
-              className="absolute inset-0 bg-black/40"
+              className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
+              style={{
+                opacity: dragY > 0 ? Math.max(0, 1 - dragY / 300) : 1,
+                transition: isDragging ? "none" : "opacity 350ms ease-out",
+              }}
               onClick={() => setOpenBreakdown(false)}
             />
             <div
-              className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] p-4"
+              className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
               onTouchStart={(e) => {
                 startY.current = e.touches[0].clientY;
                 setIsDragging(true);
@@ -624,48 +687,96 @@ function WithdrawPanel({
               onTouchMove={(e) => {
                 if (!isDragging) return;
                 const diff = e.touches[0].clientY - startY.current;
-                if (diff > 0) setDragY(diff);
+                if (diff > 0) setDragY(diff * 0.85);
               }}
               onTouchEnd={() => {
-                if (dragY > 90) setOpenBreakdown(false);
+                if (dragY > 80) setOpenBreakdown(false);
                 setDragY(0);
                 setIsDragging(false);
               }}
               style={{
                 transform: `translateY(${dragY}px)`,
-                transition: isDragging ? "none" : "transform 220ms",
+                transition: isDragging
+                  ? "none"
+                  : "transform 380ms cubic-bezier(0.32,0.72,0,1)",
+                willChange: "transform",
               }}
             >
-              <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-[#d1d5db]" />
-              <h3 className="text-[18px] font-semibold text-[#1a1a2e]">
-                Earnings Breakdown
-              </h3>
-              <div className="mt-4 space-y-2 text-[14px]">
-                <div className="flex justify-between">
-                  <span className="text-[#6b7280]">Available soon</span>
-                  <span className="font-semibold">
-                    {fmt(pendingBalance, currency)}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[#6b7280]">Available for cashout</span>
-                  <span className="font-semibold">
-                    {fmt(availableBalance, currency)}
-                  </span>
-                </div>
+              <div className="pt-3 pb-2 flex justify-center">
+                <div className="w-10 h-1.5 rounded-full bg-[#d1d5db]" />
               </div>
-              <button
-                onClick={() => setOpenBreakdown(false)}
-                className="w-full mt-6 bg-[#635bff] text-white rounded-xl py-3 font-medium"
-              >
-                Okay
-              </button>
-              <a
-                href="/help-center"
-                className="w-full mt-2 block text-center text-[13px] font-medium text-[#635bff]"
-              >
-                Learn more
-              </a>
+              <div className="px-5 pb-5">
+                <h3 className="text-[18px] font-semibold text-[#1a1a2e]">
+                  Earnings Breakdown
+                </h3>
+                <p className="text-[13px] text-[#6b7280] mt-0.5">
+                  See how your earnings are split.
+                </p>
+
+                <div className="mt-4 space-y-2.5">
+                  <div className="flex items-center justify-between bg-[#f9fafb] rounded-xl p-3.5">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center">
+                        <Clock className="h-3.5 w-3.5 text-amber-600" />
+                      </div>
+                      <div>
+                        <p className="text-[13px] font-medium text-[#1a1a2e]">Available soon</p>
+                        <p className="text-[10px] text-[#9ca3af]">Processing</p>
+                      </div>
+                    </div>
+                    <span className="text-[14px] font-semibold">
+                      {fmt(pendingBalance, currency)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between bg-[#f9fafb] rounded-xl p-3.5">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-lg bg-green-100 flex items-center justify-center">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+                      </div>
+                      <div>
+                        <p className="text-[13px] font-medium text-[#1a1a2e]">Available for cashout</p>
+                        <p className="text-[10px] text-[#9ca3af]">Ready to withdraw</p>
+                      </div>
+                    </div>
+                    <span className="text-[14px] font-semibold">
+                      {fmt(availableBalance, currency)}
+                    </span>
+                  </div>
+
+                  <div className="border-t border-[#e5e7eb] pt-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[13px] font-medium text-[#1a1a2e]">Total balance</span>
+                      <span className="text-[16px] font-bold text-[#8b5cf6]">
+                        {fmt(availableBalance + pendingBalance, currency)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 bg-[#f5f3ff] rounded-xl p-3">
+                  <div className="flex items-start gap-2">
+                    <Info className="h-3.5 w-3.5 text-[#8b5cf6] mt-0.5 shrink-0" />
+                    <p className="text-[11px] text-[#6b7280] leading-relaxed">
+                      Pending funds typically become available within 2–7 business days.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setOpenBreakdown(false)}
+                  className="w-full mt-5 bg-[#635bff] text-white rounded-xl py-3 font-medium"
+                >
+                  Okay
+                </button>
+                <a
+                  href="/help-center"
+                  className="w-full mt-3 flex items-center justify-center gap-1.5 text-[13px] font-medium text-[#8b5cf6]"
+                >
+                  Learn more <ExternalLink className="h-3 w-3" />
+                </a>
+              </div>
+              <div style={{ height: "max(env(safe-area-inset-bottom), 12px)" }} />
             </div>
           </div>
         </>
@@ -1420,29 +1531,49 @@ function OrderDetailsModal({
         )}
       </div>
 
-      {/* Refund action */}
-      {order.status === "completed" && !refundDone && (
-        <button
-          onClick={handleRefund}
-          disabled={refundLoading}
-          className={cn(
-            "w-full flex items-center justify-center gap-2 px-3 py-2.5 text-rose-600 bg-rose-50 rounded-xl hover:bg-rose-100 transition-colors disabled:opacity-50",
-            compact ? "text-[12px]" : "text-[13px]",
-          )}
-        >
-          {refundLoading ? (
-            <>
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              Processing…
-            </>
-          ) : (
-            <>
-              <RotateCcw className="h-3.5 w-3.5" />
-              Issue refund
-            </>
-          )}
-        </button>
-      )}
+      {/* Action buttons */}
+      <div className={cn("flex gap-2", compact ? "flex-col" : "flex-row")}>
+        {/* Refund button */}
+        {order.status === "completed" && !refundDone && (
+          <button
+            onClick={handleRefund}
+            disabled={refundLoading}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-rose-600 bg-rose-50 rounded-xl hover:bg-rose-100 transition-colors disabled:opacity-50",
+              compact ? "text-[12px]" : "text-[13px]",
+            )}
+          >
+            {refundLoading ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Processing…
+              </>
+            ) : (
+              <>
+                <RotateCcw className="h-3.5 w-3.5" />
+                Issue Refund
+              </>
+            )}
+          </button>
+        )}
+
+        {/* Invoice button */}
+        {order.stripe_payment_intent_id && (
+          <a
+            href={`/api/stripe/invoice?orderId=${order.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cn(
+              "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-[#8b5cf6] bg-[#f5f3ff] rounded-xl hover:bg-[#ede9fe] transition-colors",
+              compact ? "text-[12px]" : "text-[13px]",
+            )}
+          >
+            <FileText className="h-3.5 w-3.5" />
+            Invoice
+          </a>
+        )}
+      </div>
+
       {refundDone && (
         <div className="flex items-center gap-2 p-3 bg-green-50 rounded-xl">
           <CheckCircle2 className="h-4 w-4 text-green-500" />
@@ -1500,11 +1631,11 @@ function OrderDetailsModal({
       {/* ── Mobile Bottom Sheet ── */}
       <div className="fixed inset-0 z-50 sm:hidden">
         <div
-          className={cn(
-            "absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity",
-            isAnimating ? "opacity-100" : "opacity-0",
-          )}
-          style={{ transitionDuration: "400ms" }}
+          className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
+          style={{
+            opacity: isAnimating ? (dragY > 0 ? Math.max(0, 1 - dragY / 350) : 1) : 0,
+            transition: isDragging ? "none" : "opacity 380ms cubic-bezier(0.32,0.72,0,1)",
+          }}
           onClick={handleClose}
         />
         <div
@@ -1519,8 +1650,9 @@ function OrderDetailsModal({
               : "translateY(100%)",
             transition: isDragging
               ? "none"
-              : "transform 460ms cubic-bezier(0.22,0.9,0.24,1)",
-            maxHeight: "72vh",
+              : "transform 420ms cubic-bezier(0.32,0.72,0,1)",
+            maxHeight: "78vh",
+            willChange: "transform",
           }}
         >
           {/* Handle */}
@@ -1540,7 +1672,7 @@ function OrderDetailsModal({
             {getStatusBadge(order.status)}
           </div>
           {/* Scrollable content */}
-          <div className="px-4 py-4 overflow-y-auto overscroll-contain flex-1 min-h-0 space-y-3">
+          <div className="px-4 py-4 overflow-y-auto overscroll-contain flex-1 min-h-0 space-y-3 [-webkit-overflow-scrolling:touch]">
             <ContentSections compact={true} />
           </div>
           <div style={{ height: "max(env(safe-area-inset-bottom), 16px)" }} />
@@ -1826,8 +1958,13 @@ export function PayoutsClient({
   const refreshBalances = useCallback(async () => {
     setRefreshKey((k) => k + 1);
 
-    const hasCompletedOrders = initialOrders.some(
+    // Cap pending to what non-refunded orders could contribute
+    const completedOrders = initialOrders.filter(
       (o) => o.status === "completed",
+    );
+    const maxPossiblePending = completedOrders.reduce(
+      (sum, o) => sum + (o.amount_cents || 0),
+      0,
     );
 
     try {
@@ -1867,7 +2004,9 @@ export function PayoutsClient({
 
         if (selected) {
           setAvailableBalance(selected[1].available);
-          setPendingBalance(hasCompletedOrders ? selected[1].pending : 0);
+          setPendingBalance(
+            Math.max(0, Math.min(selected[1].pending, maxPossiblePending)),
+          );
         }
       }
     } catch {
@@ -1887,10 +2026,18 @@ export function PayoutsClient({
     (cents: number) => Math.round(cents * fxRate),
     [fxRate],
   );
-  const openOrderDetails = useCallback((order: OrderPayment) => {
-    setSelectedOrder(null);
-    requestAnimationFrame(() => setSelectedOrder(order));
-  }, []);
+  const openOrderDetails = useCallback(
+    (order: OrderPayment) => {
+      if (selectedOrder) {
+        // Switching between orders – close first, then reopen
+        setSelectedOrder(null);
+        setTimeout(() => setSelectedOrder(order), 420);
+      } else {
+        setSelectedOrder(order);
+      }
+    },
+    [selectedOrder],
+  );
   const pageItems =
     recentTab === "sales" ? initialOrders : new Array(payoutCount);
   const pageCount = Math.max(1, Math.ceil(pageItems.length / 6));
@@ -2015,7 +2162,7 @@ export function PayoutsClient({
         {/* Chart + Withdraw panel side-by-side on desktop */}
         <div className="flex flex-col lg:flex-row gap-5">
           <RevenueChart />
-          <div className="lg:w-[21rem] xl:w-[23rem] shrink-0">
+          <div className="lg:w-[24rem] xl:w-[26.5rem] shrink-0">
             <WithdrawPanel
               availableBalance={toUsd(availableBalance)}
               pendingBalance={toUsd(pendingBalance)}
@@ -2033,39 +2180,49 @@ export function PayoutsClient({
         {initialOrders.length > 0 ? (
           <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
             <div className="px-5 py-3 border-b border-[#e5e7eb] flex items-center justify-between gap-3">
-              <div className="flex items-center gap-1 bg-[#f3f4f6] rounded-lg p-1">
+              <div className="relative flex items-center gap-1 bg-[#f3f4f6] rounded-lg p-1">
+                {/* Sliding indicator */}
+                <div
+                  className="absolute top-1 bottom-1 bg-white rounded-md shadow-sm transition-all duration-300 ease-out"
+                  style={{
+                    left: recentTab === "sales" ? "4px" : "50%",
+                    width: "calc(50% - 4px)",
+                  }}
+                />
                 <button
                   onClick={() => {
+                    if (recentTab === "sales") return;
                     setIsPageLoading(true);
                     setTimeout(() => {
                       setRecentTab("sales");
                       setRecentPage(0);
                       setIsPageLoading(false);
-                    }, 180);
+                    }, 150);
                   }}
                   className={cn(
-                    "px-2.5 py-1 text-[12px] rounded-md",
+                    "relative z-10 px-3 py-1.5 text-[12px] font-medium rounded-md transition-colors duration-200",
                     recentTab === "sales"
-                      ? "bg-white text-[#1a1a2e]"
-                      : "text-[#6b7280]",
+                      ? "text-[#1a1a2e]"
+                      : "text-[#6b7280] hover:text-[#374151]",
                   )}
                 >
                   Recent Sales
                 </button>
                 <button
                   onClick={() => {
+                    if (recentTab === "payouts") return;
                     setIsPageLoading(true);
                     setTimeout(() => {
                       setRecentTab("payouts");
                       setRecentPage(0);
                       setIsPageLoading(false);
-                    }, 180);
+                    }, 150);
                   }}
                   className={cn(
-                    "px-2.5 py-1 text-[12px] rounded-md",
+                    "relative z-10 px-3 py-1.5 text-[12px] font-medium rounded-md transition-colors duration-200",
                     recentTab === "payouts"
-                      ? "bg-white text-[#1a1a2e]"
-                      : "text-[#6b7280]",
+                      ? "text-[#1a1a2e]"
+                      : "text-[#6b7280] hover:text-[#374151]",
                   )}
                 >
                   Recent Payouts
@@ -2091,7 +2248,10 @@ export function PayoutsClient({
               </div>
             </div>
 
-            <div className="transition-all duration-300">
+            <div
+              className="transition-opacity duration-200"
+              style={{ opacity: isPageLoading ? 0.4 : 1 }}
+            >
               {recentTab === "payouts" ? (
                 <PayoutsHistoryList
                   refreshKey={refreshKey}

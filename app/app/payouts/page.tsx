@@ -148,14 +148,20 @@ export default async function PayoutsPage() {
     }
   }
 
-  // If there are no successful (non-refunded) Storelib orders,
-  // don't surface a Stripe pending amount in KPI cards.
-  const hasCompletedOrders = allOrders.some(
+  // Cap Stripe pending balance to what non-refunded orders could actually
+  // contribute.  When every order has been refunded the cap is 0 — even if
+  // Stripe's balance.pending still contains in-flight refund adjustments.
+  const completedOrders = allOrders.filter(
     (o: any) => o.status === "completed",
   );
-  if (!hasCompletedOrders) {
-    stripePendingBalance = 0;
-  }
+  const maxPossiblePending = completedOrders.reduce(
+    (sum: number, o: any) => sum + (o.amount_cents || 0),
+    0,
+  );
+  stripePendingBalance = Math.max(
+    0,
+    Math.min(stripePendingBalance, maxPossiblePending),
+  );
 
   // No local fallback math here: keep payout balances strictly sourced from Stripe.
 
