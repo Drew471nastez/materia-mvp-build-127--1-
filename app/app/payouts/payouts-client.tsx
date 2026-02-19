@@ -48,6 +48,7 @@ import {
   HelpCircle,
   Banknote,
   ArrowRight,
+  ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -246,31 +247,217 @@ function getStatusBadge(status: string) {
 
 // ─── Revenue Chart ────────────────────────────────────────────────────────────
 
-const CHART_DAYS = [
-  { label: "7D", value: "7" },
-  { label: "30D", value: "30" },
-  { label: "90D", value: "90" },
-  { label: "All", value: "all" },
-];
+const CHART_TIMEFRAMES = [
+  { value: "today", label: "Today" },
+  { value: "yesterday", label: "Yesterday" },
+  { value: "last_7", label: "Last 7 days" },
+  { value: "this_month", label: "This month" },
+  { value: "last_90", label: "Last 90 days" },
+  { value: "last_365", label: "Last 365 days" },
+  { value: "all_time", label: "All time" },
+] as const;
+
+type ChartTimeframeValue = (typeof CHART_TIMEFRAMES)[number]["value"];
+
+// Mobile bottom sheet for chart timeframe selection
+function ChartTimeframeSheet({
+  isOpen,
+  onClose,
+  selected,
+  onSelect,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  selected: ChartTimeframeValue;
+  onSelect: (v: ChartTimeframeValue) => void;
+}) {
+  const [isVisible, setIsVisible] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [dragY, setDragY] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const startYRef = useRef(0);
+  const lastYRef = useRef(0);
+  const lastTimeRef = useRef(0);
+  const velocityRef = useRef(0);
+  const sheetRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isOpen && !isVisible) {
+      setIsVisible(true);
+      document.body.style.overflow = "hidden";
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => setIsAnimating(true)),
+      );
+    } else if (!isOpen && isVisible) {
+      setIsAnimating(false);
+      document.body.style.overflow = "";
+      const t = setTimeout(() => {
+        setIsVisible(false);
+        setDragY(0);
+      }, 400);
+      return () => clearTimeout(t);
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isOpen, isVisible]);
+
+  const handleClose = () => {
+    setIsAnimating(false);
+    setIsDragging(false);
+    setDragY(0);
+    velocityRef.current = 0;
+    setTimeout(() => onClose(), 400);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    const el = sheetRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    if (touch.clientY - rect.top <= 80) {
+      startYRef.current = touch.clientY;
+      lastYRef.current = touch.clientY;
+      lastTimeRef.current = Date.now();
+      velocityRef.current = 0;
+      setIsDragging(true);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging) return;
+    const currentY = e.touches[0].clientY;
+    const diff = currentY - startYRef.current;
+    if (diff > 0) {
+      e.preventDefault();
+      const now = Date.now();
+      const dt = Math.max(1, now - lastTimeRef.current);
+      velocityRef.current = (currentY - lastYRef.current) / dt;
+      lastYRef.current = currentY;
+      lastTimeRef.current = now;
+      const resisted = diff <= 160 ? diff * 0.92 : 147 + (diff - 160) * 0.4;
+      setDragY(resisted);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (!isDragging) return;
+    setIsDragging(false);
+    if (dragY > 92 || velocityRef.current > 0.55) handleClose();
+    else setDragY(0);
+  };
+
+  if (!isVisible) return null;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[100] md:hidden"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      <div
+        className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
+        style={{
+          opacity: isAnimating ? 1 : 0,
+          transition: isDragging
+            ? "none"
+            : "opacity 400ms cubic-bezier(0.32,0.72,0,1)",
+        }}
+        onClick={handleClose}
+      />
+      <div
+        ref={sheetRef}
+        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
+        style={{
+          transform: isAnimating
+            ? `translate3d(0,${dragY}px,0)`
+            : "translate3d(0,100%,0)",
+          transition: isDragging
+            ? "none"
+            : "transform 400ms cubic-bezier(0.32,0.72,0,1)",
+          willChange: "transform",
+          backfaceVisibility: "hidden",
+        }}
+      >
+        <div className="pt-3 pb-1 flex justify-center cursor-grab active:cursor-grabbing touch-none">
+          <div className="h-[5px] w-10 rounded-full bg-gray-300" />
+        </div>
+        <div className="px-4 pb-4">
+          <h3 className="text-[16px] font-semibold text-[#1a1a2e] mb-4">
+            Select time period
+          </h3>
+          <div className="space-y-1 max-h-[50vh] overflow-y-auto overscroll-contain">
+            {CHART_TIMEFRAMES.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => {
+                  onSelect(opt.value);
+                  handleClose();
+                }}
+                className={cn(
+                  "w-full text-left px-4 py-3 rounded-xl text-[15px] font-medium transition-colors",
+                  selected === opt.value
+                    ? "bg-[#f5f3ff] text-[#8b5cf6]"
+                    : "text-[#374151] hover:bg-[#f9fafb] active:bg-[#f3f4f6]",
+                )}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div style={{ height: "max(env(safe-area-inset-bottom), 12px)" }} />
+      </div>
+    </div>,
+    document.body,
+  );
+}
 
 function RevenueChart() {
-  const [days, setDays] = useState("30");
+  const [timeframe, setTimeframe] = useState<ChartTimeframeValue>("last_7");
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const [data, setData] = useState<ChartPoint[]>([]);
   const [total, setTotal] = useState(0);
+  const [totalGross, setTotalGross] = useState(0);
   const [currency, setCurrency] = useState("usd");
   const [fxRate, setFxRate] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const load = useCallback(async (d: string) => {
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node)
+      ) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const load = useCallback(async (tf: ChartTimeframeValue) => {
     setLoading(true);
     setError(null);
     try {
-      const r = await fetch(`/api/stripe/revenue-chart?days=${d}`);
+      const r = await fetch(`/api/stripe/revenue-chart?timeframe=${tf}`);
       const json = await r.json();
       if (json.error) throw new Error(json.error);
       setData(json.data || []);
       setTotal(json.total || 0);
+      setTotalGross(json.totalGross || 0);
       if (json.currency) setCurrency(json.currency.toLowerCase());
     } catch (e: any) {
       setError(e.message);
@@ -280,8 +467,8 @@ function RevenueChart() {
   }, []);
 
   useEffect(() => {
-    load(days);
-  }, [days, load]);
+    load(timeframe);
+  }, [timeframe, load]);
 
   useEffect(() => {
     if (currency === "usd") return;
@@ -292,14 +479,22 @@ function RevenueChart() {
   }, [currency]);
 
   const toUsd = (cents: number) => Math.round(cents * fxRate);
-
+  const fees = totalGross - total;
   const hasData = data.some((d) => d.revenue > 0);
+  const selectedLabel =
+    CHART_TIMEFRAMES.find((t) => t.value === timeframe)?.label ?? "Last 7 days";
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null;
     return (
       <div className="bg-white border border-[#e5e7eb] rounded-xl p-3 shadow-lg text-[13px]">
-        <p className="text-[#6b7280] mb-1">{label}</p>
+        <p className="text-[#6b7280] mb-1">
+          {new Date(label + "T00:00:00").toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          })}
+        </p>
         <p className="font-bold text-[#1a1a2e]">
           {fmt(toUsd(payload[0].value), "usd")}
         </p>
@@ -318,7 +513,7 @@ function RevenueChart() {
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div>
           <p className="text-[13px] font-medium text-[#6b7280]">
-            Revenue (USD)
+            Net Earnings
           </p>
           {loading ? (
             <div className="h-7 w-32 mt-1 rounded-lg bg-gray-200 animate-pulse" />
@@ -328,21 +523,45 @@ function RevenueChart() {
             </p>
           )}
         </div>
-        <div className="flex gap-1 bg-[#f3f4f6] rounded-xl p-1">
-          {CHART_DAYS.map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => setDays(opt.value)}
+
+        {/* Timeframe selector — dropdown on desktop, sheet on mobile */}
+        <div className="relative" ref={dropdownRef}>
+          <button
+            onClick={() => {
+              if (isMobile) setIsSheetOpen(true);
+              else setIsDropdownOpen((o) => !o);
+            }}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#e5e7eb] rounded-xl text-[13px] font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors shadow-sm cursor-pointer"
+          >
+            {selectedLabel}
+            <ChevronDown
               className={cn(
-                "px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all",
-                days === opt.value
-                  ? "bg-white text-[#8b5cf6] shadow-sm"
-                  : "text-[#6b7280] hover:text-[#374151]",
+                "h-4 w-4 text-[#9ca3af] transition-transform duration-200",
+                isDropdownOpen && "rotate-180",
               )}
-            >
-              {opt.label}
-            </button>
-          ))}
+            />
+          </button>
+          {isDropdownOpen && !isMobile && (
+            <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-[#e5e7eb] rounded-xl shadow-lg z-50 py-1 animate-in fade-in-0 zoom-in-95 duration-100">
+              {CHART_TIMEFRAMES.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => {
+                    setTimeframe(opt.value);
+                    setIsDropdownOpen(false);
+                  }}
+                  className={cn(
+                    "w-full text-left px-4 py-2.5 text-[13px] transition-colors",
+                    timeframe === opt.value
+                      ? "bg-[#f5f3ff] text-[#8b5cf6] font-medium"
+                      : "text-[#374151] hover:bg-[#f9fafb]",
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -412,6 +631,39 @@ function RevenueChart() {
           </AreaChart>
         </ResponsiveContainer>
       )}
+
+      {/* Under-chart stats: Gross • Fees • Net */}
+      {!loading && !error && (
+        <div className="mt-3 pt-3 border-t border-[#f3f4f6] flex items-center gap-3 flex-wrap text-[11px] text-[#9ca3af]">
+          <span>
+            Gross{" "}
+            <span className="font-medium text-[#6b7280]">
+              {fmt(toUsd(totalGross), "usd")}
+            </span>
+          </span>
+          <span className="text-[#d1d5db]">•</span>
+          <span>
+            Fees{" "}
+            <span className="font-medium text-[#6b7280]">
+              {fmt(toUsd(fees), "usd")}
+            </span>
+          </span>
+          <span className="text-[#d1d5db]">•</span>
+          <span>
+            Net{" "}
+            <span className="font-medium text-[#8b5cf6]">
+              {fmt(toUsd(total), "usd")}
+            </span>
+          </span>
+        </div>
+      )}
+
+      <ChartTimeframeSheet
+        isOpen={isSheetOpen}
+        onClose={() => setIsSheetOpen(false)}
+        selected={timeframe}
+        onSelect={(v) => setTimeframe(v)}
+      />
     </div>
   );
 }
@@ -492,7 +744,10 @@ function WithdrawPanel({
     );
   }
 
-  const helper = "Transfers typically arrive within 1–3 business days.";
+  const helper =
+    availableBalance <= 0
+      ? "Nothing available yet — funds usually become available in 1–3 days."
+      : "Transfers typically arrive within 1–3 business days.";
 
   return (
     <div className="bg-[#f8fafc] rounded-2xl border border-[#e5e7eb] p-5 sm:p-6 flex flex-col gap-5 min-w-[240px]">
@@ -895,10 +1150,12 @@ function OrderDetailsModal({
   order,
   currency,
   onClose,
+  onRefundSuccess,
 }: {
   order: OrderPayment | null;
   currency: string;
   onClose: () => void;
+  onRefundSuccess?: () => void;
 }) {
   const [isVisible, setIsVisible] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -909,6 +1166,9 @@ function OrderDetailsModal({
   const [copiedId, setCopiedId] = useState(false);
   const [refundLoading, setRefundLoading] = useState(false);
   const [refundDone, setRefundDone] = useState(false);
+  const [showRefundConfirm, setShowRefundConfirm] = useState(false);
+  const [refundReason, setRefundReason] = useState("");
+  const [refundError, setRefundError] = useState<string | null>(null);
   const startY = useRef(0);
   const sheetRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
@@ -947,6 +1207,9 @@ function OrderDetailsModal({
     setShowTimeline(false);
     setRefundDone(false);
     setCopiedId(false);
+    setShowRefundConfirm(false);
+    setRefundReason("");
+    setRefundError(null);
   }, [order?.id]);
 
   const handleClose = () => {
@@ -984,9 +1247,10 @@ function OrderDetailsModal({
     setTimeout(() => setCopiedId(false), 2000);
   };
 
-  const handleRefund = async () => {
-    if (!order) return;
+  const handleRefundConfirm = async () => {
+    if (!order || !refundReason) return;
     setRefundLoading(true);
+    setRefundError(null);
     try {
       const r = await fetch("/api/stripe/refund", {
         method: "POST",
@@ -996,11 +1260,14 @@ function OrderDetailsModal({
       const json = await r.json();
       if (!r.ok || json.error) throw new Error(json.error || "Refund failed");
       setRefundDone(true);
+      setShowRefundConfirm(false);
+      onRefundSuccess?.();
       toast({
         title: "Refund issued",
         description: "The buyer will be notified.",
       });
     } catch (e: any) {
+      setRefundError(e.message);
       toast({
         title: "Refund failed",
         description: e.message,
@@ -1517,44 +1784,51 @@ function OrderDetailsModal({
 
       {/* Action buttons */}
       <div className={cn("flex gap-2", compact ? "flex-col" : "flex-row")}>
-        {/* Refund button */}
-        {order.status === "completed" && !refundDone && (
-          <button
-            onClick={handleRefund}
-            disabled={refundLoading}
-            className={cn(
-              "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-rose-600 bg-rose-50 rounded-xl hover:bg-rose-100 transition-colors disabled:opacity-50",
-              compact ? "text-[12px]" : "text-[13px]",
-            )}
-          >
-            {refundLoading ? (
-              <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                Processing…
-              </>
-            ) : (
-              <>
-                <RotateCcw className="h-3.5 w-3.5" />
-                Issue Refund
-              </>
-            )}
-          </button>
-        )}
-
-        {/* Invoice button */}
+        {/* Invoice button — light gray */}
         {order.stripe_payment_intent_id && (
           <a
             href={`/api/stripe/invoice?orderId=${order.id}`}
             target="_blank"
             rel="noopener noreferrer"
             className={cn(
-              "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-[#8b5cf6] bg-[#f5f3ff] rounded-xl hover:bg-[#ede9fe] transition-colors",
+              "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-[#374151] bg-[#f3f4f6] rounded-xl hover:bg-[#e5e7eb] transition-colors",
               compact ? "text-[12px]" : "text-[13px]",
             )}
           >
             <FileText className="h-3.5 w-3.5" />
             Invoice
           </a>
+        )}
+
+        {/* Refund button — light gray, opens confirmation modal */}
+        {order.status === "completed" && !refundDone && (
+          <button
+            onClick={() => {
+              setRefundReason("");
+              setRefundError(null);
+              setShowRefundConfirm(true);
+            }}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-[#374151] bg-[#f3f4f6] rounded-xl hover:bg-[#e5e7eb] transition-colors",
+              compact ? "text-[12px]" : "text-[13px]",
+            )}
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Issue Refund
+          </button>
+        )}
+
+        {/* Refunded state */}
+        {(order.status === "refunded" || refundDone) && (
+          <span
+            className={cn(
+              "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-[#9ca3af] bg-[#f3f4f6] rounded-xl cursor-not-allowed",
+              compact ? "text-[12px]" : "text-[13px]",
+            )}
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Refunded
+          </span>
         )}
       </div>
 
@@ -1662,6 +1936,122 @@ function OrderDetailsModal({
           <div style={{ height: "max(env(safe-area-inset-bottom), 16px)" }} />
         </div>
       </div>
+
+      {/* ── Refund Confirmation Modal ── */}
+      {showRefundConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => !refundLoading && setShowRefundConfirm(false)}
+          />
+          <div className="relative bg-white rounded-2xl w-full max-w-md shadow-2xl animate-in fade-in-0 zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="border-b border-[#e5e7eb] px-6 py-4">
+              <h2 className="text-[18px] font-semibold text-[#1a1a2e]">
+                Issue Refund
+              </h2>
+              <p className="text-[13px] text-[#6b7280] mt-1">
+                Process a refund for this order. The customer will be notified
+                via email.
+              </p>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-4">
+              {/* Order summary */}
+              <div className="flex items-center gap-3 p-3 bg-[#f9fafb] rounded-xl">
+                {order.product?.thumbnail_url ? (
+                  <img
+                    src={order.product.thumbnail_url}
+                    alt=""
+                    className="w-10 h-10 rounded-lg object-cover"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-lg bg-[#e5e7eb] flex items-center justify-center">
+                    <Package className="h-4 w-4 text-[#9ca3af]" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-[14px] font-medium text-[#1a1a2e] truncate">
+                    {order.product?.title || "Product"}
+                  </p>
+                  <p className="text-[12px] text-[#9ca3af]">
+                    {order.buyer_email || order.customer_email || ""}
+                  </p>
+                </div>
+                <p className="text-[14px] font-semibold text-[#1a1a2e] shrink-0">
+                  {fmt(order.amount_cents, currency)}
+                </p>
+              </div>
+
+              {/* Reason */}
+              <div>
+                <label className="block text-[13px] font-medium text-[#374151] mb-2">
+                  Reason
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { value: "requested_by_customer", label: "Customer request" },
+                    { value: "duplicate", label: "Duplicate charge" },
+                    { value: "fraudulent", label: "Fraudulent" },
+                    { value: "other", label: "Other" },
+                  ].map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setRefundReason(opt.value)}
+                      className={cn(
+                        "px-3 py-2 rounded-lg text-[13px] font-medium transition-colors border",
+                        refundReason === opt.value
+                          ? "bg-[#f5f3ff] border-[#8b5cf6] text-[#8b5cf6]"
+                          : "border-[#e5e7eb] text-[#6b7280] hover:bg-[#f9fafb]",
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {refundError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-xl">
+                  <p className="text-[13px] text-red-600 flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                    {refundError}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="border-t border-[#e5e7eb] px-6 py-4 flex items-center justify-end gap-3">
+              <button
+                onClick={() => setShowRefundConfirm(false)}
+                disabled={refundLoading}
+                className="px-4 py-2 text-[13px] font-medium text-[#6b7280] hover:text-[#374151] transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRefundConfirm}
+                disabled={refundLoading || !refundReason}
+                className="px-4 py-2 text-[13px] font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {refundLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Processing…
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw className="h-4 w-4" />
+                    Confirm Refund
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>,
     document.body,
   );
@@ -2061,81 +2451,6 @@ export function PayoutsClient({
   return (
     <div className="space-y-6">
       <div className="space-y-6">
-        {/* KPI Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Revenue */}
-          <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[13px] font-medium text-[#6b7280]">
-                Revenue
-              </span>
-              <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
-                <DollarSign className="h-4 w-4 text-[#9ca3af]" />
-              </div>
-            </div>
-            <div className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-              {fmtCompact(toUsd(availableBalance + pendingBalance), currency)}
-            </div>
-            <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">
-              Current unpaid balance
-            </p>
-          </div>
-
-          {/* Pending */}
-          <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[13px] font-medium text-[#6b7280]">
-                Pending
-              </span>
-              <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
-                <Clock className="h-4 w-4 text-[#9ca3af]" />
-              </div>
-            </div>
-            <div className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-              {fmtCompact(toUsd(pendingBalance), currency)}
-            </div>
-            <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">
-              Processing by Stripe
-            </p>
-          </div>
-
-          {/* Net Earnings */}
-          <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[13px] font-medium text-[#6b7280]">
-                Net earnings
-              </span>
-              <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
-                <DollarSign className="h-4 w-4 text-[#9ca3af]" />
-              </div>
-            </div>
-            <div className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-              {fmtCompact(toUsd(availableBalance), currency)}
-            </div>
-            <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">
-              Available for withdrawal
-            </p>
-          </div>
-
-          {/* Paid out */}
-          <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[13px] font-medium text-[#6b7280]">
-                Paid out
-              </span>
-              <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
-                <Wallet className="h-4 w-4 text-[#9ca3af]" />
-              </div>
-            </div>
-            <div className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-              {fmtCompact(toUsd(initialData.paidOut || 0), currency)}
-            </div>
-            <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">
-              Last bank payout
-            </p>
-          </div>
-        </div>
-
         {/* Chart + Withdraw panel side-by-side on desktop */}
         <div className="flex flex-col lg:flex-row gap-5">
           <RevenueChart />
@@ -2495,6 +2810,7 @@ export function PayoutsClient({
         order={selectedOrder}
         currency={currency}
         onClose={() => setSelectedOrder(null)}
+        onRefundSuccess={refreshBalances}
       />
 
       <style jsx>{`
