@@ -23,6 +23,35 @@ export async function GET() {
 
     if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 404 })
 
+    let orderNetUsd = 0
+    try {
+      const { data: products } = await adminSupabase
+        .from("products")
+        .select("id")
+        .eq("creator_id", creator.id)
+
+      const productIds = (products || []).map((p) => p.id)
+      if (productIds.length > 0) {
+        const { data: orders } = await adminSupabase
+          .from("orders")
+          .select("status, amount_cents, fee_cents, refund_amount_cents")
+          .in("product_id", productIds)
+          .in("status", ["completed", "refunded"])
+
+        const completed = (orders || []).filter((o) => o.status === "completed")
+        const refunded = (orders || []).filter((o) => o.status === "refunded")
+        const gross = completed.reduce((sum, o) => sum + (o.amount_cents || 0), 0)
+        const fees = completed.reduce((sum, o) => sum + (o.fee_cents || 0), 0)
+        const refunds = refunded.reduce(
+          (sum, o) => sum + (o.refund_amount_cents || o.amount_cents || 0),
+          0,
+        )
+        orderNetUsd = Math.max(0, gross - fees - refunds)
+      }
+    } catch {
+      orderNetUsd = 0
+    }
+
     const stripeAccountId = creator.stripe_account_id
     if (!stripeAccountId) {
       return NextResponse.json({ payouts: [], balance: null })
@@ -47,9 +76,35 @@ export async function GET() {
     // Extract the exchange_rate from the most recent transaction that has one.
     // Stripe defines: presentment_amount × exchange_rate = account_amount.
     // For USD → RON: USD × rate = RON. To convert RON → USD: RON / rate = USD.
-    const exchangeRate: number | null =
+    let exchangeRate: number | null =
       (balanceTxResult.data as any[]).find((tx: any) => tx.exchange_rate)
         ?.exchange_rate ?? null
+
+    if ((!exchangeRate || exchangeRate <= 0) && balanceResult) {
+      const preferredCurrency = (creator.default_currency || "usd").toLowerCase()
+      const byCurrency = new Map<string, { available: number; pending: number }>()
+      for (const b of balanceResult.available) {
+        const row = byCurrency.get(b.currency) || { available: 0, pending: 0 }
+        row.available += b.amount
+        byCurrency.set(b.currency, row)
+      }
+      for (const b of balanceResult.pending) {
+        const row = byCurrency.get(b.currency) || { available: 0, pending: 0 }
+        row.pending += b.amount
+        byCurrency.set(b.currency, row)
+      }
+      const dominant =
+        [...byCurrency.entries()].sort(
+          (a, b) => b[1].available + b[1].pending - (a[1].available + a[1].pending),
+        )[0] || null
+      const selected = byCurrency.get(preferredCurrency)
+        ? ([preferredCurrency, byCurrency.get(preferredCurrency)!] as const)
+        : dominant
+
+      if (selected && selected[0] !== "usd" && selected[1].pending > 0 && orderNetUsd > 0) {
+        exchangeRate = selected[1].pending / orderNetUsd
+      }
+    }
 
     const payouts = payoutsResult.data.map((p) => {
       // Extract readable destination string

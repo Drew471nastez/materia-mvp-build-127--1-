@@ -87,6 +87,8 @@ export default async function PayoutsPage() {
     }
   }
 
+  const orderNetUsd = Math.max(0, totalEarnings - totalFees - totalRefunds);
+
   let stripePendingBalance = 0;
   let stripeAvailableBalance = 0;
   const paidOut = 0;
@@ -147,14 +149,28 @@ export default async function PayoutsPage() {
       }
     } catch (err) {
       console.error("[Payouts] Failed to fetch Stripe balances:", err);
-      stripePendingBalance = Math.max(0, totalEarnings - totalFees - totalRefunds);
+      stripePendingBalance = orderNetUsd;
     }
   } else {
-    stripePendingBalance = Math.max(0, totalEarnings - totalFees - totalRefunds);
+    stripePendingBalance = orderNetUsd;
+  }
+
+  if (
+    detectedCurrency !== "usd" &&
+    (!stripeExchangeRate || stripeExchangeRate <= 0)
+  ) {
+    const nativePending = Math.max(0, stripePendingBalance);
+    if (nativePending > 0 && orderNetUsd > 0) {
+      stripeExchangeRate = nativePending / orderNetUsd;
+    }
+  }
+
+  if (detectedCurrency !== "usd" && orderNetUsd > 0) {
+    stripePendingBalance = Math.round(orderNetUsd * (stripeExchangeRate || 1));
   }
 
   // Net earnings = what seller keeps after all fees (Stripe + platform)
-  const netEarnings = Math.max(0, totalEarnings - totalFees - totalRefunds);
+  const netEarnings = orderNetUsd;
 
   return (
     <div className="h-full overflow-y-auto page-scroll bg-[#fafafa]">
