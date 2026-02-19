@@ -168,11 +168,11 @@ export async function GET(request: Request) {
 
     // Aggregate by date/hour key — track payments and refunds separately
     // so the "count" (sale count) reflects only charges, not refunds.
-    const bucketMap: Record<string, { date: string; revenue: number; gross: number; count: number }> = {}
+    const bucketMap: Record<string, { date: string; revenue: number; gross: number; refundsAbs: number; count: number }> = {}
 
     for (const tx of payments) {
       if (!bucketMap[tx.date]) {
-        bucketMap[tx.date] = { date: tx.date, revenue: tx.net, gross: tx.gross, count: 1 }
+        bucketMap[tx.date] = { date: tx.date, revenue: tx.net, gross: tx.gross, refundsAbs: 0, count: 1 }
       } else {
         bucketMap[tx.date].revenue += tx.net
         bucketMap[tx.date].gross += tx.gross
@@ -181,16 +181,17 @@ export async function GET(request: Request) {
     }
     for (const tx of refunds) {
       if (!bucketMap[tx.date]) {
-        bucketMap[tx.date] = { date: tx.date, revenue: tx.net, gross: tx.gross, count: 0 }
+        bucketMap[tx.date] = { date: tx.date, revenue: tx.net, gross: tx.gross, refundsAbs: Math.abs(tx.gross), count: 0 }
       } else {
         bucketMap[tx.date].revenue += tx.net
         bucketMap[tx.date].gross += tx.gross
+        bucketMap[tx.date].refundsAbs += Math.abs(tx.gross)
         // don't increment count for refunds — count = number of sales
       }
     }
 
     // Build the series
-    const series: Array<{ date: string; revenue: number; gross: number; count: number }> = []
+    const series: Array<{ date: string; revenue: number; gross: number; refundsAbs: number; count: number }> = []
 
     if (isHourlyMode) {
       // today:     slots 00 → current UTC hour
@@ -198,7 +199,7 @@ export async function GET(request: Request) {
       const endHour = timeframe === "today" ? new Date().getUTCHours() : 23
       for (let h = 0; h <= endHour; h++) {
         const key = String(h).padStart(2, "0")
-        series.push(bucketMap[key] || { date: key, revenue: 0, gross: 0, count: 0 })
+        series.push(bucketMap[key] || { date: key, revenue: 0, gross: 0, refundsAbs: 0, count: 0 })
       }
     } else {
       // Daily series with zero-fill for a continuous chart
@@ -220,7 +221,7 @@ export async function GET(request: Request) {
 
       while (cursor <= seriesEndDate) {
         const key = cursor.toISOString().split("T")[0]
-        series.push(bucketMap[key] || { date: key, revenue: 0, gross: 0, count: 0 })
+        series.push(bucketMap[key] || { date: key, revenue: 0, gross: 0, refundsAbs: 0, count: 0 })
         cursor.setUTCDate(cursor.getUTCDate() + 1)
       }
     }

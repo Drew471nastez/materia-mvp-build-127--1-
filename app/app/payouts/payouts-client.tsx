@@ -124,6 +124,7 @@ interface ChartPoint {
   date: string;
   revenue: number;
   gross: number;
+  refundsAbs: number;
   count: number;
 }
 
@@ -425,8 +426,6 @@ function RevenueChart() {
   const [totalGross, setTotalGross] = useState(0);
   const [totalRefunds, setTotalRefunds] = useState(0);
   const [currency, setCurrency] = useState("usd");
-  const [fxRate, setFxRate] = useState(1);
-  const [fxReady, setFxReady] = useState(true); // false briefly when non-USD rate is loading
   const [isHourly, setIsHourly] = useState(false); // true for today/yesterday (hourly buckets)
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -476,35 +475,16 @@ function RevenueChart() {
     load(timeframe);
   }, [timeframe, load]);
 
-  useEffect(() => {
-    if (currency === "usd") {
-      setFxReady(true);
-      return;
-    }
-    // Mark not ready until correct rate arrives — prevents flash of RON amounts
-    setFxReady(false);
-    fetch(`/api/fx?from=${currency}&to=usd`)
-      .then((r) => r.json())
-      .then((json) => {
-        setFxRate(json.rate || 1);
-        setFxReady(true);
-      })
-      .catch(() => {
-        setFxRate(1);
-        setFxReady(true);
-      });
-  }, [currency]);
 
-  const toUsd = (cents: number) => Math.round(cents * fxRate);
-  const numReady = !loading && fxReady; // only show amounts when both data + rate are ready
-  // Clamp each bucket to >= 0 for a clean chart.
-  // gross = what customers paid (before Stripe fees), net of same-bucket refunds
+  const numReady = !loading; // show amounts as soon as data is ready
+  // Clamp each bucket to >= 0 for a clean chart; preserve refundsAbs as-is.
   const chartData = data.map((d) => ({
     ...d,
     gross: Math.max(0, d.gross),
+    refundsAbs: d.refundsAbs || 0,
     revenue: Math.max(0, d.revenue),
   }));
-  const hasData = chartData.some((d) => d.gross > 0);
+  const hasData = chartData.some((d) => d.gross > 0 || d.refundsAbs > 0);
   const selectedLabel =
     CHART_TIMEFRAMES.find((t) => t.value === timeframe)?.label ?? "Last 7 days";
 
@@ -526,13 +506,22 @@ function RevenueChart() {
           day: "numeric",
           year: "numeric",
         });
+    const grossVal = payload.find((p: any) => p.dataKey === "gross");
+    const refundVal = payload.find((p: any) => p.dataKey === "refundsAbs");
     return (
       <div className="bg-white border border-[#e5e7eb] rounded-xl p-3 shadow-lg text-[13px]">
         <p className="text-[#6b7280] mb-1">{labelText}</p>
-        <p className="font-bold text-[#1a1a2e]">
-          {fmt(toUsd(payload[0].value), "usd")}
-        </p>
-        {payload[0].payload.count > 0 && (
+        {grossVal && (
+          <p className="font-bold text-[#1a1a2e]">
+            {fmt(grossVal.value, currency)}
+          </p>
+        )}
+        {refundVal && refundVal.value > 0 && (
+          <p className="text-[12px] text-rose-500 font-medium">
+            −{fmt(refundVal.value, currency)} refunded
+          </p>
+        )}
+        {payload[0]?.payload?.count > 0 && (
           <p className="text-[#9ca3af]">
             {payload[0].payload.count} sale
             {payload[0].payload.count !== 1 ? "s" : ""}
@@ -553,7 +542,7 @@ function RevenueChart() {
             <div className="h-7 w-32 mt-1 rounded-lg bg-gray-200 animate-pulse" />
           ) : (
             <p className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-              {fmt(toUsd(Math.max(0, totalGross - totalRefunds)), "usd")}
+              {fmt(Math.max(0, totalGross - totalRefunds), currency)}
             </p>
           )}
         </div>
@@ -625,7 +614,7 @@ function RevenueChart() {
           </div>
           <div className="text-center">
             <p className="text-[28px] font-bold text-[#1a1a2e] tracking-tight">
-              {numReady ? fmt(toUsd(Math.max(0, totalGross - totalRefunds)), "usd") : "—"}
+              {numReady ? fmt(Math.max(0, totalGross - totalRefunds), currency) : "—"}
             </p>
             <p className="text-[13px] text-[#6b7280] mt-0.5">
               {chartData[0]?.count
@@ -645,6 +634,10 @@ function RevenueChart() {
               <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.18} />
                 <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+              </linearGradient>
+              <linearGradient id="refundGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.12} />
+                <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
               </linearGradient>
             </defs>
             <CartesianGrid
@@ -674,10 +667,22 @@ function RevenueChart() {
               tickLine={false}
               axisLine={false}
               domain={[0, "auto"]}
-              tickFormatter={(v) => `$${(toUsd(v) / 100).toFixed(0)}`}
-              width={52}
+              tickFormatter={(v) => fmtCompact(v, currency)}
+              width={56}
             />
             <Tooltip content={<CustomTooltip />} />
+            {totalRefunds > 0 && (
+              <Area
+                type="monotone"
+                dataKey="refundsAbs"
+                stroke="#f43f5e"
+                strokeWidth={1.5}
+                fill="url(#refundGrad)"
+                dot={false}
+                activeDot={{ r: 3, fill: "#f43f5e", strokeWidth: 0 }}
+                name="Refunds"
+              />
+            )}
             <Area
               type="monotone"
               dataKey="gross"
@@ -686,6 +691,7 @@ function RevenueChart() {
               fill="url(#revGrad)"
               dot={false}
               activeDot={{ r: 4, fill: "#8b5cf6", strokeWidth: 0 }}
+              name="Revenue"
             />
           </AreaChart>
         </ResponsiveContainer>
@@ -710,6 +716,7 @@ function WithdrawPanel({
   currency,
   payoutsEnabled,
   balanceReady = true,
+  totalFees = 0,
   onSuccess,
 }: {
   availableBalance: number;
@@ -717,11 +724,23 @@ function WithdrawPanel({
   currency: string;
   payoutsEnabled: boolean;
   balanceReady?: boolean;
+  totalFees?: number;
   onSuccess: () => void;
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [openBreakdown, setOpenBreakdown] = useState(false);
+  const [openDetails, setOpenDetails] = useState(false);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [detailsBank, setDetailsBank] = useState<{
+    bankName: string | null;
+    last4: string;
+    currency: string;
+  } | null>(null);
+  const [inTransitAmount, setInTransitAmount] = useState(0);
+  const [detailsDragY, setDetailsDragY] = useState(0);
+  const [detailsIsDragging, setDetailsIsDragging] = useState(false);
+  const detailsStartY = useRef(0);
   const [dragY, setDragY] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const startY = useRef(0);
@@ -751,6 +770,28 @@ function WithdrawPanel({
       setError(e.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const openDetailsModal = async () => {
+    setOpenDetails(true);
+    if (detailsBank !== null) return; // already loaded
+    setDetailsLoading(true);
+    try {
+      const [methodRes, payoutsRes] = await Promise.all([
+        fetch("/api/stripe/payout-method").then((r) => r.json()),
+        fetch("/api/stripe/payouts").then((r) => r.json()),
+      ]);
+      if (methodRes.bankAccount) setDetailsBank(methodRes.bankAccount);
+      // Compute in-transit amount from payouts with status "in_transit"
+      const inTransit = (payoutsRes.payouts || [])
+        .filter((p: any) => p.status === "in_transit")
+        .reduce((sum: number, p: any) => sum + p.amount, 0);
+      setInTransitAmount(inTransit);
+    } catch {
+      // non-fatal — modal still opens showing balance data
+    } finally {
+      setDetailsLoading(false);
     }
   };
 
@@ -790,9 +831,14 @@ function WithdrawPanel({
       <div className="rounded-xl border border-[#e5e7eb] bg-white p-5">
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <p className="text-[12px] text-[#6b7280] font-medium tracking-wide uppercase">
-              Available for cashout
-            </p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-[12px] text-[#6b7280] font-medium tracking-wide uppercase">
+                Available for cashout
+              </p>
+              <span title="Funds ready to transfer to your bank account now">
+                <Info className="h-3.5 w-3.5 text-[#9ca3af] cursor-help" />
+              </span>
+            </div>
             {balanceReady ? (
               <p className="text-[28px] sm:text-[32px] leading-none font-semibold text-[#1a1a2e] mt-2">
                 {fmt(availableBalance, currency)}
@@ -837,15 +883,19 @@ function WithdrawPanel({
               <p className="text-[12px] text-red-700">{error}</p>
             </div>
           )}
-          <div className="relative group">
+          <div className="flex gap-2">
             <button
               onClick={handleWithdraw}
               disabled={loading || availableBalance <= 0}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 text-[15px] font-medium text-white bg-[#635bff] rounded-xl hover:bg-[#564de8] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 text-[15px] font-medium text-white bg-[#635bff] rounded-xl hover:bg-[#564de8] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" /> Processing…
+                </>
+              ) : availableBalance <= 0 ? (
+                <>
+                  <Clock className="h-4 w-4" /> Withdraw
                 </>
               ) : (
                 <>
@@ -853,12 +903,12 @@ function WithdrawPanel({
                 </>
               )}
             </button>
-            {availableBalance <= 0 && !loading && (
-              <div className="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-[#1a1a2e] text-white text-[12px] rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 shadow-lg">
-                No funds available
-                <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-x-[5px] border-x-transparent border-t-[5px] border-t-[#1a1a2e]" />
-              </div>
-            )}
+            <button
+              onClick={openDetailsModal}
+              className="px-4 py-3 text-[14px] font-medium text-[#6b7280] bg-[#f3f4f6] rounded-xl hover:bg-[#e5e7eb] transition-colors whitespace-nowrap"
+            >
+              See details
+            </button>
           </div>
           <div className="flex items-start gap-2.5 p-3 bg-[#f3f4f6] rounded-xl">
             <Info className="h-3.5 w-3.5 text-[#9ca3af] mt-0.5 shrink-0" />
@@ -929,6 +979,23 @@ function WithdrawPanel({
                     {fmt(availableBalance, currency)}
                   </span>
                 </div>
+
+                {totalFees > 0 && (
+                  <div className="flex items-center justify-between bg-[#fff7ed] border border-[#fed7aa] rounded-xl p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-[#ffedd5] flex items-center justify-center">
+                        <CreditCard className="h-4 w-4 text-[#f97316]" />
+                      </div>
+                      <div>
+                        <p className="text-[13px] font-medium text-[#1a1a2e]">Stripe fees taken</p>
+                        <p className="text-[11px] text-[#9ca3af]">Processing & platform fees</p>
+                      </div>
+                    </div>
+                    <span className="text-[15px] font-semibold text-rose-500">
+                      −{fmt(totalFees, currency)}
+                    </span>
+                  </div>
+                )}
 
                 <div className="flex items-center justify-between pt-3 border-t border-[#e5e7eb] px-1">
                   <span className="text-[14px] font-medium text-[#1a1a2e]">Total balance</span>
@@ -1032,6 +1099,23 @@ function WithdrawPanel({
                     </span>
                   </div>
 
+                  {totalFees > 0 && (
+                    <div className="flex items-center justify-between bg-[#fff7ed] border border-[#fed7aa] rounded-xl p-3.5">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-lg bg-[#ffedd5] flex items-center justify-center">
+                          <CreditCard className="h-3.5 w-3.5 text-[#f97316]" />
+                        </div>
+                        <div>
+                          <p className="text-[13px] font-medium text-[#1a1a2e]">Stripe fees taken</p>
+                          <p className="text-[10px] text-[#9ca3af]">Processing fees</p>
+                        </div>
+                      </div>
+                      <span className="text-[14px] font-semibold text-rose-500">
+                        −{fmt(totalFees, currency)}
+                      </span>
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-between pt-3 border-t border-[#e5e7eb] px-1">
                     <span className="text-[13px] font-medium text-[#1a1a2e]">Total balance</span>
                     <span className="text-[16px] font-bold text-[#8b5cf6]">
@@ -1057,6 +1141,198 @@ function WithdrawPanel({
                 </button>
               </div>
               <div style={{ height: "max(env(safe-area-inset-bottom), 12px)" }} />
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ── See Details Modal ── */}
+      {openDetails && (
+        <>
+          {/* Desktop */}
+          <div className="fixed inset-0 z-[90] hidden sm:flex items-center justify-center">
+            <div
+              className="absolute inset-0 bg-black/45 animate-in fade-in duration-200"
+              onClick={() => setOpenDetails(false)}
+            />
+            <div className="relative bg-white rounded-3xl border border-[#e5e7eb] shadow-2xl w-full max-w-sm p-7 animate-in fade-in zoom-in-95 duration-200">
+              <div className="flex justify-between items-start mb-4">
+                <h3 className="text-[20px] font-semibold text-[#1a1a2e]">Your balance</h3>
+                <button
+                  onClick={() => setOpenDetails(false)}
+                  className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center text-[#6b7280] hover:bg-[#e5e7eb] transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="space-y-0 rounded-2xl border border-[#e5e7eb] overflow-hidden">
+                {[
+                  { label: "On the way to your bank", value: inTransitAmount, icon: <Send className="h-4 w-4 text-[#6b7280]" /> },
+                  { label: "Available to pay out soon", value: pendingBalance, icon: <Clock className="h-4 w-4 text-[#f97316]" /> },
+                  { label: "Available in your balance", value: availableBalance, icon: <CheckCircle2 className="h-4 w-4 text-[#8b5cf6]" /> },
+                ].map(({ label, value, icon }, i) => (
+                  <div key={i} className="flex items-center justify-between px-4 py-3.5 border-b border-[#f3f4f6] last:border-0">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-lg bg-[#f9fafb] flex items-center justify-center">{icon}</div>
+                      <span className="text-[13px] text-[#374151]">{label}</span>
+                    </div>
+                    <span className="text-[14px] font-semibold text-[#1a1a2e]">{fmt(value, currency)}</span>
+                  </div>
+                ))}
+                <div className="flex items-center justify-between px-4 py-3.5 bg-[#f9fafb]">
+                  <span className="text-[13px] font-semibold text-[#1a1a2e]">Total balance</span>
+                  <span className="text-[15px] font-bold text-[#8b5cf6]">{fmt(availableBalance + pendingBalance, currency)}</span>
+                </div>
+              </div>
+
+              <button
+                onClick={handleWithdraw}
+                disabled={loading || availableBalance <= 0}
+                className="w-full mt-4 flex items-center justify-center gap-2 px-4 py-3 text-[14px] font-medium text-white bg-[#635bff] rounded-xl hover:bg-[#564de8] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : availableBalance <= 0 ? <Clock className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                Withdraw
+              </button>
+
+              <div className="mt-4 pt-4 border-t border-[#f3f4f6]">
+                {detailsLoading ? (
+                  <div className="h-4 w-48 bg-gray-100 rounded animate-pulse" />
+                ) : detailsBank ? (
+                  <p className="text-[12px] text-[#9ca3af] leading-relaxed">
+                    Your funds are manually paid out to{" "}
+                    <span className="font-medium text-[#6b7280]">
+                      {detailsBank.bankName || "Bank account"} ••••{detailsBank.last4}
+                    </span>.{" "}
+                    <button
+                      onClick={async () => {
+                        const r = await fetch("/api/stripe/login-link", { method: "POST" });
+                        const j = await r.json();
+                        if (j.url) window.open(j.url, "_blank", "noopener,noreferrer");
+                      }}
+                      className="text-[#8b5cf6] hover:underline font-medium"
+                    >
+                      Update payout settings
+                    </button>
+                  </p>
+                ) : (
+                  <button
+                    onClick={async () => {
+                      const r = await fetch("/api/stripe/login-link", { method: "POST" });
+                      const j = await r.json();
+                      if (j.url) window.open(j.url, "_blank", "noopener,noreferrer");
+                    }}
+                    className="text-[12px] text-[#8b5cf6] hover:underline font-medium"
+                  >
+                    Update payout settings →
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Mobile bottom sheet */}
+          <div className="fixed inset-0 z-[90] sm:hidden">
+            <div
+              className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
+              style={{
+                opacity: detailsDragY > 0 ? Math.max(0, 1 - detailsDragY / 300) : 1,
+                transition: detailsIsDragging ? "none" : "opacity 350ms ease-out",
+              }}
+              onClick={() => setOpenDetails(false)}
+            />
+            <div
+              className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
+              onTouchStart={(e) => {
+                detailsStartY.current = e.touches[0].clientY;
+                setDetailsIsDragging(true);
+              }}
+              onTouchMove={(e) => {
+                if (!detailsIsDragging) return;
+                const diff = e.touches[0].clientY - detailsStartY.current;
+                if (diff > 0) setDetailsDragY(diff * 0.85);
+              }}
+              onTouchEnd={() => {
+                if (detailsDragY > 80) setOpenDetails(false);
+                setDetailsDragY(0);
+                setDetailsIsDragging(false);
+              }}
+              style={{
+                transform: `translateY(${detailsDragY}px)`,
+                transition: detailsIsDragging ? "none" : "transform 380ms cubic-bezier(0.32,0.72,0,1)",
+                willChange: "transform",
+              }}
+            >
+              <div className="pt-3 pb-1 flex justify-center">
+                <div className="w-10 h-1.5 rounded-full bg-[#d1d5db]" />
+              </div>
+              <div className="px-5 pb-5">
+                <h3 className="text-[18px] font-semibold text-[#1a1a2e] mt-1 mb-4">Your balance</h3>
+
+                <div className="space-y-0 rounded-2xl border border-[#e5e7eb] overflow-hidden">
+                  {[
+                    { label: "On the way to your bank", value: inTransitAmount, icon: <Send className="h-3.5 w-3.5 text-[#6b7280]" /> },
+                    { label: "Available to pay out soon", value: pendingBalance, icon: <Clock className="h-3.5 w-3.5 text-[#f97316]" /> },
+                    { label: "Available in your balance", value: availableBalance, icon: <CheckCircle2 className="h-3.5 w-3.5 text-[#8b5cf6]" /> },
+                  ].map(({ label, value, icon }, i) => (
+                    <div key={i} className="flex items-center justify-between px-4 py-3 border-b border-[#f3f4f6] last:border-0">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-lg bg-[#f9fafb] flex items-center justify-center">{icon}</div>
+                        <span className="text-[12px] text-[#374151]">{label}</span>
+                      </div>
+                      <span className="text-[13px] font-semibold text-[#1a1a2e]">{fmt(value, currency)}</span>
+                    </div>
+                  ))}
+                  <div className="flex items-center justify-between px-4 py-3 bg-[#f9fafb]">
+                    <span className="text-[13px] font-semibold text-[#1a1a2e]">Total balance</span>
+                    <span className="text-[14px] font-bold text-[#8b5cf6]">{fmt(availableBalance + pendingBalance, currency)}</span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleWithdraw}
+                  disabled={loading || availableBalance <= 0}
+                  className="w-full mt-4 flex items-center justify-center gap-2 px-4 py-3 text-[14px] font-medium text-white bg-[#635bff] rounded-xl hover:bg-[#564de8] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : availableBalance <= 0 ? <Clock className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                  Withdraw
+                </button>
+
+                <div className="mt-4 pt-4 border-t border-[#f3f4f6]">
+                  {detailsLoading ? (
+                    <div className="h-4 w-48 bg-gray-100 rounded animate-pulse" />
+                  ) : detailsBank ? (
+                    <p className="text-[12px] text-[#9ca3af] leading-relaxed">
+                      Your funds are manually paid out to{" "}
+                      <span className="font-medium text-[#6b7280]">
+                        {detailsBank.bankName || "Bank account"} ••••{detailsBank.last4}
+                      </span>.{" "}
+                      <button
+                        onClick={async () => {
+                          const r = await fetch("/api/stripe/login-link", { method: "POST" });
+                          const j = await r.json();
+                          if (j.url) window.open(j.url, "_blank", "noopener,noreferrer");
+                        }}
+                        className="text-[#8b5cf6] hover:underline font-medium"
+                      >
+                        Update payout settings
+                      </button>
+                    </p>
+                  ) : (
+                    <button
+                      onClick={async () => {
+                        const r = await fetch("/api/stripe/login-link", { method: "POST" });
+                        const j = await r.json();
+                        if (j.url) window.open(j.url, "_blank", "noopener,noreferrer");
+                      }}
+                      className="text-[12px] text-[#8b5cf6] hover:underline font-medium"
+                    >
+                      Update payout settings →
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div style={{ height: "max(env(safe-area-inset-bottom), 16px)" }} />
             </div>
           </div>
         </>
@@ -2959,8 +3235,8 @@ export function PayoutsClient({
   }, []);
   const pageItems =
     recentTab === "sales" ? initialOrders : new Array(payoutCount);
-  const pageCount = Math.max(1, Math.ceil(pageItems.length / 6));
-  const pagedOrders = initialOrders.slice(recentPage * 6, recentPage * 6 + 6);
+  const pageCount = Math.max(1, Math.ceil(pageItems.length / 4));
+  const pagedOrders = initialOrders.slice(recentPage * 4, recentPage * 4 + 4);
   const changePage = (next: number) => {
     setIsPageLoading(true);
     setTimeout(() => {
@@ -3013,6 +3289,7 @@ export function PayoutsClient({
               currency={currency}
               payoutsEnabled={payoutsEnabled}
               balanceReady={fxReady}
+              totalFees={toUsd(initialData.totalFees || 0)}
               onSuccess={() => {
                 refreshBalances();
                 setRecentTab("payouts");
@@ -3109,7 +3386,7 @@ export function PayoutsClient({
                 <PayoutsHistoryList
                   refreshKey={refreshKey}
                   page={recentPage}
-                  pageSize={6}
+                  pageSize={4}
                   pageSwitchLoading={isPageLoading}
                   convertCents={toUsd}
                   onCountChange={setPayoutCount}
@@ -3119,7 +3396,7 @@ export function PayoutsClient({
                 <>
                   {isPageLoading && (
                     <div className="p-4 space-y-2">
-                      {[1, 2, 3, 4, 5, 6].map((i) => (
+                      {[1, 2, 3, 4].map((i) => (
                         <div
                           key={i}
                           className="h-10 rounded-lg bg-[#f3f4f6] animate-pulse"
@@ -3340,7 +3617,7 @@ export function PayoutsClient({
                   {initialOrders.length > 0 && (
                     <div className="px-5 py-3 border-t border-[#e5e7eb] text-[12px] text-[#6b7280]">
                       Showing{" "}
-                      {Math.min((recentPage + 1) * 6, initialOrders.length)} of{" "}
+                      {Math.min((recentPage + 1) * 4, initialOrders.length)} of{" "}
                       {initialOrders.length} orders
                     </div>
                   )}
