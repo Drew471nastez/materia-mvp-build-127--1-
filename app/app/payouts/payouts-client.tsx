@@ -497,9 +497,11 @@ function RevenueChart() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const load = useCallback(async (tf: ChartTimeframeValue) => {
-    setLoading(true);
-    setError(null);
+  const load = useCallback(async (tf: ChartTimeframeValue, silent = false) => {
+    if (!silent) {
+      setLoading(true);
+      setError(null);
+    }
     try {
       const r = await fetch(`/api/stripe/revenue-chart?timeframe=${tf}`);
       const json = await r.json();
@@ -511,9 +513,9 @@ function RevenueChart() {
       setIsHourly(json.isHourly || false);
       if (json.currency) setCurrency(json.currency.toLowerCase());
     } catch (e: any) {
-      setError(e.message);
+      if (!silent) setError(e.message);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
@@ -521,6 +523,21 @@ function RevenueChart() {
     load(timeframe);
   }, [timeframe, load]);
 
+  useEffect(() => {
+    const tick = () => {
+      if (document.visibilityState !== "visible") return;
+      load(timeframe, true);
+    };
+    const id = window.setInterval(tick, 15000);
+    const onVisible = () => tick();
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
+  }, [timeframe, load]);
 
   const numReady = !loading; // show amounts as soon as data is ready
   // Clamp each bucket to >= 0 for a clean chart; preserve refundsAbs as-is.
@@ -2937,9 +2954,9 @@ function PayoutsHistoryList({
       if (json.error) throw new Error(json.error);
       setPayouts(json.payouts || []);
     } catch (e: any) {
-      setError(e.message);
+      if (!silent) setError(e.message);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
@@ -3269,6 +3286,24 @@ export function PayoutsClient({
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  useEffect(() => {
+    if (!hasStripe) return;
+    const tick = () => {
+      if (document.visibilityState !== "visible") return;
+      refreshBalances();
+    };
+    tick();
+    const id = window.setInterval(tick, 15000);
+    const onVisible = () => tick();
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
+  }, [hasStripe, refreshBalances]);
 
   if (!hasStripe) {
     return (
