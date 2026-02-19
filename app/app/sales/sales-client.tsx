@@ -1985,14 +1985,17 @@ export function SalesClient({
   };
 
   const formatDate = (dateString: string) => {
+    const tz = typeof window !== "undefined" ? localStorage.getItem("storelib_timezone") || undefined : undefined;
     return new Date(dateString).toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
+      timeZone: tz,
     });
   };
 
   const formatFullDate = (dateString: string) => {
+    const tz = typeof window !== "undefined" ? localStorage.getItem("storelib_timezone") || undefined : undefined;
     return new Date(dateString).toLocaleDateString("en-US", {
       weekday: "long",
       month: "long",
@@ -2001,6 +2004,7 @@ export function SalesClient({
       hour: "2-digit",
       minute: "2-digit",
       timeZoneName: "short",
+      timeZone: tz,
     });
   };
 
@@ -2442,10 +2446,12 @@ export function SalesClient({
             value = data.length > 0 ? total / data.length / 100 : 0;
           }
 
+          const _tz = typeof window !== "undefined" ? localStorage.getItem("storelib_timezone") || undefined : undefined;
           points.push({
             label: dayStart.toLocaleDateString("en-US", {
               month: "short",
               day: "numeric",
+              timeZone: _tz,
             }),
             value,
           });

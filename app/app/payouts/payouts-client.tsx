@@ -153,14 +153,17 @@ function fmtCompact(cents: number, currency = "usd") {
 }
 
 function fmtDate(dateStr: string) {
+  const tz = typeof window !== "undefined" ? localStorage.getItem("storelib_timezone") || undefined : undefined;
   return new Date(dateStr).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
+    timeZone: tz,
   });
 }
 
 function fmtFullDate(dateStr: string) {
+  const tz = typeof window !== "undefined" ? localStorage.getItem("storelib_timezone") || undefined : undefined;
   return new Date(dateStr).toLocaleDateString("en-US", {
     weekday: "long",
     month: "long",
@@ -169,14 +172,17 @@ function fmtFullDate(dateStr: string) {
     hour: "2-digit",
     minute: "2-digit",
     timeZoneName: "short",
+    timeZone: tz,
   });
 }
 
 function fmtUnix(ts: number) {
+  const tz = typeof window !== "undefined" ? localStorage.getItem("storelib_timezone") || undefined : undefined;
   return new Date(ts * 1000).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
+    timeZone: tz,
   });
 }
 
@@ -1238,25 +1244,42 @@ function WithdrawPanel({
                 </button>
               </div>
 
-              <div className="space-y-0 rounded-2xl border border-[#e5e7eb] overflow-hidden">
-                {[
-                  { label: "On the way to your bank", value: inTransitAmount, icon: <Send className="h-3.5 w-3.5 text-[#6b7280]" /> },
-                  { label: "Available to pay out soon", value: pendingBalance, icon: <Clock className="h-3.5 w-3.5 text-[#6b7280]" /> },
-                  { label: "Available in your balance", value: availableBalance, icon: <CheckCircle2 className="h-3.5 w-3.5 text-[#6b7280]" /> },
-                ].map(({ label, value, icon }, i) => (
-                  <div key={i} className="flex items-center justify-between px-4 py-3.5 border-b border-[#f3f4f6] last:border-0">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-lg bg-[#f3f4f6] flex items-center justify-center">{icon}</div>
-                      <span className="text-[13px] text-[#374151]">{label}</span>
+              {/* Timeline-style balance breakdown */}
+              <div className="rounded-2xl border border-[#e5e7eb] overflow-hidden">
+                <div className="px-4 py-4">
+                  {[
+                    { label: "On the way to your bank", value: inTransitAmount, icon: <Send className="h-3.5 w-3.5 text-[#6b7280]" />, color: "#6b7280" },
+                    { label: "Available to pay out soon", value: pendingBalance, icon: <Clock className="h-3.5 w-3.5 text-[#f59e0b]" />, color: "#f59e0b" },
+                    { label: "Available in your balance", value: availableBalance, icon: <CheckCircle2 className="h-3.5 w-3.5 text-[#10b981]" />, color: "#10b981" },
+                  ].map(({ label, value, icon, color }, i, arr) => (
+                    <div key={i} className="flex gap-3">
+                      {/* Timeline column */}
+                      <div className="flex flex-col items-center">
+                        <div className="w-7 h-7 rounded-full border-2 flex items-center justify-center shrink-0" style={{ borderColor: color, backgroundColor: `${color}10` }}>
+                          {icon}
+                        </div>
+                        {i < arr.length - 1 && (
+                          <div className="w-[2px] flex-1 my-1 rounded-full bg-[#e5e7eb]" />
+                        )}
+                      </div>
+                      {/* Content */}
+                      <div className={cn("flex-1 flex items-center justify-between", i < arr.length - 1 ? "pb-4" : "")}>
+                        <span className="text-[13px] text-[#374151]">{label}</span>
+                        <span className="text-[14px] font-semibold text-[#1a1a2e]">{fmt(value, currency)}</span>
+                      </div>
                     </div>
-                    <span className="text-[14px] font-semibold text-[#1a1a2e]">{fmt(value, currency)}</span>
-                  </div>
-                ))}
-                <div className="flex items-center justify-between px-4 py-3.5 bg-[#f9fafb]">
+                  ))}
+                </div>
+                <div className="flex items-center justify-between px-4 py-3.5 bg-[#f9fafb] border-t border-[#e5e7eb]">
                   <span className="text-[13px] font-semibold text-[#374151]">Total balance</span>
                   <span className="text-[15px] font-bold text-[#1a1a2e]">{fmt(availableBalance + pendingBalance, currency)}</span>
                 </div>
               </div>
+
+              {/* Withdrawal time estimate */}
+              <p className="text-[11px] text-[#9ca3af] mt-3 leading-relaxed">
+                Withdrawals typically take 2–5 business days to reach your bank account, depending on your bank and country.
+              </p>
 
               <button
                 onClick={handleWithdraw}
@@ -1576,6 +1599,14 @@ function OrderDetailsModal({
   const [editEmail, setEditEmail] = useState("");
   const [resendLoading, setResendLoading] = useState(false);
   const [receiptResendCounts, setReceiptResendCounts] = useState<Record<string, number>>({});
+  // Custom notification state (modern smooth toast)
+  const [notification, setNotification] = useState<{ message: string; visible: boolean; type: "success" | "error" }>({ message: "", visible: false, type: "success" });
+  const notificationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showNotification = (message: string, type: "success" | "error" = "success") => {
+    if (notificationTimer.current) clearTimeout(notificationTimer.current);
+    setNotification({ message, visible: true, type });
+    notificationTimer.current = setTimeout(() => setNotification(n => ({ ...n, visible: false })), 4000);
+  };
   // Smooth refund sheet states
   const [refundSheetVisible, setRefundSheetVisible] = useState(false);
   const [refundSheetAnimating, setRefundSheetAnimating] = useState(false);
@@ -1584,7 +1615,6 @@ function OrderDetailsModal({
   const refundStartY = useRef(0);
   const startY = useRef(0);
   const sheetRef = useRef<HTMLDivElement>(null);
-  const { toast } = useToast();
 
   const isOpen = !!order;
 
@@ -1657,11 +1687,11 @@ function OrderDetailsModal({
     if (!order) return;
     const currentCount = receiptResendCounts[order.id] || 0;
     if (currentCount >= 5) {
-      toast({ title: "Resend limit reached", description: "Maximum 5 resends per order." });
+      showNotification("Maximum 5 resends per order", "error");
       return;
     }
     if (!order.receipt_token) {
-      toast({ title: "Cannot resend", description: "No receipt token available for this order." });
+      showNotification("No receipt token available for this order", "error");
       return;
     }
     setResendLoading(true);
@@ -1675,12 +1705,12 @@ function OrderDetailsModal({
       if (r.ok && data.success) {
         const newCounts = { ...receiptResendCounts, [order.id]: currentCount + 1 };
         setReceiptResendCounts(newCounts);
-        toast({ title: "Receipt sent", description: `Sent to buyer (${currentCount + 1}/5)` });
+        showNotification(`Receipt sent to buyer (${currentCount + 1}/5)`);
       } else {
-        toast({ title: "Failed to resend", description: data.error || "Please try again." });
+        showNotification(data.error || "Failed to resend. Please try again.", "error");
       }
     } catch {
-      toast({ title: "Failed to resend", description: "Please try again.", variant: "destructive" });
+      showNotification("Failed to resend. Please try again.", "error");
     } finally {
       setResendLoading(false);
     }
@@ -1738,17 +1768,10 @@ function OrderDetailsModal({
       setShowRefundConfirm(false);
       // Pass the refunded amount so the parent can instantly update the balance UI
       onRefundSuccess?.(order.amount_cents);
-      toast({
-        title: "Refund issued",
-        description: "The buyer will be notified.",
-      });
+      showNotification("Refund issued — the buyer will be notified");
     } catch (e: any) {
       setRefundError(e.message);
-      toast({
-        title: "Refund failed",
-        description: e.message,
-        variant: "destructive",
-      });
+      showNotification(e.message || "Refund failed", "error");
     } finally {
       setRefundLoading(false);
     }
@@ -2415,7 +2438,7 @@ function OrderDetailsModal({
             transition: isDragging
               ? "none"
               : "transform 420ms cubic-bezier(0.32,0.72,0,1)",
-            maxHeight: "90vh",
+            maxHeight: "72vh",
             willChange: "transform",
           }}
         >
@@ -2474,7 +2497,7 @@ function OrderDetailsModal({
             {/* Row 2: Edit Email + Refund */}
             <div className="flex items-center gap-2">
               <button
-                onClick={() => { handleClose(); setTimeout(() => openEditEmail(), 450); }}
+                onClick={() => { openEditEmail(); handleClose(); }}
                 className="flex-1 px-3 py-2.5 text-[12px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg active:bg-[#e5e7eb] transition-colors flex items-center justify-center gap-1.5"
               >
                 <Mail className="h-3.5 w-3.5" />
@@ -2786,6 +2809,25 @@ function OrderDetailsModal({
                 Save Changes
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modern smooth notification toast */}
+      {notification.visible && (
+        <div
+          className="fixed top-[calc(68px+env(safe-area-inset-top)+12px)] md:top-4 left-1/2 -translate-x-1/2 z-[200] animate-in fade-in-0 slide-in-from-top-2 duration-300"
+        >
+          <div className={cn(
+            "px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-2 text-[13px] font-medium whitespace-nowrap max-w-[calc(100vw-2rem)]",
+            notification.type === "error" ? "bg-red-600 text-white" : "bg-[#1a1a2e] text-white",
+          )}>
+            {notification.type === "error" ? (
+              <AlertCircle className="h-4 w-4 shrink-0 text-white/80" />
+            ) : (
+              <Check className="h-4 w-4 text-emerald-400 shrink-0" />
+            )}
+            <span className="overflow-hidden text-ellipsis">{notification.message}</span>
           </div>
         </div>
       )}

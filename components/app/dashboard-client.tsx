@@ -1262,7 +1262,7 @@ export function DashboardClient({
           }
 
           points.push({
-            label: weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            label: weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: typeof window !== "undefined" ? localStorage.getItem("storelib_timezone") || undefined : undefined }),
             value,
             secondaryValue: kpiType === "views" ? secondaryValue : undefined
           })
@@ -1326,7 +1326,7 @@ export function DashboardClient({
           }
 
           points.push({
-            label: dayStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            label: dayStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: typeof window !== "undefined" ? localStorage.getItem("storelib_timezone") || undefined : undefined }),
             value,
             secondaryValue: kpiType === "views" ? secondaryValue : undefined
           })

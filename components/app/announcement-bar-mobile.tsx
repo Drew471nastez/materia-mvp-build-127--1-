@@ -20,7 +20,7 @@ export function AnnouncementBarMobile({ children }: { children: React.ReactNode 
 
   return (
     <div
-      className="fixed top-0 left-0 right-0 z-[60] bg-[#8b5cf6] text-white"
+      className="fixed top-0 left-0 right-0 z-[60] bg-[#8b5cf6] text-white border-0"
       style={{ paddingTop: "env(safe-area-inset-top)" }}
     >
       <div className="h-[40px] md:h-[42px] flex items-center justify-center py-0 md:py-2 px-4 md:px-4">

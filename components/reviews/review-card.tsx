@@ -44,11 +44,13 @@ export function ReviewCard({
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
-    return date.toLocaleDateString("en-US", {
+    const formatted = date.toLocaleDateString("en-US", {
       year: "numeric",
-      month: isMobile ? "short" : "long",
+      month: "short",
       day: "numeric",
     })
+    // "Jan 29, 2026" → "Jan. 29, 2026"
+    return formatted.replace(/^(\w{3})/, "$1.")
   }
 
   // Check if review is "new" (within last 7 days)

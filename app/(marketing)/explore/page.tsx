@@ -139,8 +139,8 @@ export default async function ExplorePage({
 
   return (
     <main className="min-h-screen bg-white">
-      {/* Semantic page structure for SEO - optimized width for desktop (~10% wider on lg screens) */}
-      <div className="mx-auto max-w-6xl lg:max-w-[1270px] px-4 sm:px-6 lg:px-8 pt-4 pb-6 sm:pt-5 sm:pb-8">
+      {/* Semantic page structure for SEO - matches header max-width (1400px) */}
+      <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 pt-4 pb-6 sm:pt-5 sm:pb-8">
         {/* Hidden H1 for SEO - visible to screen readers and crawlers */}
         <h1 className="sr-only">
           Discover Digital Products - Productivity, Design, AI & More | Storelib

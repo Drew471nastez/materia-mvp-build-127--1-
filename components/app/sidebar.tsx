@@ -174,7 +174,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { href: "/app/settings", label: t("nav.settings"), icon: Settings },
     { href: "/app/settings/billing", label: t("settings.billing"), icon: CreditCard },
     { href: "/help", label: "Help", icon: HelpCircle },
-    { href: "/explore", label: "Explore", icon: Compass },
+    { href: "/explore", label: "Explore", icon: Compass, target: "_blank" as const },
     { href: "/library", label: "Library", icon: Library },
   ]
 
@@ -333,6 +333,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               <Link
                 key={item.href}
                 href={item.href}
+                {...("target" in item ? { target: item.target, rel: "noopener noreferrer" } : {})}
                 onClick={() => {
                   setProfileDropdownOpen(false)
                   onItemClick?.()
@@ -412,6 +413,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         <div className="flex items-center justify-between">
           <Link
             href="/explore"
+            target="_blank"
+            rel="noopener noreferrer"
             onClick={onItemClick}
             className="flex items-center gap-2 hover:opacity-80 transition-opacity"
           >
@@ -515,6 +518,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         <div className="flex items-center justify-between">
           <Link
             href="/explore"
+            target="_blank"
+            rel="noopener noreferrer"
             onClick={onItemClick}
             className="flex items-center gap-2 hover:opacity-80 transition-opacity"
           >
@@ -528,6 +533,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           <div className="flex items-center gap-1.5">
             <Link
               href="/explore"
+              target="_blank"
+              rel="noopener noreferrer"
               onClick={onItemClick}
               className="flex h-7 w-7 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 transition-colors cursor-pointer"
             >

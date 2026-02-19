@@ -373,12 +373,11 @@ function PercentChangeIndicator({ current, previous }: { current: number; previo
   )
 }
 
-// Helper function to normalize date to local date string for consistent key generation
+// Helper function to normalize date to timezone-aware date string for consistent key generation
 function getDateKey(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date
-  // Use explicit month names to avoid locale issues
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-  return `${months[d.getMonth()]} ${d.getDate()}`
+  const tz = typeof window !== "undefined" ? localStorage.getItem("storelib_timezone") || undefined : undefined
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: tz })
 }
 
 // Mobile Bottom Sheet for Timeframe selection

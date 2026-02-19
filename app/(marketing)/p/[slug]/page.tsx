@@ -18,6 +18,7 @@ import { ProductAboutSection } from "@/components/store-builder/unified-section-
 import { DynamicFavicon } from "@/components/store-builder/dynamic-favicon"
 import { LiveProductCreatorBar } from "@/components/store-builder/product-creator-bar"
 import { LiveStickyAddToCart } from "@/components/store-builder/sticky-add-to-cart"
+import { StickyDesktopCreatorBar } from "@/components/store-builder/sticky-desktop-creator-bar"
 import type { Section, ProductHeaderSettings } from "@/lib/store-builder/types"
 import {
   defaultMoreFromSellerSettings,
@@ -28,6 +29,7 @@ import {
 import type { ShopHeaderSettings } from "@/lib/store-builder/types"
 import { SellerFooter } from "@/components/storefront/seller-footer"
 import { ShareButton } from "@/components/product/share-button"
+import { CreatorQuickNav } from "@/components/creator-quick-nav"
 import { WishlistButton } from "@/components/wishlist/wishlist-button"
 import { RefundPolicyDisplay } from "@/components/product/refund-policy-display"
 import { getStoreUrl } from "@/lib/url-helpers"
@@ -751,6 +753,9 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     .join("")
     .toUpperCase()
 
+  // Check if the logged-in user is the creator of this product
+  const isCreatorViewing = !!user && !!creator && user.id === creator.user_id
+
   const getWhatsIncluded = () => {
     if (product.whats_included && product.whats_included.length > 0) {
       return product.whats_included.map((item: string) => item.replace(/\*\*/g, ""))
@@ -902,7 +907,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
 
           {/* Desktop: Creator info above description with share button */}
           {creator && (
-            <div className="hidden lg:flex mt-4 items-center justify-between">
+            <div className="hidden lg:flex mt-4 items-center justify-between" data-creator-header>
               <div className="flex items-center gap-3 p-2 -ml-2">
                 <a
                   href={getStoreUrl(creatorUsername)}
@@ -1413,6 +1418,19 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           avatarUrl={creatorAvatarUrl}
         />
 
+        {/* Sticky Creator Bar - appears on desktop when scrolling past header */}
+        {creator && (
+          <StickyDesktopCreatorBar
+            creatorName={creatorProfile?.display_name || creator?.name || "Creator"}
+            creatorAvatarUrl={creatorAvatarUrl}
+            creatorInitials={creatorInitials}
+            creatorStoreUrl={getStoreUrl(creatorUsername)}
+            productTitle={product.title}
+            textColor={themeColors.textColor}
+            backgroundColor={pageBackgroundColor}
+          />
+        )}
+
         {/* Sticky Add to Cart - appears on scroll - ALWAYS SHOW */}
         {stickyAddToCartSettings.visible && (
           <LiveStickyAddToCart
@@ -1496,6 +1514,14 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
         />
 
         <SellerFooter />
+
+        {/* Creator quick-nav circle for owners viewing their own product */}
+        {isCreatorViewing && (
+          <CreatorQuickNav
+            avatarUrl={creatorAvatarUrl}
+            creatorInitials={creatorInitials}
+          />
+        )}
       </div>
     )
   }
@@ -1525,6 +1551,19 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
         creatorId={product.creator_id}
         avatarUrl={creatorAvatarUrl}
       />
+
+      {/* Sticky Creator Bar - appears on desktop when scrolling past header */}
+      {creator && (
+        <StickyDesktopCreatorBar
+          creatorName={creatorProfile?.display_name || creator?.name || "Creator"}
+          creatorAvatarUrl={creatorAvatarUrl}
+          creatorInitials={creatorInitials}
+          creatorStoreUrl={getStoreUrl(creatorUsername)}
+          productTitle={product.title}
+          textColor={defaultPageTextColor}
+          backgroundColor={defaultPageBackgroundColor}
+        />
+      )}
 
       {/* Sticky Add to Cart - appears on scroll - ALWAYS SHOW */}
       <LiveStickyAddToCart
@@ -1592,6 +1631,14 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
       />
 
       <SellerFooter />
+
+      {/* Creator quick-nav circle for owners viewing their own product */}
+      {isCreatorViewing && (
+        <CreatorQuickNav
+          avatarUrl={creatorAvatarUrl}
+          creatorInitials={creatorInitials}
+        />
+      )}
     </div>
   )
 }
