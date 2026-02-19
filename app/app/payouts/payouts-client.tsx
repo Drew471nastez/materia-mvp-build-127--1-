@@ -542,7 +542,7 @@ function RevenueChart() {
             <div className="h-7 w-32 mt-1 rounded-lg bg-gray-200 animate-pulse" />
           ) : (
             <p className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-              {fmt(Math.max(0, totalGross - totalRefunds), currency)}
+              {fmt(Math.max(0, totalGross), currency)}
             </p>
           )}
         </div>
@@ -614,7 +614,7 @@ function RevenueChart() {
           </div>
           <div className="text-center">
             <p className="text-[28px] font-bold text-[#1a1a2e] tracking-tight">
-              {numReady ? fmt(Math.max(0, totalGross - totalRefunds), currency) : "—"}
+              {numReady ? fmt(Math.max(0, totalGross), currency) : "—"}
             </p>
             <p className="text-[13px] text-[#6b7280] mt-0.5">
               {chartData[0]?.count
