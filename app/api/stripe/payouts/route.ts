@@ -23,7 +23,7 @@ export async function GET() {
 
     if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 404 })
 
-    let orderNetUsd = 0
+    let orderPendingUsd = 0
     try {
       const { data: products } = await adminSupabase
         .from("products")
@@ -39,17 +39,12 @@ export async function GET() {
           .in("status", ["completed", "refunded"])
 
         const completed = (orders || []).filter((o) => o.status === "completed")
-        const refunded = (orders || []).filter((o) => o.status === "refunded")
         const gross = completed.reduce((sum, o) => sum + (o.amount_cents || 0), 0)
         const fees = completed.reduce((sum, o) => sum + (o.fee_cents || 0), 0)
-        const refunds = refunded.reduce(
-          (sum, o) => sum + (o.refund_amount_cents || o.amount_cents || 0),
-          0,
-        )
-        orderNetUsd = Math.max(0, gross - fees - refunds)
+        orderPendingUsd = Math.max(0, gross - fees)
       }
     } catch {
-      orderNetUsd = 0
+      orderPendingUsd = 0
     }
 
     const stripeAccountId = creator.stripe_account_id
@@ -101,8 +96,8 @@ export async function GET() {
         ? ([preferredCurrency, byCurrency.get(preferredCurrency)!] as const)
         : dominant
 
-      if (selected && selected[0] !== "usd" && selected[1].pending > 0 && orderNetUsd > 0) {
-        exchangeRate = selected[1].pending / orderNetUsd
+      if (selected && selected[0] !== "usd" && selected[1].pending > 0 && orderPendingUsd > 0) {
+        exchangeRate = selected[1].pending / orderPendingUsd
       }
     }
 

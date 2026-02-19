@@ -87,6 +87,7 @@ export default async function PayoutsPage() {
     }
   }
 
+  const orderPendingUsd = Math.max(0, totalEarnings - totalFees);
   const orderNetUsd = Math.max(0, totalEarnings - totalFees - totalRefunds);
 
   let stripePendingBalance = 0;
@@ -149,10 +150,10 @@ export default async function PayoutsPage() {
       }
     } catch (err) {
       console.error("[Payouts] Failed to fetch Stripe balances:", err);
-      stripePendingBalance = orderNetUsd;
+      stripePendingBalance = Math.round(orderPendingUsd * (stripeExchangeRate || 1));
     }
   } else {
-    stripePendingBalance = orderNetUsd;
+    stripePendingBalance = Math.round(orderPendingUsd * (stripeExchangeRate || 1));
   }
 
   if (
@@ -160,13 +161,13 @@ export default async function PayoutsPage() {
     (!stripeExchangeRate || stripeExchangeRate <= 0)
   ) {
     const nativePending = Math.max(0, stripePendingBalance);
-    if (nativePending > 0 && orderNetUsd > 0) {
-      stripeExchangeRate = nativePending / orderNetUsd;
+    if (nativePending > 0 && orderPendingUsd > 0) {
+      stripeExchangeRate = nativePending / orderPendingUsd;
     }
   }
 
-  if (detectedCurrency !== "usd" && orderNetUsd > 0) {
-    stripePendingBalance = Math.round(orderNetUsd * (stripeExchangeRate || 1));
+  if (detectedCurrency !== "usd" && orderPendingUsd > 0) {
+    stripePendingBalance = Math.round(orderPendingUsd * (stripeExchangeRate || 1));
   }
 
   // Net earnings = what seller keeps after all fees (Stripe + platform)
