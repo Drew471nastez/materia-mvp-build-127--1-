@@ -285,8 +285,11 @@ function TouchTooltip({
         {children}
       </button>
       {open && (
-        <div className="absolute z-40 -top-10 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[#111827] px-2.5 py-1.5 text-[11px] text-white shadow-lg">
-          {text}
+        <div className="absolute z-40 bottom-full mb-2 left-1/2 -translate-x-1/2 pointer-events-none">
+          <div className="relative bg-[#111827] text-white text-[11px] font-medium rounded-lg px-3 py-2 shadow-xl max-w-[220px] text-center leading-snug">
+            {text}
+            <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-[5px] border-r-[5px] border-t-[5px] border-l-transparent border-r-transparent border-t-[#111827]" />
+          </div>
         </div>
       )}
     </div>
@@ -596,17 +599,30 @@ function RevenueChart() {
 
   return (
     <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5 flex-1 min-w-0">
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
         <div>
-          <p className="text-[13px] font-medium text-[#6b7280]">
-            Revenue
-          </p>
+          <p className="text-[13px] font-medium text-[#6b7280]">Revenue</p>
           {!numReady ? (
             <div className="h-7 w-32 mt-1 rounded-lg bg-gray-200 animate-pulse" />
           ) : (
             <p className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
               {fmt(Math.max(0, totalGross), currency)}
             </p>
+          )}
+          {/* Legend row */}
+          {numReady && (
+            <div className="flex items-center gap-3 mt-1.5">
+              <span className="flex items-center gap-1.5 text-[11px] text-[#6b7280]">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#8b5cf6] inline-block" />
+                Revenue
+              </span>
+              {totalRefunds > 0 && (
+                <span className="flex items-center gap-1.5 text-[11px] text-[#6b7280]">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#f43f5e] inline-block" />
+                  Refunds −{fmt(totalRefunds, currency)}
+                </span>
+              )}
+            </div>
           )}
         </div>
 
@@ -734,18 +750,18 @@ function RevenueChart() {
               width={56}
             />
             <Tooltip content={<CustomTooltip />} />
-            {totalRefunds > 0 && (
-              <Area
-                type="monotone"
-                dataKey="refundsAbs"
-                stroke="#f43f5e"
-                strokeWidth={1.5}
-                fill="url(#refundGrad)"
-                dot={false}
-                activeDot={{ r: 3, fill: "#f43f5e", strokeWidth: 0 }}
-                name="Refunds"
-              />
-            )}
+            <Area
+              type="monotone"
+              dataKey="refundsAbs"
+              stroke="#f43f5e"
+              strokeWidth={totalRefunds > 0 ? 1.5 : 0}
+              strokeOpacity={totalRefunds > 0 ? 1 : 0}
+              fill="url(#refundGrad)"
+              fillOpacity={totalRefunds > 0 ? 1 : 0}
+              dot={false}
+              activeDot={totalRefunds > 0 ? { r: 3, fill: "#f43f5e", strokeWidth: 0 } : false}
+              name="Refunds"
+            />
             <Area
               type="monotone"
               dataKey="gross"
@@ -893,16 +909,18 @@ function WithdrawPanel({
       <div className="rounded-xl border border-[#e5e7eb] bg-white p-5">
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <div className="flex items-center gap-1.5">
-              <p className="text-[12px] text-[#6b7280] font-medium tracking-wide uppercase">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <p className="text-[11px] text-[#6b7280] font-semibold tracking-widest uppercase">
                 Available for cashout
               </p>
-              <TouchTooltip text="Funds ready to transfer to your bank account now">
-                <Info className="h-3.5 w-3.5 text-[#9ca3af] cursor-help" />
+              <TouchTooltip text="Funds that are ready to be transferred to your bank account right now">
+                <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-[#f3f4f6] hover:bg-[#e5e7eb] transition-colors cursor-help">
+                  <Info className="h-2.5 w-2.5 text-[#6b7280]" />
+                </span>
               </TouchTooltip>
             </div>
             {balanceReady ? (
-              <p className="text-[28px] sm:text-[32px] leading-none font-semibold text-[#1a1a2e] mt-2">
+              <p className="text-[28px] sm:text-[32px] leading-none font-bold text-[#1a1a2e] mt-2 tabular-nums">
                 {fmt(availableBalance, currency)}
               </p>
             ) : (
@@ -910,11 +928,18 @@ function WithdrawPanel({
             )}
           </div>
           <div className="text-right">
-            <p className="text-[12px] text-[#6b7280] font-medium tracking-wide uppercase">
-              Available soon
-            </p>
+            <div className="flex items-center justify-end gap-1.5">
+              <p className="text-[11px] text-[#6b7280] font-semibold tracking-widest uppercase">
+                Arriving soon
+              </p>
+              <TouchTooltip text="Funds that are processing and will be available in 1–3 business days">
+                <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-[#f3f4f6] hover:bg-[#e5e7eb] transition-colors cursor-help">
+                  <Info className="h-2.5 w-2.5 text-[#6b7280]" />
+                </span>
+              </TouchTooltip>
+            </div>
             {balanceReady ? (
-              <p className="text-[26px] sm:text-[30px] leading-none font-semibold text-[#1a1a2e] mt-2">
+              <p className="text-[24px] sm:text-[28px] leading-none font-bold text-[#6b7280] mt-2 tabular-nums">
                 {fmt(pendingBalance, currency)}
               </p>
             ) : (
@@ -922,9 +947,9 @@ function WithdrawPanel({
             )}
             <button
               onClick={() => setOpenBreakdown(true)}
-              className="text-[13px] font-medium text-[#8b5cf6] hover:text-[#7c3aed] hover:underline mt-3 transition-colors"
+              className="text-[12px] font-medium text-[#8b5cf6] hover:text-[#7c3aed] hover:underline mt-2 transition-colors"
             >
-              See breakdown
+              See breakdown →
             </button>
           </div>
         </div>
@@ -946,36 +971,46 @@ function WithdrawPanel({
             </div>
           )}
           <div className="flex gap-2 relative">
-            <button
-              onClick={() => {
-                if (loading) return;
-                if (availableBalance <= 0) {
-                  setShowWithdrawHint(true);
-                  window.setTimeout(() => setShowWithdrawHint(false), 1800);
-                  return;
-                }
-                handleWithdraw();
-              }}
-              disabled={loading}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 text-[15px] font-medium text-white bg-[#635bff] rounded-xl hover:bg-[#564de8] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" /> Processing…
-                </>
-              ) : availableBalance <= 0 ? (
-                <>
-                  <Clock className="h-4 w-4" /> Withdraw
-                </>
-              ) : (
-                <>
-                  <Plus className="h-4 w-4" /> Withdraw
-                </>
+            {/* Withdraw button — faded + tooltip when no funds available */}
+            <div className="flex-1 relative group">
+              <button
+                onClick={() => {
+                  if (loading) return;
+                  if (availableBalance <= 0) {
+                    setShowWithdrawHint(true);
+                    window.setTimeout(() => setShowWithdrawHint(false), 2200);
+                    return;
+                  }
+                  handleWithdraw();
+                }}
+                disabled={loading}
+                className={cn(
+                  "w-full flex items-center justify-center gap-2 px-4 py-3 text-[15px] font-medium text-white rounded-xl transition-colors",
+                  availableBalance <= 0
+                    ? "bg-[#635bff] opacity-40 cursor-not-allowed"
+                    : "bg-[#635bff] hover:bg-[#564de8] disabled:opacity-50 disabled:cursor-not-allowed",
+                )}
+              >
+                {loading ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Processing…</>
+                ) : (
+                  <><Banknote className="h-4 w-4" /> Withdraw</>
+                )}
+              </button>
+              {/* Desktop hover tooltip when no funds */}
+              {availableBalance <= 0 && !loading && (
+                <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 -top-11 hidden group-hover:flex items-center whitespace-nowrap z-40">
+                  <div className="bg-[#111827] text-white text-[11px] font-medium px-3 py-2 rounded-lg shadow-lg">
+                    No funds ready yet — check pending balance
+                    <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-[5px] border-r-[5px] border-t-[5px] border-l-transparent border-r-transparent border-t-[#111827]" />
+                  </div>
+                </div>
               )}
-            </button>
+            </div>
+            {/* Mobile tap tooltip */}
             {showWithdrawHint && (
-              <div className="absolute left-2 right-2 -top-10 z-30 rounded-md bg-[#111827] px-3 py-2 text-[11px] text-white text-center shadow-lg">
-                No funds ready yet. Tap “See details” to view pending funds.
+              <div className="absolute left-2 right-2 -top-11 z-30 rounded-xl bg-[#111827] px-3 py-2.5 text-[11px] text-white text-center shadow-lg">
+                No funds ready yet — check "See details" for pending balance
               </div>
             )}
             <button
@@ -1209,31 +1244,37 @@ function WithdrawPanel({
 
               <div className="space-y-0 rounded-2xl border border-[#e5e7eb] overflow-hidden">
                 {[
-                  { label: "On the way to your bank", value: inTransitAmount, icon: <Send className="h-4 w-4 text-[#6b7280]" /> },
-                  { label: "Available to pay out soon", value: pendingBalance, icon: <Clock className="h-4 w-4 text-[#f97316]" /> },
-                  { label: "Available in your balance", value: availableBalance, icon: <CheckCircle2 className="h-4 w-4 text-[#8b5cf6]" /> },
+                  { label: "On the way to your bank", value: inTransitAmount, icon: <Send className="h-3.5 w-3.5 text-[#6b7280]" /> },
+                  { label: "Available to pay out soon", value: pendingBalance, icon: <Clock className="h-3.5 w-3.5 text-[#6b7280]" /> },
+                  { label: "Available in your balance", value: availableBalance, icon: <CheckCircle2 className="h-3.5 w-3.5 text-[#6b7280]" /> },
                 ].map(({ label, value, icon }, i) => (
                   <div key={i} className="flex items-center justify-between px-4 py-3.5 border-b border-[#f3f4f6] last:border-0">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-lg bg-[#f9fafb] flex items-center justify-center">{icon}</div>
+                      <div className="w-7 h-7 rounded-lg bg-[#f3f4f6] flex items-center justify-center">{icon}</div>
                       <span className="text-[13px] text-[#374151]">{label}</span>
                     </div>
                     <span className="text-[14px] font-semibold text-[#1a1a2e]">{fmt(value, currency)}</span>
                   </div>
                 ))}
                 <div className="flex items-center justify-between px-4 py-3.5 bg-[#f9fafb]">
-                  <span className="text-[13px] font-semibold text-[#1a1a2e]">Total balance</span>
-                  <span className="text-[15px] font-bold text-[#8b5cf6]">{fmt(availableBalance + pendingBalance, currency)}</span>
+                  <span className="text-[13px] font-semibold text-[#374151]">Total balance</span>
+                  <span className="text-[15px] font-bold text-[#1a1a2e]">{fmt(availableBalance + pendingBalance, currency)}</span>
                 </div>
               </div>
 
               <button
                 onClick={handleWithdraw}
-                disabled={loading || availableBalance <= 0}
-                className="w-full mt-4 flex items-center justify-center gap-2 px-4 py-3 text-[14px] font-medium text-white bg-[#635bff] rounded-xl hover:bg-[#564de8] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={loading}
+                title={availableBalance <= 0 ? "No funds available to withdraw yet" : undefined}
+                className={cn(
+                  "w-full mt-4 flex items-center justify-center gap-2 px-4 py-3 text-[14px] font-medium text-white bg-[#635bff] rounded-xl transition-colors",
+                  availableBalance <= 0
+                    ? "opacity-40 cursor-not-allowed"
+                    : "hover:bg-[#564de8] disabled:opacity-50 disabled:cursor-not-allowed",
+                )}
               >
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : availableBalance <= 0 ? <Clock className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-                Withdraw
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Banknote className="h-4 w-4" />}
+                {availableBalance <= 0 ? "No funds yet" : "Withdraw"}
               </button>
 
               <div className="mt-4 pt-4 border-t border-[#f3f4f6]">
@@ -1313,30 +1354,35 @@ function WithdrawPanel({
                 <div className="space-y-0 rounded-2xl border border-[#e5e7eb] overflow-hidden">
                   {[
                     { label: "On the way to your bank", value: inTransitAmount, icon: <Send className="h-3.5 w-3.5 text-[#6b7280]" /> },
-                    { label: "Available to pay out soon", value: pendingBalance, icon: <Clock className="h-3.5 w-3.5 text-[#f97316]" /> },
-                    { label: "Available in your balance", value: availableBalance, icon: <CheckCircle2 className="h-3.5 w-3.5 text-[#8b5cf6]" /> },
+                    { label: "Available to pay out soon", value: pendingBalance, icon: <Clock className="h-3.5 w-3.5 text-[#6b7280]" /> },
+                    { label: "Available in your balance", value: availableBalance, icon: <CheckCircle2 className="h-3.5 w-3.5 text-[#6b7280]" /> },
                   ].map(({ label, value, icon }, i) => (
                     <div key={i} className="flex items-center justify-between px-4 py-3 border-b border-[#f3f4f6] last:border-0">
                       <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-lg bg-[#f9fafb] flex items-center justify-center">{icon}</div>
+                        <div className="w-6 h-6 rounded-lg bg-[#f3f4f6] flex items-center justify-center">{icon}</div>
                         <span className="text-[12px] text-[#374151]">{label}</span>
                       </div>
                       <span className="text-[13px] font-semibold text-[#1a1a2e]">{fmt(value, currency)}</span>
                     </div>
                   ))}
                   <div className="flex items-center justify-between px-4 py-3 bg-[#f9fafb]">
-                    <span className="text-[13px] font-semibold text-[#1a1a2e]">Total balance</span>
-                    <span className="text-[14px] font-bold text-[#8b5cf6]">{fmt(availableBalance + pendingBalance, currency)}</span>
+                    <span className="text-[13px] font-semibold text-[#374151]">Total balance</span>
+                    <span className="text-[14px] font-bold text-[#1a1a2e]">{fmt(availableBalance + pendingBalance, currency)}</span>
                   </div>
                 </div>
 
                 <button
                   onClick={handleWithdraw}
-                  disabled={loading || availableBalance <= 0}
-                  className="w-full mt-4 flex items-center justify-center gap-2 px-4 py-3 text-[14px] font-medium text-white bg-[#635bff] rounded-xl hover:bg-[#564de8] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={loading}
+                  className={cn(
+                    "w-full mt-4 flex items-center justify-center gap-2 px-4 py-3 text-[14px] font-medium text-white bg-[#635bff] rounded-xl transition-colors",
+                    availableBalance <= 0
+                      ? "opacity-40 cursor-not-allowed"
+                      : "hover:bg-[#564de8] disabled:opacity-50 disabled:cursor-not-allowed",
+                  )}
                 >
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : availableBalance <= 0 ? <Clock className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-                  Withdraw
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Banknote className="h-4 w-4" />}
+                  {availableBalance <= 0 ? "No funds yet" : "Withdraw"}
                 </button>
 
                 <div className="mt-4 pt-4 border-t border-[#f3f4f6]">
@@ -2299,120 +2345,200 @@ function OrderDetailsModal({
         </div>
       </div>
 
-      {/* ── Refund Confirmation Modal ── */}
+      {/* ── Refund Confirmation — desktop centered modal + mobile bottom sheet ── */}
       {showRefundConfirm && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/50"
-            onClick={() => !refundLoading && setShowRefundConfirm(false)}
-          />
-          <div className="relative bg-white rounded-2xl w-full max-w-md shadow-2xl animate-in fade-in-0 zoom-in-95 duration-200">
-            {/* Header */}
-            <div className="border-b border-[#e5e7eb] px-6 py-4">
-              <h2 className="text-[18px] font-semibold text-[#1a1a2e]">
-                Issue Refund
-              </h2>
-              <p className="text-[13px] text-[#6b7280] mt-1">
-                Process a refund for this order. The customer will be notified
-                via email.
-              </p>
-            </div>
-
-            {/* Content */}
-            <div className="p-6 space-y-4">
-              {/* Order summary */}
-              <div className="flex items-center gap-3 p-3 bg-[#f9fafb] rounded-xl">
-                {order.product?.thumbnail_url ? (
-                  <img
-                    src={order.product.thumbnail_url}
-                    alt=""
-                    className="w-10 h-10 rounded-lg object-cover"
-                  />
-                ) : (
-                  <div className="w-10 h-10 rounded-lg bg-[#e5e7eb] flex items-center justify-center">
-                    <Package className="h-4 w-4 text-[#9ca3af]" />
+        <>
+          {/* Desktop: centered modal */}
+          <div className="fixed inset-0 z-[60] hidden sm:flex items-center justify-center p-4">
+            <div
+              className="absolute inset-0 bg-black/50 animate-in fade-in duration-200"
+              onClick={() => !refundLoading && setShowRefundConfirm(false)}
+            />
+            <div className="relative bg-white rounded-2xl w-full max-w-md shadow-2xl animate-in fade-in-0 zoom-in-95 duration-200">
+              {/* Header */}
+              <div className="border-b border-[#e5e7eb] px-6 py-4 flex items-center justify-between">
+                <div>
+                  <h2 className="text-[18px] font-semibold text-[#1a1a2e]">Issue Refund</h2>
+                  <p className="text-[13px] text-[#6b7280] mt-0.5">
+                    The customer will be notified via email.
+                  </p>
+                </div>
+                <button
+                  onClick={() => !refundLoading && setShowRefundConfirm(false)}
+                  className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center text-[#6b7280] hover:bg-[#e5e7eb] transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              {/* Content */}
+              <div className="p-6 space-y-4">
+                <div className="flex items-center gap-3 p-3 bg-[#f9fafb] rounded-xl">
+                  {order.product?.thumbnail_url ? (
+                    <img src={order.product.thumbnail_url} alt="" className="w-10 h-10 rounded-lg object-cover" />
+                  ) : (
+                    <div className="w-10 h-10 rounded-lg bg-[#e5e7eb] flex items-center justify-center">
+                      <Package className="h-4 w-4 text-[#9ca3af]" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[14px] font-medium text-[#1a1a2e] truncate">{order.product?.title || "Product"}</p>
+                    <p className="text-[12px] text-[#9ca3af]">{order.buyer_email || order.customer_email || ""}</p>
+                  </div>
+                  <p className="text-[14px] font-semibold text-[#1a1a2e] shrink-0">{fmt(order.amount_cents, currency)}</p>
+                </div>
+                <div>
+                  <label className="block text-[13px] font-medium text-[#374151] mb-2">Reason</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { value: "requested_by_customer", label: "Customer request" },
+                      { value: "duplicate", label: "Duplicate charge" },
+                      { value: "fraudulent", label: "Fraudulent" },
+                      { value: "other", label: "Other" },
+                    ].map((opt) => (
+                      <button
+                        key={opt.value}
+                        onClick={() => setRefundReason(opt.value)}
+                        className={cn(
+                          "px-3 py-2.5 rounded-xl text-[13px] font-medium transition-colors border",
+                          refundReason === opt.value
+                            ? "bg-[#f5f3ff] border-[#8b5cf6] text-[#8b5cf6]"
+                            : "border-[#e5e7eb] text-[#6b7280] hover:bg-[#f9fafb]",
+                        )}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {refundError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl">
+                    <p className="text-[13px] text-red-600 flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 shrink-0" />{refundError}
+                    </p>
                   </div>
                 )}
-                <div className="flex-1 min-w-0">
-                  <p className="text-[14px] font-medium text-[#1a1a2e] truncate">
-                    {order.product?.title || "Product"}
-                  </p>
-                  <p className="text-[12px] text-[#9ca3af]">
-                    {order.buyer_email || order.customer_email || ""}
-                  </p>
-                </div>
-                <p className="text-[14px] font-semibold text-[#1a1a2e] shrink-0">
-                  {fmt(order.amount_cents, currency)}
-                </p>
               </div>
-
-              {/* Reason */}
-              <div>
-                <label className="block text-[13px] font-medium text-[#374151] mb-2">
-                  Reason
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { value: "requested_by_customer", label: "Customer request" },
-                    { value: "duplicate", label: "Duplicate charge" },
-                    { value: "fraudulent", label: "Fraudulent" },
-                    { value: "other", label: "Other" },
-                  ].map((opt) => (
-                    <button
-                      key={opt.value}
-                      onClick={() => setRefundReason(opt.value)}
-                      className={cn(
-                        "px-3 py-2 rounded-lg text-[13px] font-medium transition-colors border",
-                        refundReason === opt.value
-                          ? "bg-[#f5f3ff] border-[#8b5cf6] text-[#8b5cf6]"
-                          : "border-[#e5e7eb] text-[#6b7280] hover:bg-[#f9fafb]",
-                      )}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
+              {/* Footer */}
+              <div className="border-t border-[#e5e7eb] px-6 py-4 flex items-center gap-3">
+                <button
+                  onClick={() => setShowRefundConfirm(false)}
+                  disabled={refundLoading}
+                  className="flex-1 px-4 py-2.5 text-[13px] font-medium text-[#6b7280] bg-[#f3f4f6] rounded-xl hover:bg-[#e5e7eb] transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRefundConfirm}
+                  disabled={refundLoading || !refundReason}
+                  className="flex-1 px-4 py-2.5 text-[13px] font-medium text-white bg-red-600 rounded-xl hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {refundLoading ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" /> Processing…</>
+                  ) : (
+                    <><RotateCcw className="h-4 w-4" /> Confirm Refund</>
+                  )}
+                </button>
               </div>
-
-              {refundError && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-xl">
-                  <p className="text-[13px] text-red-600 flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4 shrink-0" />
-                    {refundError}
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Footer */}
-            <div className="border-t border-[#e5e7eb] px-6 py-4 flex items-center justify-end gap-3">
-              <button
-                onClick={() => setShowRefundConfirm(false)}
-                disabled={refundLoading}
-                className="px-4 py-2 text-[13px] font-medium text-[#6b7280] hover:text-[#374151] transition-colors disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleRefundConfirm}
-                disabled={refundLoading || !refundReason}
-                className="px-4 py-2 text-[13px] font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                {refundLoading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Processing…
-                  </>
-                ) : (
-                  <>
-                    <RotateCcw className="h-4 w-4" />
-                    Confirm Refund
-                  </>
-                )}
-              </button>
             </div>
           </div>
-        </div>
+
+          {/* Mobile: bottom sheet */}
+          <div className="fixed inset-0 z-[60] sm:hidden">
+            <div
+              className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
+              onClick={() => !refundLoading && setShowRefundConfirm(false)}
+            />
+            <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl animate-in slide-in-from-bottom duration-300">
+              {/* Drag handle */}
+              <div className="pt-3 pb-1 flex justify-center">
+                <div className="w-10 h-[5px] rounded-full bg-[#d1d5db]" />
+              </div>
+              {/* Header */}
+              <div className="px-5 pt-2 pb-4 border-b border-[#f3f4f6]">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-[17px] font-semibold text-[#1a1a2e]">Issue Refund</h2>
+                  <button
+                    onClick={() => !refundLoading && setShowRefundConfirm(false)}
+                    className="w-7 h-7 rounded-full bg-[#f3f4f6] flex items-center justify-center text-[#6b7280]"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <p className="text-[12px] text-[#6b7280] mt-0.5">The customer will be notified via email.</p>
+              </div>
+              {/* Content */}
+              <div className="px-5 py-4 space-y-4">
+                <div className="flex items-center gap-3 p-3 bg-[#f9fafb] rounded-xl">
+                  {order.product?.thumbnail_url ? (
+                    <img src={order.product.thumbnail_url} alt="" className="w-10 h-10 rounded-xl object-cover" />
+                  ) : (
+                    <div className="w-10 h-10 rounded-xl bg-[#e5e7eb] flex items-center justify-center">
+                      <Package className="h-4 w-4 text-[#9ca3af]" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[14px] font-medium text-[#1a1a2e] truncate">{order.product?.title || "Product"}</p>
+                    <p className="text-[12px] text-[#9ca3af]">{order.buyer_email || order.customer_email || ""}</p>
+                  </div>
+                  <p className="text-[14px] font-semibold text-[#1a1a2e] shrink-0">{fmt(order.amount_cents, currency)}</p>
+                </div>
+                <div>
+                  <label className="block text-[13px] font-medium text-[#374151] mb-2.5">Select a reason</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { value: "requested_by_customer", label: "Customer request" },
+                      { value: "duplicate", label: "Duplicate charge" },
+                      { value: "fraudulent", label: "Fraudulent" },
+                      { value: "other", label: "Other" },
+                    ].map((opt) => (
+                      <button
+                        key={opt.value}
+                        onClick={() => setRefundReason(opt.value)}
+                        className={cn(
+                          "px-3 py-3 rounded-xl text-[13px] font-medium transition-colors border active:scale-95",
+                          refundReason === opt.value
+                            ? "bg-[#f5f3ff] border-[#8b5cf6] text-[#8b5cf6]"
+                            : "border-[#e5e7eb] text-[#6b7280] bg-white",
+                        )}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {refundError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl">
+                    <p className="text-[12px] text-red-600 flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 shrink-0" />{refundError}
+                    </p>
+                  </div>
+                )}
+              </div>
+              {/* Actions */}
+              <div className="px-5 pb-4 flex flex-col gap-2.5">
+                <button
+                  onClick={handleRefundConfirm}
+                  disabled={refundLoading || !refundReason}
+                  className="w-full py-3.5 text-[15px] font-semibold text-white bg-red-600 rounded-2xl hover:bg-red-700 active:bg-red-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {refundLoading ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" /> Processing…</>
+                  ) : (
+                    <><RotateCcw className="h-4 w-4" /> Confirm Refund</>
+                  )}
+                </button>
+                <button
+                  onClick={() => setShowRefundConfirm(false)}
+                  disabled={refundLoading}
+                  className="w-full py-3.5 text-[15px] font-medium text-[#374151] bg-[#f3f4f6] rounded-2xl hover:bg-[#e5e7eb] active:bg-[#d1d5db] transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+              <div style={{ height: "max(env(safe-area-inset-bottom), 12px)" }} />
+            </div>
+          </div>
+        </>
       )}
     </>,
     document.body,
@@ -3350,16 +3476,10 @@ export function PayoutsClient({
         {/* Recent activity */}
         {initialOrders.length > 0 ? (
           <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-            <div className="px-4 sm:px-5 py-3.5 border-b border-[#e5e7eb] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="relative grid grid-cols-2 w-full sm:w-auto sm:min-w-[320px] items-center bg-[#f3f4f6] rounded-xl p-1 will-change-transform">
-                {/* Sliding pill indicator — flex-1 buttons ensure equal halves */}
-                <div
-                  className="absolute top-1 bottom-1 bg-white rounded-full shadow-sm transition-all duration-300 ease-out will-change-transform"
-                  style={{
-                    left: recentTab === "sales" ? "4px" : "calc(50% + 1px)",
-                    width: "calc(50% - 5px)",
-                  }}
-                />
+            {/* Tab bar */}
+            <div className="px-4 sm:px-5 pt-4 pb-0 border-b border-[#e5e7eb] flex flex-col sm:flex-row sm:items-end sm:justify-between gap-0">
+              {/* Tab buttons */}
+              <div className="flex items-end gap-0 -mb-px">
                 <button
                   onClick={() => {
                     if (recentTab === "sales") return;
@@ -3371,13 +3491,22 @@ export function PayoutsClient({
                     }, 150);
                   }}
                   className={cn(
-                    "relative z-10 px-3 sm:px-5 py-2 text-[12px] font-medium rounded-lg transition-colors duration-200 whitespace-nowrap text-center",
+                    "relative flex items-center gap-2 px-4 py-2.5 text-[13px] font-semibold rounded-t-xl border border-b-0 transition-colors duration-150 whitespace-nowrap",
                     recentTab === "sales"
-                      ? "text-[#1a1a2e]"
-                      : "text-[#6b7280] hover:text-[#374151]",
+                      ? "bg-white border-[#e5e7eb] text-[#1a1a2e] z-10"
+                      : "bg-transparent border-transparent text-[#6b7280] hover:text-[#374151]",
                   )}
                 >
-                  Recent Sales
+                  <ShoppingCart className={cn("h-3.5 w-3.5", recentTab === "sales" ? "text-[#8b5cf6]" : "text-[#9ca3af]")} />
+                  Sales
+                  {initialOrders.length > 0 && (
+                    <span className={cn(
+                      "inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold",
+                      recentTab === "sales" ? "bg-[#f0eeff] text-[#8b5cf6]" : "bg-[#f3f4f6] text-[#9ca3af]",
+                    )}>
+                      {initialOrders.length}
+                    </span>
+                  )}
                 </button>
                 <button
                   onClick={() => {
@@ -3390,44 +3519,48 @@ export function PayoutsClient({
                     }, 150);
                   }}
                   className={cn(
-                    "relative z-10 px-3 sm:px-5 py-2 text-[12px] font-medium rounded-lg transition-colors duration-200 whitespace-nowrap text-center",
+                    "relative flex items-center gap-2 px-4 py-2.5 text-[13px] font-semibold rounded-t-xl border border-b-0 transition-colors duration-150 whitespace-nowrap ml-1",
                     recentTab === "payouts"
-                      ? "text-[#1a1a2e]"
-                      : "text-[#6b7280] hover:text-[#374151]",
+                      ? "bg-white border-[#e5e7eb] text-[#1a1a2e] z-10"
+                      : "bg-transparent border-transparent text-[#6b7280] hover:text-[#374151]",
                   )}
                 >
-                  Recent Payouts
+                  <Landmark className={cn("h-3.5 w-3.5", recentTab === "payouts" ? "text-[#8b5cf6]" : "text-[#9ca3af]")} />
+                  Payouts
+                  {payoutCount > 0 && (
+                    <span className={cn(
+                      "inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold",
+                      recentTab === "payouts" ? "bg-[#f0eeff] text-[#8b5cf6]" : "bg-[#f3f4f6] text-[#9ca3af]",
+                    )}>
+                      {payoutCount}
+                    </span>
+                  )}
                 </button>
               </div>
-              <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-1.5 text-[#6b7280]">
-                {/* CSV export dropdown */}
+              {/* Pagination + export */}
+              <div className="flex items-center justify-end gap-2 py-2 text-[#6b7280]">
                 <div className="hidden sm:block">
-                  <ExportDropdown
-                    orders={initialOrders}
-                    currency={currency}
-                  />
+                  <ExportDropdown orders={initialOrders} currency={currency} />
                 </div>
-                <span className="text-[12px] text-[#9ca3af] mr-1">
+                <span className="text-[11px] text-[#9ca3af]">
                   {recentPage + 1} / {pageCount}
                 </span>
                 <div className="flex items-center gap-1">
                   <button
                     disabled={recentPage <= 0}
                     onClick={() => changePage(Math.max(0, recentPage - 1))}
-                    className="h-8 w-8 sm:h-7 sm:w-7 flex items-center justify-center rounded-lg border border-[#e5e7eb] bg-white hover:bg-[#f9fafb] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="h-7 w-7 flex items-center justify-center rounded-lg border border-[#e5e7eb] bg-white hover:bg-[#f9fafb] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                     aria-label="Previous page"
                   >
-                    <ChevronLeft className="h-4 w-4" />
+                    <ChevronLeft className="h-3.5 w-3.5" />
                   </button>
                   <button
                     disabled={recentPage >= pageCount - 1}
-                    onClick={() =>
-                      changePage(Math.min(pageCount - 1, recentPage + 1))
-                    }
-                    className="h-8 w-8 sm:h-7 sm:w-7 flex items-center justify-center rounded-lg border border-[#e5e7eb] bg-white hover:bg-[#f9fafb] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    onClick={() => changePage(Math.min(pageCount - 1, recentPage + 1))}
+                    className="h-7 w-7 flex items-center justify-center rounded-lg border border-[#e5e7eb] bg-white hover:bg-[#f9fafb] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                     aria-label="Next page"
                   >
-                    <ChevronRight className="h-4 w-4" />
+                    <ChevronRight className="h-3.5 w-3.5" />
                   </button>
                 </div>
               </div>
