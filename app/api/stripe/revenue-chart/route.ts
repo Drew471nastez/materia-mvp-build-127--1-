@@ -97,13 +97,16 @@ export async function GET(request: Request) {
     if (createdGte !== undefined) createdFilter.gte = createdGte
     if (createdLte !== undefined) createdFilter.lte = createdLte
 
-    const baseParams: Record<string, any> = { type: "payment", limit: 100 }
+    // Fetch ALL balance transactions without type filter, then segregate
+    // payment vs payment_refund so we can compute accurate net (after refunds)
+    const baseParams: Record<string, any> = { limit: 100 }
     if (Object.keys(createdFilter).length > 0) {
       baseParams.created = createdFilter
     }
 
-    // Paginate to collect all transactions in the period
-    const allTransactions: Array<{ date: string; net: number; gross: number }> = []
+    // Paginate to collect all relevant transactions in the period
+    const payments: Array<{ date: string; net: number; gross: number }> = []
+    const refunds: Array<{ date: string; net: number; gross: number }> = []
     let hasMore = true
     let startingAfter: string | undefined = undefined
     let detectedCurrency: string | null = null
@@ -117,16 +120,22 @@ export async function GET(request: Request) {
       })
 
       for (const tx of result.data) {
+        // Only count sales charges and their refunds
+        if (tx.type !== "payment" && tx.type !== "payment_refund") continue
+
         if (!detectedCurrency && tx.currency) {
           detectedCurrency = tx.currency.toLowerCase()
         }
         const date = new Date(tx.created * 1000)
         const dateKey = date.toISOString().split("T")[0]
-        allTransactions.push({
-          date: dateKey,
-          net: tx.net,
-          gross: tx.amount,
-        })
+        const entry = { date: dateKey, net: tx.net, gross: tx.amount }
+
+        if (tx.type === "payment") {
+          payments.push(entry)
+        } else {
+          // payment_refund: net and amount are negative in Stripe
+          refunds.push(entry)
+        }
       }
 
       hasMore = result.has_more
@@ -137,7 +146,10 @@ export async function GET(request: Request) {
       }
     }
 
-    // Aggregate by date
+    const allTransactions = [...payments, ...refunds]
+
+    // Aggregate by date — each day's revenue = net of payments + net of refunds
+    // This correctly shows $0 if a charge was fully refunded on the same day
     const dayMap: Record<string, { date: string; revenue: number; gross: number; count: number }> = {}
     for (const tx of allTransactions) {
       if (!dayMap[tx.date]) {
@@ -173,13 +185,16 @@ export async function GET(request: Request) {
       cursor.setDate(cursor.getDate() + 1)
     }
 
+    // Totals: gross = sum of payment charges (positive), net = after fees and refunds
+    const totalGross = payments.reduce((s, t) => s + t.gross, 0)
+    const totalRefunds = refunds.reduce((s, t) => s + Math.abs(t.gross), 0)
     const total = allTransactions.reduce((s, t) => s + t.net, 0)
-    const totalGross = allTransactions.reduce((s, t) => s + t.gross, 0)
 
     return NextResponse.json({
       data: series,
-      total,
-      totalGross,
+      total,           // net after Stripe fees and refunds
+      totalGross,      // sum of charges (before fees, before refunds)
+      totalRefunds,    // sum of refunded amounts (positive number)
       currency: detectedCurrency || (creator.default_currency || "usd").toLowerCase(),
     })
   } catch (error: any) {

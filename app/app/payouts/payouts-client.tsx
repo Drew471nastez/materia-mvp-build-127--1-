@@ -422,6 +422,7 @@ function RevenueChart() {
   const [data, setData] = useState<ChartPoint[]>([]);
   const [total, setTotal] = useState(0);
   const [totalGross, setTotalGross] = useState(0);
+  const [totalRefunds, setTotalRefunds] = useState(0);
   const [currency, setCurrency] = useState("usd");
   const [fxRate, setFxRate] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -458,6 +459,7 @@ function RevenueChart() {
       setData(json.data || []);
       setTotal(json.total || 0);
       setTotalGross(json.totalGross || 0);
+      setTotalRefunds(json.totalRefunds || 0);
       if (json.currency) setCurrency(json.currency.toLowerCase());
     } catch (e: any) {
       setError(e.message);
@@ -479,8 +481,9 @@ function RevenueChart() {
   }, [currency]);
 
   const toUsd = (cents: number) => Math.round(cents * fxRate);
-  const fees = totalGross - total;
-  const hasData = data.some((d) => d.revenue > 0);
+  // Stripe fees = gross charges - refunds - net
+  const fees = Math.max(0, totalGross - totalRefunds - total);
+  const hasData = data.some((d) => Math.abs(d.revenue) > 0);
   const selectedLabel =
     CHART_TIMEFRAMES.find((t) => t.value === timeframe)?.label ?? "Last 7 days";
 
@@ -519,7 +522,7 @@ function RevenueChart() {
             <div className="h-7 w-32 mt-1 rounded-lg bg-gray-200 animate-pulse" />
           ) : (
             <p className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-              {fmt(toUsd(total), "usd")}
+              {fmt(toUsd(Math.max(0, total)), "usd")}
             </p>
           )}
         </div>
@@ -632,27 +635,42 @@ function RevenueChart() {
         </ResponsiveContainer>
       )}
 
-      {/* Under-chart stats: Gross • Fees • Net */}
+      {/* Under-chart stats: Gross • Refunds (if any) • Fees • Net */}
       {!loading && !error && (
         <div className="mt-3 pt-3 border-t border-[#f3f4f6] flex items-center gap-3 flex-wrap text-[11px] text-[#9ca3af]">
           <span>
-            Gross{" "}
+            Gross sales{" "}
             <span className="font-medium text-[#6b7280]">
               {fmt(toUsd(totalGross), "usd")}
             </span>
           </span>
-          <span className="text-[#d1d5db]">•</span>
-          <span>
-            Fees{" "}
-            <span className="font-medium text-[#6b7280]">
-              {fmt(toUsd(fees), "usd")}
-            </span>
-          </span>
+          {totalRefunds > 0 && (
+            <>
+              <span className="text-[#d1d5db]">•</span>
+              <span>
+                Refunds{" "}
+                <span className="font-medium text-rose-500">
+                  −{fmt(toUsd(totalRefunds), "usd")}
+                </span>
+              </span>
+            </>
+          )}
+          {fees > 0 && (
+            <>
+              <span className="text-[#d1d5db]">•</span>
+              <span>
+                Fees{" "}
+                <span className="font-medium text-[#6b7280]">
+                  −{fmt(toUsd(fees), "usd")}
+                </span>
+              </span>
+            </>
+          )}
           <span className="text-[#d1d5db]">•</span>
           <span>
             Net{" "}
             <span className="font-medium text-[#8b5cf6]">
-              {fmt(toUsd(total), "usd")}
+              {fmt(toUsd(Math.max(0, total)), "usd")}
             </span>
           </span>
         </div>
@@ -2334,15 +2352,6 @@ export function PayoutsClient({
   const refreshBalances = useCallback(async () => {
     setRefreshKey((k) => k + 1);
 
-    // Cap pending to what non-refunded orders could contribute
-    const completedOrders = initialOrders.filter(
-      (o) => o.status === "completed",
-    );
-    const maxPossiblePending = completedOrders.reduce(
-      (sum, o) => sum + (o.amount_cents || 0),
-      0,
-    );
-
     try {
       const r = await fetch("/api/stripe/payouts");
       const json = await r.json();
@@ -2379,10 +2388,10 @@ export function PayoutsClient({
           : dominant;
 
         if (selected) {
-          setAvailableBalance(selected[1].available);
-          setPendingBalance(
-            Math.max(0, Math.min(selected[1].pending, maxPossiblePending)),
-          );
+          // Use Stripe's balance directly — it already accounts for
+          // pending refunds (payment_refund txns reduce the pending balance)
+          setAvailableBalance(Math.max(0, selected[1].available));
+          setPendingBalance(Math.max(0, selected[1].pending));
         }
       }
     } catch {
@@ -2472,13 +2481,13 @@ export function PayoutsClient({
         {initialOrders.length > 0 ? (
           <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
             <div className="px-4 sm:px-5 py-3.5 border-b border-[#e5e7eb] flex items-center justify-between gap-3">
-              <div className="relative flex items-center bg-[#f3f4f6] rounded-full p-1 gap-0.5">
-                {/* Sliding pill indicator */}
+              <div className="relative flex items-center bg-[#f3f4f6] rounded-full p-1">
+                {/* Sliding pill indicator — flex-1 buttons ensure equal halves */}
                 <div
                   className="absolute top-1 bottom-1 bg-white rounded-full shadow-sm transition-all duration-300 ease-out"
                   style={{
-                    left: recentTab === "sales" ? "4px" : "calc(50% + 2px)",
-                    width: "calc(50% - 6px)",
+                    left: recentTab === "sales" ? "4px" : "calc(50% + 1px)",
+                    width: "calc(50% - 5px)",
                   }}
                 />
                 <button
@@ -2492,7 +2501,7 @@ export function PayoutsClient({
                     }, 150);
                   }}
                   className={cn(
-                    "relative z-10 px-4 py-1.5 text-[12px] font-medium rounded-full transition-colors duration-200 whitespace-nowrap",
+                    "relative z-10 flex-1 px-5 py-1.5 text-[12px] font-medium rounded-full transition-colors duration-200 whitespace-nowrap text-center",
                     recentTab === "sales"
                       ? "text-[#1a1a2e]"
                       : "text-[#6b7280] hover:text-[#374151]",
@@ -2511,7 +2520,7 @@ export function PayoutsClient({
                     }, 150);
                   }}
                   className={cn(
-                    "relative z-10 px-4 py-1.5 text-[12px] font-medium rounded-full transition-colors duration-200 whitespace-nowrap",
+                    "relative z-10 flex-1 px-5 py-1.5 text-[12px] font-medium rounded-full transition-colors duration-200 whitespace-nowrap text-center",
                     recentTab === "payouts"
                       ? "text-[#1a1a2e]"
                       : "text-[#6b7280] hover:text-[#374151]",
