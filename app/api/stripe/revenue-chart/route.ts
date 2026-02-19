@@ -153,10 +153,12 @@ export async function GET(request: Request) {
 
     for (const tx of refunds) {
       if (!bucketMap[tx.date]) {
-        bucketMap[tx.date] = { date: tx.date, revenue: tx.net, gross: tx.gross, refundsAbs: Math.abs(tx.gross), count: 0 }
+        // A refund-only day: gross=0 (no sales), refundsAbs = refund amount
+        bucketMap[tx.date] = { date: tx.date, revenue: tx.net, gross: 0, refundsAbs: Math.abs(tx.gross), count: 0 }
       } else {
         bucketMap[tx.date].revenue += tx.net
-        bucketMap[tx.date].gross += tx.gross
+        // Do NOT subtract from gross — gross tracks completed sales revenue only.
+        // This keeps the purple revenue area visible independently of refunds.
         bucketMap[tx.date].refundsAbs += Math.abs(tx.gross)
       }
     }

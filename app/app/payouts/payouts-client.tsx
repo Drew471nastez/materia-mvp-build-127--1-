@@ -285,10 +285,10 @@ function TouchTooltip({
         {children}
       </button>
       {open && (
-        <div className="absolute z-40 bottom-full mb-2 left-1/2 -translate-x-1/2 pointer-events-none">
-          <div className="relative bg-[#111827] text-white text-[11px] font-medium rounded-lg px-3 py-2 shadow-xl max-w-[220px] text-center leading-snug">
+        <div className="absolute z-50 bottom-full mb-1.5 left-1/2 -translate-x-1/2 pointer-events-none">
+          <div className="relative bg-[#1f2937] text-white text-[11px] font-medium rounded-md px-2.5 py-1.5 shadow-lg whitespace-nowrap leading-none">
             {text}
-            <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-[5px] border-r-[5px] border-t-[5px] border-l-transparent border-r-transparent border-t-[#111827]" />
+            <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-[#1f2937]" />
           </div>
         </div>
       )}
@@ -609,21 +609,6 @@ function RevenueChart() {
               {fmt(Math.max(0, totalGross), currency)}
             </p>
           )}
-          {/* Legend row */}
-          {numReady && (
-            <div className="flex items-center gap-3 mt-1.5">
-              <span className="flex items-center gap-1.5 text-[11px] text-[#6b7280]">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#8b5cf6] inline-block" />
-                Revenue
-              </span>
-              {totalRefunds > 0 && (
-                <span className="flex items-center gap-1.5 text-[11px] text-[#6b7280]">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#f43f5e] inline-block" />
-                  Refunds −{fmt(totalRefunds, currency)}
-                </span>
-              )}
-            </div>
-          )}
         </div>
 
         {/* Timeframe selector — dropdown on desktop, sheet on mobile */}
@@ -776,6 +761,21 @@ function RevenueChart() {
         </ResponsiveContainer>
       )}
 
+      {/* Legend — shown below chart whenever data is ready */}
+      {numReady && !loading && !error && (
+        <div className="flex items-center gap-4 mt-3 pt-3 border-t border-[#f3f4f6]">
+          <span className="flex items-center gap-1.5 text-[11px] text-[#6b7280]">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#8b5cf6] shrink-0" />
+            Revenue
+          </span>
+          {totalRefunds > 0 && (
+            <span className="flex items-center gap-1.5 text-[11px] text-[#6b7280]">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#f43f5e] shrink-0" />
+              Refunds −{fmt(totalRefunds, currency)}
+            </span>
+          )}
+        </div>
+      )}
 
       <ChartTimeframeSheet
         isOpen={isSheetOpen}
@@ -901,24 +901,22 @@ function WithdrawPanel({
 
   const helper =
     availableBalance <= 0
-      ? "Nothing available yet — funds usually become available in 1–3 days."
-      : "Transfers typically arrive within 1–3 business days.";
+      ? "No funds yet — clears in 1–3 days."
+      : "Arrives in 1–3 business days.";
 
   return (
     <div className="bg-[#f8fafc] rounded-2xl border border-[#e5e7eb] p-5 sm:p-6 flex flex-col gap-5 min-w-[240px]">
       <div className="rounded-xl border border-[#e5e7eb] bg-white p-5">
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <p className="text-[11px] text-[#6b7280] font-semibold tracking-widest uppercase">
-                Available for cashout
-              </p>
-              <TouchTooltip text="Funds that are ready to be transferred to your bank account right now">
-                <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-[#f3f4f6] hover:bg-[#e5e7eb] transition-colors cursor-help">
-                  <Info className="h-2.5 w-2.5 text-[#6b7280]" />
+            <p className="text-[10px] text-[#6b7280] font-semibold tracking-widest uppercase leading-tight">
+              Available for cashout{" "}
+              <TouchTooltip text="Ready to withdraw now">
+                <span className="inline-flex items-center justify-center w-[13px] h-[13px] rounded-full bg-[#e5e7eb] hover:bg-[#d1d5db] transition-colors cursor-help align-middle">
+                  <Info className="h-2 w-2 text-[#6b7280]" />
                 </span>
               </TouchTooltip>
-            </div>
+            </p>
             {balanceReady ? (
               <p className="text-[28px] sm:text-[32px] leading-none font-bold text-[#1a1a2e] mt-2 tabular-nums">
                 {fmt(availableBalance, currency)}
@@ -928,16 +926,14 @@ function WithdrawPanel({
             )}
           </div>
           <div className="text-right">
-            <div className="flex items-center justify-end gap-1.5">
-              <p className="text-[11px] text-[#6b7280] font-semibold tracking-widest uppercase">
-                Arriving soon
-              </p>
-              <TouchTooltip text="Funds that are processing and will be available in 1–3 business days">
-                <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-[#f3f4f6] hover:bg-[#e5e7eb] transition-colors cursor-help">
-                  <Info className="h-2.5 w-2.5 text-[#6b7280]" />
+            <p className="text-[10px] text-[#6b7280] font-semibold tracking-widest uppercase leading-tight text-right">
+              Arriving soon{" "}
+              <TouchTooltip text="Processes in 1–3 days">
+                <span className="inline-flex items-center justify-center w-[13px] h-[13px] rounded-full bg-[#e5e7eb] hover:bg-[#d1d5db] transition-colors cursor-help align-middle">
+                  <Info className="h-2 w-2 text-[#6b7280]" />
                 </span>
               </TouchTooltip>
-            </div>
+            </p>
             {balanceReady ? (
               <p className="text-[24px] sm:text-[28px] leading-none font-bold text-[#6b7280] mt-2 tabular-nums">
                 {fmt(pendingBalance, currency)}
@@ -3080,9 +3076,9 @@ function PayoutsHistoryList({
       if (json.error) throw new Error(json.error);
       setPayouts(json.payouts || []);
     } catch (e: any) {
-      if (!silent) setError(e.message);
+      setError(e.message);
     } finally {
-      if (!silent) setLoading(false);
+      setLoading(false);
     }
   }, []);
 
