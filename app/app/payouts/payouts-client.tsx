@@ -426,6 +426,7 @@ function RevenueChart() {
   const [totalRefunds, setTotalRefunds] = useState(0);
   const [currency, setCurrency] = useState("usd");
   const [fxRate, setFxRate] = useState(1);
+  const [fxReady, setFxReady] = useState(true); // false briefly when non-USD rate is loading
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -474,14 +475,26 @@ function RevenueChart() {
   }, [timeframe, load]);
 
   useEffect(() => {
-    if (currency === "usd") return;
+    if (currency === "usd") {
+      setFxReady(true);
+      return;
+    }
+    // Mark not ready until correct rate arrives — prevents flash of RON amounts
+    setFxReady(false);
     fetch(`/api/fx?from=${currency}&to=usd`)
       .then((r) => r.json())
-      .then((json) => setFxRate(json.rate || 1))
-      .catch(() => setFxRate(1));
+      .then((json) => {
+        setFxRate(json.rate || 1);
+        setFxReady(true);
+      })
+      .catch(() => {
+        setFxRate(1);
+        setFxReady(true);
+      });
   }, [currency]);
 
   const toUsd = (cents: number) => Math.round(cents * fxRate);
+  const numReady = !loading && fxReady; // only show amounts when both data + rate are ready
   // Stripe fees = gross charges - refunds - net
   const fees = Math.max(0, totalGross - totalRefunds - total);
   // Clamp each day's revenue to >= 0 for clean chart display.
@@ -522,7 +535,7 @@ function RevenueChart() {
           <p className="text-[13px] font-medium text-[#6b7280]">
             Net Earnings
           </p>
-          {loading ? (
+          {!numReady ? (
             <div className="h-7 w-32 mt-1 rounded-lg bg-gray-200 animate-pulse" />
           ) : (
             <p className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
@@ -588,6 +601,24 @@ function RevenueChart() {
             Sales will appear here once processed
           </p>
         </div>
+      ) : chartData.length <= 1 ? (
+        /* Single-day view (Today / Yesterday) — a lone dot looks odd;
+           show a clean centered stat instead of the area chart */
+        <div className="h-48 flex flex-col items-center justify-center gap-3">
+          <div className="w-14 h-14 rounded-full bg-[#f5f3ff] flex items-center justify-center">
+            <TrendingUp className="h-6 w-6 text-[#8b5cf6]" />
+          </div>
+          <div className="text-center">
+            <p className="text-[28px] font-bold text-[#1a1a2e] tracking-tight">
+              {numReady ? fmt(toUsd(Math.max(0, total)), "usd") : "—"}
+            </p>
+            <p className="text-[13px] text-[#6b7280] mt-0.5">
+              {chartData[0]?.count
+                ? `${chartData[0].count} sale${chartData[0].count !== 1 ? "s" : ""}`
+                : "No sales yet"}
+            </p>
+          </div>
+        </div>
       ) : (
         <ResponsiveContainer width="100%" height={200}>
           <AreaChart
@@ -640,11 +671,11 @@ function RevenueChart() {
         </ResponsiveContainer>
       )}
 
-      {/* Under-chart stats: Gross • Refunds (if any) • Fees • Net */}
-      {!loading && !error && (
+      {/* Under-chart stats: Gross sales • Refunds (if any) • Net */}
+      {numReady && !error && (
         <div className="mt-3 pt-3 border-t border-[#f3f4f6] flex items-center gap-3 flex-wrap text-[11px] text-[#9ca3af]">
           <span>
-            Gross sales{" "}
+            Gross{" "}
             <span className="font-medium text-[#6b7280]">
               {fmt(toUsd(totalGross), "usd")}
             </span>
@@ -656,17 +687,6 @@ function RevenueChart() {
                 Refunds{" "}
                 <span className="font-medium text-rose-500">
                   −{fmt(toUsd(totalRefunds), "usd")}
-                </span>
-              </span>
-            </>
-          )}
-          {fees > 0 && (
-            <>
-              <span className="text-[#d1d5db]">•</span>
-              <span>
-                Fees{" "}
-                <span className="font-medium text-[#6b7280]">
-                  −{fmt(toUsd(fees), "usd")}
                 </span>
               </span>
             </>
@@ -698,12 +718,14 @@ function WithdrawPanel({
   pendingBalance,
   currency,
   payoutsEnabled,
+  balanceReady = true,
   onSuccess,
 }: {
   availableBalance: number;
   pendingBalance: number;
   currency: string;
   payoutsEnabled: boolean;
+  balanceReady?: boolean;
   onSuccess: () => void;
 }) {
   const [loading, setLoading] = useState(false);
@@ -780,17 +802,25 @@ function WithdrawPanel({
             <p className="text-[12px] text-[#6b7280] font-medium tracking-wide uppercase">
               Available for cashout
             </p>
-            <p className="text-[28px] sm:text-[32px] leading-none font-semibold text-[#1a1a2e] mt-2">
-              {fmt(availableBalance, currency)}
-            </p>
+            {balanceReady ? (
+              <p className="text-[28px] sm:text-[32px] leading-none font-semibold text-[#1a1a2e] mt-2">
+                {fmt(availableBalance, currency)}
+              </p>
+            ) : (
+              <div className="h-8 w-24 mt-2 rounded-lg bg-gray-200 animate-pulse" />
+            )}
           </div>
           <div className="text-right">
             <p className="text-[12px] text-[#6b7280] font-medium tracking-wide uppercase">
               Available soon
             </p>
-            <p className="text-[26px] sm:text-[30px] leading-none font-semibold text-[#1a1a2e] mt-2">
-              {fmt(pendingBalance, currency)}
-            </p>
+            {balanceReady ? (
+              <p className="text-[26px] sm:text-[30px] leading-none font-semibold text-[#1a1a2e] mt-2">
+                {fmt(pendingBalance, currency)}
+              </p>
+            ) : (
+              <div className="h-7 w-20 mt-2 rounded-lg bg-gray-200 animate-pulse ml-auto" />
+            )}
             <button
               onClick={() => setOpenBreakdown(true)}
               className="text-[13px] font-medium text-[#8b5cf6] hover:text-[#7c3aed] hover:underline mt-3 transition-colors"
@@ -2145,66 +2175,277 @@ function ExportDropdown({
   currency: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const [payoutsLoading, setPayoutsLoading] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
+  // Mobile detection
   useEffect(() => {
-    if (!open) return;
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  // Click-outside for desktop dropdown
+  useEffect(() => {
+    if (!open || isMobile) return;
     const handler = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node))
         setOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
+  }, [open, isMobile]);
+
+  const handleEarnings = () => {
+    exportOrdersCsv(orders, currency);
+    setOpen(false);
+  };
+
+  const handlePayouts = async () => {
+    setPayoutsLoading(true);
+    try {
+      await exportPayoutsCsv();
+    } finally {
+      setPayoutsLoading(false);
+      setOpen(false);
+    }
+  };
 
   return (
-    <div className="relative" ref={ref}>
-      <button
-        title="Download CSV"
-        onClick={() => setOpen((o) => !o)}
-        className="p-1.5 rounded-lg hover:bg-[#f3f4f6] transition-colors text-[#9ca3af] hover:text-[#6b7280]"
-      >
-        <Download className="h-4 w-4" />
-      </button>
-      {open && (
-        <div className="absolute right-0 top-full mt-1.5 w-56 bg-white border border-[#e5e7eb] rounded-xl shadow-lg z-50 py-1 animate-in fade-in-0 zoom-in-95 duration-100">
-          <p className="px-4 pt-2 pb-1 text-[11px] font-semibold text-[#9ca3af] uppercase tracking-wide">
-            Export
-          </p>
-          <button
-            onClick={() => {
-              exportOrdersCsv(orders, currency);
-              setOpen(false);
-            }}
-            className="w-full text-left px-4 py-2.5 text-[13px] text-[#374151] hover:bg-[#f9fafb] flex items-center gap-2"
-          >
-            <Download className="h-3.5 w-3.5 text-[#9ca3af]" />
-            Earnings summary (CSV)
-          </button>
-          <button
-            disabled={payoutsLoading}
-            onClick={async () => {
-              setPayoutsLoading(true);
-              try {
-                await exportPayoutsCsv();
-              } finally {
-                setPayoutsLoading(false);
-                setOpen(false);
-              }
-            }}
-            className="w-full text-left px-4 py-2.5 text-[13px] text-[#374151] hover:bg-[#f9fafb] flex items-center gap-2 disabled:opacity-50"
-          >
-            {payoutsLoading ? (
-              <Loader2 className="h-3.5 w-3.5 text-[#9ca3af] animate-spin" />
-            ) : (
+    <>
+      <div className="relative" ref={ref}>
+        <button
+          title="Download CSV"
+          onClick={() => setOpen((o) => !o)}
+          className="p-1.5 rounded-lg hover:bg-[#f3f4f6] transition-colors text-[#9ca3af] hover:text-[#6b7280]"
+        >
+          <Download className="h-4 w-4" />
+        </button>
+
+        {/* Desktop dropdown */}
+        {open && !isMobile && (
+          <div className="absolute right-0 top-full mt-1.5 w-56 bg-white border border-[#e5e7eb] rounded-xl shadow-lg z-50 py-1 animate-in fade-in-0 zoom-in-95 duration-100">
+            <p className="px-4 pt-2 pb-1 text-[11px] font-semibold text-[#9ca3af] uppercase tracking-wide">
+              Export
+            </p>
+            <button
+              onClick={handleEarnings}
+              className="w-full text-left px-4 py-2.5 text-[13px] text-[#374151] hover:bg-[#f9fafb] flex items-center gap-2"
+            >
               <Download className="h-3.5 w-3.5 text-[#9ca3af]" />
-            )}
-            Payouts history (CSV)
-          </button>
-        </div>
+              Earnings summary (CSV)
+            </button>
+            <button
+              disabled={payoutsLoading}
+              onClick={handlePayouts}
+              className="w-full text-left px-4 py-2.5 text-[13px] text-[#374151] hover:bg-[#f9fafb] flex items-center gap-2 disabled:opacity-50"
+            >
+              {payoutsLoading ? (
+                <Loader2 className="h-3.5 w-3.5 text-[#9ca3af] animate-spin" />
+              ) : (
+                <Download className="h-3.5 w-3.5 text-[#9ca3af]" />
+              )}
+              Payouts history (CSV)
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Mobile bottom sheet */}
+      {isMobile && (
+        <ExportBottomSheet
+          isOpen={open}
+          onClose={() => setOpen(false)}
+          onEarnings={handleEarnings}
+          onPayouts={handlePayouts}
+          payoutsLoading={payoutsLoading}
+        />
       )}
-    </div>
+    </>
+  );
+}
+
+// Mobile bottom sheet for export — GPU-smooth, velocity-based fling-to-close
+function ExportBottomSheet({
+  isOpen,
+  onClose,
+  onEarnings,
+  onPayouts,
+  payoutsLoading,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onEarnings: () => void;
+  onPayouts: () => void;
+  payoutsLoading: boolean;
+}) {
+  const [isVisible, setIsVisible] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [dragY, setDragY] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const startYRef = useRef(0);
+  const lastYRef = useRef(0);
+  const lastTimeRef = useRef(0);
+  const velocityRef = useRef(0);
+  const sheetRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isOpen && !isVisible) {
+      setIsVisible(true);
+      document.body.style.overflow = "hidden";
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => setIsAnimating(true)),
+      );
+    } else if (!isOpen && isVisible) {
+      setIsAnimating(false);
+      document.body.style.overflow = "";
+      const t = setTimeout(() => {
+        setIsVisible(false);
+        setDragY(0);
+      }, 400);
+      return () => clearTimeout(t);
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isOpen, isVisible]);
+
+  const handleClose = () => {
+    setIsAnimating(false);
+    setIsDragging(false);
+    setDragY(0);
+    velocityRef.current = 0;
+    setTimeout(() => onClose(), 400);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    const el = sheetRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    if (touch.clientY - rect.top <= 80) {
+      startYRef.current = touch.clientY;
+      lastYRef.current = touch.clientY;
+      lastTimeRef.current = Date.now();
+      velocityRef.current = 0;
+      setIsDragging(true);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging) return;
+    const currentY = e.touches[0].clientY;
+    const diff = currentY - startYRef.current;
+    if (diff > 0) {
+      e.preventDefault();
+      const now = Date.now();
+      const dt = Math.max(1, now - lastTimeRef.current);
+      velocityRef.current = (currentY - lastYRef.current) / dt;
+      lastYRef.current = currentY;
+      lastTimeRef.current = now;
+      setDragY(diff <= 160 ? diff * 0.92 : 147 + (diff - 160) * 0.4);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (!isDragging) return;
+    setIsDragging(false);
+    if (dragY > 92 || velocityRef.current > 0.55) handleClose();
+    else setDragY(0);
+  };
+
+  if (!isVisible) return null;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[100]"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      <div
+        className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
+        style={{
+          opacity: isAnimating ? 1 : 0,
+          transition: isDragging
+            ? "none"
+            : "opacity 400ms cubic-bezier(0.32,0.72,0,1)",
+        }}
+        onClick={handleClose}
+      />
+      <div
+        ref={sheetRef}
+        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
+        style={{
+          transform: isAnimating
+            ? `translate3d(0,${dragY}px,0)`
+            : "translate3d(0,100%,0)",
+          transition: isDragging
+            ? "none"
+            : "transform 400ms cubic-bezier(0.32,0.72,0,1)",
+          willChange: "transform",
+          backfaceVisibility: "hidden",
+        }}
+      >
+        {/* Drag handle */}
+        <div className="pt-3 pb-1 flex justify-center cursor-grab active:cursor-grabbing touch-none">
+          <div className="h-[5px] w-10 rounded-full bg-gray-300" />
+        </div>
+        <div className="px-4 pb-4">
+          <h3 className="text-[16px] font-semibold text-[#1a1a2e] mb-4">
+            Export data
+          </h3>
+          <div className="space-y-2">
+            <button
+              onClick={() => {
+                onEarnings();
+                handleClose();
+              }}
+              className="w-full flex items-center gap-3 px-4 py-3.5 bg-[#f9fafb] rounded-xl text-[14px] font-medium text-[#374151] active:bg-[#f3f4f6] transition-colors"
+            >
+              <div className="w-9 h-9 rounded-xl bg-white border border-[#e5e7eb] flex items-center justify-center shrink-0">
+                <Download className="h-4 w-4 text-[#8b5cf6]" />
+              </div>
+              <div className="text-left">
+                <p className="text-[14px] font-medium text-[#1a1a2e]">
+                  Earnings summary
+                </p>
+                <p className="text-[12px] text-[#9ca3af]">
+                  Sales, amounts, status — CSV
+                </p>
+              </div>
+            </button>
+            <button
+              disabled={payoutsLoading}
+              onClick={() => {
+                onPayouts();
+              }}
+              className="w-full flex items-center gap-3 px-4 py-3.5 bg-[#f9fafb] rounded-xl text-[14px] font-medium text-[#374151] active:bg-[#f3f4f6] transition-colors disabled:opacity-50"
+            >
+              <div className="w-9 h-9 rounded-xl bg-white border border-[#e5e7eb] flex items-center justify-center shrink-0">
+                {payoutsLoading ? (
+                  <Loader2 className="h-4 w-4 text-[#8b5cf6] animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4 text-[#8b5cf6]" />
+                )}
+              </div>
+              <div className="text-left">
+                <p className="text-[14px] font-medium text-[#1a1a2e]">
+                  Payouts history
+                </p>
+                <p className="text-[12px] text-[#9ca3af]">
+                  Bank transfers, dates, amounts — CSV
+                </p>
+              </div>
+            </button>
+          </div>
+        </div>
+        <div style={{ height: "max(env(safe-area-inset-bottom), 16px)" }} />
+      </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -2288,102 +2529,85 @@ function PayoutMethodCard() {
   const bank = data?.bankAccount;
 
   return (
-    <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-4">
-        <div className="w-9 h-9 rounded-xl bg-[#f5f3ff] flex items-center justify-center shrink-0">
-          <Building2 className="h-4 w-4 text-[#8b5cf6]" />
-        </div>
-        <div>
-          <h3 className="text-[15px] font-semibold text-[#1a1a2e]">
-            Payout account
-          </h3>
-          <p className="text-[12px] text-[#9ca3af]">
-            Where your earnings are sent
-          </p>
-        </div>
-      </div>
-
-      {/* Bank info */}
-      {loading ? (
-        <div className="space-y-2 mb-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="flex justify-between">
-              <div className="h-3.5 w-20 bg-gray-100 rounded animate-pulse" />
-              <div className="h-3.5 w-32 bg-gray-100 rounded animate-pulse" />
-            </div>
-          ))}
-        </div>
-      ) : bank ? (
-        <div className="space-y-2.5 mb-4 p-3.5 bg-[#f9fafb] rounded-xl">
-          <div className="flex items-center justify-between text-[13px]">
-            <span className="text-[#6b7280]">Bank</span>
-            <span className="font-medium text-[#1a1a2e]">
-              {bank.bankName || "Bank account"}{" "}
-              <span className="text-[#9ca3af]">••••{bank.last4}</span>
-            </span>
+    <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] px-5 py-4">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+        {/* Left: icon + info */}
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <div className="w-9 h-9 rounded-xl bg-[#f5f3ff] flex items-center justify-center shrink-0">
+            <Building2 className="h-4 w-4 text-[#8b5cf6]" />
           </div>
-          <div className="flex items-center justify-between text-[13px]">
-            <span className="text-[#6b7280]">Currency</span>
-            <span className="font-medium text-[#1a1a2e] uppercase">
-              {bank.currency}
-            </span>
-          </div>
-          <div className="flex items-center justify-between text-[13px]">
-            <span className="text-[#6b7280]">Payout speed</span>
-            <span className="font-medium text-[#1a1a2e]">
-              {payoutSpeedLabel(data?.payoutSchedule ?? null)}
-            </span>
-          </div>
-          {bank.status && bank.status !== "new" && (
-            <div className="flex items-center justify-between text-[13px]">
-              <span className="text-[#6b7280]">Status</span>
-              <span
-                className={cn(
-                  "font-medium capitalize",
-                  bank.status === "verified"
-                    ? "text-green-600"
-                    : "text-amber-600",
+          <div className="min-w-0">
+            <p className="text-[12px] font-medium text-[#9ca3af] mb-0.5">
+              Payout account
+            </p>
+            {loading ? (
+              <div className="flex items-center gap-2">
+                <div className="h-3.5 w-32 bg-gray-100 rounded animate-pulse" />
+                <div className="h-3.5 w-16 bg-gray-100 rounded animate-pulse" />
+              </div>
+            ) : bank ? (
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                <span className="text-[14px] font-semibold text-[#1a1a2e]">
+                  {bank.bankName || "Bank account"}{" "}
+                  <span className="font-normal text-[#9ca3af]">
+                    ••••{bank.last4}
+                  </span>
+                </span>
+                <span className="text-[#d1d5db] hidden sm:inline">·</span>
+                <span className="text-[13px] text-[#6b7280] uppercase font-medium">
+                  {bank.currency}
+                </span>
+                <span className="text-[#d1d5db] hidden sm:inline">·</span>
+                <span className="text-[13px] text-[#6b7280]">
+                  {payoutSpeedLabel(data?.payoutSchedule ?? null)}
+                </span>
+                {bank.status && bank.status !== "new" && (
+                  <>
+                    <span className="text-[#d1d5db] hidden sm:inline">·</span>
+                    <span
+                      className={cn(
+                        "text-[12px] font-medium capitalize",
+                        bank.status === "verified"
+                          ? "text-green-600"
+                          : "text-amber-600",
+                      )}
+                    >
+                      {bank.status}
+                    </span>
+                  </>
                 )}
-              >
-                {bank.status}
-              </span>
-            </div>
-          )}
+              </div>
+            ) : (
+              <p className="text-[13px] text-amber-600 font-medium">
+                No bank account connected
+              </p>
+            )}
+          </div>
         </div>
-      ) : (
-        <div className="mb-4 p-3.5 bg-amber-50 border border-amber-200/60 rounded-xl">
-          <p className="text-[13px] text-amber-700 font-medium">
-            No bank account connected
-          </p>
-          <p className="text-[12px] text-amber-600 mt-0.5">
-            Add a bank account in your Stripe dashboard to receive payouts.
-          </p>
-        </div>
-      )}
 
-      {/* Action buttons */}
-      <div className="flex flex-col sm:flex-row gap-2">
-        <button
-          onClick={openStripe}
-          disabled={actionLoading}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-[13px] font-medium text-white bg-[#8b5cf6] rounded-xl hover:bg-[#7c3aed] transition-colors disabled:opacity-60"
-        >
-          {actionLoading ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
+        {/* Right: compact action buttons */}
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={openStripe}
+            disabled={actionLoading}
+            className="flex items-center gap-1.5 px-3.5 py-2 text-[12px] font-medium text-white bg-[#8b5cf6] rounded-lg hover:bg-[#7c3aed] transition-colors disabled:opacity-60 whitespace-nowrap"
+          >
+            {actionLoading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <ExternalLink className="h-3.5 w-3.5" />
+            )}
+            Update bank
+          </button>
+          <button
+            onClick={openStripe}
+            disabled={actionLoading}
+            className="flex items-center gap-1.5 px-3.5 py-2 text-[12px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg hover:bg-[#e5e7eb] transition-colors disabled:opacity-60 whitespace-nowrap"
+          >
             <ExternalLink className="h-3.5 w-3.5" />
-          )}
-          Update bank account
-        </button>
-        <button
-          onClick={openStripe}
-          disabled={actionLoading}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-[13px] font-medium text-[#374151] bg-[#f3f4f6] rounded-xl hover:bg-[#e5e7eb] transition-colors disabled:opacity-60"
-        >
-          <ExternalLink className="h-3.5 w-3.5" />
-          View Stripe account
-        </button>
+            Stripe dashboard
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -2644,6 +2868,10 @@ export function PayoutsClient({
   initialOrders = [],
 }: PayoutsClientProps) {
   const [fxRate, setFxRate] = useState(1);
+  // fxReady: instantly true for USD accounts; waits for /api/fx for others
+  const [fxReady, setFxReady] = useState(
+    (creator.default_currency || "usd").toLowerCase() === "usd",
+  );
   const [recentTab, setRecentTab] = useState<"sales" | "payouts">("sales");
   const [recentPage, setRecentPage] = useState(0);
   const [isPageLoading, setIsPageLoading] = useState(false);
@@ -2714,11 +2942,20 @@ export function PayoutsClient({
   }, [initialOrders, sourceCurrency]);
 
   useEffect(() => {
-    if (sourceCurrency === "usd") return;
+    if (sourceCurrency === "usd") {
+      setFxReady(true);
+      return;
+    }
     fetch(`/api/fx?from=${sourceCurrency}&to=usd`)
       .then((r) => r.json())
-      .then((json) => setFxRate(json.rate || 1))
-      .catch(() => setFxRate(1));
+      .then((json) => {
+        setFxRate(json.rate || 1);
+        setFxReady(true);
+      })
+      .catch(() => {
+        setFxRate(1);
+        setFxReady(true);
+      });
   }, [sourceCurrency]);
 
   const toUsd = useCallback(
@@ -2783,6 +3020,7 @@ export function PayoutsClient({
               pendingBalance={toUsd(pendingBalance)}
               currency={currency}
               payoutsEnabled={payoutsEnabled}
+              balanceReady={fxReady}
               onSuccess={() => {
                 refreshBalances();
                 setRecentTab("payouts");
