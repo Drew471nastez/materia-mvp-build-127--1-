@@ -101,31 +101,32 @@ export default async function PayoutsPage() {
       );
       paidOut = payouts.data.reduce((sum, p) => sum + p.amount, 0);
 
-      // Pick the currency that has actual funds; fall back to default_currency
-      const availableWithFunds = balance.available.filter((b) => b.amount > 0);
-      const pendingWithFunds = balance.pending.filter((b) => b.amount > 0);
-
-      if (availableWithFunds.length > 0) {
-        detectedCurrency = availableWithFunds[0].currency;
-        stripeAvailableBalance = availableWithFunds.reduce(
-          (s, b) => s + b.amount,
-          0,
-        );
-      } else {
-        stripeAvailableBalance = balance.available
-          .filter((b) => b.currency === detectedCurrency)
-          .reduce((s, b) => s + b.amount, 0);
+      // Pick one dominant connected-account balance currency to avoid mixing stale cross-currency cents.
+      const byCurrency = new Map<
+        string,
+        { available: number; pending: number }
+      >();
+      for (const b of balance.available) {
+        const row = byCurrency.get(b.currency) || { available: 0, pending: 0 };
+        row.available += b.amount;
+        byCurrency.set(b.currency, row);
+      }
+      for (const b of balance.pending) {
+        const row = byCurrency.get(b.currency) || { available: 0, pending: 0 };
+        row.pending += b.amount;
+        byCurrency.set(b.currency, row);
       }
 
-      if (pendingWithFunds.length > 0) {
-        stripePendingBalance = pendingWithFunds.reduce(
-          (s, b) => s + b.amount,
-          0,
-        );
-      } else {
-        stripePendingBalance = balance.pending
-          .filter((b) => b.currency === detectedCurrency)
-          .reduce((s, b) => s + b.amount, 0);
+      const dominant =
+        [...byCurrency.entries()].sort(
+          (a, b) =>
+            b[1].available + b[1].pending - (a[1].available + a[1].pending),
+        )[0] || null;
+
+      if (dominant) {
+        detectedCurrency = dominant[0];
+        stripeAvailableBalance = dominant[1].available;
+        stripePendingBalance = dominant[1].pending;
       }
     } catch (err) {
       console.error("[Payouts] Failed to fetch Stripe balance:", err);

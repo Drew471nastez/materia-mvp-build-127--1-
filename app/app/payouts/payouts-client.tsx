@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   AreaChart,
   Area,
@@ -426,6 +427,10 @@ function WithdrawPanel({
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [openBreakdown, setOpenBreakdown] = useState(false);
+  const [dragY, setDragY] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const startY = useRef(0);
   const [successPayout, setSuccessPayout] = useState<{
     amount: number;
     currency: string;
@@ -480,11 +485,6 @@ function WithdrawPanel({
       </div>
     );
   }
-
-  const [openBreakdown, setOpenBreakdown] = useState(false);
-  const [dragY, setDragY] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
-  const startY = useRef(0);
 
   const helper = "Transfers typically arrive within 1–3 business days.";
 
@@ -602,6 +602,12 @@ function WithdrawPanel({
               >
                 Okay
               </button>
+              <a
+                href="/help-center"
+                className="w-full mt-2 block text-center text-[13px] font-medium text-[#635bff] hover:underline"
+              >
+                Learn more
+              </a>
             </div>
           </div>
           <div className="fixed inset-0 z-[80] sm:hidden">
@@ -654,6 +660,12 @@ function WithdrawPanel({
               >
                 Okay
               </button>
+              <a
+                href="/help-center"
+                className="w-full mt-2 block text-center text-[13px] font-medium text-[#635bff]"
+              >
+                Learn more
+              </a>
             </div>
           </div>
         </>
@@ -800,6 +812,7 @@ function OrderDetailsModal({
 }) {
   const [isVisible, setIsVisible] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const [dragY, setDragY] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [showTimeline, setShowTimeline] = useState(false);
@@ -811,6 +824,10 @@ function OrderDetailsModal({
   const { toast } = useToast();
 
   const isOpen = !!order;
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (isOpen && !isVisible) {
@@ -901,7 +918,7 @@ function OrderDetailsModal({
     }
   };
 
-  if (!isVisible || !order) return null;
+  if (!isVisible || !order || !mounted) return null;
 
   const net = order.amount_cents - (order.fee_cents || 0);
   const buyerName =
@@ -1439,7 +1456,7 @@ function OrderDetailsModal({
     </>
   );
 
-  return (
+  return createPortal(
     <>
       {/* ── Desktop Modal ── */}
       <div className="fixed inset-0 z-50 hidden sm:flex items-center justify-center">
@@ -1531,7 +1548,8 @@ function OrderDetailsModal({
           <div style={{ height: "max(env(safe-area-inset-bottom), 16px)" }} />
         </div>
       </div>
-    </>
+    </>,
+    document.body,
   );
 }
 
@@ -1813,14 +1831,35 @@ export function PayoutsClient({
       const r = await fetch("/api/stripe/payouts");
       const json = await r.json();
       if (json.balance) {
-        const avail = json.balance.available?.find(
-          (b: any) => b.currency === sourceCurrency,
-        );
-        const pend = json.balance.pending?.find(
-          (b: any) => b.currency === sourceCurrency,
-        );
-        if (avail) setAvailableBalance(avail.amount);
-        if (pend) setPendingBalance(pend.amount);
+        const byCurrency = new Map<
+          string,
+          { available: number; pending: number }
+        >();
+        for (const b of json.balance.available || []) {
+          const row = byCurrency.get(b.currency) || {
+            available: 0,
+            pending: 0,
+          };
+          row.available += b.amount;
+          byCurrency.set(b.currency, row);
+        }
+        for (const b of json.balance.pending || []) {
+          const row = byCurrency.get(b.currency) || {
+            available: 0,
+            pending: 0,
+          };
+          row.pending += b.amount;
+          byCurrency.set(b.currency, row);
+        }
+        const dominant =
+          [...byCurrency.entries()].sort(
+            (a, b) =>
+              b[1].available + b[1].pending - (a[1].available + a[1].pending),
+          )[0] || null;
+        if (dominant) {
+          setAvailableBalance(dominant[1].available);
+          setPendingBalance(dominant[1].pending);
+        }
       }
     } catch {
       /* non-fatal */
@@ -1963,7 +2002,7 @@ export function PayoutsClient({
         {/* Chart + Withdraw panel side-by-side on desktop */}
         <div className="flex flex-col lg:flex-row gap-5">
           <RevenueChart />
-          <div className="lg:w-72 xl:w-80 shrink-0">
+          <div className="lg:w-[21rem] xl:w-[23rem] shrink-0">
             <WithdrawPanel
               availableBalance={toUsd(availableBalance)}
               pendingBalance={toUsd(pendingBalance)}
@@ -1984,8 +2023,12 @@ export function PayoutsClient({
               <div className="flex items-center gap-1 bg-[#f3f4f6] rounded-lg p-1">
                 <button
                   onClick={() => {
-                    setRecentTab("sales");
-                    setRecentPage(0);
+                    setIsPageLoading(true);
+                    setTimeout(() => {
+                      setRecentTab("sales");
+                      setRecentPage(0);
+                      setIsPageLoading(false);
+                    }, 180);
                   }}
                   className={cn(
                     "px-2.5 py-1 text-[12px] rounded-md",
@@ -1998,8 +2041,12 @@ export function PayoutsClient({
                 </button>
                 <button
                   onClick={() => {
-                    setRecentTab("payouts");
-                    setRecentPage(0);
+                    setIsPageLoading(true);
+                    setTimeout(() => {
+                      setRecentTab("payouts");
+                      setRecentPage(0);
+                      setIsPageLoading(false);
+                    }, 180);
                   }}
                   className={cn(
                     "px-2.5 py-1 text-[12px] rounded-md",
@@ -2031,258 +2078,265 @@ export function PayoutsClient({
               </div>
             </div>
 
-            {recentTab === "payouts" ? (
-              <PayoutsHistoryList
-                refreshKey={refreshKey}
-                page={recentPage}
-                pageSize={6}
-                pageSwitchLoading={isPageLoading}
-                convertCents={toUsd}
-                onCountChange={setPayoutCount}
-              />
-            ) : (
-              <>
-                {isPageLoading && (
-                  <div className="p-4 space-y-2">
-                    {[1, 2, 3, 4, 5, 6].map((i) => (
-                      <div
-                        key={i}
-                        className="h-10 rounded-lg bg-[#f3f4f6] animate-pulse"
-                      />
-                    ))}
-                  </div>
-                )}
+            <div className="transition-all duration-300">
+              {recentTab === "payouts" ? (
+                <PayoutsHistoryList
+                  refreshKey={refreshKey}
+                  page={recentPage}
+                  pageSize={6}
+                  pageSwitchLoading={isPageLoading}
+                  convertCents={toUsd}
+                  onCountChange={setPayoutCount}
+                />
+              ) : (
+                <>
+                  {isPageLoading && (
+                    <div className="p-4 space-y-2">
+                      {[1, 2, 3, 4, 5, 6].map((i) => (
+                        <div
+                          key={i}
+                          className="h-10 rounded-lg bg-[#f3f4f6] animate-pulse"
+                        />
+                      ))}
+                    </div>
+                  )}
 
-                {/* Mobile card list */}
-                <div className="sm:hidden divide-y divide-[#e5e7eb]">
-                  {(isPageLoading ? [] : pagedOrders).map((order) => {
-                    const productImage = order.product?.thumbnail_url;
-                    const customerName =
-                      order.buyer?.display_name ||
-                      (order.buyer_first_name && order.buyer_last_name
-                        ? `${order.buyer_first_name} ${order.buyer_last_name}`
-                        : "Customer");
-                    const mobileDate = new Date(
-                      order.created_at,
-                    ).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    });
-                    return (
-                      <div
-                        key={order.id}
-                        className="px-3 py-3 active:bg-[#f9fafb]"
-                      >
-                        <div className="flex items-center gap-3">
-                          {productImage ? (
-                            <img
-                              src={productImage}
-                              alt=""
-                              className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
-                            />
-                          ) : (
-                            <div className="w-10 h-10 rounded-lg bg-[#f3f4f6] flex items-center justify-center flex-shrink-0">
-                              <Package className="h-4 w-4 text-[#9ca3af]" />
-                            </div>
-                          )}
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5 mb-0.5">
-                              <p className="text-[13px] font-medium text-[#1a1a2e] truncate max-w-[100px]">
-                                {customerName.length > 10
-                                  ? customerName.slice(0, 10) + "…"
-                                  : customerName}
-                              </p>
-                              <span className="text-[10px] text-[#9ca3af]">
-                                •
-                              </span>
-                              <span className="text-[10px] text-[#6b7280]">
-                                {mobileDate}
-                              </span>
-                            </div>
-                            <p className="text-[11px] text-[#6b7280] truncate max-w-[120px]">
-                              {(order.product?.title || "Product").slice(0, 18)}
-                              {(order.product?.title || "").length > 18
-                                ? "…"
-                                : ""}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <p className="text-[13px] font-semibold text-[#1a1a2e]">
-                              {fmt(toUsd(order.amount_cents), currency)}
-                            </p>
-                            <button
-                              onClick={() => setSelectedOrder(order)}
-                              className="px-2.5 py-1.5 text-[12px] font-medium text-[#6b7280] bg-[#f3f4f6] rounded-lg hover:bg-[#e5e7eb] transition-colors"
-                            >
-                              View
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Desktop table */}
-                <div className="hidden sm:block overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-[#e5e7eb]">
-                        <th className="text-left px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">
-                          Customer
-                        </th>
-                        <th className="text-left px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">
-                          Product
-                        </th>
-                        <th className="text-left px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">
-                          Date
-                        </th>
-                        <th className="text-right px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">
-                          Amount
-                        </th>
-                        <th className="text-left px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">
-                          Status
-                        </th>
-                        <th className="text-right px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#e5e7eb]">
-                      {(isPageLoading ? [] : pagedOrders).map((order) => {
-                        const productImage = order.product?.thumbnail_url;
-                        return (
-                          <tr
-                            key={order.id}
-                            className="hover:bg-[#f9fafb] transition-colors cursor-pointer"
-                            onClick={(e) => {
-                              if (
-                                (e.target as HTMLElement).closest(
-                                  ".order-actions",
-                                )
-                              )
-                                return;
-                              setSelectedOrder(order);
-                            }}
-                          >
-                            <td className="px-5 py-4">
-                              <p className="text-[14px] font-medium text-[#1a1a2e]">
-                                {order.buyer?.display_name ||
-                                  (order.buyer_first_name &&
-                                  order.buyer_last_name
-                                    ? `${order.buyer_first_name} ${order.buyer_last_name}`
-                                    : "Customer")}
-                              </p>
-                              <p className="text-[12px] text-[#6b7280]">
-                                {order.buyer?.email || order.buyer_email || ""}
-                              </p>
-                            </td>
-                            <td className="px-5 py-4">
-                              <div className="flex items-center gap-3">
-                                {productImage ? (
-                                  <img
-                                    src={productImage}
-                                    alt=""
-                                    className="w-10 h-10 rounded-lg object-cover"
-                                  />
-                                ) : (
-                                  <div className="w-10 h-10 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
-                                    <Package className="h-4 w-4 text-[#9ca3af]" />
-                                  </div>
-                                )}
-                                <span className="text-[14px] text-[#1a1a2e] truncate max-w-[200px]">
-                                  {order.product?.title || "Product"}
+                  {/* Mobile card list */}
+                  <div className="sm:hidden divide-y divide-[#e5e7eb]">
+                    {(isPageLoading ? [] : pagedOrders).map((order) => {
+                      const productImage = order.product?.thumbnail_url;
+                      const customerName =
+                        order.buyer?.display_name ||
+                        (order.buyer_first_name && order.buyer_last_name
+                          ? `${order.buyer_first_name} ${order.buyer_last_name}`
+                          : "Customer");
+                      const mobileDate = new Date(
+                        order.created_at,
+                      ).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      });
+                      return (
+                        <div
+                          key={order.id}
+                          className="px-3 py-3 active:bg-[#f9fafb]"
+                        >
+                          <div className="flex items-center gap-3">
+                            {productImage ? (
+                              <img
+                                src={productImage}
+                                alt=""
+                                className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 rounded-lg bg-[#f3f4f6] flex items-center justify-center flex-shrink-0">
+                                <Package className="h-4 w-4 text-[#9ca3af]" />
+                              </div>
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 mb-0.5">
+                                <p className="text-[13px] font-medium text-[#1a1a2e] truncate max-w-[100px]">
+                                  {customerName.length > 10
+                                    ? customerName.slice(0, 10) + "…"
+                                    : customerName}
+                                </p>
+                                <span className="text-[10px] text-[#9ca3af]">
+                                  •
+                                </span>
+                                <span className="text-[10px] text-[#6b7280]">
+                                  {mobileDate}
                                 </span>
                               </div>
-                            </td>
-                            <td className="px-5 py-4">
-                              <span className="text-[14px] text-[#6b7280]">
-                                {fmtDate(order.created_at)}
-                              </span>
-                            </td>
-                            <td className="px-5 py-4 text-right">
-                              <span className="text-[14px] font-medium text-[#1a1a2e]">
+                              <p className="text-[11px] text-[#6b7280] truncate max-w-[120px]">
+                                {(order.product?.title || "Product").slice(
+                                  0,
+                                  18,
+                                )}
+                                {(order.product?.title || "").length > 18
+                                  ? "…"
+                                  : ""}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <p className="text-[13px] font-semibold text-[#1a1a2e]">
                                 {fmt(toUsd(order.amount_cents), currency)}
-                              </span>
-                            </td>
-                            <td className="px-5 py-4">
-                              {getStatusBadge(order.status)}
-                            </td>
-                            <td className="px-5 py-4 text-right">
-                              <div className="flex items-center justify-end gap-2 order-actions">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSelectedOrder(order);
-                                  }}
-                                  className="px-3 py-1.5 text-[12px] font-medium text-[#1a1a2e] bg-[#f3f4f6] rounded-lg hover:bg-[#e5e7eb] transition-colors"
-                                >
-                                  View
-                                </button>
-                                <div className="relative order-menu">
+                              </p>
+                              <button
+                                onClick={() => setSelectedOrder(order)}
+                                className="px-2.5 py-1.5 text-[12px] font-medium text-[#6b7280] bg-[#f3f4f6] rounded-lg hover:bg-[#e5e7eb] transition-colors"
+                              >
+                                View
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Desktop table */}
+                  <div className="hidden sm:block overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-[#e5e7eb]">
+                          <th className="text-left px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">
+                            Customer
+                          </th>
+                          <th className="text-left px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">
+                            Product
+                          </th>
+                          <th className="text-left px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">
+                            Date
+                          </th>
+                          <th className="text-right px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">
+                            Amount
+                          </th>
+                          <th className="text-left px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">
+                            Status
+                          </th>
+                          <th className="text-right px-5 py-3 text-[12px] font-medium text-[#6b7280] uppercase tracking-wider">
+                            Actions
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#e5e7eb]">
+                        {(isPageLoading ? [] : pagedOrders).map((order) => {
+                          const productImage = order.product?.thumbnail_url;
+                          return (
+                            <tr
+                              key={order.id}
+                              className="hover:bg-[#f9fafb] transition-colors cursor-pointer"
+                              onClick={(e) => {
+                                if (
+                                  (e.target as HTMLElement).closest(
+                                    ".order-actions",
+                                  )
+                                )
+                                  return;
+                                setSelectedOrder(order);
+                              }}
+                            >
+                              <td className="px-5 py-4">
+                                <p className="text-[14px] font-medium text-[#1a1a2e]">
+                                  {order.buyer?.display_name ||
+                                    (order.buyer_first_name &&
+                                    order.buyer_last_name
+                                      ? `${order.buyer_first_name} ${order.buyer_last_name}`
+                                      : "Customer")}
+                                </p>
+                                <p className="text-[12px] text-[#6b7280]">
+                                  {order.buyer?.email ||
+                                    order.buyer_email ||
+                                    ""}
+                                </p>
+                              </td>
+                              <td className="px-5 py-4">
+                                <div className="flex items-center gap-3">
+                                  {productImage ? (
+                                    <img
+                                      src={productImage}
+                                      alt=""
+                                      className="w-10 h-10 rounded-lg object-cover"
+                                    />
+                                  ) : (
+                                    <div className="w-10 h-10 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+                                      <Package className="h-4 w-4 text-[#9ca3af]" />
+                                    </div>
+                                  )}
+                                  <span className="text-[14px] text-[#1a1a2e] truncate max-w-[200px]">
+                                    {order.product?.title || "Product"}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="px-5 py-4">
+                                <span className="text-[14px] text-[#6b7280]">
+                                  {fmtDate(order.created_at)}
+                                </span>
+                              </td>
+                              <td className="px-5 py-4 text-right">
+                                <span className="text-[14px] font-medium text-[#1a1a2e]">
+                                  {fmt(toUsd(order.amount_cents), currency)}
+                                </span>
+                              </td>
+                              <td className="px-5 py-4">
+                                {getStatusBadge(order.status)}
+                              </td>
+                              <td className="px-5 py-4 text-right">
+                                <div className="flex items-center justify-end gap-2 order-actions">
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      setOpenMenuOrderId(
-                                        openMenuOrderId === order.id
-                                          ? null
-                                          : order.id,
-                                      );
+                                      setSelectedOrder(order);
                                     }}
-                                    className="p-1.5 text-[#9ca3af] hover:text-[#6b7280] hover:bg-[#f3f4f6] rounded-lg transition-colors"
+                                    className="px-3 py-1.5 text-[12px] font-medium text-[#1a1a2e] bg-[#f3f4f6] rounded-lg hover:bg-[#e5e7eb] transition-colors"
                                   >
-                                    <MoreHorizontal className="h-4 w-4" />
+                                    View
                                   </button>
-                                  {openMenuOrderId === order.id && (
-                                    <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-[#e5e7eb] rounded-xl shadow-lg z-50 py-1 animate-in fade-in-0 zoom-in-95 duration-100">
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setSelectedOrder(order);
-                                          setOpenMenuOrderId(null);
-                                        }}
-                                        className="w-full text-left px-3 py-2 text-[13px] text-[#374151] hover:bg-[#f9fafb] flex items-center gap-2"
-                                      >
-                                        <Eye className="h-4 w-4 text-[#9ca3af]" />{" "}
-                                        View details
-                                      </button>
-                                      {order.status === "completed" && (
-                                        <>
-                                          <div className="border-t border-[#e5e7eb] my-1" />
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              setSelectedOrder(order);
-                                              setOpenMenuOrderId(null);
-                                            }}
-                                            className="w-full text-left px-3 py-2 text-[13px] text-rose-600 hover:bg-rose-50 flex items-center gap-2"
-                                          >
-                                            <RotateCcw className="h-4 w-4" />{" "}
-                                            Issue refund
-                                          </button>
-                                        </>
-                                      )}
-                                    </div>
-                                  )}
+                                  <div className="relative order-menu">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setOpenMenuOrderId(
+                                          openMenuOrderId === order.id
+                                            ? null
+                                            : order.id,
+                                        );
+                                      }}
+                                      className="p-1.5 text-[#9ca3af] hover:text-[#6b7280] hover:bg-[#f3f4f6] rounded-lg transition-colors"
+                                    >
+                                      <MoreHorizontal className="h-4 w-4" />
+                                    </button>
+                                    {openMenuOrderId === order.id && (
+                                      <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-[#e5e7eb] rounded-xl shadow-lg z-50 py-1 animate-in fade-in-0 zoom-in-95 duration-100">
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setSelectedOrder(order);
+                                            setOpenMenuOrderId(null);
+                                          }}
+                                          className="w-full text-left px-3 py-2 text-[13px] text-[#374151] hover:bg-[#f9fafb] flex items-center gap-2"
+                                        >
+                                          <Eye className="h-4 w-4 text-[#9ca3af]" />{" "}
+                                          View details
+                                        </button>
+                                        {order.status === "completed" && (
+                                          <>
+                                            <div className="border-t border-[#e5e7eb] my-1" />
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setSelectedOrder(order);
+                                                setOpenMenuOrderId(null);
+                                              }}
+                                              className="w-full text-left px-3 py-2 text-[13px] text-rose-600 hover:bg-rose-50 flex items-center gap-2"
+                                            >
+                                              <RotateCcw className="h-4 w-4" />{" "}
+                                              Issue refund
+                                            </button>
+                                          </>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-
-                {initialOrders.length > 0 && (
-                  <div className="px-5 py-3 border-t border-[#e5e7eb] text-[12px] text-[#6b7280]">
-                    Showing{" "}
-                    {Math.min((recentPage + 1) * 6, initialOrders.length)} of{" "}
-                    {initialOrders.length} orders
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
-                )}
-              </>
-            )}
+
+                  {initialOrders.length > 0 && (
+                    <div className="px-5 py-3 border-t border-[#e5e7eb] text-[12px] text-[#6b7280]">
+                      Showing{" "}
+                      {Math.min((recentPage + 1) * 6, initialOrders.length)} of{" "}
+                      {initialOrders.length} orders
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         ) : (
           <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-12 text-center">
