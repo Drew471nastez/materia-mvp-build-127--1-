@@ -802,12 +802,10 @@ function OrderTimeline({
 function OrderDetailsModal({
   order,
   currency,
-  convertCents,
   onClose,
 }: {
   order: OrderPayment | null;
   currency: string;
-  convertCents: (cents: number) => number;
   onClose: () => void;
 }) {
   const [isVisible, setIsVisible] = useState(false);
@@ -1113,7 +1111,7 @@ function OrderDetailsModal({
               compact ? "text-[13px]" : "text-[16px]",
             )}
           >
-            {fmt(convertCents(order.amount_cents), currency)}
+            {fmt(order.amount_cents, currency)}
           </span>
         </div>
         <div className="flex items-center justify-between">
@@ -1131,7 +1129,7 @@ function OrderDetailsModal({
               compact ? "text-[12px]" : "text-[13px]",
             )}
           >
-            {fmt(convertCents(order.fee_cents || 0), currency)}
+            {fmt(order.fee_cents || 0, currency)}
           </span>
         </div>
         <div className="flex items-center justify-between">
@@ -1149,7 +1147,7 @@ function OrderDetailsModal({
               compact ? "text-[12px]" : "text-[13px]",
             )}
           >
-            {fmt(convertCents(net), currency)}
+            {fmt(net, currency)}
           </span>
         </div>
         {order.card_brand && (
@@ -1364,7 +1362,7 @@ function OrderDetailsModal({
                 compact ? "text-[11px]" : "text-[12px]",
               )}
             >
-              Amount: {fmt(convertCents(order.refund_amount_cents), currency)}
+              Amount: {fmt(order.refund_amount_cents, currency)}
             </p>
           )}
           {order.refunded_at && (
@@ -1521,8 +1519,8 @@ function OrderDetailsModal({
               : "translateY(100%)",
             transition: isDragging
               ? "none"
-              : "transform 360ms cubic-bezier(0.22,0.9,0.24,1)",
-            maxHeight: "90vh",
+              : "transform 460ms cubic-bezier(0.22,0.9,0.24,1)",
+            maxHeight: "72vh",
           }}
         >
           {/* Handle */}
@@ -1885,6 +1883,10 @@ export function PayoutsClient({
     (cents: number) => Math.round(cents * fxRate),
     [fxRate],
   );
+  const openOrderDetails = useCallback((order: OrderPayment) => {
+    setSelectedOrder(null);
+    requestAnimationFrame(() => setSelectedOrder(order));
+  }, []);
   const pageItems =
     recentTab === "sales" ? initialOrders : new Array(payoutCount);
   const pageCount = Math.max(1, Math.ceil(pageItems.length / 6));
@@ -2166,10 +2168,10 @@ export function PayoutsClient({
                             </div>
                             <div className="flex items-center gap-2 flex-shrink-0">
                               <p className="text-[13px] font-semibold text-[#1a1a2e]">
-                                {fmt(toUsd(order.amount_cents), currency)}
+                                {fmt(order.amount_cents, currency)}
                               </p>
                               <button
-                                onClick={() => setSelectedOrder(order)}
+                                onClick={() => openOrderDetails(order)}
                                 className="px-2.5 py-1.5 text-[12px] font-medium text-[#6b7280] bg-[#f3f4f6] rounded-lg hover:bg-[#e5e7eb] transition-colors"
                               >
                                 View
@@ -2220,7 +2222,7 @@ export function PayoutsClient({
                                   )
                                 )
                                   return;
-                                setSelectedOrder(order);
+                                openOrderDetails(order);
                               }}
                             >
                               <td className="px-5 py-4">
@@ -2262,7 +2264,7 @@ export function PayoutsClient({
                               </td>
                               <td className="px-5 py-4 text-right">
                                 <span className="text-[14px] font-medium text-[#1a1a2e]">
-                                  {fmt(toUsd(order.amount_cents), currency)}
+                                  {fmt(order.amount_cents, currency)}
                                 </span>
                               </td>
                               <td className="px-5 py-4">
@@ -2273,7 +2275,7 @@ export function PayoutsClient({
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      setSelectedOrder(order);
+                                      openOrderDetails(order);
                                     }}
                                     className="px-3 py-1.5 text-[12px] font-medium text-[#1a1a2e] bg-[#f3f4f6] rounded-lg hover:bg-[#e5e7eb] transition-colors"
                                   >
@@ -2298,7 +2300,7 @@ export function PayoutsClient({
                                         <button
                                           onClick={(e) => {
                                             e.stopPropagation();
-                                            setSelectedOrder(order);
+                                            openOrderDetails(order);
                                             setOpenMenuOrderId(null);
                                           }}
                                           className="w-full text-left px-3 py-2 text-[13px] text-[#374151] hover:bg-[#f9fafb] flex items-center gap-2"
@@ -2312,7 +2314,7 @@ export function PayoutsClient({
                                             <button
                                               onClick={(e) => {
                                                 e.stopPropagation();
-                                                setSelectedOrder(order);
+                                                openOrderDetails(order);
                                                 setOpenMenuOrderId(null);
                                               }}
                                               className="w-full text-left px-3 py-2 text-[13px] text-rose-600 hover:bg-rose-50 flex items-center gap-2"
@@ -2364,7 +2366,6 @@ export function PayoutsClient({
       <OrderDetailsModal
         order={selectedOrder}
         currency={currency}
-        convertCents={toUsd}
         onClose={() => setSelectedOrder(null)}
       />
 
