@@ -427,6 +427,7 @@ function RevenueChart() {
   const [currency, setCurrency] = useState("usd");
   const [fxRate, setFxRate] = useState(1);
   const [fxReady, setFxReady] = useState(true); // false briefly when non-USD rate is loading
+  const [isHourly, setIsHourly] = useState(false); // true for today/yesterday (hourly buckets)
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -462,6 +463,7 @@ function RevenueChart() {
       setTotal(json.total || 0);
       setTotalGross(json.totalGross || 0);
       setTotalRefunds(json.totalRefunds || 0);
+      setIsHourly(json.isHourly || false);
       if (json.currency) setCurrency(json.currency.toLowerCase());
     } catch (e: any) {
       setError(e.message);
@@ -497,24 +499,34 @@ function RevenueChart() {
   const numReady = !loading && fxReady; // only show amounts when both data + rate are ready
   // Stripe fees = gross charges - refunds - net
   const fees = Math.max(0, totalGross - totalRefunds - total);
-  // Clamp each day's revenue to >= 0 for clean chart display.
+  // Clamp each bucket's revenue to >= 0 for clean chart display.
   // Refunds are already reflected in the stats beneath the chart.
   const chartData = data.map((d) => ({ ...d, revenue: Math.max(0, d.revenue) }));
   const hasData = chartData.some((d) => d.revenue > 0);
   const selectedLabel =
     CHART_TIMEFRAMES.find((t) => t.value === timeframe)?.label ?? "Last 7 days";
 
+  // Converts a zero-padded hour string "00"–"23" to a human-readable label
+  const fmtHour = (h: string) => {
+    const n = parseInt(h, 10);
+    if (n === 0) return "12am";
+    if (n === 12) return "12pm";
+    if (n < 12) return `${n}am`;
+    return `${n - 12}pm`;
+  };
+
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null;
+    const labelText = isHourly
+      ? fmtHour(label)
+      : new Date(label + "T00:00:00").toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        });
     return (
       <div className="bg-white border border-[#e5e7eb] rounded-xl p-3 shadow-lg text-[13px]">
-        <p className="text-[#6b7280] mb-1">
-          {new Date(label + "T00:00:00").toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-          })}
-        </p>
+        <p className="text-[#6b7280] mb-1">{labelText}</p>
         <p className="font-bold text-[#1a1a2e]">
           {fmt(toUsd(payload[0].value), "usd")}
         </p>
@@ -591,7 +603,8 @@ function RevenueChart() {
         <div className="h-48 flex items-center justify-center">
           <p className="text-[13px] text-rose-500">{error}</p>
         </div>
-      ) : !hasData ? (
+      ) : !hasData && !isHourly ? (
+        /* Daily mode, no sales yet — show empty state */
         <div className="h-48 flex flex-col items-center justify-center gap-2 text-center">
           <TrendingUp className="h-8 w-8 text-[#d1d5db]" />
           <p className="text-[14px] text-[#6b7280]">
@@ -601,8 +614,8 @@ function RevenueChart() {
             Sales will appear here once processed
           </p>
         </div>
-      ) : chartData.length <= 1 ? (
-        /* Single-day view (Today / Yesterday) — a lone dot looks odd;
+      ) : !isHourly && chartData.length <= 1 ? (
+        /* Daily mode, single data point — a lone dot looks odd;
            show a clean centered stat instead of the area chart */
         <div className="h-48 flex flex-col items-center justify-center gap-3">
           <div className="w-14 h-14 rounded-full bg-[#f5f3ff] flex items-center justify-center">
@@ -620,6 +633,7 @@ function RevenueChart() {
           </div>
         </div>
       ) : (
+        /* Hourly (today/yesterday) or multi-day area chart */
         <ResponsiveContainer width="100%" height={200}>
           <AreaChart
             data={chartData}
@@ -642,12 +656,16 @@ function RevenueChart() {
               tickLine={false}
               axisLine={false}
               tickFormatter={(v) =>
-                new Date(v + "T00:00:00").toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                })
+                isHourly
+                  ? fmtHour(v)
+                  : new Date(v + "T00:00:00").toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                    })
               }
-              interval="preserveStartEnd"
+              // For hourly: show a tick every 4 hours (0, 4, 8, 12, 16, 20)
+              // For daily:  preserve start + end labels automatically
+              interval={isHourly ? 3 : "preserveStartEnd"}
             />
             <YAxis
               tick={{ fontSize: 11, fill: "#9ca3af" }}
@@ -3379,7 +3397,12 @@ export function PayoutsClient({
         order={selectedOrder}
         currency={currency}
         onClose={() => setSelectedOrder(null)}
-        onRefundSuccess={refreshBalances}
+        onRefundSuccess={() => {
+          // Refresh immediately, then again after 2.5 s in case Stripe's
+          // balance API takes a moment to reflect the transfer reversal.
+          refreshBalances();
+          setTimeout(() => refreshBalances(), 2500);
+        }}
       />
 
       <style jsx>{`

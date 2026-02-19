@@ -8,8 +8,12 @@ import { stripe } from "@/lib/stripe"
  *
  * Also supports legacy ?days=7|30|90|all for backwards compatibility.
  *
- * Returns daily revenue aggregated from the seller's connected Stripe account
- * using BalanceTransactions (type=payment) — actual received funds, not payouts.
+ * For today/yesterday: returns hourly slots (00–23 UTC) with isHourly=true.
+ * For other timeframes: returns daily slots.
+ *
+ * Includes all revenue-related balance transaction types:
+ *   Payments : "payment" (destination charge), "charge" (direct charge)
+ *   Refunds  : "payment_refund", "refund", "transfer_reversal"
  */
 export async function GET(request: Request) {
   try {
@@ -32,11 +36,14 @@ export async function GET(request: Request) {
 
     const stripeAccountId = creator.stripe_account_id
     if (!stripeAccountId) {
-      return NextResponse.json({ data: [], total: 0, totalGross: 0 })
+      return NextResponse.json({ data: [], total: 0, totalGross: 0, totalRefunds: 0, isHourly: false })
     }
 
     const { searchParams } = new URL(request.url)
     const timeframe = searchParams.get("timeframe") || searchParams.get("days") || "last_7"
+
+    // today and yesterday use hourly buckets instead of daily
+    const isHourlyMode = timeframe === "today" || timeframe === "yesterday"
 
     const now = Math.floor(Date.now() / 1000)
     let createdGte: number | undefined = undefined
@@ -46,17 +53,17 @@ export async function GET(request: Request) {
     switch (timeframe) {
       case "today": {
         const start = new Date()
-        start.setHours(0, 0, 0, 0)
+        start.setUTCHours(0, 0, 0, 0)
         createdGte = Math.floor(start.getTime() / 1000)
         break
       }
       case "yesterday": {
         const start = new Date()
-        start.setDate(start.getDate() - 1)
-        start.setHours(0, 0, 0, 0)
+        start.setUTCDate(start.getUTCDate() - 1)
+        start.setUTCHours(0, 0, 0, 0)
         const end = new Date()
-        end.setDate(end.getDate() - 1)
-        end.setHours(23, 59, 59, 999)
+        end.setUTCDate(end.getUTCDate() - 1)
+        end.setUTCHours(23, 59, 59, 999)
         createdGte = Math.floor(start.getTime() / 1000)
         createdLte = Math.floor(end.getTime() / 1000)
         seriesEndDate = end
@@ -68,8 +75,8 @@ export async function GET(request: Request) {
         break
       case "this_month": {
         const start = new Date()
-        start.setDate(1)
-        start.setHours(0, 0, 0, 0)
+        start.setUTCDate(1)
+        start.setUTCHours(0, 0, 0, 0)
         createdGte = Math.floor(start.getTime() / 1000)
         break
       }
@@ -79,7 +86,7 @@ export async function GET(request: Request) {
         break
       case "last_365":
       case "365":
-      case "30": // legacy 30-day maps to nothing special, but keep for compat
+      case "30":
         createdGte = now - 365 * 86400
         break
       case "all":
@@ -97,14 +104,18 @@ export async function GET(request: Request) {
     if (createdGte !== undefined) createdFilter.gte = createdGte
     if (createdLte !== undefined) createdFilter.lte = createdLte
 
-    // Fetch ALL balance transactions without type filter, then segregate
-    // payment vs payment_refund so we can compute accurate net (after refunds)
     const baseParams: Record<string, any> = { limit: 100 }
     if (Object.keys(createdFilter).length > 0) {
       baseParams.created = createdFilter
     }
 
-    // Paginate to collect all relevant transactions in the period
+    // All balance transaction types that represent revenue charges or refunds.
+    // Connected accounts using destination charges get "payment" / "payment_refund".
+    // Connected accounts using direct charges get "charge" / "refund".
+    // Manual transfer flows use "transfer" / "transfer_reversal".
+    const PAYMENT_TYPES = new Set(["payment", "charge", "transfer"])
+    const REFUND_TYPES = new Set(["payment_refund", "refund", "transfer_reversal"])
+
     const payments: Array<{ date: string; net: number; gross: number }> = []
     const refunds: Array<{ date: string; net: number; gross: number }> = []
     let hasMore = true
@@ -120,20 +131,27 @@ export async function GET(request: Request) {
       })
 
       for (const tx of result.data) {
-        // Only count sales charges and their refunds
-        if (tx.type !== "payment" && tx.type !== "payment_refund") continue
+        const isPayment = PAYMENT_TYPES.has(tx.type)
+        const isRefund = REFUND_TYPES.has(tx.type)
+        if (!isPayment && !isRefund) continue
 
         if (!detectedCurrency && tx.currency) {
           detectedCurrency = tx.currency.toLowerCase()
         }
+
         const date = new Date(tx.created * 1000)
-        const dateKey = date.toISOString().split("T")[0]
+        // Hourly mode: bucket by UTC hour (zero-padded "00"–"23")
+        // Daily mode: bucket by UTC date "YYYY-MM-DD"
+        const dateKey = isHourlyMode
+          ? String(date.getUTCHours()).padStart(2, "0")
+          : date.toISOString().split("T")[0]
+
         const entry = { date: dateKey, net: tx.net, gross: tx.amount }
 
-        if (tx.type === "payment") {
+        if (isPayment) {
           payments.push(entry)
         } else {
-          // payment_refund: net and amount are negative in Stripe
+          // refund net and amount are negative in Stripe
           refunds.push(entry)
         }
       }
@@ -148,54 +166,77 @@ export async function GET(request: Request) {
 
     const allTransactions = [...payments, ...refunds]
 
-    // Aggregate by date — each day's revenue = net of payments + net of refunds
-    // This correctly shows $0 if a charge was fully refunded on the same day
-    const dayMap: Record<string, { date: string; revenue: number; gross: number; count: number }> = {}
-    for (const tx of allTransactions) {
-      if (!dayMap[tx.date]) {
-        dayMap[tx.date] = { date: tx.date, revenue: tx.net, gross: tx.gross, count: 1 }
+    // Aggregate by date/hour key — track payments and refunds separately
+    // so the "count" (sale count) reflects only charges, not refunds.
+    const bucketMap: Record<string, { date: string; revenue: number; gross: number; count: number }> = {}
+
+    for (const tx of payments) {
+      if (!bucketMap[tx.date]) {
+        bucketMap[tx.date] = { date: tx.date, revenue: tx.net, gross: tx.gross, count: 1 }
       } else {
-        dayMap[tx.date].revenue += tx.net
-        dayMap[tx.date].gross += tx.gross
-        dayMap[tx.date].count += 1
+        bucketMap[tx.date].revenue += tx.net
+        bucketMap[tx.date].gross += tx.gross
+        bucketMap[tx.date].count += 1
+      }
+    }
+    for (const tx of refunds) {
+      if (!bucketMap[tx.date]) {
+        bucketMap[tx.date] = { date: tx.date, revenue: tx.net, gross: tx.gross, count: 0 }
+      } else {
+        bucketMap[tx.date].revenue += tx.net
+        bucketMap[tx.date].gross += tx.gross
+        // don't increment count for refunds — count = number of sales
       }
     }
 
-    // Build sorted date series with zero-fill for continuous chart
-    let startDate: Date
-    const isAllTime = timeframe === "all" || timeframe === "all_time"
-
-    if (isAllTime && allTransactions.length > 0) {
-      const earliest = allTransactions.map((t) => t.date).sort()[0]
-      startDate = new Date(earliest)
-    } else if (createdGte !== undefined) {
-      startDate = new Date(createdGte * 1000)
-    } else {
-      startDate = new Date()
-      startDate.setDate(startDate.getDate() - 365)
-    }
-
+    // Build the series
     const series: Array<{ date: string; revenue: number; gross: number; count: number }> = []
-    const cursor = new Date(startDate)
-    cursor.setHours(0, 0, 0, 0)
 
-    while (cursor <= seriesEndDate) {
-      const key = cursor.toISOString().split("T")[0]
-      series.push(dayMap[key] || { date: key, revenue: 0, gross: 0, count: 0 })
-      cursor.setDate(cursor.getDate() + 1)
+    if (isHourlyMode) {
+      // today:     slots 00 → current UTC hour
+      // yesterday: slots 00 → 23
+      const endHour = timeframe === "today" ? new Date().getUTCHours() : 23
+      for (let h = 0; h <= endHour; h++) {
+        const key = String(h).padStart(2, "0")
+        series.push(bucketMap[key] || { date: key, revenue: 0, gross: 0, count: 0 })
+      }
+    } else {
+      // Daily series with zero-fill for a continuous chart
+      const isAllTime = timeframe === "all" || timeframe === "all_time"
+      let startDate: Date
+
+      if (isAllTime && allTransactions.length > 0) {
+        const earliest = allTransactions.map((t) => t.date).sort()[0]
+        startDate = new Date(earliest)
+      } else if (createdGte !== undefined) {
+        startDate = new Date(createdGte * 1000)
+      } else {
+        startDate = new Date()
+        startDate.setUTCDate(startDate.getUTCDate() - 365)
+      }
+
+      const cursor = new Date(startDate)
+      cursor.setUTCHours(0, 0, 0, 0)
+
+      while (cursor <= seriesEndDate) {
+        const key = cursor.toISOString().split("T")[0]
+        series.push(bucketMap[key] || { date: key, revenue: 0, gross: 0, count: 0 })
+        cursor.setUTCDate(cursor.getUTCDate() + 1)
+      }
     }
 
-    // Totals: gross = sum of payment charges (positive), net = after fees and refunds
+    // Summary totals
     const totalGross = payments.reduce((s, t) => s + t.gross, 0)
     const totalRefunds = refunds.reduce((s, t) => s + Math.abs(t.gross), 0)
     const total = allTransactions.reduce((s, t) => s + t.net, 0)
 
     return NextResponse.json({
       data: series,
-      total,           // net after Stripe fees and refunds
-      totalGross,      // sum of charges (before fees, before refunds)
-      totalRefunds,    // sum of refunded amounts (positive number)
+      total,          // net after Stripe fees and refunds (can be 0 or negative → clamped in UI)
+      totalGross,     // sum of charges (before fees, before refunds)
+      totalRefunds,   // sum of refunded amounts (positive number)
       currency: detectedCurrency || (creator.default_currency || "usd").toLowerCase(),
+      isHourly: isHourlyMode,
     })
   } catch (error: any) {
     console.error("[Revenue Chart Error]", error)

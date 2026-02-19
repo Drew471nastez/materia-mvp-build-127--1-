@@ -152,15 +152,19 @@ export default async function PayoutsPage() {
     }
 
     // Fetch all-time balance transactions from Stripe to get accurate gross
-    // revenue and net earnings (after Stripe's processing fees).
+    // revenue and net earnings (after Stripe's processing fees and refunds).
+    // Include all payment and refund types to get accurate net.
     try {
+      const PAYMENT_TYPES = new Set(["payment", "charge", "transfer"]);
+      const REFUND_TYPES = new Set(["payment_refund", "refund", "transfer_reversal"]);
       let stripeGross = 0;
+      let stripeRefunds = 0;
       let stripeNet = 0;
       let hasMore = true;
       let startingAfter: string | undefined = undefined;
 
       while (hasMore) {
-        const listParams: any = { type: "payment", limit: 100 };
+        const listParams: any = { limit: 100 };
         if (startingAfter) listParams.starting_after = startingAfter;
 
         const result = await stripe.balanceTransactions.list(listParams, {
@@ -168,8 +172,13 @@ export default async function PayoutsPage() {
         });
 
         for (const tx of result.data) {
-          stripeGross += tx.amount; // gross charge amount
-          stripeNet += tx.net;     // after Stripe processing fee
+          if (PAYMENT_TYPES.has(tx.type)) {
+            stripeGross += tx.amount;
+            stripeNet += tx.net;
+          } else if (REFUND_TYPES.has(tx.type)) {
+            stripeRefunds += Math.abs(tx.amount); // refund amounts are negative in Stripe
+            stripeNet += tx.net;                  // net is also negative — reduces total
+          }
         }
 
         hasMore = result.has_more;
@@ -181,15 +190,11 @@ export default async function PayoutsPage() {
       }
 
       if (stripeGross > 0) {
-        // Use Stripe balance transactions as the authoritative revenue source.
-        // stripeGross = total charged to buyers (Revenue)
-        // stripeNet   = what the seller receives after Stripe's own cut
-        // The platform/Storelib fee is the difference between stripeNet and
-        // what actually lands in the connected account balance.
+        // stripeGross   = total charged to buyers (before fees, before refunds)
+        // stripeRefunds = total refunded to buyers (positive amount)
+        // stripeNet     = what the seller actually keeps (after all fees and refunds)
         totalEarnings = stripeGross;
-        // totalFees: derive from what's actually been withheld (gross - net)
-        // so that netEarnings = stripeNet = earnings after all fees
-        totalFees = stripeGross - stripeNet;
+        totalFees = stripeGross - stripeRefunds - stripeNet; // Stripe's processing fees only
       }
     } catch (err) {
       console.error("[Payouts] Failed to fetch Stripe balance transactions:", err);
