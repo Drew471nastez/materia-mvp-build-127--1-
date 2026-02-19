@@ -35,7 +35,7 @@ export default async function PayoutsPage() {
     redirect("/onboarding")
   }
 
-  // Get products for this creator
+  // Fetch this creator's products
   const { data: productsData } = await adminSupabase
     .from("products")
     .select("*")
@@ -44,13 +44,11 @@ export default async function PayoutsPage() {
   const products = productsData || []
   const productIds = products.map((p) => p.id)
 
-  // Calculate totals from orders and fetch all completed orders with details
   let totalEarnings = 0
   let totalFees = 0
   let allOrders: any[] = []
 
   if (productIds.length > 0) {
-    // Get all orders (completed and refunded) — use select("*") to avoid column-not-found errors
     const { data: ordersData } = await adminSupabase
       .from("orders")
       .select("*")
@@ -59,40 +57,6 @@ export default async function PayoutsPage() {
       .order("created_at", { ascending: false })
 
     if (ordersData) {
-      // Server-side refund sync: check Stripe for refunded orders that DB still shows as completed
-      // NOTE: This app uses destination charges — PIs live on the PLATFORM account, not the connected account.
-      {
-        const completedWithPI = ordersData.filter(
-          (o) => o.status === "completed" && o.stripe_payment_intent_id
-        )
-        for (const order of completedWithPI) {
-          try {
-            const pi = await stripe.paymentIntents.retrieve(
-              order.stripe_payment_intent_id,
-              { expand: ["latest_charge"] }
-            )
-            const charge = pi.latest_charge as any
-            if (charge && (charge.refunded === true || (charge.amount_refunded && charge.amount_refunded > 0))) {
-              await adminSupabase
-                .from("orders")
-                .update({ status: "refunded" })
-                .eq("id", order.id)
-              order.status = "refunded"
-              // Try extra columns
-              try {
-                await adminSupabase.from("orders").update({
-                  refund_amount_cents: charge.amount_refunded || order.amount_cents,
-                  refunded_at: new Date().toISOString(),
-                }).eq("id", order.id)
-              } catch { /* columns may not exist */ }
-            }
-          } catch {
-            // Skip — PI might be invalid or Stripe rate limited
-          }
-        }
-      }
-
-      // Map orders with product info (like sales page does)
       allOrders = ordersData.map((order) => {
         const product = products.find((p) => p.id === order.product_id)
         return {
@@ -113,10 +77,7 @@ export default async function PayoutsPage() {
     }
   }
 
-  // Fetch real Stripe balance for pending/available KPIs
-  // Only use balance entries matching the creator's sales currency (e.g. USD).
-  // Connected accounts in other countries may have balances in local currency (e.g. RON)
-  // which should NOT be displayed as USD.
+  // Fetch real Stripe balance for the connected seller account
   let stripePendingBalance = 0
   let stripeAvailableBalance = 0
   const salesCurrency = (creator.default_currency || "USD").toLowerCase()
@@ -126,9 +87,8 @@ export default async function PayoutsPage() {
       const balance = await stripe.balance.retrieve(
         { stripeAccount: creator.stripe_account_id }
       )
-      // Filter for entries matching the sales currency only
-      const pendingInCurrency = balance.pending.filter(b => b.currency === salesCurrency)
-      const availableInCurrency = balance.available.filter(b => b.currency === salesCurrency)
+      const pendingInCurrency = balance.pending.filter((b) => b.currency === salesCurrency)
+      const availableInCurrency = balance.available.filter((b) => b.currency === salesCurrency)
 
       stripePendingBalance = pendingInCurrency.reduce((sum, b) => sum + b.amount, 0)
       stripeAvailableBalance = availableInCurrency.reduce((sum, b) => sum + b.amount, 0)
@@ -137,8 +97,7 @@ export default async function PayoutsPage() {
     }
   }
 
-  // If Stripe balance had no entries in the sales currency (e.g. connected account
-  // is in a different country with a different currency), compute from order data instead
+  // Fallback: compute from order data when Stripe balance is empty (currency mismatch / test mode)
   if (stripePendingBalance === 0 && stripeAvailableBalance === 0 && allOrders.length > 0) {
     const sevenDaysAgo = new Date()
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
@@ -157,7 +116,7 @@ export default async function PayoutsPage() {
 
   return (
     <div className="h-full overflow-y-auto page-scroll bg-[#fafafa]">
-      {/* Announcement Bar - matching analytics style */}
+      {/* Announcement Bar */}
       <div className="bg-[#8b5cf6] text-white">
         <div className="py-2 px-4 md:py-2.5">
           <div className="max-w-[1200px] mx-auto flex items-center justify-center gap-2 md:gap-3 text-center">
@@ -180,7 +139,7 @@ export default async function PayoutsPage() {
       <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto space-y-6">
         <div>
           <h1 className="text-[24px] sm:text-[28px] font-bold text-[#1a1a2e]">Payouts</h1>
-          <p className="text-[14px] text-[#6b7280] mt-1">Manage your earnings and payout settings</p>
+          <p className="text-[14px] text-[#6b7280] mt-1">Manage your earnings and withdraw funds to your bank</p>
         </div>
 
         <PayoutsClient

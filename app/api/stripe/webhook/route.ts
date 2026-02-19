@@ -4,7 +4,7 @@ import type Stripe from "stripe"
 import { stripe } from "@/lib/stripe"
 import { createClient } from "@supabase/supabase-js"
 import { generateReceiptToken } from "@/lib/security"
-import { sendOrderEmails, triggerEmailFlows } from "@/lib/email"
+import { sendOrderEmails, triggerEmailFlows, sendPayoutStatusEmail } from "@/lib/email"
 import { v4 as uuidv4 } from "uuid"
 
 export const runtime = "nodejs"
@@ -836,6 +836,103 @@ export async function POST(request: Request) {
       } catch (error) {
         console.error("[Webhook] Error processing charge.refunded:", error)
       }
+    }
+
+    return NextResponse.json({ received: true })
+  }
+
+  // ============================================================================
+  // PAYOUT EVENTS — from connected seller accounts (Connect webhooks)
+  // event.account = the connected Stripe account ID
+  // ============================================================================
+
+  if (
+    event.type === "payout.created" ||
+    event.type === "payout.paid" ||
+    event.type === "payout.failed" ||
+    event.type === "payout.updated" ||
+    event.type === "payout.canceled"
+  ) {
+    const payout = event.data.object as Stripe.Payout
+    const connectedAccountId = (event as any).account as string | undefined
+
+    console.log(`[Webhook] ${event.type}:`, payout.id, "account:", connectedAccountId)
+
+    if (!connectedAccountId) {
+      // Not a Connect event — ignore
+      return NextResponse.json({ received: true })
+    }
+
+    // Find the creator by their connected Stripe account
+    const { data: creator } = await supabaseAdmin
+      .from("creators")
+      .select("id, user_id")
+      .eq("stripe_account_id", connectedAccountId)
+      .maybeSingle()
+
+    if (!creator) {
+      console.log("[Webhook] No creator found for account:", connectedAccountId)
+      return NextResponse.json({ received: true })
+    }
+
+    const arrivalDate = payout.arrival_date
+      ? new Date(payout.arrival_date * 1000).toISOString()
+      : null
+
+    const destination =
+      typeof payout.destination === "string"
+        ? payout.destination
+        : (payout.destination as any)?.last4
+          ? `****${(payout.destination as any).last4}`
+          : null
+
+    // Upsert payout record in DB
+    try {
+      await supabaseAdmin.from("payouts").upsert(
+        {
+          creator_id: creator.id,
+          stripe_payout_id: payout.id,
+          amount_cents: payout.amount,
+          currency: payout.currency,
+          status: payout.status,
+          arrival_date: arrivalDate,
+          description: payout.description,
+          destination,
+          method: payout.method,
+          failure_code: (payout as any).failure_code || null,
+          failure_message: (payout as any).failure_message || null,
+          stripe_created: new Date(payout.created * 1000).toISOString(),
+          webhook_received_at: new Date().toISOString(),
+        },
+        { onConflict: "stripe_payout_id" }
+      )
+    } catch (err) {
+      console.error("[Webhook] Failed to upsert payout:", err)
+    }
+
+    // Send email notification for status transitions
+    try {
+      const { data: profile } = await supabaseAdmin
+        .from("profiles")
+        .select("email, display_name")
+        .eq("user_id", creator.user_id)
+        .maybeSingle()
+
+      if (profile?.email && (event.type === "payout.paid" || event.type === "payout.failed" || event.type === "payout.created")) {
+        await sendPayoutStatusEmail({
+          to: profile.email,
+          sellerName: profile.display_name || "Seller",
+          amountCents: payout.amount,
+          currency: payout.currency,
+          payoutId: payout.id,
+          status: payout.status,
+          arrivalDate,
+          failureMessage: (payout as any).failure_message || null,
+          eventType: event.type,
+        })
+      }
+    } catch (emailErr) {
+      console.error("[Webhook] Payout email failed (non-fatal):", emailErr)
     }
 
     return NextResponse.json({ received: true })

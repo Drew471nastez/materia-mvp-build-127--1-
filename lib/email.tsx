@@ -2168,6 +2168,228 @@ export async function sendRefundEmails(params: SendRefundEmailsParams): Promise<
   }
 }
 
+// -------------------------
+// Payout Email Functions
+// -------------------------
+
+export interface PayoutEmailParams {
+  to: string
+  sellerName: string
+  amountCents: number
+  currency: string
+  payoutId: string
+  status: string
+  arrivalDate: string | null
+  failureMessage?: string | null
+  eventType?: string
+}
+
+function formatPayoutAmount(cents: number, currency: string): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: currency.toUpperCase(),
+    minimumFractionDigits: 2,
+  }).format(cents / 100)
+}
+
+function payoutEmailHtml(params: {
+  sellerName: string
+  formattedAmount: string
+  status: string
+  payoutId: string
+  arrivalDate: string | null
+  failureMessage: string | null
+  baseUrl: string
+  heading: string
+  bodyText: string
+  statusColor: string
+  statusLabel: string
+}): string {
+  const shortId = params.payoutId.replace("po_", "").slice(0, 12).toUpperCase()
+  const arrivalText = params.arrivalDate
+    ? new Date(params.arrivalDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+    : "1–3 business days depending on your bank"
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <title>${params.heading}</title>
+</head>
+<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background-color:#f6f9fc;">
+  <table role="presentation" style="width:100%;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" style="max-width:600px;width:100%;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.08);">
+          <tr>
+            <td style="padding:44px 36px 30px;text-align:center;background:#7c3aed;">
+              <h1 style="margin:0;font-size:26px;font-weight:800;color:#fff;">${params.heading}</h1>
+              <p style="margin:10px 0 0 0;font-size:15px;color:rgba(255,255,255,0.9);">Storelib Payouts</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:34px 34px 12px;">
+              <p style="margin:0 0 18px 0;font-size:15px;color:#374151;line-height:1.55;">Hi ${safeText(params.sellerName)},</p>
+              <p style="margin:0 0 24px 0;font-size:15px;color:#374151;line-height:1.55;">${params.bodyText}</p>
+
+              <table role="presentation" style="width:100%;background:#f3f4f6;border-radius:10px;padding:20px;margin:0 0 22px 0;">
+                <tr>
+                  <td style="padding:6px 0;">
+                    <span style="font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:0.9px;font-weight:700;">Amount</span>
+                    <p style="margin:4px 0 0 0;font-size:22px;font-weight:800;color:#111827;">${params.formattedAmount}</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:12px 0 0 0;border-top:1px solid #e5e7eb;margin-top:12px;">
+                    <table role="presentation" style="width:100%;">
+                      <tr>
+                        <td style="font-size:13px;color:#6b7280;padding:4px 0;">Status</td>
+                        <td style="font-size:13px;color:${params.statusColor};font-weight:700;text-align:right;">${params.statusLabel}</td>
+                      </tr>
+                      <tr>
+                        <td style="font-size:13px;color:#6b7280;padding:4px 0;">Reference</td>
+                        <td style="font-size:13px;color:#111827;font-weight:600;text-align:right;font-family:monospace;">${shortId}</td>
+                      </tr>
+                      ${!params.failureMessage ? `<tr>
+                        <td style="font-size:13px;color:#6b7280;padding:4px 0;">Estimated arrival</td>
+                        <td style="font-size:13px;color:#111827;font-weight:600;text-align:right;">${arrivalText}</td>
+                      </tr>` : ""}
+                      ${params.failureMessage ? `<tr>
+                        <td colspan="2" style="font-size:13px;color:#dc2626;padding:8px;background:#fef2f2;border-radius:6px;margin-top:8px;">⚠️ ${safeText(params.failureMessage)}</td>
+                      </tr>` : ""}
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <table role="presentation" style="width:100%;margin:0 0 18px 0;">
+                <tr>
+                  <td align="center">
+                    <a href="${params.baseUrl}/app/payouts" style="display:inline-block;padding:14px 32px;background:#7c3aed;color:#fff;font-size:15px;font-weight:700;text-decoration:none;border-radius:8px;">View payout details →</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:16px 22px;text-align:center;background:#f9fafb;color:#9ca3af;font-size:11px;">
+              © ${new Date().getFullYear()} Storelib &nbsp;·&nbsp;
+              <a href="${params.baseUrl}/app/payouts" style="color:#aaa;text-decoration:none;">Manage payouts</a>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+}
+
+export async function sendPayoutCreatedEmail(params: PayoutEmailParams): Promise<void> {
+  const baseUrl = getStableBaseUrl()
+  const formattedAmount = formatPayoutAmount(params.amountCents, params.currency)
+
+  try {
+    await withRetry(
+      async () => {
+        const result = await sendEmail({
+          from: buildFromHeaderLocal("Storelib"),
+          to: params.to,
+          subject: `Withdrawal of ${formattedAmount} initiated`,
+          html: payoutEmailHtml({
+            sellerName: params.sellerName,
+            formattedAmount,
+            status: params.status,
+            payoutId: params.payoutId,
+            arrivalDate: params.arrivalDate,
+            failureMessage: null,
+            baseUrl,
+            heading: "Withdrawal initiated",
+            bodyText: `Your withdrawal of ${formattedAmount} has been created and is being processed.`,
+            statusColor: "#d97706",
+            statusLabel: "Processing",
+          }),
+          text: `Withdrawal of ${formattedAmount} initiated.\n\nYour withdrawal is being processed. View details: ${baseUrl}/app/payouts`,
+        })
+        if (!result.success) throw new Error(result.error || "Failed to send payout created email")
+        return result
+      },
+      MAX_RETRIES,
+      "payout created email"
+    )
+  } catch (err) {
+    console.error("[email] Failed to send payout created email:", err)
+  }
+}
+
+export async function sendPayoutStatusEmail(params: PayoutEmailParams): Promise<void> {
+  const baseUrl = getStableBaseUrl()
+  const formattedAmount = formatPayoutAmount(params.amountCents, params.currency)
+
+  const config = {
+    "payout.paid": {
+      subject: `${formattedAmount} has arrived in your bank account`,
+      heading: "Payout arrived! 🎉",
+      bodyText: `Great news! Your payout of ${formattedAmount} has been deposited into your bank account.`,
+      statusColor: "#059669",
+      statusLabel: "Paid",
+    },
+    "payout.failed": {
+      subject: `Payout of ${formattedAmount} failed — action required`,
+      heading: "Payout failed",
+      bodyText: `Unfortunately, your payout of ${formattedAmount} could not be completed. Please check your bank account details in Stripe.`,
+      statusColor: "#dc2626",
+      statusLabel: "Failed",
+    },
+    "payout.created": {
+      subject: `Withdrawal of ${formattedAmount} initiated`,
+      heading: "Withdrawal initiated",
+      bodyText: `Your withdrawal of ${formattedAmount} has been created and is being processed.`,
+      statusColor: "#d97706",
+      statusLabel: "Processing",
+    },
+  }[params.eventType || "payout.created"] ?? {
+    subject: `Payout update: ${formattedAmount}`,
+    heading: "Payout update",
+    bodyText: `Your payout status has been updated to ${params.status}.`,
+    statusColor: "#6b7280",
+    statusLabel: params.status,
+  }
+
+  try {
+    await withRetry(
+      async () => {
+        const result = await sendEmail({
+          from: buildFromHeaderLocal("Storelib"),
+          to: params.to,
+          subject: config.subject,
+          html: payoutEmailHtml({
+            sellerName: params.sellerName,
+            formattedAmount,
+            status: params.status,
+            payoutId: params.payoutId,
+            arrivalDate: params.arrivalDate,
+            failureMessage: params.failureMessage || null,
+            baseUrl,
+            heading: config.heading,
+            bodyText: config.bodyText,
+            statusColor: config.statusColor,
+            statusLabel: config.statusLabel,
+          }),
+          text: `${config.heading}\n\n${config.bodyText}\n\nAmount: ${formattedAmount}\nView details: ${baseUrl}/app/payouts`,
+        })
+        if (!result.success) throw new Error(result.error || "Failed to send payout status email")
+        return result
+      },
+      MAX_RETRIES,
+      `payout status email (${params.eventType})`
+    )
+  } catch (err) {
+    console.error("[email] Failed to send payout status email:", err)
+  }
+}
+
 function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim()
 }
