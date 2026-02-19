@@ -41,21 +41,23 @@ export async function GET(request: Request) {
 
     if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 404 })
 
-    // Load the order — verify it belongs to this creator via product ownership
+    // Load the order
     const { data: order } = await adminSupabase
       .from("orders")
-      .select(`
-        id, amount_cents, status, created_at, stripe_payment_intent_id,
-        products!inner(creator_id)
-      `)
+      .select("id, amount_cents, status, created_at, stripe_payment_intent_id, product_id")
       .eq("id", orderId)
       .single()
 
     if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 })
 
-    // Security: ensure the order's product belongs to this creator
-    const productCreatorId = (order as any).products?.creator_id
-    if (productCreatorId !== creator.id) {
+    // Security: verify the order's product belongs to this creator (two-step, no FK join required)
+    const { data: product } = await adminSupabase
+      .from("products")
+      .select("id, creator_id")
+      .eq("id", order.product_id)
+      .single()
+
+    if (!product || product.creator_id !== creator.id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
@@ -140,12 +142,12 @@ export async function GET(request: Request) {
       status: paymentCompletedAt ? "completed" : "upcoming",
     })
 
-    // Step 3: Funds pending
+    // Step 3: Funds pending (no separate timestamp — begins the moment payment is captured)
     timeline.push({
       id: "funds_pending",
       label: "Funds pending",
-      description: "Funds are in transit to your account",
-      timestamp: paymentCompletedAt, // pending starts right after payment
+      description: "Payment captured. Funds are clearing and will be available within 2–7 business days.",
+      timestamp: null,
       status: paymentCompletedAt ? "completed" : "upcoming",
     })
 

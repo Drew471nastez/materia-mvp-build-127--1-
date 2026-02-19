@@ -14,7 +14,13 @@ export async function GET() {
 
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-    const { data: creator } = await adminSupabase.from("creators").select("*").eq("user_id", user.id).single()
+    // Strict isolation — only this user's creator row
+    const { data: creator } = await adminSupabase
+      .from("creators")
+      .select("id, stripe_account_id, default_currency")
+      .eq("user_id", user.id)
+      .single()
+
     if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 404 })
 
     const stripeAccountId = creator.stripe_account_id
@@ -22,10 +28,10 @@ export async function GET() {
       return NextResponse.json({ payouts: [], balance: null })
     }
 
-    // Fetch recent payouts from Stripe for the connected account
+    // Fetch payouts + balance in parallel from the connected seller account
     const [payoutsResult, balanceResult] = await Promise.all([
       stripe.payouts.list(
-        { limit: 50 },
+        { limit: 100, expand: ["data.destination"] },
         { stripeAccount: stripeAccountId }
       ).catch(() => ({ data: [] })),
       stripe.balance.retrieve(
@@ -33,22 +39,38 @@ export async function GET() {
       ).catch(() => null),
     ])
 
-    const payouts = payoutsResult.data.map((p) => ({
-      id: p.id,
-      amount: p.amount,
-      currency: p.currency,
-      status: p.status,
-      arrival_date: p.arrival_date,
-      created: p.created,
-      method: p.method,
-      type: p.type,
-      description: p.description,
-      destination: typeof p.destination === "string"
-        ? p.destination
-        : (p.destination as any)?.last4
-          ? `****${(p.destination as any).last4}`
-          : null,
-    }))
+    const payouts = payoutsResult.data.map((p) => {
+      // Extract readable destination string
+      let destination: string | null = null
+      const dest = p.destination as any
+      if (dest) {
+        if (typeof dest === "string") {
+          destination = dest
+        } else if (dest.last4) {
+          // Build a readable label: "Chase ••••1234" or just "Bank ••••1234"
+          const bankName = dest.bank_name || dest.institution_name || null
+          const last4 = dest.last4
+          const accountType = dest.account_type ? ` (${dest.account_type})` : ""
+          destination = bankName
+            ? `${bankName} ••••${last4}${accountType}`
+            : `Bank account ••••${last4}${accountType}`
+        }
+      }
+
+      return {
+        id: p.id,
+        amount: p.amount,
+        currency: p.currency,
+        status: p.status,
+        // arrival_date is a Unix timestamp (seconds)
+        arrival_date: p.arrival_date ?? null,
+        created: p.created,
+        method: p.method,
+        type: p.type,
+        description: p.description ?? null,
+        destination,
+      }
+    })
 
     const balance = balanceResult
       ? {

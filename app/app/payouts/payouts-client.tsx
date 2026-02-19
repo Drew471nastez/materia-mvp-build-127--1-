@@ -1,17 +1,16 @@
 "use client"
 
-import React, { useState, useEffect, useCallback, useMemo } from "react"
+import React, { useState, useEffect, useCallback } from "react"
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
   Wallet, DollarSign, Clock, CheckCircle2, AlertCircle, Building2,
-  Download, Loader2, TrendingUp, ChevronDown, X, RotateCcw,
-  ArrowDownLeft, ArrowUpRight, Package, CreditCard, Copy, Check,
-  Landmark, Send, Zap, HelpCircle, Calendar, Eye, XCircle, Mail,
+  Loader2, TrendingUp, X, RotateCcw,
+  ArrowDownLeft, ArrowUpRight, Package, Copy, Check,
+  Landmark, Send, Zap, HelpCircle, Eye, XCircle,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
@@ -358,14 +357,25 @@ function PayoutsList({
             {payouts.map((p) => {
               const cfg = payoutStatusConfig(p.status)
               const Icon = cfg.icon
-              const arrivalText = p.arrival_date
-                ? fmtUnix(p.arrival_date)
-                : "1–3 business days"
+
+              // Arrival display — exact wording per spec
+              const arrivalNode = p.arrival_date
+                ? p.status === "paid"
+                  ? <span className="text-green-600 font-medium">Arrived {fmtUnix(p.arrival_date)}</span>
+                  : <span className="text-gray-600">Estimated arrival: {fmtUnix(p.arrival_date)}</span>
+                : <span className="text-gray-400 text-[11px]">Most payouts arrive in 1–3 business days depending on your bank.</span>
+
               return (
                 <tr key={p.id} className="hover:bg-gray-50/60 transition-colors">
                   <td className="px-5 py-4 text-gray-700 whitespace-nowrap">{fmtUnix(p.created)}</td>
                   <td className="px-5 py-4 font-semibold text-gray-900 whitespace-nowrap">
-                    {fmt(p.amount, p.currency)}
+                    <div>{fmt(p.amount, p.currency)}</div>
+                    {/* Show arrival on mobile (hidden on lg where there's a column) */}
+                    <div className="lg:hidden mt-0.5 text-[11px] font-normal text-gray-400">
+                      {p.arrival_date
+                        ? (p.status === "paid" ? `Arrived ${fmtUnix(p.arrival_date)}` : `Est. ${fmtUnix(p.arrival_date)}`)
+                        : "1–3 business days"}
+                    </div>
                   </td>
                   <td className="px-5 py-4">
                     <span className={cn("inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold", cfg.color)}>
@@ -373,22 +383,18 @@ function PayoutsList({
                       {cfg.label}
                     </span>
                   </td>
-                  <td className="px-5 py-4 text-gray-500 hidden md:table-cell">
+                  <td className="px-5 py-4 text-gray-600 hidden md:table-cell text-[13px]">
                     {p.destination ? (
-                      <span className="font-mono">{p.destination}</span>
+                      <span>{p.destination}</span>
                     ) : (
                       <span className="text-gray-300">—</span>
                     )}
                   </td>
-                  <td className="px-5 py-4 text-gray-500 hidden lg:table-cell">
-                    {p.status === "paid" ? (
-                      <span className="text-green-600 font-medium">Arrived {arrivalText}</span>
-                    ) : (
-                      <span>Est. {arrivalText}</span>
-                    )}
+                  <td className="px-5 py-4 hidden lg:table-cell text-[13px]">
+                    {arrivalNode}
                   </td>
                   <td className="px-5 py-4 hidden lg:table-cell">
-                    <span className="font-mono text-[11px] text-gray-400">{p.id}</span>
+                    <span className="font-mono text-[11px] text-gray-400 select-all">{p.id}</span>
                   </td>
                 </tr>
               )
@@ -414,7 +420,7 @@ function WithdrawTab({
 }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState(false)
+  const [successPayout, setSuccessPayout] = useState<{ amount: number; currency: string } | null>(null)
   const { toast } = useToast()
 
   const handleWithdraw = async () => {
@@ -424,12 +430,12 @@ function WithdrawTab({
       const r = await fetch("/api/stripe/withdraw", { method: "POST" })
       const json = await r.json()
       if (!r.ok || json.error) throw new Error(json.error || "Withdrawal failed")
-      setSuccess(true)
+      // Show success screen — do NOT call onSuccess yet (that switches tabs)
+      setSuccessPayout({ amount: json.payout.amount, currency: json.payout.currency })
       toast({
         title: "Withdrawal created!",
         description: `${fmt(json.payout.amount, json.payout.currency)} is on its way to your bank.`,
       })
-      onSuccess()
     } catch (e: any) {
       setError(e.message)
     } finally {
@@ -437,18 +443,22 @@ function WithdrawTab({
     }
   }
 
-  if (success) {
+  if (successPayout) {
     return (
       <div className="bg-white rounded-2xl border border-green-200 shadow-sm p-8 text-center">
         <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
           <CheckCircle2 className="h-7 w-7 text-green-600" />
         </div>
         <h3 className="text-[18px] font-bold text-gray-900 mb-1">Withdrawal initiated!</h3>
-        <p className="text-[14px] text-gray-500 mb-6">
-          Your funds are on their way. Most payouts arrive in 1–3 business days.
+        <p className="text-[14px] text-gray-500 mb-1">
+          <strong>{fmt(successPayout.amount, successPayout.currency)}</strong> is on its way to your bank account.
         </p>
-        <Button variant="outline" onClick={() => { setSuccess(false); onSuccess() }}>
-          Done
+        <p className="text-[13px] text-gray-400 mb-6">
+          Most payouts arrive in 1–3 business days depending on your bank.
+        </p>
+        {/* onSuccess refreshes balances + switches to History tab */}
+        <Button className="bg-violet-600 hover:bg-violet-700 text-white" onClick={onSuccess}>
+          View payout history →
         </Button>
       </div>
     )
@@ -514,12 +524,15 @@ function WithdrawTab({
 // ─── Order Timeline ────────────────────────────────────────────────────────────
 
 function OrderTimeline({ orderId, amountCents }: { orderId: string; amountCents: number }) {
+  const isFreeOrder = !amountCents || amountCents === 0
   const [timeline, setTimeline] = useState<TimelineItem[]>([])
-  const [loading, setLoading] = useState(true)
-  const [isFree, setIsFree] = useState(false)
+  const [loading, setLoading] = useState(!isFreeOrder)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    // Never fetch for free orders
+    if (isFreeOrder) return
+
     let cancelled = false
     async function load() {
       setLoading(true)
@@ -528,7 +541,6 @@ function OrderTimeline({ orderId, amountCents }: { orderId: string; amountCents:
         const json = await r.json()
         if (cancelled) return
         if (json.error) throw new Error(json.error)
-        setIsFree(json.free)
         setTimeline(json.timeline || [])
       } catch (e: any) {
         if (!cancelled) setError(e.message)
@@ -538,9 +550,9 @@ function OrderTimeline({ orderId, amountCents }: { orderId: string; amountCents:
     }
     load()
     return () => { cancelled = true }
-  }, [orderId])
+  }, [orderId, isFreeOrder])
 
-  if (amountCents === 0) {
+  if (isFreeOrder) {
     return (
       <div className="p-3 bg-gray-50 rounded-xl text-[13px] text-gray-400 text-center">
         No payout timeline for free orders.
@@ -558,14 +570,6 @@ function OrderTimeline({ orderId, amountCents }: { orderId: string; amountCents:
 
   if (error) {
     return <p className="text-[12px] text-red-500">{error}</p>
-  }
-
-  if (isFree) {
-    return (
-      <div className="p-3 bg-gray-50 rounded-xl text-[13px] text-gray-400 text-center">
-        No payout timeline for free orders.
-      </div>
-    )
   }
 
   return (
@@ -830,12 +834,6 @@ export function PayoutsClient({ creator, initialData, initialOrders = [] }: Payo
       }
     } catch { /* non-fatal */ }
   }, [currency])
-
-  // Orders for the overview/sales section
-  const completedOrders = useMemo(
-    () => initialOrders.filter((o) => o.status === "completed"),
-    [initialOrders]
-  )
 
   const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
     { id: "overview",  label: "Overview",  icon: TrendingUp },

@@ -47,19 +47,36 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Missing signature" }, { status: 400 })
   }
 
-  if (!process.env.STRIPE_WEBHOOK_SECRET) {
+  // Support both a main webhook secret and a separate Connect webhook secret.
+  // Stripe sends payout.* events from connected accounts using whichever endpoint
+  // is configured — try both secrets so a single endpoint handles everything.
+  const mainSecret = process.env.STRIPE_WEBHOOK_SECRET
+  const connectSecret = process.env.STRIPE_CONNECT_WEBHOOK_SECRET
+
+  if (!mainSecret && !connectSecret) {
     console.error("[Webhook] Missing STRIPE_WEBHOOK_SECRET env")
     return NextResponse.json({ error: "Missing webhook secret" }, { status: 500 })
   }
 
-  let event: Stripe.Event
-  try {
-    event = stripe.webhooks.constructEvent(body, signature, process.env.STRIPE_WEBHOOK_SECRET)
-    console.log("[Webhook] Event type:", event.type)
-  } catch (err) {
-    console.error("[Webhook] Signature verification failed:", err)
+  let event: Stripe.Event | null = null
+
+  // Try main secret first, then Connect secret as fallback
+  const secretsToTry = [mainSecret, connectSecret].filter(Boolean) as string[]
+  for (const secret of secretsToTry) {
+    try {
+      event = stripe.webhooks.constructEvent(body, signature, secret)
+      break
+    } catch {
+      // Try next secret
+    }
+  }
+
+  if (!event) {
+    console.error("[Webhook] Signature verification failed with all available secrets")
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 })
   }
+
+  console.log("[Webhook] Event type:", event.type)
 
   // ============================================================================
   // checkout.session.completed
