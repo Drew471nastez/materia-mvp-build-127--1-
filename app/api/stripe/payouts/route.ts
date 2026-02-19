@@ -35,6 +35,7 @@ export async function GET() {
         { stripeAccount: stripeAccountId }
       ).catch(() => ({ data: [] })),
       stripe.balance.retrieve(
+        {},
         { stripeAccount: stripeAccountId }
       ).catch(() => null),
       stripe.balanceTransactions.list(

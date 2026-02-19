@@ -903,7 +903,7 @@ function WithdrawPanel({
             </button>
             <button
               onClick={openDetailsModal}
-              className="px-4 py-3 text-[14px] font-medium text-[#374151] bg-[#eaecef] rounded-xl hover:bg-[#dde0e4] transition-colors whitespace-nowrap"
+              className="px-4 py-3 text-[14px] font-medium text-[#1f2937] bg-[#f1f3f5] rounded-xl hover:bg-[#e5e7eb] transition-colors whitespace-nowrap"
             >
               See details
             </button>
@@ -3178,8 +3178,11 @@ export function PayoutsClient({
   }, [initialOrders, sourceCurrency]);
 
   const toUsd = useCallback(
-    (cents: number) =>
-      sourceCurrency === "usd" ? cents : Math.round(cents / stripeExchangeRate),
+    (cents: number) => {
+      if (sourceCurrency === "usd") return cents;
+      const converted = cents / stripeExchangeRate;
+      return converted >= 0 ? Math.floor(converted) : Math.ceil(converted);
+    },
     [sourceCurrency, stripeExchangeRate],
   );
   const openOrderDetails = useCallback((order: OrderPayment) => {

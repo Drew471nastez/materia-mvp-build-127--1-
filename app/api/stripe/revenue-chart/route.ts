@@ -146,8 +146,11 @@ export async function GET(request: Request) {
         // So to get USD: account_amount / exchange_rate = USD amount.
         // For USD accounts exchange_rate is null/undefined — use amounts as-is.
         const rate = (tx as any).exchange_rate as number | null | undefined
-        const toUsdCents = (amount: number) =>
-          rate ? Math.round(amount / rate) : amount
+        const toUsdCents = (amount: number) => {
+          if (!rate) return amount
+          const converted = amount / rate
+          return converted >= 0 ? Math.floor(converted) : Math.ceil(converted)
+        }
 
         const entry = { date: dateKey, net: toUsdCents(tx.net), gross: toUsdCents(tx.amount) }
 

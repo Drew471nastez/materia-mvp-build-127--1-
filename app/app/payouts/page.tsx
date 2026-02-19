@@ -14,6 +14,14 @@ export const metadata = {
 };
 
 export default async function PayoutsPage() {
+  const toUsdCents = (amount: number, exchangeRate?: number | null) => {
+    if (!exchangeRate) return amount;
+    const converted = amount / exchangeRate;
+    return converted >= 0
+      ? Math.floor(converted)
+      : Math.ceil(converted);
+  };
+
   const supabase = await createClient();
   const adminSupabase = createAdminClient();
 
@@ -178,12 +186,16 @@ export default async function PayoutsPage() {
           if (!stripeExchangeRate && (tx as any).exchange_rate) {
             stripeExchangeRate = (tx as any).exchange_rate as number;
           }
+          const exchangeRate = (tx as any).exchange_rate as number | null | undefined;
+          const usdAmount = toUsdCents(tx.amount, exchangeRate);
+          const usdNet = toUsdCents(tx.net, exchangeRate);
+
           if (PAYMENT_TYPES.has(tx.type)) {
-            stripeGross += tx.amount;
-            stripeNet += tx.net;
+            stripeGross += usdAmount;
+            stripeNet += usdNet;
           } else if (REFUND_TYPES.has(tx.type)) {
-            stripeRefunds += Math.abs(tx.amount); // refund amounts are negative in Stripe
-            stripeNet += tx.net;                  // net is also negative — reduces total
+            stripeRefunds += Math.abs(usdAmount); // refund amounts are negative in Stripe
+            stripeNet += usdNet;                  // net is also negative — reduces total
           }
         }
 
