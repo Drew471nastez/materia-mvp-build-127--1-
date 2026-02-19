@@ -12,6 +12,8 @@ import {
   Search,
   Filter,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   X,
   Calendar,
   Package,
@@ -693,6 +695,62 @@ function FilterBottomSheet({
   );
 }
 
+function OrderTimeline({
+  orderId,
+  amountCents,
+}: {
+  orderId: string;
+  amountCents: number;
+}) {
+  const isFree = !amountCents || amountCents === 0;
+  const [timeline, setTimeline] = useState<any[]>([]);
+  const [loading, setLoading] = useState(!isFree);
+
+  useEffect(() => {
+    if (isFree) return;
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      try {
+        const r = await fetch(`/api/stripe/order-timeline?orderId=${orderId}`);
+        const json = await r.json();
+        if (!cancelled) setTimeline(json.timeline || []);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [orderId, isFree]);
+
+  if (isFree)
+    return (
+      <p className="text-[12px] text-[#9ca3af]">
+        No payout timeline for free orders.
+      </p>
+    );
+  if (loading)
+    return <div className="h-20 rounded-xl bg-[#f3f4f6] animate-pulse" />;
+
+  return (
+    <div className="space-y-2">
+      {timeline.map((item) => (
+        <div key={item.id} className="flex items-start gap-2">
+          <div className="w-2 h-2 rounded-full bg-[#8b5cf6] mt-1.5" />
+          <div>
+            <p className="text-[12px] font-medium text-[#1a1a2e]">
+              {item.label}
+            </p>
+            <p className="text-[11px] text-[#6b7280]">{item.description}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // Order Details Modal with swipe-to-close on mobile
 function OrderDetailsModal({
   isOpen,
@@ -1090,6 +1148,17 @@ function OrderDetailsModal({
             </div>
           </div>
 
+          {/* Payout timeline */}
+          <div className="bg-[#f9fafb] rounded-xl p-4 space-y-2">
+            <h4 className="text-[13px] font-semibold text-[#1a1a2e]">
+              Payout Timeline
+            </h4>
+            <OrderTimeline
+              orderId={selectedOrder.id}
+              amountCents={selectedOrder.amount_cents}
+            />
+          </div>
+
           {/* Refund info if applicable */}
           {selectedOrder.status === "refunded" && (
             <div className="mx-6 mb-4 p-3 bg-[#f9fafb] rounded-xl border border-[#e5e7eb]/60 space-y-2">
@@ -1436,6 +1505,17 @@ function OrderDetailsModal({
                 </div>
               </div>
 
+              {/* Payout timeline */}
+              <div className="bg-[#f9fafb] rounded-xl p-3 space-y-2">
+                <h4 className="text-[12px] font-semibold text-[#1a1a2e]">
+                  Payout Timeline
+                </h4>
+                <OrderTimeline
+                  orderId={selectedOrder.id}
+                  amountCents={selectedOrder.amount_cents}
+                />
+              </div>
+
               {/* Refund info on mobile — inside scrollable area to prevent overlap */}
               {selectedOrder.status === "refunded" && (
                 <div className="p-3 bg-[#f9fafb] rounded-xl border border-[#e5e7eb]/60 space-y-1.5">
@@ -1603,7 +1683,23 @@ export function SalesClient({
   const [orders, setOrders] = useState<Order[]>(initialOrders);
   const [allOrders, setAllOrders] = useState<Order[]>(initialOrders);
   const [totalCount, setTotalCount] = useState(initialOrders.length);
+  const [ordersPage, setOrdersPage] = useState(0);
+  const [ordersPageLoading, setOrdersPageLoading] = useState(false);
   const [monthlyReports, setMonthlyReports] = useState<MonthlyReport[]>([]);
+  const pagedOrders = orders.slice(ordersPage * 6, ordersPage * 6 + 6);
+  const ordersPageCount = Math.max(1, Math.ceil(orders.length / 6));
+
+  useEffect(() => {
+    setOrdersPage(0);
+  }, [orders.length, activeTab]);
+
+  const changeOrdersPage = (next: number) => {
+    setOrdersPageLoading(true);
+    setTimeout(() => {
+      setOrdersPage(next);
+      setOrdersPageLoading(false);
+    }, 220);
+  };
 
   // Order details modal states
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -3771,9 +3867,19 @@ export function SalesClient({
         ) : (
           /* Orders List - Responsive */
           <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+            {ordersPageLoading && (
+              <div className="p-4 space-y-2">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <div
+                    key={i}
+                    className="h-10 rounded-lg bg-[#f3f4f6] animate-pulse"
+                  />
+                ))}
+              </div>
+            )}
             {/* Mobile View - Card List */}
             <div className="sm:hidden divide-y divide-[#e5e7eb]">
-              {orders.map((order) => {
+              {(ordersPageLoading ? [] : pagedOrders).map((order) => {
                 const productData = products.find(
                   (p) => p.id === order.product_id,
                 );
@@ -3876,7 +3982,7 @@ export function SalesClient({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#e5e7eb]">
-                  {orders.map((order) => {
+                  {(ordersPageLoading ? [] : pagedOrders).map((order) => {
                     // Find product thumbnail image
                     const productData = products.find(
                       (p) => p.id === order.product_id,
@@ -4033,8 +4139,33 @@ export function SalesClient({
 
             {/* Pagination info */}
             {totalCount > 0 && (
-              <div className="px-4 sm:px-5 py-3 border-t border-[#e5e7eb] text-[12px] sm:text-[13px] text-[#6b7280]">
-                Showing {orders.length} of {totalCount} orders
+              <div className="px-4 sm:px-5 py-3 border-t border-[#e5e7eb] text-[12px] sm:text-[13px] text-[#6b7280] flex items-center justify-between">
+                <span>
+                  Showing {Math.min((ordersPage + 1) * 6, orders.length)} of{" "}
+                  {orders.length} orders
+                </span>
+                <div className="flex items-center gap-1">
+                  <button
+                    disabled={ordersPage <= 0}
+                    onClick={() =>
+                      changeOrdersPage(Math.max(0, ordersPage - 1))
+                    }
+                    className="p-1.5 rounded-md border border-[#e5e7eb] disabled:opacity-40"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <button
+                    disabled={ordersPage >= ordersPageCount - 1}
+                    onClick={() =>
+                      changeOrdersPage(
+                        Math.min(ordersPageCount - 1, ordersPage + 1),
+                      )
+                    }
+                    className="p-1.5 rounded-md border border-[#e5e7eb] disabled:opacity-40"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             )}
           </div>

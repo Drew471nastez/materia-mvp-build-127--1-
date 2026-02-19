@@ -27,7 +27,6 @@ import {
   Check,
   Landmark,
   Send,
-  Zap,
   XCircle,
   MoreHorizontal,
   ShoppingCart,
@@ -252,6 +251,7 @@ function RevenueChart() {
   const [data, setData] = useState<ChartPoint[]>([]);
   const [total, setTotal] = useState(0);
   const [currency, setCurrency] = useState("usd");
+  const [fxRate, setFxRate] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -276,6 +276,16 @@ function RevenueChart() {
     load(days);
   }, [days, load]);
 
+  useEffect(() => {
+    if (currency === "usd") return;
+    fetch(`/api/fx?from=${currency}&to=usd`)
+      .then((r) => r.json())
+      .then((json) => setFxRate(json.rate || 1))
+      .catch(() => setFxRate(1));
+  }, [currency]);
+
+  const toUsd = (cents: number) => Math.round(cents * fxRate);
+
   const hasData = data.some((d) => d.revenue > 0);
 
   const CustomTooltip = ({ active, payload, label }: any) => {
@@ -284,7 +294,7 @@ function RevenueChart() {
       <div className="bg-white border border-[#e5e7eb] rounded-xl p-3 shadow-lg text-[13px]">
         <p className="text-[#6b7280] mb-1">{label}</p>
         <p className="font-bold text-[#1a1a2e]">
-          {fmt(payload[0].value, currency)}
+          {fmt(toUsd(payload[0].value), "usd")}
         </p>
         {payload[0].payload.count > 0 && (
           <p className="text-[#9ca3af]">
@@ -301,13 +311,13 @@ function RevenueChart() {
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div>
           <p className="text-[13px] font-medium text-[#6b7280]">
-            Revenue ({currency.toUpperCase()})
+            Revenue (USD)
           </p>
           {loading ? (
             <div className="h-7 w-32 mt-1 rounded-lg bg-gray-200 animate-pulse" />
           ) : (
             <p className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-              {fmt(total, currency)}
+              {fmt(toUsd(total), "usd")}
             </p>
           )}
         </div>
@@ -379,9 +389,7 @@ function RevenueChart() {
               tick={{ fontSize: 11, fill: "#9ca3af" }}
               tickLine={false}
               axisLine={false}
-              tickFormatter={(v) =>
-                `${currency === "usd" ? "$" : ""}${(v / 100).toFixed(0)}${currency !== "usd" ? ` ${currency.toUpperCase()}` : ""}`
-              }
+              tickFormatter={(v) => `$${(toUsd(v) / 100).toFixed(0)}`}
               width={52}
             />
             <Tooltip content={<CustomTooltip />} />
@@ -405,11 +413,13 @@ function RevenueChart() {
 
 function WithdrawPanel({
   availableBalance,
+  pendingBalance,
   currency,
   payoutsEnabled,
   onSuccess,
 }: {
   availableBalance: number;
+  pendingBalance: number;
   currency: string;
   payoutsEnabled: boolean;
   onSuccess: () => void;
@@ -471,21 +481,40 @@ function WithdrawPanel({
     );
   }
 
+  const [openBreakdown, setOpenBreakdown] = useState(false);
+  const [dragY, setDragY] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const startY = useRef(0);
+
+  const helper = "Transfers typically arrive within 1–3 business days.";
+
   return (
-    <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5 flex flex-col gap-4 min-w-[240px]">
-      {/* Balance */}
-      <div className="bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed] rounded-xl p-4 text-white">
-        <p className="text-[11px] text-white/70 uppercase tracking-wide font-medium mb-1">
-          Available to cash out
-        </p>
-        <p className="text-[28px] font-bold leading-none tracking-tight">
-          {fmt(availableBalance, currency)}
-        </p>
-        <p className="text-[11px] text-white/60 mt-1.5">
-          {availableBalance > 0
-            ? "Ready to transfer to your bank."
-            : "No funds available right now."}
-        </p>
+    <div className="bg-[#f8fafc] rounded-2xl border border-[#e5e7eb] p-5 flex flex-col gap-4 min-w-[240px]">
+      <div className="rounded-xl border border-[#e5e7eb] bg-white p-4">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <p className="text-[11px] text-[#6b7280] font-medium">
+              Available for cashout
+            </p>
+            <p className="text-[34px] leading-none font-semibold text-[#1a1a2e] mt-1">
+              {fmt(availableBalance, currency)}
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-[11px] text-[#6b7280] font-medium">
+              Available soon
+            </p>
+            <p className="text-[32px] leading-none font-semibold text-[#1a1a2e] mt-1">
+              {fmt(pendingBalance, currency)}
+            </p>
+            <button
+              onClick={() => setOpenBreakdown(true)}
+              className="text-[13px] font-medium text-[#4f46e5] hover:underline mt-3"
+            >
+              See breakdown
+            </button>
+          </div>
+        </div>
       </div>
 
       {!payoutsEnabled ? (
@@ -506,7 +535,7 @@ function WithdrawPanel({
           <button
             onClick={handleWithdraw}
             disabled={loading || availableBalance <= 0}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-[13px] font-medium text-white bg-[#8b5cf6] rounded-xl hover:bg-[#7c3aed] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 text-[15px] font-medium text-white bg-[#635bff] rounded-xl hover:bg-[#564de8] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? (
               <>
@@ -516,16 +545,116 @@ function WithdrawPanel({
               "No funds available"
             ) : (
               <>
-                <Send className="h-4 w-4" /> Withdraw{" "}
-                {fmt(availableBalance, currency)}
+                <Send className="h-4 w-4" /> Withdraw
               </>
             )}
           </button>
-          <div className="flex items-start gap-2 p-3 bg-[#f9fafb] rounded-xl">
-            <Zap className="h-3.5 w-3.5 text-[#8b5cf6] mt-0.5 shrink-0" />
+          <div className="flex items-start gap-2 p-3 bg-[#f3f4f6] rounded-xl">
+            <button title={helper} className="mt-0.5">
+              <Info className="h-3.5 w-3.5 text-[#9ca3af]" />
+            </button>
             <p className="text-[11px] text-[#6b7280] leading-relaxed">
-              Funds transfer to your connected bank within 1–3 business days.
+              {helper}
             </p>
+          </div>
+        </>
+      )}
+
+      {openBreakdown && (
+        <>
+          <div className="fixed inset-0 z-[80] hidden sm:flex items-center justify-center">
+            <div
+              className="absolute inset-0 bg-black/45"
+              onClick={() => setOpenBreakdown(false)}
+            />
+            <div className="relative bg-white rounded-3xl border border-[#e5e7eb] shadow-2xl w-full max-w-xl p-6 animate-in fade-in zoom-in-95 duration-200">
+              <div className="flex justify-between items-center">
+                <h3 className="text-[32px] font-semibold text-[#1a1a2e]">
+                  Earnings Breakdown
+                </h3>
+                <button
+                  onClick={() => setOpenBreakdown(false)}
+                  className="text-[#9ca3af] hover:text-[#6b7280]"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <p className="text-[14px] text-[#6b7280] mt-1">
+                See how your earnings are split in Storelib.
+              </p>
+              <div className="mt-7 space-y-3 text-[14px]">
+                <div className="flex justify-between">
+                  <span className="text-[#6b7280]">Available soon</span>
+                  <span className="font-semibold text-[#1a1a2e]">
+                    {fmt(pendingBalance, currency)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#6b7280]">Available for cashout</span>
+                  <span className="font-semibold text-[#1a1a2e]">
+                    {fmt(availableBalance, currency)}
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => setOpenBreakdown(false)}
+                className="w-full mt-8 bg-[#635bff] text-white rounded-xl py-3 font-medium"
+              >
+                Okay
+              </button>
+            </div>
+          </div>
+          <div className="fixed inset-0 z-[80] sm:hidden">
+            <div
+              className="absolute inset-0 bg-black/40"
+              onClick={() => setOpenBreakdown(false)}
+            />
+            <div
+              className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] p-4"
+              onTouchStart={(e) => {
+                startY.current = e.touches[0].clientY;
+                setIsDragging(true);
+              }}
+              onTouchMove={(e) => {
+                if (!isDragging) return;
+                const diff = e.touches[0].clientY - startY.current;
+                if (diff > 0) setDragY(diff);
+              }}
+              onTouchEnd={() => {
+                if (dragY > 90) setOpenBreakdown(false);
+                setDragY(0);
+                setIsDragging(false);
+              }}
+              style={{
+                transform: `translateY(${dragY}px)`,
+                transition: isDragging ? "none" : "transform 220ms",
+              }}
+            >
+              <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-[#d1d5db]" />
+              <h3 className="text-[18px] font-semibold text-[#1a1a2e]">
+                Earnings Breakdown
+              </h3>
+              <div className="mt-4 space-y-2 text-[14px]">
+                <div className="flex justify-between">
+                  <span className="text-[#6b7280]">Available soon</span>
+                  <span className="font-semibold">
+                    {fmt(pendingBalance, currency)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[#6b7280]">Available for cashout</span>
+                  <span className="font-semibold">
+                    {fmt(availableBalance, currency)}
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => setOpenBreakdown(false)}
+                className="w-full mt-6 bg-[#635bff] text-white rounded-xl py-3 font-medium"
+              >
+                Okay
+              </button>
+            </div>
           </div>
         </>
       )}
@@ -661,10 +790,12 @@ function OrderTimeline({
 function OrderDetailsModal({
   order,
   currency,
+  convertCents,
   onClose,
 }: {
   order: OrderPayment | null;
   currency: string;
+  convertCents: (cents: number) => number;
   onClose: () => void;
 }) {
   const [isVisible, setIsVisible] = useState(false);
@@ -965,7 +1096,7 @@ function OrderDetailsModal({
               compact ? "text-[13px]" : "text-[16px]",
             )}
           >
-            {fmt(toUsd(order.amount_cents), currency)}
+            {fmt(convertCents(order.amount_cents), currency)}
           </span>
         </div>
         <div className="flex items-center justify-between">
@@ -983,7 +1114,7 @@ function OrderDetailsModal({
               compact ? "text-[12px]" : "text-[13px]",
             )}
           >
-            {fmt(order.fee_cents || 0, currency)}
+            {fmt(convertCents(order.fee_cents || 0), currency)}
           </span>
         </div>
         <div className="flex items-center justify-between">
@@ -1001,7 +1132,7 @@ function OrderDetailsModal({
               compact ? "text-[12px]" : "text-[13px]",
             )}
           >
-            {fmt(net, currency)}
+            {fmt(convertCents(net), currency)}
           </span>
         </div>
         {order.card_brand && (
@@ -1216,7 +1347,7 @@ function OrderDetailsModal({
                 compact ? "text-[11px]" : "text-[12px]",
               )}
             >
-              Amount: {fmt(order.refund_amount_cents, currency)}
+              Amount: {fmt(convertCents(order.refund_amount_cents), currency)}
             </p>
           )}
           {order.refunded_at && (
@@ -1311,7 +1442,7 @@ function OrderDetailsModal({
   return (
     <>
       {/* ── Desktop Modal ── */}
-      <div className="fixed inset-0 z-50 hidden sm:flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-50 hidden sm:flex items-center justify-center">
         <div
           className={cn(
             "absolute inset-0 bg-black/50 transition-opacity",
@@ -1322,7 +1453,7 @@ function OrderDetailsModal({
         />
         <div
           className={cn(
-            "relative bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl transition-all",
+            "relative bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl transition-all mx-4",
             isAnimating ? "opacity-100 scale-100" : "opacity-0 scale-95",
           )}
           style={{
@@ -1406,7 +1537,21 @@ function OrderDetailsModal({
 
 // ─── Payouts History List ─────────────────────────────────────────────────────
 
-function PayoutsHistoryList({ refreshKey }: { refreshKey: number }) {
+function PayoutsHistoryList({
+  refreshKey,
+  page = 0,
+  pageSize = 6,
+  pageSwitchLoading = false,
+  convertCents = (c) => c,
+  onCountChange,
+}: {
+  refreshKey: number;
+  page?: number;
+  pageSize?: number;
+  pageSwitchLoading?: boolean;
+  convertCents?: (cents: number) => number;
+  onCountChange?: (count: number) => void;
+}) {
   const [payouts, setPayouts] = useState<StripePayout[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1429,6 +1574,15 @@ function PayoutsHistoryList({ refreshKey }: { refreshKey: number }) {
   useEffect(() => {
     load();
   }, [load, refreshKey]);
+
+  useEffect(() => {
+    onCountChange?.(payouts.length);
+  }, [payouts.length, onCountChange]);
+
+  const visiblePayouts = payouts.slice(
+    page * pageSize,
+    page * pageSize + pageSize,
+  );
 
   if (loading) {
     return (
@@ -1476,13 +1630,13 @@ function PayoutsHistoryList({ refreshKey }: { refreshKey: number }) {
     <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
       {/* Mobile card view */}
       <div className="sm:hidden divide-y divide-[#e5e7eb]">
-        {payouts.map((p) => {
+        {(pageSwitchLoading ? [] : visiblePayouts).map((p) => {
           const cfg = payoutStatusConfig(p.status);
           return (
             <div key={p.id} className="px-4 py-3">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[13px] font-semibold text-[#1a1a2e]">
-                  {fmt(p.amount, p.currency)}
+                  {fmt(convertCents(p.amount), "usd")}
                 </span>
                 <span
                   className={cn(
@@ -1544,7 +1698,7 @@ function PayoutsHistoryList({ refreshKey }: { refreshKey: number }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-[#e5e7eb]">
-            {payouts.map((p) => {
+            {(pageSwitchLoading ? [] : visiblePayouts).map((p) => {
               const cfg = payoutStatusConfig(p.status);
               const arrivalNode = p.arrival_date ? (
                 p.status === "paid" ? (
@@ -1569,7 +1723,7 @@ function PayoutsHistoryList({ refreshKey }: { refreshKey: number }) {
                   </td>
                   <td className="px-5 py-4">
                     <span className="text-[14px] font-semibold text-[#1a1a2e]">
-                      {fmt(p.amount, p.currency)}
+                      {fmt(convertCents(p.amount), "usd")}
                     </span>
                   </td>
                   <td className="px-5 py-4">
@@ -1599,9 +1753,15 @@ function PayoutsHistoryList({ refreshKey }: { refreshKey: number }) {
           </tbody>
         </table>
       </div>
-      <div className="px-5 py-3 border-t border-[#e5e7eb] text-[12px] text-[#9ca3af]">
-        Most payouts arrive in 1–3 business days depending on your bank and
-        region.
+      <div className="px-5 py-3 border-t border-[#e5e7eb] text-[12px] text-[#9ca3af] flex items-center justify-between gap-2">
+        <span>
+          Most payouts arrive in 1–3 business days depending on your bank and
+          region.
+        </span>
+        <span className="text-[#6b7280]">
+          Showing {Math.min((page + 1) * pageSize, payouts.length)} of{" "}
+          {payouts.length}
+        </span>
       </div>
     </div>
   );
@@ -1631,6 +1791,7 @@ export function PayoutsClient({
   const [recentTab, setRecentTab] = useState<"sales" | "payouts">("sales");
   const [recentPage, setRecentPage] = useState(0);
   const [isPageLoading, setIsPageLoading] = useState(false);
+  const [payoutCount, setPayoutCount] = useState(0);
   const [selectedOrder, setSelectedOrder] = useState<OrderPayment | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [availableBalance, setAvailableBalance] = useState(
@@ -1678,7 +1839,8 @@ export function PayoutsClient({
     (cents: number) => Math.round(cents * fxRate),
     [fxRate],
   );
-  const pageItems = recentTab === "sales" ? initialOrders : [];
+  const pageItems =
+    recentTab === "sales" ? initialOrders : new Array(payoutCount);
   const pageCount = Math.max(1, Math.ceil(pageItems.length / 6));
   const pagedOrders = initialOrders.slice(recentPage * 6, recentPage * 6 + 6);
   const changePage = (next: number) => {
@@ -1725,21 +1887,21 @@ export function PayoutsClient({
       <div className="space-y-6">
         {/* KPI Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Available */}
+          {/* Revenue */}
           <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
             <div className="flex items-center justify-between mb-3">
               <span className="text-[13px] font-medium text-[#6b7280]">
-                Available
+                Revenue
               </span>
               <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
-                <Wallet className="h-4 w-4 text-[#9ca3af]" />
+                <DollarSign className="h-4 w-4 text-[#9ca3af]" />
               </div>
             </div>
             <div className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-              {fmtCompact(toUsd(availableBalance), currency)}
+              {fmtCompact(toUsd(initialData.totalEarnings), currency)}
             </div>
             <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">
-              Ready to withdraw
+              Gross sales
             </p>
           </div>
 
@@ -1747,7 +1909,7 @@ export function PayoutsClient({
           <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
             <div className="flex items-center justify-between mb-3">
               <span className="text-[13px] font-medium text-[#6b7280]">
-                Available soon
+                Pending
               </span>
               <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
                 <Clock className="h-4 w-4 text-[#9ca3af]" />
@@ -1779,21 +1941,21 @@ export function PayoutsClient({
             </p>
           </div>
 
-          {/* Orders */}
+          {/* Paid out */}
           <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
             <div className="flex items-center justify-between mb-3">
               <span className="text-[13px] font-medium text-[#6b7280]">
-                Total sales
+                Paid out
               </span>
               <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
-                <ShoppingCart className="h-4 w-4 text-[#9ca3af]" />
+                <Wallet className="h-4 w-4 text-[#9ca3af]" />
               </div>
             </div>
             <div className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-              {initialOrders.filter((o) => o.status === "completed").length}
+              {fmtCompact(toUsd(initialData.paidOut || 0), currency)}
             </div>
             <p className="text-[11px] sm:text-[12px] text-[#9ca3af] mt-1">
-              Completed orders
+              Stripe payouts to bank
             </p>
           </div>
         </div>
@@ -1804,6 +1966,7 @@ export function PayoutsClient({
           <div className="lg:w-72 xl:w-80 shrink-0">
             <WithdrawPanel
               availableBalance={toUsd(availableBalance)}
+              pendingBalance={toUsd(pendingBalance)}
               currency={currency}
               payoutsEnabled={payoutsEnabled}
               onSuccess={() => {
@@ -1869,7 +2032,14 @@ export function PayoutsClient({
             </div>
 
             {recentTab === "payouts" ? (
-              <PayoutsHistoryList refreshKey={refreshKey} />
+              <PayoutsHistoryList
+                refreshKey={refreshKey}
+                page={recentPage}
+                pageSize={6}
+                pageSwitchLoading={isPageLoading}
+                convertCents={toUsd}
+                onCountChange={setPayoutCount}
+              />
             ) : (
               <>
                 {isPageLoading && (
@@ -2133,6 +2303,7 @@ export function PayoutsClient({
       <OrderDetailsModal
         order={selectedOrder}
         currency={currency}
+        convertCents={toUsd}
         onClose={() => setSelectedOrder(null)}
       />
 
