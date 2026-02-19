@@ -1828,16 +1828,6 @@ export function PayoutsClient({
   const refreshBalances = useCallback(async () => {
     setRefreshKey((k) => k + 1);
 
-    // If there are no non-refunded completed orders in Storelib,
-    // keep pending at zero to avoid stale connected-account pending artifacts.
-    const hasCompletedOrders = initialOrders.some(
-      (o) => o.status === "completed",
-    );
-    if (!hasCompletedOrders) {
-      setPendingBalance(0);
-      return;
-    }
-
     try {
       const r = await fetch("/api/stripe/payouts");
       const json = await r.json();
@@ -1862,20 +1852,26 @@ export function PayoutsClient({
           row.pending += b.amount;
           byCurrency.set(b.currency, row);
         }
+        const preferredCurrency = sourceCurrency;
         const dominant =
           [...byCurrency.entries()].sort(
             (a, b) =>
               b[1].available + b[1].pending - (a[1].available + a[1].pending),
           )[0] || null;
-        if (dominant) {
-          setAvailableBalance(dominant[1].available);
-          setPendingBalance(dominant[1].pending);
+
+        const selected = byCurrency.get(preferredCurrency)
+          ? ([preferredCurrency, byCurrency.get(preferredCurrency)!] as const)
+          : dominant;
+
+        if (selected) {
+          setAvailableBalance(selected[1].available);
+          setPendingBalance(selected[1].pending);
         }
       }
     } catch {
       /* non-fatal */
     }
-  }, [initialOrders, sourceCurrency]);
+  }, [sourceCurrency]);
 
   useEffect(() => {
     if (sourceCurrency === "usd") return;

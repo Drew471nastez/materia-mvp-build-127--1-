@@ -81,10 +81,6 @@ export default async function PayoutsPage() {
     }
   }
 
-  const completedOrders = allOrders.filter(
-    (o: any) => o.status === "completed",
-  );
-
   // Fetch real Stripe balance for the connected seller account.
   // Important: connected accounts may hold funds in a different currency than creator.default_currency
   // (e.g. a RON account while default_currency says "usd"). We pick the currency with the most funds.
@@ -95,15 +91,23 @@ export default async function PayoutsPage() {
 
   if (creator.stripe_account_id) {
     try {
-      const balance = await stripe.balance.retrieve(
-        {},
-        { stripeAccount: creator.stripe_account_id },
-      );
-      const payouts = await stripe.payouts.list(
-        { limit: 100, status: "paid" },
-        { stripeAccount: creator.stripe_account_id },
-      );
-      paidOut = payouts.data.reduce((sum, p) => sum + p.amount, 0);
+      const [balance, payouts, account] = await Promise.all([
+        stripe.balance.retrieve(
+          {},
+          { stripeAccount: creator.stripe_account_id },
+        ),
+        stripe.payouts.list(
+          { limit: 100, status: "paid" },
+          { stripeAccount: creator.stripe_account_id },
+        ),
+        stripe.accounts.retrieve(creator.stripe_account_id),
+      ]);
+
+      const preferredCurrency = (
+        account.default_currency ||
+        creator.default_currency ||
+        "usd"
+      ).toLowerCase();
 
       // Pick one dominant connected-account balance currency to avoid mixing stale cross-currency cents.
       const byCurrency = new Map<
@@ -127,39 +131,24 @@ export default async function PayoutsPage() {
             b[1].available + b[1].pending - (a[1].available + a[1].pending),
         )[0] || null;
 
-      if (dominant) {
-        detectedCurrency = dominant[0];
-        stripeAvailableBalance = dominant[1].available;
-        stripePendingBalance = dominant[1].pending;
+      const selected = byCurrency.get(preferredCurrency)
+        ? ([preferredCurrency, byCurrency.get(preferredCurrency)!] as const)
+        : dominant;
+
+      if (selected) {
+        detectedCurrency = selected[0];
+        stripeAvailableBalance = selected[1].available;
+        stripePendingBalance = selected[1].pending;
+        paidOut = payouts.data
+          .filter((p) => p.currency?.toLowerCase() === detectedCurrency)
+          .reduce((sum, p) => sum + p.amount, 0);
       }
     } catch (err) {
       console.error("[Payouts] Failed to fetch Stripe balance:", err);
     }
   }
 
-  // Safety guard: when there are no non-refunded completed orders in Storelib,
-  // pending should not display a phantom amount.
-  if (completedOrders.length === 0) {
-    stripePendingBalance = 0;
-  }
-
-  // Fallback: compute from order data when Stripe balance is empty (currency mismatch / test mode)
-  if (
-    stripePendingBalance === 0 &&
-    stripeAvailableBalance === 0 &&
-    allOrders.length > 0
-  ) {
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    completedOrders.forEach((order: any) => {
-      const net = (order.amount_cents || 0) - (order.fee_cents || 0);
-      if (new Date(order.created_at) > sevenDaysAgo) {
-        stripePendingBalance += net;
-      } else {
-        stripeAvailableBalance += net;
-      }
-    });
-  }
+  // No local fallback math here: keep payout balances strictly sourced from Stripe.
 
   const netEarnings = totalEarnings - totalFees;
 
