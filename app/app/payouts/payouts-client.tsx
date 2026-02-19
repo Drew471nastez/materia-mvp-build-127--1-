@@ -247,6 +247,52 @@ function getStatusBadge(status: string) {
   }
 }
 
+function TouchTooltip({
+  text,
+  children,
+  className,
+}: {
+  text: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = (e: MouseEvent | TouchEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("touchstart", onDocClick);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("touchstart", onDocClick);
+    };
+  }, [open]);
+
+  return (
+    <div ref={ref} className={cn("relative inline-flex", className)}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+        className="inline-flex"
+        aria-label={text}
+      >
+        {children}
+      </button>
+      {open && (
+        <div className="absolute z-40 -top-10 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[#111827] px-2.5 py-1.5 text-[11px] text-white shadow-lg">
+          {text}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Revenue Chart ────────────────────────────────────────────────────────────
 
 const CHART_TIMEFRAMES = [
@@ -451,9 +497,11 @@ function RevenueChart() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const load = useCallback(async (tf: ChartTimeframeValue) => {
-    setLoading(true);
-    setError(null);
+  const load = useCallback(async (tf: ChartTimeframeValue, silent = false) => {
+    if (!silent) {
+      setLoading(true);
+      setError(null);
+    }
     try {
       const r = await fetch(`/api/stripe/revenue-chart?timeframe=${tf}`);
       const json = await r.json();
@@ -465,9 +513,9 @@ function RevenueChart() {
       setIsHourly(json.isHourly || false);
       if (json.currency) setCurrency(json.currency.toLowerCase());
     } catch (e: any) {
-      setError(e.message);
+      if (!silent) setError(e.message);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
@@ -475,6 +523,21 @@ function RevenueChart() {
     load(timeframe);
   }, [timeframe, load]);
 
+  useEffect(() => {
+    const tick = () => {
+      if (document.visibilityState !== "visible") return;
+      load(timeframe, true);
+    };
+    const id = window.setInterval(tick, 15000);
+    const onVisible = () => tick();
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
+  }, [timeframe, load]);
 
   const numReady = !loading; // show amounts as soon as data is ready
   // Clamp each bucket to >= 0 for a clean chart; preserve refundsAbs as-is.
@@ -542,7 +605,7 @@ function RevenueChart() {
             <div className="h-7 w-32 mt-1 rounded-lg bg-gray-200 animate-pulse" />
           ) : (
             <p className="text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight">
-              {fmt(Math.max(0, totalGross - totalRefunds), currency)}
+              {fmt(Math.max(0, totalGross), currency)}
             </p>
           )}
         </div>
@@ -614,7 +677,7 @@ function RevenueChart() {
           </div>
           <div className="text-center">
             <p className="text-[28px] font-bold text-[#1a1a2e] tracking-tight">
-              {numReady ? fmt(Math.max(0, totalGross - totalRefunds), currency) : "—"}
+              {numReady ? fmt(Math.max(0, totalGross), currency) : "—"}
             </p>
             <p className="text-[13px] text-[#6b7280] mt-0.5">
               {chartData[0]?.count
@@ -746,6 +809,7 @@ function WithdrawPanel({
     amount: number;
     currency: string;
   } | null>(null);
+  const [showWithdrawHint, setShowWithdrawHint] = useState(false);
   const { toast } = useToast();
 
   const handleWithdraw = async () => {
@@ -833,9 +897,9 @@ function WithdrawPanel({
               <p className="text-[12px] text-[#6b7280] font-medium tracking-wide uppercase">
                 Available for cashout
               </p>
-              <span title="Funds ready to transfer to your bank account now">
+              <TouchTooltip text="Funds ready to transfer to your bank account now">
                 <Info className="h-3.5 w-3.5 text-[#9ca3af] cursor-help" />
-              </span>
+              </TouchTooltip>
             </div>
             {balanceReady ? (
               <p className="text-[28px] sm:text-[32px] leading-none font-semibold text-[#1a1a2e] mt-2">
@@ -881,10 +945,18 @@ function WithdrawPanel({
               <p className="text-[12px] text-red-700">{error}</p>
             </div>
           )}
-          <div className="flex gap-2">
+          <div className="flex gap-2 relative">
             <button
-              onClick={handleWithdraw}
-              disabled={loading || availableBalance <= 0}
+              onClick={() => {
+                if (loading) return;
+                if (availableBalance <= 0) {
+                  setShowWithdrawHint(true);
+                  window.setTimeout(() => setShowWithdrawHint(false), 1800);
+                  return;
+                }
+                handleWithdraw();
+              }}
+              disabled={loading}
               className="flex-1 flex items-center justify-center gap-2 px-4 py-3 text-[15px] font-medium text-white bg-[#635bff] rounded-xl hover:bg-[#564de8] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
@@ -901,9 +973,14 @@ function WithdrawPanel({
                 </>
               )}
             </button>
+            {showWithdrawHint && (
+              <div className="absolute left-2 right-2 -top-10 z-30 rounded-md bg-[#111827] px-3 py-2 text-[11px] text-white text-center shadow-lg">
+                No funds ready yet. Tap “See details” to view pending funds.
+              </div>
+            )}
             <button
               onClick={openDetailsModal}
-              className="px-4 py-3 text-[14px] font-medium text-[#374151] bg-[#eaecef] rounded-xl hover:bg-[#dde0e4] transition-colors whitespace-nowrap"
+              className="px-4 py-3 text-[14px] font-medium text-[#1f2937] bg-[#f1f3f5] rounded-xl hover:bg-[#e5e7eb] transition-colors whitespace-nowrap"
             >
               See details
             </button>
@@ -2877,9 +2954,9 @@ function PayoutsHistoryList({
       if (json.error) throw new Error(json.error);
       setPayouts(json.payouts || []);
     } catch (e: any) {
-      setError(e.message);
+      if (!silent) setError(e.message);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
@@ -3178,8 +3255,11 @@ export function PayoutsClient({
   }, [initialOrders, sourceCurrency]);
 
   const toUsd = useCallback(
-    (cents: number) =>
-      sourceCurrency === "usd" ? cents : Math.round(cents / stripeExchangeRate),
+    (cents: number) => {
+      if (sourceCurrency === "usd") return cents;
+      const converted = cents / stripeExchangeRate;
+      return converted >= 0 ? Math.floor(converted) : Math.ceil(converted);
+    },
     [sourceCurrency, stripeExchangeRate],
   );
   const openOrderDetails = useCallback((order: OrderPayment) => {
@@ -3206,6 +3286,24 @@ export function PayoutsClient({
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  useEffect(() => {
+    if (!hasStripe) return;
+    const tick = () => {
+      if (document.visibilityState !== "visible") return;
+      refreshBalances();
+    };
+    tick();
+    const id = window.setInterval(tick, 15000);
+    const onVisible = () => tick();
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
+  }, [hasStripe, refreshBalances]);
 
   if (!hasStripe) {
     return (
@@ -3252,11 +3350,11 @@ export function PayoutsClient({
         {/* Recent activity */}
         {initialOrders.length > 0 ? (
           <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-            <div className="px-4 sm:px-5 py-3.5 border-b border-[#e5e7eb] flex items-center justify-between gap-3">
-              <div className="relative flex items-center bg-[#f3f4f6] rounded-full p-1">
+            <div className="px-4 sm:px-5 py-3.5 border-b border-[#e5e7eb] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="relative grid grid-cols-2 w-full sm:w-auto sm:min-w-[320px] items-center bg-[#f3f4f6] rounded-xl p-1 will-change-transform">
                 {/* Sliding pill indicator — flex-1 buttons ensure equal halves */}
                 <div
-                  className="absolute top-1 bottom-1 bg-white rounded-full shadow-sm transition-all duration-300 ease-out"
+                  className="absolute top-1 bottom-1 bg-white rounded-full shadow-sm transition-all duration-300 ease-out will-change-transform"
                   style={{
                     left: recentTab === "sales" ? "4px" : "calc(50% + 1px)",
                     width: "calc(50% - 5px)",
@@ -3273,7 +3371,7 @@ export function PayoutsClient({
                     }, 150);
                   }}
                   className={cn(
-                    "relative z-10 flex-1 px-5 py-1.5 text-[12px] font-medium rounded-full transition-colors duration-200 whitespace-nowrap text-center",
+                    "relative z-10 px-3 sm:px-5 py-2 text-[12px] font-medium rounded-lg transition-colors duration-200 whitespace-nowrap text-center",
                     recentTab === "sales"
                       ? "text-[#1a1a2e]"
                       : "text-[#6b7280] hover:text-[#374151]",
@@ -3292,7 +3390,7 @@ export function PayoutsClient({
                     }, 150);
                   }}
                   className={cn(
-                    "relative z-10 flex-1 px-5 py-1.5 text-[12px] font-medium rounded-full transition-colors duration-200 whitespace-nowrap text-center",
+                    "relative z-10 px-3 sm:px-5 py-2 text-[12px] font-medium rounded-lg transition-colors duration-200 whitespace-nowrap text-center",
                     recentTab === "payouts"
                       ? "text-[#1a1a2e]"
                       : "text-[#6b7280] hover:text-[#374151]",
@@ -3301,31 +3399,37 @@ export function PayoutsClient({
                   Recent Payouts
                 </button>
               </div>
-              <div className="flex items-center gap-1.5 text-[#6b7280]">
+              <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-1.5 text-[#6b7280]">
                 {/* CSV export dropdown */}
-                <ExportDropdown
-                  orders={initialOrders}
-                  currency={currency}
-                />
-                <span className="text-[12px] text-[#9ca3af] hidden sm:inline mr-1">
+                <div className="hidden sm:block">
+                  <ExportDropdown
+                    orders={initialOrders}
+                    currency={currency}
+                  />
+                </div>
+                <span className="text-[12px] text-[#9ca3af] mr-1">
                   {recentPage + 1} / {pageCount}
                 </span>
-                <button
-                  disabled={recentPage <= 0}
-                  onClick={() => changePage(Math.max(0, recentPage - 1))}
-                  className="p-1.5 rounded-lg hover:bg-[#f3f4f6] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-                <button
-                  disabled={recentPage >= pageCount - 1}
-                  onClick={() =>
-                    changePage(Math.min(pageCount - 1, recentPage + 1))
-                  }
-                  className="p-1.5 rounded-lg hover:bg-[#f3f4f6] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    disabled={recentPage <= 0}
+                    onClick={() => changePage(Math.max(0, recentPage - 1))}
+                    className="h-8 w-8 sm:h-7 sm:w-7 flex items-center justify-center rounded-lg border border-[#e5e7eb] bg-white hover:bg-[#f9fafb] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    aria-label="Previous page"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <button
+                    disabled={recentPage >= pageCount - 1}
+                    onClick={() =>
+                      changePage(Math.min(pageCount - 1, recentPage + 1))
+                    }
+                    className="h-8 w-8 sm:h-7 sm:w-7 flex items-center justify-center rounded-lg border border-[#e5e7eb] bg-white hover:bg-[#f9fafb] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    aria-label="Next page"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             </div>
 
