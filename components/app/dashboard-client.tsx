@@ -336,14 +336,14 @@ function PercentChangeIndicator({ current, previous }: { current: number; previo
 
   return (
     <span className={`inline-flex items-center gap-0.5 text-[11px] font-medium ${
-      isPositive ? "text-emerald-600" : "text-rose-500"
+      isPositive ? "text-emerald-600" : "text-[#9ca3af]"
     }`}>
       {isPositive ? (
         <TrendingUp className="h-3 w-3" />
       ) : (
         <TrendingDown className="h-3 w-3" />
       )}
-      {value.toFixed(1)}%
+      {Math.round(value)}%
     </span>
   )
 }
@@ -804,7 +804,7 @@ export function DashboardClient({
   const publicStoreUrl = connectedDomain ? `https://${connectedDomain}` : (creatorHandle ? getStoreUrl(creatorHandle) : "")
   const publicOnePageUrl = connectedDomain ? `https://${connectedDomain}/links` : (creatorHandle ? getLinksUrl(creatorHandle) : "")
   const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [expandedStep, setExpandedStep] = useState<string | null>(null)
   const [openKPIModal, setOpenKPIModal] = useState<KPIType>("views")
   const [chartExpanded, setChartExpanded] = useState(() => {
@@ -1125,6 +1125,8 @@ export function DashboardClient({
       if (!option) return
 
       const { start, end } = option.getDates()
+      // Use same filters as KPI display: completed+refunded for order counts, completed-only for revenue
+      const allValidOrders = initialOrders.filter(o => o.status === "completed" || o.status === "refunded")
       const completedOrders = initialOrders.filter(o => o.status === "completed")
 
       // For all_time, extend start to 2020
@@ -1179,11 +1181,13 @@ export function DashboardClient({
             return d >= bucket.start && d <= bucket.end
           }).length
         } else if (kpiType === "orders") {
-          value = completedOrders.filter(o => {
+          // Use allValidOrders (completed + refunded) to match KPI display
+          value = allValidOrders.filter(o => {
             const d = new Date(o.created_at)
             return d >= bucket.start && d <= bucket.end
           }).length
         } else if (kpiType === "revenue") {
+          // Use completedOrders only for revenue (refunded orders don't count as revenue)
           value = completedOrders.filter(o => {
             const d = new Date(o.created_at)
             return d >= bucket.start && d <= bucket.end
@@ -1197,7 +1201,8 @@ export function DashboardClient({
             const id = e.visitor_id || e.session_id
             return id ? `${id}__${e.product_id || "store"}` : null
           }).filter(Boolean)).size
-          const orders = completedOrders.filter(o => {
+          // Use allValidOrders for conversion rate to match KPI display
+          const orders = allValidOrders.filter(o => {
             const d = new Date(o.created_at)
             return d >= bucket.start && d <= bucket.end
           }).length
@@ -1623,13 +1628,34 @@ export function DashboardClient({
         />
 
         {/* Stats Cards + Chart Section */}
-        <div className={`bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] mb-8 transition-opacity duration-500 ease-out overflow-hidden ${isLoading ? "opacity-50" : "opacity-100"}`}>
+        <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] mb-8 overflow-hidden">
+          {isLoading ? (
+            <div className="animate-pulse">
+              <div className="flex overflow-hidden md:grid md:grid-cols-4 divide-x divide-[#e5e7eb]/60">
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i} className="px-3 py-3 sm:px-4 sm:py-3.5 flex-shrink-0 min-w-[130px] md:min-w-0">
+                    <div className="h-3 w-16 bg-gray-100 rounded mb-2" />
+                    <div className="h-6 w-20 bg-gray-100 rounded mb-1.5" />
+                    <div className="h-2.5 w-24 bg-gray-50 rounded" />
+                  </div>
+                ))}
+              </div>
+              <div className="border-t border-[#e5e7eb]/60 px-4 py-4">
+                <div className="h-[200px] flex items-end gap-2 px-2">
+                  {[40, 55, 30, 65, 45, 60, 35, 50, 70, 42].map((h, i) => (
+                    <div key={i} className="flex-1 bg-gray-50 rounded-t" style={{ height: `${h}%` }} />
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : (
+          <>
           {/* KPI Metric Tabs - horizontally scrollable on mobile */}
           <div className="relative flex overflow-x-auto scrollbar-hide md:grid md:grid-cols-4 divide-x divide-[#e5e7eb]/60">
             {/* Views */}
             <button
               className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
-                openKPIModal === "views" ? "bg-[#f9fafb]" : "hover:bg-[#fafafa]"
+                openKPIModal === "views" ? "md:bg-[#f9fafb]" : "hover:bg-[#fafafa]"
               }`}
               onClick={() => { setOpenKPIModal("views"); setChartExpanded(true) }}
             >
@@ -1645,7 +1671,7 @@ export function DashboardClient({
             {/* Revenue */}
             <button
               className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
-                openKPIModal === "revenue" ? "bg-[#f9fafb]" : "hover:bg-[#fafafa]"
+                openKPIModal === "revenue" ? "md:bg-[#f9fafb]" : "hover:bg-[#fafafa]"
               }`}
               onClick={() => { setOpenKPIModal("revenue"); setChartExpanded(true) }}
             >
@@ -1661,7 +1687,7 @@ export function DashboardClient({
             {/* Orders */}
             <button
               className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
-                openKPIModal === "orders" ? "bg-[#f9fafb]" : "hover:bg-[#fafafa]"
+                openKPIModal === "orders" ? "md:bg-[#f9fafb]" : "hover:bg-[#fafafa]"
               }`}
               onClick={() => { setOpenKPIModal("orders"); setChartExpanded(true) }}
             >
@@ -1677,14 +1703,14 @@ export function DashboardClient({
             {/* Conversion Rate - clickable */}
             <button
               className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
-                openKPIModal === "conversion" ? "bg-[#f9fafb]" : "hover:bg-[#fafafa]"
+                openKPIModal === "conversion" ? "md:bg-[#f9fafb]" : "hover:bg-[#fafafa]"
               }`}
               onClick={() => { setOpenKPIModal("conversion"); setChartExpanded(true) }}
             >
               {openKPIModal === "conversion" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
               <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "conversion" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("dashboard.conversionRate")}</span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{analyticsData.conversionRate.toFixed(2)}%</span>
+                <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{Math.round(analyticsData.conversionRate)}%</span>
                 <PercentChangeIndicator current={analyticsData.conversionRate} previous={analyticsData.prevConversionRate} />
               </div>
               <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{t("dashboard.viewsToOrders")}</p>
@@ -1780,6 +1806,8 @@ export function DashboardClient({
               )}
             </div>
           </div>
+          </>
+          )}
         </div>
 
         {/* Storelib Promotional Banner - Responsive for all devices */}

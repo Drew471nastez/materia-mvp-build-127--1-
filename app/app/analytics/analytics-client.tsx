@@ -359,16 +359,16 @@ function PercentChangeIndicator({ current, previous }: { current: number; previo
   return (
     <span
       className={`inline-flex items-center gap-0.5 text-[11px] font-medium cursor-help ${
-        isPositive ? "text-emerald-600" : "text-rose-500"
+        isPositive ? "text-emerald-600" : "text-[#9ca3af]"
       }`}
-      title={`${isPositive ? "+" : "-"}${value.toFixed(1)}% compared to previous period`}
+      title={`${isPositive ? "+" : "-"}${Math.round(value)}% compared to previous period`}
     >
       {isPositive ? (
         <TrendingUp className="h-3 w-3" />
       ) : (
         <TrendingDown className="h-3 w-3" />
       )}
-      {value.toFixed(1)}%
+      {Math.round(value)}%
     </span>
   )
 }
@@ -2184,7 +2184,28 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
         )}
 
         {/* Unified KPI Tabs + Chart Card */}
-        <div className={`bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden transition-opacity duration-500 ease-out ${isLoading ? "opacity-50" : "opacity-100"}`}>
+        <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+          {isLoading ? (
+            <div className="animate-pulse">
+              <div className="flex overflow-hidden md:grid md:grid-cols-4 divide-x divide-[#e5e7eb]/60">
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i} className="px-3 py-3 sm:px-4 sm:py-3.5 flex-shrink-0 min-w-[130px] md:min-w-0">
+                    <div className="h-3 w-16 bg-gray-100 rounded mb-2" />
+                    <div className="h-6 w-20 bg-gray-100 rounded mb-1.5" />
+                    <div className="h-2.5 w-24 bg-gray-50 rounded" />
+                  </div>
+                ))}
+              </div>
+              <div className="border-t border-[#e5e7eb]/60 px-4 py-4">
+                <div className="h-[200px] flex items-end gap-2 px-2">
+                  {[40, 55, 30, 65, 45, 60, 35, 50, 70, 42].map((h, i) => (
+                    <div key={i} className="flex-1 bg-gray-50 rounded-t" style={{ height: `${h}%` }} />
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : (
+          <>
           {/* KPI Metric Tabs */}
           <div className="relative flex overflow-x-auto scrollbar-hide md:grid md:grid-cols-4 divide-x divide-[#e5e7eb]/60">
             {analyticsMode === "store" ? (
@@ -2192,7 +2213,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                 {/* Views */}
                 <button
                   className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
-                    chartMetricFilter === "views" ? "bg-[#f9fafb]" : "hover:bg-[#fafafa]"
+                    chartMetricFilter === "views" ? "md:bg-[#f9fafb]" : "hover:bg-[#fafafa]"
                   }`}
                   onClick={() => setChartMetricFilter("views")}
                 >
@@ -2207,7 +2228,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                 {/* Revenue */}
                 <button
                   className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
-                    chartMetricFilter === "revenue" ? "bg-[#f9fafb]" : "hover:bg-[#fafafa]"
+                    chartMetricFilter === "revenue" ? "md:bg-[#f9fafb]" : "hover:bg-[#fafafa]"
                   }`}
                   onClick={() => setChartMetricFilter("revenue")}
                 >
@@ -2222,7 +2243,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                 {/* Orders */}
                 <button
                   className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
-                    chartMetricFilter === "orders" ? "bg-[#f9fafb]" : "hover:bg-[#fafafa]"
+                    chartMetricFilter === "orders" ? "md:bg-[#f9fafb]" : "hover:bg-[#fafafa]"
                   }`}
                   onClick={() => setChartMetricFilter("orders")}
                 >
@@ -2237,14 +2258,14 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                 {/* Conversion */}
                 <button
                   className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
-                    chartMetricFilter === "conversion" ? "bg-[#f9fafb]" : "hover:bg-[#fafafa]"
+                    chartMetricFilter === "conversion" ? "md:bg-[#f9fafb]" : "hover:bg-[#fafafa]"
                   }`}
                   onClick={() => setChartMetricFilter("conversion")}
                 >
                   {chartMetricFilter === "conversion" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
                   <span className={`text-[11px] sm:text-[12px] font-medium ${chartMetricFilter === "conversion" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("analytics.conversionRate")}</span>
                   <div className="flex items-baseline gap-1.5 mt-0.5">
-                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{summary.conversionRate.toFixed(1)}%</span>
+                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{Math.round(summary.conversionRate)}%</span>
                   </div>
                   <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{t("dashboard.viewsToOrders")}</p>
                 </button>
@@ -2254,7 +2275,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                 {/* OnePage Views */}
                 <button
                   className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
-                    onePageChartFilter === "views" ? "bg-[#f9fafb]" : "hover:bg-[#fafafa]"
+                    onePageChartFilter === "views" ? "md:bg-[#f9fafb]" : "hover:bg-[#fafafa]"
                   }`}
                   onClick={() => setOnePageChartFilter("views")}
                 >
@@ -2269,7 +2290,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                 {/* Clicks */}
                 <button
                   className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
-                    onePageChartFilter === "clicks" ? "bg-[#f9fafb]" : "hover:bg-[#fafafa]"
+                    onePageChartFilter === "clicks" ? "md:bg-[#f9fafb]" : "hover:bg-[#fafafa]"
                   }`}
                   onClick={() => setOnePageChartFilter("clicks")}
                 >
@@ -2284,7 +2305,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                 {/* Subscribers */}
                 <button
                   className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
-                    onePageChartFilter === "subscribers" ? "bg-[#f9fafb]" : "hover:bg-[#fafafa]"
+                    onePageChartFilter === "subscribers" ? "md:bg-[#f9fafb]" : "hover:bg-[#fafafa]"
                   }`}
                   onClick={() => setOnePageChartFilter("subscribers")}
                 >
@@ -2299,14 +2320,14 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                 {/* CTR */}
                 <button
                   className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
-                    onePageChartFilter === "ctr" ? "bg-[#f9fafb]" : "hover:bg-[#fafafa]"
+                    onePageChartFilter === "ctr" ? "md:bg-[#f9fafb]" : "hover:bg-[#fafafa]"
                   }`}
                   onClick={() => setOnePageChartFilter("ctr")}
                 >
                   {onePageChartFilter === "ctr" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
                   <span className={`text-[11px] sm:text-[12px] font-medium ${onePageChartFilter === "ctr" ? "text-[#374151]" : "text-[#6b7280]"}`}>CTR</span>
                   <div className="flex items-baseline gap-1.5 mt-0.5">
-                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{onePageMetrics.ctr.toFixed(1)}%</span>
+                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{Math.round(onePageMetrics.ctr)}%</span>
                   </div>
                   <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{t("analytics.clicksToViews")}</p>
                 </button>
@@ -2406,6 +2427,8 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
               </ResponsiveContainer>
             )}
           </div>
+          </>
+          )}
         </div>
 
         {/* Traffic & Device Distribution */}
