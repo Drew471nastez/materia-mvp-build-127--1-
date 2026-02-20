@@ -46,12 +46,21 @@ export async function POST(request: Request) {
       )
     }
 
-    // Load seller ledger
-    const { data: ledger } = await adminSupabase
+    // Load seller ledger (auto-create if missing)
+    let { data: ledger } = await adminSupabase
       .from("seller_ledger")
       .select("*")
       .eq("creator_id", creator.id)
       .single()
+
+    if (!ledger) {
+      const { data: newLedger } = await adminSupabase
+        .from("seller_ledger")
+        .upsert({ creator_id: creator.id }, { onConflict: "creator_id" })
+        .select()
+        .single()
+      ledger = newLedger
+    }
 
     if (!ledger) {
       return NextResponse.json({ error: "No balance found" }, { status: 400 })
@@ -95,27 +104,23 @@ export async function POST(request: Request) {
     )
 
     const nativeCurrency = (creator.default_currency || "usd").toLowerCase()
-    const availableEntry = stripeBalance.available.find(
-      (b) => b.currency === nativeCurrency,
+    const nativeEntry = stripeBalance.available.find(
+      (b) => b.currency === nativeCurrency && b.amount > 0,
     )
+    const fallbackEntry = !nativeEntry
+      ? stripeBalance.available.find((b) => b.amount > 0)
+      : null
 
-    if (!availableEntry || availableEntry.amount <= 0) {
-      // Fallback: try any available currency
-      const anyAvailable = stripeBalance.available.find((b) => b.amount > 0)
-      if (!anyAvailable) {
-        return NextResponse.json(
-          { error: "Stripe balance not ready. Try again in a few minutes." },
-          { status: 400 },
-        )
-      }
+    const selectedEntry = nativeEntry || fallbackEntry
+    if (!selectedEntry) {
+      return NextResponse.json(
+        { error: "Stripe balance not ready. Try again in a few minutes." },
+        { status: 400 },
+      )
     }
 
-    const payoutCurrency = availableEntry && availableEntry.amount > 0
-      ? nativeCurrency
-      : stripeBalance.available.find((b) => b.amount > 0)!.currency
-    const payoutAmountNative = availableEntry && availableEntry.amount > 0
-      ? availableEntry.amount
-      : stripeBalance.available.find((b) => b.amount > 0)!.amount
+    const payoutCurrency = selectedEntry.currency
+    const payoutAmountNative = selectedEntry.amount
 
     // Create Stripe payout with idempotency
     const idempotencyKey = `cashout_${creator.id}_${Date.now()}`
