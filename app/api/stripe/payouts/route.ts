@@ -52,8 +52,8 @@ export async function GET() {
       return NextResponse.json({ payouts: [], balance: null })
     }
 
-    // Fetch payouts + balance + recent balance transactions (for exchange_rate) in parallel
-    const [payoutsResult, balanceResult, balanceTxResult] = await Promise.all([
+    // Fetch payouts + balance + account + recent balance transactions in parallel
+    const [payoutsResult, balanceResult, accountResult, balanceTxResult] = await Promise.all([
       stripe.payouts.list(
         { limit: 100, expand: ["data.destination"] },
         { stripeAccount: stripeAccountId }
@@ -62,11 +62,17 @@ export async function GET() {
         {},
         { stripeAccount: stripeAccountId }
       ).catch(() => null),
+      stripe.accounts.retrieve(stripeAccountId).catch(() => null),
       stripe.balanceTransactions.list(
         { limit: 5 },
         { stripeAccount: stripeAccountId }
       ).catch(() => ({ data: [] })),
     ])
+
+    // Detect payout schedule from Stripe account settings
+    const schedule = (accountResult as any)?.settings?.payouts?.schedule
+    const payoutScheduleInterval: string | null = schedule?.interval || null
+    const payoutScheduleDelay: number | null = schedule?.delay_days ?? null
 
     // Extract the exchange_rate from the most recent transaction that has one.
     // Stripe defines: presentment_amount × exchange_rate = account_amount.
@@ -147,7 +153,7 @@ export async function GET() {
         }
       : null
 
-    return NextResponse.json({ payouts, balance, exchangeRate })
+    return NextResponse.json({ payouts, balance, exchangeRate, payoutScheduleInterval, payoutScheduleDelay })
   } catch (error: any) {
     console.error("[Stripe Payouts Error]", error)
     return NextResponse.json(

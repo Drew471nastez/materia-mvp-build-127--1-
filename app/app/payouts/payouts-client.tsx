@@ -804,6 +804,8 @@ function WithdrawPanel({
   payoutsEnabled,
   balanceReady = true,
   onSuccess,
+  payoutScheduleInterval = null,
+  payoutScheduleDelay = null,
 }: {
   availableBalance: number;
   pendingBalance: number;
@@ -811,7 +813,10 @@ function WithdrawPanel({
   payoutsEnabled: boolean;
   balanceReady?: boolean;
   onSuccess: () => void;
+  payoutScheduleInterval?: string | null;
+  payoutScheduleDelay?: number | null;
 }) {
+  const isAutomatic = payoutScheduleInterval != null && payoutScheduleInterval !== "manual";
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [openBreakdown, setOpenBreakdown] = useState(false);
@@ -839,7 +844,38 @@ function WithdrawPanel({
     currency: string;
   } | null>(null);
   const [showWithdrawHint, setShowWithdrawHint] = useState(false);
+  const [stripeLoginLoading, setStripeLoginLoading] = useState(false);
   const { toast } = useToast();
+
+  const openStripeLogin = async () => {
+    setStripeLoginLoading(true);
+    try {
+      const r = await fetch("/api/stripe/login-link", { method: "POST" });
+      const json = await r.json();
+      if (json.url) {
+        window.open(json.url, "_blank", "noopener,noreferrer");
+      } else {
+        throw new Error("No URL returned");
+      }
+    } catch {
+      toast({
+        title: "Could not open Stripe",
+        description: "Please visit dashboard.stripe.com directly.",
+        variant: "destructive",
+      });
+    } finally {
+      setStripeLoginLoading(false);
+    }
+  };
+
+  const scheduleLabel = (() => {
+    if (!payoutScheduleInterval) return null;
+    if (payoutScheduleInterval === "daily") return "Daily (automatic)";
+    if (payoutScheduleInterval === "weekly") return "Weekly (automatic)";
+    if (payoutScheduleInterval === "monthly") return "Monthly (automatic)";
+    if (payoutScheduleInterval === "manual") return "Manual (you control)";
+    return "Automatic";
+  })();
 
   const handleWithdraw = async () => {
     setLoading(true);
@@ -985,8 +1021,57 @@ function WithdrawPanel({
             Payouts not enabled. Complete Stripe onboarding first.
           </p>
         </div>
+      ) : isAutomatic ? (
+        <>
+          {/* Automatic payouts — managed by Stripe */}
+          <div className="rounded-xl border border-[#e5e7eb] bg-white p-4">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-9 h-9 rounded-full bg-[#f0fdf4] flex items-center justify-center shrink-0">
+                <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+              </div>
+              <div>
+                <p className="text-[14px] font-semibold text-[#1a1a2e]">Managed by Stripe</p>
+                {scheduleLabel && (
+                  <p className="text-[12px] text-[#6b7280]">{scheduleLabel}</p>
+                )}
+              </div>
+            </div>
+            {payoutScheduleDelay != null && payoutScheduleDelay > 0 && (
+              <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-[#f9fafb] rounded-lg">
+                <Clock className="h-3.5 w-3.5 text-[#9ca3af] shrink-0" />
+                <p className="text-[12px] text-[#6b7280]">
+                  {payoutScheduleDelay} business day{payoutScheduleDelay !== 1 ? "s" : ""} rolling delay
+                </p>
+              </div>
+            )}
+            <div className="flex items-start gap-2.5 p-3 bg-[#f0fdf4] rounded-xl mb-3">
+              <Info className="h-3.5 w-3.5 text-emerald-500 mt-0.5 shrink-0" />
+              <p className="text-[11px] text-emerald-700 leading-relaxed">
+                Funds arrive automatically. No action needed.
+              </p>
+            </div>
+            <button
+              onClick={openStripeLogin}
+              disabled={stripeLoginLoading}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 text-[14px] font-medium text-[#374151] bg-white border border-[#e2e8f0] rounded-xl hover:bg-[#f8fafc] hover:border-[#cbd5e1] transition-all shadow-sm disabled:opacity-50"
+            >
+              {stripeLoginLoading ? (
+                <><Loader2 className="h-4 w-4 animate-spin" /> Opening Stripe…</>
+              ) : (
+                <><ExternalLink className="h-4 w-4" /> View in Stripe</>
+              )}
+            </button>
+          </div>
+          <button
+            onClick={openDetailsModal}
+            className="w-full px-4 py-3 text-[14px] font-medium text-[#374151] bg-white border border-[#e2e8f0] rounded-xl hover:bg-[#f8fafc] hover:border-[#cbd5e1] transition-all whitespace-nowrap shadow-sm"
+          >
+            See details
+          </button>
+        </>
       ) : (
         <>
+          {/* Manual payouts — show Withdraw button */}
           {error && (
             <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-xl">
               <AlertCircle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
@@ -1036,6 +1121,12 @@ function WithdrawPanel({
               See details
             </button>
           </div>
+          {scheduleLabel && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-[#f9fafb] rounded-lg">
+              <Calendar className="h-3.5 w-3.5 text-[#9ca3af] shrink-0" />
+              <p className="text-[12px] text-[#6b7280]">{scheduleLabel}</p>
+            </div>
+          )}
           <div className="flex items-start gap-2.5 p-3 bg-[#f3f4f6] rounded-xl">
             <Info className="h-3.5 w-3.5 text-[#9ca3af] mt-0.5 shrink-0" />
             <p className="text-[11px] text-[#6b7280] leading-relaxed">
@@ -3593,6 +3684,8 @@ interface PayoutsClientProps {
     availableBalance: number;
     paidOut?: number;
     exchangeRate?: number | null;
+    payoutScheduleInterval?: string | null;
+    payoutScheduleDelay?: number | null;
   };
   initialOrders?: OrderPayment[];
 }
@@ -3621,6 +3714,12 @@ export function PayoutsClient({
     initialData.pendingAmount,
   );
   const [openMenuOrderId, setOpenMenuOrderId] = useState<string | null>(null);
+  const [payoutScheduleInterval, setPayoutScheduleInterval] = useState<string | null>(
+    initialData.payoutScheduleInterval ?? null,
+  );
+  const [payoutScheduleDelay, setPayoutScheduleDelay] = useState<number | null>(
+    initialData.payoutScheduleDelay ?? null,
+  );
 
   const sourceCurrency = (creator.default_currency || "usd").toLowerCase();
   const currency = "usd";
@@ -3635,6 +3734,9 @@ export function PayoutsClient({
       const json = await r.json();
       // Update exchange rate from Stripe's balance transactions if provided
       if (json.exchangeRate) setStripeExchangeRate(json.exchangeRate);
+      // Update payout schedule from Stripe account settings
+      if (json.payoutScheduleInterval !== undefined) setPayoutScheduleInterval(json.payoutScheduleInterval);
+      if (json.payoutScheduleDelay !== undefined) setPayoutScheduleDelay(json.payoutScheduleDelay);
       if (json.balance) {
         const byCurrency = new Map<
           string,
@@ -3785,6 +3887,8 @@ export function PayoutsClient({
                 refreshBalances();
                 setRecentTab("payouts");
               }}
+              payoutScheduleInterval={payoutScheduleInterval}
+              payoutScheduleDelay={payoutScheduleDelay}
             />
           </div>
         </div>
