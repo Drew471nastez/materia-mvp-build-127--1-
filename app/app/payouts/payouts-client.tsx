@@ -3367,7 +3367,7 @@ function PayoutMethodCard() {
   const [actionLoading, setActionLoading] = useState(false);
   const { toast } = useToast();
 
-  useEffect(() => {
+  const loadData = useCallback(() => {
     fetch("/api/stripe/payout-method")
       .then((r) => r.json())
       .then((json) => setData(json))
@@ -3375,7 +3375,20 @@ function PayoutMethodCard() {
       .finally(() => setLoading(false));
   }, []);
 
-  const openStripe = async () => {
+  // Initial load + auto-refresh on window focus (catches bank updates from Stripe hosted form)
+  useEffect(() => {
+    loadData();
+    const onFocus = () => loadData();
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") loadData();
+    });
+    return () => {
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [loadData]);
+
+  const openManageSettings = async () => {
     setActionLoading(true);
     try {
       const r = await fetch("/api/stripe/account-link", {
@@ -3401,86 +3414,119 @@ function PayoutMethodCard() {
   };
 
   const bank = data?.bankAccount;
+  const needsVerification = data && !data.payoutsEnabled;
+  const needsBank = data && !bank;
 
   return (
-    <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] px-5 py-4">
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-        {/* Left: icon + info */}
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          <div className="w-9 h-9 rounded-xl bg-[#f5f3ff] flex items-center justify-center shrink-0">
-            <Building2 className="h-4 w-4 text-[#8b5cf6]" />
+    <div className="space-y-2">
+      {/* Action required banners */}
+      {!loading && needsVerification && !needsBank && (
+        <div className="flex items-center gap-3 px-4 py-3 bg-[#f8f8f9] border border-[#e8e8ec] rounded-xl">
+          <div className="w-7 h-7 rounded-lg bg-[#fef3c7] flex items-center justify-center shrink-0">
+            <AlertCircle className="h-3.5 w-3.5 text-[#d97706]" />
           </div>
-          <div className="min-w-0">
-            <p className="text-[12px] font-medium text-[#9ca3af] mb-0.5">
-              Payout account
-            </p>
-            {loading ? (
-              <div className="flex items-center gap-2">
-                <div className="h-3.5 w-32 bg-gray-100 rounded animate-pulse" />
-                <div className="h-3.5 w-16 bg-gray-100 rounded animate-pulse" />
-              </div>
-            ) : bank ? (
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                <span className="text-[14px] font-semibold text-[#1a1a2e]">
-                  {bank.bankName || "Bank account"}{" "}
-                  <span className="font-normal text-[#9ca3af]">
-                    ••••{bank.last4}
-                  </span>
-                </span>
-                <span className="text-[#d1d5db] hidden sm:inline">·</span>
-                <span className="text-[13px] text-[#6b7280] uppercase font-medium">
-                  {bank.currency}
-                </span>
-                <span className="text-[#d1d5db] hidden sm:inline">·</span>
-                <span className="text-[13px] text-[#6b7280]">
-                  {payoutSpeedLabel(data?.payoutSchedule ?? null)}
-                </span>
-                {bank.status && bank.status !== "new" && (
-                  <>
-                    <span className="text-[#d1d5db] hidden sm:inline">·</span>
-                    <span
-                      className={cn(
-                        "text-[12px] font-medium capitalize",
-                        bank.status === "verified"
-                          ? "text-green-600"
-                          : "text-amber-600",
-                      )}
-                    >
-                      {bank.status}
-                    </span>
-                  </>
-                )}
-              </div>
-            ) : (
-              <p className="text-[13px] text-amber-600 font-medium">
-                No bank account connected
-              </p>
-            )}
-          </div>
+          <p className="text-[13px] text-[#4b5563] flex-1">
+            Complete verification to receive payouts
+          </p>
+          <button
+            onClick={openManageSettings}
+            disabled={actionLoading}
+            className="text-[12px] font-medium text-[#8b5cf6] hover:text-[#7c3aed] transition-colors whitespace-nowrap shrink-0"
+          >
+            {actionLoading ? "Opening..." : "Complete setup"}
+          </button>
         </div>
+      )}
+      {!loading && needsBank && (
+        <div className="flex items-center gap-3 px-4 py-3 bg-[#f8f8f9] border border-[#e8e8ec] rounded-xl">
+          <div className="w-7 h-7 rounded-lg bg-[#fef3c7] flex items-center justify-center shrink-0">
+            <Building2 className="h-3.5 w-3.5 text-[#d97706]" />
+          </div>
+          <p className="text-[13px] text-[#4b5563] flex-1">
+            Add a bank account to cash out
+          </p>
+          <button
+            onClick={openManageSettings}
+            disabled={actionLoading}
+            className="text-[12px] font-medium text-[#8b5cf6] hover:text-[#7c3aed] transition-colors whitespace-nowrap shrink-0"
+          >
+            {actionLoading ? "Opening..." : "Add bank"}
+          </button>
+        </div>
+      )}
 
-        {/* Right: compact action buttons */}
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={openStripe}
-            disabled={actionLoading}
-            className="flex items-center gap-1.5 px-3.5 py-2 text-[12px] font-medium text-white bg-[#8b5cf6] rounded-lg hover:bg-[#7c3aed] transition-colors disabled:opacity-60 whitespace-nowrap"
-          >
-            {actionLoading ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <ExternalLink className="h-3.5 w-3.5" />
-            )}
-            Update bank
-          </button>
-          <button
-            onClick={openStripe}
-            disabled={actionLoading}
-            className="flex items-center gap-1.5 px-3.5 py-2 text-[12px] font-medium text-[#374151] bg-[#f3f4f6] rounded-lg hover:bg-[#e5e7eb] transition-colors disabled:opacity-60 whitespace-nowrap"
-          >
-            <ExternalLink className="h-3.5 w-3.5" />
-            Stripe dashboard
-          </button>
+      {/* Payout account card */}
+      <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] px-5 py-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          {/* Left: icon + info */}
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-[#f5f3ff] flex items-center justify-center shrink-0">
+              <Building2 className="h-4 w-4 text-[#8b5cf6]" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[12px] font-medium text-[#9ca3af] mb-0.5">
+                Payout account
+              </p>
+              {loading ? (
+                <div className="flex items-center gap-2">
+                  <div className="h-3.5 w-32 bg-gray-100 rounded animate-pulse" />
+                  <div className="h-3.5 w-16 bg-gray-100 rounded animate-pulse" />
+                </div>
+              ) : bank ? (
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                  <span className="text-[14px] font-semibold text-[#1a1a2e]">
+                    {bank.bankName || "Bank account"}{" "}
+                    <span className="font-normal text-[#9ca3af]">
+                      ••••{bank.last4}
+                    </span>
+                  </span>
+                  <span className="text-[#d1d5db] hidden sm:inline">·</span>
+                  <span className="text-[13px] text-[#6b7280] uppercase font-medium">
+                    {bank.currency}
+                  </span>
+                  <span className="text-[#d1d5db] hidden sm:inline">·</span>
+                  <span className="text-[13px] text-[#6b7280]">
+                    {payoutSpeedLabel(data?.payoutSchedule ?? null)}
+                  </span>
+                  {bank.status && bank.status !== "new" && (
+                    <>
+                      <span className="text-[#d1d5db] hidden sm:inline">·</span>
+                      <span
+                        className={cn(
+                          "text-[12px] font-medium capitalize",
+                          bank.status === "verified"
+                            ? "text-green-600"
+                            : "text-amber-600",
+                        )}
+                      >
+                        {bank.status}
+                      </span>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <p className="text-[13px] text-[#6b7280]">
+                  No bank account connected
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Right: Manage settings button */}
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={openManageSettings}
+              disabled={actionLoading}
+              className="flex items-center gap-1.5 px-3.5 py-2 text-[12px] font-medium text-[#374151] bg-[#f3f4f6] border border-[#e5e7eb] rounded-lg hover:bg-[#e5e7eb] transition-colors disabled:opacity-60 whitespace-nowrap"
+            >
+              {actionLoading ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <ExternalLink className="h-3.5 w-3.5" />
+              )}
+              Manage settings
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/tooltip"
 import {
   X, Check, Loader2, AlertCircle, Mail, Lock,
-  CreditCard, Store, Shield, Settings, Wallet,
+  CreditCard, Store, Shield, Settings, Wallet, Landmark,
   Camera, ExternalLink, ChevronRight, Globe,
   User, Palette, Link2, FileText, Search, ChevronLeft, Upload, Pencil,
   ToggleLeft, LogOut, Trash2, Languages, Info, ChevronDown, CheckCircle, Clock, Copy, Plus
@@ -859,6 +859,8 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   const [stripeStatusLoading, setStripeStatusLoading] = useState(false)
   const [stripeBusy, setStripeBusy] = useState<"connect" | "disconnect" | null>(null)
   const [showStripeManage, setShowStripeManage] = useState(false)
+  const [stripeBankInfo, setStripeBankInfo] = useState<{ bankName: string | null; last4: string; currency: string; status: string | null } | null>(null)
+  const [stripeBankLoading, setStripeBankLoading] = useState(false)
 
   const [activeTab, setActiveTab] = useState<TabId>(initialTab)
   const tabNavRef = useRef<HTMLDivElement>(null)
@@ -969,9 +971,33 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     }
   }, [])
 
+  const loadStripeBankInfo = useCallback(async () => {
+    setStripeBankLoading(true)
+    try {
+      const res = await fetch("/api/stripe/payout-method")
+      const data = await res.json()
+      if (res.ok && data.bankAccount) setStripeBankInfo(data.bankAccount)
+      else setStripeBankInfo(null)
+    } catch {
+      setStripeBankInfo(null)
+    } finally {
+      setStripeBankLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     if (activeTab === "payments" || activeTab === "general") loadStripeStatus()
-  }, [activeTab, loadStripeStatus])
+    if (activeTab === "payments") loadStripeBankInfo()
+  }, [activeTab, loadStripeStatus, loadStripeBankInfo])
+
+  // Auto-refresh bank info on window focus (catches updates from Stripe hosted form)
+  useEffect(() => {
+    const onFocus = () => {
+      if (activeTab === "payments") loadStripeBankInfo()
+    }
+    window.addEventListener("focus", onFocus)
+    return () => window.removeEventListener("focus", onFocus)
+  }, [activeTab, loadStripeBankInfo])
 
   // Fetch domains - defined here (before the URL params useEffect) to avoid TDZ in production builds
   const fetchDomains = useCallback(async () => {
@@ -2559,6 +2585,26 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   )}
                 </div>
               )}
+              {/* Action required banners */}
+              {stripeStatus.connected && !stripeStatus.payoutsEnabled && !stripeBankLoading && (
+                <div className="flex items-center gap-3 px-4 py-3 bg-[#f8f8f9] border border-[#e8e8ec] rounded-xl">
+                  <div className="w-7 h-7 rounded-lg bg-[#fef3c7] flex items-center justify-center shrink-0">
+                    <AlertCircle className="h-3.5 w-3.5 text-[#d97706]" />
+                  </div>
+                  <p className="text-[13px] text-[#4b5563] flex-1">Complete verification to receive payouts</p>
+                  <button type="button" onClick={manageStripe} disabled={stripeBusy !== null} className="text-[12px] font-medium text-[#8b5cf6] hover:text-[#7c3aed] transition-colors whitespace-nowrap shrink-0 cursor-pointer">{stripeBusy ? "Opening..." : "Complete setup"}</button>
+                </div>
+              )}
+              {stripeStatus.connected && !stripeBankLoading && !stripeBankInfo && (
+                <div className="flex items-center gap-3 px-4 py-3 bg-[#f8f8f9] border border-[#e8e8ec] rounded-xl">
+                  <div className="w-7 h-7 rounded-lg bg-[#fef3c7] flex items-center justify-center shrink-0">
+                    <Landmark className="h-3.5 w-3.5 text-[#d97706]" />
+                  </div>
+                  <p className="text-[13px] text-[#4b5563] flex-1">Add a bank account to cash out</p>
+                  <button type="button" onClick={manageStripe} disabled={stripeBusy !== null} className="text-[12px] font-medium text-[#8b5cf6] hover:text-[#7c3aed] transition-colors whitespace-nowrap shrink-0 cursor-pointer">{stripeBusy ? "Opening..." : "Add bank"}</button>
+                </div>
+              )}
+
               {/* Stripe Card */}
               <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
                 <div className="flex items-center justify-between gap-3">
@@ -2590,14 +2636,31 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               <div className={`grid transition-all duration-300 ease-in-out ${showStripeManage ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
                 <div className="overflow-hidden">
                   <div className="-mt-2 rounded-2xl border border-[#e5e7eb] bg-[#fafafa] p-4 sm:p-5">
-                    <p className="text-[13px] text-[#6b7280] mb-3">Manage Stripe account connection and capabilities.</p>
+                    {/* Bank account info */}
+                    {stripeBankLoading ? (
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="h-4 w-32 bg-gray-100 rounded animate-pulse" />
+                        <div className="h-4 w-16 bg-gray-100 rounded animate-pulse" />
+                      </div>
+                    ) : stripeBankInfo ? (
+                      <div className="flex items-center gap-2 mb-3 flex-wrap">
+                        <Landmark className="h-3.5 w-3.5 text-[#6b7280] shrink-0" />
+                        <span className="text-[13px] font-medium text-[#1a1a2e]">{stripeBankInfo.bankName || "Bank account"} ••••{stripeBankInfo.last4}</span>
+                        <span className="text-[11px] text-[#6b7280] uppercase">{stripeBankInfo.currency}</span>
+                        {stripeBankInfo.status && stripeBankInfo.status !== "new" && (
+                          <span className={`text-[11px] font-medium capitalize ${stripeBankInfo.status === "verified" ? "text-green-600" : "text-amber-600"}`}>{stripeBankInfo.status}</span>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-[13px] text-[#6b7280] mb-3">No bank account connected yet.</p>
+                    )}
                     <div className="flex flex-wrap gap-2 mb-3">
                       <span className="px-2 py-1 rounded-full border text-[11px] bg-white">Charges: {stripeStatus.chargesEnabled ? "Enabled" : "Pending"}</span>
                       <span className="px-2 py-1 rounded-full border text-[11px] bg-white">Payouts: {stripeStatus.payoutsEnabled ? "Enabled" : "Pending"}</span>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <button type="button" onClick={connectStripe} disabled={stripeBusy !== null} className="h-9 px-3 rounded-lg bg-[#8b5cf6] text-white text-[13px] hover:bg-[#7c3aed] disabled:opacity-60 cursor-pointer">{stripeBusy === "connect" ? "Connecting..." : stripeStatus.connected ? "Reconnect Stripe" : "Connect Stripe"}</button>
-                      <button type="button" onClick={manageStripe} disabled={stripeBusy !== null || !stripeStatus.connected} className="h-9 px-3 rounded-lg border border-[#e5e7eb] text-[13px] text-[#374151] hover:bg-[#f3f4f6] disabled:opacity-60 cursor-pointer">Manage</button>
+                      <button type="button" onClick={manageStripe} disabled={stripeBusy !== null || !stripeStatus.connected} className="h-9 px-3 rounded-lg border border-[#e5e7eb] bg-white text-[13px] text-[#374151] hover:bg-[#f3f4f6] disabled:opacity-60 cursor-pointer flex items-center gap-1.5"><ExternalLink className="h-3 w-3" /> Manage settings</button>
+                      <button type="button" onClick={connectStripe} disabled={stripeBusy !== null} className="h-9 px-3 rounded-lg border border-[#e5e7eb] text-[13px] text-[#374151] hover:bg-[#f3f4f6] disabled:opacity-60 cursor-pointer">{stripeBusy === "connect" ? "Connecting..." : "Reconnect"}</button>
                       <button type="button" onClick={disconnectStripe} disabled={stripeBusy !== null || !stripeStatus.connected} className="h-9 px-3 rounded-lg border border-[#e5e7eb] text-[13px] text-[#374151] hover:bg-[#f3f4f6] disabled:opacity-60 cursor-pointer">{stripeBusy === "disconnect" ? "Disconnecting..." : "Disconnect"}</button>
                     </div>
                   </div>
