@@ -63,7 +63,7 @@ export async function GET() {
         { stripeAccount: stripeAccountId }
       ).catch(() => null),
       stripe.balanceTransactions.list(
-        { limit: 5 },
+        { limit: 25 },
         { stripeAccount: stripeAccountId }
       ).catch(() => ({ data: [] })),
     ])

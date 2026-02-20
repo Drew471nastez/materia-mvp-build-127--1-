@@ -3623,7 +3623,9 @@ export function PayoutsClient({
   const [openMenuOrderId, setOpenMenuOrderId] = useState<string | null>(null);
 
   const sourceCurrency = (creator.default_currency || "usd").toLowerCase();
-  const currency = "usd";
+  const hasValidRate = sourceCurrency === "usd" || (stripeExchangeRate !== 1 && stripeExchangeRate > 0);
+  // Show USD when we can convert, otherwise show in native currency so numbers are accurate
+  const currency = hasValidRate ? "usd" : sourceCurrency;
   const hasStripe = !!creator.stripe_account_id;
   const payoutsEnabled = creator.payouts_enabled !== false;
 

@@ -103,7 +103,7 @@ export default async function PayoutsPage() {
         stripe.balance.retrieve({}, { stripeAccount: creator.stripe_account_id }),
         stripe.accounts.retrieve(creator.stripe_account_id),
         stripe.balanceTransactions.list(
-          { limit: 10 },
+          { limit: 25 },
           { stripeAccount: creator.stripe_account_id },
         ),
       ]);
@@ -151,10 +151,12 @@ export default async function PayoutsPage() {
       }
     } catch (err) {
       console.error("[Payouts] Failed to fetch Stripe balances:", err);
-      stripePendingBalance = Math.round(orderPendingUsd * (stripeExchangeRate || 1));
+      // Fallback: use USD order amounts when Stripe API fails
+      stripePendingBalance = orderPendingUsd;
     }
   } else {
-    stripePendingBalance = Math.round(orderPendingUsd * (stripeExchangeRate || 1));
+    // No Stripe: use USD order amounts directly
+    stripePendingBalance = orderPendingUsd;
   }
 
   if (
@@ -167,9 +169,8 @@ export default async function PayoutsPage() {
     }
   }
 
-  if (detectedCurrency !== "usd" && orderPendingUsd > 0) {
-    stripePendingBalance = Math.round(orderPendingUsd * (stripeExchangeRate || 1));
-  }
+  // Don't overwrite Stripe's balance — pass the raw native currency value
+  // and let the client convert via toUsd() using the exchange rate.
 
   // Net earnings = what seller keeps after all fees (Stripe + platform)
   const netEarnings = orderNetUsd;
