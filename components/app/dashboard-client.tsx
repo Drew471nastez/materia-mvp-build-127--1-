@@ -1633,29 +1633,13 @@ export function DashboardClient({
               }`}
               onClick={() => { setOpenKPIModal("views"); setChartExpanded(true) }}
             >
-              {openKPIModal === "views" && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#d1d5db]" />}
+              {openKPIModal === "views" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
               <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "views" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("dashboard.views")}</span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
                 <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.periodViews)}</span>
                 <PercentChangeIndicator current={analyticsData.periodViews} previous={analyticsData.prevPeriodViews} />
               </div>
               <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.totalViews)} {t("dashboard.allTime")}</p>
-            </button>
-
-            {/* Orders */}
-            <button
-              className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
-                openKPIModal === "orders" ? "bg-[#f9fafb]" : "hover:bg-[#fafafa]"
-              }`}
-              onClick={() => { setOpenKPIModal("orders"); setChartExpanded(true) }}
-            >
-              {openKPIModal === "orders" && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#d1d5db]" />}
-              <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "orders" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("dashboard.orders")}</span>
-              <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.periodOrders)}</span>
-                <PercentChangeIndicator current={analyticsData.periodOrders} previous={analyticsData.prevPeriodOrders} />
-              </div>
-              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.totalOrders)} {t("dashboard.allTime")}</p>
             </button>
 
             {/* Revenue */}
@@ -1665,13 +1649,29 @@ export function DashboardClient({
               }`}
               onClick={() => { setOpenKPIModal("revenue"); setChartExpanded(true) }}
             >
-              {openKPIModal === "revenue" && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#d1d5db]" />}
+              {openKPIModal === "revenue" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
               <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "revenue" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("dashboard.revenue")}</span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
                 <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{formatCurrency(analyticsData.periodRevenue)}</span>
                 <PercentChangeIndicator current={analyticsData.periodRevenue} previous={analyticsData.prevPeriodRevenue} />
               </div>
               <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCurrency(analyticsData.totalRevenue)} {t("dashboard.allTime")}</p>
+            </button>
+
+            {/* Orders */}
+            <button
+              className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
+                openKPIModal === "orders" ? "bg-[#f9fafb]" : "hover:bg-[#fafafa]"
+              }`}
+              onClick={() => { setOpenKPIModal("orders"); setChartExpanded(true) }}
+            >
+              {openKPIModal === "orders" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
+              <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "orders" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("dashboard.orders")}</span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.periodOrders)}</span>
+                <PercentChangeIndicator current={analyticsData.periodOrders} previous={analyticsData.prevPeriodOrders} />
+              </div>
+              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.totalOrders)} {t("dashboard.allTime")}</p>
             </button>
 
             {/* Conversion Rate - clickable */}
@@ -1681,7 +1681,7 @@ export function DashboardClient({
               }`}
               onClick={() => { setOpenKPIModal("conversion"); setChartExpanded(true) }}
             >
-              {openKPIModal === "conversion" && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#d1d5db]" />}
+              {openKPIModal === "conversion" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
               <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "conversion" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("dashboard.conversionRate")}</span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
                 <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{analyticsData.conversionRate.toFixed(2)}%</span>
@@ -1707,7 +1707,7 @@ export function DashboardClient({
           </div>
 
           {/* Shared Chart Area - smooth line chart, toggleable */}
-          <div className={`overflow-hidden transition-all duration-300 ease-out ${chartExpanded && openKPIModal ? "max-h-[300px] opacity-100" : "max-h-0 opacity-0"}`}>
+          <div className={`overflow-hidden transition-all duration-500 ease-out ${chartExpanded && openKPIModal ? "max-h-[300px] opacity-100" : "max-h-0 opacity-0"}`}>
             <div className="border-t border-[#e5e7eb]/60 px-2 py-3 sm:px-4 sm:py-4">
               {isChartLoading && chartData.length === 0 ? (
                 <div className="h-[200px] flex items-end gap-1.5 px-6 pb-6 pt-4">
@@ -1720,7 +1720,7 @@ export function DashboardClient({
                   ))}
                 </div>
               ) : (
-                <div className={`transition-opacity duration-300 ${isChartLoading ? "opacity-50" : "opacity-100"}`}>
+                <div className={`transition-opacity duration-500 ease-out ${isChartLoading ? "opacity-40" : "opacity-100"}`}>
                   <ResponsiveContainer width="100%" height={200}>
                     <AreaChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
                       <defs>
@@ -1770,7 +1770,8 @@ export function DashboardClient({
                         fill="url(#kpiGrad)"
                         dot={false}
                         activeDot={{ r: 4, fill: "#8b5cf6", strokeWidth: 0 }}
-                        animationDuration={600}
+                        animationDuration={800}
+                        animationEasing="ease-in-out"
                         animationBegin={0}
                       />
                     </AreaChart>

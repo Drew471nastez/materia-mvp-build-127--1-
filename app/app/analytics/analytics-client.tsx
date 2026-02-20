@@ -217,8 +217,8 @@ interface ChartDataPoint {
 
 type AnalyticsMode = "store" | "onepage"
 type KPIType = "views" | "orders" | "revenue" | "conversion" | "clicks" | "subscribers" | "ctr" | null
-type ChartMetricFilter = "all" | "views" | "orders" | "revenue"
-type OnePageChartFilter = "all" | "views" | "clicks" | "subscribers"
+type ChartMetricFilter = "all" | "views" | "orders" | "revenue" | "conversion"
+type OnePageChartFilter = "all" | "views" | "clicks" | "subscribers" | "ctr"
 
 type TimeframeOption = {
   value: string
@@ -1915,10 +1915,35 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
 
   const getBrowserIcon = (browser: string) => {
     switch (browser.toLowerCase()) {
-      case "chrome": return <Globe className="h-4 w-4 text-[#4285F4]" />
-      case "safari": return <Globe className="h-4 w-4 text-[#006CFF]" />
-      case "firefox": return <Globe className="h-4 w-4 text-[#FF7139]" />
-      case "edge": return <Globe className="h-4 w-4 text-[#0078D7]" />
+      case "chrome": return (
+        <svg viewBox="0 0 48 48" className="h-4 w-4" fill="none">
+          <path d="M5.8 8.4C17-4.6 37.6-2 45.4 13.1H26.8c-3.4 0-5.5-.1-7.9 1.2a12 12 0 0 0-5.5 7.3L5.8 8.4Z" fill="#EA4335"/>
+          <circle cx="24" cy="24" r="8" fill="#4285F4"/>
+          <path d="M27.1 34.4c-4.5 1.3-9.7-.1-12.6-5.1L3.9 10.9C-5.3 25 2.6 44.3 19.3 47.5l7.8-13.1Z" fill="#34A853"/>
+          <path d="M31.4 16c3.7 3.5 4.5 9.1 2 13.5l-11 18.5c17.2 1 29.8-15.9 24.2-32H31.4Z" fill="#FBBC05"/>
+        </svg>
+      )
+      case "safari": return (
+        <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none">
+          <circle cx="8" cy="8" r="7.5" fill="url(#safGrad)"/>
+          <path d="M5 11l2-5 5-2-2 5-5 2Z" fill="#fff" stroke="#C62F2A" strokeWidth=".3"/>
+          <path d="M7 9l3-1-2-2v3Z" fill="#C62F2A"/>
+          <defs><linearGradient id="safGrad" x1="0" y1="0" x2="0" y2="16"><stop stopColor="#5AC8FA"/><stop offset="1" stopColor="#1C8EEB"/></linearGradient></defs>
+        </svg>
+      )
+      case "firefox": return (
+        <svg viewBox="0 0 32 32" className="h-4 w-4" fill="none">
+          <path d="M29 10.7c-.6-1.5-1.8-3-2.8-3.5.8 1.5 1.3 3.1 1.4 4.2C25.6 5.5 21 4.3 19.5 2l-.5-.7c-.1-.1-.1-.2-.2-.3 0 0 0 0 0 0C14.4 4 13.5 7.5 13.5 9.2a8 8 0 0 0-4.5 3l-.2-.2C8.5 10.3 8.5 8.7 9 7.2 7.8 7.8 7 8.6 6.3 9.3c-.6.6-.8.7-1.3 1.4-.6.9-1.1 2-1.5 3.1v.2c0 .1-.1.6-.1.7A14 14 0 1 0 29 10.7Z" fill="url(#ffGrad)"/>
+          <defs><linearGradient id="ffGrad" x1="27" y1="5.5" x2="4" y2="28"><stop offset=".05" stopColor="#FFF44F"/><stop offset=".37" stopColor="#FF980E"/><stop offset=".53" stopColor="#FF3647"/><stop offset=".7" stopColor="#E31587"/></linearGradient></defs>
+        </svg>
+      )
+      case "edge": return (
+        <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none">
+          <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1Z" fill="url(#edgeGrad)"/>
+          <path d="M4 9.5c0-2 1.5-3.5 4-3.5s4 1.8 4 3.5c0 2.3-2.2 4-4.5 4C4.8 13.5 2 11.5 2 8a6 6 0 0 1 6-6c2 0 3.5.8 4.3 1.5" stroke="#fff" strokeWidth="1.2" fill="none" strokeLinecap="round"/>
+          <defs><linearGradient id="edgeGrad" x1="0" y1="0" x2="16" y2="16"><stop stopColor="#0078D4"/><stop offset="1" stopColor="#1AB6A5"/></linearGradient></defs>
+        </svg>
+      )
       default: return <Globe className="h-4 w-4 text-[#6b7280]" />
     }
   }
@@ -1928,6 +1953,13 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
   const totalClicksInChart = analyticsMode === "onepage" ? onePageMetrics.clicks : trendData.reduce((sum, d) => sum + (d.clicks || 0), 0)
   const totalOrdersInChart = summary.totalOrders
   const totalRevenueInChart = summary.totalRevenue
+
+  // Compute chart data with conversion rate and CTR added
+  const chartDisplayData = trendData.map(d => ({
+    ...d,
+    conversion: d.views > 0 ? Number(((d.sales / d.views) * 100).toFixed(2)) : 0,
+    ctr: d.views > 0 && d.clicks ? Number(((d.clicks / d.views) * 100).toFixed(2)) : 0,
+  }))
 
   // KPI Modal Chart component (matching Dashboard UI exactly)
   const KPIModalChart = ({ kpiType, label }: { kpiType: KPIType; label: string }) => {
@@ -2164,28 +2196,13 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   }`}
                   onClick={() => setChartMetricFilter("views")}
                 >
-                  {chartMetricFilter === "views" && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#d1d5db]" />}
+                  {chartMetricFilter === "views" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
                   <span className={`text-[11px] sm:text-[12px] font-medium ${chartMetricFilter === "views" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("analytics.totalViews")}</span>
                   <div className="flex items-baseline gap-1.5 mt-0.5">
                     <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(summary.totalViews)}</span>
                     {!isLoading && <PercentChangeIndicator current={summary.totalViews} previous={summary.prevPeriodViews} />}
                   </div>
                   <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(summary.allTimeViews)} {t("dashboard.allTime")}</p>
-                </button>
-                {/* Orders */}
-                <button
-                  className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
-                    chartMetricFilter === "orders" ? "bg-[#f9fafb]" : "hover:bg-[#fafafa]"
-                  }`}
-                  onClick={() => setChartMetricFilter("orders")}
-                >
-                  {chartMetricFilter === "orders" && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#d1d5db]" />}
-                  <span className={`text-[11px] sm:text-[12px] font-medium ${chartMetricFilter === "orders" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("analytics.totalOrders")}</span>
-                  <div className="flex items-baseline gap-1.5 mt-0.5">
-                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(summary.totalOrders)}</span>
-                    {!isLoading && <PercentChangeIndicator current={summary.totalOrders} previous={summary.prevPeriodOrders} />}
-                  </div>
-                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(summary.allTimeOrders)} {t("dashboard.allTime")}</p>
                 </button>
                 {/* Revenue */}
                 <button
@@ -2194,7 +2211,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   }`}
                   onClick={() => setChartMetricFilter("revenue")}
                 >
-                  {chartMetricFilter === "revenue" && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#d1d5db]" />}
+                  {chartMetricFilter === "revenue" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
                   <span className={`text-[11px] sm:text-[12px] font-medium ${chartMetricFilter === "revenue" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("analytics.totalRevenue")}</span>
                   <div className="flex items-baseline gap-1.5 mt-0.5">
                     <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{formatPrice(summary.totalRevenue)}</span>
@@ -2202,14 +2219,35 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   </div>
                   <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatPrice(summary.allTimeRevenue)} {t("dashboard.allTime")}</p>
                 </button>
+                {/* Orders */}
+                <button
+                  className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
+                    chartMetricFilter === "orders" ? "bg-[#f9fafb]" : "hover:bg-[#fafafa]"
+                  }`}
+                  onClick={() => setChartMetricFilter("orders")}
+                >
+                  {chartMetricFilter === "orders" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
+                  <span className={`text-[11px] sm:text-[12px] font-medium ${chartMetricFilter === "orders" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("analytics.totalOrders")}</span>
+                  <div className="flex items-baseline gap-1.5 mt-0.5">
+                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(summary.totalOrders)}</span>
+                    {!isLoading && <PercentChangeIndicator current={summary.totalOrders} previous={summary.prevPeriodOrders} />}
+                  </div>
+                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(summary.allTimeOrders)} {t("dashboard.allTime")}</p>
+                </button>
                 {/* Conversion */}
-                <div className="text-left px-3 py-3 sm:px-4 sm:py-3.5 flex-shrink-0 min-w-[130px] md:min-w-0">
-                  <span className="text-[11px] sm:text-[12px] font-medium text-[#6b7280]">{t("analytics.conversionRate")}</span>
+                <button
+                  className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
+                    chartMetricFilter === "conversion" ? "bg-[#f9fafb]" : "hover:bg-[#fafafa]"
+                  }`}
+                  onClick={() => setChartMetricFilter("conversion")}
+                >
+                  {chartMetricFilter === "conversion" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
+                  <span className={`text-[11px] sm:text-[12px] font-medium ${chartMetricFilter === "conversion" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("analytics.conversionRate")}</span>
                   <div className="flex items-baseline gap-1.5 mt-0.5">
                     <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{summary.conversionRate.toFixed(1)}%</span>
                   </div>
                   <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{t("dashboard.viewsToOrders")}</p>
-                </div>
+                </button>
               </>
             ) : (
               <>
@@ -2220,7 +2258,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   }`}
                   onClick={() => setOnePageChartFilter("views")}
                 >
-                  {onePageChartFilter === "views" && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#d1d5db]" />}
+                  {onePageChartFilter === "views" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
                   <span className={`text-[11px] sm:text-[12px] font-medium ${onePageChartFilter === "views" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("dashboard.views")}</span>
                   <div className="flex items-baseline gap-1.5 mt-0.5">
                     <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.views)}</span>
@@ -2235,7 +2273,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   }`}
                   onClick={() => setOnePageChartFilter("clicks")}
                 >
-                  {onePageChartFilter === "clicks" && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#d1d5db]" />}
+                  {onePageChartFilter === "clicks" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
                   <span className={`text-[11px] sm:text-[12px] font-medium ${onePageChartFilter === "clicks" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("analytics.clicks")}</span>
                   <div className="flex items-baseline gap-1.5 mt-0.5">
                     <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.clicks)}</span>
@@ -2244,22 +2282,34 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.allTimeClicks)} {t("dashboard.allTime")}</p>
                 </button>
                 {/* Subscribers */}
-                <div className="text-left px-3 py-3 sm:px-4 sm:py-3.5 flex-shrink-0 min-w-[130px] md:min-w-0">
-                  <span className="text-[11px] sm:text-[12px] font-medium text-[#6b7280]">{t("analytics.subscribers")}</span>
+                <button
+                  className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
+                    onePageChartFilter === "subscribers" ? "bg-[#f9fafb]" : "hover:bg-[#fafafa]"
+                  }`}
+                  onClick={() => setOnePageChartFilter("subscribers")}
+                >
+                  {onePageChartFilter === "subscribers" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
+                  <span className={`text-[11px] sm:text-[12px] font-medium ${onePageChartFilter === "subscribers" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("analytics.subscribers")}</span>
                   <div className="flex items-baseline gap-1.5 mt-0.5">
                     <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.subscribers)}</span>
                     {!isLoading && <PercentChangeIndicator current={onePageMetrics.subscribers} previous={onePageMetrics.prevSubscribers} />}
                   </div>
                   <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.allTimeSubscribers)} {t("dashboard.allTime")}</p>
-                </div>
+                </button>
                 {/* CTR */}
-                <div className="text-left px-3 py-3 sm:px-4 sm:py-3.5 flex-shrink-0 min-w-[130px] md:min-w-0">
-                  <span className="text-[11px] sm:text-[12px] font-medium text-[#6b7280]">CTR</span>
+                <button
+                  className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
+                    onePageChartFilter === "ctr" ? "bg-[#f9fafb]" : "hover:bg-[#fafafa]"
+                  }`}
+                  onClick={() => setOnePageChartFilter("ctr")}
+                >
+                  {onePageChartFilter === "ctr" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
+                  <span className={`text-[11px] sm:text-[12px] font-medium ${onePageChartFilter === "ctr" ? "text-[#374151]" : "text-[#6b7280]"}`}>CTR</span>
                   <div className="flex items-baseline gap-1.5 mt-0.5">
                     <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{onePageMetrics.ctr.toFixed(1)}%</span>
                   </div>
                   <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{t("analytics.clicksToViews")}</p>
-                </div>
+                </button>
               </>
             )}
           </div>
@@ -2277,8 +2327,8 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                 ))}
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height={200}>
-                <AreaChart data={trendData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+              <ResponsiveContainer key={`${analyticsMode}-${analyticsMode === "store" ? chartMetricFilter : onePageChartFilter}`} width="100%" height={200}>
+                <AreaChart data={chartDisplayData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="gradViews" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor={CHART_COLORS.views} stopOpacity={0.15} />
@@ -2292,6 +2342,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                       <stop offset="0%" stopColor={CHART_COLORS.revenue} stopOpacity={0.15} />
                       <stop offset="100%" stopColor={CHART_COLORS.revenue} stopOpacity={0} />
                     </linearGradient>
+                    <linearGradient id="gradConversion" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#10b981" stopOpacity={0.15} />
+                      <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
+                    </linearGradient>
                     <linearGradient id="gradClicks" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor={CHART_COLORS.clicks} stopOpacity={0.15} />
                       <stop offset="100%" stopColor={CHART_COLORS.clicks} stopOpacity={0} />
@@ -2300,40 +2354,53 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                       <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.15} />
                       <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0} />
                     </linearGradient>
+                    <linearGradient id="gradCtr" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.15} />
+                      <stop offset="100%" stopColor="#f59e0b" stopOpacity={0} />
+                    </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
                   <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: "#9ca3af", fontSize: 11 }} interval="preserveStartEnd" />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fill: "#9ca3af", fontSize: 11 }} domain={[0, "auto"]} width={40} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fill: "#9ca3af", fontSize: 11 }} domain={[0, "auto"]} width={40}
+                    tickFormatter={(v) => (chartMetricFilter === "conversion" || onePageChartFilter === "ctr") ? `${v}%` : v.toLocaleString()}
+                  />
                   <Tooltip
                     contentStyle={{ background: "#1a1a2e", border: "none", borderRadius: "8px", fontSize: "12px", color: "#fff", padding: "8px 12px" }}
                     labelStyle={{ color: "#fff", fontSize: "11px", marginBottom: "2px" }}
                     itemStyle={{ color: "#fff" }}
                     formatter={(value: number, name: string) => {
-                      const labels: Record<string, string> = { views: "Views", clicks: "Clicks", sales: "Orders", revenue: "Revenue", subscribers: "Subscribers" }
+                      const labels: Record<string, string> = { views: "Views", clicks: "Clicks", sales: "Orders", revenue: "Revenue", subscribers: "Subscribers", conversion: "Conversion", ctr: "CTR" }
                       if (name === "revenue") return [formatPrice(value), labels[name] || name]
+                      if (name === "conversion" || name === "ctr") return [`${value}%`, labels[name] || name]
                       return [value.toLocaleString(), labels[name] || name]
                     }}
                     cursor={{ stroke: "#e5e7eb", strokeWidth: 1 }}
                   />
                   {/* Store areas */}
                   {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "views") && (
-                    <Area type="monotone" dataKey="views" stroke={CHART_COLORS.views} strokeWidth={2} fill="url(#gradViews)" dot={false} activeDot={{ r: 4, fill: CHART_COLORS.views, strokeWidth: 2, stroke: "#fff" }} name="views" animationDuration={600} />
+                    <Area type="monotone" dataKey="views" stroke={CHART_COLORS.views} strokeWidth={2} fill="url(#gradViews)" dot={false} activeDot={{ r: 4, fill: CHART_COLORS.views, strokeWidth: 2, stroke: "#fff" }} name="views" animationDuration={800} animationEasing="ease-in-out" />
                   )}
                   {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "orders") && (
-                    <Area type="monotone" dataKey="sales" stroke={CHART_COLORS.orders} strokeWidth={2} fill="url(#gradOrders)" dot={false} activeDot={{ r: 4, fill: CHART_COLORS.orders, strokeWidth: 2, stroke: "#fff" }} name="sales" animationDuration={600} />
+                    <Area type="monotone" dataKey="sales" stroke={CHART_COLORS.orders} strokeWidth={2} fill="url(#gradOrders)" dot={false} activeDot={{ r: 4, fill: CHART_COLORS.orders, strokeWidth: 2, stroke: "#fff" }} name="sales" animationDuration={800} animationEasing="ease-in-out" />
                   )}
                   {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "revenue") && (
-                    <Area type="monotone" dataKey="revenue" stroke={CHART_COLORS.revenue} strokeWidth={2} fill="url(#gradRevenue)" dot={false} activeDot={{ r: 4, fill: CHART_COLORS.revenue, strokeWidth: 2, stroke: "#fff" }} name="revenue" animationDuration={600} />
+                    <Area type="monotone" dataKey="revenue" stroke={CHART_COLORS.revenue} strokeWidth={2} fill="url(#gradRevenue)" dot={false} activeDot={{ r: 4, fill: CHART_COLORS.revenue, strokeWidth: 2, stroke: "#fff" }} name="revenue" animationDuration={800} animationEasing="ease-in-out" />
+                  )}
+                  {analyticsMode === "store" && chartMetricFilter === "conversion" && (
+                    <Area type="monotone" dataKey="conversion" stroke="#10b981" strokeWidth={2} fill="url(#gradConversion)" dot={false} activeDot={{ r: 4, fill: "#10b981", strokeWidth: 2, stroke: "#fff" }} name="conversion" animationDuration={800} animationEasing="ease-in-out" />
                   )}
                   {/* OnePage areas */}
                   {analyticsMode === "onepage" && (onePageChartFilter === "all" || onePageChartFilter === "views") && (
-                    <Area type="monotone" dataKey="views" stroke={CHART_COLORS.views} strokeWidth={2} fill="url(#gradViews)" dot={false} activeDot={{ r: 4, fill: CHART_COLORS.views, strokeWidth: 2, stroke: "#fff" }} name="views" connectNulls animationDuration={600} />
+                    <Area type="monotone" dataKey="views" stroke={CHART_COLORS.views} strokeWidth={2} fill="url(#gradViews)" dot={false} activeDot={{ r: 4, fill: CHART_COLORS.views, strokeWidth: 2, stroke: "#fff" }} name="views" connectNulls animationDuration={800} animationEasing="ease-in-out" />
                   )}
                   {analyticsMode === "onepage" && (onePageChartFilter === "all" || onePageChartFilter === "clicks") && (
-                    <Area type="monotone" dataKey="clicks" stroke={CHART_COLORS.clicks} strokeWidth={2} fill="url(#gradClicks)" dot={false} activeDot={{ r: 4, fill: CHART_COLORS.clicks, strokeWidth: 2, stroke: "#fff" }} name="clicks" connectNulls animationDuration={600} />
+                    <Area type="monotone" dataKey="clicks" stroke={CHART_COLORS.clicks} strokeWidth={2} fill="url(#gradClicks)" dot={false} activeDot={{ r: 4, fill: CHART_COLORS.clicks, strokeWidth: 2, stroke: "#fff" }} name="clicks" connectNulls animationDuration={800} animationEasing="ease-in-out" />
                   )}
                   {analyticsMode === "onepage" && (onePageChartFilter === "all" || onePageChartFilter === "subscribers") && (
-                    <Area type="monotone" dataKey="subscribers" stroke="#8b5cf6" strokeWidth={2} fill="url(#gradSubscribers)" dot={false} activeDot={{ r: 4, fill: "#8b5cf6", strokeWidth: 2, stroke: "#fff" }} name="subscribers" connectNulls animationDuration={600} />
+                    <Area type="monotone" dataKey="subscribers" stroke="#8b5cf6" strokeWidth={2} fill="url(#gradSubscribers)" dot={false} activeDot={{ r: 4, fill: "#8b5cf6", strokeWidth: 2, stroke: "#fff" }} name="subscribers" connectNulls animationDuration={800} animationEasing="ease-in-out" />
+                  )}
+                  {analyticsMode === "onepage" && onePageChartFilter === "ctr" && (
+                    <Area type="monotone" dataKey="ctr" stroke="#f59e0b" strokeWidth={2} fill="url(#gradCtr)" dot={false} activeDot={{ r: 4, fill: "#f59e0b", strokeWidth: 2, stroke: "#fff" }} name="ctr" connectNulls animationDuration={800} animationEasing="ease-in-out" />
                   )}
                 </AreaChart>
               </ResponsiveContainer>
@@ -2440,58 +2507,62 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
             <CardContent className="pt-2">
               {isLoading ? (
                 <Skeleton className="h-[200px] w-full" />
-              ) : deviceTabMode === "device" ? (
-                deviceData.length > 0 ? (
-                  <div className="space-y-2">
-                    {deviceData.map((device) => {
-                      const percentage = totalDeviceViews > 0 ? (device.views / totalDeviceViews) * 100 : 0
-                      return (
-                        <div key={device.device} className="flex items-center gap-3 p-3 bg-[#f9fafb] rounded-lg">
-                          <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center shadow-sm">
-                            {getDeviceIcon(device.device)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[13px] font-medium text-[#1a1a2e]">{formatDeviceName(device.device)}</span>
-                              <span className="text-[13px] font-semibold text-[#1a1a2e]">{percentage.toFixed(0)}%</span>
-                            </div>
-                            <p className="text-[11px] text-[#9ca3af]">{device.views.toLocaleString()} views</p>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                ) : (
-                  <div className="h-[200px] flex items-center justify-center">
-                    <p className="text-[#9ca3af] text-[13px]">No device data</p>
-                  </div>
-                )
               ) : (
-                browserData.length > 0 ? (
-                  <div className="space-y-2">
-                    {browserData.map((browser) => {
-                      const percentage = totalBrowserViews > 0 ? (browser.views / totalBrowserViews) * 100 : 0
-                      return (
-                        <div key={browser.browser} className="flex items-center gap-3 p-3 bg-[#f9fafb] rounded-lg">
-                          <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center shadow-sm">
-                            {getBrowserIcon(browser.browser)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[13px] font-medium text-[#1a1a2e]">{browser.browser}</span>
-                              <span className="text-[13px] font-semibold text-[#1a1a2e]">{percentage.toFixed(0)}%</span>
+                <div className="transition-opacity duration-300 ease-out" key={deviceTabMode}>
+                  {deviceTabMode === "device" ? (
+                    deviceData.length > 0 ? (
+                      <div className="space-y-2">
+                        {deviceData.map((device) => {
+                          const percentage = totalDeviceViews > 0 ? (device.views / totalDeviceViews) * 100 : 0
+                          return (
+                            <div key={device.device} className="flex items-center gap-3 p-3 bg-[#f9fafb] rounded-lg">
+                              <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center shadow-sm">
+                                {getDeviceIcon(device.device)}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[13px] font-medium text-[#1a1a2e]">{formatDeviceName(device.device)}</span>
+                                  <span className="text-[13px] font-semibold text-[#1a1a2e]">{percentage.toFixed(0)}%</span>
+                                </div>
+                                <p className="text-[11px] text-[#9ca3af]">{device.views.toLocaleString()} views</p>
+                              </div>
                             </div>
-                            <p className="text-[11px] text-[#9ca3af]">{browser.views.toLocaleString()} views</p>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                ) : (
-                  <div className="h-[200px] flex items-center justify-center">
-                    <p className="text-[#9ca3af] text-[13px]">No browser data</p>
-                  </div>
-                )
+                          )
+                        })}
+                      </div>
+                    ) : (
+                      <div className="h-[200px] flex items-center justify-center">
+                        <p className="text-[#9ca3af] text-[13px]">No device data</p>
+                      </div>
+                    )
+                  ) : (
+                    browserData.length > 0 ? (
+                      <div className="space-y-2">
+                        {browserData.map((browser) => {
+                          const percentage = totalBrowserViews > 0 ? (browser.views / totalBrowserViews) * 100 : 0
+                          return (
+                            <div key={browser.browser} className="flex items-center gap-3 p-3 bg-[#f9fafb] rounded-lg">
+                              <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center shadow-sm">
+                                {getBrowserIcon(browser.browser)}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[13px] font-medium text-[#1a1a2e]">{browser.browser}</span>
+                                  <span className="text-[13px] font-semibold text-[#1a1a2e]">{percentage.toFixed(0)}%</span>
+                                </div>
+                                <p className="text-[11px] text-[#9ca3af]">{browser.views.toLocaleString()} views</p>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    ) : (
+                      <div className="h-[200px] flex items-center justify-center">
+                        <p className="text-[#9ca3af] text-[13px]">No browser data</p>
+                      </div>
+                    )
+                  )}
+                </div>
               )}
             </CardContent>
           </Card>
