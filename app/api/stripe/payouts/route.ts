@@ -106,7 +106,7 @@ export async function GET() {
       const curr = (creator.default_currency || "usd").toLowerCase()
       if (curr !== "usd") {
         try {
-          const rates = await (stripe as any).exchangeRates.retrieve("usd")
+          const rates = await stripe.exchangeRates.retrieve("usd")
           const rateToNative = rates?.rates?.[curr]
           if (rateToNative && rateToNative > 0) {
             exchangeRate = rateToNative
@@ -163,7 +163,23 @@ export async function GET() {
         }
       : null
 
-    return NextResponse.json({ payouts, balance, exchangeRate })
+    // Pre-convert balance to USD if exchange rate is available
+    let balanceUsd: { available: number; pending: number } | null = null
+    if (balance && exchangeRate && exchangeRate > 0) {
+      const curr = (creator.default_currency || "usd").toLowerCase()
+      if (curr !== "usd") {
+        let totalPending = 0
+        let totalAvailable = 0
+        for (const b of balance.pending) totalPending += b.amount
+        for (const b of balance.available) totalAvailable += b.amount
+        balanceUsd = {
+          pending: Math.round(totalPending / exchangeRate),
+          available: Math.round(totalAvailable / exchangeRate),
+        }
+      }
+    }
+
+    return NextResponse.json({ payouts, balance, exchangeRate, balanceUsd })
   } catch (error: any) {
     console.error("[Stripe Payouts Error]", error)
     return NextResponse.json(

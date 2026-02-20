@@ -173,7 +173,7 @@ export default async function PayoutsPage() {
     (!stripeExchangeRate || stripeExchangeRate <= 0)
   ) {
     try {
-      const rates = await (stripe as any).exchangeRates.retrieve("usd");
+      const rates = await stripe.exchangeRates.retrieve("usd");
       const rateToNative = rates?.rates?.[detectedCurrency];
       if (rateToNative && rateToNative > 0) {
         stripeExchangeRate = rateToNative;
@@ -183,8 +183,19 @@ export default async function PayoutsPage() {
     }
   }
 
-  if (detectedCurrency !== "usd" && orderPendingUsd > 0) {
-    stripePendingBalance = Math.round(orderPendingUsd * (stripeExchangeRate || 1));
+  // Convert Stripe balance from native currency to USD
+  if (detectedCurrency !== "usd") {
+    if (stripeExchangeRate && stripeExchangeRate > 0) {
+      // We have a valid exchange rate — convert directly
+      stripePendingBalance = Math.round(stripePendingBalance / stripeExchangeRate);
+      stripeAvailableBalance = Math.round(stripeAvailableBalance / stripeExchangeRate);
+    } else if (orderPendingUsd > 0) {
+      // No rate found — use order totals as best USD approximation
+      stripePendingBalance = orderPendingUsd;
+      stripeAvailableBalance = 0;
+    }
+    // Mark as USD so client doesn't try to re-convert
+    detectedCurrency = "usd";
   }
 
   // Net earnings = what seller keeps after all fees (Stripe + platform)
