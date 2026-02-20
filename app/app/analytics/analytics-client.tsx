@@ -845,11 +845,12 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
   }, [initialOrders, getTimeframeDates, selectedProduct, analyticsMode])
 
   // Fetch analytics data from Supabase (same source as Dashboard)
+  const isFirstLoadRef = useRef(true)
   const fetchAnalytics = useCallback(async (showRefreshIndicator = false) => {
-    if (showRefreshIndicator) {
-      setIsRefreshing(true)
-    } else {
+    if (isFirstLoadRef.current) {
       setIsLoading(true)
+    } else {
+      setIsRefreshing(true)
     }
 
     try {
@@ -1628,6 +1629,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
     } finally {
       setIsLoading(false)
       setIsRefreshing(false)
+      isFirstLoadRef.current = false
     }
   }, [creatorId, userId, getTimeframeDates, selectedProduct, analyticsMode, initialOrders, products, timeframe])
 
@@ -2037,6 +2039,112 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
       </AnnouncementBarMobile>
 
       <div className="px-4 py-6 sm:px-6 lg:px-8 max-w-[1200px] mx-auto space-y-6">
+        {isLoading ? (
+          /* ── Full Page Skeleton ── */
+          <div className="animate-pulse space-y-6">
+            {/* Header skeleton */}
+            <div className="flex items-center justify-between sm:justify-start gap-3">
+              <div className="h-8 w-32 bg-gray-100 rounded-lg" />
+              <div className="flex sm:hidden h-9 w-40 bg-gray-100 rounded-full" />
+            </div>
+
+            {/* Timeframe + mode + product row skeleton */}
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="h-10 w-36 bg-gray-100 rounded-xl" />
+              <div className="hidden sm:flex h-10 w-44 bg-gray-100 rounded-full" />
+              <div className="h-10 w-40 bg-gray-100 rounded-xl" />
+            </div>
+
+            {/* KPI + Chart skeleton */}
+            <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+              <div className="flex overflow-hidden md:grid md:grid-cols-4 divide-x divide-[#e5e7eb]/60">
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i} className="px-3 py-3 sm:px-4 sm:py-3.5 flex-shrink-0 min-w-[130px] md:min-w-0">
+                    <div className="h-3 w-16 bg-gray-100 rounded mb-2" />
+                    <div className="h-6 w-20 bg-gray-100 rounded mb-1.5" />
+                    <div className="h-2.5 w-24 bg-gray-50 rounded" />
+                  </div>
+                ))}
+              </div>
+              <div className="border-t border-[#e5e7eb]/60 px-4 py-4">
+                <div className="h-[200px] flex items-end gap-2 px-2">
+                  {[40, 55, 30, 65, 45, 60, 35, 50, 70, 42].map((h, i) => (
+                    <div key={i} className="flex-1 bg-gray-50 rounded-t" style={{ height: `${h}%` }} />
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Traffic & Device Distribution skeleton */}
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="bg-white rounded-xl border border-[#e5e7eb] p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="h-4 w-36 bg-gray-100 rounded" />
+                  <div className="h-7 w-24 bg-gray-50 rounded-lg" />
+                </div>
+                <div className="h-[200px] flex items-center justify-center">
+                  <div className="w-32 h-32 rounded-full bg-gray-50" />
+                </div>
+              </div>
+              <div className="bg-white rounded-xl border border-[#e5e7eb] p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="h-4 w-36 bg-gray-100 rounded" />
+                  <div className="h-7 w-28 bg-gray-50 rounded-lg" />
+                </div>
+                <div className="space-y-3">
+                  {[0, 1, 2].map((i) => (
+                    <div key={i} className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-gray-50 shrink-0" />
+                      <div className="flex-1">
+                        <div className="h-3 w-20 bg-gray-100 rounded mb-1.5" />
+                        <div className="h-2 w-full bg-gray-50 rounded-full" />
+                      </div>
+                      <div className="h-4 w-10 bg-gray-50 rounded" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Top Products skeleton */}
+            <div className="bg-white rounded-xl border border-[#e5e7eb] p-4">
+              <div className="h-4 w-28 bg-gray-100 rounded mb-4" />
+              <div className="space-y-2">
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 bg-[#f9fafb] rounded-lg">
+                    <div className="w-10 h-10 rounded-lg bg-gray-100 shrink-0" />
+                    <div className="flex-1">
+                      <div className="h-3.5 w-32 bg-gray-100 rounded mb-1.5" />
+                      <div className="h-2.5 w-20 bg-gray-50 rounded" />
+                    </div>
+                    <div className="h-4 w-16 bg-gray-50 rounded" />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Country skeleton */}
+            <div className="bg-white rounded-xl border border-[#e5e7eb] p-4">
+              <div className="h-4 w-36 bg-gray-100 rounded mb-4" />
+              <div className="space-y-3">
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <div key={i} className="flex items-center justify-between py-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-5 h-4 bg-gray-100 rounded" />
+                      <div className="h-3 w-24 bg-gray-100 rounded" />
+                    </div>
+                    <div className="flex gap-6">
+                      <div className="h-3 w-10 bg-gray-50 rounded" />
+                      <div className="h-3 w-8 bg-gray-50 rounded" />
+                      <div className="h-3 w-12 bg-gray-50 rounded" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+        <>
         {/* Analytics title with Store/OnePage switcher on mobile */}
         <div className="flex items-center justify-between sm:justify-start gap-3">
           <h1 className="text-[24px] sm:text-[28px] font-bold text-[#1a1a2e]">{t("analytics.title")}</h1>
@@ -2185,27 +2293,6 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
 
         {/* Unified KPI Tabs + Chart Card */}
         <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-          {isLoading ? (
-            <div className="animate-pulse">
-              <div className="flex overflow-hidden md:grid md:grid-cols-4 divide-x divide-[#e5e7eb]/60">
-                {[0, 1, 2, 3].map((i) => (
-                  <div key={i} className="px-3 py-3 sm:px-4 sm:py-3.5 flex-shrink-0 min-w-[130px] md:min-w-0">
-                    <div className="h-3 w-16 bg-gray-100 rounded mb-2" />
-                    <div className="h-6 w-20 bg-gray-100 rounded mb-1.5" />
-                    <div className="h-2.5 w-24 bg-gray-50 rounded" />
-                  </div>
-                ))}
-              </div>
-              <div className="border-t border-[#e5e7eb]/60 px-4 py-4">
-                <div className="h-[200px] flex items-end gap-2 px-2">
-                  {[40, 55, 30, 65, 45, 60, 35, 50, 70, 42].map((h, i) => (
-                    <div key={i} className="flex-1 bg-gray-50 rounded-t" style={{ height: `${h}%` }} />
-                  ))}
-                </div>
-              </div>
-            </div>
-          ) : (
-          <>
           {/* KPI Metric Tabs */}
           <div className="relative flex overflow-x-auto scrollbar-hide md:grid md:grid-cols-4 divide-x divide-[#e5e7eb]/60">
             {analyticsMode === "store" ? (
@@ -2220,10 +2307,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   {chartMetricFilter === "views" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
                   <span className={`text-[11px] sm:text-[12px] font-medium ${chartMetricFilter === "views" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("analytics.totalViews")}</span>
                   <div className="flex items-baseline gap-1.5 mt-0.5">
-                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(summary.totalViews)}</span>
-                    {!isLoading && <PercentChangeIndicator current={summary.totalViews} previous={summary.prevPeriodViews} />}
+                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(summary.totalViews)}</span>
+                    {<PercentChangeIndicator current={summary.totalViews} previous={summary.prevPeriodViews} />}
                   </div>
-                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(summary.allTimeViews)} {t("dashboard.allTime")}</p>
+                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(summary.allTimeViews)} {t("dashboard.allTime")}</p>
                 </button>
                 {/* Revenue */}
                 <button
@@ -2235,10 +2322,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   {chartMetricFilter === "revenue" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
                   <span className={`text-[11px] sm:text-[12px] font-medium ${chartMetricFilter === "revenue" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("analytics.totalRevenue")}</span>
                   <div className="flex items-baseline gap-1.5 mt-0.5">
-                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{formatPrice(summary.totalRevenue)}</span>
-                    {!isLoading && <PercentChangeIndicator current={summary.totalRevenue} previous={summary.prevPeriodRevenue} />}
+                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatPrice(summary.totalRevenue)}</span>
+                    {<PercentChangeIndicator current={summary.totalRevenue} previous={summary.prevPeriodRevenue} />}
                   </div>
-                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatPrice(summary.allTimeRevenue)} {t("dashboard.allTime")}</p>
+                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatPrice(summary.allTimeRevenue)} {t("dashboard.allTime")}</p>
                 </button>
                 {/* Orders */}
                 <button
@@ -2250,10 +2337,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   {chartMetricFilter === "orders" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
                   <span className={`text-[11px] sm:text-[12px] font-medium ${chartMetricFilter === "orders" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("analytics.totalOrders")}</span>
                   <div className="flex items-baseline gap-1.5 mt-0.5">
-                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(summary.totalOrders)}</span>
-                    {!isLoading && <PercentChangeIndicator current={summary.totalOrders} previous={summary.prevPeriodOrders} />}
+                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(summary.totalOrders)}</span>
+                    {<PercentChangeIndicator current={summary.totalOrders} previous={summary.prevPeriodOrders} />}
                   </div>
-                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(summary.allTimeOrders)} {t("dashboard.allTime")}</p>
+                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(summary.allTimeOrders)} {t("dashboard.allTime")}</p>
                 </button>
                 {/* Conversion */}
                 <button
@@ -2265,9 +2352,9 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   {chartMetricFilter === "conversion" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
                   <span className={`text-[11px] sm:text-[12px] font-medium ${chartMetricFilter === "conversion" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("analytics.conversionRate")}</span>
                   <div className="flex items-baseline gap-1.5 mt-0.5">
-                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{Math.round(summary.conversionRate)}%</span>
+                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{Math.round(summary.conversionRate)}%</span>
                   </div>
-                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{t("dashboard.viewsToOrders")}</p>
+                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{t("dashboard.viewsToOrders")}</p>
                 </button>
               </>
             ) : (
@@ -2282,10 +2369,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   {onePageChartFilter === "views" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
                   <span className={`text-[11px] sm:text-[12px] font-medium ${onePageChartFilter === "views" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("dashboard.views")}</span>
                   <div className="flex items-baseline gap-1.5 mt-0.5">
-                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.views)}</span>
-                    {!isLoading && <PercentChangeIndicator current={onePageMetrics.views} previous={onePageMetrics.prevViews} />}
+                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.views)}</span>
+                    {<PercentChangeIndicator current={onePageMetrics.views} previous={onePageMetrics.prevViews} />}
                   </div>
-                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.allTimeViews)} {t("dashboard.allTime")}</p>
+                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.allTimeViews)} {t("dashboard.allTime")}</p>
                 </button>
                 {/* Clicks */}
                 <button
@@ -2297,10 +2384,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   {onePageChartFilter === "clicks" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
                   <span className={`text-[11px] sm:text-[12px] font-medium ${onePageChartFilter === "clicks" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("analytics.clicks")}</span>
                   <div className="flex items-baseline gap-1.5 mt-0.5">
-                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.clicks)}</span>
-                    {!isLoading && <PercentChangeIndicator current={onePageMetrics.clicks} previous={onePageMetrics.prevClicks} />}
+                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.clicks)}</span>
+                    {<PercentChangeIndicator current={onePageMetrics.clicks} previous={onePageMetrics.prevClicks} />}
                   </div>
-                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.allTimeClicks)} {t("dashboard.allTime")}</p>
+                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.allTimeClicks)} {t("dashboard.allTime")}</p>
                 </button>
                 {/* Subscribers */}
                 <button
@@ -2312,10 +2399,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   {onePageChartFilter === "subscribers" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
                   <span className={`text-[11px] sm:text-[12px] font-medium ${onePageChartFilter === "subscribers" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("analytics.subscribers")}</span>
                   <div className="flex items-baseline gap-1.5 mt-0.5">
-                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.subscribers)}</span>
-                    {!isLoading && <PercentChangeIndicator current={onePageMetrics.subscribers} previous={onePageMetrics.prevSubscribers} />}
+                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.subscribers)}</span>
+                    {<PercentChangeIndicator current={onePageMetrics.subscribers} previous={onePageMetrics.prevSubscribers} />}
                   </div>
-                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.allTimeSubscribers)} {t("dashboard.allTime")}</p>
+                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.allTimeSubscribers)} {t("dashboard.allTime")}</p>
                 </button>
                 {/* CTR */}
                 <button
@@ -2327,9 +2414,9 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   {onePageChartFilter === "ctr" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
                   <span className={`text-[11px] sm:text-[12px] font-medium ${onePageChartFilter === "ctr" ? "text-[#374151]" : "text-[#6b7280]"}`}>CTR</span>
                   <div className="flex items-baseline gap-1.5 mt-0.5">
-                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{Math.round(onePageMetrics.ctr)}%</span>
+                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{Math.round(onePageMetrics.ctr)}%</span>
                   </div>
-                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{t("analytics.clicksToViews")}</p>
+                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{t("analytics.clicksToViews")}</p>
                 </button>
               </>
             )}
@@ -2337,18 +2424,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
 
           {/* Chart Area - always open */}
           <div className="border-t border-[#e5e7eb]/60 px-2 py-3 sm:px-4 sm:py-4">
-            {isLoading ? (
-              <div className="h-[200px] flex items-end gap-1.5 px-6 pb-6 pt-4">
-                {Array.from({ length: 10 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="flex-1 bg-gradient-to-t from-gray-100 to-gray-50 rounded-t animate-pulse"
-                    style={{ height: `${25 + ((i * 37) % 60)}%`, animationDelay: `${i * 80}ms` }}
-                  />
-                ))}
-              </div>
-            ) : (
-              <ResponsiveContainer key={`${analyticsMode}-${analyticsMode === "store" ? chartMetricFilter : onePageChartFilter}`} width="100%" height={200}>
+              <ResponsiveContainer width="100%" height={200}>
                 <AreaChart data={chartDisplayData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="gradViews" x1="0" y1="0" x2="0" y2="1">
@@ -2399,36 +2475,33 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   />
                   {/* Store areas */}
                   {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "views") && (
-                    <Area type="monotone" dataKey="views" stroke={CHART_COLORS.views} strokeWidth={2} fill="url(#gradViews)" dot={false} activeDot={{ r: 4, fill: CHART_COLORS.views, strokeWidth: 2, stroke: "#fff" }} name="views" animationDuration={800} animationEasing="ease-in-out" />
+                    <Area type="monotone" dataKey="views" stroke={CHART_COLORS.views} strokeWidth={2} fill="url(#gradViews)" dot={false} activeDot={{ r: 4, fill: CHART_COLORS.views, strokeWidth: 2, stroke: "#fff" }} name="views" isAnimationActive={false} />
                   )}
                   {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "orders") && (
-                    <Area type="monotone" dataKey="sales" stroke={CHART_COLORS.orders} strokeWidth={2} fill="url(#gradOrders)" dot={false} activeDot={{ r: 4, fill: CHART_COLORS.orders, strokeWidth: 2, stroke: "#fff" }} name="sales" animationDuration={800} animationEasing="ease-in-out" />
+                    <Area type="monotone" dataKey="sales" stroke={CHART_COLORS.orders} strokeWidth={2} fill="url(#gradOrders)" dot={false} activeDot={{ r: 4, fill: CHART_COLORS.orders, strokeWidth: 2, stroke: "#fff" }} name="sales" isAnimationActive={false} />
                   )}
                   {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "revenue") && (
-                    <Area type="monotone" dataKey="revenue" stroke={CHART_COLORS.revenue} strokeWidth={2} fill="url(#gradRevenue)" dot={false} activeDot={{ r: 4, fill: CHART_COLORS.revenue, strokeWidth: 2, stroke: "#fff" }} name="revenue" animationDuration={800} animationEasing="ease-in-out" />
+                    <Area type="monotone" dataKey="revenue" stroke={CHART_COLORS.revenue} strokeWidth={2} fill="url(#gradRevenue)" dot={false} activeDot={{ r: 4, fill: CHART_COLORS.revenue, strokeWidth: 2, stroke: "#fff" }} name="revenue" isAnimationActive={false} />
                   )}
                   {analyticsMode === "store" && chartMetricFilter === "conversion" && (
-                    <Area type="monotone" dataKey="conversion" stroke="#10b981" strokeWidth={2} fill="url(#gradConversion)" dot={false} activeDot={{ r: 4, fill: "#10b981", strokeWidth: 2, stroke: "#fff" }} name="conversion" animationDuration={800} animationEasing="ease-in-out" />
+                    <Area type="monotone" dataKey="conversion" stroke="#10b981" strokeWidth={2} fill="url(#gradConversion)" dot={false} activeDot={{ r: 4, fill: "#10b981", strokeWidth: 2, stroke: "#fff" }} name="conversion" isAnimationActive={false} />
                   )}
                   {/* OnePage areas */}
                   {analyticsMode === "onepage" && (onePageChartFilter === "all" || onePageChartFilter === "views") && (
-                    <Area type="monotone" dataKey="views" stroke={CHART_COLORS.views} strokeWidth={2} fill="url(#gradViews)" dot={false} activeDot={{ r: 4, fill: CHART_COLORS.views, strokeWidth: 2, stroke: "#fff" }} name="views" connectNulls animationDuration={800} animationEasing="ease-in-out" />
+                    <Area type="monotone" dataKey="views" stroke={CHART_COLORS.views} strokeWidth={2} fill="url(#gradViews)" dot={false} activeDot={{ r: 4, fill: CHART_COLORS.views, strokeWidth: 2, stroke: "#fff" }} name="views" connectNulls isAnimationActive={false} />
                   )}
                   {analyticsMode === "onepage" && (onePageChartFilter === "all" || onePageChartFilter === "clicks") && (
-                    <Area type="monotone" dataKey="clicks" stroke={CHART_COLORS.clicks} strokeWidth={2} fill="url(#gradClicks)" dot={false} activeDot={{ r: 4, fill: CHART_COLORS.clicks, strokeWidth: 2, stroke: "#fff" }} name="clicks" connectNulls animationDuration={800} animationEasing="ease-in-out" />
+                    <Area type="monotone" dataKey="clicks" stroke={CHART_COLORS.clicks} strokeWidth={2} fill="url(#gradClicks)" dot={false} activeDot={{ r: 4, fill: CHART_COLORS.clicks, strokeWidth: 2, stroke: "#fff" }} name="clicks" connectNulls isAnimationActive={false} />
                   )}
                   {analyticsMode === "onepage" && (onePageChartFilter === "all" || onePageChartFilter === "subscribers") && (
-                    <Area type="monotone" dataKey="subscribers" stroke="#8b5cf6" strokeWidth={2} fill="url(#gradSubscribers)" dot={false} activeDot={{ r: 4, fill: "#8b5cf6", strokeWidth: 2, stroke: "#fff" }} name="subscribers" connectNulls animationDuration={800} animationEasing="ease-in-out" />
+                    <Area type="monotone" dataKey="subscribers" stroke="#8b5cf6" strokeWidth={2} fill="url(#gradSubscribers)" dot={false} activeDot={{ r: 4, fill: "#8b5cf6", strokeWidth: 2, stroke: "#fff" }} name="subscribers" connectNulls isAnimationActive={false} />
                   )}
                   {analyticsMode === "onepage" && onePageChartFilter === "ctr" && (
-                    <Area type="monotone" dataKey="ctr" stroke="#f59e0b" strokeWidth={2} fill="url(#gradCtr)" dot={false} activeDot={{ r: 4, fill: "#f59e0b", strokeWidth: 2, stroke: "#fff" }} name="ctr" connectNulls animationDuration={800} animationEasing="ease-in-out" />
+                    <Area type="monotone" dataKey="ctr" stroke="#f59e0b" strokeWidth={2} fill="url(#gradCtr)" dot={false} activeDot={{ r: 4, fill: "#f59e0b", strokeWidth: 2, stroke: "#fff" }} name="ctr" connectNulls isAnimationActive={false} />
                   )}
                 </AreaChart>
               </ResponsiveContainer>
-            )}
           </div>
-          </>
-          )}
         </div>
 
         {/* Traffic & Device Distribution */}
@@ -2454,9 +2527,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
               </div>
             </CardHeader>
             <CardContent className="pt-2">
-              {isLoading ? (
-                <Skeleton className="h-[200px] w-full" />
-              ) : trafficPieData.length > 0 ? (
+              {trafficPieData.length > 0 ? (
                 <div className="relative">
                   <div className={`transition-all duration-300 ease-out ${trafficViewMode === "chart" ? "opacity-100 h-auto" : "opacity-0 h-0 overflow-hidden absolute inset-0"}`}>
                     <div className="h-[200px]">
@@ -2528,9 +2599,6 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
               </div>
             </CardHeader>
             <CardContent className="pt-2">
-              {isLoading ? (
-                <Skeleton className="h-[200px] w-full" />
-              ) : (
                 <div className="transition-opacity duration-300 ease-out" key={deviceTabMode}>
                   {deviceTabMode === "device" ? (
                     deviceData.length > 0 ? (
@@ -2586,7 +2654,6 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                     )
                   )}
                 </div>
-              )}
             </CardContent>
           </Card>
         </div>
@@ -2599,9 +2666,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-2">
-            {isLoading ? (
-              <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-16 w-full" />)}</div>
-            ) : analyticsMode === "store" ? (
+            {analyticsMode === "store" ? (
               topProducts.length > 0 ? (
                 <div className="space-y-2">
                   {topProducts.slice(0, 5).map((product, idx) => (
@@ -2931,9 +2996,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
             <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">Visitors by Country</CardTitle>
           </CardHeader>
           <CardContent className="pt-2">
-            {isLoading ? (
-              <Skeleton className="h-[200px] w-full" />
-            ) : countryData.length > 0 ? (
+            {countryData.length > 0 ? (
               <>
                 {/* Country Table */}
                 <div className="overflow-x-auto">
@@ -2989,6 +3052,8 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
           </CardContent>
         </Card>
 
+        </>
+        )}
       </div>
 
       {/* Mobile Bottom Sheets */}

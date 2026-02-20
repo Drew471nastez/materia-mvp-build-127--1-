@@ -55,6 +55,7 @@ interface ChartDataPoint {
   label: string
   value: number
   secondaryValue?: number
+  refunds?: number
 }
 
 type KPIType = "views" | "orders" | "revenue" | "conversion" | null
@@ -805,6 +806,7 @@ export function DashboardClient({
   const publicOnePageUrl = connectedDomain ? `https://${connectedDomain}/links` : (creatorHandle ? getLinksUrl(creatorHandle) : "")
   const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [expandedStep, setExpandedStep] = useState<string | null>(null)
   const [openKPIModal, setOpenKPIModal] = useState<KPIType>("views")
   const [chartExpanded, setChartExpanded] = useState(() => {
@@ -862,8 +864,13 @@ export function DashboardClient({
     return num.toLocaleString()
   }
 
+  const isFirstLoadRef = useRef(true)
   const fetchAnalytics = async (selectedTimeframe: string) => {
-    setIsLoading(true)
+    if (isFirstLoadRef.current) {
+      setIsLoading(true)
+    } else {
+      setIsRefreshing(true)
+    }
     const supabase = createClient()
 
     try {
@@ -988,6 +995,8 @@ export function DashboardClient({
       console.error("Error fetching analytics:", error)
     } finally {
       setIsLoading(false)
+      setIsRefreshing(false)
+      isFirstLoadRef.current = false
     }
   }
 
@@ -1093,9 +1102,14 @@ export function DashboardClient({
         })
       }
     } else {
-      let dayCount = 7
       let dayStep = 1
+      let dayCount: number
       if (isMonth) { dayCount = 10; dayStep = 3 }
+      else {
+        // Compute day count from actual date range to avoid off-by-one
+        const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+        dayCount = diffDays + 1
+      }
       for (let i = dayCount - 1; i >= 0; i--) {
         const dStart = new Date(end)
         dStart.setDate(dStart.getDate() - (i * dayStep))
@@ -1182,10 +1196,13 @@ export function DashboardClient({
           }).length
         } else if (kpiType === "orders") {
           // Use allValidOrders (completed + refunded) to match KPI display
-          value = allValidOrders.filter(o => {
+          const bucketOrders = allValidOrders.filter(o => {
             const d = new Date(o.created_at)
             return d >= bucket.start && d <= bucket.end
-          }).length
+          })
+          value = bucketOrders.length
+          // Count refunds in this bucket for tooltip info
+          secondaryValue = bucketOrders.filter(o => o.status === "refunded").length
         } else if (kpiType === "revenue") {
           // Use completedOrders only for revenue (refunded orders don't count as revenue)
           value = completedOrders.filter(o => {
@@ -1213,6 +1230,7 @@ export function DashboardClient({
           label: bucket.label,
           value,
           secondaryValue: kpiType === "views" ? secondaryValue : undefined,
+          refunds: kpiType === "orders" ? secondaryValue : undefined,
         })
       }
 
@@ -1433,6 +1451,88 @@ export function DashboardClient({
             {copyNotice}
           </div>
         )}
+
+        {isLoading ? (
+          /* ── Full Page Skeleton ── */
+          <div className="animate-pulse">
+            {/* Header skeleton */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+              <div>
+                <div className="h-7 w-56 bg-gray-100 rounded-lg mb-2" />
+                <div className="h-4 w-40 bg-gray-50 rounded" />
+              </div>
+              <div className="hidden md:flex items-center gap-3">
+                <div className="h-10 w-36 bg-gray-100 rounded-xl" />
+                <div className="h-10 w-32 bg-gray-50 rounded-lg" />
+              </div>
+              <div className="md:hidden flex items-center gap-2">
+                <div className="h-[38px] w-24 bg-gray-50 rounded-xl" />
+                <div className="h-[38px] w-32 bg-gray-100 rounded-xl" />
+              </div>
+            </div>
+
+            {/* KPI + Chart skeleton */}
+            <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] mb-8 overflow-hidden">
+              <div className="flex overflow-hidden md:grid md:grid-cols-4 divide-x divide-[#e5e7eb]/60">
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i} className="px-3 py-3 sm:px-4 sm:py-3.5 flex-shrink-0 min-w-[130px] md:min-w-0">
+                    <div className="h-3 w-16 bg-gray-100 rounded mb-2" />
+                    <div className="h-6 w-20 bg-gray-100 rounded mb-1.5" />
+                    <div className="h-2.5 w-24 bg-gray-50 rounded" />
+                  </div>
+                ))}
+              </div>
+              <div className="border-t border-[#e5e7eb]/60 px-4 py-4">
+                <div className="h-[200px] flex items-end gap-2 px-2">
+                  {[40, 55, 30, 65, 45, 60, 35, 50, 70, 42].map((h, i) => (
+                    <div key={i} className="flex-1 bg-gray-50 rounded-t" style={{ height: `${h}%` }} />
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Promotional banner skeleton */}
+            <div className="mb-8">
+              <div className="h-[140px] sm:h-[160px] bg-gray-100 rounded-2xl" />
+            </div>
+
+            {/* Grid skeleton: Setup checklist + Quick actions */}
+            <div className="grid gap-6 lg:grid-cols-[370px_1fr]">
+              {/* Setup checklist skeleton */}
+              <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+                <div className="flex items-center justify-between mb-5">
+                  <div className="h-4 w-28 bg-gray-100 rounded" />
+                  <div className="h-6 w-12 bg-gray-50 rounded-full" />
+                </div>
+                <div className="h-1.5 w-full bg-gray-50 rounded-full mb-5" />
+                <div className="space-y-2">
+                  {[0, 1, 2, 3, 4, 5].map((i) => (
+                    <div key={i} className="flex items-center gap-3 p-3">
+                      <div className="w-8 h-8 rounded-full bg-gray-100 shrink-0" />
+                      <div className="flex-1">
+                        <div className="h-3.5 w-28 bg-gray-100 rounded mb-1.5" />
+                        <div className="h-2.5 w-40 bg-gray-50 rounded" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {/* Quick actions skeleton */}
+              <div className="space-y-4">
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i} className="flex items-center gap-5 bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+                    <div className="h-16 w-16 rounded-xl bg-gray-100 shrink-0" />
+                    <div className="flex-1">
+                      <div className="h-4 w-36 bg-gray-100 rounded mb-2" />
+                      <div className="h-3 w-52 bg-gray-50 rounded" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+        <>
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>
@@ -1531,7 +1631,7 @@ export function DashboardClient({
             <div className="relative timeframe-dropdown">
               <button
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#e5e7eb] rounded-xl text-[13px] font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors shadow-sm"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#e5e7eb] rounded-xl text-[13px] font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors shadow-[0_1px_2px_rgba(0,0,0,0.03)]"
               >
                 {selectedOption?.label || "Last 7 days"}
                 <ChevronDown
@@ -1597,7 +1697,7 @@ export function DashboardClient({
             </div>
             <button
               onClick={() => setIsMobileSheetOpen(true)}
-              className="w-fit inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#e5e7eb] rounded-xl text-[13px] font-medium text-[#374151] shadow-sm h-[38px]"
+              className="w-fit inline-flex items-center gap-2 px-4 py-2 bg-white border border-[#e5e7eb] rounded-xl text-[13px] font-medium text-[#374151] shadow-[0_1px_2px_rgba(0,0,0,0.03)] h-[38px]"
             >
               {selectedOption?.label || "Last 7 days"}
               <ChevronDown className="h-4 w-4 text-[#9ca3af]" />
@@ -1629,27 +1729,6 @@ export function DashboardClient({
 
         {/* Stats Cards + Chart Section */}
         <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] mb-8 overflow-hidden">
-          {isLoading ? (
-            <div className="animate-pulse">
-              <div className="flex overflow-hidden md:grid md:grid-cols-4 divide-x divide-[#e5e7eb]/60">
-                {[0, 1, 2, 3].map((i) => (
-                  <div key={i} className="px-3 py-3 sm:px-4 sm:py-3.5 flex-shrink-0 min-w-[130px] md:min-w-0">
-                    <div className="h-3 w-16 bg-gray-100 rounded mb-2" />
-                    <div className="h-6 w-20 bg-gray-100 rounded mb-1.5" />
-                    <div className="h-2.5 w-24 bg-gray-50 rounded" />
-                  </div>
-                ))}
-              </div>
-              <div className="border-t border-[#e5e7eb]/60 px-4 py-4">
-                <div className="h-[200px] flex items-end gap-2 px-2">
-                  {[40, 55, 30, 65, 45, 60, 35, 50, 70, 42].map((h, i) => (
-                    <div key={i} className="flex-1 bg-gray-50 rounded-t" style={{ height: `${h}%` }} />
-                  ))}
-                </div>
-              </div>
-            </div>
-          ) : (
-          <>
           {/* KPI Metric Tabs - horizontally scrollable on mobile */}
           <div className="relative flex overflow-x-auto scrollbar-hide md:grid md:grid-cols-4 divide-x divide-[#e5e7eb]/60">
             {/* Views */}
@@ -1662,10 +1741,10 @@ export function DashboardClient({
               {openKPIModal === "views" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
               <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "views" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("dashboard.views")}</span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.periodViews)}</span>
+                <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.periodViews)}</span>
                 <PercentChangeIndicator current={analyticsData.periodViews} previous={analyticsData.prevPeriodViews} />
               </div>
-              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.totalViews)} {t("dashboard.allTime")}</p>
+              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.totalViews)} {t("dashboard.allTime")}</p>
             </button>
 
             {/* Revenue */}
@@ -1678,10 +1757,10 @@ export function DashboardClient({
               {openKPIModal === "revenue" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
               <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "revenue" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("dashboard.revenue")}</span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{formatCurrency(analyticsData.periodRevenue)}</span>
+                <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCurrency(analyticsData.periodRevenue)}</span>
                 <PercentChangeIndicator current={analyticsData.periodRevenue} previous={analyticsData.prevPeriodRevenue} />
               </div>
-              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCurrency(analyticsData.totalRevenue)} {t("dashboard.allTime")}</p>
+              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCurrency(analyticsData.totalRevenue)} {t("dashboard.allTime")}</p>
             </button>
 
             {/* Orders */}
@@ -1694,10 +1773,10 @@ export function DashboardClient({
               {openKPIModal === "orders" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
               <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "orders" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("dashboard.orders")}</span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.periodOrders)}</span>
+                <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.periodOrders)}</span>
                 <PercentChangeIndicator current={analyticsData.periodOrders} previous={analyticsData.prevPeriodOrders} />
               </div>
-              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.totalOrders)} {t("dashboard.allTime")}</p>
+              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.totalOrders)} {t("dashboard.allTime")}</p>
             </button>
 
             {/* Conversion Rate - clickable */}
@@ -1710,10 +1789,10 @@ export function DashboardClient({
               {openKPIModal === "conversion" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
               <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "conversion" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("dashboard.conversionRate")}</span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{Math.round(analyticsData.conversionRate)}%</span>
+                <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{Math.round(analyticsData.conversionRate)}%</span>
                 <PercentChangeIndicator current={analyticsData.conversionRate} previous={analyticsData.prevConversionRate} />
               </div>
-              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{t("dashboard.viewsToOrders")}</p>
+              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{t("dashboard.viewsToOrders")}</p>
             </button>
 
             {/* Toggle arrow - sticky right on mobile, positioned in conversion rate area on desktop */}
@@ -1772,21 +1851,23 @@ export function DashboardClient({
                         tickFormatter={(v: number) => openKPIModal === "revenue" ? `$${v >= 1000 ? `${(v/1000).toFixed(1)}k` : v.toFixed(0)}` : openKPIModal === "conversion" ? `${v}%` : v >= 1000 ? `${(v/1000).toFixed(1)}k` : String(v)}
                       />
                       <Tooltip
-                        contentStyle={{
-                          background: "#1a1a2e",
-                          border: "none",
-                          borderRadius: "8px",
-                          fontSize: "12px",
-                          color: "#fff",
-                          padding: "8px 12px",
-                        }}
-                        labelStyle={{ color: "#fff", fontSize: "11px", marginBottom: "2px" }}
-                        itemStyle={{ color: "#fff" }}
-                        formatter={(value: number) => [
-                          openKPIModal === "revenue" ? `$${value.toFixed(2)}` : openKPIModal === "conversion" ? `${value}%` : value,
-                          openKPIModal === "views" ? t("dashboard.views") : openKPIModal === "orders" ? t("dashboard.orders") : openKPIModal === "revenue" ? t("dashboard.revenue") : t("dashboard.conversionRate")
-                        ]}
                         cursor={{ stroke: "#e5e7eb", strokeWidth: 1 }}
+                        content={({ active, payload, label }) => {
+                          if (!active || !payload?.length) return null
+                          const point = payload[0]?.payload as ChartDataPoint
+                          const val = point?.value ?? 0
+                          const displayVal = openKPIModal === "revenue" ? `$${val.toFixed(2)}` : openKPIModal === "conversion" ? `${val}%` : val.toLocaleString()
+                          const metricLabel = openKPIModal === "views" ? t("dashboard.views") : openKPIModal === "orders" ? t("dashboard.orders") : openKPIModal === "revenue" ? t("dashboard.revenue") : t("dashboard.conversionRate")
+                          return (
+                            <div style={{ background: "#1a1a2e", border: "none", borderRadius: "8px", fontSize: "12px", color: "#fff", padding: "8px 12px" }}>
+                              <p style={{ fontSize: "11px", color: "#9ca3af", marginBottom: "2px" }}>{label}</p>
+                              <p style={{ fontWeight: 500 }}>{metricLabel}: {displayVal}</p>
+                              {openKPIModal === "orders" && point?.refunds != null && point.refunds > 0 && (
+                                <p style={{ fontSize: "10px", color: "#f59e0b", marginTop: "2px" }}>{point.refunds} refunded</p>
+                              )}
+                            </div>
+                          )
+                        }}
                       />
                       <Area
                         type="monotone"
@@ -1806,8 +1887,6 @@ export function DashboardClient({
               )}
             </div>
           </div>
-          </>
-          )}
         </div>
 
         {/* Storelib Promotional Banner - Responsive for all devices */}
@@ -2040,6 +2119,8 @@ export function DashboardClient({
           </div>
         </div>
 
+        </>
+        )}
       </div>
 
       {/* Dashboard Scrollbar Styles */}

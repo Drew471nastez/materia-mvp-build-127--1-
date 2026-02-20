@@ -86,11 +86,11 @@ export async function GET(request: Request) {
     // Step 2: Payment completed
     let paymentCompletedAt: string | null = null
     let availableAt: string | null = null
-    let balanceTxId: string | null = null
 
-    if (order.stripe_payment_intent_id && creator.stripe_account_id) {
+    // Parallelize: fetch Stripe payment data + DB payouts query at the same time
+    const stripeDataPromise = (async () => {
+      if (!order.stripe_payment_intent_id || !creator.stripe_account_id) return
       try {
-        // The charge lives on the PLATFORM account (destination charge model)
         const pi = await stripe.paymentIntents.retrieve(order.stripe_payment_intent_id, {
           expand: ["latest_charge"],
         })
@@ -100,30 +100,18 @@ export async function GET(request: Request) {
           paymentCompletedAt = new Date(charge.created * 1000).toISOString()
         }
 
-        // The transfer to the connected account has a balance transaction there
-        // Find balance transaction on the connected account for the destination payment
         if (charge?.destination_payment && creator.stripe_account_id) {
           try {
             const destCharge = await stripe.charges.retrieve(
               typeof charge.destination_payment === "string"
                 ? charge.destination_payment
                 : charge.destination_payment.id,
-              { stripeAccount: creator.stripe_account_id }
+              { expand: ["balance_transaction"], stripeAccount: creator.stripe_account_id }
             )
 
-            const btId = typeof destCharge.balance_transaction === "string"
-              ? destCharge.balance_transaction
-              : (destCharge.balance_transaction as any)?.id
-
-            if (btId) {
-              balanceTxId = btId
-              const bt = await stripe.balanceTransactions.retrieve(btId, {
-                stripeAccount: creator.stripe_account_id,
-              })
-
-              if (bt.available_on) {
-                availableAt = new Date(bt.available_on * 1000).toISOString()
-              }
+            const bt = destCharge.balance_transaction as any
+            if (bt?.available_on) {
+              availableAt = new Date(bt.available_on * 1000).toISOString()
             }
           } catch {
             // Destination charge lookup failed — not critical
@@ -132,7 +120,17 @@ export async function GET(request: Request) {
       } catch (err) {
         console.error("[OrderTimeline] PI lookup failed:", err)
       }
-    }
+    })()
+
+    const payoutsPromise = adminSupabase
+      .from("payouts")
+      .select("stripe_payout_id, status, amount_cents, currency, arrival_date, stripe_created")
+      .eq("creator_id", creator.id)
+      .order("stripe_created", { ascending: true })
+      .limit(5)
+
+    // Wait for both in parallel
+    const [, { data: relatedPayouts }] = await Promise.all([stripeDataPromise, payoutsPromise])
 
     timeline.push({
       id: "payment_completed",
@@ -179,14 +177,6 @@ export async function GET(request: Request) {
         status: "completed",
       })
     }
-
-    // Step 6: Payout created/paid — look up in DB payouts table
-    const { data: relatedPayouts } = await adminSupabase
-      .from("payouts")
-      .select("stripe_payout_id, status, amount_cents, currency, arrival_date, stripe_created")
-      .eq("creator_id", creator.id)
-      .order("stripe_created", { ascending: true })
-      .limit(5)
 
     // We can't definitively link a specific payout to a specific order (Stripe doesn't),
     // but we show the most recent payout created after the order as context.
