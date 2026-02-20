@@ -24,7 +24,7 @@ import {
   Home,
   Wallet,
   X,
-  Brush,
+  Store,
   Search,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -157,7 +157,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { href: "/app/analytics", label: t("nav.analytics"), icon: BarChart3 },
     { href: "/app/sales", label: t("nav.sales"), icon: ShoppingCart },
     { href: "/app/onepage", label: t("nav.onepage"), icon: Link2, forceNavigation: true },
-    { href: "/store-builder", label: t("nav.storeBuilder"), icon: Brush, forceNavigation: true },
+    { href: "/store-builder", label: t("nav.storeBuilder"), icon: Store, forceNavigation: true },
     { href: "/app/emails", label: t("nav.emails"), icon: Mail },
     { href: "/app/payouts", label: t("nav.payouts"), icon: Wallet },
   ]
@@ -371,7 +371,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { label: "Settings", href: "/app/settings", icon: Settings },
     { label: "Emails", href: "/app/emails", icon: Mail },
     { label: "OnePage", href: "/app/onepage", icon: Link2 },
-    { label: "Store Builder", href: "/store-builder", icon: Brush },
+    { label: "Payments", href: "/app/settings/payments", icon: CreditCard },
     { label: "Billing", href: "/app/settings/billing", icon: CreditCard },
   ]
 
@@ -383,7 +383,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { label: "Analytics", href: "/app/analytics", icon: BarChart3, category: "Pages" },
     { label: "Sales", href: "/app/sales", icon: ShoppingCart, category: "Pages" },
     { label: "OnePage", href: "/app/onepage", icon: Link2, category: "Pages" },
-    { label: "Store Builder", href: "/store-builder", icon: Brush, category: "Pages" },
+    { label: "Store Builder", href: "/store-builder", icon: Store, category: "Pages" },
     { label: "Emails", href: "/app/emails", icon: Mail, category: "Pages" },
     { label: "Payouts", href: "/app/payouts", icon: Wallet, category: "Pages" },
     { label: "Settings", href: "/app/settings", icon: Settings, category: "Settings" },
