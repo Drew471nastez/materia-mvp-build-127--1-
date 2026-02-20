@@ -3,6 +3,7 @@
 import { Suspense, useEffect } from "react"
 import { NavigationLoadingBar } from "./navigation-loading-bar"
 import { LanguageProvider } from "@/lib/i18n"
+import { PurchaseSyncProvider } from "@/components/checkout/purchase-sync-provider"
 
 export function AppLayoutWrapper({ children }: { children: React.ReactNode }) {
   // Hide html-level scrollbar on /app pages
@@ -18,6 +19,7 @@ export function AppLayoutWrapper({ children }: { children: React.ReactNode }) {
       <Suspense fallback={null}>
         <NavigationLoadingBar />
       </Suspense>
+      <PurchaseSyncProvider />
       {children}
     </LanguageProvider>
   )
