@@ -2,15 +2,10 @@
 
 import { useState, useRef, useEffect } from "react"
 import Link from "next/link"
-import { LayoutDashboard, Package, Settings, BarChart3, X } from "lucide-react"
+import { LayoutDashboard, Package, Settings, BarChart3, X, Home } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-interface CreatorQuickNavProps {
-  avatarUrl?: string | null
-  creatorInitials?: string
-}
-
-export function CreatorQuickNav({ avatarUrl, creatorInitials }: CreatorQuickNavProps) {
+export function CreatorQuickNav() {
   const [isOpen, setIsOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -34,7 +29,7 @@ export function CreatorQuickNav({ avatarUrl, creatorInitials }: CreatorQuickNavP
   ]
 
   return (
-    <div ref={menuRef} className="fixed bottom-6 right-6 z-[60]">
+    <div ref={menuRef} className="fixed right-6 z-[60]" style={{ bottom: "50%" }}>
       {/* Expanded menu */}
       <div
         className={cn(
@@ -69,24 +64,16 @@ export function CreatorQuickNav({ avatarUrl, creatorInitials }: CreatorQuickNavP
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "w-12 h-12 rounded-full shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95",
+          "w-11 h-11 rounded-full shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95",
           isOpen
             ? "bg-gray-900 text-white"
-            : "bg-white border border-gray-200 text-gray-700 hover:shadow-xl",
+            : "bg-white border border-gray-200 text-gray-400 hover:text-gray-600 hover:shadow-xl",
         )}
       >
         {isOpen ? (
-          <X className="h-5 w-5" />
-        ) : avatarUrl ? (
-          <img
-            src={avatarUrl}
-            alt=""
-            className="w-full h-full rounded-full object-cover"
-          />
+          <X className="h-4.5 w-4.5" />
         ) : (
-          <span className="text-[14px] font-semibold">
-            {creatorInitials || "?"}
-          </span>
+          <Home className="h-4.5 w-4.5" strokeWidth={1.5} />
         )}
       </button>
     </div>

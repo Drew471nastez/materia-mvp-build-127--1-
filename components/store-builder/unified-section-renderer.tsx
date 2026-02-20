@@ -294,8 +294,8 @@ function UnifiedReviewsSection({
         "mx-auto w-full",
         // Mobile: fixed 7px horizontal spacing
         isMobile && "px-[7px]",
-        // Desktop: max width ~10% wider for better responsiveness
-        !isMobile && "max-w-[1265px] px-4 sm:px-6",
+        // Desktop: max width with standard padding
+        !isMobile && "max-w-[1180px] px-4 sm:px-6",
       )}
       style={{
         paddingTop: spacing?.paddingTop,

@@ -781,7 +781,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         <MobileSidebarContent onItemClick={() => setMobileMenuOpen(false)} />
       </div>
 
-      <aside className="fixed left-0 z-40 hidden w-[220px] flex-col border-r border-neutral-200/50 md:flex" style={{ top: 'var(--announcement-h, 0px)', height: 'calc(100svh - var(--announcement-h, 0px))' }}>
+      <aside className="fixed left-0 top-0 z-40 hidden w-[220px] flex-col border-r border-neutral-200/50 md:flex h-svh">
         <SidebarContent />
       </aside>
 

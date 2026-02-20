@@ -1248,22 +1248,22 @@ function WithdrawPanel({
               <div className="rounded-2xl border border-[#e5e7eb] overflow-hidden">
                 <div className="px-4 py-4">
                   {[
-                    { label: "On the way to your bank", value: inTransitAmount, icon: <Send className="h-3.5 w-3.5 text-[#6b7280]" />, color: "#6b7280" },
-                    { label: "Available to pay out soon", value: pendingBalance, icon: <Clock className="h-3.5 w-3.5 text-[#f59e0b]" />, color: "#f59e0b" },
-                    { label: "Available in your balance", value: availableBalance, icon: <CheckCircle2 className="h-3.5 w-3.5 text-[#10b981]" />, color: "#10b981" },
-                  ].map(({ label, value, icon, color }, i, arr) => (
+                    { label: "Available in your balance", value: availableBalance, icon: <CheckCircle2 className="h-3.5 w-3.5 text-[#9ca3af]" /> },
+                    { label: "Available to pay out soon", value: pendingBalance, icon: <Clock className="h-3.5 w-3.5 text-[#9ca3af]" /> },
+                    { label: "On the way to your bank", value: inTransitAmount, icon: <Send className="h-3.5 w-3.5 text-[#9ca3af]" /> },
+                  ].map(({ label, value, icon }, i, arr) => (
                     <div key={i} className="flex gap-3">
                       {/* Timeline column */}
                       <div className="flex flex-col items-center">
-                        <div className="w-7 h-7 rounded-full border-2 flex items-center justify-center shrink-0" style={{ borderColor: color, backgroundColor: `${color}10` }}>
+                        <div className="w-6 h-6 rounded-full bg-[#f3f4f6] flex items-center justify-center shrink-0">
                           {icon}
                         </div>
                         {i < arr.length - 1 && (
-                          <div className="w-[2px] flex-1 my-1 rounded-full bg-[#e5e7eb]" />
+                          <div className="w-[2px] flex-1 my-0.5 bg-[#e5e7eb]" />
                         )}
                       </div>
                       {/* Content */}
-                      <div className={cn("flex-1 flex items-center justify-between", i < arr.length - 1 ? "pb-4" : "")}>
+                      <div className={cn("flex-1 flex items-center justify-between", i < arr.length - 1 ? "pb-3.5" : "")}>
                         <span className="text-[13px] text-[#374151]">{label}</span>
                         <span className="text-[14px] font-semibold text-[#1a1a2e]">{fmt(value, currency)}</span>
                       </div>

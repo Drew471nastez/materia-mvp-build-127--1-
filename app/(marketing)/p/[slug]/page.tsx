@@ -18,7 +18,6 @@ import { ProductAboutSection } from "@/components/store-builder/unified-section-
 import { DynamicFavicon } from "@/components/store-builder/dynamic-favicon"
 import { LiveProductCreatorBar } from "@/components/store-builder/product-creator-bar"
 import { LiveStickyAddToCart } from "@/components/store-builder/sticky-add-to-cart"
-import { StickyDesktopCreatorBar } from "@/components/store-builder/sticky-desktop-creator-bar"
 import type { Section, ProductHeaderSettings } from "@/lib/store-builder/types"
 import {
   defaultMoreFromSellerSettings,
@@ -1418,19 +1417,6 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           avatarUrl={creatorAvatarUrl}
         />
 
-        {/* Sticky Creator Bar - appears on desktop when scrolling past header */}
-        {creator && (
-          <StickyDesktopCreatorBar
-            creatorName={creatorProfile?.display_name || creator?.name || "Creator"}
-            creatorAvatarUrl={creatorAvatarUrl}
-            creatorInitials={creatorInitials}
-            creatorStoreUrl={getStoreUrl(creatorUsername)}
-            productTitle={product.title}
-            textColor={themeColors.textColor}
-            backgroundColor={pageBackgroundColor}
-          />
-        )}
-
         {/* Sticky Add to Cart - appears on scroll - ALWAYS SHOW */}
         {stickyAddToCartSettings.visible && (
           <LiveStickyAddToCart
@@ -1517,10 +1503,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
 
         {/* Creator quick-nav circle for owners viewing their own product */}
         {isCreatorViewing && (
-          <CreatorQuickNav
-            avatarUrl={creatorAvatarUrl}
-            creatorInitials={creatorInitials}
-          />
+          <CreatorQuickNav />
         )}
       </div>
     )
@@ -1551,19 +1534,6 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
         creatorId={product.creator_id}
         avatarUrl={creatorAvatarUrl}
       />
-
-      {/* Sticky Creator Bar - appears on desktop when scrolling past header */}
-      {creator && (
-        <StickyDesktopCreatorBar
-          creatorName={creatorProfile?.display_name || creator?.name || "Creator"}
-          creatorAvatarUrl={creatorAvatarUrl}
-          creatorInitials={creatorInitials}
-          creatorStoreUrl={getStoreUrl(creatorUsername)}
-          productTitle={product.title}
-          textColor={defaultPageTextColor}
-          backgroundColor={defaultPageBackgroundColor}
-        />
-      )}
 
       {/* Sticky Add to Cart - appears on scroll - ALWAYS SHOW */}
       <LiveStickyAddToCart
@@ -1634,10 +1604,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
 
       {/* Creator quick-nav circle for owners viewing their own product */}
       {isCreatorViewing && (
-        <CreatorQuickNav
-          avatarUrl={creatorAvatarUrl}
-          creatorInitials={creatorInitials}
-        />
+        <CreatorQuickNav />
       )}
     </div>
   )
