@@ -3668,15 +3668,10 @@ export function PayoutsClient({
           : dominant;
 
         if (selected) {
-          // Use pre-converted USD values from API if available,
-          // otherwise use Stripe balance directly (and toUsd will convert)
-          if (json.balanceUsd) {
-            setAvailableBalance(Math.max(0, json.balanceUsd.available));
-            setPendingBalance(Math.max(0, json.balanceUsd.pending));
-          } else {
-            setAvailableBalance(Math.max(0, selected[1].available));
-            setPendingBalance(Math.max(0, selected[1].pending));
-          }
+          // Use Stripe's balance directly — it already accounts for
+          // pending refunds (payment_refund txns reduce the pending balance)
+          setAvailableBalance(Math.max(0, selected[1].available));
+          setPendingBalance(Math.max(0, selected[1].pending));
         }
       }
     } catch {

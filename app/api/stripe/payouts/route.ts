@@ -63,7 +63,7 @@ export async function GET() {
         { stripeAccount: stripeAccountId }
       ).catch(() => null),
       stripe.balanceTransactions.list(
-        { limit: 100 },
+        { limit: 5 },
         { stripeAccount: stripeAccountId }
       ).catch(() => ({ data: [] })),
     ])
@@ -98,22 +98,6 @@ export async function GET() {
 
       if (selected && selected[0] !== "usd" && selected[1].pending > 0 && orderPendingUsd > 0) {
         exchangeRate = selected[1].pending / orderPendingUsd
-      }
-    }
-
-    // Final fallback: use Stripe's exchange rates API for a live market rate
-    if (!exchangeRate || exchangeRate <= 0) {
-      const curr = (creator.default_currency || "usd").toLowerCase()
-      if (curr !== "usd") {
-        try {
-          const rates = await stripe.exchangeRates.retrieve("usd")
-          const rateToNative = rates?.rates?.[curr]
-          if (rateToNative && rateToNative > 0) {
-            exchangeRate = rateToNative
-          }
-        } catch {
-          // Non-fatal
-        }
       }
     }
 
@@ -163,23 +147,7 @@ export async function GET() {
         }
       : null
 
-    // Pre-convert balance to USD if exchange rate is available
-    let balanceUsd: { available: number; pending: number } | null = null
-    if (balance && exchangeRate && exchangeRate > 0) {
-      const curr = (creator.default_currency || "usd").toLowerCase()
-      if (curr !== "usd") {
-        let totalPending = 0
-        let totalAvailable = 0
-        for (const b of balance.pending) totalPending += b.amount
-        for (const b of balance.available) totalAvailable += b.amount
-        balanceUsd = {
-          pending: Math.round(totalPending / exchangeRate),
-          available: Math.round(totalAvailable / exchangeRate),
-        }
-      }
-    }
-
-    return NextResponse.json({ payouts, balance, exchangeRate, balanceUsd })
+    return NextResponse.json({ payouts, balance, exchangeRate })
   } catch (error: any) {
     console.error("[Stripe Payouts Error]", error)
     return NextResponse.json(
