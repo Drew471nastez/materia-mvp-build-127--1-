@@ -1139,7 +1139,25 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data?.error || "Failed to open account settings")
-      if (data?.url) window.location.href = data.url
+      if (data?.url) {
+        // Open in popup so user stays on settings page, refresh data when they return
+        const w = 1100, h = 700
+        const left = window.screenX + (window.outerWidth - w) / 2
+        const top = window.screenY + (window.outerHeight - h) / 2
+        const popup = window.open(data.url, "stripe-manage", `width=${w},height=${h},left=${left},top=${top},scrollbars=yes,resizable=yes`)
+        if (popup) {
+          const pollTimer = setInterval(() => {
+            if (popup.closed) {
+              clearInterval(pollTimer)
+              loadStripeStatus()
+              loadStripeBankInfo()
+            }
+          }, 1000)
+        } else {
+          // Popup blocked — redirect
+          window.location.href = data.url
+        }
+      }
     } catch (err: any) {
       setError(err?.message || "Something went wrong. Try again.")
       setTimeout(() => setError(null), 5000)

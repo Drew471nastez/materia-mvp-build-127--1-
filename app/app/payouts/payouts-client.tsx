@@ -3512,18 +3512,26 @@ function PayoutMethodCard() {
             </div>
           </div>
 
-          {/* Right: Manage settings button */}
+          {/* Right: action buttons */}
           <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={openManageSettings}
               disabled={actionLoading}
-              className="flex items-center gap-1.5 px-3.5 py-2 text-[12px] font-medium text-[#374151] bg-[#f3f4f6] border border-[#e5e7eb] rounded-lg hover:bg-[#e5e7eb] transition-colors disabled:opacity-60 whitespace-nowrap"
+              className="flex items-center gap-1.5 px-3.5 py-2 text-[12px] font-medium text-white bg-[#8b5cf6] rounded-lg hover:bg-[#7c3aed] transition-colors disabled:opacity-60 whitespace-nowrap"
             >
               {actionLoading ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
                 <ExternalLink className="h-3.5 w-3.5" />
               )}
+              Update bank
+            </button>
+            <button
+              onClick={openManageSettings}
+              disabled={actionLoading}
+              className="flex items-center gap-1.5 px-3.5 py-2 text-[12px] font-medium text-[#374151] bg-[#f3f4f6] border border-[#e5e7eb] rounded-lg hover:bg-[#e5e7eb] transition-colors disabled:opacity-60 whitespace-nowrap"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
               Manage settings
             </button>
           </div>

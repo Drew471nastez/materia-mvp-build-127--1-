@@ -13,6 +13,10 @@ import { stripe } from "@/lib/stripe"
  * Body: { type?: "onboarding" | "update" }
  *   - "onboarding" (default): Initial KYC + bank setup
  *   - "update": Update bank details or resolve requirements
+ *
+ * If "update" is requested but the account hasn't completed onboarding yet
+ * (details_submitted is false), it falls back to "account_onboarding" since
+ * Stripe only allows account_update links for fully onboarded accounts.
  */
 export async function POST(request: Request) {
   try {
@@ -39,14 +43,29 @@ export async function POST(request: Request) {
     }
 
     // Parse optional type from body
-    let linkType: "account_onboarding" | "account_update" = "account_onboarding"
+    let wantsUpdate = false
     try {
       const body = await request.json()
       if (body.type === "update") {
-        linkType = "account_update"
+        wantsUpdate = true
       }
     } catch {
       // No body — default to onboarding
+    }
+
+    // Check if the account has completed onboarding before creating an update link
+    let linkType: "account_onboarding" | "account_update" = "account_onboarding"
+    if (wantsUpdate) {
+      try {
+        const account = await stripe.accounts.retrieve(creator.stripe_account_id)
+        if (account.details_submitted) {
+          linkType = "account_update"
+        }
+        // If details_submitted is false, fall back to account_onboarding
+        // since Stripe doesn't allow account_update for incomplete accounts
+      } catch {
+        // If we can't retrieve the account, fall back to onboarding
+      }
     }
 
     const baseUrl =
