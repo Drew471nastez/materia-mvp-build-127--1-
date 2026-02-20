@@ -239,6 +239,12 @@ function getStatusBadge(status: string) {
           <RotateCcw className="h-3 w-3" /> Refunded
         </span>
       );
+    case "disputed":
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-orange-100 text-orange-700">
+          <AlertCircle className="h-3 w-3" /> Disputed
+        </span>
+      );
     case "failed":
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-700">
@@ -840,6 +846,13 @@ function WithdrawPanel({
   } | null>(null);
   const [showWithdrawHint, setShowWithdrawHint] = useState(false);
   const [accountLinkLoading, setAccountLinkLoading] = useState(false);
+  const [holdItems, setHoldItems] = useState<Array<{
+    id: string;
+    amount_cents: number;
+    hold_until: string;
+    description: string;
+  }>>([]);
+  const [holdItemsLoading, setHoldItemsLoading] = useState(false);
   const { toast } = useToast();
 
   const openAccountLink = async (type: "onboarding" | "update" = "update") => {
@@ -943,14 +956,14 @@ function WithdrawPanel({
           <CheckCircle2 className="h-6 w-6 text-violet-600" />
         </div>
         <h3 className="text-[16px] font-semibold text-[#1a1a2e] mb-1">
-          Withdrawal initiated!
+          Cash out initiated!
         </h3>
         <p className="text-[13px] text-[#6b7280] mb-1">
           <strong>{fmt(successPayout.amount, successPayout.currency)}</strong>{" "}
           is on its way to your bank.
         </p>
         <p className="text-[12px] text-[#9ca3af] mb-4">
-          Most payouts arrive in 1–3 business days.
+          Funds typically arrive within 24–48 hours.
         </p>
         <button
           onClick={onSuccess}
@@ -964,8 +977,8 @@ function WithdrawPanel({
 
   const helper =
     availableBalance <= 0
-      ? "No funds available yet. Clears in 1–3 business days."
-      : "Funds arrive in 1–3 business days.";
+      ? "No funds available yet. New sales are held for 7 days before they become available."
+      : "Cash out your full available balance. Funds arrive in 24–48 hours. Minimum $10.00.";
 
   return (
     <div className="bg-[#f8fafc] rounded-2xl border border-[#e5e7eb] p-5 sm:p-6 flex flex-col gap-5 min-w-[240px]">
@@ -995,10 +1008,31 @@ function WithdrawPanel({
               <div className="h-7 w-20 mt-2 rounded-lg bg-gray-200 animate-pulse ml-auto" />
             )}
             <button
-              onClick={() => setOpenBreakdown(true)}
+              onClick={async () => {
+                setOpenBreakdown(true);
+                if (holdItems.length === 0 && !holdItemsLoading) {
+                  setHoldItemsLoading(true);
+                  try {
+                    const r = await fetch("/api/stripe/seller-balance");
+                    const json = await r.json();
+                    if (json.recent_events) {
+                      const pending = json.recent_events
+                        .filter((e: any) => e.event_type === "sale" && !e.released_at && e.hold_until)
+                        .map((e: any) => ({
+                          id: e.id,
+                          amount_cents: e.net_seller_cents || e.amount_cents,
+                          hold_until: e.hold_until,
+                          description: e.description || "Purchase processing",
+                        }));
+                      setHoldItems(pending);
+                    }
+                  } catch { /* non-fatal */ }
+                  finally { setHoldItemsLoading(false); }
+                }
+              }}
               className="text-[12px] font-medium text-[#8b5cf6] hover:text-[#7c3aed] hover:underline mt-2 transition-colors"
             >
-              See breakdown →
+              View breakdown →
             </button>
           </div>
         </div>
@@ -1058,7 +1092,7 @@ function WithdrawPanel({
             </div>
             {showWithdrawHint && (
               <div className="absolute left-2 right-2 -top-11 z-30 rounded-xl bg-[#111827] px-3 py-2.5 text-[11px] text-white text-center shadow-lg">
-                No funds ready yet — funds are held for 7 days for security
+                No funds ready yet — new sales are held for 7 days before cash out
               </div>
             )}
             <button
@@ -1094,7 +1128,7 @@ function WithdrawPanel({
             <div className="relative bg-white rounded-3xl border border-[#e5e7eb] shadow-2xl w-full max-w-md p-7 animate-in fade-in zoom-in-95 duration-200">
               <div className="flex justify-between items-center mb-1">
                 <h3 className="text-[22px] font-semibold text-[#1a1a2e]">
-                  Earnings Breakdown
+                  Balance Breakdown
                 </h3>
                 <button
                   onClick={() => setOpenBreakdown(false)}
@@ -1104,23 +1138,49 @@ function WithdrawPanel({
                 </button>
               </div>
               <p className="text-[13px] text-[#6b7280]">
-                Your Stripe connected account balance.
+                Your current balance details.
               </p>
 
               <div className="mt-5 space-y-2">
-                <div className="flex items-center justify-between bg-[#f9fafb] border border-[#f0f0f0] rounded-xl p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
-                      <Clock className="h-4 w-4 text-[#6b7280]" />
+                <div className="bg-[#f9fafb] border border-[#f0f0f0] rounded-xl p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+                        <Clock className="h-4 w-4 text-[#6b7280]" />
+                      </div>
+                      <div>
+                        <p className="text-[13px] font-medium text-[#1a1a2e]">Available soon</p>
+                        <p className="text-[11px] text-[#9ca3af]">Held for 7-day security period</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-[13px] font-medium text-[#1a1a2e]">Available soon</p>
-                      <p className="text-[11px] text-[#9ca3af]">Processing by Stripe</p>
-                    </div>
+                    <span className="text-[15px] font-semibold text-[#1a1a2e]">
+                      {fmt(pendingBalance, currency)}
+                    </span>
                   </div>
-                  <span className="text-[15px] font-semibold text-[#1a1a2e]">
-                    {fmt(pendingBalance, currency)}
-                  </span>
+                  {/* Per-transaction hold dates */}
+                  {holdItemsLoading ? (
+                    <div className="mt-3 space-y-1.5">
+                      {[1, 2].map((i) => (
+                        <div key={i} className="h-6 rounded bg-gray-100 animate-pulse" />
+                      ))}
+                    </div>
+                  ) : holdItems.length > 0 ? (
+                    <div className="mt-3 space-y-1 border-t border-[#e5e7eb] pt-3">
+                      {holdItems.map((item) => (
+                        <div key={item.id} className="flex items-center justify-between">
+                          <span className="text-[11px] text-[#6b7280] truncate max-w-[60%]">
+                            {item.description}
+                          </span>
+                          <span className="text-[11px] text-[#9ca3af] font-mono whitespace-nowrap">
+                            {new Date(item.hold_until) <= new Date()
+                              ? "Ready"
+                              : `Available ${new Date(item.hold_until).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+                            } · {fmt(item.amount_cents, currency)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="flex items-center justify-between bg-[#f9fafb] border border-[#f0f0f0] rounded-xl p-4">
@@ -1129,7 +1189,7 @@ function WithdrawPanel({
                       <CheckCircle2 className="h-4 w-4 text-[#8b5cf6]" />
                     </div>
                     <div>
-                      <p className="text-[13px] font-medium text-[#1a1a2e]">Available for cashout</p>
+                      <p className="text-[13px] font-medium text-[#1a1a2e]">Available for cash out</p>
                       <p className="text-[11px] text-[#9ca3af]">Ready to withdraw</p>
                     </div>
                   </div>
@@ -1138,10 +1198,27 @@ function WithdrawPanel({
                   </span>
                 </div>
 
+                {inTransitAmount > 0 && (
+                  <div className="flex items-center justify-between bg-[#f9fafb] border border-[#f0f0f0] rounded-xl p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                        <Send className="h-4 w-4 text-blue-500" />
+                      </div>
+                      <div>
+                        <p className="text-[13px] font-medium text-[#1a1a2e]">On the way to your bank</p>
+                        <p className="text-[11px] text-[#9ca3af]">24–48 hours</p>
+                      </div>
+                    </div>
+                    <span className="text-[15px] font-semibold text-[#1a1a2e]">
+                      {fmt(inTransitAmount, currency)}
+                    </span>
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between pt-3 border-t border-[#e5e7eb] px-1">
                   <span className="text-[14px] font-medium text-[#1a1a2e]">Total balance</span>
                   <span className="text-[17px] font-bold text-[#8b5cf6]">
-                    {fmt(availableBalance + pendingBalance, currency)}
+                    {fmt(availableBalance + pendingBalance + inTransitAmount, currency)}
                   </span>
                 </div>
               </div>
@@ -1150,7 +1227,7 @@ function WithdrawPanel({
                 <div className="flex items-start gap-2">
                   <Info className="h-3.5 w-3.5 text-[#9ca3af] mt-0.5 shrink-0" />
                   <p className="text-[12px] text-[#6b7280] leading-relaxed">
-                    Pending funds typically become available within 2–7 business days depending on your region.
+                    New sales are held for 7 days for security. After the hold period, funds become available for cash out.
                   </p>
                 </div>
               </div>
@@ -1204,20 +1281,45 @@ function WithdrawPanel({
               <div className="w-10 h-1.5 rounded-full bg-[#d1d5db]" />
             </div>
             <div className="px-5 pb-5">
-              <h3 className="text-[18px] font-semibold text-[#1a1a2e]">Earnings Breakdown</h3>
-              <p className="text-[13px] text-[#6b7280] mt-0.5">Your Stripe connected account balance.</p>
+              <h3 className="text-[18px] font-semibold text-[#1a1a2e]">Balance Breakdown</h3>
+              <p className="text-[13px] text-[#6b7280] mt-0.5">Your current balance details.</p>
               <div className="mt-4 space-y-2">
-                <div className="flex items-center justify-between bg-[#f9fafb] border border-[#f0f0f0] rounded-xl p-3.5">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
-                      <Clock className="h-3.5 w-3.5 text-[#6b7280]" />
+                <div className="bg-[#f9fafb] border border-[#f0f0f0] rounded-xl p-3.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
+                        <Clock className="h-3.5 w-3.5 text-[#6b7280]" />
+                      </div>
+                      <div>
+                        <p className="text-[13px] font-medium text-[#1a1a2e]">Available soon</p>
+                        <p className="text-[10px] text-[#9ca3af]">Held for 7-day security period</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-[13px] font-medium text-[#1a1a2e]">Available soon</p>
-                      <p className="text-[10px] text-[#9ca3af]">Processing by Stripe</p>
-                    </div>
+                    <span className="text-[14px] font-semibold text-[#1a1a2e]">{fmt(pendingBalance, currency)}</span>
                   </div>
-                  <span className="text-[14px] font-semibold text-[#1a1a2e]">{fmt(pendingBalance, currency)}</span>
+                  {holdItemsLoading ? (
+                    <div className="mt-2.5 space-y-1.5">
+                      {[1, 2].map((i) => (
+                        <div key={i} className="h-5 rounded bg-gray-100 animate-pulse" />
+                      ))}
+                    </div>
+                  ) : holdItems.length > 0 ? (
+                    <div className="mt-2.5 space-y-1 border-t border-[#e5e7eb] pt-2.5">
+                      {holdItems.map((item) => (
+                        <div key={item.id} className="flex items-center justify-between">
+                          <span className="text-[10px] text-[#6b7280] truncate max-w-[55%]">
+                            {item.description}
+                          </span>
+                          <span className="text-[10px] text-[#9ca3af] font-mono whitespace-nowrap">
+                            {new Date(item.hold_until) <= new Date()
+                              ? "Ready"
+                              : `${new Date(item.hold_until).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+                            } · {fmt(item.amount_cents, currency)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
                 <div className="flex items-center justify-between bg-[#f9fafb] border border-[#f0f0f0] rounded-xl p-3.5">
                   <div className="flex items-center gap-2.5">
@@ -1225,22 +1327,36 @@ function WithdrawPanel({
                       <CheckCircle2 className="h-3.5 w-3.5 text-[#8b5cf6]" />
                     </div>
                     <div>
-                      <p className="text-[13px] font-medium text-[#1a1a2e]">Available for cashout</p>
+                      <p className="text-[13px] font-medium text-[#1a1a2e]">Available for cash out</p>
                       <p className="text-[10px] text-[#9ca3af]">Ready to withdraw</p>
                     </div>
                   </div>
                   <span className="text-[14px] font-semibold text-[#1a1a2e]">{fmt(availableBalance, currency)}</span>
                 </div>
+                {inTransitAmount > 0 && (
+                  <div className="flex items-center justify-between bg-[#f9fafb] border border-[#f0f0f0] rounded-xl p-3.5">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
+                        <Send className="h-3.5 w-3.5 text-blue-500" />
+                      </div>
+                      <div>
+                        <p className="text-[13px] font-medium text-[#1a1a2e]">On the way to bank</p>
+                        <p className="text-[10px] text-[#9ca3af]">24–48 hours</p>
+                      </div>
+                    </div>
+                    <span className="text-[14px] font-semibold text-[#1a1a2e]">{fmt(inTransitAmount, currency)}</span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between pt-3 border-t border-[#e5e7eb] px-1">
                   <span className="text-[13px] font-medium text-[#1a1a2e]">Total balance</span>
-                  <span className="text-[16px] font-bold text-[#8b5cf6]">{fmt(availableBalance + pendingBalance, currency)}</span>
+                  <span className="text-[16px] font-bold text-[#8b5cf6]">{fmt(availableBalance + pendingBalance + inTransitAmount, currency)}</span>
                 </div>
               </div>
               <div className="mt-4 bg-[#f9fafb] border border-[#f0f0f0] rounded-xl p-3">
                 <div className="flex items-start gap-2">
                   <Info className="h-3.5 w-3.5 text-[#9ca3af] mt-0.5 shrink-0" />
                   <p className="text-[11px] text-[#6b7280] leading-relaxed">
-                    Pending funds typically become available within 2–7 business days.
+                    New sales are held for 7 days for security. After the hold period, funds become available for cash out.
                   </p>
                 </div>
               </div>
@@ -3633,6 +3749,7 @@ export function PayoutsClient({
     initialData.exchangeRate || 1,
   );
   const [recentTab, setRecentTab] = useState<"sales" | "payouts">("sales");
+  const [salesFilter, setSalesFilter] = useState<"all" | "completed" | "refunded" | "disputed">("all");
   const [recentPage, setRecentPage] = useState(0);
   const [isPageLoading, setIsPageLoading] = useState(false);
   const [payoutCount, setPayoutCount] = useState(0);
@@ -3714,10 +3831,13 @@ export function PayoutsClient({
   const openOrderDetails = useCallback((order: OrderPayment) => {
     setSelectedOrder(order);
   }, []);
+  const filteredOrders = salesFilter === "all"
+    ? initialOrders
+    : initialOrders.filter((o) => o.status === salesFilter);
   const pageItems =
-    recentTab === "sales" ? initialOrders : new Array(payoutCount);
+    recentTab === "sales" ? filteredOrders : new Array(payoutCount);
   const pageCount = Math.max(1, Math.ceil(pageItems.length / 4));
-  const pagedOrders = initialOrders.slice(recentPage * 4, recentPage * 4 + 4);
+  const pagedOrders = filteredOrders.slice(recentPage * 4, recentPage * 4 + 4);
   const changePage = (next: number) => {
     setIsPageLoading(true);
     setTimeout(() => {
@@ -3859,10 +3979,34 @@ export function PayoutsClient({
                   Payouts
                 </button>
               </div>
-              {/* Pagination + export */}
+              {/* Status filter chips (Sales tab only) + Pagination + export */}
               <div className="flex items-center justify-end gap-2 py-2 text-[#6b7280]">
+                {recentTab === "sales" && (
+                  <div className="flex items-center gap-1 mr-auto sm:mr-2">
+                    {(["all", "completed", "refunded", "disputed"] as const).map((f) => {
+                      const count = f === "all"
+                        ? initialOrders.length
+                        : initialOrders.filter((o) => o.status === f).length;
+                      if (f !== "all" && count === 0) return null;
+                      return (
+                        <button
+                          key={f}
+                          onClick={() => { setSalesFilter(f); setRecentPage(0); }}
+                          className={cn(
+                            "px-2.5 py-1 text-[11px] font-medium rounded-full transition-colors capitalize",
+                            salesFilter === f
+                              ? "bg-[#1a1a2e] text-white"
+                              : "bg-[#f3f4f6] text-[#6b7280] hover:bg-[#e5e7eb]",
+                          )}
+                        >
+                          {f === "all" ? "All" : f}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
                 <div className="hidden sm:block">
-                  <ExportDropdown orders={initialOrders} currency={currency} />
+                  <ExportDropdown orders={filteredOrders} currency={currency} />
                 </div>
                 <span className="text-[11px] text-[#9ca3af]">
                   {recentPage + 1} / {pageCount}

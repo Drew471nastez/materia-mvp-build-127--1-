@@ -1193,5 +1193,170 @@ export async function POST(request: Request) {
     return NextResponse.json({ received: true })
   }
 
+  // ============================================================================
+  // DISPUTE EVENTS — charge.dispute.created / charge.dispute.closed
+  // Handles negative balance scenarios (Stan-style)
+  // ============================================================================
+
+  if (
+    event.type === "charge.dispute.created" ||
+    event.type === "charge.dispute.closed" ||
+    event.type === "charge.dispute.updated"
+  ) {
+    const dispute = event.data.object as Stripe.Dispute
+    const connectedAccountId = (event as any).account as string | undefined
+
+    console.log(`[Webhook] ${event.type}:`, dispute.id, "account:", connectedAccountId)
+
+    if (!connectedAccountId) {
+      return NextResponse.json({ received: true })
+    }
+
+    try {
+      const { data: creator } = await supabaseAdmin
+        .from("creators")
+        .select("id")
+        .eq("stripe_account_id", connectedAccountId)
+        .single()
+
+      if (!creator) {
+        console.warn("[Webhook] Dispute: no creator for account", connectedAccountId)
+        return NextResponse.json({ received: true })
+      }
+
+      const disputeAmountCents = dispute.amount
+
+      if (event.type === "charge.dispute.created") {
+        // Dispute opened — funds are withdrawn by Stripe.
+        // Subtract from available → pending → create negative balance
+        const { data: ledger } = await supabaseAdmin
+          .from("seller_ledger")
+          .select("*")
+          .eq("creator_id", creator.id)
+          .single()
+
+        if (ledger) {
+          let remaining = disputeAmountCents
+          let availableDelta = 0
+          let pendingDelta = 0
+          let newNegative = ledger.negative_balance
+
+          // Take from available first
+          const fromAvailable = Math.min(remaining, ledger.available_amount)
+          availableDelta = -fromAvailable
+          remaining -= fromAvailable
+
+          // Then from pending
+          const fromPending = Math.min(remaining, ledger.pending_amount)
+          pendingDelta = -fromPending
+          remaining -= fromPending
+
+          // Remainder becomes negative balance
+          if (remaining > 0) {
+            newNegative += remaining
+          }
+
+          await supabaseAdmin
+            .from("seller_ledger")
+            .update({
+              available_amount: ledger.available_amount + availableDelta,
+              pending_amount: ledger.pending_amount + pendingDelta,
+              negative_balance: newNegative,
+            })
+            .eq("creator_id", creator.id)
+
+          await supabaseAdmin.from("ledger_events").insert({
+            creator_id: creator.id,
+            event_type: "dispute_created",
+            amount_cents: disputeAmountCents,
+            net_seller_cents: disputeAmountCents,
+            currency: (dispute.currency || "usd").toLowerCase(),
+            available_delta: availableDelta,
+            pending_delta: pendingDelta,
+            stripe_dispute_id: dispute.id,
+            description: `Dispute opened: $${(disputeAmountCents / 100).toFixed(2)} held`,
+          })
+        }
+
+        // Update the order status to "disputed" if we can find it
+        if (dispute.charge) {
+          const chargeId = typeof dispute.charge === "string" ? dispute.charge : dispute.charge.id
+          await supabaseAdmin
+            .from("orders")
+            .update({ status: "disputed" })
+            .eq("stripe_payment_intent_id", chargeId)
+        }
+      }
+
+      if (event.type === "charge.dispute.closed") {
+        // Dispute resolved. If won (status=won), reverse the hold.
+        // If lost (status=lost/warning_closed), the money is gone — no reversal.
+        if (dispute.status === "won") {
+          const { data: ledger } = await supabaseAdmin
+            .from("seller_ledger")
+            .select("*")
+            .eq("creator_id", creator.id)
+            .single()
+
+          if (ledger) {
+            // Restore funds — first absorb any negative balance, rest goes to available
+            let toAvailable = disputeAmountCents
+            let newNegative = ledger.negative_balance
+
+            if (newNegative > 0 && toAvailable > 0) {
+              const absorbed = Math.min(toAvailable, newNegative)
+              toAvailable -= absorbed
+              newNegative -= absorbed
+            }
+
+            await supabaseAdmin
+              .from("seller_ledger")
+              .update({
+                available_amount: ledger.available_amount + toAvailable,
+                negative_balance: newNegative,
+              })
+              .eq("creator_id", creator.id)
+
+            await supabaseAdmin.from("ledger_events").insert({
+              creator_id: creator.id,
+              event_type: "dispute_closed",
+              amount_cents: disputeAmountCents,
+              net_seller_cents: toAvailable,
+              currency: (dispute.currency || "usd").toLowerCase(),
+              available_delta: toAvailable,
+              stripe_dispute_id: dispute.id,
+              description: `Dispute won: $${(disputeAmountCents / 100).toFixed(2)} restored`,
+            })
+          }
+
+          // Restore order status
+          if (dispute.charge) {
+            const chargeId = typeof dispute.charge === "string" ? dispute.charge : dispute.charge.id
+            await supabaseAdmin
+              .from("orders")
+              .update({ status: "completed" })
+              .eq("stripe_payment_intent_id", chargeId)
+              .eq("status", "disputed")
+          }
+        } else {
+          // Lost — just log it, funds already deducted
+          await supabaseAdmin.from("ledger_events").insert({
+            creator_id: creator.id,
+            event_type: "dispute_closed",
+            amount_cents: disputeAmountCents,
+            net_seller_cents: 0,
+            currency: (dispute.currency || "usd").toLowerCase(),
+            stripe_dispute_id: dispute.id,
+            description: `Dispute lost: $${(disputeAmountCents / 100).toFixed(2)} forfeited`,
+          })
+        }
+      }
+    } catch (error: any) {
+      console.error("[Webhook] Error processing dispute event:", error)
+    }
+
+    return NextResponse.json({ received: true })
+  }
+
   return NextResponse.json({ received: true })
 }

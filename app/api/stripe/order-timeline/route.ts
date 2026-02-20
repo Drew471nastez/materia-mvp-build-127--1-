@@ -129,8 +129,21 @@ export async function GET(request: Request) {
       .order("stripe_created", { ascending: true })
       .limit(5)
 
-    // Wait for both in parallel
-    const [, { data: relatedPayouts }] = await Promise.all([stripeDataPromise, payoutsPromise])
+    // Also fetch the ledger event for this order to get hold_until date
+    const ledgerPromise = adminSupabase
+      .from("ledger_events")
+      .select("hold_until, released_at")
+      .eq("order_id", orderId)
+      .eq("event_type", "sale")
+      .limit(1)
+      .single()
+
+    // Wait for all in parallel
+    const [, { data: relatedPayouts }, { data: ledgerEvent }] = await Promise.all([
+      stripeDataPromise,
+      payoutsPromise,
+      ledgerPromise,
+    ])
 
     timeline.push({
       id: "payment_completed",
@@ -149,18 +162,34 @@ export async function GET(request: Request) {
       status: paymentCompletedAt ? "completed" : "upcoming",
     })
 
-    // Step 4: Funds available
+    // Step 4: Funds available for cashout
+    // Use platform ledger hold_until date (Stan-style) when available, fallback to Stripe available_on
     const now = new Date()
-    const availableDate = availableAt ? new Date(availableAt) : null
-    const isFundsAvailable = availableDate ? availableDate <= now : false
+    const holdUntil = ledgerEvent?.hold_until ? new Date(ledgerEvent.hold_until) : null
+    const isReleased = !!ledgerEvent?.released_at
+    const availableDate = holdUntil || (availableAt ? new Date(availableAt) : null)
+    const isFundsAvailable = isReleased || (availableDate ? availableDate <= now : false)
+
+    const availableDescription = (() => {
+      if (isReleased) {
+        return `Available for cash out since ${new Date(ledgerEvent!.released_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
+      }
+      if (holdUntil) {
+        return holdUntil <= now
+          ? `Available for cash out since ${holdUntil.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
+          : `Available for cash out on ${holdUntil.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
+      }
+      if (availableAt) {
+        return `Available for cash out on ${new Date(availableAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
+      }
+      return "Typically 2–7 business days after payment"
+    })()
 
     timeline.push({
       id: "funds_available",
-      label: "Funds available to withdraw",
-      description: availableAt
-        ? `Available since ${new Date(availableAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
-        : "Typically 2–7 business days after payment",
-      timestamp: availableAt,
+      label: isFundsAvailable ? "Available for cash out" : "Available soon",
+      description: availableDescription,
+      timestamp: holdUntil?.toISOString() || availableAt,
       status: isFundsAvailable ? "completed" : paymentCompletedAt ? "pending" : "upcoming",
     })
 

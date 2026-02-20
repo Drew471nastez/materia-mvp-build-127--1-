@@ -55,7 +55,7 @@ export default async function PayoutsPage() {
       .from("orders")
       .select("*")
       .in("product_id", productIds)
-      .in("status", ["completed", "refunded"])
+      .in("status", ["completed", "refunded", "disputed"])
       .order("created_at", { ascending: false });
 
     if (ordersData) {

@@ -125,11 +125,11 @@ CREATE POLICY "service role full access on ledger_events"
 CREATE TABLE IF NOT EXISTS payout_hold_config (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   hold_days         INTEGER NOT NULL DEFAULT 7,
-  min_cashout_cents INTEGER NOT NULL DEFAULT 100,
+  min_cashout_cents INTEGER NOT NULL DEFAULT 1000,
   updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-INSERT INTO payout_hold_config (hold_days, min_cashout_cents) VALUES (7, 100);
+INSERT INTO payout_hold_config (hold_days, min_cashout_cents) VALUES (7, 1000);
 
 ALTER TABLE payout_hold_config ENABLE ROW LEVEL SECURITY;
 
