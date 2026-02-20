@@ -56,22 +56,40 @@ export async function downloadEntitledFile(
       throw new Error(data.error || data.message || "Failed to get download link")
     }
 
-    // Step 2: trigger browser download via direct navigation
-    // The signed URL has Content-Disposition: attachment set server-side,
-    // so the browser will download rather than navigate away.
+    // Step 2: fetch the file as a blob and trigger a native download
+    // This avoids opening any new tab or redirecting.
+    const fileRes = await fetch(data.downloadUrl)
+    if (!fileRes.ok) throw new Error("Failed to fetch file")
+    const blob = await fileRes.blob()
+
+    const blobUrl = URL.createObjectURL(blob)
     const link = document.createElement("a")
-    link.href = data.downloadUrl
+    link.href = blobUrl
     link.style.display = "none"
-    // target _blank ensures current page stays intact if Content-Disposition is missing
-    link.target = "_blank"
-    link.rel = "noopener noreferrer"
+    // Derive filename from Content-Disposition header, URL, or provided name
+    const disposition = fileRes.headers.get("content-disposition")
+    let filename = data.fileName || ""
+    if (disposition) {
+      const match = disposition.match(/filename\*?=(?:UTF-8'')?["']?([^"';\n]+)/i)
+      if (match?.[1]) filename = decodeURIComponent(match[1])
+    }
+    if (!filename) {
+      try {
+        const urlPath = new URL(data.downloadUrl).pathname
+        filename = urlPath.split("/").pop() || "download"
+      } catch {
+        filename = "download"
+      }
+    }
+    link.download = filename
 
     document.body.appendChild(link)
     link.click()
 
     setTimeout(() => {
       document.body.removeChild(link)
-    }, 200)
+      URL.revokeObjectURL(blobUrl)
+    }, 300)
 
     return { success: true }
   } catch (err) {

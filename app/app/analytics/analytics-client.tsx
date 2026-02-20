@@ -2473,31 +2473,23 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                     }}
                     cursor={{ stroke: "#e5e7eb", strokeWidth: 1 }}
                   />
-                  {/* Store areas */}
-                  {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "views") && (
-                    <Area type="monotone" dataKey="views" stroke={CHART_COLORS.views} strokeWidth={2} fill="url(#gradViews)" dot={false} activeDot={{ r: 4, fill: CHART_COLORS.views, strokeWidth: 2, stroke: "#fff" }} name="views" isAnimationActive={false} />
+                  {/* Store areas — always rendered, visibility via opacity for smooth transitions */}
+                  {analyticsMode === "store" && (
+                    <>
+                      <Area type="monotone" dataKey="views" stroke={CHART_COLORS.views} strokeWidth={2} fill="url(#gradViews)" dot={false} activeDot={(chartMetricFilter === "all" || chartMetricFilter === "views") ? { r: 4, fill: CHART_COLORS.views, strokeWidth: 2, stroke: "#fff" } : false} name="views" animationDuration={800} animationEasing="ease-in-out" animationBegin={0} strokeOpacity={(chartMetricFilter === "all" || chartMetricFilter === "views") ? 1 : 0} fillOpacity={(chartMetricFilter === "all" || chartMetricFilter === "views") ? 1 : 0} />
+                      <Area type="monotone" dataKey="sales" stroke={CHART_COLORS.orders} strokeWidth={2} fill="url(#gradOrders)" dot={false} activeDot={(chartMetricFilter === "all" || chartMetricFilter === "orders") ? { r: 4, fill: CHART_COLORS.orders, strokeWidth: 2, stroke: "#fff" } : false} name="sales" animationDuration={800} animationEasing="ease-in-out" animationBegin={0} strokeOpacity={(chartMetricFilter === "all" || chartMetricFilter === "orders") ? 1 : 0} fillOpacity={(chartMetricFilter === "all" || chartMetricFilter === "orders") ? 1 : 0} />
+                      <Area type="monotone" dataKey="revenue" stroke={CHART_COLORS.revenue} strokeWidth={2} fill="url(#gradRevenue)" dot={false} activeDot={(chartMetricFilter === "all" || chartMetricFilter === "revenue") ? { r: 4, fill: CHART_COLORS.revenue, strokeWidth: 2, stroke: "#fff" } : false} name="revenue" animationDuration={800} animationEasing="ease-in-out" animationBegin={0} strokeOpacity={(chartMetricFilter === "all" || chartMetricFilter === "revenue") ? 1 : 0} fillOpacity={(chartMetricFilter === "all" || chartMetricFilter === "revenue") ? 1 : 0} />
+                      <Area type="monotone" dataKey="conversion" stroke="#10b981" strokeWidth={2} fill="url(#gradConversion)" dot={false} activeDot={chartMetricFilter === "conversion" ? { r: 4, fill: "#10b981", strokeWidth: 2, stroke: "#fff" } : false} name="conversion" animationDuration={800} animationEasing="ease-in-out" animationBegin={0} strokeOpacity={chartMetricFilter === "conversion" ? 1 : 0} fillOpacity={chartMetricFilter === "conversion" ? 1 : 0} />
+                    </>
                   )}
-                  {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "orders") && (
-                    <Area type="monotone" dataKey="sales" stroke={CHART_COLORS.orders} strokeWidth={2} fill="url(#gradOrders)" dot={false} activeDot={{ r: 4, fill: CHART_COLORS.orders, strokeWidth: 2, stroke: "#fff" }} name="sales" isAnimationActive={false} />
-                  )}
-                  {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "revenue") && (
-                    <Area type="monotone" dataKey="revenue" stroke={CHART_COLORS.revenue} strokeWidth={2} fill="url(#gradRevenue)" dot={false} activeDot={{ r: 4, fill: CHART_COLORS.revenue, strokeWidth: 2, stroke: "#fff" }} name="revenue" isAnimationActive={false} />
-                  )}
-                  {analyticsMode === "store" && chartMetricFilter === "conversion" && (
-                    <Area type="monotone" dataKey="conversion" stroke="#10b981" strokeWidth={2} fill="url(#gradConversion)" dot={false} activeDot={{ r: 4, fill: "#10b981", strokeWidth: 2, stroke: "#fff" }} name="conversion" isAnimationActive={false} />
-                  )}
-                  {/* OnePage areas */}
-                  {analyticsMode === "onepage" && (onePageChartFilter === "all" || onePageChartFilter === "views") && (
-                    <Area type="monotone" dataKey="views" stroke={CHART_COLORS.views} strokeWidth={2} fill="url(#gradViews)" dot={false} activeDot={{ r: 4, fill: CHART_COLORS.views, strokeWidth: 2, stroke: "#fff" }} name="views" connectNulls isAnimationActive={false} />
-                  )}
-                  {analyticsMode === "onepage" && (onePageChartFilter === "all" || onePageChartFilter === "clicks") && (
-                    <Area type="monotone" dataKey="clicks" stroke={CHART_COLORS.clicks} strokeWidth={2} fill="url(#gradClicks)" dot={false} activeDot={{ r: 4, fill: CHART_COLORS.clicks, strokeWidth: 2, stroke: "#fff" }} name="clicks" connectNulls isAnimationActive={false} />
-                  )}
-                  {analyticsMode === "onepage" && (onePageChartFilter === "all" || onePageChartFilter === "subscribers") && (
-                    <Area type="monotone" dataKey="subscribers" stroke="#8b5cf6" strokeWidth={2} fill="url(#gradSubscribers)" dot={false} activeDot={{ r: 4, fill: "#8b5cf6", strokeWidth: 2, stroke: "#fff" }} name="subscribers" connectNulls isAnimationActive={false} />
-                  )}
-                  {analyticsMode === "onepage" && onePageChartFilter === "ctr" && (
-                    <Area type="monotone" dataKey="ctr" stroke="#f59e0b" strokeWidth={2} fill="url(#gradCtr)" dot={false} activeDot={{ r: 4, fill: "#f59e0b", strokeWidth: 2, stroke: "#fff" }} name="ctr" connectNulls isAnimationActive={false} />
+                  {/* OnePage areas — always rendered, visibility via opacity for smooth transitions */}
+                  {analyticsMode === "onepage" && (
+                    <>
+                      <Area type="monotone" dataKey="views" stroke={CHART_COLORS.views} strokeWidth={2} fill="url(#gradViews)" dot={false} activeDot={(onePageChartFilter === "all" || onePageChartFilter === "views") ? { r: 4, fill: CHART_COLORS.views, strokeWidth: 2, stroke: "#fff" } : false} name="views" connectNulls animationDuration={800} animationEasing="ease-in-out" animationBegin={0} strokeOpacity={(onePageChartFilter === "all" || onePageChartFilter === "views") ? 1 : 0} fillOpacity={(onePageChartFilter === "all" || onePageChartFilter === "views") ? 1 : 0} />
+                      <Area type="monotone" dataKey="clicks" stroke={CHART_COLORS.clicks} strokeWidth={2} fill="url(#gradClicks)" dot={false} activeDot={(onePageChartFilter === "all" || onePageChartFilter === "clicks") ? { r: 4, fill: CHART_COLORS.clicks, strokeWidth: 2, stroke: "#fff" } : false} name="clicks" connectNulls animationDuration={800} animationEasing="ease-in-out" animationBegin={0} strokeOpacity={(onePageChartFilter === "all" || onePageChartFilter === "clicks") ? 1 : 0} fillOpacity={(onePageChartFilter === "all" || onePageChartFilter === "clicks") ? 1 : 0} />
+                      <Area type="monotone" dataKey="subscribers" stroke="#8b5cf6" strokeWidth={2} fill="url(#gradSubscribers)" dot={false} activeDot={(onePageChartFilter === "all" || onePageChartFilter === "subscribers") ? { r: 4, fill: "#8b5cf6", strokeWidth: 2, stroke: "#fff" } : false} name="subscribers" connectNulls animationDuration={800} animationEasing="ease-in-out" animationBegin={0} strokeOpacity={(onePageChartFilter === "all" || onePageChartFilter === "subscribers") ? 1 : 0} fillOpacity={(onePageChartFilter === "all" || onePageChartFilter === "subscribers") ? 1 : 0} />
+                      <Area type="monotone" dataKey="ctr" stroke="#f59e0b" strokeWidth={2} fill="url(#gradCtr)" dot={false} activeDot={onePageChartFilter === "ctr" ? { r: 4, fill: "#f59e0b", strokeWidth: 2, stroke: "#fff" } : false} name="ctr" connectNulls animationDuration={800} animationEasing="ease-in-out" animationBegin={0} strokeOpacity={onePageChartFilter === "ctr" ? 1 : 0} fillOpacity={onePageChartFilter === "ctr" ? 1 : 0} />
+                    </>
                   )}
                 </AreaChart>
               </ResponsiveContainer>

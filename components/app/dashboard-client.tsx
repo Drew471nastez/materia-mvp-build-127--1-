@@ -809,10 +809,7 @@ export function DashboardClient({
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [expandedStep, setExpandedStep] = useState<string | null>(null)
   const [openKPIModal, setOpenKPIModal] = useState<KPIType>("views")
-  const [chartExpanded, setChartExpanded] = useState(() => {
-    if (typeof window === "undefined") return false
-    return window.innerWidth < 768 // open on mobile, closed on desktop
-  })
+  const [chartExpanded, setChartExpanded] = useState(false)
   const [chartData, setChartData] = useState<ChartDataPoint[]>([])
   const [isChartLoading, setIsChartLoading] = useState(false)
   const [analyticsData, setAnalyticsData] = useState({
