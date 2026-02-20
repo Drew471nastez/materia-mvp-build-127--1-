@@ -804,9 +804,6 @@ function WithdrawPanel({
   payoutsEnabled,
   balanceReady = true,
   onSuccess,
-  payoutScheduleInterval = null,
-  payoutScheduleDelay = null,
-  onScheduleUpdate,
 }: {
   availableBalance: number;
   pendingBalance: number;
@@ -814,11 +811,7 @@ function WithdrawPanel({
   payoutsEnabled: boolean;
   balanceReady?: boolean;
   onSuccess: () => void;
-  payoutScheduleInterval?: string | null;
-  payoutScheduleDelay?: number | null;
-  onScheduleUpdate?: (interval: string | null, delay: number | null) => void;
 }) {
-  const isAutomatic = payoutScheduleInterval != null && payoutScheduleInterval !== "manual";
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [openBreakdown, setOpenBreakdown] = useState(false);
@@ -846,13 +839,17 @@ function WithdrawPanel({
     currency: string;
   } | null>(null);
   const [showWithdrawHint, setShowWithdrawHint] = useState(false);
-  const [stripeLoginLoading, setStripeLoginLoading] = useState(false);
+  const [accountLinkLoading, setAccountLinkLoading] = useState(false);
   const { toast } = useToast();
 
-  const openStripeLogin = async () => {
-    setStripeLoginLoading(true);
+  const openAccountLink = async (type: "onboarding" | "update" = "update") => {
+    setAccountLinkLoading(true);
     try {
-      const r = await fetch("/api/stripe/login-link", { method: "POST" });
+      const r = await fetch("/api/stripe/account-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type }),
+      });
       const json = await r.json();
       if (json.url) {
         window.open(json.url, "_blank", "noopener,noreferrer");
@@ -861,29 +858,20 @@ function WithdrawPanel({
       }
     } catch {
       toast({
-        title: "Could not open Stripe",
-        description: "Please visit dashboard.stripe.com directly.",
+        title: "Could not open account settings",
+        description: "Please try again.",
         variant: "destructive",
       });
     } finally {
-      setStripeLoginLoading(false);
+      setAccountLinkLoading(false);
     }
   };
-
-  const scheduleLabel = (() => {
-    if (!payoutScheduleInterval) return null;
-    if (payoutScheduleInterval === "daily") return "Daily (automatic)";
-    if (payoutScheduleInterval === "weekly") return "Weekly (automatic)";
-    if (payoutScheduleInterval === "monthly") return "Monthly (automatic)";
-    if (payoutScheduleInterval === "manual") return "Manual (you control)";
-    return "Automatic";
-  })();
 
   const handleWithdraw = async () => {
     setLoading(true);
     setError(null);
     try {
-      const r = await fetch("/api/stripe/withdraw", { method: "POST" });
+      const r = await fetch("/api/stripe/cashout", { method: "POST" });
       const json = await r.json();
       if (!r.ok || json.error)
         throw new Error(json.error || "Withdrawal failed");
@@ -912,10 +900,6 @@ function WithdrawPanel({
         fetch("/api/stripe/payouts").then((r) => r.json()),
       ]);
       if (methodRes.bankAccount) setDetailsBank(methodRes.bankAccount);
-      // Update payout schedule from payout-method response
-      if (methodRes.payoutSchedule) {
-        onScheduleUpdate?.(methodRes.payoutSchedule.interval, methodRes.payoutSchedule.delayDays);
-      }
       // Compute in-transit amount from payouts with status "in_transit"
       const inTransit = (payoutsRes.payouts || [])
         .filter((p: any) => p.status === "in_transit")
@@ -1023,61 +1007,20 @@ function WithdrawPanel({
       {!payoutsEnabled ? (
         <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl">
           <AlertCircle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
-          <p className="text-[12px] text-amber-800">
-            Payouts not enabled. Complete Stripe onboarding first.
+          <p className="text-[12px] text-amber-800 leading-relaxed">
+            Complete your account setup to receive payouts.
           </p>
-        </div>
-      ) : isAutomatic ? (
-        <>
-          {/* Automatic payouts — managed by Stripe */}
-          <div className="rounded-xl border border-[#e5e7eb] bg-white p-4">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-9 h-9 rounded-full bg-[#f5f3ff] flex items-center justify-center shrink-0">
-                <CheckCircle2 className="h-5 w-5 text-[#8b5cf6]" />
-              </div>
-              <div>
-                <p className="text-[14px] font-semibold text-[#1a1a2e]">Managed by Stripe</p>
-                {scheduleLabel && (
-                  <p className="text-[12px] text-[#6b7280]">{scheduleLabel}</p>
-                )}
-              </div>
-            </div>
-            {payoutScheduleDelay != null && payoutScheduleDelay > 0 && (
-              <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-[#f9fafb] rounded-lg">
-                <Clock className="h-3.5 w-3.5 text-[#9ca3af] shrink-0" />
-                <p className="text-[12px] text-[#6b7280]">
-                  {payoutScheduleDelay} business day{payoutScheduleDelay !== 1 ? "s" : ""} rolling delay
-                </p>
-              </div>
-            )}
-            <div className="flex items-start gap-2.5 p-3 bg-[#f5f3ff] rounded-xl mb-3">
-              <Info className="h-3.5 w-3.5 text-[#8b5cf6] mt-0.5 shrink-0" />
-              <p className="text-[11px] text-[#6d28d9] leading-relaxed">
-                Funds arrive automatically. No action needed.
-              </p>
-            </div>
-            <button
-              onClick={openStripeLogin}
-              disabled={stripeLoginLoading}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 text-[14px] font-medium text-[#374151] bg-white border border-[#e2e8f0] rounded-xl hover:bg-[#f8fafc] hover:border-[#cbd5e1] transition-all shadow-sm disabled:opacity-50"
-            >
-              {stripeLoginLoading ? (
-                <><Loader2 className="h-4 w-4 animate-spin" /> Opening Stripe…</>
-              ) : (
-                <><ExternalLink className="h-4 w-4" /> View in Stripe</>
-              )}
-            </button>
-          </div>
           <button
-            onClick={openDetailsModal}
-            className="w-full px-4 py-3 text-[14px] font-medium text-[#374151] bg-white border border-[#e2e8f0] rounded-xl hover:bg-[#f8fafc] hover:border-[#cbd5e1] transition-all whitespace-nowrap shadow-sm"
+            onClick={() => openAccountLink("onboarding")}
+            disabled={accountLinkLoading}
+            className="ml-auto text-[12px] font-medium text-amber-700 hover:underline whitespace-nowrap shrink-0"
           >
-            See details
+            {accountLinkLoading ? "Opening…" : "Complete setup →"}
           </button>
-        </>
+        </div>
       ) : (
         <>
-          {/* Manual payouts — show Withdraw button */}
+          {/* Cash out — Storelib controls payouts */}
           {error && (
             <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-xl">
               <AlertCircle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
@@ -1085,7 +1028,6 @@ function WithdrawPanel({
             </div>
           )}
           <div className="flex flex-col sm:flex-row gap-2 relative">
-            {/* Withdraw button — faded + tooltip when no funds available */}
             <div className="flex-1 relative group">
               <button
                 onClick={() => {
@@ -1108,16 +1050,15 @@ function WithdrawPanel({
                 {loading ? (
                   <><Loader2 className="h-4 w-4 animate-spin" /> Processing…</>
                 ) : availableBalance <= 0 ? (
-                  <><Clock className="h-4 w-4" /> Withdraw</>
+                  <><Clock className="h-4 w-4" /> Cash out</>
                 ) : (
-                  <><Plus className="h-4 w-4" /> Withdraw</>
+                  <><Banknote className="h-4 w-4" /> Cash out</>
                 )}
               </button>
             </div>
-            {/* Tooltip when no funds — shows on tap (mobile) and hover (desktop) */}
             {showWithdrawHint && (
               <div className="absolute left-2 right-2 -top-11 z-30 rounded-xl bg-[#111827] px-3 py-2.5 text-[11px] text-white text-center shadow-lg">
-                No funds ready yet — check "See details" for pending balance
+                No funds ready yet — funds are held for 7 days for security
               </div>
             )}
             <button
@@ -1127,12 +1068,6 @@ function WithdrawPanel({
               See details
             </button>
           </div>
-          {scheduleLabel && (
-            <div className="flex items-center gap-2 px-3 py-2 bg-[#f9fafb] rounded-lg">
-              <Calendar className="h-3.5 w-3.5 text-[#9ca3af] shrink-0" />
-              <p className="text-[12px] text-[#6b7280]">{scheduleLabel}</p>
-            </div>
-          )}
           <div className="flex items-start gap-2.5 p-3 bg-[#f3f4f6] rounded-xl">
             <Info className="h-3.5 w-3.5 text-[#9ca3af] mt-0.5 shrink-0" />
             <p className="text-[11px] text-[#6b7280] leading-relaxed">
@@ -1405,31 +1340,25 @@ function WithdrawPanel({
                   <div className="h-4 w-48 bg-gray-100 rounded animate-pulse" />
                 ) : detailsBank ? (
                   <p className="text-[12px] text-[#9ca3af] leading-relaxed">
-                    Your funds are {isAutomatic ? "automatically" : "manually"} paid out to{" "}
+                    Your funds are manually paid out to{" "}
                     <span className="font-medium text-[#6b7280]">
                       {detailsBank.bankName || "Bank account"} ••••{detailsBank.last4}
                     </span>.{" "}
                     <button
-                      onClick={async () => {
-                        const r = await fetch("/api/stripe/login-link", { method: "POST" });
-                        const j = await r.json();
-                        if (j.url) window.open(j.url, "_blank", "noopener,noreferrer");
-                      }}
+                      onClick={() => openAccountLink("update")}
+                      disabled={accountLinkLoading}
                       className="text-[#8b5cf6] hover:underline font-medium"
                     >
-                      Update payout settings
+                      Update bank account
                     </button>
                   </p>
                 ) : (
                   <button
-                    onClick={async () => {
-                      const r = await fetch("/api/stripe/login-link", { method: "POST" });
-                      const j = await r.json();
-                      if (j.url) window.open(j.url, "_blank", "noopener,noreferrer");
-                    }}
+                    onClick={() => openAccountLink("update")}
+                    disabled={accountLinkLoading}
                     className="text-[12px] text-[#8b5cf6] hover:underline font-medium"
                   >
-                    Update payout settings →
+                    Update bank account →
                   </button>
                 )}
               </div>
@@ -1507,38 +1436,32 @@ function WithdrawPanel({
                 )}
               >
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Banknote className="h-4 w-4" />}
-                {availableBalance <= 0 ? "No funds yet" : "Withdraw"}
+                {availableBalance <= 0 ? "No funds yet" : "Cash out"}
               </button>
               <div className="mt-4 pt-4 border-t border-[#f3f4f6]">
                 {detailsLoading ? (
                   <div className="h-4 w-48 bg-gray-100 rounded animate-pulse" />
                 ) : detailsBank ? (
                   <p className="text-[12px] text-[#9ca3af] leading-relaxed">
-                    Your funds are {isAutomatic ? "automatically" : "manually"} paid out to{" "}
+                    Your funds are manually paid out to{" "}
                     <span className="font-medium text-[#6b7280]">
                       {detailsBank.bankName || "Bank account"} ••••{detailsBank.last4}
                     </span>.{" "}
                     <button
-                      onClick={async () => {
-                        const r = await fetch("/api/stripe/login-link", { method: "POST" });
-                        const j = await r.json();
-                        if (j.url) window.open(j.url, "_blank", "noopener,noreferrer");
-                      }}
+                      onClick={() => openAccountLink("update")}
+                      disabled={accountLinkLoading}
                       className="text-[#8b5cf6] hover:underline font-medium"
                     >
-                      Update payout settings
+                      Update bank account
                     </button>
                   </p>
                 ) : (
                   <button
-                    onClick={async () => {
-                      const r = await fetch("/api/stripe/login-link", { method: "POST" });
-                      const j = await r.json();
-                      if (j.url) window.open(j.url, "_blank", "noopener,noreferrer");
-                    }}
+                    onClick={() => openAccountLink("update")}
+                    disabled={accountLinkLoading}
                     className="text-[12px] text-[#8b5cf6] hover:underline font-medium"
                   >
-                    Update payout settings →
+                    Update bank account →
                   </button>
                 )}
               </div>
@@ -3339,7 +3262,11 @@ function PayoutMethodCard() {
   const openStripe = async () => {
     setActionLoading(true);
     try {
-      const r = await fetch("/api/stripe/login-link", { method: "POST" });
+      const r = await fetch("/api/stripe/account-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "update" }),
+      });
       const json = await r.json();
       if (json.url) {
         window.open(json.url, "_blank", "noopener,noreferrer");
@@ -3348,8 +3275,8 @@ function PayoutMethodCard() {
       }
     } catch {
       toast({
-        title: "Could not open Stripe",
-        description: "Please visit dashboard.stripe.com directly.",
+        title: "Could not open account settings",
+        description: "Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -3690,8 +3617,6 @@ interface PayoutsClientProps {
     availableBalance: number;
     paidOut?: number;
     exchangeRate?: number | null;
-    payoutScheduleInterval?: string | null;
-    payoutScheduleDelay?: number | null;
   };
   initialOrders?: OrderPayment[];
 }
@@ -3720,12 +3645,6 @@ export function PayoutsClient({
     initialData.pendingAmount,
   );
   const [openMenuOrderId, setOpenMenuOrderId] = useState<string | null>(null);
-  const [payoutScheduleInterval, setPayoutScheduleInterval] = useState<string | null>(
-    initialData.payoutScheduleInterval ?? null,
-  );
-  const [payoutScheduleDelay, setPayoutScheduleDelay] = useState<number | null>(
-    initialData.payoutScheduleDelay ?? null,
-  );
 
   const sourceCurrency = (creator.default_currency || "usd").toLowerCase();
   const currency = "usd";
@@ -3740,9 +3659,6 @@ export function PayoutsClient({
       const json = await r.json();
       // Update exchange rate from Stripe's balance transactions if provided
       if (json.exchangeRate) setStripeExchangeRate(json.exchangeRate);
-      // Update payout schedule from Stripe account settings
-      if (json.payoutScheduleInterval !== undefined) setPayoutScheduleInterval(json.payoutScheduleInterval);
-      if (json.payoutScheduleDelay !== undefined) setPayoutScheduleDelay(json.payoutScheduleDelay);
       if (json.balance) {
         const byCurrency = new Map<
           string,
@@ -3892,12 +3808,6 @@ export function PayoutsClient({
               onSuccess={() => {
                 refreshBalances();
                 setRecentTab("payouts");
-              }}
-              payoutScheduleInterval={payoutScheduleInterval}
-              payoutScheduleDelay={payoutScheduleDelay}
-              onScheduleUpdate={(interval, delay) => {
-                setPayoutScheduleInterval(interval);
-                setPayoutScheduleDelay(delay);
               }}
             />
           </div>

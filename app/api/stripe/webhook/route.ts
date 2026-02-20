@@ -348,6 +348,72 @@ export async function POST(request: Request) {
 
     console.log("[Webhook] Order created:", order.id)
 
+    // ── Ledger: record sale earnings ──────────────────────────────────────
+    if (creatorId && totalAmount > 0) {
+      try {
+        const netSeller = totalAmount - applicationFeeAmount
+
+        // Get hold config
+        const { data: holdCfg } = await supabaseAdmin
+          .from("payout_hold_config")
+          .select("hold_days")
+          .single()
+        const holdDays = holdCfg?.hold_days ?? 7
+
+        const holdUntil = new Date()
+        holdUntil.setDate(holdUntil.getDate() + holdDays)
+
+        // Ensure ledger exists
+        await supabaseAdmin
+          .from("seller_ledger")
+          .upsert({ creator_id: creatorId }, { onConflict: "creator_id" })
+
+        // Load current ledger
+        const { data: ledger } = await supabaseAdmin
+          .from("seller_ledger")
+          .select("*")
+          .eq("creator_id", creatorId)
+          .single()
+
+        if (ledger) {
+          let actualPending = netSeller
+          let newNegative = ledger.negative_balance
+
+          // Absorb negative balance from prior refunds
+          if (newNegative > 0) {
+            const absorbed = Math.min(actualPending, newNegative)
+            actualPending -= absorbed
+            newNegative -= absorbed
+          }
+
+          await supabaseAdmin
+            .from("seller_ledger")
+            .update({
+              pending_amount: ledger.pending_amount + actualPending,
+              lifetime_earnings: ledger.lifetime_earnings + totalAmount,
+              lifetime_fees: ledger.lifetime_fees + applicationFeeAmount,
+              negative_balance: newNegative,
+            })
+            .eq("creator_id", creatorId)
+
+          await supabaseAdmin.from("ledger_events").insert({
+            creator_id: creatorId,
+            event_type: "sale",
+            amount_cents: totalAmount,
+            net_seller_cents: netSeller,
+            fee_cents: applicationFeeAmount,
+            currency: "usd",
+            pending_delta: actualPending,
+            order_id: order.id,
+            hold_until: holdUntil.toISOString(),
+            description: `Sale: $${(totalAmount / 100).toFixed(2)} (net $${(netSeller / 100).toFixed(2)})`,
+          })
+        }
+      } catch (ledgerErr) {
+        console.error("[Webhook] Ledger sale update failed (non-fatal):", ledgerErr)
+      }
+    }
+
     // Customer record upsert
     if (buyerEmail && creatorId) {
       await supabaseAdmin.from("customers").upsert(
@@ -797,6 +863,23 @@ export async function POST(request: Request) {
           .eq("id", creator.id)
 
         console.log("[Connect] Updated creator:", creator.id, "status:", onboardingStatus)
+
+        // RE-ENFORCE manual payouts — Storelib controls when sellers cash out
+        const schedule = (account as any).settings?.payouts?.schedule
+        if (schedule?.interval !== "manual") {
+          try {
+            await stripe.accounts.update(account.id, {
+              settings: {
+                payouts: {
+                  schedule: { interval: "manual" as const },
+                },
+              },
+            })
+            console.log("[Connect] Re-enforced manual payouts for:", account.id)
+          } catch (enforceErr) {
+            console.error("[Connect] Failed to enforce manual payouts:", enforceErr)
+          }
+        }
       }
     } catch (error) {
       console.error("[Connect] Error updating account:", error)
@@ -849,6 +932,95 @@ export async function POST(request: Request) {
           }
 
           console.log("[Webhook] Order", order.id, "marked as refunded via webhook")
+
+          // ── Ledger: process refund bucket subtraction ───────────────────
+          try {
+            const refundAmountCents = charge.amount_refunded || order.amount_cents
+
+            // Find the creator via the order's product
+            const { data: product } = await supabaseAdmin
+              .from("products")
+              .select("creator_id")
+              .eq("id", (order as any).product_id || "")
+              .maybeSingle()
+
+            // Fallback: find from order if product_id not available
+            let refundCreatorId = product?.creator_id
+            if (!refundCreatorId) {
+              const { data: fullOrder } = await supabaseAdmin
+                .from("orders")
+                .select("product_id")
+                .eq("id", order.id)
+                .single()
+              if (fullOrder?.product_id) {
+                const { data: p } = await supabaseAdmin
+                  .from("products")
+                  .select("creator_id")
+                  .eq("id", fullOrder.product_id)
+                  .single()
+                refundCreatorId = p?.creator_id
+              }
+            }
+
+            if (refundCreatorId) {
+              // Find the original sale ledger event for fee calculation
+              const { data: saleLedgerEvent } = await supabaseAdmin
+                .from("ledger_events")
+                .select("fee_cents, net_seller_cents")
+                .eq("order_id", order.id)
+                .eq("event_type", "sale")
+                .maybeSingle()
+
+              // Calculate refund net (Stripe reverses both transfer + fee)
+              const originalFee = saleLedgerEvent?.fee_cents || 0
+              const refundNet = refundAmountCents - originalFee
+
+              const { data: ledger } = await supabaseAdmin
+                .from("seller_ledger")
+                .select("*")
+                .eq("creator_id", refundCreatorId)
+                .single()
+
+              if (ledger && refundNet > 0) {
+                // Subtract from buckets in order: pending → available → negative
+                let remaining = refundNet
+                let fromPending = Math.min(remaining, ledger.pending_amount)
+                remaining -= fromPending
+
+                let fromAvailable = Math.min(remaining, ledger.available_amount)
+                remaining -= fromAvailable
+
+                let newNegative = ledger.negative_balance + remaining
+
+                await supabaseAdmin
+                  .from("seller_ledger")
+                  .update({
+                    pending_amount: ledger.pending_amount - fromPending,
+                    available_amount: ledger.available_amount - fromAvailable,
+                    negative_balance: newNegative,
+                    lifetime_refunds: ledger.lifetime_refunds + refundAmountCents,
+                  })
+                  .eq("creator_id", refundCreatorId)
+
+                const refund = charge.refunds?.data?.[0]
+                await supabaseAdmin.from("ledger_events").insert({
+                  creator_id: refundCreatorId,
+                  event_type: "refund",
+                  amount_cents: refundAmountCents,
+                  net_seller_cents: refundNet,
+                  fee_cents: originalFee,
+                  currency: "usd",
+                  pending_delta: -fromPending,
+                  available_delta: -fromAvailable,
+                  order_id: order.id,
+                  stripe_refund_id: refund?.id || null,
+                  description: `Refund: $${(refundAmountCents / 100).toFixed(2)}`,
+                })
+              }
+            }
+          } catch (ledgerRefundErr) {
+            console.error("[Webhook] Ledger refund update failed (non-fatal):", ledgerRefundErr)
+          }
         }
       } catch (error) {
         console.error("[Webhook] Error processing charge.refunded:", error)
@@ -925,6 +1097,72 @@ export async function POST(request: Request) {
       )
     } catch (err) {
       console.error("[Webhook] Failed to upsert payout:", err)
+    }
+
+    // ── Ledger: update balance buckets for payout status changes ─────────
+    try {
+      const { data: ledger } = await supabaseAdmin
+        .from("seller_ledger")
+        .select("*")
+        .eq("creator_id", creator.id)
+        .single()
+
+      if (ledger) {
+        // Find the original cashout event to get USD amount
+        const { data: cashoutEvent } = await supabaseAdmin
+          .from("ledger_events")
+          .select("amount_cents")
+          .eq("creator_id", creator.id)
+          .eq("event_type", "cashout_initiated")
+          .eq("stripe_payout_id", payout.id)
+          .maybeSingle()
+
+        const usdAmount = cashoutEvent?.amount_cents || payout.amount
+
+        if (event.type === "payout.paid") {
+          await supabaseAdmin
+            .from("seller_ledger")
+            .update({
+              in_transit_amount: Math.max(0, ledger.in_transit_amount - usdAmount),
+              lifetime_paid_out: ledger.lifetime_paid_out + usdAmount,
+            })
+            .eq("creator_id", creator.id)
+
+          await supabaseAdmin.from("ledger_events").insert({
+            creator_id: creator.id,
+            event_type: "cashout_completed",
+            amount_cents: usdAmount,
+            net_seller_cents: usdAmount,
+            currency: "usd",
+            in_transit_delta: -usdAmount,
+            stripe_payout_id: payout.id,
+            description: `Cashout completed: $${(usdAmount / 100).toFixed(2)} arrived at bank`,
+          })
+        } else if (event.type === "payout.failed" || event.type === "payout.canceled") {
+          // Return funds to available
+          await supabaseAdmin
+            .from("seller_ledger")
+            .update({
+              in_transit_amount: Math.max(0, ledger.in_transit_amount - usdAmount),
+              available_amount: ledger.available_amount + usdAmount,
+            })
+            .eq("creator_id", creator.id)
+
+          await supabaseAdmin.from("ledger_events").insert({
+            creator_id: creator.id,
+            event_type: "cashout_failed",
+            amount_cents: usdAmount,
+            net_seller_cents: usdAmount,
+            currency: "usd",
+            in_transit_delta: -usdAmount,
+            available_delta: usdAmount,
+            stripe_payout_id: payout.id,
+            description: `Cashout ${event.type === "payout.failed" ? "failed" : "canceled"}: $${(usdAmount / 100).toFixed(2)} returned to available`,
+          })
+        }
+      }
+    } catch (ledgerPayoutErr) {
+      console.error("[Webhook] Ledger payout update failed (non-fatal):", ledgerPayoutErr)
     }
 
     // Send email notification for status transitions

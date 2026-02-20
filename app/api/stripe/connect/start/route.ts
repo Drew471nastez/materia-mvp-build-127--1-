@@ -52,6 +52,15 @@ export async function POST() {
 
       accountId = account.id
 
+      // Force manual payouts — Storelib controls when sellers cash out
+      await stripe.accounts.update(accountId, {
+        settings: {
+          payouts: {
+            schedule: { interval: "manual" as const },
+          },
+        },
+      })
+
       await dbClient
         .from("creators")
         .update({
@@ -63,6 +72,11 @@ export async function POST() {
           details_submitted: false,
         })
         .eq("id", creator.id)
+
+      // Initialize seller ledger
+      await dbClient
+        .from("seller_ledger")
+        .upsert({ creator_id: creator.id }, { onConflict: "creator_id" })
     }
 
     const baseUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://storelib.com"

@@ -96,9 +96,6 @@ export default async function PayoutsPage() {
   const paidOut = 0;
   let detectedCurrency = (creator.default_currency || "usd").toLowerCase();
   let stripeExchangeRate: number | null = null;
-  let payoutScheduleInterval: string | null = null;
-  let payoutScheduleDelay: number | null = null;
-
   if (creator.stripe_account_id) {
     try {
       const [balance, account, balanceTx] = await Promise.all([
@@ -113,13 +110,6 @@ export default async function PayoutsPage() {
       stripeExchangeRate =
         (balanceTx.data.find((tx: any) => tx.exchange_rate) as any)
           ?.exchange_rate || null;
-
-      // Detect payout schedule from Stripe account settings
-      const schedule = (account as any).settings?.payouts?.schedule;
-      if (schedule) {
-        payoutScheduleInterval = schedule.interval || null;
-        payoutScheduleDelay = schedule.delay_days ?? null;
-      }
 
       const preferredCurrency = (
         account.default_currency ||
@@ -226,8 +216,6 @@ export default async function PayoutsPage() {
             availableBalance: stripeAvailableBalance,
             paidOut,
             exchangeRate: stripeExchangeRate,
-            payoutScheduleInterval,
-            payoutScheduleDelay,
           }}
           initialOrders={allOrders}
         />

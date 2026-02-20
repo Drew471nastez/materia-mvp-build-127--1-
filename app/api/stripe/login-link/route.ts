@@ -6,8 +6,9 @@ import { stripe } from "@/lib/stripe"
 /**
  * POST /api/stripe/login-link
  *
- * Creates a Stripe Express dashboard login link for the connected account.
- * For Standard accounts, falls back to stripe.com/dashboard.
+ * DEPRECATED — Redirects to Stripe Account Link instead of Express dashboard.
+ * Sellers no longer access the Stripe Express dashboard directly.
+ * Use /api/stripe/account-link instead.
  */
 export async function POST() {
   try {
@@ -27,23 +28,31 @@ export async function POST() {
       .single()
 
     if (!creator?.stripe_account_id) {
-      return NextResponse.json({ url: "https://dashboard.stripe.com" })
+      return NextResponse.json(
+        { error: "No connected Stripe account" },
+        { status: 400 },
+      )
     }
 
-    // Try Express dashboard login link first
-    try {
-      const loginLink = await stripe.accounts.createLoginLink(
-        creator.stripe_account_id,
-      )
-      return NextResponse.json({ url: loginLink.url })
-    } catch {
-      // Standard accounts don't support login links — send to main dashboard
-      return NextResponse.json({ url: "https://dashboard.stripe.com" })
-    }
+    // Generate an Account Link (update mode) instead of a dashboard login link
+    const baseUrl =
+      process.env.APP_URL ||
+      process.env.NEXT_PUBLIC_APP_URL ||
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      "https://storelib.com"
+
+    const accountLink = await stripe.accountLinks.create({
+      account: creator.stripe_account_id,
+      refresh_url: `${baseUrl}/app/payouts?stripe=refresh`,
+      return_url: `${baseUrl}/app/payouts?stripe=return`,
+      type: "account_update",
+    })
+
+    return NextResponse.json({ url: accountLink.url })
   } catch (error: any) {
-    console.error("[Login Link Error]", error)
+    console.error("[Login Link → Account Link Error]", error)
     return NextResponse.json(
-      { error: error.message || "Failed to create login link" },
+      { error: error.message || "Failed to create account link" },
       { status: 500 },
     )
   }

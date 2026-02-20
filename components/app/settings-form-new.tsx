@@ -1106,9 +1106,13 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   const manageStripe = async () => {
     setStripeBusy("connect")
     try {
-      const res = await fetch("/api/stripe/connect/login-link", { method: "POST" })
+      const res = await fetch("/api/stripe/account-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "update" }),
+      })
       const data = await res.json()
-      if (!res.ok) throw new Error(data?.error || "Failed to open Stripe dashboard")
+      if (!res.ok) throw new Error(data?.error || "Failed to open account settings")
       if (data?.url) window.location.href = data.url
     } catch (err: any) {
       setError(err?.message || "Something went wrong. Try again.")
