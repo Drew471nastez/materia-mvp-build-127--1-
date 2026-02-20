@@ -4,11 +4,12 @@ import type React from "react"
 import { useEffect, useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { Star, Download, Loader2, X } from "lucide-react"
+import { Star, Download, Loader2, X, Check } from "lucide-react"
 import { stickyAddToCartButtonPresets } from "@/lib/store-builder/defaults"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { downloadEntitledFile } from "@/components/download-button"
 import { getCanonicalSiteUrl } from "@/lib/url-helpers"
+import { usePurchaseStatus } from "@/components/checkout/use-purchase-status"
 
 export interface StickyAddToCartSettings {
   visible: boolean
@@ -74,7 +75,9 @@ export function EditorStickyAddToCart({
   // This fixes the issue where the bar wasn't showing in the editor preview
   const shouldShow = true
 
-  const buttonText = isPurchased ? "Download" : getButtonText(settings.buttonStyle)
+  const buttonText = isPurchased
+    ? (downloadFiles.length > 0 ? "Download" : "Purchased")
+    : getButtonText(settings.buttonStyle)
   const [showFilesModal, setShowFilesModal] = useState(false)
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
   const [isMobileViewport, setIsMobileViewport] = useState(false)
@@ -281,9 +284,21 @@ export function LiveStickyAddToCart({
   product,
   creatorId,
   onAddToCart,
-  isPurchased = false,
-  downloadFiles = [],
+  isPurchased: serverIsPurchased = false,
+  downloadFiles: serverDownloadFiles = [],
 }: StickyAddToCartProps & { onAddToCart?: () => void }) {
+  // Client-side purchase detection (checks localStorage + server state)
+  const { hasPurchased: clientHasPurchased, isChecking } = usePurchaseStatus(
+    product.id,
+    serverIsPurchased,
+    null,
+    []
+  )
+
+  // Use client-side detection which merges server + localStorage
+  const isPurchased = clientHasPurchased
+  const downloadFiles = serverDownloadFiles
+
   // Start hidden - only show after scrolling past product content area
   const [isVisible, setIsVisible] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
@@ -387,7 +402,9 @@ export function LiveStickyAddToCart({
   // Don't render on server or if settings say not visible
   if (!isMounted || !settings.visible) return null
 
-  const buttonText = isPurchased ? "Download" : getButtonText(settings.buttonStyle)
+  const buttonText = isPurchased
+    ? (downloadFiles.length > 0 ? "Download" : "Purchased")
+    : getButtonText(settings.buttonStyle)
 
   const handleDownloadFile = async (assetId: string) => {
     setDownloadingId(assetId)
@@ -509,11 +526,12 @@ export function LiveStickyAddToCart({
             className="shrink-0 h-10 px-5 text-sm font-medium cursor-pointer relative z-10 flex items-center gap-2"
             style={{
               backgroundColor: isPurchased ? "#10b981" : (settings.buttonColor || "#2563eb"),
-              color: settings.buttonTextColor || "#ffffff",
+              color: isPurchased ? "#ffffff" : (settings.buttonTextColor || "#ffffff"),
               borderRadius: `${settings.borderRadius || 8}px`,
             }}
           >
-            {isPurchased && <Download className="h-4 w-4" />}
+            {isPurchased && downloadFiles.length > 0 && <Download className="h-4 w-4" />}
+            {isPurchased && downloadFiles.length === 0 && <Check className="h-4 w-4" />}
             {buttonText}
           </Button>
         </div>
@@ -540,11 +558,12 @@ export function LiveStickyAddToCart({
               className="shrink-0 h-11 px-7 text-[15px] font-medium cursor-pointer relative z-10 flex items-center gap-2"
               style={{
                 backgroundColor: isPurchased ? "#10b981" : (settings.buttonColor || "#2563eb"),
-                color: settings.buttonTextColor || "#ffffff",
+                color: isPurchased ? "#ffffff" : (settings.buttonTextColor || "#ffffff"),
                 borderRadius: `${settings.borderRadius || 8}px`,
               }}
             >
-              {isPurchased && <Download className="h-4 w-4" />}
+              {isPurchased && downloadFiles.length > 0 && <Download className="h-4 w-4" />}
+              {isPurchased && downloadFiles.length === 0 && <Check className="h-4 w-4" />}
               {buttonText}
             </Button>
           </div>

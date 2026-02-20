@@ -549,7 +549,7 @@ function UnifiedAboutSection({
   const showPaymentMethods = settings.showPaymentMethods ?? true
 
   return (
-    <SectionContainer isMobile={isMobile} className="!max-w-[1300px]">
+    <SectionContainer isMobile={isMobile} className="!max-w-[1180px]">
       <div
         className={cn(
           "w-full py-6 px-2 md:py-12 md:px-2",
@@ -932,7 +932,7 @@ function UnifiedAboutSection({
         {/* Accepted Payment Methods Section - 1575px width (5% wider) */}
         {showPaymentMethods && paymentMethods.length > 0 && (
           <div className={cn(
-            "max-w-[1575px] mx-auto w-full",
+            "max-w-[1180px] mx-auto w-full",
             // Mobile: stack vertically, Desktop: side by side
             "flex flex-col gap-3 md:flex-row md:gap-12",
             // Override for editor preview mode
@@ -988,7 +988,7 @@ function UnifiedAboutSection({
 
         {/* Returns & Exchanges Section - Mobile only (stacked layout) */}
         <div className={cn(
-          "max-w-[1575px] mx-auto w-full mt-6 md:hidden",
+          "max-w-[1180px] mx-auto w-full mt-6 md:hidden",
           isMobile && "!block !mt-6"
         )}>
           <div
@@ -1028,7 +1028,7 @@ export function ProductAboutSection({
   const paymentMethods = ["paypal", "visa", "mastercard", "amex", "applepay", "googlepay"]
 
   return (
-    <SectionContainer isMobile={isMobile} className="!max-w-[1300px]">
+    <SectionContainer isMobile={isMobile} className="!max-w-[1180px]">
       <div
         className={cn(
           "w-full py-6 px-2 md:py-12 md:px-2",
@@ -1044,7 +1044,7 @@ export function ProductAboutSection({
 
         {/* Accepted Payment Methods Section - 1575px width (5% wider) */}
         <div className={cn(
-          "max-w-[1575px] mx-auto w-full",
+          "max-w-[1180px] mx-auto w-full",
           "flex flex-col gap-3 md:flex-row md:gap-12",
           isMobile && "!flex-col !gap-3"
         )}>
@@ -1097,7 +1097,7 @@ export function ProductAboutSection({
 
         {/* Returns & Exchanges Section - Mobile only (stacked layout) */}
         <div className={cn(
-          "max-w-[1575px] mx-auto w-full mt-6 md:hidden",
+          "max-w-[1180px] mx-auto w-full mt-6 md:hidden",
           isMobile && "!block !mt-6"
         )}>
           <div

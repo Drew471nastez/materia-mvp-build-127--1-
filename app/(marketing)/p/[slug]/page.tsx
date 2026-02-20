@@ -1433,7 +1433,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
               reviews_average: reviewsAverage,
             }}
             creatorId={product.creator_id}
-            isPurchased={hasPurchased && product.type === "digital"}
+            isPurchased={hasPurchased}
             downloadFiles={productDownloadFiles}
           />
         )}
@@ -1552,7 +1552,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             reviews_average: reviewsAverage,
           }}
           creatorId={product.creator_id}
-          isPurchased={hasPurchased && product.type === "digital"}
+          isPurchased={hasPurchased}
           downloadFiles={productDownloadFiles}
         />
 

@@ -24,7 +24,7 @@ import {
   Home,
   Wallet,
   X,
-  Palette,
+  PenSquare,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
@@ -154,7 +154,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { href: "/app/analytics", label: t("nav.analytics"), icon: BarChart3 },
     { href: "/app/sales", label: t("nav.sales"), icon: ShoppingCart },
     { href: "/app/onepage", label: t("nav.onepage"), icon: Link2, forceNavigation: true },
-    { href: "/store-builder", label: t("nav.storeBuilder"), icon: Palette, forceNavigation: true },
+    { href: "/store-builder", label: t("nav.storeBuilder"), icon: PenSquare, forceNavigation: true },
     { href: "/app/emails", label: t("nav.emails"), icon: Mail },
     { href: "/app/payouts", label: t("nav.payouts"), icon: Wallet },
   ]
