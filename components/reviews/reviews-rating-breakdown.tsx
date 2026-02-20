@@ -54,12 +54,12 @@ export function ReviewsRatingBreakdown({
     >
       <div className={cn(
         "flex gap-4",
-        isMobile ? "flex-row items-start" : "flex-col sm:flex-row items-start sm:items-center gap-6 sm:gap-8"
+        isMobile ? "flex-row items-start" : "flex-col sm:flex-row items-start gap-6 sm:gap-8"
       )}>
         {/* Overall Rating Display */}
         <div className={cn(
           "flex flex-col shrink-0",
-          isMobile ? "items-start min-w-[80px]" : "items-center sm:items-start"
+          isMobile ? "items-start min-w-[80px]" : "items-start"
         )}>
           <div
             className={cn(

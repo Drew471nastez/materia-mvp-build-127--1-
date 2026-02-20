@@ -884,28 +884,3 @@
     font-size: 16px !important;
   }
 }
-
-/* Announcement bar offset for /app pages on mobile.
-   When a purple announcement bar is fixed at top-0, the mobile header and
-   content area are shifted down by --announcement-h (set by JS in sales-client). */
-:root {
-  --announcement-h: 0px;
-}
-
-@media screen and (max-width: 767px) {
-  .app-main-content {
-    padding-top: calc(68px + var(--announcement-h)) !important;
-  }
-  .app-content-scroll {
-    height: calc(100svh - 68px - var(--announcement-h)) !important;
-  }
-}
-
-@media screen and (min-width: 768px) {
-  .app-main-content {
-    padding-top: var(--announcement-h) !important;
-  }
-  .app-content-scroll {
-    height: calc(100svh - var(--announcement-h)) !important;
-  }
-}

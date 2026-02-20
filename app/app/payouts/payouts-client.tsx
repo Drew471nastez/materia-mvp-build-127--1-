@@ -1248,9 +1248,9 @@ function WithdrawPanel({
               <div className="rounded-2xl border border-[#e5e7eb] overflow-hidden">
                 <div className="px-4 py-4">
                   {[
-                    { label: "Available in your balance", value: availableBalance, icon: <CheckCircle2 className="h-3.5 w-3.5 text-[#9ca3af]" /> },
-                    { label: "Available to pay out soon", value: pendingBalance, icon: <Clock className="h-3.5 w-3.5 text-[#9ca3af]" /> },
-                    { label: "On the way to your bank", value: inTransitAmount, icon: <Send className="h-3.5 w-3.5 text-[#9ca3af]" /> },
+                    { label: "Available to pay out soon", value: pendingBalance, icon: <Clock className={cn("h-3.5 w-3.5", pendingBalance > 0 ? "text-[#8b5cf6]" : "text-[#9ca3af]")} /> },
+                    { label: "Available in your balance", value: availableBalance, icon: <CheckCircle2 className={cn("h-3.5 w-3.5", availableBalance > 0 ? "text-[#8b5cf6]" : "text-[#9ca3af]")} /> },
+                    { label: "On the way to your bank", value: inTransitAmount, icon: <Send className={cn("h-3.5 w-3.5", inTransitAmount > 0 ? "text-[#8b5cf6]" : "text-[#9ca3af]")} /> },
                   ].map(({ label, value, icon }, i, arr) => (
                     <div key={i} className="flex gap-3">
                       {/* Timeline column */}
@@ -1281,19 +1281,27 @@ function WithdrawPanel({
                 Withdrawals typically take 2–5 business days to reach your bank account, depending on your bank and country.
               </p>
 
-              <button
-                onClick={handleWithdraw}
-                disabled={loading}
-                className={cn(
-                  "w-full mt-4 flex items-center justify-center gap-2 px-4 py-3 text-[14px] font-medium text-white bg-[#635bff] rounded-xl transition-colors",
-                  availableBalance <= 0
-                    ? "opacity-40 cursor-not-allowed"
-                    : "hover:bg-[#564de8] disabled:opacity-50 disabled:cursor-not-allowed",
+              <div className="relative group">
+                <button
+                  onClick={handleWithdraw}
+                  disabled={loading}
+                  className={cn(
+                    "w-full mt-4 flex items-center justify-center gap-2 px-4 py-3 text-[14px] font-medium text-white bg-[#635bff] rounded-xl transition-colors",
+                    availableBalance <= 0
+                      ? "opacity-40 cursor-not-allowed"
+                      : "hover:bg-[#564de8] disabled:opacity-50 disabled:cursor-not-allowed",
+                  )}
+                >
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Banknote className="h-4 w-4" />}
+                  {availableBalance <= 0 ? "No funds yet" : "Withdraw"}
+                </button>
+                {availableBalance <= 0 && (
+                  <div className="hidden md:group-hover:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-[#1a1a2e] text-white text-[12px] rounded-lg whitespace-nowrap shadow-lg pointer-events-none">
+                    No funds available to withdraw
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[5px] border-r-[5px] border-t-[5px] border-transparent border-t-[#1a1a2e]" />
+                  </div>
                 )}
-              >
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Banknote className="h-4 w-4" />}
-                {availableBalance <= 0 ? "No funds yet" : "Withdraw"}
-              </button>
+              </div>
 
               <div className="mt-4 pt-4 border-t border-[#f3f4f6]">
                 {detailsLoading ? (

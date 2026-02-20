@@ -2714,17 +2714,7 @@ export function SalesClient({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Set CSS variable for announcement bar height so sidebar/layout can offset on mobile
-  // 42px = 40px content + 2px progress bar; env(safe-area-inset-top) for notched devices
-  useEffect(() => {
-    document.documentElement.style.setProperty(
-      "--announcement-h",
-      "calc(42px + env(safe-area-inset-top))"
-    );
-    return () => {
-      document.documentElement.style.setProperty("--announcement-h", "0px");
-    };
-  }, []);
+  // (announcement bar is now inline, no CSS variable needed)
 
   // Rotate announcements every 15 seconds with progress bar
   useEffect(() => {
@@ -2903,12 +2893,9 @@ export function SalesClient({
         </div>
       )}
 
-      {/* Rotating Announcement Bar — fixed above black header on mobile, static on desktop */}
-      <div
-        className="fixed top-0 left-0 right-0 z-[60] md:static md:z-auto bg-[#8b5cf6] text-white"
-        style={{ paddingTop: 'env(safe-area-inset-top)' }}
-      >
-        <div className="h-[40px] md:h-auto flex items-center md:block py-0 md:py-2 px-4 md:px-4">
+      {/* Rotating Announcement Bar — inline under header, not sticky */}
+      <div className="w-full bg-[#8b5cf6] text-white">
+        <div className="h-[40px] md:h-[42px] flex items-center justify-center px-4">
           <div
             className={`max-w-[1200px] mx-auto flex items-center justify-center gap-2 md:gap-3 text-center transition-opacity duration-300 ${
               announcementVisible ? "opacity-100" : "opacity-0"

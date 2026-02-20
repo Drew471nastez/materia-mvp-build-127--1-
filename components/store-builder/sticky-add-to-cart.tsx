@@ -494,7 +494,7 @@ export function LiveStickyAddToCart({
       <div className="sm:hidden py-3 px-[7px]">
         <div className="mx-auto w-full max-w-[calc(100%-10px)] flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0 flex-1">
-            <PriceBadge />
+            {!isPurchased && <PriceBadge />}
             <p
               className="text-sm font-medium truncate"
               style={{ color: contentTextColor }}
@@ -506,13 +506,14 @@ export function LiveStickyAddToCart({
             type="button"
             size="sm"
             onClick={handleClick}
-            className="shrink-0 h-10 px-5 text-sm font-medium cursor-pointer relative z-10"
+            className="shrink-0 h-10 px-5 text-sm font-medium cursor-pointer relative z-10 flex items-center gap-2"
             style={{
-              backgroundColor: settings.buttonColor || "#2563eb",
+              backgroundColor: isPurchased ? "#10b981" : (settings.buttonColor || "#2563eb"),
               color: settings.buttonTextColor || "#ffffff",
               borderRadius: `${settings.borderRadius || 8}px`,
             }}
           >
+            {isPurchased && <Download className="h-4 w-4" />}
             {buttonText}
           </Button>
         </div>
@@ -522,7 +523,7 @@ export function LiveStickyAddToCart({
       <div className="hidden sm:block py-3.5 px-[15px]">
         <div className="mx-auto w-full max-w-[1150px] flex items-center justify-between gap-5">
           <div className="flex items-center gap-4 min-w-0 flex-1">
-            <PriceBadge isDesktop />
+            {!isPurchased && <PriceBadge isDesktop />}
             <p
               className="text-[15px] font-semibold truncate"
               style={{ color: contentTextColor }}
@@ -536,13 +537,14 @@ export function LiveStickyAddToCart({
               type="button"
               size="sm"
               onClick={handleClick}
-              className="shrink-0 h-11 px-7 text-[15px] font-medium cursor-pointer relative z-10"
+              className="shrink-0 h-11 px-7 text-[15px] font-medium cursor-pointer relative z-10 flex items-center gap-2"
               style={{
-                backgroundColor: settings.buttonColor || "#2563eb",
+                backgroundColor: isPurchased ? "#10b981" : (settings.buttonColor || "#2563eb"),
                 color: settings.buttonTextColor || "#ffffff",
                 borderRadius: `${settings.borderRadius || 8}px`,
               }}
             >
+              {isPurchased && <Download className="h-4 w-4" />}
               {buttonText}
             </Button>
           </div>

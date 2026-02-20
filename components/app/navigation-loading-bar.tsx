@@ -11,7 +11,26 @@ export function NavigationLoadingBar() {
   const [isComplete, setIsComplete] = useState(false)
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
   const progressRef = useRef<NodeJS.Timeout | null>(null)
+  const safetyRef = useRef<NodeJS.Timeout | null>(null)
   const prevPathRef = useRef(pathname)
+  const prevSearchRef = useRef(searchParams.toString())
+
+  const clearAllTimers = () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    if (progressRef.current) clearTimeout(progressRef.current)
+    if (safetyRef.current) clearTimeout(safetyRef.current)
+  }
+
+  const completeLoading = () => {
+    clearAllTimers()
+    setProgress(100)
+    setIsComplete(true)
+    timeoutRef.current = setTimeout(() => {
+      setIsLoading(false)
+      setProgress(0)
+      setIsComplete(false)
+    }, 500)
+  }
 
   // Detect navigation start
   useEffect(() => {
@@ -20,32 +39,30 @@ export function NavigationLoadingBar() {
       const anchor = target.closest('a')
       if (anchor && anchor.href && anchor.href.startsWith(window.location.origin)) {
         const url = new URL(anchor.href)
-        // Only show loading bar for internal navigation
         if (url.pathname !== pathname || url.search !== searchParams.toString()) {
+          clearAllTimers()
           setIsLoading(true)
           setIsComplete(false)
           setProgress(0)
 
-          // Smooth, slow progress animation
           let currentProgress = 0
           const animate = () => {
-            // Slower, more gradual progress - smaller increments
-            const increment = Math.random() * 3 + 1 // 1-4% increments
+            const increment = Math.random() * 3 + 1
             currentProgress += increment
-
-            // Slow down as we approach 80%
             if (currentProgress >= 80) {
-              currentProgress = 80 + (Math.random() * 2) // Stay around 80-82%
+              currentProgress = 80 + (Math.random() * 2)
             }
-
             if (currentProgress < 85) {
               setProgress(currentProgress)
-              progressRef.current = setTimeout(animate, 200 + Math.random() * 100) // 200-300ms intervals
+              progressRef.current = setTimeout(animate, 200 + Math.random() * 100)
             }
           }
-
-          // Start with slight delay for smoother appearance
           progressRef.current = setTimeout(animate, 50)
+
+          // Safety timeout: auto-dismiss after 8 seconds to prevent stuck bar
+          safetyRef.current = setTimeout(() => {
+            completeLoading()
+          }, 8000)
         }
       }
     }
@@ -54,37 +71,25 @@ export function NavigationLoadingBar() {
     return () => document.removeEventListener('click', handleClick)
   }, [pathname, searchParams])
 
-  // Detect navigation end (pathname change)
+  // Detect navigation end (pathname or search params change)
   useEffect(() => {
-    if (prevPathRef.current !== pathname) {
-      // Navigation completed
-      if (progressRef.current) clearTimeout(progressRef.current)
-      setProgress(100)
-      setIsComplete(true)
-
-      // Fade out after completion
-      timeoutRef.current = setTimeout(() => {
-        setIsLoading(false)
-        setProgress(0)
-        setIsComplete(false)
-      }, 500)
-
+    const currentSearch = searchParams.toString()
+    if (prevPathRef.current !== pathname || prevSearchRef.current !== currentSearch) {
+      if (isLoading) {
+        completeLoading()
+      }
       prevPathRef.current = pathname
+      prevSearchRef.current = currentSearch
     }
 
-    return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current)
-      if (progressRef.current) clearTimeout(progressRef.current)
-    }
-  }, [pathname])
+    return () => clearAllTimers()
+  }, [pathname, searchParams])
 
   if (!isLoading && progress === 0) return null
 
   return (
     <div className="fixed top-0 left-0 right-0 z-[9999] pointer-events-none">
-      {/* Progress bar container */}
       <div className="h-[2px] w-full bg-transparent">
-        {/* Progress bar with subtle glow */}
         <div
           className="h-full relative"
           style={{
@@ -96,7 +101,6 @@ export function NavigationLoadingBar() {
             background: 'linear-gradient(90deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.6) 70%, rgba(255,255,255,0.9) 100%)',
           }}
         >
-          {/* Subtle glowing tip */}
           <div
             className="absolute right-0 top-1/2 -translate-y-1/2 w-16 h-[4px]"
             style={{
@@ -106,7 +110,6 @@ export function NavigationLoadingBar() {
               transition: 'opacity 300ms ease-out',
             }}
           />
-          {/* Sharp bright leading edge */}
           <div
             className="absolute right-0 top-1/2 -translate-y-1/2 w-6 h-[2px]"
             style={{

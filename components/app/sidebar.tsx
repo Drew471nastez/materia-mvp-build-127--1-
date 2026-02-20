@@ -592,7 +592,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
       `}</style>
 
       {/* Mobile Header - Dark background, content below has outward rounded top corners */}
-      <header className="fixed left-0 right-0 z-50 pt-[env(safe-area-inset-top)] md:hidden bg-[#111111]" style={{ top: 'var(--announcement-h, 0px)' }}>
+      <header className="fixed top-0 left-0 right-0 z-50 pt-[env(safe-area-inset-top)] md:hidden bg-[#111111]">
         <div className="flex h-[68px] items-center justify-between px-4 py-[10px]">
           {/* Left side: Hamburger */}
           <div className="flex items-center gap-1">

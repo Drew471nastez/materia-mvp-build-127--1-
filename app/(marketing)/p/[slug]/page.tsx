@@ -1408,14 +1408,16 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           faviconUrl={productPageConfig?.headerSettings?.faviconUrl}
         />
 
-        {/* Creator Bar - at top */}
-        <LiveProductCreatorBar
-          settings={creatorBarSettings}
-          creatorName={creatorProfile?.display_name || creator?.name || "Creator"}
-          creatorId={product.creator_id}
-          creatorUsername={creatorUsername}
-          avatarUrl={creatorAvatarUrl}
-        />
+        {/* Creator Bar - sticky on scroll */}
+        <div className="sticky top-0 z-30">
+          <LiveProductCreatorBar
+            settings={creatorBarSettings}
+            creatorName={creatorProfile?.display_name || creator?.name || "Creator"}
+            creatorId={product.creator_id}
+            creatorUsername={creatorUsername}
+            avatarUrl={creatorAvatarUrl}
+          />
+        </div>
 
         {/* Sticky Add to Cart - appears on scroll - ALWAYS SHOW */}
         {stickyAddToCartSettings.visible && (
@@ -1527,13 +1529,15 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
       <TrackView type="product" creatorId={product.creator_id} productId={product.id} />
       <DynamicFavicon avatarUrl={creatorAvatarUrl} />
 
-      {/* Creator Bar - at top */}
-      <LiveProductCreatorBar
-        settings={defaultProductCreatorBarSettings}
-        creatorName={creatorProfile?.display_name || creator?.name || "Creator"}
-        creatorId={product.creator_id}
-        avatarUrl={creatorAvatarUrl}
-      />
+      {/* Creator Bar - sticky on scroll */}
+      <div className="sticky top-0 z-30">
+        <LiveProductCreatorBar
+          settings={defaultProductCreatorBarSettings}
+          creatorName={creatorProfile?.display_name || creator?.name || "Creator"}
+          creatorId={product.creator_id}
+          avatarUrl={creatorAvatarUrl}
+        />
+      </div>
 
       {/* Sticky Add to Cart - appears on scroll - ALWAYS SHOW */}
       <LiveStickyAddToCart
