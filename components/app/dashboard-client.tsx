@@ -1025,7 +1025,95 @@ export function DashboardClient({
     return () => clearInterval(interval)
   }, [creatorId])
 
-  // Fetch detailed chart data for KPI modal
+  // Generate time buckets based on timeframe for chart
+  const generateTimeBuckets = (tf: string, start: Date, end: Date) => {
+    const buckets: { start: Date; end: Date; label: string }[] = []
+    const isHourly = tf === "today" || tf === "yesterday"
+    const is48h = tf === "last_48_hours"
+    const isAllTime = tf === "all_time"
+    const isYear = tf === "last_year" || tf === "last_365_days"
+    const is90Days = tf === "last_90_days"
+    const isMonth = tf === "last_30_days" || tf === "this_month"
+
+    if (isHourly) {
+      const maxHour = tf === "today" ? new Date().getHours() : 23
+      for (let hour = 0; hour <= maxHour; hour++) {
+        const hourStart = new Date(start)
+        hourStart.setHours(hour, 0, 0, 0)
+        const hourEnd = new Date(start)
+        hourEnd.setHours(hour, 59, 59, 999)
+        buckets.push({ start: hourStart, end: hourEnd, label: `${hour.toString().padStart(2, '0')}:00` })
+      }
+    } else if (is48h) {
+      for (let i = 47; i >= 0; i -= 4) {
+        const bStart = new Date(end)
+        bStart.setHours(bStart.getHours() - i)
+        bStart.setMinutes(0, 0, 0)
+        const bEnd = new Date(bStart)
+        bEnd.setHours(bEnd.getHours() + 3, 59, 59, 999)
+        buckets.push({
+          start: bStart,
+          end: bEnd,
+          label: `${bStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} ${bStart.getHours().toString().padStart(2, '0')}:00`,
+        })
+      }
+    } else if (isAllTime) {
+      const currentYear = new Date().getFullYear()
+      for (let year = 2020; year <= currentYear; year++) {
+        buckets.push({
+          start: new Date(year, 0, 1),
+          end: new Date(year, 11, 31, 23, 59, 59, 999),
+          label: year.toString(),
+        })
+      }
+    } else if (isYear) {
+      for (let i = 11; i >= 0; i--) {
+        const md = new Date(end)
+        md.setMonth(md.getMonth() - i)
+        const mStart = new Date(md.getFullYear(), md.getMonth(), 1)
+        const mEnd = new Date(md.getFullYear(), md.getMonth() + 1, 0, 23, 59, 59, 999)
+        buckets.push({
+          start: mStart,
+          end: mEnd,
+          label: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][mStart.getMonth()],
+        })
+      }
+    } else if (is90Days) {
+      for (let week = 11; week >= 0; week--) {
+        const wStart = new Date(end)
+        wStart.setDate(wStart.getDate() - (week * 7 + 6))
+        wStart.setHours(0, 0, 0, 0)
+        const wEnd = new Date(wStart)
+        wEnd.setDate(wEnd.getDate() + 6)
+        wEnd.setHours(23, 59, 59, 999)
+        buckets.push({
+          start: wStart,
+          end: wEnd,
+          label: wStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        })
+      }
+    } else {
+      let dayCount = 7
+      let dayStep = 1
+      if (isMonth) { dayCount = 10; dayStep = 3 }
+      for (let i = dayCount - 1; i >= 0; i--) {
+        const dStart = new Date(end)
+        dStart.setDate(dStart.getDate() - (i * dayStep))
+        dStart.setHours(0, 0, 0, 0)
+        const dEnd = new Date(dStart)
+        dEnd.setDate(dEnd.getDate() + dayStep - 1)
+        dEnd.setHours(23, 59, 59, 999)
+        buckets.push({
+          start: dStart,
+          end: dEnd,
+          label: dStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        })
+      }
+    }
+    return buckets
+  }
+
+  // Fetch detailed chart data for KPI modal — bulk fetch + local bucketing for speed
   const fetchChartData = async (kpiType: KPIType) => {
     if (!kpiType) return
 
@@ -1037,343 +1125,90 @@ export function DashboardClient({
       if (!option) return
 
       const { start, end } = option.getDates()
-      const points: ChartDataPoint[] = []
-
-      // Filter completed orders from initialOrders (server-side fetched data)
       const completedOrders = initialOrders.filter(o => o.status === "completed")
 
-      // Determine grouping based on timeframe
-      const isToday = timeframe === "today"
-      const isAllTime = timeframe === "all_time"
-      const isYear = timeframe === "last_year" || timeframe === "last_365_days"
-      const isMonth = timeframe === "last_30_days" || timeframe === "this_month"
-      const is90Days = timeframe === "last_90_days"
+      // For all_time, extend start to 2020
+      const fetchStart = timeframe === "all_time" ? new Date(2020, 0, 1) : start
 
-      if (isToday) {
-        // Group by hour for today
-        for (let hour = 0; hour <= new Date().getHours(); hour++) {
-          const hourStart = new Date(start)
-          hourStart.setHours(hour, 0, 0, 0)
-          const hourEnd = new Date(start)
-          hourEnd.setHours(hour, 59, 59, 999)
+      // Bulk fetch all view events in ONE query
+      let viewEvents: any[] = []
+      let clickEvents: any[] = []
 
-          let value = 0
-          let secondaryValue = 0
+      if (kpiType === "views" || kpiType === "conversion") {
+        const { data } = await supabase
+          .from("analytics_events")
+          .select("id, visitor_id, session_id, product_id, created_at")
+          .eq("creator_id", creatorId)
+          .eq("event_type", "view")
+          .gte("created_at", fetchStart.toISOString())
+          .lte("created_at", end.toISOString())
+        viewEvents = data || []
 
-          if (kpiType === "views") {
-            const { data } = await supabase
-              .from("analytics_events")
-              .select("id, visitor_id, session_id, product_id")
-              .eq("creator_id", creatorId)
-              .eq("event_type", "view")
-              .gte("created_at", hourStart.toISOString())
-              .lte("created_at", hourEnd.toISOString())
-
-            const uniqueKeys = new Set((data || []).map((e: any) => {
-              const identity = e.visitor_id || e.session_id
-              return identity ? `${identity}__${e.product_id || "store"}` : null
-            }).filter(Boolean))
-            value = uniqueKeys.size
-
-            // Get clicks for secondary value
-            const { data: clicks } = await supabase
-              .from("analytics_events")
-              .select("id")
-              .eq("creator_id", creatorId)
-              .eq("event_type", "click")
-              .gte("created_at", hourStart.toISOString())
-              .lte("created_at", hourEnd.toISOString())
-            secondaryValue = clicks?.length || 0
-          } else if (kpiType === "orders") {
-            // Filter orders locally from initialOrders
-            const periodOrders = completedOrders.filter(o => {
-              const orderDate = new Date(o.created_at)
-              return orderDate >= hourStart && orderDate <= hourEnd
-            })
-            value = periodOrders.length
-          } else if (kpiType === "revenue") {
-            const periodOrders = completedOrders.filter(o => {
-              const orderDate = new Date(o.created_at)
-              return orderDate >= hourStart && orderDate <= hourEnd
-            })
-            value = periodOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0) / 100
-          } else if (kpiType === "conversion") {
-            const { data } = await supabase
-              .from("analytics_events")
-              .select("id, visitor_id, session_id, product_id")
-              .eq("creator_id", creatorId)
-              .eq("event_type", "view")
-              .gte("created_at", hourStart.toISOString())
-              .lte("created_at", hourEnd.toISOString())
-            const uniqueKeys = new Set((data || []).map((e: any) => {
-              const identity = e.visitor_id || e.session_id
-              return identity ? `${identity}__${e.product_id || "store"}` : null
-            }).filter(Boolean))
-            const views = uniqueKeys.size
-            const orders = completedOrders.filter(o => {
-              const d = new Date(o.created_at)
-              return d >= hourStart && d <= hourEnd
-            }).length
-            value = views > 0 ? Number(((orders / views) * 100).toFixed(2)) : 0
-          }
-
-          points.push({
-            label: `${hour.toString().padStart(2, '0')}:00`,
-            value,
-            secondaryValue: kpiType === "views" ? secondaryValue : undefined
-          })
+        if (kpiType === "views") {
+          const { data: clicks } = await supabase
+            .from("analytics_events")
+            .select("id, created_at")
+            .eq("creator_id", creatorId)
+            .eq("event_type", "click")
+            .gte("created_at", fetchStart.toISOString())
+            .lte("created_at", end.toISOString())
+          clickEvents = clicks || []
         }
-      } else if (isAllTime) {
-        // Group by year for all time
-        const currentYear = new Date().getFullYear()
-        const startYear = 2020
+      }
 
-        for (let year = startYear; year <= currentYear; year++) {
-          const yearStart = new Date(year, 0, 1)
-          const yearEnd = new Date(year, 11, 31, 23, 59, 59, 999)
+      // Generate time buckets and compute values locally
+      const buckets = generateTimeBuckets(timeframe, start, end)
+      const points: ChartDataPoint[] = []
 
-          let value = 0
-          let secondaryValue = 0
+      for (const bucket of buckets) {
+        let value = 0
+        let secondaryValue = 0
 
-          if (kpiType === "views") {
-            const { data } = await supabase
-              .from("analytics_events")
-              .select("id, visitor_id, session_id, product_id")
-              .eq("creator_id", creatorId)
-              .eq("event_type", "view")
-              .gte("created_at", yearStart.toISOString())
-              .lte("created_at", yearEnd.toISOString())
-
-            const uniqueKeys = new Set((data || []).map((e: any) => {
-              const identity = e.visitor_id || e.session_id
-              return identity ? `${identity}__${e.product_id || "store"}` : null
-            }).filter(Boolean))
-            value = uniqueKeys.size
-
-            const { data: clicks } = await supabase
-              .from("analytics_events")
-              .select("id")
-              .eq("creator_id", creatorId)
-              .eq("event_type", "click")
-              .gte("created_at", yearStart.toISOString())
-              .lte("created_at", yearEnd.toISOString())
-            secondaryValue = clicks?.length || 0
-          } else if (kpiType === "orders") {
-            const periodOrders = completedOrders.filter(o => {
-              const orderDate = new Date(o.created_at)
-              return orderDate >= yearStart && orderDate <= yearEnd
-            })
-            value = periodOrders.length
-          } else if (kpiType === "revenue") {
-            const periodOrders = completedOrders.filter(o => {
-              const orderDate = new Date(o.created_at)
-              return orderDate >= yearStart && orderDate <= yearEnd
-            })
-            value = periodOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0) / 100
-          } else if (kpiType === "conversion") {
-            const { data } = await supabase.from("analytics_events").select("id, visitor_id, session_id, product_id").eq("creator_id", creatorId).eq("event_type", "view").gte("created_at", yearStart.toISOString()).lte("created_at", yearEnd.toISOString())
-            const views = new Set((data || []).map((e: any) => { const id = e.visitor_id || e.session_id; return id ? `${id}__${e.product_id || "store"}` : null }).filter(Boolean)).size
-            const orders = completedOrders.filter(o => { const d = new Date(o.created_at); return d >= yearStart && d <= yearEnd }).length
-            value = views > 0 ? Number(((orders / views) * 100).toFixed(2)) : 0
-          }
-
-          points.push({
-            label: year.toString(),
-            value,
-            secondaryValue: kpiType === "views" ? secondaryValue : undefined
+        if (kpiType === "views") {
+          const bucketViews = viewEvents.filter(e => {
+            const d = new Date(e.created_at)
+            return d >= bucket.start && d <= bucket.end
           })
-        }
-      } else if (isYear) {
-        // Group by month for year
-        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-        const currentMonth = new Date().getMonth()
-
-        for (let month = 0; month <= currentMonth; month++) {
-          const currentYear = new Date().getFullYear()
-          const monthStart = new Date(currentYear, month, 1)
-          const monthEnd = new Date(currentYear, month + 1, 0, 23, 59, 59, 999)
-
-          let value = 0
-          let secondaryValue = 0
-
-          if (kpiType === "views") {
-            const { data } = await supabase
-              .from("analytics_events")
-              .select("id, visitor_id, session_id, product_id")
-              .eq("creator_id", creatorId)
-              .eq("event_type", "view")
-              .gte("created_at", monthStart.toISOString())
-              .lte("created_at", monthEnd.toISOString())
-
-            const uniqueKeys = new Set((data || []).map((e: any) => {
-              const identity = e.visitor_id || e.session_id
-              return identity ? `${identity}__${e.product_id || "store"}` : null
-            }).filter(Boolean))
-            value = uniqueKeys.size
-
-            const { data: clicks } = await supabase
-              .from("analytics_events")
-              .select("id")
-              .eq("creator_id", creatorId)
-              .eq("event_type", "click")
-              .gte("created_at", monthStart.toISOString())
-              .lte("created_at", monthEnd.toISOString())
-            secondaryValue = clicks?.length || 0
-          } else if (kpiType === "orders") {
-            // Filter orders locally from initialOrders
-            const periodOrders = completedOrders.filter(o => {
-              const orderDate = new Date(o.created_at)
-              return orderDate >= monthStart && orderDate <= monthEnd
-            })
-            value = periodOrders.length
-          } else if (kpiType === "revenue") {
-            const periodOrders = completedOrders.filter(o => {
-              const orderDate = new Date(o.created_at)
-              return orderDate >= monthStart && orderDate <= monthEnd
-            })
-            value = periodOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0) / 100
-          } else if (kpiType === "conversion") {
-            const { data } = await supabase.from("analytics_events").select("id, visitor_id, session_id, product_id").eq("creator_id", creatorId).eq("event_type", "view").gte("created_at", monthStart.toISOString()).lte("created_at", monthEnd.toISOString())
-            const views = new Set((data || []).map((e: any) => { const id = e.visitor_id || e.session_id; return id ? `${id}__${e.product_id || "store"}` : null }).filter(Boolean)).size
-            const orders = completedOrders.filter(o => { const d = new Date(o.created_at); return d >= monthStart && d <= monthEnd }).length
-            value = views > 0 ? Number(((orders / views) * 100).toFixed(2)) : 0
-          }
-
-          points.push({
-            label: monthNames[month],
-            value,
-            secondaryValue: kpiType === "views" ? secondaryValue : undefined
+          const uniqueKeys = new Set(bucketViews.map((e: any) => {
+            const identity = e.visitor_id || e.session_id
+            return identity ? `${identity}__${e.product_id || "store"}` : null
+          }).filter(Boolean))
+          value = uniqueKeys.size
+          secondaryValue = clickEvents.filter(e => {
+            const d = new Date(e.created_at)
+            return d >= bucket.start && d <= bucket.end
+          }).length
+        } else if (kpiType === "orders") {
+          value = completedOrders.filter(o => {
+            const d = new Date(o.created_at)
+            return d >= bucket.start && d <= bucket.end
+          }).length
+        } else if (kpiType === "revenue") {
+          value = completedOrders.filter(o => {
+            const d = new Date(o.created_at)
+            return d >= bucket.start && d <= bucket.end
+          }).reduce((sum, o) => sum + (o.amount_cents || 0), 0) / 100
+        } else if (kpiType === "conversion") {
+          const bucketViews = viewEvents.filter(e => {
+            const d = new Date(e.created_at)
+            return d >= bucket.start && d <= bucket.end
           })
+          const views = new Set(bucketViews.map((e: any) => {
+            const id = e.visitor_id || e.session_id
+            return id ? `${id}__${e.product_id || "store"}` : null
+          }).filter(Boolean)).size
+          const orders = completedOrders.filter(o => {
+            const d = new Date(o.created_at)
+            return d >= bucket.start && d <= bucket.end
+          }).length
+          value = views > 0 ? Number(((orders / views) * 100).toFixed(2)) : 0
         }
-      } else if (is90Days) {
-        // Group by week for 90 days (12 weeks)
-        for (let week = 11; week >= 0; week--) {
-          const weekStart = new Date(end)
-          weekStart.setDate(weekStart.getDate() - (week * 7 + 6))
-          weekStart.setHours(0, 0, 0, 0)
-          const weekEnd = new Date(weekStart)
-          weekEnd.setDate(weekEnd.getDate() + 6)
-          weekEnd.setHours(23, 59, 59, 999)
 
-          let value = 0
-          let secondaryValue = 0
-
-          if (kpiType === "views") {
-            const { data } = await supabase
-              .from("analytics_events")
-              .select("id, visitor_id, session_id, product_id")
-              .eq("creator_id", creatorId)
-              .eq("event_type", "view")
-              .gte("created_at", weekStart.toISOString())
-              .lte("created_at", weekEnd.toISOString())
-
-            const uniqueKeys = new Set((data || []).map((e: any) => {
-              const identity = e.visitor_id || e.session_id
-              return identity ? `${identity}__${e.product_id || "store"}` : null
-            }).filter(Boolean))
-            value = uniqueKeys.size
-
-            const { data: clicks } = await supabase
-              .from("analytics_events")
-              .select("id")
-              .eq("creator_id", creatorId)
-              .eq("event_type", "click")
-              .gte("created_at", weekStart.toISOString())
-              .lte("created_at", weekEnd.toISOString())
-            secondaryValue = clicks?.length || 0
-          } else if (kpiType === "orders") {
-            const periodOrders = completedOrders.filter(o => {
-              const orderDate = new Date(o.created_at)
-              return orderDate >= weekStart && orderDate <= weekEnd
-            })
-            value = periodOrders.length
-          } else if (kpiType === "revenue") {
-            const periodOrders = completedOrders.filter(o => {
-              const orderDate = new Date(o.created_at)
-              return orderDate >= weekStart && orderDate <= weekEnd
-            })
-            value = periodOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0) / 100
-          } else if (kpiType === "conversion") {
-            const { data } = await supabase.from("analytics_events").select("id, visitor_id, session_id, product_id").eq("creator_id", creatorId).eq("event_type", "view").gte("created_at", weekStart.toISOString()).lte("created_at", weekEnd.toISOString())
-            const views = new Set((data || []).map((e: any) => { const id = e.visitor_id || e.session_id; return id ? `${id}__${e.product_id || "store"}` : null }).filter(Boolean)).size
-            const orders = completedOrders.filter(o => { const d = new Date(o.created_at); return d >= weekStart && d <= weekEnd }).length
-            value = views > 0 ? Number(((orders / views) * 100).toFixed(2)) : 0
-          }
-
-          points.push({
-            label: weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: typeof window !== "undefined" ? localStorage.getItem("storelib_timezone") || undefined : undefined }),
-            value,
-            secondaryValue: kpiType === "views" ? secondaryValue : undefined
-          })
-        }
-      } else {
-        // Group by day for 7 days / 30 days / 48 hours
-        let dayCount = 7
-        if (isMonth) dayCount = 10
-        if (timeframe === "last_48_hours") dayCount = 2
-
-        const dayStep = isMonth ? 3 : 1
-
-        for (let i = dayCount - 1; i >= 0; i--) {
-          const dayStart = new Date(end)
-          dayStart.setDate(dayStart.getDate() - (i * dayStep))
-          dayStart.setHours(0, 0, 0, 0)
-          const dayEnd = new Date(dayStart)
-          dayEnd.setDate(dayEnd.getDate() + dayStep - 1)
-          dayEnd.setHours(23, 59, 59, 999)
-
-          let value = 0
-          let secondaryValue = 0
-
-          if (kpiType === "views") {
-            const { data } = await supabase
-              .from("analytics_events")
-              .select("id, visitor_id, session_id, product_id")
-              .eq("creator_id", creatorId)
-              .eq("event_type", "view")
-              .gte("created_at", dayStart.toISOString())
-              .lte("created_at", dayEnd.toISOString())
-
-            const uniqueKeys = new Set((data || []).map((e: any) => {
-              const identity = e.visitor_id || e.session_id
-              return identity ? `${identity}__${e.product_id || "store"}` : null
-            }).filter(Boolean))
-            value = uniqueKeys.size
-
-            const { data: clicks } = await supabase
-              .from("analytics_events")
-              .select("id")
-              .eq("creator_id", creatorId)
-              .eq("event_type", "click")
-              .gte("created_at", dayStart.toISOString())
-              .lte("created_at", dayEnd.toISOString())
-            secondaryValue = clicks?.length || 0
-          } else if (kpiType === "orders") {
-            // Filter orders locally from initialOrders
-            const periodOrders = completedOrders.filter(o => {
-              const orderDate = new Date(o.created_at)
-              return orderDate >= dayStart && orderDate <= dayEnd
-            })
-            value = periodOrders.length
-          } else if (kpiType === "revenue") {
-            const periodOrders = completedOrders.filter(o => {
-              const orderDate = new Date(o.created_at)
-              return orderDate >= dayStart && orderDate <= dayEnd
-            })
-            value = periodOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0) / 100
-          } else if (kpiType === "conversion") {
-            const { data } = await supabase.from("analytics_events").select("id, visitor_id, session_id, product_id").eq("creator_id", creatorId).eq("event_type", "view").gte("created_at", dayStart.toISOString()).lte("created_at", dayEnd.toISOString())
-            const views = new Set((data || []).map((e: any) => { const id = e.visitor_id || e.session_id; return id ? `${id}__${e.product_id || "store"}` : null }).filter(Boolean)).size
-            const orders = completedOrders.filter(o => { const d = new Date(o.created_at); return d >= dayStart && d <= dayEnd }).length
-            value = views > 0 ? Number(((orders / views) * 100).toFixed(2)) : 0
-          }
-
-          points.push({
-            label: dayStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: typeof window !== "undefined" ? localStorage.getItem("storelib_timezone") || undefined : undefined }),
-            value,
-            secondaryValue: kpiType === "views" ? secondaryValue : undefined
-          })
-        }
+        points.push({
+          label: bucket.label,
+          value,
+          secondaryValue: kpiType === "views" ? secondaryValue : undefined,
+        })
       }
 
       setChartData(points)
@@ -1387,8 +1222,6 @@ export function DashboardClient({
   // Fetch chart data when modal opens or timeframe changes
   useEffect(() => {
     if (openKPIModal) {
-      // Reset chart data and re-fetch when timeframe changes
-      setChartData([])
       fetchChartData(openKPIModal)
     }
   }, [openKPIModal, timeframe, creatorId])
@@ -1876,66 +1709,73 @@ export function DashboardClient({
           {/* Shared Chart Area - smooth line chart, toggleable */}
           <div className={`overflow-hidden transition-all duration-300 ease-out ${chartExpanded && openKPIModal ? "max-h-[300px] opacity-100" : "max-h-0 opacity-0"}`}>
             <div className="border-t border-[#e5e7eb]/60 px-2 py-3 sm:px-4 sm:py-4">
-              {chartData.length === 0 || !chartData.some(d => d.value > 0) ? (
-                <div className="h-[200px] flex items-center justify-center gap-2">
-                  <BarChart3 className="h-5 w-5 text-[#d1d5db]" />
-                  <span className="text-[13px] text-[#9ca3af]">{t("time.noData")}</span>
+              {isChartLoading && chartData.length === 0 ? (
+                <div className="h-[200px] flex items-end gap-1.5 px-6 pb-6 pt-4">
+                  {Array.from({ length: 10 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="flex-1 bg-gradient-to-t from-gray-100 to-gray-50 rounded-t animate-pulse"
+                      style={{ height: `${25 + ((i * 37) % 60)}%`, animationDelay: `${i * 80}ms` }}
+                    />
+                  ))}
                 </div>
               ) : (
-                <ResponsiveContainer width="100%" height={200}>
-                  <AreaChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="kpiGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.15} />
-                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-                    <XAxis
-                      dataKey="label"
-                      tick={{ fontSize: 11, fill: "#9ca3af" }}
-                      tickLine={false}
-                      axisLine={false}
-                      interval="preserveStartEnd"
-                    />
-                    <YAxis
-                      tick={{ fontSize: 11, fill: "#9ca3af" }}
-                      tickLine={false}
-                      axisLine={false}
-                      domain={[0, "auto"]}
-                      width={40}
-                      tickFormatter={(v: number) => openKPIModal === "revenue" ? `$${v >= 1000 ? `${(v/1000).toFixed(1)}k` : v.toFixed(0)}` : openKPIModal === "conversion" ? `${v}%` : v >= 1000 ? `${(v/1000).toFixed(1)}k` : String(v)}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        background: "#1a1a2e",
-                        border: "none",
-                        borderRadius: "8px",
-                        fontSize: "12px",
-                        color: "#fff",
-                        padding: "8px 12px",
-                      }}
-                      labelStyle={{ color: "#fff", fontSize: "11px", marginBottom: "2px" }}
-                      itemStyle={{ color: "#fff" }}
-                      formatter={(value: number) => [
-                        openKPIModal === "revenue" ? `$${value.toFixed(2)}` : openKPIModal === "conversion" ? `${value}%` : value,
-                        openKPIModal === "views" ? t("dashboard.views") : openKPIModal === "orders" ? t("dashboard.orders") : openKPIModal === "revenue" ? t("dashboard.revenue") : t("dashboard.conversionRate")
-                      ]}
-                      cursor={{ stroke: "#e5e7eb", strokeWidth: 1 }}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="value"
-                      stroke="#8b5cf6"
-                      strokeWidth={2}
-                      fill="url(#kpiGrad)"
-                      dot={false}
-                      activeDot={{ r: 4, fill: "#8b5cf6", strokeWidth: 0 }}
-                      animationDuration={600}
-                      animationBegin={0}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
+                <div className={`transition-opacity duration-300 ${isChartLoading ? "opacity-50" : "opacity-100"}`}>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <AreaChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="kpiGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.15} />
+                          <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+                      <XAxis
+                        dataKey="label"
+                        tick={{ fontSize: 11, fill: "#9ca3af" }}
+                        tickLine={false}
+                        axisLine={false}
+                        interval="preserveStartEnd"
+                      />
+                      <YAxis
+                        tick={{ fontSize: 11, fill: "#9ca3af" }}
+                        tickLine={false}
+                        axisLine={false}
+                        domain={[0, "auto"]}
+                        width={40}
+                        tickFormatter={(v: number) => openKPIModal === "revenue" ? `$${v >= 1000 ? `${(v/1000).toFixed(1)}k` : v.toFixed(0)}` : openKPIModal === "conversion" ? `${v}%` : v >= 1000 ? `${(v/1000).toFixed(1)}k` : String(v)}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          background: "#1a1a2e",
+                          border: "none",
+                          borderRadius: "8px",
+                          fontSize: "12px",
+                          color: "#fff",
+                          padding: "8px 12px",
+                        }}
+                        labelStyle={{ color: "#fff", fontSize: "11px", marginBottom: "2px" }}
+                        itemStyle={{ color: "#fff" }}
+                        formatter={(value: number) => [
+                          openKPIModal === "revenue" ? `$${value.toFixed(2)}` : openKPIModal === "conversion" ? `${value}%` : value,
+                          openKPIModal === "views" ? t("dashboard.views") : openKPIModal === "orders" ? t("dashboard.orders") : openKPIModal === "revenue" ? t("dashboard.revenue") : t("dashboard.conversionRate")
+                        ]}
+                        cursor={{ stroke: "#e5e7eb", strokeWidth: 1 }}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="value"
+                        stroke="#8b5cf6"
+                        strokeWidth={2}
+                        fill="url(#kpiGrad)"
+                        dot={false}
+                        activeDot={{ r: 4, fill: "#8b5cf6", strokeWidth: 0 }}
+                        animationDuration={600}
+                        animationBegin={0}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
               )}
             </div>
           </div>

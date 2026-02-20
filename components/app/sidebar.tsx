@@ -768,25 +768,25 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                 href="/explore"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex h-9 w-9 items-center justify-center rounded-lg text-white/75 hover:text-white hover:bg-white/10 transition-all"
+                className="flex h-[34px] w-[34px] items-center justify-center rounded-lg text-white/75 hover:text-white hover:bg-white/10 transition-all"
                 title="Discover"
               >
-                <Compass className="h-5 w-5" strokeWidth={1.5} />
+                <Compass className="h-[19px] w-[19px]" strokeWidth={1.5} />
               </Link>
               <button
                 onClick={() => setNotificationsOpen(true)}
-                className="flex h-9 w-9 items-center justify-center rounded-lg text-white/75 hover:text-white hover:bg-white/10 transition-all relative"
+                className="flex h-[34px] w-[34px] items-center justify-center rounded-lg text-white/75 hover:text-white hover:bg-white/10 transition-all relative"
                 title="Notifications"
               >
-                <Bell className="h-5 w-5" strokeWidth={1.5} />
+                <Bell className="h-[19px] w-[19px]" strokeWidth={1.5} />
                 <NotificationBadge count={notificationCount} />
               </button>
               <Link
                 href="/app/settings"
-                className="flex h-9 w-9 items-center justify-center rounded-lg text-white/75 hover:text-white hover:bg-white/10 transition-all"
+                className="flex h-[34px] w-[34px] items-center justify-center rounded-lg text-white/75 hover:text-white hover:bg-white/10 transition-all"
                 title="Settings"
               >
-                <Settings className="h-5 w-5" strokeWidth={1.5} />
+                <Settings className="h-[19px] w-[19px]" strokeWidth={1.5} />
               </Link>
             </div>
 

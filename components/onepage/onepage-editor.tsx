@@ -626,7 +626,7 @@ function EditorLayout() {
         duration={2200}
       />
       {/* Header - ALWAYS visible with solid background */}
-      <header className="flex items-center justify-between border-b bg-white px-3 sm:px-4 md:px-6 h-[56px] sm:h-[60px] shrink-0 relative z-30 gap-2 overflow-hidden">
+      <header className="flex items-center justify-between border-b bg-white px-3 sm:px-4 md:px-8 h-[56px] sm:h-[60px] shrink-0 relative z-30 gap-2 overflow-hidden">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
           {/* Undo/Redo Buttons */}
           <div className="flex items-center gap-1">

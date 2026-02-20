@@ -2367,7 +2367,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                       onClick={() => setChartMetricFilter("views")}
                       className={`px-2 py-1 text-[11px] font-medium rounded transition-all duration-200 cursor-pointer ${
                         chartMetricFilter === "views"
-                          ? "bg-white text-[#6366f1] shadow-sm"
+                          ? "bg-white text-[#1a1a2e] shadow-sm"
                           : "text-[#9ca3af] hover:text-[#6b7280] hover:bg-white/50"
                       }`}
                     >
@@ -2387,7 +2387,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                       onClick={() => setChartMetricFilter("revenue")}
                       className={`px-2 py-1 text-[11px] font-medium rounded transition-all duration-200 cursor-pointer ${
                         chartMetricFilter === "revenue"
-                          ? "bg-white text-[#c4b5fd] shadow-sm"
+                          ? "bg-white text-[#3b82f6] shadow-sm"
                           : "text-[#9ca3af] hover:text-[#6b7280] hover:bg-white/50"
                       }`}
                     >
@@ -2478,7 +2478,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   <div>
                     <p className="text-[28px] font-bold text-[#1a1a2e] leading-tight">{formatCompactNumber(totalViewsInChart)}</p>
                     <div className="flex items-center gap-1.5 mt-0.5">
-                      <div className="w-2 h-2 rounded-full bg-[#6366f1]" />
+                      <div className="w-2 h-2 rounded-full bg-[#1a1a2e]" />
                       <p className="text-[13px] text-[#6b7280]">Views</p>
                     </div>
                   </div>
@@ -2494,7 +2494,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                       <div>
                         <p className="text-[28px] font-bold text-[#1a1a2e] leading-tight">{formatPrice(totalRevenueInChart)}</p>
                         <div className="flex items-center gap-1.5 mt-0.5">
-                          <div className="w-2 h-2 rounded-full bg-[#c4b5fd]" />
+                          <div className="w-2 h-2 rounded-full bg-[#3b82f6]" />
                           <p className="text-[13px] text-[#6b7280]">Revenue</p>
                         </div>
                       </div>
@@ -2655,7 +2655,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                 {/* Legend */}
                 <div className="flex items-center justify-center gap-6 pt-2">
                   <div className="flex items-center gap-1.5">
-                    <div className="w-2.5 h-2.5 rounded-full bg-[#6366f1]" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-[#1a1a2e]" />
                     <span className="text-[12px] text-[#6b7280]">{t("dashboard.views")}</span>
                   </div>
                   {analyticsMode === "store" ? (
@@ -2665,7 +2665,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                         <span className="text-[12px] text-[#6b7280]">{t("dashboard.orders")}</span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <div className="w-2.5 h-2.5 rounded-full bg-[#c4b5fd]" />
+                        <div className="w-2.5 h-2.5 rounded-full bg-[#3b82f6]" />
                         <span className="text-[12px] text-[#6b7280]">{t("dashboard.revenue")}</span>
                       </div>
                     </>
