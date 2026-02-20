@@ -3623,8 +3623,6 @@ export function PayoutsClient({
   const [openMenuOrderId, setOpenMenuOrderId] = useState<string | null>(null);
 
   const sourceCurrency = (creator.default_currency || "usd").toLowerCase();
-  // Always display in USD — Stripe balance amounts are converted via toUsd(),
-  // order amounts from the DB are already stored in USD.
   const currency = "usd";
   const hasStripe = !!creator.stripe_account_id;
   const payoutsEnabled = creator.payouts_enabled !== false;
@@ -3684,7 +3682,6 @@ export function PayoutsClient({
   const toUsd = useCallback(
     (cents: number) => {
       if (sourceCurrency === "usd") return cents;
-      if (!stripeExchangeRate || stripeExchangeRate <= 0) return cents;
       const converted = cents / stripeExchangeRate;
       return converted >= 0 ? Math.floor(converted) : Math.ceil(converted);
     },

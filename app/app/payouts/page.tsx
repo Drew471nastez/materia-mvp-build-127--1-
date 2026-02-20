@@ -103,12 +103,11 @@ export default async function PayoutsPage() {
         stripe.balance.retrieve({}, { stripeAccount: creator.stripe_account_id }),
         stripe.accounts.retrieve(creator.stripe_account_id),
         stripe.balanceTransactions.list(
-          { limit: 100 },
+          { limit: 10 },
           { stripeAccount: creator.stripe_account_id },
         ),
       ]);
 
-      // Strategy 1: get exchange_rate directly from a balance transaction
       stripeExchangeRate =
         (balanceTx.data.find((tx: any) => tx.exchange_rate) as any)
           ?.exchange_rate || null;
@@ -152,68 +151,24 @@ export default async function PayoutsPage() {
       }
     } catch (err) {
       console.error("[Payouts] Failed to fetch Stripe balances:", err);
-      // Fallback: use USD order amounts when Stripe API fails
-      stripePendingBalance = orderPendingUsd;
+      stripePendingBalance = Math.round(orderPendingUsd * (stripeExchangeRate || 1));
     }
   } else {
-    // No Stripe: use USD order amounts directly
-    stripePendingBalance = orderPendingUsd;
+    stripePendingBalance = Math.round(orderPendingUsd * (stripeExchangeRate || 1));
   }
 
   if (
     detectedCurrency !== "usd" &&
     (!stripeExchangeRate || stripeExchangeRate <= 0)
   ) {
-    // Strategy 2: compute from total Stripe balance vs total USD order amounts.
-    // Use pending + available to handle funds that moved between states.
-    const nativeTotal = Math.max(0, stripePendingBalance + stripeAvailableBalance);
-    if (nativeTotal > 0 && orderPendingUsd > 0) {
-      stripeExchangeRate = nativeTotal / orderPendingUsd;
+    const nativePending = Math.max(0, stripePendingBalance);
+    if (nativePending > 0 && orderPendingUsd > 0) {
+      stripeExchangeRate = nativePending / orderPendingUsd;
     }
   }
 
-  // Strategy 3: if still no rate, use a recent platform transfer to this connected account.
-  // Transfers have the USD amount; matched with a balance transaction in native currency,
-  // we can derive the exchange rate.
-  if (
-    detectedCurrency !== "usd" &&
-    (!stripeExchangeRate || stripeExchangeRate <= 0) &&
-    creator.stripe_account_id
-  ) {
-    try {
-      const transfers = await stripe.transfers.list({
-        destination: creator.stripe_account_id,
-        limit: 5,
-      });
-      if (transfers.data.length > 0) {
-        // Sum all transfer amounts (in USD) and compare with total native balance
-        const totalTransferredUsd = transfers.data.reduce(
-          (sum: number, t: any) => sum + (t.amount || 0), 0
-        );
-        const nativeTotal = Math.max(0, stripePendingBalance + stripeAvailableBalance);
-        if (totalTransferredUsd > 0 && nativeTotal > 0) {
-          stripeExchangeRate = nativeTotal / totalTransferredUsd;
-        }
-      }
-    } catch {
-      // Non-fatal: continue without this fallback
-    }
-  }
-
-  // Strategy 4: use Stripe's exchange rates API for a live market rate
-  if (
-    detectedCurrency !== "usd" &&
-    (!stripeExchangeRate || stripeExchangeRate <= 0)
-  ) {
-    try {
-      const rates = await (stripe as any).exchangeRates.retrieve("usd");
-      const rateToNative = rates?.rates?.[detectedCurrency];
-      if (rateToNative && rateToNative > 0) {
-        stripeExchangeRate = rateToNative;
-      }
-    } catch {
-      // Non-fatal: Stripe exchange rates API may not be available
-    }
+  if (detectedCurrency !== "usd" && orderPendingUsd > 0) {
+    stripePendingBalance = Math.round(orderPendingUsd * (stripeExchangeRate || 1));
   }
 
   // Net earnings = what seller keeps after all fees (Stripe + platform)

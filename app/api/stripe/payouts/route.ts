@@ -63,7 +63,7 @@ export async function GET() {
         { stripeAccount: stripeAccountId }
       ).catch(() => null),
       stripe.balanceTransactions.list(
-        { limit: 100 },
+        { limit: 5 },
         { stripeAccount: stripeAccountId }
       ).catch(() => ({ data: [] })),
     ])
@@ -96,54 +96,8 @@ export async function GET() {
         ? ([preferredCurrency, byCurrency.get(preferredCurrency)!] as const)
         : dominant
 
-      if (selected && selected[0] !== "usd" && orderPendingUsd > 0) {
-        // Use total balance (pending + available) for a better approximation
-        const nativeTotal = Math.max(0, selected[1].pending + selected[1].available)
-        if (nativeTotal > 0) {
-          exchangeRate = nativeTotal / orderPendingUsd
-        }
-      }
-    }
-
-    // Strategy 3: if still no rate, use platform transfers to compute from USD amounts
-    if ((!exchangeRate || exchangeRate <= 0) && balanceResult) {
-      const preferredCurrency = (creator.default_currency || "usd").toLowerCase()
-      if (preferredCurrency !== "usd") {
-        try {
-          const transfers = await stripe.transfers.list({
-            destination: stripeAccountId,
-            limit: 5,
-          })
-          if (transfers.data.length > 0) {
-            const totalTransferredUsd = transfers.data.reduce(
-              (sum: number, t: any) => sum + (t.amount || 0), 0
-            )
-            let nativeTotal = 0
-            for (const b of balanceResult.available) nativeTotal += b.amount
-            for (const b of balanceResult.pending) nativeTotal += b.amount
-            if (totalTransferredUsd > 0 && nativeTotal > 0) {
-              exchangeRate = nativeTotal / totalTransferredUsd
-            }
-          }
-        } catch {
-          // Non-fatal
-        }
-      }
-    }
-
-    // Strategy 4: use Stripe's exchange rates API for a live market rate
-    if (!exchangeRate || exchangeRate <= 0) {
-      const preferredCurrency2 = (creator.default_currency || "usd").toLowerCase()
-      if (preferredCurrency2 !== "usd") {
-        try {
-          const rates = await (stripe as any).exchangeRates.retrieve("usd")
-          const rateToNative = rates?.rates?.[preferredCurrency2]
-          if (rateToNative && rateToNative > 0) {
-            exchangeRate = rateToNative
-          }
-        } catch {
-          // Non-fatal
-        }
+      if (selected && selected[0] !== "usd" && selected[1].pending > 0 && orderPendingUsd > 0) {
+        exchangeRate = selected[1].pending / orderPendingUsd
       }
     }
 
