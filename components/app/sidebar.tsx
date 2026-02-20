@@ -24,6 +24,7 @@ import {
   Home,
   Wallet,
   X,
+  Palette,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
@@ -33,18 +34,6 @@ import { useState, useEffect, useRef } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { NotificationsModal, NotificationBadge } from "./notifications-modal"
 import { useLanguage } from "@/lib/i18n"
-
-// Custom Store Builder icon - storefront/shop icon
-const StoreBuilderIcon = ({ className }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M2 7l2-4h16l2 4" />
-    <path d="M2 7h20" />
-    <path d="M6 7v0a3 3 0 0 0 6 0v0" />
-    <path d="M12 7v0a3 3 0 0 0 6 0v0" />
-    <path d="M4 7v13a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V7" />
-    <path d="M9 21v-6h6v6" />
-  </svg>
-)
 
 // Progress circle component for setup widget
 function SetupProgressCircle({ progress, size = 32 }: { progress: number; size?: number }) {
@@ -165,7 +154,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { href: "/app/analytics", label: t("nav.analytics"), icon: BarChart3 },
     { href: "/app/sales", label: t("nav.sales"), icon: ShoppingCart },
     { href: "/app/onepage", label: t("nav.onepage"), icon: Link2, forceNavigation: true },
-    { href: "/store-builder", label: t("nav.storeBuilder"), icon: StoreBuilderIcon, forceNavigation: true },
+    { href: "/store-builder", label: t("nav.storeBuilder"), icon: Palette, forceNavigation: true },
     { href: "/app/emails", label: t("nav.emails"), icon: Mail },
     { href: "/app/payouts", label: t("nav.payouts"), icon: Wallet },
   ]
@@ -600,7 +589,12 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               variant="ghost"
               size="icon"
               className="h-9 w-9 shrink-0 rounded-xl text-white/90 hover:text-white hover:bg-white/10 transition-all duration-200 ease-out active:scale-95"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              onClick={() => {
+                if (mobileProfileDropdownOpen) {
+                  setMobileProfileDropdownOpen(false)
+                }
+                setMobileMenuOpen(!mobileMenuOpen)
+              }}
               aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
             >
               <div className="relative w-5 h-5 flex items-center justify-center">
@@ -627,9 +621,14 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           </div>
 
           {/* Profile - positioned left near hamburger */}
-          <div ref={mobileDropdownRef} className="relative flex-1 ml-1">
+          <div ref={mobileDropdownRef} className="relative flex-1 ml-1 z-[60]">
             <button
-              onClick={() => setMobileProfileDropdownOpen(!mobileProfileDropdownOpen)}
+              onClick={() => {
+                if (mobileMenuOpen) {
+                  setMobileMenuOpen(false)
+                }
+                setMobileProfileDropdownOpen(!mobileProfileDropdownOpen)
+              }}
               className={cn(
                 "flex items-center gap-2 w-fit justify-start rounded-xl px-2 py-1.5 transition-all duration-200 ease-out",
                 mobileProfileDropdownOpen ? "bg-white/15" : "hover:bg-white/10"
@@ -676,7 +675,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             {/* Mobile Profile Dropdown Menu */}
             <div
               className={cn(
-                "absolute left-0 top-full mt-2 z-50 min-w-[200px] transition-all duration-200 ease-out origin-top-left",
+                "absolute left-0 top-full mt-2 z-[60] min-w-[200px] transition-all duration-200 ease-out origin-top-left",
                 mobileProfileDropdownOpen
                   ? "opacity-100 scale-100 translate-y-0 pointer-events-auto"
                   : "opacity-0 scale-95 -translate-y-1 pointer-events-none"

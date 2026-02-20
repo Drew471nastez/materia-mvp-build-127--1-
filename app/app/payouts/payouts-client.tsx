@@ -1281,10 +1281,10 @@ function WithdrawPanel({
                 Withdrawals typically take 2–5 business days to reach your bank account, depending on your bank and country.
               </p>
 
-              <div className="relative group">
+              <div className="relative group/withdraw">
                 <button
                   onClick={handleWithdraw}
-                  disabled={loading}
+                  disabled={loading || availableBalance <= 0}
                   className={cn(
                     "w-full mt-4 flex items-center justify-center gap-2 px-4 py-3 text-[14px] font-medium text-white bg-[#635bff] rounded-xl transition-colors",
                     availableBalance <= 0
@@ -1296,7 +1296,7 @@ function WithdrawPanel({
                   {availableBalance <= 0 ? "No funds yet" : "Withdraw"}
                 </button>
                 {availableBalance <= 0 && (
-                  <div className="hidden md:group-hover:block absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-[#1a1a2e] text-white text-[12px] rounded-lg whitespace-nowrap shadow-lg pointer-events-none">
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-[#1a1a2e] text-white text-[12px] rounded-lg whitespace-nowrap shadow-lg pointer-events-none opacity-0 group-hover/withdraw:opacity-100 transition-opacity duration-150 hidden md:block">
                     No funds available to withdraw
                     <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[5px] border-r-[5px] border-t-[5px] border-transparent border-t-[#1a1a2e]" />
                   </div>

@@ -549,7 +549,7 @@ function UnifiedAboutSection({
   const showPaymentMethods = settings.showPaymentMethods ?? true
 
   return (
-    <SectionContainer isMobile={isMobile}>
+    <SectionContainer isMobile={isMobile} className="!max-w-[1300px]">
       <div
         className={cn(
           "w-full py-6 px-2 md:py-12 md:px-2",
@@ -1028,7 +1028,7 @@ export function ProductAboutSection({
   const paymentMethods = ["paypal", "visa", "mastercard", "amex", "applepay", "googlepay"]
 
   return (
-    <SectionContainer isMobile={isMobile}>
+    <SectionContainer isMobile={isMobile} className="!max-w-[1300px]">
       <div
         className={cn(
           "w-full py-6 px-2 md:py-12 md:px-2",

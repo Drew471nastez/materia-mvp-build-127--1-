@@ -695,7 +695,7 @@ export function LiveProductCreatorBar({
 
   return (
     <div
-      className={cn("w-full overflow-hidden", hideOnMobileDiscover && "max-sm:hidden")}
+      className={cn("w-full overflow-hidden", hideOnMobileDiscover && "hidden")}
       style={{
         backgroundColor: settings.backgroundColor || "#1a1a1a",
         color: settings.textColor || "#ffffff",
