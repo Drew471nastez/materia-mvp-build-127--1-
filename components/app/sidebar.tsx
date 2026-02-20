@@ -25,11 +25,12 @@ import {
   Wallet,
   X,
   PenSquare,
+  Search,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 // Sheet removed — mobile sidebar now uses pure CSS transitions for reliable close animation
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { NotificationsModal, NotificationBadge } from "./notifications-modal"
@@ -108,6 +109,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     setMobileMenuOpen(false)
     setProfileDropdownOpen(false)
     setMobileProfileDropdownOpen(false)
+    setHeaderProfileOpen(false)
+    setSearchOpen(false)
   }, [pathname])
 
   // Load dismissed notifications from localStorage
@@ -350,6 +353,106 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     </div>
   )
 
+  // Search modal state
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [searchResults, setSearchResults] = useState<{ label: string; href: string; icon: any; category: string }[]>([])
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  const headerProfileRef = useRef<HTMLDivElement>(null)
+  const [headerProfileOpen, setHeaderProfileOpen] = useState(false)
+
+  // Search shortcut items (pill buttons in modal)
+  const searchShortcuts = [
+    { label: "Dashboard", href: "/app", icon: LayoutDashboard },
+    { label: "Products", href: "/app/products", icon: Package },
+    { label: "Sales", href: "/app/sales", icon: ShoppingCart },
+    { label: "Analytics", href: "/app/analytics", icon: BarChart3 },
+    { label: "Payouts", href: "/app/payouts", icon: Wallet },
+    { label: "Settings", href: "/app/settings", icon: Settings },
+    { label: "Emails", href: "/app/emails", icon: Mail },
+    { label: "OnePage", href: "/app/onepage", icon: Link2 },
+    { label: "Store Builder", href: "/store-builder", icon: PenSquare },
+    { label: "Billing", href: "/app/settings/billing", icon: CreditCard },
+  ]
+
+  // All searchable items
+  const allSearchItems = [
+    { label: "Dashboard", href: "/app", icon: LayoutDashboard, category: "Pages" },
+    { label: "Products", href: "/app/products", icon: Package, category: "Pages" },
+    { label: "New Product", href: "/app/products/new", icon: Package, category: "Pages" },
+    { label: "Analytics", href: "/app/analytics", icon: BarChart3, category: "Pages" },
+    { label: "Sales", href: "/app/sales", icon: ShoppingCart, category: "Pages" },
+    { label: "OnePage", href: "/app/onepage", icon: Link2, category: "Pages" },
+    { label: "Store Builder", href: "/store-builder", icon: PenSquare, category: "Pages" },
+    { label: "Emails", href: "/app/emails", icon: Mail, category: "Pages" },
+    { label: "Payouts", href: "/app/payouts", icon: Wallet, category: "Pages" },
+    { label: "Settings", href: "/app/settings", icon: Settings, category: "Settings" },
+    { label: "Billing", href: "/app/settings/billing", icon: CreditCard, category: "Settings" },
+    { label: "Payment Methods", href: "/app/settings/billing", icon: CreditCard, category: "Settings" },
+    { label: "Profile Settings", href: "/app/settings", icon: Settings, category: "Settings" },
+    { label: "Orders", href: "/app/sales", icon: ShoppingCart, category: "Data" },
+    { label: "Customers", href: "/app/sales", icon: ShoppingCart, category: "Data" },
+    { label: "Email Subscribers", href: "/app/emails", icon: Mail, category: "Data" },
+    { label: "Revenue", href: "/app/payouts", icon: Wallet, category: "Data" },
+    { label: "Traffic", href: "/app/analytics", icon: BarChart3, category: "Data" },
+    { label: "Explore", href: "/explore", icon: Compass, category: "Other" },
+    { label: "Library", href: "/library", icon: Library, category: "Other" },
+    { label: "Help", href: "/help", icon: HelpCircle, category: "Other" },
+    { label: "Upgrade to Pro", href: "/upgrade", icon: Zap, category: "Other" },
+  ]
+
+  // Search handler
+  const handleSearch = useCallback((query: string) => {
+    setSearchQuery(query)
+    if (!query.trim()) {
+      setSearchResults([])
+      return
+    }
+    const q = query.toLowerCase()
+    const results = allSearchItems.filter(item =>
+      item.label.toLowerCase().includes(q) ||
+      item.category.toLowerCase().includes(q) ||
+      item.href.toLowerCase().includes(q)
+    )
+    setSearchResults(results)
+  }, [])
+
+  // Focus search input when modal opens
+  useEffect(() => {
+    if (searchOpen) {
+      setTimeout(() => searchInputRef.current?.focus(), 100)
+    } else {
+      setSearchQuery("")
+      setSearchResults([])
+    }
+  }, [searchOpen])
+
+  // Keyboard shortcut: Cmd/Ctrl+K opens search
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault()
+        setSearchOpen(true)
+      }
+      if (e.key === "Escape" && searchOpen) {
+        setSearchOpen(false)
+      }
+    }
+    document.addEventListener("keydown", handler)
+    return () => document.removeEventListener("keydown", handler)
+  }, [searchOpen])
+
+  // Close header profile dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (headerProfileRef.current && !headerProfileRef.current.contains(event.target as Node)) {
+        setHeaderProfileOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
+
   // Check if we should show setup widget (hide on store-builder, onepage, and new product page)
   const showSetupWidget = setupProgress &&
     setupProgress.completed < setupProgress.total &&
@@ -361,13 +464,6 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 
   const SidebarContent = ({ onItemClick }: { onItemClick?: () => void }) => (
     <div className="flex h-full flex-col bg-[#FAFAFA]">
-      <div className="px-3 pt-4 pb-1">
-        <ProfileDropdown onItemClick={onItemClick} />
-      </div>
-
-      {/* Subtle divider under seller profile */}
-      <div className="mx-3 border-b border-neutral-200/60" />
-
       <nav className="sidebar-nav flex-1 overflow-y-auto px-3 py-3">
         <div className="space-y-0.5">
           {mainNavItems.map((item) => (
@@ -396,42 +492,6 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             <Zap className="h-3.5 w-3.5 text-violet-500 fill-violet-500" strokeWidth={2} />
           </div>
         </Link>
-      </div>
-
-      <div className="border-t border-neutral-200/50 px-4 py-[15px]">
-        <div className="flex items-center justify-between">
-          <Link
-            href="/explore"
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={onItemClick}
-            className="flex items-center gap-2 hover:opacity-80 transition-opacity"
-          >
-            <img
-              src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
-              alt="Storelib"
-              className="h-8 w-8 xl:h-[30px] xl:w-[30px]"
-            />
-            <span className="text-[17px] xl:text-[15px] font-semibold text-neutral-900">Storelib</span>
-          </Link>
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={() => setNotificationsOpen(true)}
-              aria-label="Notifications"
-              className="flex h-6 w-6 xl:h-[22px] xl:w-[22px] items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 transition-colors relative cursor-pointer"
-            >
-              <Bell className="h-[19px] w-[19px] xl:h-[17px] xl:w-[17px]" strokeWidth={1.5} />
-              <NotificationBadge count={notificationCount} />
-            </button>
-            <Link
-              href="/app/settings"
-              aria-label="Settings"
-              className="flex h-7 w-7 xl:h-[26px] xl:w-[26px] items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 transition-colors cursor-pointer"
-            >
-              <Settings className="h-[19px] w-[19px] xl:h-[17px] xl:w-[17px]" strokeWidth={1.5} />
-            </Link>
-          </div>
-        </div>
       </div>
     </div>
   )
@@ -579,6 +639,279 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           background-color: rgba(255, 255, 255, 0.3);
         }
       `}</style>
+
+      {/* Desktop Header Bar — dark bar with concave bottom corners */}
+      <header className="fixed top-0 left-0 right-0 z-50 hidden md:block">
+        <div className="relative h-[56px] bg-[#1a1a2e] flex items-center px-5">
+          {/* Left side: Storelib logo + text, then nav icons */}
+          <div className="flex items-center gap-4">
+            <Link href="/app" className="flex items-center gap-2.5 hover:opacity-90 transition-opacity shrink-0">
+              <img
+                src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
+                alt="Storelib"
+                className="h-7 w-7"
+                style={{ filter: "brightness(0) invert(1)" }}
+              />
+              <span className="text-[15px] font-semibold text-white">Storelib</span>
+            </Link>
+
+            <div className="h-5 w-px bg-white/15 mx-0.5" />
+
+            <div className="flex items-center gap-0.5">
+              <Link
+                href="/explore"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-all"
+                title="Discover"
+              >
+                <Compass className="h-[18px] w-[18px]" strokeWidth={1.5} />
+              </Link>
+              <button
+                onClick={() => setNotificationsOpen(true)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-all relative"
+                title="Notifications"
+              >
+                <Bell className="h-[18px] w-[18px]" strokeWidth={1.5} />
+                <NotificationBadge count={notificationCount} />
+              </button>
+              <Link
+                href="/app/settings"
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-all"
+                title="Settings"
+              >
+                <Settings className="h-[18px] w-[18px]" strokeWidth={1.5} />
+              </Link>
+            </div>
+          </div>
+
+          {/* Center: Search bar */}
+          <div className="flex-1 flex justify-center px-6">
+            <button
+              onClick={() => setSearchOpen(true)}
+              className="flex items-center gap-2.5 w-full max-w-[480px] h-[36px] rounded-full bg-white/10 hover:bg-white/15 border border-white/10 px-4 transition-all cursor-text"
+            >
+              <Search className="h-4 w-4 text-white/40 shrink-0" />
+              <span className="text-[13px] text-white/40 flex-1 text-left">Search...</span>
+              <kbd className="hidden lg:flex items-center gap-0.5 text-[11px] text-white/30 bg-white/5 border border-white/10 rounded px-1.5 py-0.5">
+                <span className="text-[10px]">⌘</span>K
+              </kbd>
+            </button>
+          </div>
+
+          {/* Right side: Profile dropdown */}
+          <div ref={headerProfileRef} className="relative shrink-0">
+            <button
+              onClick={() => setHeaderProfileOpen(!headerProfileOpen)}
+              className={cn(
+                "flex items-center gap-2.5 rounded-full px-2.5 py-1.5 transition-all duration-200 ease-out",
+                headerProfileOpen ? "bg-white/15" : "hover:bg-white/10"
+              )}
+            >
+              <div
+                className="relative h-7 w-7 shrink-0 rounded-full ring-1 ring-white/20 overflow-hidden"
+                style={{
+                  transform: 'translateZ(0)',
+                  willChange: 'contents',
+                  contain: 'layout paint',
+                  isolation: 'isolate',
+                }}
+              >
+                <div className="absolute inset-0 bg-neutral-700 flex items-center justify-center text-white text-[10px] font-medium">
+                  {userInitials}
+                </div>
+                {avatarUrl && (
+                  <img
+                    src={optimizedAvatar(56)}
+                    alt={userDisplayName}
+                    width={28}
+                    height={28}
+                    className="absolute inset-0 w-full h-full object-cover"
+                    loading="eager"
+                    decoding="async"
+                    style={{ backfaceVisibility: 'hidden' }}
+                  />
+                )}
+              </div>
+              <span className="text-[13px] font-medium text-white/90 max-w-[140px] truncate">
+                {userDisplayName}
+              </span>
+              <ChevronDown
+                className={cn(
+                  "h-3.5 w-3.5 text-white/50 transition-transform duration-200 ease-out",
+                  headerProfileOpen && "rotate-180"
+                )}
+              />
+            </button>
+
+            {/* Header Profile Dropdown */}
+            <div
+              className={cn(
+                "absolute right-0 top-full mt-2 z-[60] min-w-[200px] transition-all duration-200 ease-out origin-top-right",
+                headerProfileOpen
+                  ? "opacity-100 scale-100 translate-y-0 pointer-events-auto"
+                  : "opacity-0 scale-95 -translate-y-1 pointer-events-none"
+              )}
+            >
+              <div className="rounded-xl border border-neutral-200/70 bg-white p-1 shadow-xl shadow-black/10">
+                {profileDropdownItems.map((item) => {
+                  const Icon = item.icon
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      {...("target" in item ? { target: item.target, rel: "noopener noreferrer" } : {})}
+                      onClick={() => setHeaderProfileOpen(false)}
+                      className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-neutral-600 transition-colors hover:bg-neutral-50 hover:text-neutral-900"
+                    >
+                      <Icon className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+                      <span>{item.label}</span>
+                    </Link>
+                  )
+                })}
+                <div className="my-1 h-px bg-neutral-100" />
+                <button
+                  onClick={() => {
+                    setHeaderProfileOpen(false)
+                    handleSignOut()
+                  }}
+                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-neutral-600 transition-colors hover:bg-red-50 hover:text-red-600"
+                >
+                  <LogOut className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+                  <span>{t("settings.signOut")}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Concave bottom corners - SVG curves on left and right */}
+        <div className="relative h-3 pointer-events-none" style={{ marginTop: "-1px" }}>
+          {/* Left concave corner */}
+          <svg className="absolute left-0 top-0 h-3 w-3" viewBox="0 0 12 12" fill="none">
+            <path d="M12 0H0v12C0 5.373 5.373 0 12 0Z" fill="#1a1a2e" />
+          </svg>
+          {/* Right concave corner */}
+          <svg className="absolute right-0 top-0 h-3 w-3" viewBox="0 0 12 12" fill="none">
+            <path d="M0 0h12v12C12 5.373 6.627 0 0 0Z" fill="#1a1a2e" />
+          </svg>
+        </div>
+      </header>
+
+      {/* Search Modal */}
+      {searchOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm hidden md:block"
+            onClick={() => setSearchOpen(false)}
+          />
+          <div className="fixed inset-0 z-[101] hidden md:flex items-start justify-center pt-[120px]">
+            <div
+              className="w-full max-w-[580px] bg-white rounded-2xl shadow-2xl border border-neutral-200/70 overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Search Input */}
+              <div className="flex items-center gap-3 px-5 py-4 border-b border-neutral-100">
+                <Search className="h-5 w-5 text-neutral-400 shrink-0" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  placeholder="Search pages, settings, data..."
+                  value={searchQuery}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  className="flex-1 text-[15px] text-neutral-900 placeholder:text-neutral-400 outline-none bg-transparent"
+                />
+                <button
+                  onClick={() => setSearchOpen(false)}
+                  className="flex h-6 w-6 items-center justify-center rounded-md bg-neutral-100 hover:bg-neutral-200 transition-colors"
+                >
+                  <X className="h-3.5 w-3.5 text-neutral-500" />
+                </button>
+              </div>
+
+              {/* Default: Shortcut Pills */}
+              {!searchQuery.trim() && (
+                <div className="px-5 py-4">
+                  <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider mb-3">Quick Navigation</p>
+                  <div className="flex flex-wrap gap-2">
+                    {searchShortcuts.map((item) => {
+                      const Icon = item.icon
+                      return (
+                        <button
+                          key={item.href}
+                          onClick={() => {
+                            setSearchOpen(false)
+                            if (item.href.startsWith("/store-builder") || item.href.startsWith("/app/onepage")) {
+                              window.location.href = item.href
+                            } else {
+                              router.push(item.href)
+                            }
+                          }}
+                          className="flex items-center gap-2 px-3.5 py-2 rounded-full bg-neutral-50 hover:bg-neutral-100 border border-neutral-200/60 text-[13px] font-medium text-neutral-700 hover:text-neutral-900 transition-all"
+                        >
+                          <Icon className="h-3.5 w-3.5 text-neutral-500" strokeWidth={1.5} />
+                          {item.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Search Results */}
+              {searchQuery.trim() && (
+                <div className="max-h-[340px] overflow-y-auto">
+                  {searchResults.length > 0 ? (
+                    <div className="py-2">
+                      {Object.entries(
+                        searchResults.reduce((acc, item) => {
+                          if (!acc[item.category]) acc[item.category] = []
+                          acc[item.category].push(item)
+                          return acc
+                        }, {} as Record<string, typeof searchResults>)
+                      ).map(([category, items]) => (
+                        <div key={category}>
+                          <p className="px-5 py-1.5 text-[11px] font-medium text-neutral-400 uppercase tracking-wider">{category}</p>
+                          {items.map((item) => {
+                            const Icon = item.icon
+                            return (
+                              <button
+                                key={item.href + item.label}
+                                onClick={() => {
+                                  setSearchOpen(false)
+                                  if (item.href.startsWith("/store-builder") || item.href.startsWith("/app/onepage")) {
+                                    window.location.href = item.href
+                                  } else {
+                                    router.push(item.href)
+                                  }
+                                }}
+                                className="flex items-center gap-3 w-full px-5 py-2.5 hover:bg-neutral-50 transition-colors text-left"
+                              >
+                                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-neutral-100">
+                                  <Icon className="h-4 w-4 text-neutral-600" strokeWidth={1.5} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-[13px] font-medium text-neutral-900 truncate">{item.label}</p>
+                                  <p className="text-[11px] text-neutral-400 truncate">{item.href}</p>
+                                </div>
+                                <ChevronRight className="h-4 w-4 text-neutral-300 shrink-0" />
+                              </button>
+                            )
+                          })}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="px-5 py-8 text-center">
+                      <p className="text-[13px] text-neutral-400">No results for &quot;{searchQuery}&quot;</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Mobile Header - Dark background, content below has outward rounded top corners */}
       <header className="fixed top-0 left-0 right-0 z-50 pt-[env(safe-area-inset-top)] md:hidden bg-[#111111]">
@@ -780,7 +1113,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         <MobileSidebarContent onItemClick={() => setMobileMenuOpen(false)} />
       </div>
 
-      <aside className="fixed left-0 top-0 z-40 hidden w-[220px] flex-col border-r border-neutral-200/50 md:flex h-svh">
+      <aside className="fixed left-0 top-[56px] z-40 hidden w-[220px] flex-col border-r border-neutral-200/50 md:flex" style={{ height: 'calc(100svh - 56px)' }}>
         <SidebarContent />
       </aside>
 
