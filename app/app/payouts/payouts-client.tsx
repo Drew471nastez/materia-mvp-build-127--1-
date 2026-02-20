@@ -806,6 +806,7 @@ function WithdrawPanel({
   onSuccess,
   payoutScheduleInterval = null,
   payoutScheduleDelay = null,
+  onScheduleUpdate,
 }: {
   availableBalance: number;
   pendingBalance: number;
@@ -815,6 +816,7 @@ function WithdrawPanel({
   onSuccess: () => void;
   payoutScheduleInterval?: string | null;
   payoutScheduleDelay?: number | null;
+  onScheduleUpdate?: (interval: string | null, delay: number | null) => void;
 }) {
   const isAutomatic = payoutScheduleInterval != null && payoutScheduleInterval !== "manual";
   const [loading, setLoading] = useState(false);
@@ -910,6 +912,10 @@ function WithdrawPanel({
         fetch("/api/stripe/payouts").then((r) => r.json()),
       ]);
       if (methodRes.bankAccount) setDetailsBank(methodRes.bankAccount);
+      // Update payout schedule from payout-method response
+      if (methodRes.payoutSchedule) {
+        onScheduleUpdate?.(methodRes.payoutSchedule.interval, methodRes.payoutSchedule.delayDays);
+      }
       // Compute in-transit amount from payouts with status "in_transit"
       const inTransit = (payoutsRes.payouts || [])
         .filter((p: any) => p.status === "in_transit")
@@ -1026,8 +1032,8 @@ function WithdrawPanel({
           {/* Automatic payouts — managed by Stripe */}
           <div className="rounded-xl border border-[#e5e7eb] bg-white p-4">
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-9 h-9 rounded-full bg-[#f0fdf4] flex items-center justify-center shrink-0">
-                <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+              <div className="w-9 h-9 rounded-full bg-[#f5f3ff] flex items-center justify-center shrink-0">
+                <CheckCircle2 className="h-5 w-5 text-[#8b5cf6]" />
               </div>
               <div>
                 <p className="text-[14px] font-semibold text-[#1a1a2e]">Managed by Stripe</p>
@@ -1044,9 +1050,9 @@ function WithdrawPanel({
                 </p>
               </div>
             )}
-            <div className="flex items-start gap-2.5 p-3 bg-[#f0fdf4] rounded-xl mb-3">
-              <Info className="h-3.5 w-3.5 text-emerald-500 mt-0.5 shrink-0" />
-              <p className="text-[11px] text-emerald-700 leading-relaxed">
+            <div className="flex items-start gap-2.5 p-3 bg-[#f5f3ff] rounded-xl mb-3">
+              <Info className="h-3.5 w-3.5 text-[#8b5cf6] mt-0.5 shrink-0" />
+              <p className="text-[11px] text-[#6d28d9] leading-relaxed">
                 Funds arrive automatically. No action needed.
               </p>
             </div>
@@ -1399,7 +1405,7 @@ function WithdrawPanel({
                   <div className="h-4 w-48 bg-gray-100 rounded animate-pulse" />
                 ) : detailsBank ? (
                   <p className="text-[12px] text-[#9ca3af] leading-relaxed">
-                    Your funds are manually paid out to{" "}
+                    Your funds are {isAutomatic ? "automatically" : "manually"} paid out to{" "}
                     <span className="font-medium text-[#6b7280]">
                       {detailsBank.bankName || "Bank account"} ••••{detailsBank.last4}
                     </span>.{" "}
@@ -1508,7 +1514,7 @@ function WithdrawPanel({
                   <div className="h-4 w-48 bg-gray-100 rounded animate-pulse" />
                 ) : detailsBank ? (
                   <p className="text-[12px] text-[#9ca3af] leading-relaxed">
-                    Your funds are manually paid out to{" "}
+                    Your funds are {isAutomatic ? "automatically" : "manually"} paid out to{" "}
                     <span className="font-medium text-[#6b7280]">
                       {detailsBank.bankName || "Bank account"} ••••{detailsBank.last4}
                     </span>.{" "}
@@ -3889,6 +3895,10 @@ export function PayoutsClient({
               }}
               payoutScheduleInterval={payoutScheduleInterval}
               payoutScheduleDelay={payoutScheduleDelay}
+              onScheduleUpdate={(interval, delay) => {
+                setPayoutScheduleInterval(interval);
+                setPayoutScheduleDelay(delay);
+              }}
             />
           </div>
         </div>

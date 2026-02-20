@@ -165,6 +165,7 @@ interface TrendData {
   revenue: number
   clicks?: number
   subscribers?: number
+  refunds?: number
 }
 
 interface TrafficSource {
@@ -1424,10 +1425,16 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
               : hourKey
             // Ensure the date key exists, create if missing (handles edge cases)
             if (!trendDataByKey[dateLabel]) {
-              trendDataByKey[dateLabel] = { date: dateLabel, views: 0, sales: 0, revenue: 0, clicks: 0, subscribers: 0 }
+              trendDataByKey[dateLabel] = { date: dateLabel, views: 0, sales: 0, revenue: 0, clicks: 0, subscribers: 0, refunds: 0 }
             }
             trendDataByKey[dateLabel].sales++
-            trendDataByKey[dateLabel].revenue += (order.amount_cents || 0)
+            // Only count revenue from completed orders (not refunded)
+            if (order.status === "completed") {
+              trendDataByKey[dateLabel].revenue += (order.amount_cents || 0)
+            }
+            if (order.status === "refunded") {
+              trendDataByKey[dateLabel].refunds = (trendDataByKey[dateLabel].refunds || 0) + 1
+            }
           })
         }
       } else {
@@ -1480,10 +1487,16 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
             const dateKey = getDateKey(order.created_at)
             // Ensure the date key exists, create if missing (handles edge cases)
             if (!trendDataByKey[dateKey]) {
-              trendDataByKey[dateKey] = { date: dateKey, views: 0, sales: 0, revenue: 0, clicks: 0, subscribers: 0 }
+              trendDataByKey[dateKey] = { date: dateKey, views: 0, sales: 0, revenue: 0, clicks: 0, subscribers: 0, refunds: 0 }
             }
             trendDataByKey[dateKey].sales++
-            trendDataByKey[dateKey].revenue += (order.amount_cents || 0)
+            // Only count revenue from completed orders (not refunded)
+            if (order.status === "completed") {
+              trendDataByKey[dateKey].revenue += (order.amount_cents || 0)
+            }
+            if (order.status === "refunded") {
+              trendDataByKey[dateKey].refunds = (trendDataByKey[dateKey].refunds || 0) + 1
+            }
           })
 
           // Distribute orders across existing dates if no matches found
@@ -2462,16 +2475,35 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                     tickFormatter={(v) => (chartMetricFilter === "conversion" || onePageChartFilter === "ctr") ? `${v}%` : v.toLocaleString()}
                   />
                   <Tooltip
-                    contentStyle={{ background: "#1a1a2e", border: "none", borderRadius: "8px", fontSize: "12px", color: "#fff", padding: "8px 12px" }}
-                    labelStyle={{ color: "#fff", fontSize: "11px", marginBottom: "2px" }}
-                    itemStyle={{ color: "#fff" }}
-                    formatter={(value: number, name: string) => {
-                      const labels: Record<string, string> = { views: "Views", clicks: "Clicks", sales: "Orders", revenue: "Revenue", subscribers: "Subscribers", conversion: "Conversion", ctr: "CTR" }
-                      if (name === "revenue") return [formatPrice(value), labels[name] || name]
-                      if (name === "conversion" || name === "ctr") return [`${value}%`, labels[name] || name]
-                      return [value.toLocaleString(), labels[name] || name]
-                    }}
                     cursor={{ stroke: "#e5e7eb", strokeWidth: 1 }}
+                    content={({ active, payload, label }) => {
+                      if (!active || !payload?.length) return null
+                      const point = payload[0]?.payload as TrendData
+                      const lines: { label: string; value: string; color?: string }[] = []
+                      payload.forEach((p: any) => {
+                        const name = p.dataKey as string
+                        const val = p.value as number
+                        const labels: Record<string, string> = { views: "Views", clicks: "Clicks", sales: "Orders", revenue: "Revenue", subscribers: "Subscribers", conversion: "Conversion", ctr: "CTR" }
+                        const displayLabel = labels[name] || name
+                        let displayVal: string
+                        if (name === "revenue") displayVal = formatPrice(val)
+                        else if (name === "conversion" || name === "ctr") displayVal = `${val}%`
+                        else displayVal = val.toLocaleString()
+                        lines.push({ label: displayLabel, value: displayVal })
+                      })
+                      const refunds = point?.refunds || 0
+                      return (
+                        <div style={{ background: "#1a1a2e", border: "none", borderRadius: "8px", fontSize: "12px", color: "#fff", padding: "8px 12px" }}>
+                          <p style={{ fontSize: "11px", color: "#9ca3af", marginBottom: "2px" }}>{label}</p>
+                          {lines.map((l, i) => (
+                            <p key={i} style={{ fontWeight: 500 }}>{l.label}: {l.value}</p>
+                          ))}
+                          {refunds > 0 && (
+                            <p style={{ fontSize: "10px", color: "#f59e0b", marginTop: "2px" }}>{refunds} refunded</p>
+                          )}
+                        </div>
+                      )
+                    }}
                   />
                   {/* Store areas */}
                   {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "views") && (
