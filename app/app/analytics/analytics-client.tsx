@@ -334,10 +334,10 @@ const timeframeOptions: TimeframeOption[] = [
 
 // Chart colors - matching reference image
 const CHART_COLORS = {
-  views: "#6366f1",
+  views: "#1a1a2e",
   clicks: "#a78bfa",
   orders: "#8b5cf6",
-  revenue: "#c4b5fd",
+  revenue: "#3b82f6",
 }
 
 const PIE_COLORS = ["#8b5cf6", "#a78bfa", "#c4b5fd", "#ddd6fe", "#ede9fe", "#f5f3ff"]
@@ -2346,7 +2346,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
 
         {/* Activity Card - Bar/Line Chart with Switcher */}
         <Card className="border-[#e5e7eb] bg-white shadow-sm">
-          <CardHeader className="pb-0 pt-4">
+          <CardHeader className="pb-0 pt-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-[15px] font-semibold text-[#1a1a2e] hidden sm:block">Activity</CardTitle>
               <div className="flex items-center gap-3">
@@ -2690,7 +2690,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
         {/* Traffic & Device Distribution */}
         <div className="grid gap-4 lg:grid-cols-2">
           <Card className="border-[#e5e7eb] bg-white">
-            <CardHeader className="pb-0 pt-4">
+            <CardHeader className="pb-0 pt-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">Traffic Distribution</CardTitle>
                 <div className="flex items-center bg-[#f3f4f6] rounded-lg p-0.5">
@@ -2709,7 +2709,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="pt-3">
+            <CardContent className="pt-2">
               {isLoading ? (
                 <Skeleton className="h-[200px] w-full" />
               ) : trafficPieData.length > 0 ? (
@@ -2762,7 +2762,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
           </Card>
 
           <Card className="border-[#e5e7eb] bg-white">
-            <CardHeader className="pb-0 pt-4">
+            <CardHeader className="pb-0 pt-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">
                   {deviceTabMode === "device" ? "Device Breakdown" : "Browser Breakdown"}
@@ -2783,7 +2783,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="pt-3">
+            <CardContent className="pt-2">
               {isLoading ? (
                 <Skeleton className="h-[200px] w-full" />
               ) : deviceTabMode === "device" ? (
@@ -2845,12 +2845,12 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
 
         {/* Top Products / Most Clicked */}
         <Card className="border-[#e5e7eb] bg-white">
-          <CardHeader className="pb-0 pt-4">
+          <CardHeader className="pb-0 pt-3">
             <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">
               {analyticsMode === "store" ? "Top Products" : "Most Clicked"}
             </CardTitle>
           </CardHeader>
-          <CardContent className="pt-3">
+          <CardContent className="pt-2">
             {isLoading ? (
               <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-16 w-full" />)}</div>
             ) : analyticsMode === "store" ? (
@@ -3179,10 +3179,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
 
         {/* Visitors by Country */}
         <Card className="border-[#e5e7eb] bg-white">
-          <CardHeader className="pb-0 pt-4">
+          <CardHeader className="pb-0 pt-3">
             <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">Visitors by Country</CardTitle>
           </CardHeader>
-          <CardContent className="pt-3">
+          <CardContent className="pt-2">
             {isLoading ? (
               <Skeleton className="h-[200px] w-full" />
             ) : countryData.length > 0 ? (

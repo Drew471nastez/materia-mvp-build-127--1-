@@ -1746,231 +1746,116 @@ export function DashboardClient({
           onSetupOnePage={() => router.push("/app/onepage")}
         />
 
-        {/* Stats Cards */}
-        <div className={`grid gap-4 grid-cols-2 lg:grid-cols-4 mb-8 transition-opacity duration-500 ease-out ${isLoading ? "opacity-50" : "opacity-100"}`}>
-          {/* Total Views */}
-          <div
-            className={`bg-white rounded-2xl border shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5 cursor-pointer transition-all duration-200 ${
-              openKPIModal === "views" ? "border-violet-300" : "border-[#e5e7eb]/60 hover:border-[#d1d5db]"
-            }`}
-            onClick={() => setOpenKPIModal(openKPIModal === "views" ? null : "views")}
-          >
-            {openKPIModal === "views" ? (
-              <div onClick={(e) => e.stopPropagation()}>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] font-medium text-violet-600">{t("dashboard.views")}</span>
-                    <span className="text-[10px] text-[#9ca3af] hidden sm:inline">• {selectedOption?.label}</span>
-                  </div>
-                  <button aria-label="Close" onClick={(e) => { e.stopPropagation(); setOpenKPIModal(null) }} className="w-6 h-6 aspect-square rounded-md bg-violet-100 text-violet-600 flex items-center justify-center hover:bg-violet-200 transition-colors flex-shrink-0">
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-                {isChartLoading ? (
-                  <div className="h-[80px] flex items-end gap-[2px]">
-                    {[35, 50, 25, 60, 40, 55, 30].map((h, i) => (
-                      <div key={i} className="flex-1 min-w-0 flex flex-col justify-end items-center">
-                        <div
-                          className="w-full rounded-sm bg-violet-200/60 skeleton-bar"
-                          style={{ height: `${h}px`, animationDelay: `${i * 0.1}s` }}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                ) : chartData.length === 0 || !chartData.some(d => d.value > 0) ? (
-                  <div className="h-[80px] flex items-center justify-center gap-2">
-                    <BarChart3 className="h-4 w-4 text-[#d1d5db]" />
-                    <span className="text-[12px] text-[#9ca3af]">{t("time.noData")}</span>
-                  </div>
-                ) : (
-                  <div className="h-[80px] flex items-end gap-[2px]">
-                    {(() => {
-                      const maxValue = Math.max(...chartData.map((d) => d.value), 1)
-                      return chartData.map((point, index) => {
-                        const barHeight = Math.max((point.value / maxValue) * 65, 3)
-                        return (
-                          <div key={index} className="flex-1 min-w-0 flex flex-col justify-end items-center group relative">
-                            <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-[#1a1a2e] text-white text-[9px] px-1.5 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">
-                              {point.label}: {point.value}
-                            </div>
-                            <div className="w-full rounded-sm bg-violet-400 hover:bg-violet-500 transition-colors" style={{ height: `${barHeight}px` }} />
-                          </div>
-                        )
-                      })
-                    })()}
-                  </div>
-                )}
+        {/* Stats Cards + Chart Section */}
+        <div className={`bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] mb-8 transition-opacity duration-500 ease-out ${isLoading ? "opacity-50" : "opacity-100"}`}>
+          {/* KPI Metric Tabs */}
+          <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-[#e5e7eb]/60">
+            {/* Views */}
+            <button
+              className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative ${
+                openKPIModal === "views" ? "bg-violet-50/60" : "hover:bg-[#fafafa]"
+              } rounded-tl-2xl`}
+              onClick={() => setOpenKPIModal(openKPIModal === "views" ? null : "views")}
+            >
+              {openKPIModal === "views" && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-violet-500" />}
+              <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "views" ? "text-violet-600" : "text-[#6b7280]"}`}>{t("dashboard.views")}</span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.periodViews)}</span>
+                <PercentChangeIndicator current={analyticsData.periodViews} previous={analyticsData.prevPeriodViews} />
               </div>
-            ) : (
-              <>
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-[13px] font-medium text-[#6b7280]">{t("dashboard.views")}</span>
-                  <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
-                    <Eye className="h-4 w-4 text-[#9ca3af]" />
-                  </div>
-                </div>
-                <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
-                  <span className={`text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.periodViews)}</span>
-                  <PercentChangeIndicator current={analyticsData.periodViews} previous={analyticsData.prevPeriodViews} />
-                </div>
-                <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.totalViews)} {t("dashboard.allTime")}</p>
-              </>
-            )}
-          </div>
+              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.totalViews)} {t("dashboard.allTime")}</p>
+            </button>
 
-          {/* Total Orders */}
-          <div
-            className={`bg-white rounded-2xl border shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5 cursor-pointer transition-all duration-200 ${
-              openKPIModal === "orders" ? "border-violet-300" : "border-[#e5e7eb]/60 hover:border-[#d1d5db]"
-            }`}
-            onClick={() => setOpenKPIModal(openKPIModal === "orders" ? null : "orders")}
-          >
-            {openKPIModal === "orders" ? (
-              <div onClick={(e) => e.stopPropagation()}>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] font-medium text-violet-600">{t("dashboard.orders")}</span>
-                    <span className="text-[10px] text-[#9ca3af] hidden sm:inline">• {selectedOption?.label}</span>
-                  </div>
-                  <button aria-label="Close" onClick={(e) => { e.stopPropagation(); setOpenKPIModal(null) }} className="w-6 h-6 aspect-square rounded-md bg-violet-100 text-violet-600 flex items-center justify-center hover:bg-violet-200 transition-colors flex-shrink-0">
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-                {isChartLoading ? (
-                  <div className="h-[80px] flex items-end gap-[2px]">
-                    {[30, 45, 55, 35, 50, 40, 60].map((h, i) => (
-                      <div key={i} className="flex-1 min-w-0 flex flex-col justify-end items-center">
-                        <div
-                          className="w-full rounded-sm bg-violet-200/60 skeleton-bar"
-                          style={{ height: `${h}px`, animationDelay: `${i * 0.1}s` }}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                ) : chartData.length === 0 || !chartData.some(d => d.value > 0) ? (
-                  <div className="h-[80px] flex items-center justify-center gap-2">
-                    <BarChart3 className="h-4 w-4 text-[#d1d5db]" />
-                    <span className="text-[12px] text-[#9ca3af]">{t("time.noData")}</span>
-                  </div>
-                ) : (
-                  <div className="h-[80px] flex items-end gap-[2px]">
-                    {(() => {
-                      const maxValue = Math.max(...chartData.map((d) => d.value), 1)
-                      return chartData.map((point, index) => {
-                        const barHeight = Math.max((point.value / maxValue) * 65, 3)
-                        return (
-                          <div key={index} className="flex-1 min-w-0 flex flex-col justify-end items-center group relative">
-                            <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-[#1a1a2e] text-white text-[9px] px-1.5 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">
-                              {point.label}: {point.value}
-                            </div>
-                            <div className="w-full rounded-sm bg-violet-400 hover:bg-violet-500 transition-colors" style={{ height: `${barHeight}px` }} />
-                          </div>
-                        )
-                      })
-                    })()}
-                  </div>
-                )}
+            {/* Orders */}
+            <button
+              className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative ${
+                openKPIModal === "orders" ? "bg-violet-50/60" : "hover:bg-[#fafafa]"
+              }`}
+              onClick={() => setOpenKPIModal(openKPIModal === "orders" ? null : "orders")}
+            >
+              {openKPIModal === "orders" && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-violet-500" />}
+              <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "orders" ? "text-violet-600" : "text-[#6b7280]"}`}>{t("dashboard.orders")}</span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.periodOrders)}</span>
+                <PercentChangeIndicator current={analyticsData.periodOrders} previous={analyticsData.prevPeriodOrders} />
               </div>
-            ) : (
-              <>
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-[13px] font-medium text-[#6b7280]">{t("dashboard.orders")}</span>
-                  <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
-                    <ShoppingCart className="h-4 w-4 text-[#9ca3af]" />
-                  </div>
-                </div>
-                <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
-                  <span className={`text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.periodOrders)}</span>
-                  <PercentChangeIndicator current={analyticsData.periodOrders} previous={analyticsData.prevPeriodOrders} />
-                </div>
-                <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.totalOrders)} {t("dashboard.allTime")}</p>
-              </>
-            )}
-          </div>
+              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.totalOrders)} {t("dashboard.allTime")}</p>
+            </button>
 
-          {/* Total Revenue */}
-          <div
-            className={`bg-white rounded-2xl border shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5 cursor-pointer transition-all duration-200 ${
-              openKPIModal === "revenue" ? "border-violet-300" : "border-[#e5e7eb]/60 hover:border-[#d1d5db]"
-            }`}
-            onClick={() => setOpenKPIModal(openKPIModal === "revenue" ? null : "revenue")}
-          >
-            {openKPIModal === "revenue" ? (
-              <div onClick={(e) => e.stopPropagation()}>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] font-medium text-violet-600">{t("dashboard.revenue")}</span>
-                    <span className="text-[10px] text-[#9ca3af] hidden sm:inline">• {selectedOption?.label}</span>
-                  </div>
-                  <button aria-label="Close" onClick={(e) => { e.stopPropagation(); setOpenKPIModal(null) }} className="w-6 h-6 aspect-square rounded-md bg-violet-100 text-violet-600 flex items-center justify-center hover:bg-violet-200 transition-colors flex-shrink-0">
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-                {isChartLoading ? (
-                  <div className="h-[80px] flex items-end gap-[2px]">
-                    {[40, 55, 30, 50, 45, 35, 55].map((h, i) => (
-                      <div key={i} className="flex-1 min-w-0 flex flex-col justify-end items-center">
-                        <div
-                          className="w-full rounded-sm bg-violet-200/60 skeleton-bar"
-                          style={{ height: `${h}px`, animationDelay: `${i * 0.1}s` }}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                ) : chartData.length === 0 || !chartData.some(d => d.value > 0) ? (
-                  <div className="h-[80px] flex items-center justify-center gap-2">
-                    <BarChart3 className="h-4 w-4 text-[#d1d5db]" />
-                    <span className="text-[12px] text-[#9ca3af]">{t("time.noData")}</span>
-                  </div>
-                ) : (
-                  <div className="h-[80px] flex items-end gap-[2px]">
-                    {(() => {
-                      const maxValue = Math.max(...chartData.map((d) => d.value), 1)
-                      return chartData.map((point, index) => {
-                        const barHeight = Math.max((point.value / maxValue) * 65, 3)
-                        return (
-                          <div key={index} className="flex-1 min-w-0 flex flex-col justify-end items-center group relative">
-                            <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-[#1a1a2e] text-white text-[9px] px-1.5 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">
-                              {point.label}: ${point.value.toFixed(2)}
-                            </div>
-                            <div className="w-full rounded-sm bg-violet-400 hover:bg-violet-500 transition-colors" style={{ height: `${barHeight}px` }} />
-                          </div>
-                        )
-                      })
-                    })()}
-                  </div>
-                )}
+            {/* Revenue */}
+            <button
+              className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative ${
+                openKPIModal === "revenue" ? "bg-violet-50/60" : "hover:bg-[#fafafa]"
+              }`}
+              onClick={() => setOpenKPIModal(openKPIModal === "revenue" ? null : "revenue")}
+            >
+              {openKPIModal === "revenue" && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-violet-500" />}
+              <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "revenue" ? "text-violet-600" : "text-[#6b7280]"}`}>{t("dashboard.revenue")}</span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{formatCurrency(analyticsData.periodRevenue)}</span>
+                <PercentChangeIndicator current={analyticsData.periodRevenue} previous={analyticsData.prevPeriodRevenue} />
               </div>
-            ) : (
-              <>
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-[13px] font-medium text-[#6b7280]">{t("dashboard.revenue")}</span>
-                  <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
-                    <DollarSign className="h-4 w-4 text-[#9ca3af]" />
-                  </div>
-                </div>
-                <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
-                  <span className={`text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{formatCurrency(analyticsData.periodRevenue)}</span>
-                  <PercentChangeIndicator current={analyticsData.periodRevenue} previous={analyticsData.prevPeriodRevenue} />
-                </div>
-                <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCurrency(analyticsData.totalRevenue)} {t("dashboard.allTime")}</p>
-              </>
-            )}
-          </div>
+              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCurrency(analyticsData.totalRevenue)} {t("dashboard.allTime")}</p>
+            </button>
 
-          {/* Conversion Rate */}
-          <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-[13px] font-medium text-[#6b7280]">{t("dashboard.conversionRate")}</span>
-              <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
-                <TrendingUp className="h-4 w-4 text-[#9ca3af]" />
+            {/* Conversion Rate */}
+            <div className="px-3 py-3 sm:px-4 sm:py-3.5 rounded-tr-2xl md:rounded-tr-2xl">
+              <span className="text-[11px] sm:text-[12px] font-medium text-[#6b7280]">{t("dashboard.conversionRate")}</span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{analyticsData.conversionRate.toFixed(2)}%</span>
+                <PercentChangeIndicator current={analyticsData.conversionRate} previous={analyticsData.prevConversionRate} />
               </div>
+              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{t("dashboard.viewsToOrders")}</p>
             </div>
-            <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
-              <span className={`text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{analyticsData.conversionRate.toFixed(2)}%</span>
-              <PercentChangeIndicator current={analyticsData.conversionRate} previous={analyticsData.prevConversionRate} />
+          </div>
+
+          {/* Shared Chart Area - slides open when a KPI is selected */}
+          <div className={`overflow-hidden transition-all duration-300 ease-out ${openKPIModal ? "max-h-[280px] opacity-100" : "max-h-0 opacity-0"}`}>
+            <div className="border-t border-[#e5e7eb]/60 px-3 py-3 sm:px-4 sm:py-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-medium text-violet-600">
+                  {openKPIModal === "views" ? t("dashboard.views") : openKPIModal === "orders" ? t("dashboard.orders") : openKPIModal === "revenue" ? t("dashboard.revenue") : ""}
+                  <span className="text-[10px] text-[#9ca3af] ml-1.5">• {selectedOption?.label}</span>
+                </span>
+              </div>
+              {isChartLoading ? (
+                <div className="h-[180px] sm:h-[200px] flex items-end gap-[3px] px-1">
+                  {[35, 50, 25, 60, 40, 55, 30, 45, 50, 35, 60, 40].map((h, i) => (
+                    <div key={i} className="flex-1 min-w-0 flex flex-col justify-end items-center">
+                      <div
+                        className="w-full rounded-sm bg-violet-200/60 skeleton-bar"
+                        style={{ height: `${h * 2.5}px`, animationDelay: `${i * 0.08}s` }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              ) : chartData.length === 0 || !chartData.some(d => d.value > 0) ? (
+                <div className="h-[180px] sm:h-[200px] flex items-center justify-center gap-2">
+                  <BarChart3 className="h-5 w-5 text-[#d1d5db]" />
+                  <span className="text-[13px] text-[#9ca3af]">{t("time.noData")}</span>
+                </div>
+              ) : (
+                <div className="h-[180px] sm:h-[200px] flex items-end gap-[3px] px-1">
+                  {(() => {
+                    const maxValue = Math.max(...chartData.map((d) => d.value), 1)
+                    return chartData.map((point, index) => {
+                      const barHeight = Math.max((point.value / maxValue) * 170, 3)
+                      return (
+                        <div key={index} className="flex-1 min-w-0 flex flex-col justify-end items-center group relative">
+                          <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-[#1a1a2e] text-white text-[10px] px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">
+                            {point.label}: {openKPIModal === "revenue" ? `$${point.value.toFixed(2)}` : point.value}
+                          </div>
+                          <div className="w-full rounded-sm bg-violet-400 hover:bg-violet-500 transition-colors" style={{ height: `${barHeight}px` }} />
+                          {index % Math.max(1, Math.floor(chartData.length / 6)) === 0 && (
+                            <span className="text-[8px] sm:text-[9px] text-[#9ca3af] mt-1 truncate max-w-full">{point.label}</span>
+                          )}
+                        </div>
+                      )
+                    })
+                  })()}
+                </div>
+              )}
             </div>
-            <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{t("dashboard.viewsToOrders")}</p>
           </div>
         </div>
 

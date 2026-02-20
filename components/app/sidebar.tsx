@@ -503,10 +503,10 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         <Link
           href="/app/settings"
           onClick={onItemClick}
-          className="flex items-center gap-2.5 rounded-[10px] bg-neutral-100/80 hover:bg-neutral-200/70 px-3.5 py-2.5 transition-all duration-150"
+          className="flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14px] font-medium text-neutral-600 hover:bg-neutral-100/50 hover:text-neutral-900 transition-all duration-150 w-full"
         >
-          <Settings className="h-[16px] w-[16px] text-neutral-600" strokeWidth={1.5} />
-          <span className="text-[13px] font-medium text-neutral-600">{t("nav.settings")}</span>
+          <Settings className="h-5 w-5" strokeWidth={1.5} />
+          <span>{t("nav.settings")}</span>
         </Link>
       </div>
     </div>
@@ -763,30 +763,30 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 
           {/* Right side: Nav icons + Storelib logo */}
           <div className="flex items-center gap-4 shrink-0">
-            <div className="flex items-center gap-0.5">
+            <div className="flex items-center gap-1.5">
               <Link
                 href="/explore"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-all"
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-white/75 hover:text-white hover:bg-white/10 transition-all"
                 title="Discover"
               >
-                <Compass className="h-[18px] w-[18px]" strokeWidth={1.5} />
+                <Compass className="h-5 w-5" strokeWidth={1.5} />
               </Link>
               <button
                 onClick={() => setNotificationsOpen(true)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-all relative"
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-white/75 hover:text-white hover:bg-white/10 transition-all relative"
                 title="Notifications"
               >
-                <Bell className="h-[18px] w-[18px]" strokeWidth={1.5} />
+                <Bell className="h-5 w-5" strokeWidth={1.5} />
                 <NotificationBadge count={notificationCount} />
               </button>
               <Link
                 href="/app/settings"
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-all"
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-white/75 hover:text-white hover:bg-white/10 transition-all"
                 title="Settings"
               >
-                <Settings className="h-[18px] w-[18px]" strokeWidth={1.5} />
+                <Settings className="h-5 w-5" strokeWidth={1.5} />
               </Link>
             </div>
 
