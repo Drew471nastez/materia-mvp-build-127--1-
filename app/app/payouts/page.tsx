@@ -103,7 +103,7 @@ export default async function PayoutsPage() {
         stripe.balance.retrieve({}, { stripeAccount: creator.stripe_account_id }),
         stripe.accounts.retrieve(creator.stripe_account_id),
         stripe.balanceTransactions.list(
-          { limit: 10 },
+          { limit: 100 },
           { stripeAccount: creator.stripe_account_id },
         ),
       ]);
@@ -164,6 +164,22 @@ export default async function PayoutsPage() {
     const nativePending = Math.max(0, stripePendingBalance);
     if (nativePending > 0 && orderPendingUsd > 0) {
       stripeExchangeRate = nativePending / orderPendingUsd;
+    }
+  }
+
+  // Final fallback: use Stripe's exchange rates API for a live market rate
+  if (
+    detectedCurrency !== "usd" &&
+    (!stripeExchangeRate || stripeExchangeRate <= 0)
+  ) {
+    try {
+      const rates = await (stripe as any).exchangeRates.retrieve("usd");
+      const rateToNative = rates?.rates?.[detectedCurrency];
+      if (rateToNative && rateToNative > 0) {
+        stripeExchangeRate = rateToNative;
+      }
+    } catch {
+      // Non-fatal: Stripe exchange rates API may not be available
     }
   }
 

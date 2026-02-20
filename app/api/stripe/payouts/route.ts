@@ -63,7 +63,7 @@ export async function GET() {
         { stripeAccount: stripeAccountId }
       ).catch(() => null),
       stripe.balanceTransactions.list(
-        { limit: 5 },
+        { limit: 100 },
         { stripeAccount: stripeAccountId }
       ).catch(() => ({ data: [] })),
     ])
@@ -98,6 +98,22 @@ export async function GET() {
 
       if (selected && selected[0] !== "usd" && selected[1].pending > 0 && orderPendingUsd > 0) {
         exchangeRate = selected[1].pending / orderPendingUsd
+      }
+    }
+
+    // Final fallback: use Stripe's exchange rates API for a live market rate
+    if (!exchangeRate || exchangeRate <= 0) {
+      const curr = (creator.default_currency || "usd").toLowerCase()
+      if (curr !== "usd") {
+        try {
+          const rates = await (stripe as any).exchangeRates.retrieve("usd")
+          const rateToNative = rates?.rates?.[curr]
+          if (rateToNative && rateToNative > 0) {
+            exchangeRate = rateToNative
+          }
+        } catch {
+          // Non-fatal
+        }
       }
     }
 
