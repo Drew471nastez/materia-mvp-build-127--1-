@@ -1629,12 +1629,12 @@ export function DashboardClient({
             {/* Views */}
             <button
               className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
-                openKPIModal === "views" ? "bg-violet-50/60" : "hover:bg-[#fafafa]"
+                openKPIModal === "views" ? "bg-[#f9fafb]" : "hover:bg-[#fafafa]"
               }`}
               onClick={() => { setOpenKPIModal("views"); setChartExpanded(true) }}
             >
-              {openKPIModal === "views" && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-violet-500" />}
-              <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "views" ? "text-violet-600" : "text-[#6b7280]"}`}>{t("dashboard.views")}</span>
+              {openKPIModal === "views" && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#d1d5db]" />}
+              <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "views" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("dashboard.views")}</span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
                 <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.periodViews)}</span>
                 <PercentChangeIndicator current={analyticsData.periodViews} previous={analyticsData.prevPeriodViews} />
@@ -1645,12 +1645,12 @@ export function DashboardClient({
             {/* Orders */}
             <button
               className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
-                openKPIModal === "orders" ? "bg-violet-50/60" : "hover:bg-[#fafafa]"
+                openKPIModal === "orders" ? "bg-[#f9fafb]" : "hover:bg-[#fafafa]"
               }`}
               onClick={() => { setOpenKPIModal("orders"); setChartExpanded(true) }}
             >
-              {openKPIModal === "orders" && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-violet-500" />}
-              <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "orders" ? "text-violet-600" : "text-[#6b7280]"}`}>{t("dashboard.orders")}</span>
+              {openKPIModal === "orders" && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#d1d5db]" />}
+              <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "orders" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("dashboard.orders")}</span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
                 <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.periodOrders)}</span>
                 <PercentChangeIndicator current={analyticsData.periodOrders} previous={analyticsData.prevPeriodOrders} />
@@ -1661,12 +1661,12 @@ export function DashboardClient({
             {/* Revenue */}
             <button
               className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
-                openKPIModal === "revenue" ? "bg-violet-50/60" : "hover:bg-[#fafafa]"
+                openKPIModal === "revenue" ? "bg-[#f9fafb]" : "hover:bg-[#fafafa]"
               }`}
               onClick={() => { setOpenKPIModal("revenue"); setChartExpanded(true) }}
             >
-              {openKPIModal === "revenue" && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-violet-500" />}
-              <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "revenue" ? "text-violet-600" : "text-[#6b7280]"}`}>{t("dashboard.revenue")}</span>
+              {openKPIModal === "revenue" && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#d1d5db]" />}
+              <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "revenue" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("dashboard.revenue")}</span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
                 <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{formatCurrency(analyticsData.periodRevenue)}</span>
                 <PercentChangeIndicator current={analyticsData.periodRevenue} previous={analyticsData.prevPeriodRevenue} />
@@ -1677,12 +1677,12 @@ export function DashboardClient({
             {/* Conversion Rate - clickable */}
             <button
               className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
-                openKPIModal === "conversion" ? "bg-violet-50/60" : "hover:bg-[#fafafa]"
+                openKPIModal === "conversion" ? "bg-[#f9fafb]" : "hover:bg-[#fafafa]"
               }`}
               onClick={() => { setOpenKPIModal("conversion"); setChartExpanded(true) }}
             >
-              {openKPIModal === "conversion" && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-violet-500" />}
-              <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "conversion" ? "text-violet-600" : "text-[#6b7280]"}`}>{t("dashboard.conversionRate")}</span>
+              {openKPIModal === "conversion" && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#d1d5db]" />}
+              <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "conversion" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("dashboard.conversionRate")}</span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
                 <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{analyticsData.conversionRate.toFixed(2)}%</span>
                 <PercentChangeIndicator current={analyticsData.conversionRate} previous={analyticsData.prevConversionRate} />

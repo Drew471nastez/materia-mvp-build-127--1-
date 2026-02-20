@@ -626,72 +626,75 @@ function EditorLayout() {
         duration={2200}
       />
       {/* Header - ALWAYS visible with solid background */}
-      <header className="flex items-center justify-between border-b bg-white px-3 sm:px-4 md:px-8 h-[56px] sm:h-[60px] shrink-0 relative z-30 gap-2 overflow-hidden">
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-          {/* Undo/Redo Buttons */}
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 cursor-pointer hover:bg-gray-100 transition-colors"
-              onClick={handleUndoClick}
-              disabled={!canUndo}
-              title="Undo"
-            >
-              <Undo2 className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 cursor-pointer hover:bg-gray-100 transition-colors"
-              onClick={handleRedoClick}
-              disabled={!canRedo}
-              title="Redo"
-            >
-              <Redo2 className="h-4 w-4" />
-            </Button>
-          </div>
+      <header className="flex items-center border-b bg-white h-[56px] sm:h-[60px] shrink-0 relative z-30 overflow-hidden">
+        {/* Left controls area - flex-1 matches editor panel below */}
+        <div className="flex-1 min-w-0 h-full px-3 sm:px-4 md:px-0">
+          <div className="flex items-center gap-2 sm:gap-3 h-full w-full md:max-w-xl md:mx-auto md:px-6">
+            {/* Undo/Redo Buttons */}
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 cursor-pointer hover:bg-gray-100 transition-colors"
+                onClick={handleUndoClick}
+                disabled={!canUndo}
+                title="Undo"
+              >
+                <Undo2 className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 cursor-pointer hover:bg-gray-100 transition-colors"
+                onClick={handleRedoClick}
+                disabled={!canRedo}
+                title="Redo"
+              >
+                <Redo2 className="h-4 w-4" />
+              </Button>
+            </div>
 
-          {/* Tab Navigation - Desktop - Pill shaped tabs */}
-          <div className="hidden md:flex items-center gap-1 bg-gray-100 rounded-full p-1">
-            {tabs.map((tab) => {
-              const Icon = tab.icon
-              return (
-                <button
-                  key={tab.id}
-                  data-tab={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={cn(
-                    "flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium transition-all whitespace-nowrap cursor-pointer",
-                    activeTab === tab.id
-                      ? "bg-white text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground hover:bg-white/50"
-                  )}
-                >
-                  <Icon className="h-4 w-4" />
-                  {tab.label}
-                </button>
-              )
-            })}
-          </div>
+            {/* Tab Navigation - Desktop - Pill shaped tabs */}
+            <div className="hidden md:flex items-center gap-1 bg-gray-100 rounded-full p-1">
+              {tabs.map((tab) => {
+                const Icon = tab.icon
+                return (
+                  <button
+                    key={tab.id}
+                    data-tab={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={cn(
+                      "flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium transition-all whitespace-nowrap cursor-pointer",
+                      activeTab === tab.id
+                        ? "bg-white text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground hover:bg-white/50"
+                    )}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {tab.label}
+                  </button>
+                )
+              })}
+            </div>
 
-          {/* Settings Button - Desktop */}
-          <button
-            onClick={() => setActiveTab("settings")}
-            title="Settings"
-            className={cn(
-              "hidden md:flex w-10 h-10 rounded-xl items-center justify-center border transition-all duration-200 cursor-pointer",
-              activeTab === "settings"
-                ? "bg-gray-900 border-gray-900 text-white"
-                : "bg-white border-gray-200 text-gray-600 hover:bg-gray-900 hover:border-gray-900 hover:text-white shadow-sm hover:shadow-md"
-            )}
-          >
-            <SettingsFilterIcon className="h-4 w-4" />
-          </button>
+            {/* Settings Button - Desktop */}
+            <button
+              onClick={() => setActiveTab("settings")}
+              title="Settings"
+              className={cn(
+                "hidden md:flex w-10 h-10 rounded-xl items-center justify-center border transition-all duration-200 cursor-pointer",
+                activeTab === "settings"
+                  ? "bg-gray-900 border-gray-900 text-white"
+                  : "bg-white border-gray-200 text-gray-600 hover:bg-gray-900 hover:border-gray-900 hover:text-white shadow-sm hover:shadow-md"
+              )}
+            >
+              <SettingsFilterIcon className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         {/* Right side actions */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0 pr-3 sm:pr-4 md:w-[410px] md:border-l md:justify-end md:pr-6">
           {/* Unsaved changes indicator - Only show on larger screens to prevent overlap */}
           {isDirty && saveState !== "saving" && (
             <span className="hidden lg:inline text-xs text-amber-600 font-medium whitespace-nowrap shrink-0">

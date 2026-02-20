@@ -2151,541 +2151,195 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
           </div>
         )}
 
-        {/* KPI Cards - Store Analytics */}
-        {analyticsMode === "store" ? (
-          <div className={`grid gap-4 grid-cols-2 lg:grid-cols-4 ${isLoading ? "opacity-60" : ""}`}>
-            {/* Total Views */}
-            <div
-              className={`bg-white rounded-2xl border shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5 cursor-pointer transition-all duration-200 ${
-                openKPIModal === "views" ? "border-violet-300" : "border-[#e5e7eb]/60 hover:border-[#d1d5db]"
-              }`}
-              onClick={() => setOpenKPIModal(openKPIModal === "views" ? null : "views")}
-            >
-              {openKPIModal === "views" ? (
-                <KPIModalChart kpiType="views" label="Views" />
-              ) : (
-                <>
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-[13px] font-medium text-[#6b7280]">{t("analytics.totalViews")}</span>
-                    <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
-                      <Eye className="h-4 w-4 text-[#9ca3af]" />
-                    </div>
-                  </div>
-                  <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
-                    <span className={`text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>
-                      {formatCompactNumber(summary.totalViews)}
-                    </span>
+        {/* Unified KPI Tabs + Chart Card */}
+        <div className={`bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden transition-opacity duration-500 ease-out ${isLoading ? "opacity-50" : "opacity-100"}`}>
+          {/* KPI Metric Tabs */}
+          <div className="relative flex overflow-x-auto scrollbar-hide md:grid md:grid-cols-4 divide-x divide-[#e5e7eb]/60">
+            {analyticsMode === "store" ? (
+              <>
+                {/* Views */}
+                <button
+                  className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
+                    chartMetricFilter === "views" ? "bg-[#f9fafb]" : "hover:bg-[#fafafa]"
+                  }`}
+                  onClick={() => setChartMetricFilter("views")}
+                >
+                  {chartMetricFilter === "views" && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#d1d5db]" />}
+                  <span className={`text-[11px] sm:text-[12px] font-medium ${chartMetricFilter === "views" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("analytics.totalViews")}</span>
+                  <div className="flex items-baseline gap-1.5 mt-0.5">
+                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(summary.totalViews)}</span>
                     {!isLoading && <PercentChangeIndicator current={summary.totalViews} previous={summary.prevPeriodViews} />}
                   </div>
-                  <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(summary.allTimeViews)} {t("dashboard.allTime")}</p>
-                </>
-              )}
-            </div>
-
-            {/* Orders */}
-            <div
-              className={`bg-white rounded-2xl border shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5 cursor-pointer transition-all duration-200 ${
-                openKPIModal === "orders" ? "border-violet-300" : "border-[#e5e7eb]/60 hover:border-[#d1d5db]"
-              }`}
-              onClick={() => setOpenKPIModal(openKPIModal === "orders" ? null : "orders")}
-            >
-              {openKPIModal === "orders" ? (
-                <KPIModalChart kpiType="orders" label="Orders" />
-              ) : (
-                <>
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-[13px] font-medium text-[#6b7280]">{t("analytics.totalOrders")}</span>
-                    <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
-                      <ShoppingCart className="h-4 w-4 text-[#9ca3af]" />
-                    </div>
-                  </div>
-                  <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
-                    <span className={`text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>
-                      {formatCompactNumber(summary.totalOrders)}
-                    </span>
+                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(summary.allTimeViews)} {t("dashboard.allTime")}</p>
+                </button>
+                {/* Orders */}
+                <button
+                  className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
+                    chartMetricFilter === "orders" ? "bg-[#f9fafb]" : "hover:bg-[#fafafa]"
+                  }`}
+                  onClick={() => setChartMetricFilter("orders")}
+                >
+                  {chartMetricFilter === "orders" && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#d1d5db]" />}
+                  <span className={`text-[11px] sm:text-[12px] font-medium ${chartMetricFilter === "orders" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("analytics.totalOrders")}</span>
+                  <div className="flex items-baseline gap-1.5 mt-0.5">
+                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(summary.totalOrders)}</span>
                     {!isLoading && <PercentChangeIndicator current={summary.totalOrders} previous={summary.prevPeriodOrders} />}
                   </div>
-                  <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(summary.allTimeOrders)} {t("dashboard.allTime")}</p>
-                </>
-              )}
-            </div>
-
-            {/* Revenue */}
-            <div
-              className={`bg-white rounded-2xl border shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5 cursor-pointer transition-all duration-200 ${
-                openKPIModal === "revenue" ? "border-violet-300" : "border-[#e5e7eb]/60 hover:border-[#d1d5db]"
-              }`}
-              onClick={() => setOpenKPIModal(openKPIModal === "revenue" ? null : "revenue")}
-            >
-              {openKPIModal === "revenue" ? (
-                <KPIModalChart kpiType="revenue" label="Revenue" />
-              ) : (
-                <>
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-[13px] font-medium text-[#6b7280]">{t("analytics.totalRevenue")}</span>
-                    <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
-                      <DollarSign className="h-4 w-4 text-[#9ca3af]" />
-                    </div>
-                  </div>
-                  <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
-                    <span className={`text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>
-                      {formatPrice(summary.totalRevenue)}
-                    </span>
+                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(summary.allTimeOrders)} {t("dashboard.allTime")}</p>
+                </button>
+                {/* Revenue */}
+                <button
+                  className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
+                    chartMetricFilter === "revenue" ? "bg-[#f9fafb]" : "hover:bg-[#fafafa]"
+                  }`}
+                  onClick={() => setChartMetricFilter("revenue")}
+                >
+                  {chartMetricFilter === "revenue" && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#d1d5db]" />}
+                  <span className={`text-[11px] sm:text-[12px] font-medium ${chartMetricFilter === "revenue" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("analytics.totalRevenue")}</span>
+                  <div className="flex items-baseline gap-1.5 mt-0.5">
+                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{formatPrice(summary.totalRevenue)}</span>
                     {!isLoading && <PercentChangeIndicator current={summary.totalRevenue} previous={summary.prevPeriodRevenue} />}
                   </div>
-                  <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatPrice(summary.allTimeRevenue)} {t("dashboard.allTime")}</p>
-                </>
-              )}
-            </div>
-
-            {/* Conversion */}
-            <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-[13px] font-medium text-[#6b7280]">{t("analytics.conversionRate")}</span>
-                <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
-                  <Target className="h-4 w-4 text-[#9ca3af]" />
-                </div>
-              </div>
-              <div className={`text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>
-                {`${summary.conversionRate.toFixed(1)}%`}
-              </div>
-              <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{t("dashboard.viewsToOrders")}</p>
-            </div>
-          </div>
-        ) : (
-          /* OnePage Analytics KPIs */
-          <div className={`grid gap-4 grid-cols-2 lg:grid-cols-4 ${isLoading ? "opacity-60" : ""}`}>
-            {/* OnePage Views */}
-            <div
-              className={`bg-white rounded-2xl border shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5 cursor-pointer transition-all duration-200 ${
-                openKPIModal === "views" ? "border-violet-300" : "border-[#e5e7eb]/60 hover:border-[#d1d5db]"
-              }`}
-              onClick={() => setOpenKPIModal(openKPIModal === "views" ? null : "views")}
-            >
-              {openKPIModal === "views" ? (
-                <KPIModalChart kpiType="views" label="OnePage Views" />
-              ) : (
-                <>
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-[13px] font-medium text-[#6b7280]">{t("dashboard.views")}</span>
-                    <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
-                      <Eye className="h-4 w-4 text-[#9ca3af]" />
-                    </div>
+                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatPrice(summary.allTimeRevenue)} {t("dashboard.allTime")}</p>
+                </button>
+                {/* Conversion */}
+                <div className="text-left px-3 py-3 sm:px-4 sm:py-3.5 flex-shrink-0 min-w-[130px] md:min-w-0">
+                  <span className="text-[11px] sm:text-[12px] font-medium text-[#6b7280]">{t("analytics.conversionRate")}</span>
+                  <div className="flex items-baseline gap-1.5 mt-0.5">
+                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{summary.conversionRate.toFixed(1)}%</span>
                   </div>
-                  <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
-                    <span className={`text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>
-                      {formatCompactNumber(onePageMetrics.views)}
-                    </span>
+                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{t("dashboard.viewsToOrders")}</p>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* OnePage Views */}
+                <button
+                  className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
+                    onePageChartFilter === "views" ? "bg-[#f9fafb]" : "hover:bg-[#fafafa]"
+                  }`}
+                  onClick={() => setOnePageChartFilter("views")}
+                >
+                  {onePageChartFilter === "views" && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#d1d5db]" />}
+                  <span className={`text-[11px] sm:text-[12px] font-medium ${onePageChartFilter === "views" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("dashboard.views")}</span>
+                  <div className="flex items-baseline gap-1.5 mt-0.5">
+                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.views)}</span>
                     {!isLoading && <PercentChangeIndicator current={onePageMetrics.views} previous={onePageMetrics.prevViews} />}
                   </div>
-                  <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.allTimeViews)} {t("dashboard.allTime")}</p>
-                </>
-              )}
-            </div>
-
-            {/* Clicks */}
-            <div
-              className={`bg-white rounded-2xl border shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5 cursor-pointer transition-all duration-200 ${
-                openKPIModal === "clicks" ? "border-violet-300" : "border-[#e5e7eb]/60 hover:border-[#d1d5db]"
-              }`}
-              onClick={() => setOpenKPIModal(openKPIModal === "clicks" ? null : "clicks")}
-            >
-              {openKPIModal === "clicks" ? (
-                <KPIModalChart kpiType="clicks" label="Clicks" />
-              ) : (
-                <>
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-[13px] font-medium text-[#6b7280]">{t("analytics.clicks")}</span>
-                    <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
-                      <MousePointerClick className="h-4 w-4 text-[#9ca3af]" />
-                    </div>
-                  </div>
-                  <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
-                    <span className={`text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>
-                      {formatCompactNumber(onePageMetrics.clicks)}
-                    </span>
+                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.allTimeViews)} {t("dashboard.allTime")}</p>
+                </button>
+                {/* Clicks */}
+                <button
+                  className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
+                    onePageChartFilter === "clicks" ? "bg-[#f9fafb]" : "hover:bg-[#fafafa]"
+                  }`}
+                  onClick={() => setOnePageChartFilter("clicks")}
+                >
+                  {onePageChartFilter === "clicks" && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#d1d5db]" />}
+                  <span className={`text-[11px] sm:text-[12px] font-medium ${onePageChartFilter === "clicks" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("analytics.clicks")}</span>
+                  <div className="flex items-baseline gap-1.5 mt-0.5">
+                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.clicks)}</span>
                     {!isLoading && <PercentChangeIndicator current={onePageMetrics.clicks} previous={onePageMetrics.prevClicks} />}
                   </div>
-                  <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.allTimeClicks)} {t("dashboard.allTime")}</p>
-                </>
-              )}
-            </div>
-
-            {/* Subscribers */}
-            <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-[13px] font-medium text-[#6b7280]">{t("analytics.subscribers")}</span>
-                <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
-                  <UserPlus className="h-4 w-4 text-[#9ca3af]" />
+                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.allTimeClicks)} {t("dashboard.allTime")}</p>
+                </button>
+                {/* Subscribers */}
+                <div className="text-left px-3 py-3 sm:px-4 sm:py-3.5 flex-shrink-0 min-w-[130px] md:min-w-0">
+                  <span className="text-[11px] sm:text-[12px] font-medium text-[#6b7280]">{t("analytics.subscribers")}</span>
+                  <div className="flex items-baseline gap-1.5 mt-0.5">
+                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.subscribers)}</span>
+                    {!isLoading && <PercentChangeIndicator current={onePageMetrics.subscribers} previous={onePageMetrics.prevSubscribers} />}
+                  </div>
+                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.allTimeSubscribers)} {t("dashboard.allTime")}</p>
                 </div>
-              </div>
-              <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
-                <span className={`text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>
-                  {formatCompactNumber(onePageMetrics.subscribers)}
-                </span>
-                {!isLoading && <PercentChangeIndicator current={onePageMetrics.subscribers} previous={onePageMetrics.prevSubscribers} />}
-              </div>
-              <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.allTimeSubscribers)} {t("dashboard.allTime")}</p>
-            </div>
-
-            {/* CTR */}
-            <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-[13px] font-medium text-[#6b7280]">CTR</span>
-                <div className="w-8 h-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center">
-                  <Percent className="h-4 w-4 text-[#9ca3af]" />
+                {/* CTR */}
+                <div className="text-left px-3 py-3 sm:px-4 sm:py-3.5 flex-shrink-0 min-w-[130px] md:min-w-0">
+                  <span className="text-[11px] sm:text-[12px] font-medium text-[#6b7280]">CTR</span>
+                  <div className="flex items-baseline gap-1.5 mt-0.5">
+                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{onePageMetrics.ctr.toFixed(1)}%</span>
+                  </div>
+                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{t("analytics.clicksToViews")}</p>
                 </div>
-              </div>
-              <div className={`text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>
-                {`${onePageMetrics.ctr.toFixed(1)}%`}
-              </div>
-              <p className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{t("analytics.clicksToViews")}</p>
-            </div>
-          </div>
-        )}
-
-        {/* Activity Card - Bar/Line Chart with Switcher */}
-        <Card className="border-[#e5e7eb] bg-white shadow-sm">
-          <CardHeader className="pb-0 pt-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-[15px] font-semibold text-[#1a1a2e] hidden sm:block">Activity</CardTitle>
-              <div className="flex items-center gap-3">
-                {/* Metric Filter Selector - Store */}
-                {analyticsMode === "store" && (
-                  <div className="flex items-center gap-0.5 bg-[#f3f4f6] rounded-md p-0.5">
-                    <button
-                      onClick={() => setChartMetricFilter("all")}
-                      className={`px-2 py-1 text-[11px] font-medium rounded transition-all duration-200 cursor-pointer ${
-                        chartMetricFilter === "all"
-                          ? "bg-white text-[#8b5cf6] shadow-sm"
-                          : "text-[#9ca3af] hover:text-[#6b7280] hover:bg-white/50"
-                      }`}
-                    >
-                      All
-                    </button>
-                    <button
-                      onClick={() => setChartMetricFilter("views")}
-                      className={`px-2 py-1 text-[11px] font-medium rounded transition-all duration-200 cursor-pointer ${
-                        chartMetricFilter === "views"
-                          ? "bg-white text-[#1a1a2e] shadow-sm"
-                          : "text-[#9ca3af] hover:text-[#6b7280] hover:bg-white/50"
-                      }`}
-                    >
-                      Views
-                    </button>
-                    <button
-                      onClick={() => setChartMetricFilter("orders")}
-                      className={`px-2 py-1 text-[11px] font-medium rounded transition-all duration-200 cursor-pointer ${
-                        chartMetricFilter === "orders"
-                          ? "bg-white text-[#8b5cf6] shadow-sm"
-                          : "text-[#9ca3af] hover:text-[#6b7280] hover:bg-white/50"
-                      }`}
-                    >
-                      Orders
-                    </button>
-                    <button
-                      onClick={() => setChartMetricFilter("revenue")}
-                      className={`px-2 py-1 text-[11px] font-medium rounded transition-all duration-200 cursor-pointer ${
-                        chartMetricFilter === "revenue"
-                          ? "bg-white text-[#3b82f6] shadow-sm"
-                          : "text-[#9ca3af] hover:text-[#6b7280] hover:bg-white/50"
-                      }`}
-                    >
-                      Revenue
-                    </button>
-                  </div>
-                )}
-                {/* Metric Filter Selector - OnePage */}
-                {analyticsMode === "onepage" && (
-                  <div className="flex items-center gap-0.5 bg-[#f3f4f6] rounded-md p-0.5">
-                    <button
-                      onClick={() => setOnePageChartFilter("all")}
-                      className={`px-2 py-1 text-[11px] font-medium rounded transition-all duration-200 cursor-pointer ${
-                        onePageChartFilter === "all"
-                          ? "bg-white text-[#8b5cf6] shadow-sm"
-                          : "text-[#9ca3af] hover:text-[#6b7280] hover:bg-white/50"
-                      }`}
-                    >
-                      All
-                    </button>
-                    <button
-                      onClick={() => setOnePageChartFilter("views")}
-                      className={`px-2 py-1 text-[11px] font-medium rounded transition-all duration-200 cursor-pointer ${
-                        onePageChartFilter === "views"
-                          ? "bg-white text-[#6366f1] shadow-sm"
-                          : "text-[#9ca3af] hover:text-[#6b7280] hover:bg-white/50"
-                      }`}
-                    >
-                      Views
-                    </button>
-                    <button
-                      onClick={() => setOnePageChartFilter("clicks")}
-                      className={`px-2 py-1 text-[11px] font-medium rounded transition-all duration-200 cursor-pointer ${
-                        onePageChartFilter === "clicks"
-                          ? "bg-white text-[#a78bfa] shadow-sm"
-                          : "text-[#9ca3af] hover:text-[#6b7280] hover:bg-white/50"
-                      }`}
-                    >
-                      Clicks
-                    </button>
-                    <button
-                      onClick={() => setOnePageChartFilter("subscribers")}
-                      className={`px-2 py-1 text-[11px] font-medium rounded transition-all duration-200 cursor-pointer ${
-                        onePageChartFilter === "subscribers"
-                          ? "bg-white text-[#8b5cf6] shadow-sm"
-                          : "text-[#9ca3af] hover:text-[#6b7280] hover:bg-white/50"
-                      }`}
-                    >
-                      Subscribers
-                    </button>
-                  </div>
-                )}
-                {/* Chart View Switcher */}
-                <div className="flex items-center gap-0.5 bg-[#f3f4f6] rounded-md p-0.5">
-                  <button
-                    onClick={() => setChartViewType("bars")}
-                    className={`p-1.5 rounded transition-all duration-200 cursor-pointer ${
-                      chartViewType === "bars"
-                        ? "bg-white text-[#8b5cf6] shadow-sm"
-                        : "text-[#9ca3af] hover:text-[#6b7280] hover:bg-white/50"
-                    }`}
-                    title="Bar chart"
-                  >
-                    <BarChart3 className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    onClick={() => setChartViewType("line")}
-                    className={`p-1.5 rounded transition-all duration-200 cursor-pointer ${
-                      chartViewType === "line"
-                        ? "bg-white text-[#8b5cf6] shadow-sm"
-                        : "text-[#9ca3af] hover:text-[#6b7280] hover:bg-white/50"
-                    }`}
-                    title="Line chart"
-                  >
-                    <TrendingUp className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-[200px] w-full" />
-            ) : (
-              <div className="space-y-2 sm:space-y-1">
-                {/* Stats Header - Same values as KPI cards */}
-                <div className="flex items-center gap-6 sm:gap-8 flex-wrap">
-                  <div>
-                    <p className="text-[28px] font-bold text-[#1a1a2e] leading-tight">{formatCompactNumber(totalViewsInChart)}</p>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <div className="w-2 h-2 rounded-full bg-[#1a1a2e]" />
-                      <p className="text-[13px] text-[#6b7280]">Views</p>
-                    </div>
-                  </div>
-                  {analyticsMode === "store" ? (
-                    <>
-                      <div>
-                        <p className="text-[28px] font-bold text-[#1a1a2e] leading-tight">{formatCompactNumber(totalOrdersInChart)}</p>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <div className="w-2 h-2 rounded-full bg-[#8b5cf6]" />
-                          <p className="text-[13px] text-[#6b7280]">Orders</p>
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-[28px] font-bold text-[#1a1a2e] leading-tight">{formatPrice(totalRevenueInChart)}</p>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <div className="w-2 h-2 rounded-full bg-[#3b82f6]" />
-                          <p className="text-[13px] text-[#6b7280]">Revenue</p>
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div>
-                        <p className="text-[28px] font-bold text-[#1a1a2e] leading-tight">{formatCompactNumber(totalClicksInChart)}</p>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <div className="w-2 h-2 rounded-full bg-[#a78bfa]" />
-                          <p className="text-[13px] text-[#6b7280]">Clicks</p>
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-[28px] font-bold text-[#1a1a2e] leading-tight">{formatCompactNumber(onePageMetrics.subscribers)}</p>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <div className="w-2 h-2 rounded-full bg-[#8b5cf6]" />
-                          <p className="text-[13px] text-[#6b7280]">Subscribers</p>
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
-
-                {/* Chart - Bar or Line based on selection */}
-                {trendData.length > 0 ? (
-                  <div className="h-[180px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      {chartViewType === "bars" ? (
-                        <BarChart
-                          data={trendData.map(d => ({
-                            ...d,
-                            // Add minimum placeholder values for empty bars (very small value for visibility)
-                            placeholder: (d.views === 0 && d.sales === 0 && d.revenue === 0) ? 0.3 : 0
-                          }))}
-                          margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-                          barCategoryGap="5%"
-                        >
-                          <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-                          <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: "#9ca3af", fontSize: 11 }} dy={10} />
-                          <YAxis
-                            yAxisId="left"
-                            axisLine={false}
-                            tickLine={false}
-                            tick={{ fill: "#9ca3af", fontSize: 11 }}
-                            dx={-5}
-                          />
-                          {/* Revenue uses left axis with formatted values - no dual axis needed */}
-                          <Tooltip
-                            cursor={false}
-                            contentStyle={{ backgroundColor: "white", border: "1px solid #e5e7eb", borderRadius: "8px", boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)", fontSize: "12px" }}
-                            formatter={(value: number, name: string) => {
-                              if (name === "placeholder") return [null, null]
-                              const labels: Record<string, string> = { views: "Views", clicks: "Clicks", sales: "Orders", revenue: "Revenue", subscribers: "Subscribers" }
-                              if (name === "revenue") return [formatPrice(value), labels[name] || name]
-                              return [value.toLocaleString(), labels[name] || name]
-                            }}
-                            filterNull={true}
-                          />
-                          {/* Placeholder bar for empty data points */}
-                          <Bar yAxisId="left" dataKey="placeholder" fill="#e5e7eb" radius={[4, 4, 0, 0]} name="placeholder" />
-                          {/* Store bars */}
-                          {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "views") && (
-                            <Bar yAxisId="left" dataKey="views" fill={CHART_COLORS.views} radius={[4, 4, 0, 0]} name="views" />
-                          )}
-                          {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "orders") && (
-                            <Bar yAxisId="left" dataKey="sales" fill={CHART_COLORS.orders} radius={[4, 4, 0, 0]} name="sales" />
-                          )}
-                          {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "revenue") && (
-                            <Bar yAxisId="left" dataKey="revenue" fill={CHART_COLORS.revenue} radius={[4, 4, 0, 0]} name="revenue" />
-                          )}
-                          {/* OnePage bars */}
-                          {analyticsMode === "onepage" && (onePageChartFilter === "all" || onePageChartFilter === "views") && (
-                            <Bar yAxisId="left" dataKey="views" fill={CHART_COLORS.views} radius={[4, 4, 0, 0]} name="views" />
-                          )}
-                          {analyticsMode === "onepage" && (onePageChartFilter === "all" || onePageChartFilter === "clicks") && (
-                            <Bar yAxisId="left" dataKey="clicks" fill={CHART_COLORS.clicks} radius={[4, 4, 0, 0]} name="clicks" />
-                          )}
-                          {analyticsMode === "onepage" && (onePageChartFilter === "all" || onePageChartFilter === "subscribers") && (
-                            <Bar yAxisId="left" dataKey="subscribers" fill="#8b5cf6" radius={[4, 4, 0, 0]} name="subscribers" />
-                          )}
-                        </BarChart>
-                      ) : (
-                        <AreaChart data={trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                          <defs>
-                            <linearGradient id="gradViews" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor={CHART_COLORS.views} stopOpacity={0.15} />
-                              <stop offset="100%" stopColor={CHART_COLORS.views} stopOpacity={0} />
-                            </linearGradient>
-                            <linearGradient id="gradOrders" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor={CHART_COLORS.orders} stopOpacity={0.15} />
-                              <stop offset="100%" stopColor={CHART_COLORS.orders} stopOpacity={0} />
-                            </linearGradient>
-                            <linearGradient id="gradRevenue" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor={CHART_COLORS.revenue} stopOpacity={0.15} />
-                              <stop offset="100%" stopColor={CHART_COLORS.revenue} stopOpacity={0} />
-                            </linearGradient>
-                            <linearGradient id="gradClicks" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor={CHART_COLORS.clicks} stopOpacity={0.15} />
-                              <stop offset="100%" stopColor={CHART_COLORS.clicks} stopOpacity={0} />
-                            </linearGradient>
-                            <linearGradient id="gradSubscribers" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.15} />
-                              <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0} />
-                            </linearGradient>
-                          </defs>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                          <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: "#9ca3af", fontSize: 11 }} dy={10} />
-                          <YAxis
-                            yAxisId="left"
-                            axisLine={false}
-                            tickLine={false}
-                            tick={{ fill: "#9ca3af", fontSize: 11 }}
-                            dx={-5}
-                          />
-                          <Tooltip
-                            contentStyle={{ backgroundColor: "white", border: "1px solid #e5e7eb", borderRadius: "12px", boxShadow: "0 4px 12px rgba(0, 0, 0, 0.08)", fontSize: "12px", padding: "10px 14px" }}
-                            formatter={(value: number, name: string) => {
-                              const labels: Record<string, string> = { views: "Views", clicks: "Clicks", sales: "Orders", revenue: "Revenue", subscribers: "Subscribers" }
-                              if (name === "revenue") return [formatPrice(value), labels[name] || name]
-                              return [value.toLocaleString(), labels[name] || name]
-                            }}
-                            cursor={{ stroke: "#e5e7eb", strokeWidth: 1 }}
-                          />
-                          {/* Store areas */}
-                          {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "views") && (
-                            <Area yAxisId="left" type="monotone" dataKey="views" stroke={CHART_COLORS.views} strokeWidth={2} fill="url(#gradViews)" dot={false} activeDot={{ r: 4, fill: CHART_COLORS.views, strokeWidth: 2, stroke: "#fff" }} name="views" />
-                          )}
-                          {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "orders") && (
-                            <Area yAxisId="left" type="monotone" dataKey="sales" stroke={CHART_COLORS.orders} strokeWidth={2} fill="url(#gradOrders)" dot={false} activeDot={{ r: 4, fill: CHART_COLORS.orders, strokeWidth: 2, stroke: "#fff" }} name="sales" />
-                          )}
-                          {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "revenue") && (
-                            <Area yAxisId="left" type="monotone" dataKey="revenue" stroke={CHART_COLORS.revenue} strokeWidth={2} fill="url(#gradRevenue)" dot={false} activeDot={{ r: 4, fill: CHART_COLORS.revenue, strokeWidth: 2, stroke: "#fff" }} name="revenue" />
-                          )}
-                          {/* OnePage areas */}
-                          {analyticsMode === "onepage" && (onePageChartFilter === "all" || onePageChartFilter === "views") && (
-                            <Area yAxisId="left" type="monotone" dataKey="views" stroke={CHART_COLORS.views} strokeWidth={2} fill="url(#gradViews)" dot={false} activeDot={{ r: 4, fill: CHART_COLORS.views, strokeWidth: 2, stroke: "#fff" }} name="views" connectNulls={true} />
-                          )}
-                          {analyticsMode === "onepage" && (onePageChartFilter === "all" || onePageChartFilter === "clicks") && (
-                            <Area yAxisId="left" type="monotone" dataKey="clicks" stroke={CHART_COLORS.clicks} strokeWidth={2} fill="url(#gradClicks)" dot={false} activeDot={{ r: 4, fill: CHART_COLORS.clicks, strokeWidth: 2, stroke: "#fff" }} name="clicks" connectNulls={true} />
-                          )}
-                          {analyticsMode === "onepage" && (onePageChartFilter === "all" || onePageChartFilter === "subscribers") && (
-                            <Area yAxisId="left" type="monotone" dataKey="subscribers" stroke="#8b5cf6" strokeWidth={2} fill="url(#gradSubscribers)" dot={false} activeDot={{ r: 4, fill: "#8b5cf6", strokeWidth: 2, stroke: "#fff" }} name="subscribers" connectNulls={true} />
-                          )}
-                        </AreaChart>
-                      )}
-                    </ResponsiveContainer>
-                  </div>
-                ) : (
-                  <div className="h-[180px] flex items-center justify-center">
-                    <div className="text-center">
-                      <BarChart3 className="h-10 w-10 mx-auto text-[#e5e7eb] mb-2" />
-                      <p className="text-[13px] text-[#9ca3af]">No data for this timeframe</p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Legend */}
-                <div className="flex items-center justify-center gap-6 pt-2">
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-2.5 h-2.5 rounded-full bg-[#1a1a2e]" />
-                    <span className="text-[12px] text-[#6b7280]">{t("dashboard.views")}</span>
-                  </div>
-                  {analyticsMode === "store" ? (
-                    <>
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-2.5 h-2.5 rounded-full bg-[#8b5cf6]" />
-                        <span className="text-[12px] text-[#6b7280]">{t("dashboard.orders")}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-2.5 h-2.5 rounded-full bg-[#3b82f6]" />
-                        <span className="text-[12px] text-[#6b7280]">{t("dashboard.revenue")}</span>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-2.5 h-2.5 rounded-full bg-[#a78bfa]" />
-                        <span className="text-[12px] text-[#6b7280]">{t("analytics.clicks")}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-2.5 h-2.5 rounded-full bg-[#8b5cf6]" />
-                        <span className="text-[12px] text-[#6b7280]">{t("analytics.subscribers")}</span>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
+              </>
             )}
-          </CardContent>
-        </Card>
+          </div>
+
+          {/* Chart Area - always open */}
+          <div className="border-t border-[#e5e7eb]/60 px-2 py-3 sm:px-4 sm:py-4">
+            {isLoading ? (
+              <div className="h-[200px] flex items-end gap-1.5 px-6 pb-6 pt-4">
+                {Array.from({ length: 10 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="flex-1 bg-gradient-to-t from-gray-100 to-gray-50 rounded-t animate-pulse"
+                    style={{ height: `${25 + ((i * 37) % 60)}%`, animationDelay: `${i * 80}ms` }}
+                  />
+                ))}
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={200}>
+                <AreaChart data={trendData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="gradViews" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={CHART_COLORS.views} stopOpacity={0.15} />
+                      <stop offset="100%" stopColor={CHART_COLORS.views} stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="gradOrders" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={CHART_COLORS.orders} stopOpacity={0.15} />
+                      <stop offset="100%" stopColor={CHART_COLORS.orders} stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="gradRevenue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={CHART_COLORS.revenue} stopOpacity={0.15} />
+                      <stop offset="100%" stopColor={CHART_COLORS.revenue} stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="gradClicks" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={CHART_COLORS.clicks} stopOpacity={0.15} />
+                      <stop offset="100%" stopColor={CHART_COLORS.clicks} stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="gradSubscribers" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.15} />
+                      <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+                  <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: "#9ca3af", fontSize: 11 }} interval="preserveStartEnd" />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fill: "#9ca3af", fontSize: 11 }} domain={[0, "auto"]} width={40} />
+                  <Tooltip
+                    contentStyle={{ background: "#1a1a2e", border: "none", borderRadius: "8px", fontSize: "12px", color: "#fff", padding: "8px 12px" }}
+                    labelStyle={{ color: "#fff", fontSize: "11px", marginBottom: "2px" }}
+                    itemStyle={{ color: "#fff" }}
+                    formatter={(value: number, name: string) => {
+                      const labels: Record<string, string> = { views: "Views", clicks: "Clicks", sales: "Orders", revenue: "Revenue", subscribers: "Subscribers" }
+                      if (name === "revenue") return [formatPrice(value), labels[name] || name]
+                      return [value.toLocaleString(), labels[name] || name]
+                    }}
+                    cursor={{ stroke: "#e5e7eb", strokeWidth: 1 }}
+                  />
+                  {/* Store areas */}
+                  {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "views") && (
+                    <Area type="monotone" dataKey="views" stroke={CHART_COLORS.views} strokeWidth={2} fill="url(#gradViews)" dot={false} activeDot={{ r: 4, fill: CHART_COLORS.views, strokeWidth: 2, stroke: "#fff" }} name="views" animationDuration={600} />
+                  )}
+                  {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "orders") && (
+                    <Area type="monotone" dataKey="sales" stroke={CHART_COLORS.orders} strokeWidth={2} fill="url(#gradOrders)" dot={false} activeDot={{ r: 4, fill: CHART_COLORS.orders, strokeWidth: 2, stroke: "#fff" }} name="sales" animationDuration={600} />
+                  )}
+                  {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "revenue") && (
+                    <Area type="monotone" dataKey="revenue" stroke={CHART_COLORS.revenue} strokeWidth={2} fill="url(#gradRevenue)" dot={false} activeDot={{ r: 4, fill: CHART_COLORS.revenue, strokeWidth: 2, stroke: "#fff" }} name="revenue" animationDuration={600} />
+                  )}
+                  {/* OnePage areas */}
+                  {analyticsMode === "onepage" && (onePageChartFilter === "all" || onePageChartFilter === "views") && (
+                    <Area type="monotone" dataKey="views" stroke={CHART_COLORS.views} strokeWidth={2} fill="url(#gradViews)" dot={false} activeDot={{ r: 4, fill: CHART_COLORS.views, strokeWidth: 2, stroke: "#fff" }} name="views" connectNulls animationDuration={600} />
+                  )}
+                  {analyticsMode === "onepage" && (onePageChartFilter === "all" || onePageChartFilter === "clicks") && (
+                    <Area type="monotone" dataKey="clicks" stroke={CHART_COLORS.clicks} strokeWidth={2} fill="url(#gradClicks)" dot={false} activeDot={{ r: 4, fill: CHART_COLORS.clicks, strokeWidth: 2, stroke: "#fff" }} name="clicks" connectNulls animationDuration={600} />
+                  )}
+                  {analyticsMode === "onepage" && (onePageChartFilter === "all" || onePageChartFilter === "subscribers") && (
+                    <Area type="monotone" dataKey="subscribers" stroke="#8b5cf6" strokeWidth={2} fill="url(#gradSubscribers)" dot={false} activeDot={{ r: 4, fill: "#8b5cf6", strokeWidth: 2, stroke: "#fff" }} name="subscribers" connectNulls animationDuration={600} />
+                  )}
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
 
         {/* Traffic & Device Distribution */}
         <div className="grid gap-4 lg:grid-cols-2">
