@@ -90,7 +90,7 @@ export async function GET() {
         has_stripe: !!creator.stripe_account_id,
       },
       hold_days: holdConfig?.hold_days ?? 7,
-      min_cashout_cents: holdConfig?.min_cashout_cents ?? 1000,
+      min_cashout_cents: holdConfig?.min_cashout_cents ?? 100,
       next_release_date: nextRelease?.hold_until || null,
       recent_events: recentEvents || [],
     })

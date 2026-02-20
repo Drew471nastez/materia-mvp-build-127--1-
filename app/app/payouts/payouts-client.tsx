@@ -978,7 +978,7 @@ function WithdrawPanel({
   const helper =
     availableBalance <= 0
       ? "No funds available yet. New sales are held for 7 days before they become available."
-      : "Cash out your full available balance. Funds arrive in 24–48 hours. Minimum $10.00.";
+      : "Cash out your full available balance. Funds arrive in 24–48 hours. Minimum $1.00.";
 
   return (
     <div className="bg-[#f8fafc] rounded-2xl border border-[#e5e7eb] p-5 sm:p-6 flex flex-col gap-5 min-w-[240px]">

@@ -80,7 +80,7 @@ export async function POST(request: Request) {
       .select("min_cashout_cents")
       .single()
 
-    const minCashout = holdConfig?.min_cashout_cents ?? 1000
+    const minCashout = holdConfig?.min_cashout_cents ?? 100
     if (ledger.available_amount < minCashout) {
       const minDollars = (minCashout / 100).toFixed(2)
       return NextResponse.json(
