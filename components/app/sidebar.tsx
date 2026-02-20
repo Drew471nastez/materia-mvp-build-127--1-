@@ -392,9 +392,16 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { label: "Profile Settings", href: "/app/settings", icon: Settings, category: "Settings" },
     { label: "Orders", href: "/app/sales", icon: ShoppingCart, category: "Data" },
     { label: "Customers", href: "/app/sales", icon: ShoppingCart, category: "Data" },
+    { label: "Customer Emails", href: "/app/sales", icon: Mail, category: "Data" },
     { label: "Email Subscribers", href: "/app/emails", icon: Mail, category: "Data" },
+    { label: "Send Email", href: "/app/emails", icon: Mail, category: "Data" },
+    { label: "Email Campaigns", href: "/app/emails", icon: Mail, category: "Data" },
     { label: "Revenue", href: "/app/payouts", icon: Wallet, category: "Data" },
     { label: "Traffic", href: "/app/analytics", icon: BarChart3, category: "Data" },
+    { label: "Transactions", href: "/app/payouts", icon: Wallet, category: "Data" },
+    { label: "Refunds", href: "/app/sales", icon: ShoppingCart, category: "Data" },
+    { label: "Coupons", href: "/app/products", icon: Package, category: "Data" },
+    { label: "Digital Downloads", href: "/app/products", icon: Package, category: "Data" },
     { label: "Explore", href: "/explore", icon: Compass, category: "Other" },
     { label: "Library", href: "/library", icon: Library, category: "Other" },
     { label: "Help", href: "/help", icon: HelpCircle, category: "Other" },
@@ -498,8 +505,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           onClick={onItemClick}
           className="flex items-center gap-2.5 rounded-[10px] bg-neutral-100/80 hover:bg-neutral-200/70 px-3.5 py-2.5 transition-all duration-150"
         >
-          <Settings className="h-[16px] w-[16px] text-neutral-400" strokeWidth={1.5} />
-          <span className="text-[13px] font-medium text-neutral-500">{t("nav.settings")}</span>
+          <Settings className="h-[16px] w-[16px] text-neutral-600" strokeWidth={1.5} />
+          <span className="text-[13px] font-medium text-neutral-600">{t("nav.settings")}</span>
         </Link>
       </div>
     </div>
@@ -651,7 +658,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 
       {/* Desktop Header Bar — dark bar with concave bottom corners */}
       <header className="fixed top-0 left-0 right-0 z-50 hidden md:block">
-        <div className="relative h-[56px] bg-[#1a1a1f] flex items-center px-5">
+        <div className="relative h-[58px] bg-[#131316] flex items-center px-5">
           {/* Left side: Profile dropdown */}
           <div ref={headerProfileRef} className="relative shrink-0">
             <button
@@ -800,11 +807,11 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         <div className="relative h-3 pointer-events-none" style={{ marginTop: "-1px" }}>
           {/* Left concave corner */}
           <svg className="absolute left-0 top-0 h-3 w-3" viewBox="0 0 12 12" fill="none">
-            <path d="M12 0H0v12C0 5.373 5.373 0 12 0Z" fill="#1a1a1f" />
+            <path d="M12 0H0v12C0 5.373 5.373 0 12 0Z" fill="#131316" />
           </svg>
           {/* Right concave corner */}
           <svg className="absolute right-0 top-0 h-3 w-3" viewBox="0 0 12 12" fill="none">
-            <path d="M0 0h12v12C12 5.373 6.627 0 0 0Z" fill="#1a1a1f" />
+            <path d="M0 0h12v12C12 5.373 6.627 0 0 0Z" fill="#131316" />
           </svg>
         </div>
       </header>
@@ -812,17 +819,17 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
       {/* Search Modal — morphs from search bar position */}
       <div
         className={cn(
-          "fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm hidden md:block transition-opacity duration-200",
+          "fixed inset-0 z-[100] bg-black/20 hidden md:block transition-opacity duration-200",
           searchOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
         )}
         onClick={() => setSearchOpen(false)}
       />
       <div
         className={cn(
-          "fixed z-[101] hidden md:block left-1/2 -translate-x-1/2 w-full max-w-[560px] transition-all duration-300 ease-out",
+          "fixed z-[101] hidden md:block left-1/2 -translate-x-1/2 w-full max-w-[560px] transition-all duration-250",
           searchOpen
             ? "top-[10px] opacity-100 scale-100 pointer-events-auto"
-            : "top-[10px] opacity-0 scale-95 pointer-events-none"
+            : "top-[10px] opacity-0 scale-[0.97] -translate-y-1 pointer-events-none"
         )}
         style={{ transitionTimingFunction: 'cubic-bezier(0.32, 0.72, 0, 1)' }}
       >
@@ -1131,7 +1138,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         <MobileSidebarContent onItemClick={() => setMobileMenuOpen(false)} />
       </div>
 
-      <aside className="fixed left-0 top-[56px] z-40 hidden w-[220px] flex-col border-r border-neutral-200/50 md:flex" style={{ height: 'calc(100svh - 56px)' }}>
+      <aside className="fixed left-0 top-[58px] z-40 hidden w-[220px] flex-col border-r border-neutral-200/50 md:flex" style={{ height: 'calc(100svh - 58px)' }}>
         <SidebarContent />
       </aside>
 

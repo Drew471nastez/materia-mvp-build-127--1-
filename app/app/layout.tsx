@@ -107,7 +107,7 @@ export default async function AppLayout({
 
   return (
     <AppLayoutWrapper>
-      <div className="min-h-svh overflow-x-hidden bg-[#111111] md:bg-[#1a1a1f] app-no-scrollbar">
+      <div className="min-h-svh overflow-x-hidden bg-[#111111] md:bg-[#131316] app-no-scrollbar">
         <AppSidebar
           creatorSlug={creator.slug}
           username={profile?.username || creator.slug}
@@ -119,8 +119,8 @@ export default async function AppLayout({
           onePagePublished={onepage?.published || false}
           setupProgress={{ completed: completedSteps, total: totalSteps }}
         />
-        <main className="h-svh pt-[68px] md:pt-[56px] md:pl-[220px] bg-white rounded-t-[20px] md:rounded-none overflow-hidden app-main-content">
-          <div className="h-[calc(100svh-68px)] md:h-[calc(100svh-56px)] overflow-y-auto app-content-scroll">{children}</div>
+        <main className="h-svh pt-[68px] md:pt-[58px] md:pl-[220px] bg-white rounded-t-[20px] md:rounded-none overflow-hidden app-main-content">
+          <div className="h-[calc(100svh-68px)] md:h-[calc(100svh-58px)] overflow-y-auto app-content-scroll">{children}</div>
         </main>
         <Toaster />
       </div>
