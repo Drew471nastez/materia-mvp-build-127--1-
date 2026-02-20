@@ -32,7 +32,8 @@ CREATE TABLE IF NOT EXISTS seller_ledger (
 
 CREATE INDEX IF NOT EXISTS idx_seller_ledger_creator ON seller_ledger(creator_id);
 
--- Auto-update updated_at
+-- Auto-update updated_at (drop first so migration is re-runnable)
+DROP TRIGGER IF EXISTS set_seller_ledger_updated_at ON seller_ledger;
 CREATE TRIGGER set_seller_ledger_updated_at
   BEFORE UPDATE ON seller_ledger
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -40,12 +41,14 @@ CREATE TRIGGER set_seller_ledger_updated_at
 -- RLS
 ALTER TABLE seller_ledger ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "creators view own ledger" ON seller_ledger;
 CREATE POLICY "creators view own ledger"
   ON seller_ledger FOR SELECT
   USING (creator_id IN (
     SELECT id FROM creators WHERE user_id = auth.uid()
   ));
 
+DROP POLICY IF EXISTS "service role full access on seller_ledger" ON seller_ledger;
 CREATE POLICY "service role full access on seller_ledger"
   ON seller_ledger FOR ALL TO service_role
   USING (true) WITH CHECK (true);
@@ -107,12 +110,14 @@ CREATE INDEX IF NOT EXISTS idx_ledger_events_created ON ledger_events(created_at
 
 ALTER TABLE ledger_events ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "creators view own ledger events" ON ledger_events;
 CREATE POLICY "creators view own ledger events"
   ON ledger_events FOR SELECT
   USING (creator_id IN (
     SELECT id FROM creators WHERE user_id = auth.uid()
   ));
 
+DROP POLICY IF EXISTS "service role full access on ledger_events" ON ledger_events;
 CREATE POLICY "service role full access on ledger_events"
   ON ledger_events FOR ALL TO service_role
   USING (true) WITH CHECK (true);
@@ -134,9 +139,16 @@ CREATE TABLE IF NOT EXISTS payout_hold_config (
   updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-INSERT INTO payout_hold_config (hold_days, min_cashout_cents) VALUES (0, 100);
+-- Upsert: insert default row only if table is empty
+INSERT INTO payout_hold_config (hold_days, min_cashout_cents)
+SELECT 0, 100
+WHERE NOT EXISTS (SELECT 1 FROM payout_hold_config);
+
+-- Fix any existing rows that still have old 7-day hold
+UPDATE payout_hold_config SET hold_days = 0 WHERE hold_days != 0;
 
 ALTER TABLE payout_hold_config ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "anyone can read hold config" ON payout_hold_config;
 CREATE POLICY "anyone can read hold config"
   ON payout_hold_config FOR SELECT USING (true);
