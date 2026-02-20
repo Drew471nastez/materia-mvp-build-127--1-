@@ -14,6 +14,7 @@ import {
   ChevronRight,
   ArrowRight,
   ChevronDown,
+  ChevronUp,
   Sparkles,
   Image as ImageIcon,
   Package,
@@ -33,6 +34,9 @@ import {
   BarChart3,
   Globe,
 } from "lucide-react"
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from "recharts"
 import { createClient } from "@/lib/supabase/client"
 import { useLanguage } from "@/lib/i18n"
 import { getLinksUrl, getStoreUrl } from "@/lib/url-helpers"
@@ -802,7 +806,8 @@ export function DashboardClient({
   const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [expandedStep, setExpandedStep] = useState<string | null>(null)
-  const [openKPIModal, setOpenKPIModal] = useState<KPIType>(null)
+  const [openKPIModal, setOpenKPIModal] = useState<KPIType>("views")
+  const [chartExpanded, setChartExpanded] = useState(true)
   const [chartData, setChartData] = useState<ChartDataPoint[]>([])
   const [isChartLoading, setIsChartLoading] = useState(false)
   const [analyticsData, setAnalyticsData] = useState({
@@ -1747,15 +1752,15 @@ export function DashboardClient({
         />
 
         {/* Stats Cards + Chart Section */}
-        <div className={`bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] mb-8 transition-opacity duration-500 ease-out ${isLoading ? "opacity-50" : "opacity-100"}`}>
-          {/* KPI Metric Tabs */}
-          <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-[#e5e7eb]/60">
+        <div className={`bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] mb-8 transition-opacity duration-500 ease-out overflow-hidden ${isLoading ? "opacity-50" : "opacity-100"}`}>
+          {/* KPI Metric Tabs - horizontally scrollable on mobile */}
+          <div className="flex overflow-x-auto scrollbar-hide md:grid md:grid-cols-4 divide-x divide-[#e5e7eb]/60">
             {/* Views */}
             <button
-              className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative ${
+              className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[140px] md:min-w-0 ${
                 openKPIModal === "views" ? "bg-violet-50/60" : "hover:bg-[#fafafa]"
-              } rounded-tl-2xl`}
-              onClick={() => setOpenKPIModal(openKPIModal === "views" ? null : "views")}
+              }`}
+              onClick={() => { setOpenKPIModal("views"); setChartExpanded(true) }}
             >
               {openKPIModal === "views" && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-violet-500" />}
               <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "views" ? "text-violet-600" : "text-[#6b7280]"}`}>{t("dashboard.views")}</span>
@@ -1763,15 +1768,15 @@ export function DashboardClient({
                 <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.periodViews)}</span>
                 <PercentChangeIndicator current={analyticsData.periodViews} previous={analyticsData.prevPeriodViews} />
               </div>
-              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.totalViews)} {t("dashboard.allTime")}</p>
+              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.totalViews)} {t("dashboard.allTime")}</p>
             </button>
 
             {/* Orders */}
             <button
-              className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative ${
+              className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[140px] md:min-w-0 ${
                 openKPIModal === "orders" ? "bg-violet-50/60" : "hover:bg-[#fafafa]"
               }`}
-              onClick={() => setOpenKPIModal(openKPIModal === "orders" ? null : "orders")}
+              onClick={() => { setOpenKPIModal("orders"); setChartExpanded(true) }}
             >
               {openKPIModal === "orders" && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-violet-500" />}
               <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "orders" ? "text-violet-600" : "text-[#6b7280]"}`}>{t("dashboard.orders")}</span>
@@ -1779,15 +1784,15 @@ export function DashboardClient({
                 <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.periodOrders)}</span>
                 <PercentChangeIndicator current={analyticsData.periodOrders} previous={analyticsData.prevPeriodOrders} />
               </div>
-              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.totalOrders)} {t("dashboard.allTime")}</p>
+              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.totalOrders)} {t("dashboard.allTime")}</p>
             </button>
 
             {/* Revenue */}
             <button
-              className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative ${
+              className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[140px] md:min-w-0 ${
                 openKPIModal === "revenue" ? "bg-violet-50/60" : "hover:bg-[#fafafa]"
               }`}
-              onClick={() => setOpenKPIModal(openKPIModal === "revenue" ? null : "revenue")}
+              onClick={() => { setOpenKPIModal("revenue"); setChartExpanded(true) }}
             >
               {openKPIModal === "revenue" && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-violet-500" />}
               <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "revenue" ? "text-violet-600" : "text-[#6b7280]"}`}>{t("dashboard.revenue")}</span>
@@ -1795,65 +1800,100 @@ export function DashboardClient({
                 <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{formatCurrency(analyticsData.periodRevenue)}</span>
                 <PercentChangeIndicator current={analyticsData.periodRevenue} previous={analyticsData.prevPeriodRevenue} />
               </div>
-              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCurrency(analyticsData.totalRevenue)} {t("dashboard.allTime")}</p>
+              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCurrency(analyticsData.totalRevenue)} {t("dashboard.allTime")}</p>
             </button>
 
-            {/* Conversion Rate */}
-            <div className="px-3 py-3 sm:px-4 sm:py-3.5 rounded-tr-2xl md:rounded-tr-2xl">
-              <span className="text-[11px] sm:text-[12px] font-medium text-[#6b7280]">{t("dashboard.conversionRate")}</span>
-              <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{analyticsData.conversionRate.toFixed(2)}%</span>
-                <PercentChangeIndicator current={analyticsData.conversionRate} previous={analyticsData.prevConversionRate} />
+            {/* Conversion Rate + Toggle arrow */}
+            <div className="flex items-start justify-between px-3 py-3 sm:px-4 sm:py-3.5 flex-shrink-0 min-w-[140px] md:min-w-0">
+              <div>
+                <span className="text-[11px] sm:text-[12px] font-medium text-[#6b7280]">{t("dashboard.conversionRate")}</span>
+                <div className="flex items-baseline gap-1.5 mt-0.5">
+                  <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{analyticsData.conversionRate.toFixed(2)}%</span>
+                  <PercentChangeIndicator current={analyticsData.conversionRate} previous={analyticsData.prevConversionRate} />
+                </div>
+                <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{t("dashboard.viewsToOrders")}</p>
               </div>
-              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{t("dashboard.viewsToOrders")}</p>
+              <button
+                onClick={() => setChartExpanded(!chartExpanded)}
+                className="mt-1 flex h-7 w-7 items-center justify-center rounded-lg hover:bg-[#f3f4f6] transition-colors shrink-0"
+                title={chartExpanded ? "Hide chart" : "Show chart"}
+              >
+                {chartExpanded ? (
+                  <ChevronUp className="h-4 w-4 text-[#9ca3af]" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-[#9ca3af]" />
+                )}
+              </button>
             </div>
           </div>
 
-          {/* Shared Chart Area - slides open when a KPI is selected */}
-          <div className={`overflow-hidden transition-all duration-300 ease-out ${openKPIModal ? "max-h-[280px] opacity-100" : "max-h-0 opacity-0"}`}>
-            <div className="border-t border-[#e5e7eb]/60 px-3 py-3 sm:px-4 sm:py-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-medium text-violet-600">
-                  {openKPIModal === "views" ? t("dashboard.views") : openKPIModal === "orders" ? t("dashboard.orders") : openKPIModal === "revenue" ? t("dashboard.revenue") : ""}
-                  <span className="text-[10px] text-[#9ca3af] ml-1.5">• {selectedOption?.label}</span>
-                </span>
-              </div>
+          {/* Shared Chart Area - line chart, toggleable */}
+          <div className={`overflow-hidden transition-all duration-300 ease-out ${chartExpanded && openKPIModal ? "max-h-[300px] opacity-100" : "max-h-0 opacity-0"}`}>
+            <div className="border-t border-[#e5e7eb]/60 px-2 py-3 sm:px-4 sm:py-4">
               {isChartLoading ? (
-                <div className="h-[180px] sm:h-[200px] flex items-end gap-[3px] px-1">
-                  {[35, 50, 25, 60, 40, 55, 30, 45, 50, 35, 60, 40].map((h, i) => (
-                    <div key={i} className="flex-1 min-w-0 flex flex-col justify-end items-center">
-                      <div
-                        className="w-full rounded-sm bg-violet-200/60 skeleton-bar"
-                        style={{ height: `${h * 2.5}px`, animationDelay: `${i * 0.08}s` }}
-                      />
-                    </div>
-                  ))}
+                <div className="h-[200px] flex items-center justify-center">
+                  <div className="flex items-end gap-[3px]">
+                    {[35, 50, 25, 60, 40, 55, 30, 45, 50, 35, 60, 40].map((h, i) => (
+                      <div key={i} className="w-3 rounded-sm bg-violet-200/60 skeleton-bar" style={{ height: `${h * 2}px`, animationDelay: `${i * 0.08}s` }} />
+                    ))}
+                  </div>
                 </div>
               ) : chartData.length === 0 || !chartData.some(d => d.value > 0) ? (
-                <div className="h-[180px] sm:h-[200px] flex items-center justify-center gap-2">
+                <div className="h-[200px] flex items-center justify-center gap-2">
                   <BarChart3 className="h-5 w-5 text-[#d1d5db]" />
                   <span className="text-[13px] text-[#9ca3af]">{t("time.noData")}</span>
                 </div>
               ) : (
-                <div className="h-[180px] sm:h-[200px] flex items-end gap-[3px] px-1">
-                  {(() => {
-                    const maxValue = Math.max(...chartData.map((d) => d.value), 1)
-                    return chartData.map((point, index) => {
-                      const barHeight = Math.max((point.value / maxValue) * 170, 3)
-                      return (
-                        <div key={index} className="flex-1 min-w-0 flex flex-col justify-end items-center group relative">
-                          <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-[#1a1a2e] text-white text-[10px] px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">
-                            {point.label}: {openKPIModal === "revenue" ? `$${point.value.toFixed(2)}` : point.value}
-                          </div>
-                          <div className="w-full rounded-sm bg-violet-400 hover:bg-violet-500 transition-colors" style={{ height: `${barHeight}px` }} />
-                          {index % Math.max(1, Math.floor(chartData.length / 6)) === 0 && (
-                            <span className="text-[8px] sm:text-[9px] text-[#9ca3af] mt-1 truncate max-w-full">{point.label}</span>
-                          )}
-                        </div>
-                      )
-                    })
-                  })()}
-                </div>
+                <ResponsiveContainer width="100%" height={200}>
+                  <AreaChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="kpiGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.18} />
+                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+                    <XAxis
+                      dataKey="label"
+                      tick={{ fontSize: 11, fill: "#9ca3af" }}
+                      tickLine={false}
+                      axisLine={false}
+                      interval="preserveStartEnd"
+                    />
+                    <YAxis
+                      tick={{ fontSize: 11, fill: "#9ca3af" }}
+                      tickLine={false}
+                      axisLine={false}
+                      domain={[0, "auto"]}
+                      width={40}
+                      tickFormatter={(v: number) => openKPIModal === "revenue" ? `$${v >= 1000 ? `${(v/1000).toFixed(1)}k` : v.toFixed(0)}` : v >= 1000 ? `${(v/1000).toFixed(1)}k` : String(v)}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        background: "#1a1a2e",
+                        border: "none",
+                        borderRadius: "8px",
+                        fontSize: "12px",
+                        color: "#fff",
+                        padding: "6px 10px",
+                      }}
+                      formatter={(value: number) => [
+                        openKPIModal === "revenue" ? `$${value.toFixed(2)}` : value,
+                        openKPIModal === "views" ? t("dashboard.views") : openKPIModal === "orders" ? t("dashboard.orders") : t("dashboard.revenue")
+                      ]}
+                      cursor={{ stroke: "#e5e7eb", strokeWidth: 1 }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="value"
+                      stroke="#8b5cf6"
+                      strokeWidth={2.5}
+                      fill="url(#kpiGrad)"
+                      dot={false}
+                      activeDot={{ r: 4, fill: "#8b5cf6", strokeWidth: 0 }}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
               )}
             </div>
           </div>
