@@ -24,7 +24,7 @@ import {
   Home,
   Wallet,
   X,
-  PenSquare,
+  Brush,
   Search,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -157,7 +157,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { href: "/app/analytics", label: t("nav.analytics"), icon: BarChart3 },
     { href: "/app/sales", label: t("nav.sales"), icon: ShoppingCart },
     { href: "/app/onepage", label: t("nav.onepage"), icon: Link2, forceNavigation: true },
-    { href: "/store-builder", label: t("nav.storeBuilder"), icon: PenSquare, forceNavigation: true },
+    { href: "/store-builder", label: t("nav.storeBuilder"), icon: Brush, forceNavigation: true },
     { href: "/app/emails", label: t("nav.emails"), icon: Mail },
     { href: "/app/payouts", label: t("nav.payouts"), icon: Wallet },
   ]
@@ -371,7 +371,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { label: "Settings", href: "/app/settings", icon: Settings },
     { label: "Emails", href: "/app/emails", icon: Mail },
     { label: "OnePage", href: "/app/onepage", icon: Link2 },
-    { label: "Store Builder", href: "/store-builder", icon: PenSquare },
+    { label: "Store Builder", href: "/store-builder", icon: Brush },
     { label: "Billing", href: "/app/settings/billing", icon: CreditCard },
   ]
 
@@ -383,7 +383,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { label: "Analytics", href: "/app/analytics", icon: BarChart3, category: "Pages" },
     { label: "Sales", href: "/app/sales", icon: ShoppingCart, category: "Pages" },
     { label: "OnePage", href: "/app/onepage", icon: Link2, category: "Pages" },
-    { label: "Store Builder", href: "/store-builder", icon: PenSquare, category: "Pages" },
+    { label: "Store Builder", href: "/store-builder", icon: Brush, category: "Pages" },
     { label: "Emails", href: "/app/emails", icon: Mail, category: "Pages" },
     { label: "Payouts", href: "/app/payouts", icon: Wallet, category: "Pages" },
     { label: "Settings", href: "/app/settings", icon: Settings, category: "Settings" },
@@ -478,7 +478,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         )}
       </nav>
 
-      <div className="px-3 pb-3">
+      <div className="px-3 pb-3 space-y-2">
         <Link
           href="/upgrade"
           onClick={onItemClick}
@@ -491,6 +491,15 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 group-hover:bg-gray-200 transition-colors">
             <Zap className="h-3.5 w-3.5 text-violet-500 fill-violet-500" strokeWidth={2} />
           </div>
+        </Link>
+
+        <Link
+          href="/app/settings"
+          onClick={onItemClick}
+          className="flex items-center gap-2.5 rounded-[10px] bg-neutral-100/80 hover:bg-neutral-200/70 px-3.5 py-2.5 transition-all duration-150"
+        >
+          <Settings className="h-[16px] w-[16px] text-neutral-400" strokeWidth={1.5} />
+          <span className="text-[13px] font-medium text-neutral-500">{t("nav.settings")}</span>
         </Link>
       </div>
     </div>
@@ -642,64 +651,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 
       {/* Desktop Header Bar — dark bar with concave bottom corners */}
       <header className="fixed top-0 left-0 right-0 z-50 hidden md:block">
-        <div className="relative h-[56px] bg-[#1a1a2e] flex items-center px-5">
-          {/* Left side: Storelib logo + text, then nav icons */}
-          <div className="flex items-center gap-4">
-            <Link href="/app" className="flex items-center gap-2.5 hover:opacity-90 transition-opacity shrink-0">
-              <img
-                src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
-                alt="Storelib"
-                className="h-7 w-7"
-                style={{ filter: "brightness(0) invert(1)" }}
-              />
-              <span className="text-[15px] font-semibold text-white">Storelib</span>
-            </Link>
-
-            <div className="h-5 w-px bg-white/15 mx-0.5" />
-
-            <div className="flex items-center gap-0.5">
-              <Link
-                href="/explore"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-all"
-                title="Discover"
-              >
-                <Compass className="h-[18px] w-[18px]" strokeWidth={1.5} />
-              </Link>
-              <button
-                onClick={() => setNotificationsOpen(true)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-all relative"
-                title="Notifications"
-              >
-                <Bell className="h-[18px] w-[18px]" strokeWidth={1.5} />
-                <NotificationBadge count={notificationCount} />
-              </button>
-              <Link
-                href="/app/settings"
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-all"
-                title="Settings"
-              >
-                <Settings className="h-[18px] w-[18px]" strokeWidth={1.5} />
-              </Link>
-            </div>
-          </div>
-
-          {/* Center: Search bar */}
-          <div className="flex-1 flex justify-center px-6">
-            <button
-              onClick={() => setSearchOpen(true)}
-              className="flex items-center gap-2.5 w-full max-w-[480px] h-[36px] rounded-full bg-white/10 hover:bg-white/15 border border-white/10 px-4 transition-all cursor-text"
-            >
-              <Search className="h-4 w-4 text-white/40 shrink-0" />
-              <span className="text-[13px] text-white/40 flex-1 text-left">Search...</span>
-              <kbd className="hidden lg:flex items-center gap-0.5 text-[11px] text-white/30 bg-white/5 border border-white/10 rounded px-1.5 py-0.5">
-                <span className="text-[10px]">⌘</span>K
-              </kbd>
-            </button>
-          </div>
-
-          {/* Right side: Profile dropdown */}
+        <div className="relative h-[56px] bg-[#1a1a1f] flex items-center px-5">
+          {/* Left side: Profile dropdown */}
           <div ref={headerProfileRef} className="relative shrink-0">
             <button
               onClick={() => setHeaderProfileOpen(!headerProfileOpen)}
@@ -747,7 +700,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             {/* Header Profile Dropdown */}
             <div
               className={cn(
-                "absolute right-0 top-full mt-2 z-[60] min-w-[200px] transition-all duration-200 ease-out origin-top-right",
+                "absolute left-0 top-full mt-2 z-[60] min-w-[200px] transition-all duration-200 ease-out origin-top-left",
                 headerProfileOpen
                   ? "opacity-100 scale-100 translate-y-0 pointer-events-auto"
                   : "opacity-0 scale-95 -translate-y-1 pointer-events-none"
@@ -783,135 +736,200 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               </div>
             </div>
           </div>
+
+          {/* Center: Search bar */}
+          <div className="flex-1 flex justify-center px-6 relative" id="desktop-search-container">
+            <button
+              onClick={() => setSearchOpen(true)}
+              className={cn(
+                "flex items-center gap-2.5 w-full max-w-[480px] h-[36px] rounded-full bg-white/10 hover:bg-white/15 border border-white/10 px-4 transition-all cursor-text",
+                searchOpen && "opacity-0 pointer-events-none"
+              )}
+            >
+              <Search className="h-4 w-4 text-white/40 shrink-0" />
+              <span className="text-[13px] text-white/40 flex-1 text-left">Search...</span>
+              <kbd className="hidden lg:flex items-center gap-0.5 text-[11px] text-white/30 bg-white/5 border border-white/10 rounded px-1.5 py-0.5">
+                <span className="text-[10px]">⌘</span>K
+              </kbd>
+            </button>
+          </div>
+
+          {/* Right side: Nav icons + Storelib logo */}
+          <div className="flex items-center gap-4 shrink-0">
+            <div className="flex items-center gap-0.5">
+              <Link
+                href="/explore"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-all"
+                title="Discover"
+              >
+                <Compass className="h-[18px] w-[18px]" strokeWidth={1.5} />
+              </Link>
+              <button
+                onClick={() => setNotificationsOpen(true)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-all relative"
+                title="Notifications"
+              >
+                <Bell className="h-[18px] w-[18px]" strokeWidth={1.5} />
+                <NotificationBadge count={notificationCount} />
+              </button>
+              <Link
+                href="/app/settings"
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-all"
+                title="Settings"
+              >
+                <Settings className="h-[18px] w-[18px]" strokeWidth={1.5} />
+              </Link>
+            </div>
+
+            <div className="h-5 w-px bg-white/15" />
+
+            <Link href="/app" className="flex items-center gap-2.5 hover:opacity-90 transition-opacity shrink-0">
+              <img
+                src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
+                alt="Storelib"
+                className="h-7 w-7"
+              />
+              <span className="text-[15px] font-semibold text-white">Storelib</span>
+            </Link>
+          </div>
         </div>
 
         {/* Concave bottom corners - SVG curves on left and right */}
         <div className="relative h-3 pointer-events-none" style={{ marginTop: "-1px" }}>
           {/* Left concave corner */}
           <svg className="absolute left-0 top-0 h-3 w-3" viewBox="0 0 12 12" fill="none">
-            <path d="M12 0H0v12C0 5.373 5.373 0 12 0Z" fill="#1a1a2e" />
+            <path d="M12 0H0v12C0 5.373 5.373 0 12 0Z" fill="#1a1a1f" />
           </svg>
           {/* Right concave corner */}
           <svg className="absolute right-0 top-0 h-3 w-3" viewBox="0 0 12 12" fill="none">
-            <path d="M0 0h12v12C12 5.373 6.627 0 0 0Z" fill="#1a1a2e" />
+            <path d="M0 0h12v12C12 5.373 6.627 0 0 0Z" fill="#1a1a1f" />
           </svg>
         </div>
       </header>
 
-      {/* Search Modal */}
-      {searchOpen && (
-        <>
-          <div
-            className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm hidden md:block"
-            onClick={() => setSearchOpen(false)}
-          />
-          <div className="fixed inset-0 z-[101] hidden md:flex items-start justify-center pt-[120px]">
-            <div
-              className="w-full max-w-[580px] bg-white rounded-2xl shadow-2xl border border-neutral-200/70 overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
+      {/* Search Modal — morphs from search bar position */}
+      <div
+        className={cn(
+          "fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm hidden md:block transition-opacity duration-200",
+          searchOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+        )}
+        onClick={() => setSearchOpen(false)}
+      />
+      <div
+        className={cn(
+          "fixed z-[101] hidden md:block left-1/2 -translate-x-1/2 w-full max-w-[560px] transition-all duration-300 ease-out",
+          searchOpen
+            ? "top-[10px] opacity-100 scale-100 pointer-events-auto"
+            : "top-[10px] opacity-0 scale-95 pointer-events-none"
+        )}
+        style={{ transitionTimingFunction: 'cubic-bezier(0.32, 0.72, 0, 1)' }}
+      >
+        <div
+          className="bg-white rounded-2xl shadow-2xl border border-neutral-200/70 overflow-hidden"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Search Input */}
+          <div className="flex items-center gap-3 px-5 py-4 border-b border-neutral-100">
+            <Search className="h-5 w-5 text-neutral-400 shrink-0" />
+            <input
+              ref={searchInputRef}
+              type="text"
+              placeholder="Search pages, settings, data..."
+              value={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="flex-1 text-[15px] text-neutral-900 placeholder:text-neutral-400 outline-none bg-transparent"
+            />
+            <button
+              onClick={() => setSearchOpen(false)}
+              className="flex h-6 w-6 items-center justify-center rounded-md bg-neutral-100 hover:bg-neutral-200 transition-colors"
             >
-              {/* Search Input */}
-              <div className="flex items-center gap-3 px-5 py-4 border-b border-neutral-100">
-                <Search className="h-5 w-5 text-neutral-400 shrink-0" />
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  placeholder="Search pages, settings, data..."
-                  value={searchQuery}
-                  onChange={(e) => handleSearch(e.target.value)}
-                  className="flex-1 text-[15px] text-neutral-900 placeholder:text-neutral-400 outline-none bg-transparent"
-                />
-                <button
-                  onClick={() => setSearchOpen(false)}
-                  className="flex h-6 w-6 items-center justify-center rounded-md bg-neutral-100 hover:bg-neutral-200 transition-colors"
-                >
-                  <X className="h-3.5 w-3.5 text-neutral-500" />
-                </button>
+              <X className="h-3.5 w-3.5 text-neutral-500" />
+            </button>
+          </div>
+
+          {/* Default: Shortcut Pills */}
+          {!searchQuery.trim() && searchOpen && (
+            <div className="px-5 py-4">
+              <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider mb-3">Quick Navigation</p>
+              <div className="flex flex-wrap gap-2">
+                {searchShortcuts.map((item) => {
+                  const Icon = item.icon
+                  return (
+                    <button
+                      key={item.href}
+                      onClick={() => {
+                        setSearchOpen(false)
+                        if (item.href.startsWith("/store-builder") || item.href.startsWith("/app/onepage")) {
+                          window.location.href = item.href
+                        } else {
+                          router.push(item.href)
+                        }
+                      }}
+                      className="flex items-center gap-2 px-3.5 py-2 rounded-full bg-neutral-50 hover:bg-neutral-100 border border-neutral-200/60 text-[13px] font-medium text-neutral-700 hover:text-neutral-900 transition-all"
+                    >
+                      <Icon className="h-3.5 w-3.5 text-neutral-500" strokeWidth={1.5} />
+                      {item.label}
+                    </button>
+                  )
+                })}
               </div>
+            </div>
+          )}
 
-              {/* Default: Shortcut Pills */}
-              {!searchQuery.trim() && (
-                <div className="px-5 py-4">
-                  <p className="text-[11px] font-medium text-neutral-400 uppercase tracking-wider mb-3">Quick Navigation</p>
-                  <div className="flex flex-wrap gap-2">
-                    {searchShortcuts.map((item) => {
-                      const Icon = item.icon
-                      return (
-                        <button
-                          key={item.href}
-                          onClick={() => {
-                            setSearchOpen(false)
-                            if (item.href.startsWith("/store-builder") || item.href.startsWith("/app/onepage")) {
-                              window.location.href = item.href
-                            } else {
-                              router.push(item.href)
-                            }
-                          }}
-                          className="flex items-center gap-2 px-3.5 py-2 rounded-full bg-neutral-50 hover:bg-neutral-100 border border-neutral-200/60 text-[13px] font-medium text-neutral-700 hover:text-neutral-900 transition-all"
-                        >
-                          <Icon className="h-3.5 w-3.5 text-neutral-500" strokeWidth={1.5} />
-                          {item.label}
-                        </button>
-                      )
-                    })}
-                  </div>
+          {/* Search Results */}
+          {searchQuery.trim() && searchOpen && (
+            <div className="max-h-[340px] overflow-y-auto">
+              {searchResults.length > 0 ? (
+                <div className="py-2">
+                  {Object.entries(
+                    searchResults.reduce((acc, item) => {
+                      if (!acc[item.category]) acc[item.category] = []
+                      acc[item.category].push(item)
+                      return acc
+                    }, {} as Record<string, typeof searchResults>)
+                  ).map(([category, items]) => (
+                    <div key={category}>
+                      <p className="px-5 py-1.5 text-[11px] font-medium text-neutral-400 uppercase tracking-wider">{category}</p>
+                      {items.map((item) => {
+                        const Icon = item.icon
+                        return (
+                          <button
+                            key={item.href + item.label}
+                            onClick={() => {
+                              setSearchOpen(false)
+                              if (item.href.startsWith("/store-builder") || item.href.startsWith("/app/onepage")) {
+                                window.location.href = item.href
+                              } else {
+                                router.push(item.href)
+                              }
+                            }}
+                            className="flex items-center gap-3 w-full px-5 py-2.5 hover:bg-neutral-50 transition-colors text-left"
+                          >
+                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-neutral-100">
+                              <Icon className="h-4 w-4 text-neutral-600" strokeWidth={1.5} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[13px] font-medium text-neutral-900 truncate">{item.label}</p>
+                              <p className="text-[11px] text-neutral-400 truncate">{item.href}</p>
+                            </div>
+                            <ChevronRight className="h-4 w-4 text-neutral-300 shrink-0" />
+                          </button>
+                        )
+                      })}
+                    </div>
+                  ))}
                 </div>
-              )}
-
-              {/* Search Results */}
-              {searchQuery.trim() && (
-                <div className="max-h-[340px] overflow-y-auto">
-                  {searchResults.length > 0 ? (
-                    <div className="py-2">
-                      {Object.entries(
-                        searchResults.reduce((acc, item) => {
-                          if (!acc[item.category]) acc[item.category] = []
-                          acc[item.category].push(item)
-                          return acc
-                        }, {} as Record<string, typeof searchResults>)
-                      ).map(([category, items]) => (
-                        <div key={category}>
-                          <p className="px-5 py-1.5 text-[11px] font-medium text-neutral-400 uppercase tracking-wider">{category}</p>
-                          {items.map((item) => {
-                            const Icon = item.icon
-                            return (
-                              <button
-                                key={item.href + item.label}
-                                onClick={() => {
-                                  setSearchOpen(false)
-                                  if (item.href.startsWith("/store-builder") || item.href.startsWith("/app/onepage")) {
-                                    window.location.href = item.href
-                                  } else {
-                                    router.push(item.href)
-                                  }
-                                }}
-                                className="flex items-center gap-3 w-full px-5 py-2.5 hover:bg-neutral-50 transition-colors text-left"
-                              >
-                                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-neutral-100">
-                                  <Icon className="h-4 w-4 text-neutral-600" strokeWidth={1.5} />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-[13px] font-medium text-neutral-900 truncate">{item.label}</p>
-                                  <p className="text-[11px] text-neutral-400 truncate">{item.href}</p>
-                                </div>
-                                <ChevronRight className="h-4 w-4 text-neutral-300 shrink-0" />
-                              </button>
-                            )
-                          })}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="px-5 py-8 text-center">
-                      <p className="text-[13px] text-neutral-400">No results for &quot;{searchQuery}&quot;</p>
-                    </div>
-                  )}
+              ) : (
+                <div className="px-5 py-8 text-center">
+                  <p className="text-[13px] text-neutral-400">No results for &quot;{searchQuery}&quot;</p>
                 </div>
               )}
             </div>
-          </div>
-        </>
-      )}
+          )}
+        </div>
+      </div>
 
       {/* Mobile Header - Dark background, content below has outward rounded top corners */}
       <header className="fixed top-0 left-0 right-0 z-50 pt-[env(safe-area-inset-top)] md:hidden bg-[#111111]">

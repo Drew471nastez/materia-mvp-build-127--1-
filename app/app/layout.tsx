@@ -107,7 +107,7 @@ export default async function AppLayout({
 
   return (
     <AppLayoutWrapper>
-      <div className="min-h-svh overflow-x-hidden bg-[#111111] md:bg-[#1a1a2e] app-no-scrollbar">
+      <div className="min-h-svh overflow-x-hidden bg-[#111111] md:bg-[#1a1a1f] app-no-scrollbar">
         <AppSidebar
           creatorSlug={creator.slug}
           username={profile?.username || creator.slug}

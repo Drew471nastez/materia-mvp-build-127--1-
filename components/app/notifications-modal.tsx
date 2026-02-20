@@ -306,7 +306,7 @@ export function NotificationsModal({
   return (
     <div
       ref={panelRef}
-      className="fixed left-[232px] bottom-[64px] z-50 w-[380px] max-h-[500px] rounded-2xl border border-neutral-200/60 bg-white/95 backdrop-blur-xl shadow-xl shadow-black/10 overflow-hidden animate-in fade-in-0 slide-in-from-bottom-3 duration-200"
+      className="fixed right-[120px] top-[62px] z-50 w-[380px] max-h-[500px] rounded-2xl border border-neutral-200/60 bg-white/95 backdrop-blur-xl shadow-xl shadow-black/10 overflow-hidden animate-in fade-in-0 slide-in-from-top-3 duration-200"
     >
       <div className="px-5 py-4 border-b border-neutral-200/60 flex items-center justify-between bg-gradient-to-r from-neutral-50/80 to-white">
         <h3 className="text-[15px] font-semibold text-neutral-900">{t("notifications.title")}</h3>
