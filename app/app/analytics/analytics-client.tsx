@@ -1865,9 +1865,14 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
   const formatSourceName = (source: string) => {
     const names: Record<string, string> = {
       direct: "Direct", organic_search: "Organic Search", paid_search: "Paid Search",
-      search: "Search", social: "Social Media", email: "Email", referral: "Referral", other: "Other"
+      search: "Search", social: "Social Media", email: "Email", referral: "Referral", other: "Other",
+      facebook: "Facebook", instagram: "Instagram", twitter: "Twitter / X", tiktok: "TikTok",
+      youtube: "YouTube", whatsapp: "WhatsApp", linkedin: "LinkedIn", pinterest: "Pinterest",
+      reddit: "Reddit", snapchat: "Snapchat", telegram: "Telegram", blog: "Blog",
+      google: "Google", bing: "Bing", yahoo: "Yahoo", duckduckgo: "DuckDuckGo",
+      newsletter: "Newsletter", sms: "SMS", qr_code: "QR Code", affiliate: "Affiliate",
     }
-    return names[source] || source
+    return names[source] || source.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())
   }
 
   const formatDeviceName = (device: string) => {
@@ -2341,7 +2346,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
 
         {/* Activity Card - Bar/Line Chart with Switcher */}
         <Card className="border-[#e5e7eb] bg-white shadow-sm">
-          <CardHeader className="pb-1 sm:pb-0">
+          <CardHeader className="pb-0 pt-4">
             <div className="flex items-center justify-between">
               <CardTitle className="text-[15px] font-semibold text-[#1a1a2e] hidden sm:block">Activity</CardTitle>
               <div className="flex items-center gap-3">
@@ -2685,71 +2690,69 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
         {/* Traffic & Device Distribution */}
         <div className="grid gap-4 lg:grid-cols-2">
           <Card className="border-[#e5e7eb] bg-white">
-            <CardHeader className="pb-2">
+            <CardHeader className="pb-0 pt-4">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">Traffic Distribution</CardTitle>
                 <div className="flex items-center bg-[#f3f4f6] rounded-lg p-0.5">
                   <button
                     onClick={() => setTrafficViewMode("chart")}
-                    className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-all ${trafficViewMode === "chart" ? "bg-white text-[#1a1a2e] shadow-sm" : "text-[#6b7280] hover:text-[#374151]"}`}
+                    className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-all duration-200 ${trafficViewMode === "chart" ? "bg-white text-[#1a1a2e] shadow-sm" : "text-[#6b7280] hover:text-[#374151]"}`}
                   >
                     Chart
                   </button>
                   <button
                     onClick={() => setTrafficViewMode("list")}
-                    className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-all ${trafficViewMode === "list" ? "bg-white text-[#1a1a2e] shadow-sm" : "text-[#6b7280] hover:text-[#374151]"}`}
+                    className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-all duration-200 ${trafficViewMode === "list" ? "bg-white text-[#1a1a2e] shadow-sm" : "text-[#6b7280] hover:text-[#374151]"}`}
                   >
                     Sources
                   </button>
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-3">
               {isLoading ? (
                 <Skeleton className="h-[200px] w-full" />
               ) : trafficPieData.length > 0 ? (
-                trafficViewMode === "chart" ? (
-                  <div className="h-[200px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie data={trafficPieData} cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={2} dataKey="value">
-                          {trafficPieData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip
-                          formatter={(value: number, name: string) => [`${value.toLocaleString()} views`, name]}
-                          contentStyle={{ backgroundColor: "white", border: "1px solid #e5e7eb", borderRadius: "12px", fontSize: "12px", boxShadow: "0 4px 12px rgba(0,0,0,0.08)" }}
-                          labelFormatter={() => ""}
-                        />
-                        <Legend verticalAlign="bottom" height={36} iconType="circle" iconSize={8} formatter={(value) => <span className="text-[11px] text-[#6b7280]">{value}</span>} />
-                      </PieChart>
-                    </ResponsiveContainer>
+                <div className="relative">
+                  <div className={`transition-all duration-300 ease-out ${trafficViewMode === "chart" ? "opacity-100 h-auto" : "opacity-0 h-0 overflow-hidden absolute inset-0"}`}>
+                    <div className="h-[200px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie data={trafficPieData} cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={2} dataKey="value" animationBegin={0} animationDuration={600}>
+                            {trafficPieData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            formatter={(value: number, name: string) => [`${value.toLocaleString()} views`, name]}
+                            contentStyle={{ backgroundColor: "white", border: "1px solid #e5e7eb", borderRadius: "12px", fontSize: "12px", boxShadow: "0 4px 12px rgba(0,0,0,0.08)" }}
+                            labelFormatter={() => ""}
+                          />
+                          <Legend verticalAlign="bottom" height={36} iconType="circle" iconSize={8} formatter={(value) => <span className="text-[11px] text-[#6b7280]">{value}</span>} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
                   </div>
-                ) : (
-                  <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
-                    {trafficSources.slice(0, 8).map((source, idx) => {
-                      const percentage = totalTrafficViews > 0 ? (source.views / totalTrafficViews) * 100 : 0
-                      return (
-                        <div key={source.source} className="flex items-center gap-3 p-2.5 bg-[#f9fafb] rounded-lg">
-                          <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `${PIE_COLORS[idx % PIE_COLORS.length]}15` }}>
-                            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: PIE_COLORS[idx % PIE_COLORS.length] }} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[12px] font-medium text-[#1a1a2e]">{formatSourceName(source.source)}</span>
-                              <span className="text-[12px] font-semibold text-[#1a1a2e]">{percentage.toFixed(1)}%</span>
+                  <div className={`transition-all duration-300 ease-out ${trafficViewMode === "list" ? "opacity-100 h-auto" : "opacity-0 h-0 overflow-hidden absolute inset-0"}`}>
+                    <div className="space-y-1.5 max-h-[220px] overflow-y-auto">
+                      {trafficSources.slice(0, 10).map((source, idx) => {
+                        const percentage = totalTrafficViews > 0 ? (source.views / totalTrafficViews) * 100 : 0
+                        return (
+                          <div key={source.source} className="flex items-center gap-3 p-2 bg-[#f9fafb] rounded-lg">
+                            <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `${PIE_COLORS[idx % PIE_COLORS.length]}15` }}>
+                              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: PIE_COLORS[idx % PIE_COLORS.length] }} />
                             </div>
-                            <div className="mt-1 h-1.5 bg-[#e5e7eb] rounded-full overflow-hidden">
-                              <div className="h-full rounded-full transition-all duration-500" style={{ width: `${percentage}%`, backgroundColor: PIE_COLORS[idx % PIE_COLORS.length] }} />
+                            <div className="flex-1 min-w-0">
+                              <span className="text-[13px] font-medium text-[#1a1a2e]">{formatSourceName(source.source)}</span>
                             </div>
+                            <span className="text-[12px] text-[#6b7280] shrink-0">{source.views.toLocaleString()} views</span>
+                            <span className="text-[12px] font-semibold text-[#1a1a2e] shrink-0 w-12 text-right">{percentage.toFixed(1)}%</span>
                           </div>
-                          <span className="text-[11px] text-[#9ca3af] shrink-0 w-14 text-right">{source.views.toLocaleString()}</span>
-                        </div>
-                      )
-                    })}
+                        )
+                      })}
+                    </div>
                   </div>
-                )
+                </div>
               ) : (
                 <div className="h-[200px] flex items-center justify-center">
                   <p className="text-[#9ca3af] text-[13px]">No traffic data</p>
@@ -2759,7 +2762,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
           </Card>
 
           <Card className="border-[#e5e7eb] bg-white">
-            <CardHeader className="pb-1">
+            <CardHeader className="pb-0 pt-4">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">
                   {deviceTabMode === "device" ? "Device Breakdown" : "Browser Breakdown"}
@@ -2767,20 +2770,20 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                 <div className="flex items-center bg-[#f3f4f6] rounded-lg p-0.5">
                   <button
                     onClick={() => setDeviceTabMode("device")}
-                    className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-all ${deviceTabMode === "device" ? "bg-white text-[#1a1a2e] shadow-sm" : "text-[#6b7280] hover:text-[#374151]"}`}
+                    className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-all duration-200 ${deviceTabMode === "device" ? "bg-white text-[#1a1a2e] shadow-sm" : "text-[#6b7280] hover:text-[#374151]"}`}
                   >
                     Devices
                   </button>
                   <button
                     onClick={() => setDeviceTabMode("browser")}
-                    className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-all ${deviceTabMode === "browser" ? "bg-white text-[#1a1a2e] shadow-sm" : "text-[#6b7280] hover:text-[#374151]"}`}
+                    className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-all duration-200 ${deviceTabMode === "browser" ? "bg-white text-[#1a1a2e] shadow-sm" : "text-[#6b7280] hover:text-[#374151]"}`}
                   >
                     Browsers
                   </button>
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-3">
               {isLoading ? (
                 <Skeleton className="h-[200px] w-full" />
               ) : deviceTabMode === "device" ? (
@@ -2842,12 +2845,12 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
 
         {/* Top Products / Most Clicked */}
         <Card className="border-[#e5e7eb] bg-white">
-          <CardHeader className="pb-2">
+          <CardHeader className="pb-0 pt-4">
             <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">
               {analyticsMode === "store" ? "Top Products" : "Most Clicked"}
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-3">
             {isLoading ? (
               <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-16 w-full" />)}</div>
             ) : analyticsMode === "store" ? (
@@ -3176,10 +3179,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
 
         {/* Visitors by Country */}
         <Card className="border-[#e5e7eb] bg-white">
-          <CardHeader className="pb-2">
+          <CardHeader className="pb-0 pt-4">
             <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">Visitors by Country</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-3">
             {isLoading ? (
               <Skeleton className="h-[200px] w-full" />
             ) : countryData.length > 0 ? (
