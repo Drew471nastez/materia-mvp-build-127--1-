@@ -5,7 +5,12 @@ import { createAdminClient } from "@/lib/supabase/admin"
  * GET /api/cron/release-holds
  *
  * Daily cron job that moves funds from "pending" to "available" after
- * the hold period expires (default 7 days).
+ * Stripe's settlement period completes. Each sale's hold_until is set to
+ * Stripe's actual available_on date (from the balance transaction), so
+ * settlement varies by country/risk:
+ *   - US sellers: ~2 business days
+ *   - International: up to ~7 business days
+ *   - First payout: may be longer (extra verification)
  *
  * If a seller has a negative balance (from refunds after payout),
  * released funds absorb the negative balance first.

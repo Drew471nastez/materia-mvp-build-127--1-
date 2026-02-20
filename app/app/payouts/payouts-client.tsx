@@ -977,7 +977,7 @@ function WithdrawPanel({
 
   const helper =
     availableBalance <= 0
-      ? "No funds available yet. New sales are held for 7 days before they become available."
+      ? "No funds available yet. New sales take 2–7 business days to settle before they become available."
       : "Cash out your full available balance. Funds arrive in 24–48 hours. Minimum $1.00.";
 
   return (
@@ -1092,7 +1092,7 @@ function WithdrawPanel({
             </div>
             {showWithdrawHint && (
               <div className="absolute left-2 right-2 -top-11 z-30 rounded-xl bg-[#111827] px-3 py-2.5 text-[11px] text-white text-center shadow-lg">
-                No funds ready yet — new sales are held for 7 days before cash out
+                No funds ready yet — new sales take 2–7 business days to settle
               </div>
             )}
             <button
@@ -1150,7 +1150,7 @@ function WithdrawPanel({
                       </div>
                       <div>
                         <p className="text-[13px] font-medium text-[#1a1a2e]">Available soon</p>
-                        <p className="text-[11px] text-[#9ca3af]">Held for 7-day security period</p>
+                        <p className="text-[11px] text-[#9ca3af]">Processing — usually 2–7 business days</p>
                       </div>
                     </div>
                     <span className="text-[15px] font-semibold text-[#1a1a2e]">
@@ -1227,7 +1227,7 @@ function WithdrawPanel({
                 <div className="flex items-start gap-2">
                   <Info className="h-3.5 w-3.5 text-[#9ca3af] mt-0.5 shrink-0" />
                   <p className="text-[12px] text-[#6b7280] leading-relaxed">
-                    New sales are held for 7 days for security. After the hold period, funds become available for cash out.
+                    Payments are processed by Stripe and typically settle in 2–7 business days depending on your country. Once settled, funds become available for cash out.
                   </p>
                 </div>
               </div>
@@ -1292,7 +1292,7 @@ function WithdrawPanel({
                       </div>
                       <div>
                         <p className="text-[13px] font-medium text-[#1a1a2e]">Available soon</p>
-                        <p className="text-[10px] text-[#9ca3af]">Held for 7-day security period</p>
+                        <p className="text-[10px] text-[#9ca3af]">Processing — usually 2–7 business days</p>
                       </div>
                     </div>
                     <span className="text-[14px] font-semibold text-[#1a1a2e]">{fmt(pendingBalance, currency)}</span>
@@ -1356,7 +1356,7 @@ function WithdrawPanel({
                 <div className="flex items-start gap-2">
                   <Info className="h-3.5 w-3.5 text-[#9ca3af] mt-0.5 shrink-0" />
                   <p className="text-[11px] text-[#6b7280] leading-relaxed">
-                    New sales are held for 7 days for security. After the hold period, funds become available for cash out.
+                    Payments are processed by Stripe and typically settle in 2–7 business days depending on your country. Once settled, funds become available for cash out.
                   </p>
                 </div>
               </div>

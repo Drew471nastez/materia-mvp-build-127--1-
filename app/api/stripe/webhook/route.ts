@@ -353,15 +353,42 @@ export async function POST(request: Request) {
       try {
         const netSeller = totalAmount - applicationFeeAmount
 
-        // Get hold config
-        const { data: holdCfg } = await supabaseAdmin
-          .from("payout_hold_config")
-          .select("hold_days")
-          .single()
-        const holdDays = holdCfg?.hold_days ?? 7
+        // Determine hold_until from Stripe's actual settlement date (available_on)
+        // This respects Stripe's per-country/risk settlement times:
+        //  - US creators: ~2 business days
+        //  - International: up to ~7 business days
+        //  - First payout: may be longer (extra verification)
+        let holdUntil: Date | null = null
 
-        const holdUntil = new Date()
-        holdUntil.setDate(holdUntil.getDate() + holdDays)
+        if (destinationPaymentId && creatorId) {
+          try {
+            // Look up the creator's stripe_account_id
+            const { data: sellerCreator } = await supabaseAdmin
+              .from("creators")
+              .select("stripe_account_id")
+              .eq("id", creatorId)
+              .single()
+
+            if (sellerCreator?.stripe_account_id && destinationPaymentId) {
+              const destCharge = await stripe.charges.retrieve(
+                destinationPaymentId,
+                { expand: ["balance_transaction"], stripeAccount: sellerCreator.stripe_account_id }
+              )
+              const bt = destCharge.balance_transaction as any
+              if (bt?.available_on) {
+                holdUntil = new Date(bt.available_on * 1000)
+              }
+            }
+          } catch (btErr) {
+            console.error("[Webhook] Balance transaction lookup failed (non-fatal):", btErr)
+          }
+        }
+
+        // Fallback: if we couldn't get Stripe's available_on, estimate ~3 business days
+        if (!holdUntil) {
+          holdUntil = new Date()
+          holdUntil.setDate(holdUntil.getDate() + 3)
+        }
 
         // Ensure ledger exists
         await supabaseAdmin

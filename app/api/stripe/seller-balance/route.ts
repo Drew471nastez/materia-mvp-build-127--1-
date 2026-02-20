@@ -44,10 +44,10 @@ export async function GET() {
       ledger = newLedger
     }
 
-    // Get hold config
+    // Get cashout config (no platform-level hold — uses Stripe settlement)
     const { data: holdConfig } = await adminSupabase
       .from("payout_hold_config")
-      .select("hold_days, min_cashout_cents")
+      .select("min_cashout_cents")
       .single()
 
     // Get next hold release date (earliest unreleased sale)
@@ -89,7 +89,6 @@ export async function GET() {
         onboarding_status: creator.stripe_onboarding_status,
         has_stripe: !!creator.stripe_account_id,
       },
-      hold_days: holdConfig?.hold_days ?? 7,
       min_cashout_cents: holdConfig?.min_cashout_cents ?? 100,
       next_release_date: nextRelease?.hold_until || null,
       recent_events: recentEvents || [],

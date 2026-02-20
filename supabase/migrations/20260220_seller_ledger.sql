@@ -119,17 +119,22 @@ CREATE POLICY "service role full access on ledger_events"
 
 
 -- ============================================================================
--- Payout Hold Config: Admin-configurable hold settings
+-- Payout Hold Config: Admin-configurable cashout settings
+-- NOTE: No platform-level hold_days — we use Stripe's actual settlement
+-- time (available_on from balance transactions). Settlement varies:
+--   US sellers: ~2 business days
+--   International: up to ~7 business days
+--   First payout: may be longer (extra verification)
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS payout_hold_config (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  hold_days         INTEGER NOT NULL DEFAULT 7,
+  hold_days         INTEGER NOT NULL DEFAULT 0,
   min_cashout_cents INTEGER NOT NULL DEFAULT 100,
   updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-INSERT INTO payout_hold_config (hold_days, min_cashout_cents) VALUES (7, 100);
+INSERT INTO payout_hold_config (hold_days, min_cashout_cents) VALUES (0, 100);
 
 ALTER TABLE payout_hold_config ENABLE ROW LEVEL SECURITY;
 

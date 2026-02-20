@@ -163,7 +163,7 @@ export async function GET(request: Request) {
     })
 
     // Step 4: Funds available for cashout
-    // Use platform ledger hold_until date (Stan-style) when available, fallback to Stripe available_on
+    // hold_until is set to Stripe's actual available_on date (settlement time varies by country/risk)
     const now = new Date()
     const holdUntil = ledgerEvent?.hold_until ? new Date(ledgerEvent.hold_until) : null
     const isReleased = !!ledgerEvent?.released_at
