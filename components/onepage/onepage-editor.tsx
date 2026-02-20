@@ -611,7 +611,7 @@ function EditorLayout() {
   return (
     <div
       className="flex flex-col bg-gray-50/50 fixed left-0 right-0 bottom-0 top-[68px] md:left-[220px] md:top-[58px] md:bottom-0"
-      style={{ zIndex: 10 }}
+      style={{ zIndex: 30 }}
     >
       <SaveNotification
         key={saveToastSequence}

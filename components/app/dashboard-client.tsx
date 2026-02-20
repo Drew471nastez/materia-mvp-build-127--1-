@@ -57,7 +57,7 @@ interface ChartDataPoint {
   secondaryValue?: number
 }
 
-type KPIType = "views" | "orders" | "revenue" | null
+type KPIType = "views" | "orders" | "revenue" | "conversion" | null
 
 // Icon mapping for setup steps
 const stepIcons: Record<string, any> = {
@@ -807,7 +807,10 @@ export function DashboardClient({
   const [isLoading, setIsLoading] = useState(false)
   const [expandedStep, setExpandedStep] = useState<string | null>(null)
   const [openKPIModal, setOpenKPIModal] = useState<KPIType>("views")
-  const [chartExpanded, setChartExpanded] = useState(true)
+  const [chartExpanded, setChartExpanded] = useState(() => {
+    if (typeof window === "undefined") return false
+    return window.innerWidth < 768 // open on mobile, closed on desktop
+  })
   const [chartData, setChartData] = useState<ChartDataPoint[]>([])
   const [isChartLoading, setIsChartLoading] = useState(false)
   const [analyticsData, setAnalyticsData] = useState({
@@ -1089,12 +1092,29 @@ export function DashboardClient({
             })
             value = periodOrders.length
           } else if (kpiType === "revenue") {
-            // Filter orders locally from initialOrders
             const periodOrders = completedOrders.filter(o => {
               const orderDate = new Date(o.created_at)
               return orderDate >= hourStart && orderDate <= hourEnd
             })
             value = periodOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0) / 100
+          } else if (kpiType === "conversion") {
+            const { data } = await supabase
+              .from("analytics_events")
+              .select("id, visitor_id, session_id, product_id")
+              .eq("creator_id", creatorId)
+              .eq("event_type", "view")
+              .gte("created_at", hourStart.toISOString())
+              .lte("created_at", hourEnd.toISOString())
+            const uniqueKeys = new Set((data || []).map((e: any) => {
+              const identity = e.visitor_id || e.session_id
+              return identity ? `${identity}__${e.product_id || "store"}` : null
+            }).filter(Boolean))
+            const views = uniqueKeys.size
+            const orders = completedOrders.filter(o => {
+              const d = new Date(o.created_at)
+              return d >= hourStart && d <= hourEnd
+            }).length
+            value = views > 0 ? Number(((orders / views) * 100).toFixed(2)) : 0
           }
 
           points.push({
@@ -1150,6 +1170,11 @@ export function DashboardClient({
               return orderDate >= yearStart && orderDate <= yearEnd
             })
             value = periodOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0) / 100
+          } else if (kpiType === "conversion") {
+            const { data } = await supabase.from("analytics_events").select("id, visitor_id, session_id, product_id").eq("creator_id", creatorId).eq("event_type", "view").gte("created_at", yearStart.toISOString()).lte("created_at", yearEnd.toISOString())
+            const views = new Set((data || []).map((e: any) => { const id = e.visitor_id || e.session_id; return id ? `${id}__${e.product_id || "store"}` : null }).filter(Boolean)).size
+            const orders = completedOrders.filter(o => { const d = new Date(o.created_at); return d >= yearStart && d <= yearEnd }).length
+            value = views > 0 ? Number(((orders / views) * 100).toFixed(2)) : 0
           }
 
           points.push({
@@ -1202,12 +1227,16 @@ export function DashboardClient({
             })
             value = periodOrders.length
           } else if (kpiType === "revenue") {
-            // Filter orders locally from initialOrders
             const periodOrders = completedOrders.filter(o => {
               const orderDate = new Date(o.created_at)
               return orderDate >= monthStart && orderDate <= monthEnd
             })
             value = periodOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0) / 100
+          } else if (kpiType === "conversion") {
+            const { data } = await supabase.from("analytics_events").select("id, visitor_id, session_id, product_id").eq("creator_id", creatorId).eq("event_type", "view").gte("created_at", monthStart.toISOString()).lte("created_at", monthEnd.toISOString())
+            const views = new Set((data || []).map((e: any) => { const id = e.visitor_id || e.session_id; return id ? `${id}__${e.product_id || "store"}` : null }).filter(Boolean)).size
+            const orders = completedOrders.filter(o => { const d = new Date(o.created_at); return d >= monthStart && d <= monthEnd }).length
+            value = views > 0 ? Number(((orders / views) * 100).toFixed(2)) : 0
           }
 
           points.push({
@@ -1264,6 +1293,11 @@ export function DashboardClient({
               return orderDate >= weekStart && orderDate <= weekEnd
             })
             value = periodOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0) / 100
+          } else if (kpiType === "conversion") {
+            const { data } = await supabase.from("analytics_events").select("id, visitor_id, session_id, product_id").eq("creator_id", creatorId).eq("event_type", "view").gte("created_at", weekStart.toISOString()).lte("created_at", weekEnd.toISOString())
+            const views = new Set((data || []).map((e: any) => { const id = e.visitor_id || e.session_id; return id ? `${id}__${e.product_id || "store"}` : null }).filter(Boolean)).size
+            const orders = completedOrders.filter(o => { const d = new Date(o.created_at); return d >= weekStart && d <= weekEnd }).length
+            value = views > 0 ? Number(((orders / views) * 100).toFixed(2)) : 0
           }
 
           points.push({
@@ -1322,12 +1356,16 @@ export function DashboardClient({
             })
             value = periodOrders.length
           } else if (kpiType === "revenue") {
-            // Filter orders locally from initialOrders
             const periodOrders = completedOrders.filter(o => {
               const orderDate = new Date(o.created_at)
               return orderDate >= dayStart && orderDate <= dayEnd
             })
             value = periodOrders.reduce((sum, o) => sum + (o.amount_cents || 0), 0) / 100
+          } else if (kpiType === "conversion") {
+            const { data } = await supabase.from("analytics_events").select("id, visitor_id, session_id, product_id").eq("creator_id", creatorId).eq("event_type", "view").gte("created_at", dayStart.toISOString()).lte("created_at", dayEnd.toISOString())
+            const views = new Set((data || []).map((e: any) => { const id = e.visitor_id || e.session_id; return id ? `${id}__${e.product_id || "store"}` : null }).filter(Boolean)).size
+            const orders = completedOrders.filter(o => { const d = new Date(o.created_at); return d >= dayStart && d <= dayEnd }).length
+            value = views > 0 ? Number(((orders / views) * 100).toFixed(2)) : 0
           }
 
           points.push({
@@ -1754,10 +1792,10 @@ export function DashboardClient({
         {/* Stats Cards + Chart Section */}
         <div className={`bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] mb-8 transition-opacity duration-500 ease-out overflow-hidden ${isLoading ? "opacity-50" : "opacity-100"}`}>
           {/* KPI Metric Tabs - horizontally scrollable on mobile */}
-          <div className="flex overflow-x-auto scrollbar-hide md:grid md:grid-cols-4 divide-x divide-[#e5e7eb]/60">
+          <div className="relative flex overflow-x-auto scrollbar-hide md:grid md:grid-cols-4 divide-x divide-[#e5e7eb]/60">
             {/* Views */}
             <button
-              className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[140px] md:min-w-0 ${
+              className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
                 openKPIModal === "views" ? "bg-violet-50/60" : "hover:bg-[#fafafa]"
               }`}
               onClick={() => { setOpenKPIModal("views"); setChartExpanded(true) }}
@@ -1773,7 +1811,7 @@ export function DashboardClient({
 
             {/* Orders */}
             <button
-              className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[140px] md:min-w-0 ${
+              className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
                 openKPIModal === "orders" ? "bg-violet-50/60" : "hover:bg-[#fafafa]"
               }`}
               onClick={() => { setOpenKPIModal("orders"); setChartExpanded(true) }}
@@ -1789,7 +1827,7 @@ export function DashboardClient({
 
             {/* Revenue */}
             <button
-              className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[140px] md:min-w-0 ${
+              className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
                 openKPIModal === "revenue" ? "bg-violet-50/60" : "hover:bg-[#fafafa]"
               }`}
               onClick={() => { setOpenKPIModal("revenue"); setChartExpanded(true) }}
@@ -1803,42 +1841,42 @@ export function DashboardClient({
               <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{formatCurrency(analyticsData.totalRevenue)} {t("dashboard.allTime")}</p>
             </button>
 
-            {/* Conversion Rate + Toggle arrow */}
-            <div className="flex items-start justify-between px-3 py-3 sm:px-4 sm:py-3.5 flex-shrink-0 min-w-[140px] md:min-w-0">
-              <div>
-                <span className="text-[11px] sm:text-[12px] font-medium text-[#6b7280]">{t("dashboard.conversionRate")}</span>
-                <div className="flex items-baseline gap-1.5 mt-0.5">
-                  <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{analyticsData.conversionRate.toFixed(2)}%</span>
-                  <PercentChangeIndicator current={analyticsData.conversionRate} previous={analyticsData.prevConversionRate} />
-                </div>
-                <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{t("dashboard.viewsToOrders")}</p>
+            {/* Conversion Rate - clickable */}
+            <button
+              className={`text-left px-3 py-3 sm:px-4 sm:py-3.5 transition-all duration-200 cursor-pointer relative flex-shrink-0 min-w-[130px] md:min-w-0 ${
+                openKPIModal === "conversion" ? "bg-violet-50/60" : "hover:bg-[#fafafa]"
+              }`}
+              onClick={() => { setOpenKPIModal("conversion"); setChartExpanded(true) }}
+            >
+              {openKPIModal === "conversion" && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-violet-500" />}
+              <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "conversion" ? "text-violet-600" : "text-[#6b7280]"}`}>{t("dashboard.conversionRate")}</span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}>{analyticsData.conversionRate.toFixed(2)}%</span>
+                <PercentChangeIndicator current={analyticsData.conversionRate} previous={analyticsData.prevConversionRate} />
               </div>
+              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}>{t("dashboard.viewsToOrders")}</p>
+            </button>
+
+            {/* Toggle arrow - sticky right on mobile, positioned in conversion rate area on desktop */}
+            <div className="sticky right-0 flex items-center md:absolute md:right-2 md:top-2 z-10 bg-white md:bg-transparent pl-1 pr-2 md:p-0">
               <button
-                onClick={() => setChartExpanded(!chartExpanded)}
-                className="mt-1 flex h-7 w-7 items-center justify-center rounded-lg hover:bg-[#f3f4f6] transition-colors shrink-0"
+                onClick={(e) => { e.stopPropagation(); setChartExpanded(!chartExpanded) }}
+                className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#f3f4f6] md:bg-transparent hover:bg-[#e5e7eb] md:hover:bg-[#f3f4f6] transition-colors shrink-0"
                 title={chartExpanded ? "Hide chart" : "Show chart"}
               >
                 {chartExpanded ? (
-                  <ChevronUp className="h-4 w-4 text-[#9ca3af]" />
+                  <ChevronUp className="h-4 w-4 text-[#6b7280]" />
                 ) : (
-                  <ChevronDown className="h-4 w-4 text-[#9ca3af]" />
+                  <ChevronDown className="h-4 w-4 text-[#6b7280]" />
                 )}
               </button>
             </div>
           </div>
 
-          {/* Shared Chart Area - line chart, toggleable */}
+          {/* Shared Chart Area - smooth line chart, toggleable */}
           <div className={`overflow-hidden transition-all duration-300 ease-out ${chartExpanded && openKPIModal ? "max-h-[300px] opacity-100" : "max-h-0 opacity-0"}`}>
             <div className="border-t border-[#e5e7eb]/60 px-2 py-3 sm:px-4 sm:py-4">
-              {isChartLoading ? (
-                <div className="h-[200px] flex items-center justify-center">
-                  <div className="flex items-end gap-[3px]">
-                    {[35, 50, 25, 60, 40, 55, 30, 45, 50, 35, 60, 40].map((h, i) => (
-                      <div key={i} className="w-3 rounded-sm bg-violet-200/60 skeleton-bar" style={{ height: `${h * 2}px`, animationDelay: `${i * 0.08}s` }} />
-                    ))}
-                  </div>
-                </div>
-              ) : chartData.length === 0 || !chartData.some(d => d.value > 0) ? (
+              {chartData.length === 0 || !chartData.some(d => d.value > 0) ? (
                 <div className="h-[200px] flex items-center justify-center gap-2">
                   <BarChart3 className="h-5 w-5 text-[#d1d5db]" />
                   <span className="text-[13px] text-[#9ca3af]">{t("time.noData")}</span>
@@ -1848,7 +1886,7 @@ export function DashboardClient({
                   <AreaChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
                     <defs>
                       <linearGradient id="kpiGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.18} />
+                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.15} />
                         <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
                       </linearGradient>
                     </defs>
@@ -1866,7 +1904,7 @@ export function DashboardClient({
                       axisLine={false}
                       domain={[0, "auto"]}
                       width={40}
-                      tickFormatter={(v: number) => openKPIModal === "revenue" ? `$${v >= 1000 ? `${(v/1000).toFixed(1)}k` : v.toFixed(0)}` : v >= 1000 ? `${(v/1000).toFixed(1)}k` : String(v)}
+                      tickFormatter={(v: number) => openKPIModal === "revenue" ? `$${v >= 1000 ? `${(v/1000).toFixed(1)}k` : v.toFixed(0)}` : openKPIModal === "conversion" ? `${v}%` : v >= 1000 ? `${(v/1000).toFixed(1)}k` : String(v)}
                     />
                     <Tooltip
                       contentStyle={{
@@ -1875,11 +1913,13 @@ export function DashboardClient({
                         borderRadius: "8px",
                         fontSize: "12px",
                         color: "#fff",
-                        padding: "6px 10px",
+                        padding: "8px 12px",
                       }}
+                      labelStyle={{ color: "#fff", fontSize: "11px", marginBottom: "2px" }}
+                      itemStyle={{ color: "#fff" }}
                       formatter={(value: number) => [
-                        openKPIModal === "revenue" ? `$${value.toFixed(2)}` : value,
-                        openKPIModal === "views" ? t("dashboard.views") : openKPIModal === "orders" ? t("dashboard.orders") : t("dashboard.revenue")
+                        openKPIModal === "revenue" ? `$${value.toFixed(2)}` : openKPIModal === "conversion" ? `${value}%` : value,
+                        openKPIModal === "views" ? t("dashboard.views") : openKPIModal === "orders" ? t("dashboard.orders") : openKPIModal === "revenue" ? t("dashboard.revenue") : t("dashboard.conversionRate")
                       ]}
                       cursor={{ stroke: "#e5e7eb", strokeWidth: 1 }}
                     />
@@ -1887,10 +1927,12 @@ export function DashboardClient({
                       type="monotone"
                       dataKey="value"
                       stroke="#8b5cf6"
-                      strokeWidth={2.5}
+                      strokeWidth={2}
                       fill="url(#kpiGrad)"
                       dot={false}
                       activeDot={{ r: 4, fill: "#8b5cf6", strokeWidth: 0 }}
+                      animationDuration={600}
+                      animationBegin={0}
                     />
                   </AreaChart>
                 </ResponsiveContainer>
