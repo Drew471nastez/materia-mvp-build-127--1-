@@ -76,7 +76,7 @@ export function EditorStickyAddToCart({
   const shouldShow = true
 
   const buttonText = isPurchased
-    ? (downloadFiles.length > 0 ? "Download" : "Purchased")
+    ? (downloadFiles.length > 0 ? "Download" : "Access")
     : getButtonText(settings.buttonStyle)
   const [showFilesModal, setShowFilesModal] = useState(false)
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
@@ -403,7 +403,7 @@ export function LiveStickyAddToCart({
   if (!isMounted || !settings.visible) return null
 
   const buttonText = isPurchased
-    ? (downloadFiles.length > 0 ? "Download" : "Purchased")
+    ? (downloadFiles.length > 0 ? "Download" : "Access")
     : getButtonText(settings.buttonStyle)
 
   const handleDownloadFile = async (assetId: string) => {
@@ -511,7 +511,7 @@ export function LiveStickyAddToCart({
       <div className="sm:hidden py-3 px-[7px]">
         <div className="mx-auto w-full max-w-[calc(100%-10px)] flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0 flex-1">
-            {!isPurchased && <PriceBadge />}
+            <PriceBadge />
             <p
               className="text-sm font-medium truncate"
               style={{ color: contentTextColor }}
@@ -525,13 +525,12 @@ export function LiveStickyAddToCart({
             onClick={handleClick}
             className="shrink-0 h-10 px-5 text-sm font-medium cursor-pointer relative z-10 flex items-center gap-2"
             style={{
-              backgroundColor: isPurchased ? "#10b981" : (settings.buttonColor || "#2563eb"),
-              color: isPurchased ? "#ffffff" : (settings.buttonTextColor || "#ffffff"),
+              backgroundColor: settings.buttonColor || "#2563eb",
+              color: settings.buttonTextColor || "#ffffff",
               borderRadius: `${settings.borderRadius || 8}px`,
             }}
           >
             {isPurchased && downloadFiles.length > 0 && <Download className="h-4 w-4" />}
-            {isPurchased && downloadFiles.length === 0 && <Check className="h-4 w-4" />}
             {buttonText}
           </Button>
         </div>
@@ -541,7 +540,7 @@ export function LiveStickyAddToCart({
       <div className="hidden sm:block py-3.5 px-[15px]">
         <div className="mx-auto w-full max-w-[1150px] flex items-center justify-between gap-5">
           <div className="flex items-center gap-4 min-w-0 flex-1">
-            {!isPurchased && <PriceBadge isDesktop />}
+            <PriceBadge isDesktop />
             <p
               className="text-[15px] font-semibold truncate"
               style={{ color: contentTextColor }}
@@ -557,13 +556,12 @@ export function LiveStickyAddToCart({
               onClick={handleClick}
               className="shrink-0 h-11 px-7 text-[15px] font-medium cursor-pointer relative z-10 flex items-center gap-2"
               style={{
-                backgroundColor: isPurchased ? "#10b981" : (settings.buttonColor || "#2563eb"),
-                color: isPurchased ? "#ffffff" : (settings.buttonTextColor || "#ffffff"),
+                backgroundColor: settings.buttonColor || "#2563eb",
+                color: settings.buttonTextColor || "#ffffff",
                 borderRadius: `${settings.borderRadius || 8}px`,
               }}
             >
               {isPurchased && downloadFiles.length > 0 && <Download className="h-4 w-4" />}
-              {isPurchased && downloadFiles.length === 0 && <Check className="h-4 w-4" />}
               {buttonText}
             </Button>
           </div>

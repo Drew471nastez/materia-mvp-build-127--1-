@@ -339,8 +339,8 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                 <ul className="space-y-2 mb-5">
                   {(planBenefits[currentPlan.id] || planBenefits.free).map((benefit: string, idx: number) => (
                     <li key={idx} className="flex items-center gap-2.5 text-[13px] text-[#374151]">
-                      <div className="w-4 h-4 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
-                        <Check className="h-2.5 w-2.5 text-emerald-600" strokeWidth={3} />
+                      <div className="w-4 h-4 rounded-full bg-purple-50 flex items-center justify-center shrink-0">
+                        <Check className="h-2.5 w-2.5 text-[#8b5cf6]" strokeWidth={3} />
                       </div>
                       {benefit}
                     </li>

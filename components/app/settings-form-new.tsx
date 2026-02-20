@@ -845,7 +845,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
       .slice(0, 22)
 
   const defaultStatementDescriptor = normalizeStatementDescriptor(
-    (creator?.statement_descriptor || creator?.name || "STORE").trim()
+    (creator?.statement_descriptor || profile?.username || (creator as any)?.display_name || "STORE").trim()
   )
 
   const [payoutCurrency, setPayoutCurrency] = useState((creator as any)?.payout_currency || "USD")
@@ -1440,7 +1440,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
         slug: cleanUsername,
         support_email: supportEmail || null,
         payout_currency: payoutCurrency,
-        statement_descriptor: normalizeStatementDescriptor(statementDescriptor || creator?.name || "STORE"),
+        statement_descriptor: normalizeStatementDescriptor(statementDescriptor || profile?.username || (creator as any)?.display_name || "STORE"),
       }).eq("id", creator.id)
 
       if (creatorError) throw creatorError
@@ -2634,19 +2634,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               </div>
 
               <div className="pt-2">
-                <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-2">Your default currency</h3>
-                <button
-                  type="button"
-                  onClick={() => setShowCurrencyPicker(true)}
-                  className="w-full max-w-[210px] h-9 rounded-xl text-[13px] border border-[#e5e7eb] px-3 bg-white hover:bg-[#f9fafb] transition-colors flex items-center justify-between cursor-pointer"
-                >
-                  <span>{payoutCurrency}</span>
-                  <ChevronDown className="h-4 w-4 text-[#6b7280]" />
-                </button>
-                <p className="text-[12px] text-[#9ca3af] mt-2">Prices are shown in USD. Payouts are settled in your selected currency.</p>
-                <p className="text-[12px] text-[#9ca3af] mt-1">Lock all buyer-facing prices to USD only.</p>
-
-                <div className="mt-4 space-y-1.5 max-w-[420px]">
+                <div className="space-y-1.5 max-w-[420px]">
                   <div className="flex items-center gap-2">
                     <Label htmlFor="statement-descriptor" className="text-[13px] font-medium text-[#374151]">Statement Descriptor</Label>
                     <TooltipProvider delayDuration={120}>
