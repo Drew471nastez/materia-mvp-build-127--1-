@@ -271,6 +271,7 @@ export async function POST(request: Request) {
       success: true,
       payout: {
         id: stripePayout.id,
+        amount: payoutAmountNative,
         amount_usd_cents: cashoutUsdCents,
         amount_native: payoutAmountNative,
         currency: payoutCurrency,
