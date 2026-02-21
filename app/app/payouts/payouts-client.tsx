@@ -617,11 +617,11 @@ function RevenueChart() {
         <div>
           <div className="flex items-center gap-1.5">
             <p className="text-[13px] font-medium text-[#6b7280]">Revenue</p>
-            <div className="relative group">
+            <div className="relative group/tip">
               <Info className="h-3.5 w-3.5 text-[#9ca3af] cursor-help hover:text-[#6b7280] transition-colors" />
-              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#1a1a2e] text-white text-[11px] leading-relaxed rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 pointer-events-none">
+              <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-3 py-2 bg-[#1a1a2e] text-white text-[11px] leading-relaxed rounded-lg shadow-lg opacity-0 invisible group-hover/tip:opacity-100 group-hover/tip:visible transition-all duration-200 whitespace-nowrap z-50 pointer-events-none">
                 Total gross revenue from all completed sales
-                <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px border-4 border-transparent border-t-[#1a1a2e]" />
+                <div className="absolute right-full top-1/2 -translate-y-1/2 -mr-px border-4 border-transparent border-r-[#1a1a2e]" />
               </div>
             </div>
           </div>
@@ -769,6 +769,9 @@ function RevenueChart() {
               dot={false}
               activeDot={totalRefunds > 0 ? { r: 3, fill: "#f43f5e", strokeWidth: 0 } : false}
               name="Refunds"
+              animationDuration={1200}
+              animationEasing="ease-in-out"
+              animationBegin={200}
             />
             <Area
               type="monotone"
@@ -779,6 +782,9 @@ function RevenueChart() {
               dot={false}
               activeDot={{ r: 4, fill: "#8b5cf6", strokeWidth: 0 }}
               name="Revenue"
+              animationDuration={1200}
+              animationEasing="ease-in-out"
+              animationBegin={0}
             />
           </AreaChart>
         </ResponsiveContainer>
@@ -1010,18 +1016,9 @@ function WithdrawPanel({
       <div className="rounded-xl border border-[#e5e7eb] bg-white p-5">
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <div className="flex items-center gap-1">
-              <p className="text-[10px] text-[#6b7280] font-semibold tracking-widest uppercase leading-tight">
-                Available for cashout
-              </p>
-              <div className="relative group">
-                <Info className="h-3 w-3 text-[#9ca3af] cursor-help hover:text-[#6b7280] transition-colors" />
-                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#1a1a2e] text-white text-[11px] leading-relaxed rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 w-[200px] z-50 pointer-events-none">
-                  Settled funds ready to withdraw to your bank account
-                  <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px border-4 border-transparent border-t-[#1a1a2e]" />
-                </div>
-              </div>
-            </div>
+            <p className="text-[10px] text-[#6b7280] font-semibold tracking-widest uppercase leading-tight">
+              Available for cashout
+            </p>
             {balanceReady ? (
               <p className="text-[28px] sm:text-[32px] leading-none font-bold text-[#1a1a2e] mt-2 tabular-nums">
                 {fmt(availableBalance, currency)}
@@ -1031,18 +1028,9 @@ function WithdrawPanel({
             )}
           </div>
           <div className="text-right">
-            <div className="flex items-center gap-1 justify-end">
-              <p className="text-[10px] text-[#6b7280] font-semibold tracking-widest uppercase leading-tight text-right">
-                Arriving soon
-              </p>
-              <div className="relative group">
-                <Info className="h-3 w-3 text-[#9ca3af] cursor-help hover:text-[#6b7280] transition-colors" />
-                <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-[#1a1a2e] text-white text-[11px] leading-relaxed rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 w-[220px] z-50 pointer-events-none">
-                  Sales are held 2–7 days by Stripe before becoming available for cashout
-                  <div className="absolute top-full right-3 -mt-px border-4 border-transparent border-t-[#1a1a2e]" />
-                </div>
-              </div>
-            </div>
+            <p className="text-[10px] text-[#6b7280] font-semibold tracking-widest uppercase leading-tight text-right">
+              Arriving soon
+            </p>
             {balanceReady ? (
               <p className="text-[24px] sm:text-[28px] leading-none font-bold text-[#6b7280] mt-2 tabular-nums">
                 {fmt(pendingBalance, currency)}
