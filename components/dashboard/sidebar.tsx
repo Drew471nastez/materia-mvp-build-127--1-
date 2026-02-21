@@ -8,7 +8,7 @@ import { LayoutDashboard, Package, LogOut, Download, Menu, Heart, Compass, Setti
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 
 const LOGO_URL = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
@@ -19,80 +19,99 @@ export function DashboardSidebar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [isCreator, setIsCreator] = useState(false)
 
+  // Track saved scroll position for the sidebar scroll lock
+  const savedScrollY = useRef(0)
+
   useEffect(() => {
     setMobileMenuOpen(false)
   }, [pathname])
 
-  // Manual CSS-based scroll lock for mobile sidebar (replaces react-remove-scroll
-  // since we use modal={false} to avoid stale event listeners after navigation).
-  // Properly saves/restores scroll position to prevent visual jump on open/close.
+  // Nuclear scroll-lock cleanup: removes ALL possible scroll-blocking artefacts
+  // from body/html left behind by Radix, react-remove-scroll, or custom modals.
+  const cleanAllScrollLocks = useCallback(() => {
+    const body = document.body
+    const html = document.documentElement
+
+    body.removeAttribute("data-scroll-locked")
+
+    body.classList.remove("with-scroll-bars-hidden")
+    body.classList.remove("modal-open")
+    const toRemove: string[] = []
+    body.classList.forEach((cls) => {
+      if (cls.startsWith("block-interactivity-")) toRemove.push(cls)
+    })
+    toRemove.forEach((cls) => body.classList.remove(cls))
+
+    body.style.overflow = ""
+    body.style.overflowX = ""
+    body.style.overflowY = ""
+    body.style.pointerEvents = ""
+    body.style.position = ""
+    body.style.width = ""
+    body.style.top = ""
+    body.style.left = ""
+    body.style.right = ""
+    body.style.bottom = ""
+    body.style.paddingRight = ""
+    body.style.marginRight = ""
+    body.style.overscrollBehavior = ""
+    body.style.touchAction = ""
+    body.style.removeProperty("--scroll-y")
+    body.style.removeProperty("--removed-body-scroll-bar-size")
+
+    html.style.overflow = ""
+    html.style.overflowY = ""
+    html.style.overscrollBehavior = ""
+
+    document.querySelectorAll("style").forEach((el) => {
+      const t = el.textContent || ""
+      if (
+        t.includes("data-scroll-locked") ||
+        t.includes("block-interactivity") ||
+        t.includes("with-scroll-bars-hidden")
+      ) {
+        el.remove()
+      }
+    })
+  }, [])
+
+  // On MOUNT: aggressively clean up any scroll-lock artefacts left by previous
+  // routes (e.g. /explore filters, other modals). Also clean up on unmount.
+  useEffect(() => {
+    // Immediate cleanup on mount
+    cleanAllScrollLocks()
+    // Delayed cleanup to catch artefacts added after initial paint
+    const raf = requestAnimationFrame(cleanAllScrollLocks)
+    const t1 = setTimeout(cleanAllScrollLocks, 120)
+    const t2 = setTimeout(cleanAllScrollLocks, 350)
+
+    return () => {
+      cancelAnimationFrame(raf)
+      clearTimeout(t1)
+      clearTimeout(t2)
+      // Final cleanup on unmount
+      cleanAllScrollLocks()
+    }
+  }, [cleanAllScrollLocks])
+
+  // Scroll lock for mobile sidebar. Uses overflow:hidden (no position:fixed)
+  // to avoid the visual jump on open/close, and delays unlock until the Sheet
+  // close animation (350ms) finishes so the transition stays smooth.
   useEffect(() => {
     if (mobileMenuOpen) {
-      const scrollY = window.scrollY
-      document.body.style.setProperty("--scroll-y", `-${scrollY}px`)
-      document.body.classList.add("modal-open")
+      savedScrollY.current = window.scrollY
+      document.body.style.overflow = "hidden"
+      document.documentElement.style.overflow = "hidden"
     } else {
-      const scrollY = document.body.style.getPropertyValue("--scroll-y")
-      document.body.classList.remove("modal-open")
-      document.body.style.removeProperty("--scroll-y")
-      if (scrollY) {
-        window.scrollTo(0, parseInt(scrollY || "0") * -1)
-      }
+      // Delay unlock so the Sheet's slide-out animation (350ms) can finish
+      // before the page becomes scrollable again.
+      const timer = setTimeout(() => {
+        document.body.style.overflow = ""
+        document.documentElement.style.overflow = ""
+      }, 360)
+      return () => clearTimeout(timer)
     }
   }, [mobileMenuOpen])
-
-  // Clean up ALL scroll-lock artifacts on unmount (navigating away from /library).
-  // Radix Dialog/Sheet, react-remove-scroll, and custom modal systems can all
-  // leave scroll-blocking state on <body>/<html> that persists after navigation.
-  useEffect(() => {
-    return () => {
-      const body = document.body
-      const html = document.documentElement
-
-      // Remove data attributes
-      body.removeAttribute("data-scroll-locked")
-
-      // Remove scroll-blocking classes
-      body.classList.remove("with-scroll-bars-hidden")
-      body.classList.remove("modal-open")
-      body.classList.forEach((cls) => {
-        if (cls.startsWith("block-interactivity-")) {
-          body.classList.remove(cls)
-        }
-      })
-
-      // Clear body inline styles
-      body.style.overflow = ""
-      body.style.overflowY = ""
-      body.style.pointerEvents = ""
-      body.style.position = ""
-      body.style.width = ""
-      body.style.top = ""
-      body.style.paddingRight = ""
-      body.style.marginRight = ""
-      body.style.overscrollBehavior = ""
-      body.style.touchAction = ""
-      body.style.removeProperty("--scroll-y")
-      body.style.removeProperty("--removed-body-scroll-bar-size")
-
-      // Clear html inline styles
-      html.style.overflow = ""
-      html.style.overflowY = ""
-      html.style.overscrollBehavior = ""
-
-      // Remove injected <style> elements from react-remove-scroll
-      document.querySelectorAll("style").forEach((el) => {
-        const content = el.textContent || ""
-        if (
-          content.includes("data-scroll-locked") ||
-          content.includes("block-interactivity") ||
-          content.includes("with-scroll-bars-hidden")
-        ) {
-          el.remove()
-        }
-      })
-    }
-  }, [])
 
   useEffect(() => {
     const supabase = createClient()
