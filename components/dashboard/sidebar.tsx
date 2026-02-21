@@ -8,10 +8,62 @@ import { LayoutDashboard, Package, LogOut, Download, Menu, Heart, Compass, Setti
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 
 const LOGO_URL = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
+
+/**
+ * Removes every known scroll-blocking artefact from body/html.
+ * Called as a safety-net on mount, unmount, and pathname changes so that
+ * stale locks left by Radix, react-remove-scroll, or other pages can
+ * never permanently freeze scrolling.
+ */
+function nukeScrollLocks() {
+  const body = document.body
+  const html = document.documentElement
+
+  body.removeAttribute("data-scroll-locked")
+
+  body.classList.remove("with-scroll-bars-hidden", "modal-open")
+  const toRemove: string[] = []
+  body.classList.forEach((cls) => {
+    if (cls.startsWith("block-interactivity-")) toRemove.push(cls)
+  })
+  toRemove.forEach((cls) => body.classList.remove(cls))
+
+  body.style.overflow = ""
+  body.style.overflowX = ""
+  body.style.overflowY = ""
+  body.style.pointerEvents = ""
+  body.style.position = ""
+  body.style.width = ""
+  body.style.top = ""
+  body.style.left = ""
+  body.style.right = ""
+  body.style.bottom = ""
+  body.style.paddingRight = ""
+  body.style.marginRight = ""
+  body.style.overscrollBehavior = ""
+  body.style.touchAction = ""
+  body.style.removeProperty("--scroll-y")
+  body.style.removeProperty("--removed-body-scroll-bar-size")
+
+  html.style.overflow = ""
+  html.style.overflowY = ""
+  html.style.overscrollBehavior = ""
+
+  document.querySelectorAll("style").forEach((el) => {
+    const t = el.textContent || ""
+    if (
+      t.includes("data-scroll-locked") ||
+      t.includes("block-interactivity") ||
+      t.includes("with-scroll-bars-hidden")
+    ) {
+      el.remove()
+    }
+  })
+}
 
 export function DashboardSidebar() {
   const pathname = usePathname()
@@ -19,97 +71,29 @@ export function DashboardSidebar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [isCreator, setIsCreator] = useState(false)
 
-  // Track saved scroll position for the sidebar scroll lock
-  const savedScrollY = useRef(0)
-
+  // Close mobile menu on every navigation within /library.
   useEffect(() => {
     setMobileMenuOpen(false)
   }, [pathname])
 
-  // Nuclear scroll-lock cleanup: removes ALL possible scroll-blocking artefacts
-  // from body/html left behind by Radix, react-remove-scroll, or custom modals.
-  const cleanAllScrollLocks = useCallback(() => {
-    const body = document.body
-    const html = document.documentElement
-
-    body.removeAttribute("data-scroll-locked")
-
-    body.classList.remove("with-scroll-bars-hidden")
-    body.classList.remove("modal-open")
-    const toRemove: string[] = []
-    body.classList.forEach((cls) => {
-      if (cls.startsWith("block-interactivity-")) toRemove.push(cls)
-    })
-    toRemove.forEach((cls) => body.classList.remove(cls))
-
-    body.style.overflow = ""
-    body.style.overflowX = ""
-    body.style.overflowY = ""
-    body.style.pointerEvents = ""
-    body.style.position = ""
-    body.style.width = ""
-    body.style.top = ""
-    body.style.left = ""
-    body.style.right = ""
-    body.style.bottom = ""
-    body.style.paddingRight = ""
-    body.style.marginRight = ""
-    body.style.overscrollBehavior = ""
-    body.style.touchAction = ""
-    body.style.removeProperty("--scroll-y")
-    body.style.removeProperty("--removed-body-scroll-bar-size")
-
-    html.style.overflow = ""
-    html.style.overflowY = ""
-    html.style.overscrollBehavior = ""
-
-    document.querySelectorAll("style").forEach((el) => {
-      const t = el.textContent || ""
-      if (
-        t.includes("data-scroll-locked") ||
-        t.includes("block-interactivity") ||
-        t.includes("with-scroll-bars-hidden")
-      ) {
-        el.remove()
-      }
-    })
+  // Safety-net: nuke stale scroll locks on mount + unmount.
+  // Catches artefacts left by other pages (e.g. /explore filter modals).
+  useEffect(() => {
+    nukeScrollLocks()
+    const t = setTimeout(nukeScrollLocks, 400)
+    return () => {
+      clearTimeout(t)
+      nukeScrollLocks()
+    }
   }, [])
 
-  // On MOUNT: aggressively clean up any scroll-lock artefacts left by previous
-  // routes (e.g. /explore filters, other modals). Also clean up on unmount.
+  // Safety-net: after the sidebar closes AND its Radix animation finishes,
+  // make sure nothing is left blocking scroll.  Runs 500ms after close
+  // which is well past the 350ms Sheet exit animation + Radix teardown.
   useEffect(() => {
-    // Immediate cleanup on mount
-    cleanAllScrollLocks()
-    // Delayed cleanup to catch artefacts added after initial paint
-    const raf = requestAnimationFrame(cleanAllScrollLocks)
-    const t1 = setTimeout(cleanAllScrollLocks, 120)
-    const t2 = setTimeout(cleanAllScrollLocks, 350)
-
-    return () => {
-      cancelAnimationFrame(raf)
-      clearTimeout(t1)
-      clearTimeout(t2)
-      // Final cleanup on unmount
-      cleanAllScrollLocks()
-    }
-  }, [cleanAllScrollLocks])
-
-  // Scroll lock for mobile sidebar. Uses overflow:hidden (no position:fixed)
-  // to avoid the visual jump on open/close, and delays unlock until the Sheet
-  // close animation (350ms) finishes so the transition stays smooth.
-  useEffect(() => {
-    if (mobileMenuOpen) {
-      savedScrollY.current = window.scrollY
-      document.body.style.overflow = "hidden"
-      document.documentElement.style.overflow = "hidden"
-    } else {
-      // Delay unlock so the Sheet's slide-out animation (350ms) can finish
-      // before the page becomes scrollable again.
-      const timer = setTimeout(() => {
-        document.body.style.overflow = ""
-        document.documentElement.style.overflow = ""
-      }, 360)
-      return () => clearTimeout(timer)
+    if (!mobileMenuOpen) {
+      const t = setTimeout(nukeScrollLocks, 500)
+      return () => clearTimeout(t)
     }
   }, [mobileMenuOpen])
 
@@ -266,7 +250,10 @@ export function DashboardSidebar() {
         </div>
       </header>
 
-      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen} modal={false}>
+      {/* modal={true} (default) lets Radix natively handle scroll lock,
+          focus trapping, overlay dismiss, and escape key.  No manual
+          overflow manipulation needed — eliminates all race conditions. */}
+      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
         <SheetContent side="left" className="w-[280px] max-w-[85vw] p-0 pt-[env(safe-area-inset-top)]">
           <SheetHeader className="sr-only">
             <SheetTitle>Navigation Menu</SheetTitle>
