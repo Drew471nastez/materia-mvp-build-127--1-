@@ -21,6 +21,11 @@ export async function generateSignedDownloadUrl(
   expirySeconds: number = SIGNED_URL_EXPIRY_SECONDS,
   preferredBucket?: string,
 ): Promise<{ url: string; bucket: string } | null> {
+  if (!filePath) {
+    console.error("[download] generateSignedDownloadUrl called with empty filePath")
+    return null
+  }
+
   // Normalize path: strip bucket prefix if present
   let normalizedPath = filePath
   const bucketPrefixes = ["digital-products/", "product-files/", "digital-assets/", "lead-form-files-v2/"]

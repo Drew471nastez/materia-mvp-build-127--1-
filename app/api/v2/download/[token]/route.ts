@@ -180,61 +180,81 @@ async function handleAssetDownload(
   let entitlementId: string | null = null
 
   // Check via receipt token
-  const { data: order } = await admin
-    .from("orders")
-    .select("id, product_id, buyer_id, variant_id")
-    .eq("receipt_token", receiptOrToken)
-    .single()
+  try {
+    const { data: order } = await admin
+      .from("orders")
+      .select("id, product_id, buyer_id, variant_id")
+      .eq("receipt_token", receiptOrToken)
+      .single()
 
-  if (order && order.product_id === asset.product_id) {
-    orderId = order.id
-    hasAccess = true
+    if (order && order.product_id === asset.product_id) {
+      orderId = order.id
+      hasAccess = true
 
-    // Variant access check
-    if (order.variant_id) {
-      const { data: variantFile } = await admin
-        .from("product_variant_files")
-        .select("id")
-        .eq("variant_id", order.variant_id)
-        .eq("digital_asset_id", assetId)
-        .maybeSingle()
+      // Variant access check (fail-open on error)
+      if (order.variant_id) {
+        try {
+          const { data: variantFile, error: variantError } = await admin
+            .from("product_variant_files")
+            .select("id")
+            .eq("variant_id", order.variant_id)
+            .eq("digital_asset_id", assetId)
+            .maybeSingle()
 
-      if (!variantFile) {
-        hasAccess = false
+          if (!variantError && !variantFile) {
+            hasAccess = false
+          }
+        } catch {
+          // Fail-open
+        }
       }
     }
+  } catch {
+    // Receipt token lookup failed
   }
 
   // Check authenticated user access
   if (!hasAccess) {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    try {
+      const supabase = await createClient()
+      const { data: { user } } = await supabase.auth.getUser()
 
-    if (user) {
-      // Check entitlement
-      const { data: entitlement } = await admin
-        .from("entitlements")
-        .select("id")
-        .eq("buyer_id", user.id)
-        .eq("product_id", asset.product_id)
-        .single()
+      if (user) {
+        // Check entitlement
+        try {
+          const { data: entitlement } = await admin
+            .from("entitlements")
+            .select("id")
+            .eq("buyer_id", user.id)
+            .eq("product_id", asset.product_id)
+            .single()
 
-      if (entitlement) {
-        hasAccess = true
-        entitlementId = entitlement.id
+          if (entitlement) {
+            hasAccess = true
+            entitlementId = entitlement.id
+          }
+        } catch {
+          // Non-fatal
+        }
+
+        // Allow creator access
+        if (!hasAccess && asset.product?.creator_id) {
+          try {
+            const { data: creator } = await admin
+              .from("creators")
+              .select("id")
+              .eq("user_id", user.id)
+              .eq("id", asset.product.creator_id)
+              .single()
+
+            if (creator) hasAccess = true
+          } catch {
+            // Non-fatal
+          }
+        }
       }
-
-      // Allow creator access
-      if (!hasAccess && asset.product?.creator_id) {
-        const { data: creator } = await admin
-          .from("creators")
-          .select("id")
-          .eq("user_id", user.id)
-          .eq("id", asset.product.creator_id)
-          .single()
-
-        if (creator) hasAccess = true
-      }
+    } catch {
+      // Auth check failed
     }
   }
 
@@ -243,12 +263,16 @@ async function handleAssetDownload(
   }
 
   // Check if file has been scanned and is safe to download
-  const safetyCheck = await isAssetSafeToDownload(admin, assetId)
-  if (!safetyCheck.safe) {
-    return NextResponse.json(
-      { error: safetyCheck.reason || "File is not available for download." },
-      { status: 403 },
-    )
+  try {
+    const safetyCheck = await isAssetSafeToDownload(admin, assetId)
+    if (!safetyCheck.safe) {
+      return NextResponse.json(
+        { error: safetyCheck.reason || "File is not available for download." },
+        { status: 403 },
+      )
+    }
+  } catch {
+    // If safety check fails, allow download (fail-open)
   }
 
   // Generate signed URL
@@ -257,14 +281,14 @@ async function handleAssetDownload(
     return NextResponse.json({ error: "Failed to generate download link" }, { status: 500 })
   }
 
-  // Log download
-  await logDownloadEvent(admin, {
+  // Log download (fire-and-forget)
+  logDownloadEvent(admin, {
     assetId: asset.id,
     orderId: orderId || undefined,
     entitlementId: entitlementId || undefined,
     ip,
     userAgent,
-  })
+  }).catch(() => {})
 
   return NextResponse.json({
     success: true,

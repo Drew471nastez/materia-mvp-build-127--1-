@@ -48,50 +48,42 @@ export async function downloadEntitledFile(
       apiUrl += `?${params.toString()}`
     }
 
-    // Step 1: get signed download URL from our API
-    const response = await fetch(apiUrl)
+    // Get signed download URL from our API (with 30s timeout to prevent hanging)
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 30000)
+
+    let response: Response
+    try {
+      response = await fetch(apiUrl, { signal: controller.signal })
+    } finally {
+      clearTimeout(timeoutId)
+    }
+
     const data = await response.json()
 
     if (!response.ok || !data.success) {
       throw new Error(data.error || data.message || "Failed to get download link")
     }
 
-    // Derive filename
     const filename = data.fileName || "download"
 
-    // Step 2: Try blob-based download first (works same-origin & when CORS allows),
-    // fall back to direct link navigation (always works but can't set filename).
-    try {
-      const fileRes = await fetch(data.downloadUrl)
-      if (!fileRes.ok) throw new Error("fetch failed")
-      const blob = await fileRes.blob()
-
-      const blobUrl = URL.createObjectURL(blob)
-      const link = document.createElement("a")
-      link.href = blobUrl
-      link.style.display = "none"
-      link.download = filename
-      document.body.appendChild(link)
-      link.click()
-      setTimeout(() => {
-        document.body.removeChild(link)
-        URL.revokeObjectURL(blobUrl)
-      }, 300)
-    } catch {
-      // Blob fetch failed (CORS, network, etc.) — fall back to direct <a> download.
-      // Signed Supabase URLs include ?download=true which sets Content-Disposition.
-      const link = document.createElement("a")
-      link.href = data.downloadUrl
-      link.download = filename
-      link.style.display = "none"
-      link.rel = "noopener noreferrer"
-      document.body.appendChild(link)
-      link.click()
-      setTimeout(() => document.body.removeChild(link), 300)
-    }
+    // Trigger download via <a> link — the signed Supabase URL already has
+    // Content-Disposition: attachment set (from { download: true }),
+    // so the browser will download the file natively without loading it into memory.
+    const link = document.createElement("a")
+    link.href = data.downloadUrl
+    link.download = filename
+    link.style.display = "none"
+    link.rel = "noopener noreferrer"
+    document.body.appendChild(link)
+    link.click()
+    setTimeout(() => document.body.removeChild(link), 300)
 
     return { success: true }
   } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") {
+      return { success: false, error: "Request timed out. Please try again." }
+    }
     return {
       success: false,
       error: err instanceof Error ? err.message : "Download failed",
