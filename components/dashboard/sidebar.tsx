@@ -23,6 +23,16 @@ export function DashboardSidebar() {
     setMobileMenuOpen(false)
   }, [pathname])
 
+  // Manual CSS-based scroll lock for mobile sidebar (replaces react-remove-scroll
+  // since we use modal={false} to avoid stale event listeners after navigation).
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.classList.add("modal-open")
+    } else {
+      document.body.classList.remove("modal-open")
+    }
+  }, [mobileMenuOpen])
+
   // Clean up ALL scroll-lock artifacts on unmount (navigating away from /library).
   // Radix Dialog/Sheet, react-remove-scroll, and custom modal systems can all
   // leave scroll-blocking state on <body>/<html> that persists after navigation.
@@ -229,7 +239,7 @@ export function DashboardSidebar() {
         </div>
       </header>
 
-      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen} modal={false}>
         <SheetContent side="left" className="w-[280px] max-w-[85vw] p-0 pt-[env(safe-area-inset-top)]">
           <SheetHeader className="sr-only">
             <SheetTitle>Navigation Menu</SheetTitle>

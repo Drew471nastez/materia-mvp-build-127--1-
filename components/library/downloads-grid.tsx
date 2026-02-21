@@ -179,7 +179,7 @@ export function DownloadsGrid({ items }: { items: DownloadItem[] }) {
 
       {/* Desktop dialog */}
       {!isMobile && (
-        <Dialog open={!!activeItem} onOpenChange={(open) => !open && setActiveItem(null)}>
+        <Dialog open={!!activeItem} onOpenChange={(open) => !open && setActiveItem(null)} modal={false}>
           <DialogContent className="sm:max-w-lg">
             <DialogHeader>
               <DialogTitle>{activeItem?.title || "Download files"}</DialogTitle>

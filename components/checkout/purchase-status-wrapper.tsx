@@ -279,7 +279,7 @@ export function PurchaseStatusWrapper({
   const downloadFilesModal = canDownload && downloadFiles.length > 1 && (
     <>
       {!isMobileViewport && (
-        <Dialog open={showDownloadFilesModal} onOpenChange={setShowDownloadFilesModal}>
+        <Dialog open={showDownloadFilesModal} onOpenChange={setShowDownloadFilesModal} modal={false}>
           <DialogContent className="sm:max-w-lg">
             <DialogHeader>
               <DialogTitle>{selectedVariant?.name || "Download files"}</DialogTitle>
