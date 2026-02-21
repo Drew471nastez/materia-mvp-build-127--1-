@@ -715,11 +715,7 @@ export default function ReceiptContent({
                     assetId={asset.id}
                     receiptToken={receiptToken}
                     size="lg"
-                    className={`w-full h-12 rounded-xl font-medium ${
-                      index === 0
-                        ? "bg-[#7c3aed] hover:bg-[#6d28d9] text-white shadow-sm"
-                        : "bg-gray-100 hover:bg-gray-200 text-gray-700"
-                    }`}
+                    className="w-full h-12 rounded-xl font-medium bg-[#7c3aed] hover:bg-[#6d28d9] text-white shadow-sm"
                   >
                     Download {product?.title}
                   </DownloadButton>
@@ -747,11 +743,11 @@ export default function ReceiptContent({
 
         {/* Account CTA for non-owners */}
         {!isOwner && (
-          <Card className="border-0 shadow-lg shadow-blue-100/50 rounded-2xl overflow-hidden bg-gradient-to-br from-blue-50 to-indigo-50">
+          <Card className="border-0 shadow-sm rounded-2xl overflow-hidden bg-[#f9fafb]">
             <CardContent className="p-5 sm:p-6">
               <div className="flex items-start gap-3 mb-4">
-                <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
-                  <Sparkles className="h-5 w-5 text-blue-600" />
+                <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-[#f3f4f6] flex items-center justify-center">
+                  <Sparkles className="h-5 w-5 text-[#6b7280]" />
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900">Keep access forever</h3>

@@ -158,7 +158,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ asse
   // Generate signed URL using multi-bucket resolver
   try {
     const { generateSignedDownloadUrl, logDownloadEvent } = await import("@/lib/storage")
-    const signed = await generateSignedDownloadUrl(admin, asset.file_path, SIGNED_URL_EXPIRY_SECONDS)
+    const signed = await generateSignedDownloadUrl(admin, asset.file_path, SIGNED_URL_EXPIRY_SECONDS, asset.storage_bucket || undefined)
 
     if (!signed) {
       return NextResponse.json({ error: "Failed to generate download link" }, { status: 500 })

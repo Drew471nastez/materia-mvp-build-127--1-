@@ -19,6 +19,7 @@ export async function generateSignedDownloadUrl(
   admin: SupabaseClient,
   filePath: string,
   expirySeconds: number = SIGNED_URL_EXPIRY_SECONDS,
+  preferredBucket?: string,
 ): Promise<{ url: string; bucket: string } | null> {
   // Normalize path: strip bucket prefix if present
   let normalizedPath = filePath
@@ -38,8 +39,11 @@ export async function generateSignedDownloadUrl(
     }
   }
 
-  // Try buckets in order: digital-products (new), product-files (legacy), digital-assets (legacy)
-  const bucketsToTry = [STORAGE_BUCKET, "product-files", "digital-assets"]
+  // Build bucket order: preferred first (if provided), then standard fallbacks
+  const standardBuckets = [STORAGE_BUCKET, "product-files", "digital-assets"]
+  const bucketsToTry = preferredBucket
+    ? [preferredBucket, ...standardBuckets.filter((b) => b !== preferredBucket)]
+    : standardBuckets
 
   for (const bucket of bucketsToTry) {
     const { data, error } = await admin.storage

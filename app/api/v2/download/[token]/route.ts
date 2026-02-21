@@ -115,7 +115,7 @@ export async function GET(
     // Generate signed URLs for all assets
     const downloadLinks = await Promise.all(
       assets.map(async (asset) => {
-        const signed = await generateSignedDownloadUrl(admin, asset.file_path)
+        const signed = await generateSignedDownloadUrl(admin, asset.file_path, undefined, asset.storage_bucket || undefined)
 
         // Log download event
         await logDownloadEvent(admin, {
@@ -252,7 +252,7 @@ async function handleAssetDownload(
   }
 
   // Generate signed URL
-  const signed = await generateSignedDownloadUrl(admin, asset.file_path)
+  const signed = await generateSignedDownloadUrl(admin, asset.file_path, undefined, asset.storage_bucket || undefined)
   if (!signed) {
     return NextResponse.json({ error: "Failed to generate download link" }, { status: 500 })
   }

@@ -399,14 +399,12 @@ export default function CheckoutReceiptClient({
         receiptToken={receiptToken}
         fileName={asset.file_name}
         size="lg"
-        className={`w-full h-auto min-h-[48px] rounded-xl text-sm font-medium px-4 py-3 ${
-          idx === 0 ? "bg-[#7c3aed] hover:bg-[#6d28d9] text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-900"
-        }`}
+        className={`w-full h-auto min-h-[48px] rounded-xl text-sm font-medium px-4 py-3 bg-[#7c3aed] hover:bg-[#6d28d9] text-white`}
       >
         <span className="flex items-center gap-2 w-full min-w-0">
           <span className="truncate">{displayName}</span>
           {fileSize && (
-            <span className={`shrink-0 text-xs font-normal ${idx === 0 ? "text-white/60" : "text-gray-400"}`}>
+            <span className="shrink-0 text-xs font-normal text-white/60">
               {fileSize}
             </span>
           )}
@@ -669,10 +667,10 @@ export default function CheckoutReceiptClient({
 
           {/* Account CTA for guests */}
           {!isLoggedIn && (
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-100 p-5">
+            <div className="bg-[#f9fafb] rounded-2xl border border-[#e5e7eb] p-5">
               <div className="flex items-center gap-2.5 mb-3">
-                <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
-                  <UserPlus className="h-4 w-4 text-blue-600" />
+                <div className="h-8 w-8 rounded-lg bg-[#f3f4f6] flex items-center justify-center shrink-0">
+                  <UserPlus className="h-4 w-4 text-[#6b7280]" />
                 </div>
                 <p className="text-sm font-semibold text-gray-900">Create an account</p>
               </div>
@@ -913,10 +911,10 @@ export default function CheckoutReceiptClient({
 
             {/* Account CTA for guests */}
             {!isLoggedIn && (
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+              <div className="bg-[#f9fafb] rounded-2xl border border-[#e5e7eb] shadow-sm p-6">
                 <div className="flex items-start gap-3 mb-4">
-                  <div className="h-10 w-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
-                    <UserPlus className="h-5 w-5 text-blue-600" />
+                  <div className="h-10 w-10 rounded-xl bg-[#f3f4f6] flex items-center justify-center shrink-0">
+                    <UserPlus className="h-5 w-5 text-[#6b7280]" />
                   </div>
                   <div className="flex-1">
                     <h3 className="font-semibold text-gray-900">Create an account</h3>

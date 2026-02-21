@@ -48,7 +48,7 @@ export async function downloadEntitledFile(
       apiUrl += `?${params.toString()}`
     }
 
-    // Step 1: get signed download URL
+    // Step 1: get signed download URL from our API
     const response = await fetch(apiUrl)
     const data = await response.json()
 
@@ -56,40 +56,39 @@ export async function downloadEntitledFile(
       throw new Error(data.error || data.message || "Failed to get download link")
     }
 
-    // Step 2: fetch the file as a blob and trigger a native download
-    // This avoids opening any new tab or redirecting.
-    const fileRes = await fetch(data.downloadUrl)
-    if (!fileRes.ok) throw new Error("Failed to fetch file")
-    const blob = await fileRes.blob()
+    // Derive filename
+    const filename = data.fileName || "download"
 
-    const blobUrl = URL.createObjectURL(blob)
-    const link = document.createElement("a")
-    link.href = blobUrl
-    link.style.display = "none"
-    // Derive filename from Content-Disposition header, URL, or provided name
-    const disposition = fileRes.headers.get("content-disposition")
-    let filename = data.fileName || ""
-    if (disposition) {
-      const match = disposition.match(/filename\*?=(?:UTF-8'')?["']?([^"';\n]+)/i)
-      if (match?.[1]) filename = decodeURIComponent(match[1])
+    // Step 2: Try blob-based download first (works same-origin & when CORS allows),
+    // fall back to direct link navigation (always works but can't set filename).
+    try {
+      const fileRes = await fetch(data.downloadUrl)
+      if (!fileRes.ok) throw new Error("fetch failed")
+      const blob = await fileRes.blob()
+
+      const blobUrl = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = blobUrl
+      link.style.display = "none"
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      setTimeout(() => {
+        document.body.removeChild(link)
+        URL.revokeObjectURL(blobUrl)
+      }, 300)
+    } catch {
+      // Blob fetch failed (CORS, network, etc.) — fall back to direct <a> download.
+      // Signed Supabase URLs include ?download=true which sets Content-Disposition.
+      const link = document.createElement("a")
+      link.href = data.downloadUrl
+      link.download = filename
+      link.style.display = "none"
+      link.rel = "noopener noreferrer"
+      document.body.appendChild(link)
+      link.click()
+      setTimeout(() => document.body.removeChild(link), 300)
     }
-    if (!filename) {
-      try {
-        const urlPath = new URL(data.downloadUrl).pathname
-        filename = urlPath.split("/").pop() || "download"
-      } catch {
-        filename = "download"
-      }
-    }
-    link.download = filename
-
-    document.body.appendChild(link)
-    link.click()
-
-    setTimeout(() => {
-      document.body.removeChild(link)
-      URL.revokeObjectURL(blobUrl)
-    }, 300)
 
     return { success: true }
   } catch (err) {

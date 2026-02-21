@@ -4176,7 +4176,7 @@ function PayoutsHistoryList({
     <div className={cn("overflow-hidden", !flat && "bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)]")}>
       {/* Mobile card view */}
       <div className="sm:hidden divide-y divide-[#e5e7eb]">
-        {(pageSwitchLoading ? [] : visiblePayouts).map((p) => {
+        {visiblePayouts.map((p) => {
           const cfg = payoutStatusConfig(p.status);
           return (
             <div key={p.id} className="px-4 py-3">
@@ -4244,7 +4244,7 @@ function PayoutsHistoryList({
             </tr>
           </thead>
           <tbody className="divide-y divide-[#e5e7eb]">
-            {(pageSwitchLoading ? [] : visiblePayouts).map((p) => {
+            {visiblePayouts.map((p) => {
               const cfg = payoutStatusConfig(p.status);
               const arrivalNode = p.arrival_date ? (
                 p.status === "paid" ? (
@@ -4536,18 +4536,20 @@ export function PayoutsClient({
       requestAnimationFrame(() => {
         requestAnimationFrame(() => setIsPageLoading(false));
       });
-    }, 180);
+    }, 150);
   };
 
-  // Smooth two-phase transition: quick fade out (100ms) → swap → fade in (150ms)
+  // Smooth crossfade: gentle fade out → swap data → fade back in
   const smoothSwitch = useCallback((swapFn: () => void) => {
     setIsPageLoading(true);
+    // Wait for the CSS fade-out to finish before swapping content
     setTimeout(() => {
       swapFn();
+      // Double rAF ensures the DOM has painted with new content before fading back in
       requestAnimationFrame(() => {
         requestAnimationFrame(() => setIsPageLoading(false));
       });
-    }, 100);
+    }, 150);
   }, []);
 
   // Close order action menu on outside click
@@ -4910,12 +4912,9 @@ export function PayoutsClient({
             </div>
 
             <div
-              className="will-change-[opacity]"
               style={{
                 opacity: isPageLoading ? 0 : 1,
-                transition: isPageLoading
-                  ? "opacity 80ms ease-out"
-                  : "opacity 150ms ease-in",
+                transition: "opacity 150ms ease",
               }}
             >
               {recentTab === "payouts" ? (
@@ -4932,7 +4931,7 @@ export function PayoutsClient({
                 <>
                   {/* Mobile card list */}
                   <div className="sm:hidden divide-y divide-[#f3f4f6]">
-                    {(isPageLoading ? [] : pagedOrders).map((order) => {
+                    {pagedOrders.map((order) => {
                       const productImage = order.product?.thumbnail_url;
                       const customerName =
                         order.buyer?.display_name ||
@@ -5012,7 +5011,7 @@ export function PayoutsClient({
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[#e5e7eb]">
-                        {(isPageLoading ? [] : pagedOrders).map((order) => {
+                        {pagedOrders.map((order) => {
                           const productImage = order.product?.thumbnail_url;
                           return (
                             <tr
