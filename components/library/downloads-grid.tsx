@@ -1,11 +1,13 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useEffect, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { ArrowRight, Calendar, Download, FileText, Loader2, Package, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { downloadEntitledFile } from "@/components/download-button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 
 type DownloadFile = {
   id: string
@@ -28,10 +30,6 @@ export function DownloadsGrid({ items }: { items: DownloadItem[] }) {
   const [downloadingFileId, setDownloadingFileId] = useState<string | null>(null)
   const [isMobile, setIsMobile] = useState(false)
 
-  // Picker animation state (shared by desktop modal and mobile bottom sheet)
-  const [pickerVisible, setPickerVisible] = useState(false)
-  const [pickerAnimating, setPickerAnimating] = useState(false)
-
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth <= 768)
     check()
@@ -39,48 +37,11 @@ export function DownloadsGrid({ items }: { items: DownloadItem[] }) {
     return () => window.removeEventListener("resize", check)
   }, [])
 
-  // Open picker with animation
-  const openPicker = useCallback((item: DownloadItem) => {
-    setActiveItem(item)
-    setPickerVisible(true)
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        setPickerAnimating(true)
-      })
-    })
-  }, [])
+  const isPickerOpen = activeItem !== null
 
-  // Close picker with smooth animation
-  const closePicker = useCallback(() => {
-    setPickerAnimating(false)
-    setTimeout(() => {
-      setPickerVisible(false)
-      setActiveItem(null)
-    }, 400)
-  }, [])
-
-  // Close on Escape key
-  useEffect(() => {
-    if (!pickerVisible) return
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closePicker()
-    }
-    document.addEventListener("keydown", handler)
-    return () => document.removeEventListener("keydown", handler)
-  }, [pickerVisible, closePicker])
-
-  // Body scroll lock while file picker is open
-  useEffect(() => {
-    if (!pickerVisible) return
-    const scrollY = window.scrollY
-    document.body.style.setProperty("--scroll-y", `-${scrollY}px`)
-    document.body.classList.add("modal-open")
-    return () => {
-      document.body.classList.remove("modal-open")
-      document.body.style.removeProperty("--scroll-y")
-      window.scrollTo(0, scrollY)
-    }
-  }, [pickerVisible])
+  const handlePickerClose = (open: boolean) => {
+    if (!open) setActiveItem(null)
+  }
 
   const handleDownload = async (assetId: string) => {
     setDownloadingFileId(assetId)
@@ -164,7 +125,7 @@ export function DownloadsGrid({ items }: { items: DownloadItem[] }) {
                   )}
                 </Button>
               ) : item.files.length > 1 ? (
-                <Button className="w-full h-12 cursor-pointer" variant="outline" onClick={() => openPicker(item)}>
+                <Button className="w-full h-12 cursor-pointer" variant="outline" onClick={() => setActiveItem(item)}>
                   <FileText className="mr-2 h-4 w-4" />
                   Choose file ({item.files.length})
                 </Button>
@@ -181,97 +142,57 @@ export function DownloadsGrid({ items }: { items: DownloadItem[] }) {
         ))}
       </div>
 
-      {/* File picker - custom overlay + modal (desktop) / bottom sheet (mobile) */}
-      {pickerVisible && (
-        <div className="fixed inset-0 z-[2147483638]">
-          {/* Backdrop overlay */}
-          <div
-            className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
-            style={{
-              opacity: pickerAnimating ? 1 : 0,
-              transition: "opacity 300ms cubic-bezier(0.32, 0.72, 0, 1)",
-            }}
-            onClick={closePicker}
-            aria-hidden="true"
-          />
+      {/* Desktop: Radix Dialog with proper overlay */}
+      <Dialog open={isPickerOpen && !isMobile} onOpenChange={handlePickerClose}>
+        <DialogContent className="sm:max-w-lg p-0 gap-0 rounded-2xl">
+          <DialogHeader className="p-6 pb-4 border-b border-neutral-100">
+            <DialogTitle className="truncate pr-6 text-neutral-900">
+              {activeItem?.title || "Download files"}
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              Choose a file to download
+            </DialogDescription>
+          </DialogHeader>
+          <div className="px-6 py-5 max-h-[60vh] overflow-y-auto">
+            {fileRows}
+          </div>
+        </DialogContent>
+      </Dialog>
 
-          {isMobile ? (
-            /* Mobile: Bottom sheet */
-            <div
-              className="absolute bottom-0 left-0 right-0 rounded-t-[20px] bg-white shadow-[0_-8px_30px_rgba(0,0,0,0.12)]"
-              style={{
-                transform: pickerAnimating ? "translateY(0)" : "translateY(100%)",
-                transition: "transform 380ms cubic-bezier(0.32, 0.72, 0, 1)",
-                maxHeight: "85vh",
-                paddingBottom: "env(safe-area-inset-bottom, 0px)",
-              }}
-              onClick={(e) => e.stopPropagation()}
-              role="dialog"
-              aria-modal="true"
-              aria-label={activeItem?.title || "Choose file"}
-            >
-              {/* Drag handle */}
-              <div className="flex justify-center pt-3 pb-1">
-                <div className="h-[5px] w-10 rounded-full bg-neutral-300" />
-              </div>
-              {/* Header */}
-              <div className="flex items-center justify-between px-5 pt-1 pb-4 border-b border-neutral-100">
-                <h4 className="text-[17px] font-semibold text-neutral-900 truncate pr-3">{activeItem?.title}</h4>
-                <button
-                  type="button"
-                  className="h-9 w-9 shrink-0 rounded-full bg-neutral-100 text-neutral-500 flex items-center justify-center cursor-pointer active:scale-95 transition-transform"
-                  onClick={closePicker}
-                  aria-label="Close"
-                >
-                  <X className="h-[18px] w-[18px]" />
-                </button>
-              </div>
-              {/* File list */}
-              <div className="px-5 py-4 max-h-[calc(85vh-100px)] overflow-y-auto overscroll-contain">
-                {fileRows}
-              </div>
-            </div>
-          ) : (
-            /* Desktop: Centered modal with overlay */
-            <div
-              className="absolute inset-0 flex items-center justify-center p-4"
-              onClick={closePicker}
-            >
-              <div
-                className="bg-white rounded-2xl shadow-2xl w-full max-w-lg border border-neutral-200/80 ring-1 ring-black/[0.04]"
-                style={{
-                  opacity: pickerAnimating ? 1 : 0,
-                  transform: pickerAnimating ? "scale(1) translateY(0)" : "scale(0.97) translateY(6px)",
-                  transition: "opacity 250ms cubic-bezier(0.32, 0.72, 0, 1), transform 250ms cubic-bezier(0.32, 0.72, 0, 1)",
-                }}
-                onClick={(e) => e.stopPropagation()}
-                role="dialog"
-                aria-modal="true"
-                aria-label={activeItem?.title || "Choose file"}
+      {/* Mobile: Radix Sheet as bottom sheet with proper overlay */}
+      <Sheet open={isPickerOpen && isMobile} onOpenChange={handlePickerClose}>
+        <SheetContent
+          side="bottom"
+          hideCloseButton
+          className="rounded-t-[20px] border-t-0 p-0 gap-0 max-h-[85vh] pb-[env(safe-area-inset-bottom)]"
+        >
+          {/* Drag handle */}
+          <div className="flex justify-center pt-3 pb-1">
+            <div className="h-[5px] w-10 rounded-full bg-neutral-300" />
+          </div>
+          <SheetHeader className="px-5 pt-1 pb-4 border-b border-neutral-100 gap-0">
+            <div className="flex items-center justify-between">
+              <SheetTitle className="text-[17px] text-neutral-900 truncate pr-3">
+                {activeItem?.title}
+              </SheetTitle>
+              <button
+                type="button"
+                className="h-9 w-9 shrink-0 rounded-full bg-neutral-100 text-neutral-500 flex items-center justify-center cursor-pointer active:scale-95 transition-transform"
+                onClick={() => setActiveItem(null)}
+                aria-label="Close"
               >
-                {/* Header */}
-                <div className="flex items-center justify-between p-6 pb-4 border-b border-neutral-100">
-                  <h3 className="text-lg font-semibold text-neutral-900 truncate pr-3">
-                    {activeItem?.title || "Download files"}
-                  </h3>
-                  <button
-                    type="button"
-                    className="h-9 w-9 shrink-0 rounded-full hover:bg-neutral-100 text-neutral-500 flex items-center justify-center cursor-pointer transition-colors"
-                    onClick={closePicker}
-                    aria-label="Close"
-                  >
-                    <X className="h-[18px] w-[18px]" />
-                  </button>
-                </div>
-                {/* File list */}
-                <div className="px-6 py-5 max-h-[60vh] overflow-y-auto">
-                  {fileRows}
-                </div>
-              </div>
+                <X className="h-[18px] w-[18px]" />
+              </button>
             </div>
-          )}
-        </div>
-      )}
+            <SheetDescription className="sr-only">
+              Choose a file to download
+            </SheetDescription>
+          </SheetHeader>
+          <div className="px-5 py-4 max-h-[calc(85vh-100px)] overflow-y-auto overscroll-contain">
+            {fileRows}
+          </div>
+        </SheetContent>
+      </Sheet>
     </>
   )
 }
