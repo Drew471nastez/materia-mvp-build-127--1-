@@ -4,7 +4,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { LayoutDashboard, Package, LogOut, Download, Menu, Heart, Compass } from "lucide-react"
+import { LayoutDashboard, Package, LogOut, Download, Menu, Heart, Compass, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
@@ -50,6 +50,7 @@ export function DashboardSidebar() {
     { href: "/library", label: "Overview", icon: LayoutDashboard },
     { href: "/library/my-downloads", label: "My Downloads", icon: Download },
     { href: "/library/wishlist", label: "Wishlist", icon: Heart },
+    { href: "/library/settings", label: "Settings", icon: Settings },
   ]
 
   const SidebarContent = ({ onItemClick }: { onItemClick?: () => void }) => (

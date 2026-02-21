@@ -54,7 +54,7 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
   const email = user.email || ""
 
   return (
-    <div className="max-w-5xl mx-auto px-2 sm:px-0">
+    <div className="max-w-5xl mx-auto px-2 sm:px-0 animate-in fade-in-0 duration-300">
       {purchase === "success" && (
         <Alert className="mb-6 border-green-200 bg-green-50 text-green-800 rounded-xl">
           <CheckCircle className="h-4 w-4" />
@@ -81,7 +81,7 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
               )}
             </div>
             <Link
-              href="/app/settings"
+              href="/library/settings"
               className="flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs font-medium text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900 transition-colors shadow-sm"
             >
               <Settings className="h-3.5 w-3.5" />

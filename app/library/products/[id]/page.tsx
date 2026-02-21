@@ -4,7 +4,6 @@ import Image from "next/image"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { ArrowLeft, Download, ExternalLink, CheckCircle, Calendar, Package } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { DownloadButton } from "@/components/download-button"
 import { getStoreUrl } from "@/lib/url-helpers"
 
@@ -79,111 +78,93 @@ export default async function ProductAccessPage({ params }: ProductAccessPagePro
   })
 
   return (
-    <div className="max-w-4xl mx-auto px-2 sm:px-0">
+    <div className="max-w-4xl mx-auto px-2 sm:px-0 animate-in fade-in-0 duration-300">
       {/* Back nav */}
       <Link
         href="/library/my-downloads"
-        className="mb-6 inline-flex items-center gap-2 text-sm text-neutral-500 hover:text-neutral-900 transition-colors"
+        className="mb-5 inline-flex items-center gap-2 text-sm text-neutral-500 hover:text-neutral-900 transition-colors"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to downloads
       </Link>
 
-      {/* Product hero */}
-      <div className="rounded-2xl border border-neutral-200 bg-white overflow-hidden shadow-sm">
-        {/* Thumbnail */}
-        <div className="relative aspect-video bg-neutral-100">
-          {entitlement.product?.thumbnail_url ? (
-            <Image
-              src={entitlement.product.thumbnail_url}
-              alt={entitlement.product.title}
-              fill
-              className="object-cover"
-            />
-          ) : (
-            <div className="flex h-full items-center justify-center">
-              <Package className="h-12 w-12 text-neutral-300" />
-            </div>
-          )}
-        </div>
-
-        {/* Product info */}
-        <div className="p-5 sm:p-6">
-          {/* Ownership badge */}
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-green-50 border border-green-200 px-3 py-1 mb-3">
-            <CheckCircle className="h-3.5 w-3.5 text-green-600" />
-            <span className="text-xs font-medium text-green-700">You own this product</span>
+      {/* Product card — horizontal on desktop, stacked on mobile */}
+      <div className="rounded-2xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
+        <div className="flex flex-col sm:flex-row">
+          {/* Thumbnail — small square on desktop */}
+          <div className="relative sm:w-48 md:w-56 shrink-0 aspect-video sm:aspect-square bg-neutral-100">
+            {entitlement.product?.thumbnail_url ? (
+              <Image
+                src={entitlement.product.thumbnail_url}
+                alt={entitlement.product.title}
+                fill
+                className="object-cover"
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center">
+                <Package className="h-10 w-10 text-neutral-300" />
+              </div>
+            )}
           </div>
 
-          <h1 className="text-xl sm:text-2xl font-bold text-neutral-900 leading-tight">
-            {entitlement.product?.title}
-          </h1>
-
-          {/* Creator info */}
-          <div className="mt-3 flex items-center gap-3">
-            <div className="h-8 w-8 rounded-full bg-neutral-200 overflow-hidden shrink-0">
-              {creatorAvatarUrl ? (
-                <img src={creatorAvatarUrl} alt={creatorDisplayName} className="h-full w-full object-cover" />
-              ) : (
-                <div className="h-full w-full flex items-center justify-center bg-neutral-900 text-white text-xs font-semibold">
-                  {creatorDisplayName.charAt(0).toUpperCase()}
-                </div>
-              )}
+          {/* Product info + downloads — right side */}
+          <div className="flex-1 min-w-0 p-5 sm:p-6 flex flex-col">
+            {/* Ownership badge */}
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-green-50 border border-green-200 px-2.5 py-0.5 mb-2 self-start">
+              <CheckCircle className="h-3 w-3 text-green-600" />
+              <span className="text-[11px] font-medium text-green-700">Purchased</span>
             </div>
-            <div className="min-w-0">
+
+            <h1 className="text-lg sm:text-xl font-bold text-neutral-900 leading-tight line-clamp-2">
+              {entitlement.product?.title}
+            </h1>
+
+            {/* Creator */}
+            <div className="mt-2 flex items-center gap-2">
+              <div className="h-6 w-6 rounded-full bg-neutral-200 overflow-hidden shrink-0">
+                {creatorAvatarUrl ? (
+                  <img src={creatorAvatarUrl} alt={creatorDisplayName} className="h-full w-full object-cover" />
+                ) : (
+                  <div className="h-full w-full flex items-center justify-center bg-neutral-900 text-white text-[10px] font-semibold">
+                    {creatorDisplayName.charAt(0).toUpperCase()}
+                  </div>
+                )}
+              </div>
               <a
                 href={getStoreUrl(creatorUsername)}
-                className="text-sm font-medium text-neutral-900 hover:text-neutral-600 transition-colors flex items-center gap-1"
+                className="text-sm text-neutral-600 hover:text-neutral-900 transition-colors flex items-center gap-1 min-w-0"
               >
                 <span className="truncate">{creatorDisplayName}</span>
                 <ExternalLink className="h-3 w-3 shrink-0 text-neutral-400" />
               </a>
             </div>
-          </div>
 
-          {/* Purchase date */}
-          <div className="mt-3 flex items-center gap-1.5 text-xs text-neutral-500">
-            <Calendar className="h-3.5 w-3.5" />
-            <span>Purchased on {purchaseDate}</span>
+            {/* Date */}
+            <div className="mt-2 flex items-center gap-1.5 text-xs text-neutral-500">
+              <Calendar className="h-3 w-3" />
+              <span>{purchaseDate}</span>
+            </div>
+
+            {/* Downloads — inline */}
+            <div className="mt-4 pt-4 border-t border-neutral-100 space-y-2">
+              {assets && assets.length > 0 ? (
+                assets.map((asset: any) => (
+                  <DownloadButton
+                    key={asset.id}
+                    assetId={asset.id}
+                    variant="default"
+                    className="w-full h-11 rounded-xl cursor-pointer bg-neutral-900 text-white hover:bg-black text-sm font-medium"
+                  >
+                    <Download className="mr-2 h-4 w-4 shrink-0" />
+                    <span className="truncate">{asset.file_name || "Download File"}</span>
+                  </DownloadButton>
+                ))
+              ) : (
+                <p className="text-sm text-neutral-500 py-2">No files available yet.</p>
+              )}
+            </div>
           </div>
         </div>
-      </div>
-
-      {/* Download section */}
-      <div className="mt-6 rounded-2xl border border-neutral-200 bg-white p-5 sm:p-6 shadow-sm">
-        <h2 className="text-base font-semibold text-neutral-900 mb-4 flex items-center gap-2">
-          <Download className="h-4 w-4 text-neutral-500" />
-          Your Downloads
-        </h2>
-
-        {assets && assets.length > 0 ? (
-          <div className="space-y-2">
-            {assets.map((asset: any) => (
-              <DownloadButton
-                key={asset.id}
-                assetId={asset.id}
-                variant="default"
-                className="w-full h-12 rounded-xl cursor-pointer bg-neutral-900 text-white hover:bg-black text-sm font-medium"
-              >
-                <span className="truncate">{asset.file_name || "Download File"}</span>
-              </DownloadButton>
-            ))}
-          </div>
-        ) : (
-          <div className="rounded-xl border border-dashed border-neutral-200 bg-neutral-50 p-8 text-center">
-            <p className="text-sm text-neutral-500">No files available yet. Check back soon.</p>
-          </div>
-        )}
-      </div>
-
-      {/* Back to library */}
-      <div className="mt-4">
-        <Button variant="outline" className="w-full h-11 rounded-xl bg-white border-neutral-200 text-sm font-medium" asChild>
-          <Link href="/library">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Library
-          </Link>
-        </Button>
       </div>
     </div>
   )
