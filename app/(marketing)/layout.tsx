@@ -2,6 +2,7 @@ import type React from "react"
 import { Suspense } from "react"
 import { ConditionalHeader } from "@/components/marketing/conditional-header"
 import { ConditionalFooter } from "@/components/marketing/conditional-footer"
+import { BodyScrollRestorer } from "@/components/body-scroll-restorer"
 
 export default function MarketingLayout({
   children,
@@ -10,6 +11,7 @@ export default function MarketingLayout({
 }) {
   return (
     <div className="flex min-h-svh flex-col">
+      <BodyScrollRestorer />
       <Suspense fallback={null}>
         <ConditionalHeader />
       </Suspense>

@@ -23,6 +23,26 @@ export function DashboardSidebar() {
     setMobileMenuOpen(false)
   }, [pathname])
 
+  // Clean up body scroll locks on unmount (navigating away from /library).
+  // Radix Dialog sets data-scroll-locked on <body> and injects a <style> with
+  // overflow:hidden!important. If this component unmounts before Radix cleans up,
+  // those artifacts persist and block scroll on the destination page.
+  useEffect(() => {
+    return () => {
+      document.body.removeAttribute("data-scroll-locked")
+      document.body.classList.remove("with-scroll-bars-hidden")
+      document.body.classList.remove("modal-open")
+      document.body.style.overflow = ""
+      document.body.style.pointerEvents = ""
+      document.body.style.position = ""
+      document.body.style.width = ""
+      document.body.style.top = ""
+      document.body.style.paddingRight = ""
+      document.body.style.overscrollBehavior = ""
+      document.documentElement.style.overscrollBehavior = ""
+    }
+  }, [])
+
   useEffect(() => {
     const supabase = createClient()
     async function checkCreatorStatus() {
