@@ -156,15 +156,24 @@ export function DashboardSidebar() {
           />
           <span className="text-lg font-semibold tracking-tight">Storelib</span>
         </Link>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-10 w-10 shrink-0"
-          onClick={() => setMobileMenuOpen(true)}
-          aria-label="Open menu"
-        >
-          <Menu className="h-6 w-6" />
-        </Button>
+        <div className="flex items-center gap-1">
+          <Link
+            href="/explore"
+            className="h-10 w-10 shrink-0 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+            aria-label="Discover"
+          >
+            <Compass className="h-5 w-5" />
+          </Link>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-10 w-10 shrink-0"
+            onClick={() => setMobileMenuOpen(true)}
+            aria-label="Open menu"
+          >
+            <Menu className="h-6 w-6" />
+          </Button>
+        </div>
       </header>
 
       <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>

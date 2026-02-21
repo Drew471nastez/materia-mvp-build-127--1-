@@ -128,6 +128,7 @@ export function Hero() {
   const [imagesLoaded, setImagesLoaded] = useState(false)
   const [logosLoaded, setLogosLoaded] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [isCreator, setIsCreator] = useState(false)
   const loadedImagesCount = useRef(0)
   const loadedLogosCount = useRef(0)
 
@@ -195,6 +196,14 @@ export function Hero() {
         data: { user },
       } = await supabase.auth.getUser()
       setIsAuthenticated(Boolean(user))
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("is_creator")
+          .eq("id", user.id)
+          .maybeSingle()
+        setIsCreator(profile?.is_creator ?? false)
+      }
     }
 
     syncAuthState()
@@ -516,10 +525,10 @@ export function Hero() {
           Discover
         </Link>
         <Link
-          href={isAuthenticated ? "/app" : "/signup"}
+          href={isAuthenticated ? (isCreator ? "/app" : "/library") : "/signup"}
           className="inline-flex items-center gap-2 px-6 sm:px-7 py-2.5 sm:py-3 rounded-full text-sm font-semibold bg-violet-600 text-white hover:bg-violet-700 transition-colors"
         >
-          {isAuthenticated ? "Dashboard" : "Sign Up"}
+          {isAuthenticated ? (isCreator ? "Dashboard" : "Library") : "Sign Up"}
           <ArrowRight className="w-3.5 h-3.5" />
         </Link>
       </div>

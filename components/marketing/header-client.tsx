@@ -309,14 +309,14 @@ export function MarketingHeaderClient() {
                   </Link>
                 )}
 
-                {/* Dashboard button for sellers, Start Selling for buyers */}
+                {/* Dashboard button for sellers, Library for buyers */}
                 {user && isCreator ? (
                   <Button size="sm" asChild className="bg-violet-600 hover:bg-violet-700">
                     <Link href="/app">Dashboard</Link>
                   </Button>
                 ) : user ? (
                   <Button size="sm" asChild className="bg-violet-600 hover:bg-violet-700">
-                    <Link href="/onboarding">Start Selling</Link>
+                    <Link href="/library">Library</Link>
                   </Button>
                 ) : null}
 

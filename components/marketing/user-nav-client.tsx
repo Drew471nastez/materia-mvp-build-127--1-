@@ -94,7 +94,7 @@ export function UserNavClient({ user, profile, isCreator }: UserNavClientProps) 
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
-          <Link href="/app/settings" className="cursor-pointer">
+          <Link href={isCreator ? "/app/settings" : "/library/settings"} className="cursor-pointer">
             <Settings className="mr-2 h-4 w-4" />
             <span>Settings</span>
           </Link>

@@ -66,17 +66,15 @@ function SheetContent({
     document.documentElement.style.overscrollBehavior = 'none'
     document.body.style.overscrollBehavior = 'none'
 
+    const restore = () => {
+      document.documentElement.style.overscrollBehavior = prevHtmlOverscroll
+      document.body.style.overscrollBehavior = prevBodyOverscroll
+    }
+
     // Scoped touchmove handler - only prevents on the overlay (not inside scrollable content)
     const portal = portalRef.current
     if (!portal) {
-      return () => {
-        // Delay restoration so any in-progress dismiss gesture completes
-        // before the browser can trigger pull-to-refresh
-        setTimeout(() => {
-          document.documentElement.style.overscrollBehavior = prevHtmlOverscroll
-          document.body.style.overscrollBehavior = prevBodyOverscroll
-        }, 500)
-      }
+      return restore
     }
 
     let startY = 0
@@ -114,12 +112,7 @@ function SheetContent({
     return () => {
       portal.removeEventListener('touchstart', handleTouchStart)
       portal.removeEventListener('touchmove', handleTouchMove)
-      // Delay restoration so any in-progress dismiss gesture completes
-      // before the browser can trigger pull-to-refresh
-      setTimeout(() => {
-        document.documentElement.style.overscrollBehavior = prevHtmlOverscroll
-        document.body.style.overscrollBehavior = prevBodyOverscroll
-      }, 500)
+      restore()
     }
   }, [])
 
