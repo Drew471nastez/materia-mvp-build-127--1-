@@ -64,20 +64,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ asse
       }
 
       if (variantAccessOk) {
-        // If user owns the order, grant access
-        if (user && order.buyer_id === user.id) {
-          hasAccess = true
-        } else {
-          // Check fingerprint
-          const sessionCookie = cookieStore.get("materia_session")
-          const allowedFingerprints = order.allowed_fingerprints || []
-
-          if (sessionCookie && allowedFingerprints.includes(sessionCookie.value)) {
-            hasAccess = true
-          } else if (order.session_fingerprint && sessionCookie?.value === order.session_fingerprint) {
-            hasAccess = true
-          }
-        }
+        // A valid receipt token matching the order+product is sufficient proof of purchase.
+        // No additional fingerprint/session check needed — the receipt token IS the credential.
+        hasAccess = true
       }
     }
   }
@@ -177,14 +166,18 @@ export async function GET(request: Request, { params }: { params: Promise<{ asse
       userAgent,
     })
 
-    // Log security event
+    // Log security event (non-fatal)
     if (orderIdForLog) {
-      await admin.from("security_events").insert({
-        order_id: orderIdForLog,
-        event_type: "download_issued",
-        ip: ip,
-        user_agent: userAgent,
-      }).catch(() => {})
+      try {
+        await admin.from("security_events").insert({
+          order_id: orderIdForLog,
+          event_type: "download_issued",
+          ip: ip,
+          user_agent: userAgent,
+        })
+      } catch {
+        // non-fatal — don't block download if logging fails
+      }
     }
 
     return NextResponse.json({
