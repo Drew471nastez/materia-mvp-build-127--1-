@@ -6,16 +6,17 @@ import { usePathname } from "next/navigation"
 /**
  * Nuclear scroll-lock cleanup for marketing pages.
  *
- * When navigating between route groups (e.g., /library → /explore), various
- * scroll-locking mechanisms can leave artifacts that permanently block scrolling:
+ * Problem: react-remove-scroll (used by Radix Dialog/Sheet) adds non-passive
+ * wheel/touchmove event listeners to `document` that call `preventDefault()`,
+ * blocking all mouse wheel and trackpad scrolling. If these listeners survive
+ * a route change (e.g., /library → /explore), scrolling is permanently broken
+ * — only dragging the scrollbar works.
  *
- * 1. Radix Dialog's react-remove-scroll sets `data-scroll-locked` on <body>,
- *    injects <style> tags with `overflow: hidden !important`, adds
- *    `block-interactivity-*` classes, and registers wheel/touchmove event listeners
- * 2. Custom modal systems (explore page) use a `modal-open` class on <body>
- * 3. Various components set inline `overflow: hidden` on body
- *
- * This component aggressively cleans ALL of these on every route change.
+ * This component fixes it with two strategies:
+ * 1. CSS/attribute cleanup: removes data-scroll-locked, injected styles, classes
+ * 2. Event interception: adds a capture-phase wheel listener on `window` that
+ *    calls `stopImmediatePropagation()` when no modal is open, preventing
+ *    stale react-remove-scroll listeners from seeing wheel events
  */
 
 function cleanScrollLocks() {
@@ -76,19 +77,27 @@ function cleanScrollLocks() {
   })
 }
 
+/**
+ * Checks whether a scroll lock is intentionally active (a modal IS open).
+ */
+function isScrollLockActive() {
+  return (
+    document.body.hasAttribute("data-scroll-locked") ||
+    document.body.classList.contains("modal-open")
+  )
+}
+
 export function BodyScrollRestorer() {
   const pathname = usePathname()
 
+  // Strategy 1: Clean up CSS/attributes/styles on every route change
   useEffect(() => {
-    // Run cleanup immediately
     cleanScrollLocks()
 
-    // Run again after browser paint (catches delayed style applications)
     const raf = requestAnimationFrame(() => {
       cleanScrollLocks()
     })
 
-    // Run once more after a short delay (catches async style changes)
     const timer = setTimeout(() => {
       cleanScrollLocks()
     }, 100)
@@ -96,6 +105,34 @@ export function BodyScrollRestorer() {
     return () => {
       cancelAnimationFrame(raf)
       clearTimeout(timer)
+    }
+  }, [pathname])
+
+  // Strategy 2: Intercept wheel events at the window level (capture phase)
+  // to prevent stale react-remove-scroll listeners from blocking scroll.
+  //
+  // react-remove-scroll adds `document.addEventListener('wheel', shouldPrevent, {passive: false})`
+  // which calls `preventDefault()` on wheel events. If the listener persists after navigation,
+  // mouse wheel and trackpad scrolling break completely (scrollbar drag still works).
+  //
+  // By adding a capture-phase listener on `window`, we run BEFORE the stale document listener.
+  // If no modal is intentionally open, we call `stopImmediatePropagation()` to prevent the
+  // stale listener from seeing the event. The browser still scrolls because `preventDefault()`
+  // was never called.
+  //
+  // NOTE: Only intercept `wheel` events (desktop mouse/trackpad). NOT `touchmove` —
+  // that would break legitimate touch interactions (hero collage drag, etc.).
+  useEffect(() => {
+    const unblockWheel = (e: Event) => {
+      if (!isScrollLockActive()) {
+        e.stopImmediatePropagation()
+      }
+    }
+
+    window.addEventListener("wheel", unblockWheel, { capture: true })
+
+    return () => {
+      window.removeEventListener("wheel", unblockWheel, { capture: true })
     }
   }, [pathname])
 
