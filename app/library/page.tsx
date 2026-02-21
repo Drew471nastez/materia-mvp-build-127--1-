@@ -82,7 +82,7 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
             </div>
             <Link
               href="/library/settings"
-              className="flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs font-medium text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900 transition-colors shadow-sm"
+              className="flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 sm:py-2 text-xs font-medium text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900 transition-colors shadow-sm mt-10 sm:mt-0"
             >
               <Settings className="h-3.5 w-3.5" />
               Settings

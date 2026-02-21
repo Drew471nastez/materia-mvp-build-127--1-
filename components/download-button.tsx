@@ -135,30 +135,30 @@ export function DownloadButton({
         type="button"
         variant={variant}
         size={size}
-        className={`cursor-pointer ${className || ""}`}
+        className={`cursor-pointer overflow-hidden ${className || ""}`}
         style={style}
         onClick={handleDownload}
         disabled={status === "loading"}
       >
         {status === "loading" ? (
           <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Downloading...
+            <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />
+            <span className="truncate">Downloading...</span>
           </>
         ) : status === "success" ? (
           <>
-            <CheckCircle className="mr-2 h-4 w-4" />
-            Downloaded!
+            <CheckCircle className="mr-2 h-4 w-4 shrink-0" />
+            <span className="truncate">Downloaded!</span>
           </>
         ) : status === "error" ? (
           <>
-            <AlertCircle className="mr-2 h-4 w-4" />
-            Failed
+            <AlertCircle className="mr-2 h-4 w-4 shrink-0" />
+            <span className="truncate">Failed</span>
           </>
         ) : (
           <>
-            <Download className="mr-2 h-4 w-4" />
-            {children || "Download File"}
+            <Download className="mr-2 h-4 w-4 shrink-0" />
+            <span className="truncate min-w-0">{children || "Download File"}</span>
           </>
         )}
       </Button>

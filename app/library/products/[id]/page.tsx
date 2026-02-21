@@ -73,9 +73,9 @@ export default async function ProductAccessPage({ params }: ProductAccessPagePro
     receiptToken = order?.receipt_token || null
   }
 
-  // Fetch creator display name using the same strategy as get-library-downloads
-  // (direct lookup instead of FK join which may fail)
+  // Fetch creator display name + slug (direct lookup, not FK join)
   let creatorDisplayName = "Unknown"
+  let creatorSlug: string | null = null
 
   if (creatorId) {
     try {
@@ -86,7 +86,8 @@ export default async function ProductAccessPage({ params }: ProductAccessPagePro
         .maybeSingle()
 
       if (creator) {
-        // Try to get display_name from profiles table
+        creatorSlug = creator.slug || null
+
         if (creator.user_id) {
           const { data: profile } = await admin
             .from("profiles")
@@ -125,9 +126,8 @@ export default async function ProductAccessPage({ params }: ProductAccessPagePro
       })
     : null
 
-  // Check if description is HTML
-  const description = product?.description || ""
-  const isHtml = /<[a-z][\s\S]*>/i.test(description)
+  // Build seller page URL
+  const sellerUrl = creatorSlug ? `/u/${creatorSlug}` : null
 
   return (
     <div className="max-w-5xl mx-auto px-2 sm:px-0 animate-in fade-in-0 duration-300">
@@ -143,14 +143,15 @@ export default async function ProductAccessPage({ params }: ProductAccessPagePro
       {/* Product card — side-by-side on desktop, stacked on mobile */}
       <div className="rounded-2xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
         <div className="flex flex-col md:flex-row">
-          {/* Left: Cover image */}
-          <div className="relative w-full md:w-1/2 aspect-video md:aspect-auto md:min-h-[360px] bg-neutral-100 shrink-0">
+          {/* Left: Cover image — object-cover, fills container */}
+          <div className="relative w-full md:w-1/2 aspect-[16/10] md:aspect-auto md:min-h-[380px] bg-neutral-100 shrink-0">
             {product?.thumbnail_url ? (
               <Image
                 src={product.thumbnail_url}
                 alt={product.title || "Product"}
                 fill
                 className="object-cover"
+                sizes="(max-width: 768px) 100vw, 50vw"
                 priority
               />
             ) : (
@@ -161,7 +162,7 @@ export default async function ProductAccessPage({ params }: ProductAccessPagePro
           </div>
 
           {/* Right: Content */}
-          <div className="flex-1 p-5 sm:p-6 md:p-8 flex flex-col">
+          <div className="flex-1 p-5 sm:p-6 md:p-8 flex flex-col min-w-0">
             {/* Ownership badge */}
             <div className="inline-flex items-center gap-1.5 rounded-full bg-green-50 border border-green-200 px-2.5 py-0.5 mb-3 w-fit">
               <CheckCircle className="h-3 w-3 text-green-600" />
@@ -174,7 +175,21 @@ export default async function ProductAccessPage({ params }: ProductAccessPagePro
 
             {/* Creator + date */}
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-neutral-500">
-              <span>by <span className="font-medium text-neutral-700">{creatorDisplayName}</span></span>
+              <span>
+                by{" "}
+                {sellerUrl ? (
+                  <a
+                    href={sellerUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-neutral-700 hover:text-neutral-900 underline-offset-2 hover:underline transition-colors"
+                  >
+                    {creatorDisplayName}
+                  </a>
+                ) : (
+                  <span className="font-medium text-neutral-700">{creatorDisplayName}</span>
+                )}
+              </span>
               {purchaseDate && (
                 <>
                   <span className="text-neutral-300">·</span>
@@ -186,24 +201,8 @@ export default async function ProductAccessPage({ params }: ProductAccessPagePro
               )}
             </div>
 
-            {/* Description */}
-            {description && (
-              <div className="mt-4">
-                {isHtml ? (
-                  <div
-                    className="text-sm text-neutral-600 leading-relaxed prose prose-sm prose-neutral max-w-none [&>h1]:text-base [&>h1]:font-bold [&>h2]:text-sm [&>h2]:font-semibold [&>p]:my-1 [&>ul]:my-1 [&>ol]:my-1 [&>li]:my-0"
-                    dangerouslySetInnerHTML={{ __html: description }}
-                  />
-                ) : (
-                  <p className="text-sm text-neutral-600 leading-relaxed">
-                    {description}
-                  </p>
-                )}
-              </div>
-            )}
-
             {/* Spacer */}
-            <div className="flex-1 min-h-4" />
+            <div className="flex-1 min-h-6" />
 
             {/* Download section */}
             <div className="mt-6 pt-4 border-t border-neutral-100">
@@ -218,9 +217,9 @@ export default async function ProductAccessPage({ params }: ProductAccessPagePro
                       assetId={asset.id}
                       receiptToken={receiptToken}
                       variant="default"
-                      className="w-full h-11 rounded-xl cursor-pointer bg-neutral-900 text-white hover:bg-black text-sm font-medium"
+                      className="w-full h-11 rounded-xl cursor-pointer bg-neutral-900 text-white hover:bg-black text-sm font-medium overflow-hidden"
                     >
-                      {asset.file_name || "Download File"}
+                      <span className="truncate">{asset.file_name || "Download File"}</span>
                     </DownloadButton>
                   ))
                 ) : (

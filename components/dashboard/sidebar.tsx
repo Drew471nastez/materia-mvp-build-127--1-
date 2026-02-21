@@ -50,7 +50,6 @@ export function DashboardSidebar() {
     { href: "/library", label: "Overview", icon: LayoutDashboard },
     { href: "/library/my-downloads", label: "My Downloads", icon: Download },
     { href: "/library/wishlist", label: "Wishlist", icon: Heart },
-    { href: "/library/settings", label: "Settings", icon: Settings },
   ]
 
   const SidebarContent = ({ onItemClick }: { onItemClick?: () => void }) => (
@@ -103,7 +102,7 @@ export function DashboardSidebar() {
           <Link
             href="/signup/success?action=become-creator"
             onClick={onItemClick}
-            className="mb-1 flex items-center justify-center gap-2 rounded-lg px-3 py-3 min-h-[44px] text-sm font-medium bg-purple-600 text-white hover:bg-purple-700 active:scale-[0.98] transition-colors"
+            className="mb-2 flex items-center justify-center gap-2 rounded-lg px-3 py-3 min-h-[44px] text-sm font-medium bg-neutral-900 text-white hover:bg-black active:scale-[0.98] transition-colors"
           >
             <Sparkles className="h-4 w-4 shrink-0" />
             <span>Start Selling</span>
@@ -113,12 +112,25 @@ export function DashboardSidebar() {
           <Link
             href="/app"
             onClick={onItemClick}
-            className="mb-1 flex items-center gap-3 rounded-lg px-3 py-3 min-h-[44px] text-sm font-medium bg-neutral-900 text-white hover:bg-black active:scale-[0.98] transition-colors justify-center"
+            className="mb-2 flex items-center gap-3 rounded-lg px-3 py-3 min-h-[44px] text-sm font-medium bg-neutral-900 text-white hover:bg-black active:scale-[0.98] transition-colors justify-center"
           >
             <LayoutDashboard className="h-5 w-5 shrink-0" />
             <span>Dashboard</span>
           </Link>
         )}
+        <Link
+          href="/library/settings"
+          onClick={onItemClick}
+          className={cn(
+            "mb-1 flex items-center gap-3 rounded-lg px-3 py-3 min-h-[44px] text-sm font-medium transition-colors active:scale-[0.98]",
+            pathname === "/library/settings"
+              ? "bg-muted text-foreground"
+              : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+          )}
+        >
+          <Settings className="h-5 w-5 shrink-0" />
+          <span className="truncate">Settings</span>
+        </Link>
         <Button
           variant="ghost"
           className="w-full justify-start min-h-[44px] text-muted-foreground hover:bg-muted/50 hover:text-foreground active:scale-[0.98] cursor-pointer"
