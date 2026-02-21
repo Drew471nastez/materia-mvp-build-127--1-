@@ -1081,6 +1081,22 @@ export async function POST(request: Request) {
             }
 
             if (refundCreatorId) {
+              // Idempotency: check if we already processed this refund's ledger impact
+              const latestRefund = charge.refunds?.data?.[0]
+              if (latestRefund?.id) {
+                const { data: existingRefundEvent } = await supabaseAdmin
+                  .from("ledger_events")
+                  .select("id")
+                  .eq("stripe_refund_id", latestRefund.id)
+                  .eq("event_type", "refund")
+                  .maybeSingle()
+
+                if (existingRefundEvent) {
+                  console.log("[Webhook] Refund ledger event already processed:", latestRefund.id)
+                  return NextResponse.json({ received: true })
+                }
+              }
+
               // Find the original sale ledger event for fee calculation
               const { data: saleLedgerEvent } = await supabaseAdmin
                 .from("ledger_events")
