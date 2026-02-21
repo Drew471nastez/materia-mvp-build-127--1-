@@ -864,15 +864,16 @@ function WithdrawPanel({
         body: JSON.stringify({ type }),
       });
       const json = await r.json();
+      if (!r.ok) throw new Error(json.error || "Failed to open account settings");
       if (json.url) {
         window.open(json.url, "_blank", "noopener,noreferrer");
       } else {
         throw new Error("No URL returned");
       }
-    } catch {
+    } catch (e: any) {
       toast({
         title: "Could not open account settings",
-        description: "Please try again.",
+        description: e?.message || "Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -3397,15 +3398,16 @@ function PayoutMethodCard() {
         body: JSON.stringify({ type: "update" }),
       });
       const json = await r.json();
+      if (!r.ok) throw new Error(json.error || "Failed to open account settings");
       if (json.url) {
         window.open(json.url, "_blank", "noopener,noreferrer");
       } else {
         throw new Error("No URL returned");
       }
-    } catch {
+    } catch (e: any) {
       toast({
         title: "Could not open account settings",
-        description: "Please try again.",
+        description: e?.message || "Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -4045,9 +4047,17 @@ export function PayoutsClient({
                       return (
                         <button
                           key={f}
-                          onClick={() => { setSalesFilter(f); setRecentPage(0); }}
+                          onClick={() => {
+                            if (salesFilter === f) return;
+                            setIsPageLoading(true);
+                            setTimeout(() => {
+                              setSalesFilter(f);
+                              setRecentPage(0);
+                              setIsPageLoading(false);
+                            }, 150);
+                          }}
                           className={cn(
-                            "px-2.5 py-1 text-[11px] font-medium rounded-full transition-colors capitalize",
+                            "px-2.5 py-1 text-[11px] font-medium rounded-full transition-all duration-200 capitalize",
                             salesFilter === f
                               ? "bg-[#1a1a2e] text-white"
                               : "bg-[#f3f4f6] text-[#6b7280] hover:bg-[#e5e7eb]",
@@ -4087,8 +4097,8 @@ export function PayoutsClient({
             </div>
 
             <div
-              className="transition-opacity duration-200"
-              style={{ opacity: isPageLoading ? 0.4 : 1 }}
+              className="transition-all duration-200 ease-in-out"
+              style={{ opacity: isPageLoading ? 0.3 : 1, transform: isPageLoading ? "translateY(2px)" : "translateY(0)" }}
             >
               {recentTab === "payouts" ? (
                 <PayoutsHistoryList

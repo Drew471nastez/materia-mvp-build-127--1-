@@ -6,17 +6,16 @@ import { stripe } from "@/lib/stripe"
 /**
  * POST /api/stripe/account-link
  *
- * Creates a Stripe Account Link for onboarding or updating bank details.
- * This REPLACES the Express dashboard login link — sellers never access the
- * Stripe dashboard directly.
+ * Creates a Stripe Account Link for managing the connected account.
+ * Sellers use this to add/update bank accounts, complete verification,
+ * update identity/tax info, etc. — all through Stripe's hosted form.
  *
  * Body: { type?: "onboarding" | "update" }
- *   - "onboarding" (default): Initial KYC + bank setup
- *   - "update": Update bank details or resolve requirements
  *
- * If "update" is requested but the account hasn't completed onboarding yet
- * (details_submitted is false), it falls back to "account_onboarding" since
- * Stripe only allows account_update links for fully onboarded accounts.
+ * Strategy: If "update" is requested, we attempt account_update first.
+ * If Stripe rejects it (many Express accounts only support account_onboarding),
+ * we automatically fall back to account_onboarding which works universally
+ * and still lets the user update their bank/identity/tax info.
  */
 export async function POST(request: Request) {
   try {
@@ -53,32 +52,38 @@ export async function POST(request: Request) {
       // No body — default to onboarding
     }
 
-    // Check if the account has completed onboarding before creating an update link
-    let linkType: "account_onboarding" | "account_update" = "account_onboarding"
-    if (wantsUpdate) {
-      try {
-        const account = await stripe.accounts.retrieve(creator.stripe_account_id)
-        if (account.details_submitted) {
-          linkType = "account_update"
-        }
-        // If details_submitted is false, fall back to account_onboarding
-        // since Stripe doesn't allow account_update for incomplete accounts
-      } catch {
-        // If we can't retrieve the account, fall back to onboarding
-      }
-    }
-
     const baseUrl =
       process.env.APP_URL ||
       process.env.NEXT_PUBLIC_APP_URL ||
       process.env.NEXT_PUBLIC_SITE_URL ||
       "https://storelib.com"
 
-    const accountLink = await stripe.accountLinks.create({
+    const linkParams = {
       account: creator.stripe_account_id,
       refresh_url: `${baseUrl}/app/payouts?stripe=refresh`,
       return_url: `${baseUrl}/app/payouts?stripe=return`,
-      type: linkType,
+    }
+
+    // Try account_update first if requested, fall back to account_onboarding
+    // Many Express accounts only support account_onboarding — Stripe will reject
+    // account_update with "Valid types for this account are [account_onboarding]"
+    if (wantsUpdate) {
+      try {
+        const accountLink = await stripe.accountLinks.create({
+          ...linkParams,
+          type: "account_update",
+        })
+        return NextResponse.json({ url: accountLink.url })
+      } catch {
+        // account_update not supported — fall through to account_onboarding
+      }
+    }
+
+    // Default / fallback: account_onboarding always works and still lets
+    // the seller update bank, identity, tax info through Stripe's hosted form
+    const accountLink = await stripe.accountLinks.create({
+      ...linkParams,
+      type: "account_onboarding",
     })
 
     return NextResponse.json({ url: accountLink.url })
