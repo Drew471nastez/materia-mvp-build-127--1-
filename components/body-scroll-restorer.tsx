@@ -6,30 +6,12 @@ import { usePathname } from "next/navigation"
 /**
  * Fixes scroll after SPA navigation between route groups.
  *
- * ROOT CAUSE: When navigating from /library (which uses an internal scroll
- * container: <main overflow-y-auto> inside <div overflow-hidden h-[100dvh]>)
- * to /explore or / (which use body/html scrolling), mouse-wheel / trackpad
- * scrolling can break while scrollbar-drag still works.
- *
- * Two possible mechanisms:
- *   A) Browser compositor caches old scroll-container state and doesn't
- *      realise body/html are now scrollable.
- *   B) Stale event listeners (from react-remove-scroll or others) survive
- *      the route change and call preventDefault() on wheel events.
- *
- * STRATEGIES (defence-in-depth – every one is cheap, each covers a
- * different failure mode):
- *   1. Remove scroll-blocking CSS artefacts (classes, inline styles, attrs)
- *   2. Force browser to recalculate scroll containers (overflow toggle +
- *      forced reflow + synthetic resize + scrollTo)
- *   3. Neuter wheel-event preventDefault() from any stale listener by
- *      intercepting in capture phase AND overriding preventDefault on the
- *      event object itself
+ * Cleans up any scroll-blocking CSS artefacts (classes, inline styles,
+ * attributes, injected <style> tags) left behind by previous routes,
+ * and forces the browser to recalculate scroll containers via an
+ * overflow toggle + forced reflow + synthetic resize event.
  */
 
-// ---------------------------------------------------------------------------
-// 1 – clean up scroll-blocking artefacts
-// ---------------------------------------------------------------------------
 function cleanScrollLocks() {
   const body = document.body
   const html = document.documentElement
@@ -77,20 +59,14 @@ function cleanScrollLocks() {
   })
 }
 
-// ---------------------------------------------------------------------------
-// 2 – force scroll-container recalculation
-// ---------------------------------------------------------------------------
 function forceScrollRecalculation() {
   const html = document.documentElement
   const body = document.body
 
-  // Read dimensions to force layout calculation
   void html.scrollHeight
   void body.scrollHeight
 
-  // Toggle overflow-y on <html> to force re-evaluation.
-  // CSS has `html { overflow-y: scroll }` – toggling forces the browser to
-  // tear down and re-create the scroll container.
+  // Toggle overflow-y to force the browser to re-evaluate scroll containers
   html.style.overflowY = "hidden"
   void html.offsetHeight
   html.style.overflowY = ""
@@ -106,88 +82,26 @@ function forceScrollRecalculation() {
 
   // Force scroll position write to activate scroll machinery
   window.scrollTo(0, window.scrollY)
-
 }
 
-// ---------------------------------------------------------------------------
-// combined repair pass
-// ---------------------------------------------------------------------------
 function repair() {
   cleanScrollLocks()
   forceScrollRecalculation()
 }
 
-// ---------------------------------------------------------------------------
-// 3 – check if an intentional scroll lock is active
-// ---------------------------------------------------------------------------
-function isLocked() {
-  return (
-    document.body.hasAttribute("data-scroll-locked") ||
-    document.body.classList.contains("modal-open")
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
 export function BodyScrollRestorer() {
   const pathname = usePathname()
 
-  // --- Repair on every route change (with retries for lazy content) ---
   useEffect(() => {
     repair()
     const raf = requestAnimationFrame(repair)
-    const t1 = setTimeout(repair, 50)
-    const t2 = setTimeout(repair, 150)
-    const t3 = setTimeout(repair, 400)
+    const t1 = setTimeout(repair, 100)
+    const t2 = setTimeout(repair, 400)
 
     return () => {
       cancelAnimationFrame(raf)
       clearTimeout(t1)
       clearTimeout(t2)
-      clearTimeout(t3)
-    }
-  }, [pathname])
-
-  // --- Intercept stale wheel listeners (belt + suspenders) ---
-  //
-  // Capture-phase listener on window fires BEFORE any listener on document.
-  // We do two things:
-  //   a) stopImmediatePropagation → stale listener never runs
-  //   b) replace e.preventDefault with a no-op → even if (a) somehow fails
-  //      and the stale listener runs, it cannot block scrolling
-  useEffect(() => {
-    const noop = () => {}
-
-    const unblockWheel = (e: WheelEvent) => {
-      // Don't interfere when a modal scroll-lock is intentionally active
-      if (isLocked()) return
-
-      // Override preventDefault so no downstream listener can block scrolling
-      e.preventDefault = noop
-
-      // Stop propagation so stale listeners never fire
-      e.stopImmediatePropagation()
-    }
-
-    // Attach on window in capture phase (outermost, fires first)
-    window.addEventListener("wheel", unblockWheel as EventListener, {
-      capture: true,
-      passive: true, // we never call the real preventDefault ourselves
-    })
-    // Also on document capture (backup)
-    document.addEventListener("wheel", unblockWheel as EventListener, {
-      capture: true,
-      passive: true,
-    })
-
-    return () => {
-      window.removeEventListener("wheel", unblockWheel as EventListener, {
-        capture: true,
-      })
-      document.removeEventListener("wheel", unblockWheel as EventListener, {
-        capture: true,
-      })
     }
   }, [pathname])
 
