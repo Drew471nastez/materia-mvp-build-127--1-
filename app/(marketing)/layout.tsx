@@ -16,7 +16,7 @@ export default function MarketingLayout({
         <ConditionalHeader />
       </Suspense>
 
-      <main className="flex-1 page-scroll">{children}</main>
+      <main className="flex-1">{children}</main>
 
       <Suspense fallback={null}>
         <ConditionalFooter />

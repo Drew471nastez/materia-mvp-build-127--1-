@@ -149,6 +149,52 @@
     cursor: not-allowed;
   }
 
+  /* Smooth entrance animations for page sections */
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(18px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes scale-fade-in {
+    from {
+      opacity: 0;
+      transform: scale(0.97);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  .animate-fade-in-up {
+    animation: fade-in-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .animate-scale-fade-in {
+    animation: scale-fade-in 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .delay-100 { animation-delay: 100ms; }
+  .delay-200 { animation-delay: 200ms; }
+  .delay-300 { animation-delay: 300ms; }
+  .delay-400 { animation-delay: 400ms; }
+  .delay-500 { animation-delay: 500ms; }
+
   /* Global overflow prevention - prevents horizontal scrolling */
   html {
     overflow-x: hidden;
@@ -157,30 +203,8 @@
     scroll-behavior: auto;
     /* Enable touch scrolling on mobile devices */
     touch-action: pan-y pinch-zoom;
-    /* Modern light gray scrollbar for website pages */
-    scrollbar-width: thin;
-    scrollbar-color: rgba(180, 180, 185, 0.45) transparent;
     /* Prevent overscroll bounce that can cause scroll lock */
     overscroll-behavior-x: none;
-  }
-
-  html::-webkit-scrollbar {
-    width: 8px;
-  }
-
-  html::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  html::-webkit-scrollbar-thumb {
-    background-color: rgba(180, 180, 185, 0.45);
-    border-radius: 4px;
-    border: 2px solid transparent;
-    background-clip: content-box;
-  }
-
-  html::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(150, 150, 155, 0.65);
   }
 
   body {

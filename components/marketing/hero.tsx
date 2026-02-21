@@ -98,7 +98,7 @@ const MOBILE_CARDS: CardDef[] = [
 const CANVAS_W = 1100
 const CANVAS_H = 460
 const AUTOPLAY_INTERVAL = 5000
-const CARD_TRANSITION_MS = 1200
+const CARD_TRANSITION_MS = 1400
 const SWIPE_THRESHOLD = 40
 const SWIPE_COMMIT_DISTANCE = 140
 const DRAG_SMOOTHING = 0.42
@@ -118,7 +118,8 @@ const rotateOrder = (order: number[], direction: 1 | -1) => {
 }
 
 const lerp = (from: number, to: number, t: number) => from + (to - from) * t
-const ease = (t: number) => 1 - Math.pow(1 - t, 3)
+// Smooth ease-out quartic for silky card transitions
+const ease = (t: number) => 1 - Math.pow(1 - t, 4)
 
 export function Hero() {
   const typedText = useTypingEffect(TYPING_PHRASES)
@@ -357,7 +358,7 @@ export function Hero() {
         }
       `}} />
 
-      <div className="relative w-full mb-10 sm:mb-8">
+      <div className="relative w-full mb-10 sm:mb-8 animate-scale-fade-in">
         <div className="relative w-full h-[296px] sm:h-[224px] md:h-[277px] lg:h-[352px] xl:h-[409px]">
           <div
             ref={collageRef}
@@ -517,7 +518,7 @@ export function Hero() {
         </div>
       </div>
 
-      <div className="flex flex-row items-center gap-3 mb-5 sm:mb-[32px]">
+      <div className="flex flex-row items-center gap-3 mb-5 sm:mb-[32px] animate-fade-in-up delay-200">
         <Link
           href="/explore"
           className="inline-flex items-center px-6 sm:px-7 py-2.5 sm:py-3 rounded-full text-sm font-semibold bg-neutral-100 text-neutral-700 hover:bg-neutral-200 transition-colors"
@@ -533,11 +534,11 @@ export function Hero() {
         </Link>
       </div>
 
-      <p className="text-[16px] sm:text-[19.5px] text-neutral-600 text-center mb-[102px] sm:mb-[127px] max-w-[90%] sm:max-w-[590px] leading-relaxed px-4 mx-auto">
+      <p className="text-[16px] sm:text-[19.5px] text-neutral-600 text-center mb-[102px] sm:mb-[127px] max-w-[90%] sm:max-w-[590px] leading-relaxed px-4 mx-auto animate-fade-in-up delay-300">
         The #1 e-commerce platform for creators & entrepreneurs. Sell products, manage links & grow an audience.
       </p>
 
-      <div className="relative w-full">
+      <div className="relative w-full animate-fade-in delay-500">
         <div className="absolute left-0 top-0 bottom-0 w-20 sm:w-32 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none" />
         <div className="absolute right-0 top-0 bottom-0 w-20 sm:w-32 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none" />
         <div className="overflow-hidden">

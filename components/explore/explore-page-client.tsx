@@ -965,6 +965,13 @@ export function ExplorePageClient({
   const [categorySelectorOpen, setCategorySelectorOpen] = useState(false)
   const [categorySelectorSource, setCategorySelectorSource] = useState<'recommended' | 'browse'>('recommended')
 
+  // Reset stale scroll lock state on mount (prevents scroll bugs after navigation)
+  useEffect(() => {
+    scrollLockCount = 0
+    document.body.classList.remove("modal-open")
+    document.body.style.removeProperty("--scroll-y")
+  }, [])
+
   // Search states
   const [searchOpen, setSearchOpen] = useState(false)
   const [localSearchQuery, setLocalSearchQuery] = useState("")

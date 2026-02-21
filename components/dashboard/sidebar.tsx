@@ -23,23 +23,56 @@ export function DashboardSidebar() {
     setMobileMenuOpen(false)
   }, [pathname])
 
-  // Clean up body scroll locks on unmount (navigating away from /library).
-  // Radix Dialog sets data-scroll-locked on <body> and injects a <style> with
-  // overflow:hidden!important. If this component unmounts before Radix cleans up,
-  // those artifacts persist and block scroll on the destination page.
+  // Clean up ALL scroll-lock artifacts on unmount (navigating away from /library).
+  // Radix Dialog/Sheet, react-remove-scroll, and custom modal systems can all
+  // leave scroll-blocking state on <body>/<html> that persists after navigation.
   useEffect(() => {
     return () => {
-      document.body.removeAttribute("data-scroll-locked")
-      document.body.classList.remove("with-scroll-bars-hidden")
-      document.body.classList.remove("modal-open")
-      document.body.style.overflow = ""
-      document.body.style.pointerEvents = ""
-      document.body.style.position = ""
-      document.body.style.width = ""
-      document.body.style.top = ""
-      document.body.style.paddingRight = ""
-      document.body.style.overscrollBehavior = ""
-      document.documentElement.style.overscrollBehavior = ""
+      const body = document.body
+      const html = document.documentElement
+
+      // Remove data attributes
+      body.removeAttribute("data-scroll-locked")
+
+      // Remove scroll-blocking classes
+      body.classList.remove("with-scroll-bars-hidden")
+      body.classList.remove("modal-open")
+      body.classList.forEach((cls) => {
+        if (cls.startsWith("block-interactivity-")) {
+          body.classList.remove(cls)
+        }
+      })
+
+      // Clear body inline styles
+      body.style.overflow = ""
+      body.style.overflowY = ""
+      body.style.pointerEvents = ""
+      body.style.position = ""
+      body.style.width = ""
+      body.style.top = ""
+      body.style.paddingRight = ""
+      body.style.marginRight = ""
+      body.style.overscrollBehavior = ""
+      body.style.touchAction = ""
+      body.style.removeProperty("--scroll-y")
+      body.style.removeProperty("--removed-body-scroll-bar-size")
+
+      // Clear html inline styles
+      html.style.overflow = ""
+      html.style.overflowY = ""
+      html.style.overscrollBehavior = ""
+
+      // Remove injected <style> elements from react-remove-scroll
+      document.querySelectorAll("style").forEach((el) => {
+        const content = el.textContent || ""
+        if (
+          content.includes("data-scroll-locked") ||
+          content.includes("block-interactivity") ||
+          content.includes("with-scroll-bars-hidden")
+        ) {
+          el.remove()
+        }
+      })
     }
   }, [])
 
