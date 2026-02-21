@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback, useRef } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { createPortal } from "react-dom"
 import Image from "next/image"
 import Link from "next/link"
@@ -29,6 +29,9 @@ type DownloadItem = {
    so it always covers the ENTIRE viewport (sidebar, header, etc.)
    regardless of parent CSS transforms, contain, or stacking context.
 
+   Uses INLINE styles for critical backdrop/animation properties to
+   guarantee visibility regardless of CSS compilation.
+
    Desktop ≥ 768 px → centered modal card
    Mobile  < 768 px → bottom sheet
    ──────────────────────────────────────────────────────────────── */
@@ -43,14 +46,16 @@ function FilePickerOverlay({
   downloadingFileId: string | null
   onDownload: (id: string) => void
 }) {
-  const [visible, setVisible] = useState(false)
-  const overlayRef = useRef<HTMLDivElement>(null)
+  const [animateIn, setAnimateIn] = useState(false)
 
-  // Animate in on mount
+  // Double-rAF: guarantees the browser has painted opacity:0 / translateY(100%)
+  // BEFORE we flip to the final state, so the CSS transition actually fires.
   useEffect(() => {
-    // Force a reflow so the transition fires
-    overlayRef.current?.getBoundingClientRect()
-    requestAnimationFrame(() => setVisible(true))
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setAnimateIn(true)
+      })
+    })
   }, [])
 
   // Lock body scroll while open
@@ -71,29 +76,81 @@ function FilePickerOverlay({
     return () => document.removeEventListener("keydown", handler)
   }, [onClose])
 
-  const fileRows = (
-    <div className="space-y-2">
+  const fileList = (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       {item.files.map((file) => (
         <button
           key={file.id}
           type="button"
           onClick={() => onDownload(file.id)}
           disabled={downloadingFileId === file.id}
-          className="flex w-full items-center justify-between rounded-xl border border-neutral-200 bg-white px-4 py-3.5 text-left transition-colors hover:bg-neutral-50 active:bg-neutral-100 disabled:opacity-60 cursor-pointer"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            width: "100%",
+            padding: "12px 16px",
+            borderRadius: 12,
+            border: "1px solid #e5e5e5",
+            backgroundColor: "#fff",
+            cursor: downloadingFileId === file.id ? "default" : "pointer",
+            opacity: downloadingFileId === file.id ? 0.6 : 1,
+            textAlign: "left" as const,
+            transition: "background-color 150ms",
+          }}
+          onMouseEnter={(e) => {
+            if (downloadingFileId !== file.id)
+              (e.currentTarget as HTMLElement).style.backgroundColor = "#fafafa"
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLElement).style.backgroundColor = "#fff"
+          }}
         >
-          <div className="flex items-center gap-3 min-w-0 pr-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-neutral-100">
-              <FileText className="h-4 w-4 text-neutral-500" />
+          <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, paddingRight: 12 }}>
+            <div
+              style={{
+                display: "flex",
+                height: 36,
+                width: 36,
+                flexShrink: 0,
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: 10,
+                backgroundColor: "#f5f5f5",
+              }}
+            >
+              <FileText style={{ height: 16, width: 16, color: "#737373" }} />
             </div>
-            <span className="truncate text-sm font-medium text-neutral-800">
+            <span
+              style={{
+                fontSize: 14,
+                fontWeight: 500,
+                color: "#262626",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap" as const,
+              }}
+            >
               {file.fileName || "File"}
             </span>
           </div>
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neutral-900 text-white">
+          <div
+            style={{
+              display: "flex",
+              height: 32,
+              width: 32,
+              flexShrink: 0,
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: 9999,
+              backgroundColor: "#171717",
+              color: "#fff",
+            }}
+          >
             {downloadingFileId === file.id ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <Loader2 style={{ height: 14, width: 14 }} className="animate-spin" />
             ) : (
-              <Download className="h-3.5 w-3.5" />
+              <Download style={{ height: 14, width: 14 }} />
             )}
           </div>
         </button>
@@ -102,112 +159,211 @@ function FilePickerOverlay({
   )
 
   return createPortal(
-    <div ref={overlayRef} className="fixed inset-0 z-[9999]" role="presentation">
-      {/* Backdrop */}
+    <>
+      {/* ─── Backdrop ─── dark overlay covering ENTIRE viewport */}
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity duration-200"
-        style={{ opacity: visible ? 1 : 0 }}
         onClick={onClose}
         aria-hidden="true"
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 99998,
+          backgroundColor: "rgba(0, 0, 0, 0.5)",
+          opacity: animateIn ? 1 : 0,
+          transition: "opacity 200ms ease-out",
+        }}
       />
 
-      {/* ─── Desktop modal ─── */}
+      {/* ─── Desktop modal (≥768px) ─── */}
       <div
-        className="hidden md:flex absolute inset-0 items-center justify-center p-6"
         onClick={onClose}
+        className="hidden md:flex"
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 99999,
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 24,
+        }}
       >
         <div
           role="dialog"
           aria-modal="true"
           aria-label="Choose a file to download"
-          className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 transition-all duration-200 ease-out"
-          style={{
-            opacity: visible ? 1 : 0,
-            transform: visible ? "scale(1) translateY(0)" : "scale(0.97) translateY(8px)",
-          }}
           onClick={(e) => e.stopPropagation()}
+          style={{
+            position: "relative",
+            width: "100%",
+            maxWidth: 448,
+            borderRadius: 16,
+            backgroundColor: "#fff",
+            boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25), 0 0 0 1px rgba(0,0,0,0.05)",
+            opacity: animateIn ? 1 : 0,
+            transform: animateIn ? "scale(1) translateY(0)" : "scale(0.97) translateY(8px)",
+            transition: "opacity 200ms ease-out, transform 200ms ease-out",
+          }}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-6 pt-6 pb-4">
-            <div className="min-w-0 pr-4">
-              <h2 className="truncate text-lg font-semibold text-neutral-900">
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "24px 24px 16px 24px" }}>
+            <div style={{ minWidth: 0, paddingRight: 16 }}>
+              <h2
+                style={{
+                  fontSize: 18,
+                  fontWeight: 600,
+                  color: "#171717",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap" as const,
+                  margin: 0,
+                }}
+              >
                 {item.title}
               </h2>
-              <p className="mt-0.5 text-sm text-neutral-500">
+              <p style={{ marginTop: 2, fontSize: 14, color: "#737373" }}>
                 {item.files.length} file{item.files.length !== 1 ? "s" : ""} available
               </p>
             </div>
             <button
               type="button"
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-600 cursor-pointer"
               onClick={onClose}
               aria-label="Close"
+              style={{
+                display: "flex",
+                height: 32,
+                width: 32,
+                flexShrink: 0,
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: 9999,
+                border: "none",
+                backgroundColor: "transparent",
+                color: "#a3a3a3",
+                cursor: "pointer",
+                transition: "background-color 150ms, color 150ms",
+              }}
+              onMouseEnter={(e) => {
+                ;(e.currentTarget as HTMLElement).style.backgroundColor = "#f5f5f5"
+                ;(e.currentTarget as HTMLElement).style.color = "#525252"
+              }}
+              onMouseLeave={(e) => {
+                ;(e.currentTarget as HTMLElement).style.backgroundColor = "transparent"
+                ;(e.currentTarget as HTMLElement).style.color = "#a3a3a3"
+              }}
             >
-              <X className="h-4 w-4" />
+              <X style={{ height: 16, width: 16 }} />
             </button>
           </div>
 
           {/* Divider */}
-          <div className="mx-6 border-t border-neutral-100" />
+          <div style={{ margin: "0 24px", borderTop: "1px solid #f5f5f5" }} />
 
           {/* File list */}
-          <div className="px-6 py-5 max-h-[60vh] overflow-y-auto">
-            {fileRows}
+          <div style={{ padding: "20px 24px", maxHeight: "60vh", overflowY: "auto" }}>
+            {fileList}
           </div>
         </div>
       </div>
 
-      {/* ─── Mobile bottom sheet ─── */}
+      {/* ─── Mobile bottom sheet (<768px) ─── */}
       <div
-        className="md:hidden absolute inset-x-0 bottom-0"
+        className="md:hidden"
         onClick={(e) => e.stopPropagation()}
+        style={{
+          position: "fixed",
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 99999,
+        }}
       >
         <div
           role="dialog"
           aria-modal="true"
           aria-label="Choose a file to download"
-          className="rounded-t-2xl bg-white shadow-2xl ring-1 ring-black/5 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]"
           style={{
-            transform: visible ? "translateY(0)" : "translateY(100%)",
+            borderRadius: "16px 16px 0 0",
+            backgroundColor: "#fff",
+            boxShadow: "0 -10px 40px -8px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.05)",
+            transform: animateIn ? "translateY(0)" : "translateY(100%)",
+            transition: "transform 350ms cubic-bezier(0.32, 0.72, 0, 1)",
             maxHeight: "85dvh",
             paddingBottom: "env(safe-area-inset-bottom)",
+            display: "flex",
+            flexDirection: "column" as const,
           }}
         >
           {/* Drag handle */}
-          <div className="flex justify-center pt-3 pb-2">
-            <div className="h-1 w-9 rounded-full bg-neutral-300" />
+          <div style={{ display: "flex", justifyContent: "center", paddingTop: 12, paddingBottom: 8 }}>
+            <div style={{ height: 4, width: 36, borderRadius: 9999, backgroundColor: "#d4d4d4" }} />
           </div>
 
           {/* Header */}
-          <div className="flex items-center justify-between px-5 pb-3">
-            <div className="min-w-0 pr-3">
-              <h2 className="truncate text-[17px] font-semibold text-neutral-900">
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 20px 12px 20px" }}>
+            <div style={{ minWidth: 0, paddingRight: 12 }}>
+              <h2
+                style={{
+                  fontSize: 17,
+                  fontWeight: 600,
+                  color: "#171717",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap" as const,
+                  margin: 0,
+                }}
+              >
                 {item.title}
               </h2>
-              <p className="mt-0.5 text-[13px] text-neutral-500">
+              <p style={{ marginTop: 2, fontSize: 13, color: "#737373" }}>
                 {item.files.length} file{item.files.length !== 1 ? "s" : ""} available
               </p>
             </div>
             <button
               type="button"
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-neutral-500 cursor-pointer active:scale-95 transition-transform"
               onClick={onClose}
               aria-label="Close"
+              style={{
+                display: "flex",
+                height: 32,
+                width: 32,
+                flexShrink: 0,
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: 9999,
+                border: "none",
+                backgroundColor: "#f5f5f5",
+                color: "#737373",
+                cursor: "pointer",
+              }}
             >
-              <X className="h-4 w-4" />
+              <X style={{ height: 16, width: 16 }} />
             </button>
           </div>
 
           {/* Divider */}
-          <div className="mx-5 border-t border-neutral-100" />
+          <div style={{ margin: "0 20px", borderTop: "1px solid #f5f5f5" }} />
 
           {/* File list */}
-          <div className="px-5 py-4 max-h-[calc(85dvh-100px)] overflow-y-auto overscroll-contain">
-            {fileRows}
+          <div
+            style={{
+              padding: "16px 20px",
+              maxHeight: "calc(85dvh - 110px)",
+              overflowY: "auto",
+              WebkitOverflowScrolling: "touch",
+              overscrollBehavior: "contain",
+            }}
+          >
+            {fileList}
           </div>
         </div>
       </div>
-    </div>,
+    </>,
     document.body
   )
 }
