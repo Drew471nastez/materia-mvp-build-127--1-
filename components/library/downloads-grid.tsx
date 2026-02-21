@@ -1,9 +1,9 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { ArrowRight, Calendar, CheckCircle, Download, FileText, Loader2, Package, X } from "lucide-react"
+import { ArrowRight, Calendar, Download, FileText, Loader2, Package, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { downloadEntitledFile } from "@/components/download-button"
@@ -24,75 +24,67 @@ type DownloadItem = {
   highlight?: boolean
 }
 
-// Lightweight toast notification
-function DownloadToast({ message, visible, onDone }: { message: string; visible: boolean; onDone: () => void }) {
-  useEffect(() => {
-    if (visible) {
-      const t = setTimeout(onDone, 4000)
-      return () => clearTimeout(t)
-    }
-  }, [visible, onDone])
-
-  return (
-    <div
-      className={`fixed top-4 left-1/2 -translate-x-1/2 z-[100] transition-all duration-300 ease-out ${
-        visible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-3 pointer-events-none"
-      }`}
-    >
-      <div className="flex items-center gap-2 rounded-xl bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white shadow-lg">
-        <CheckCircle className="h-4 w-4 shrink-0 text-green-400" />
-        {message}
-      </div>
-    </div>
-  )
-}
-
 export function DownloadsGrid({ items }: { items: DownloadItem[] }) {
   const [activeItem, setActiveItem] = useState<DownloadItem | null>(null)
   const [downloadingFileId, setDownloadingFileId] = useState<string | null>(null)
-  const [toastMessage, setToastMessage] = useState("")
-  const [toastVisible, setToastVisible] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
 
-  // Mobile bottom sheet close animation state
-  const [sheetClosing, setSheetClosing] = useState(false)
+  // Bottom sheet animation state
+  const [sheetVisible, setSheetVisible] = useState(false)
+  const [sheetAnimating, setSheetAnimating] = useState(false)
 
-  const isMobile = useMemo(() => typeof window !== "undefined" && window.innerWidth <= 768, [activeItem])
-
-  const showToast = useCallback((msg: string) => {
-    setToastMessage(msg)
-    setToastVisible(true)
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth <= 768)
+    check()
+    window.addEventListener("resize", check)
+    return () => window.removeEventListener("resize", check)
   }, [])
 
-  const hideToast = useCallback(() => {
-    setToastVisible(false)
+  // Open mobile bottom sheet with animation
+  const openMobileSheet = useCallback((item: DownloadItem) => {
+    setActiveItem(item)
+    setSheetVisible(true)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setSheetAnimating(true)
+      })
+    })
   }, [])
 
-  const handleDownload = async (assetId: string, fileName?: string) => {
+  // Close mobile bottom sheet with smooth animation
+  const closeMobileSheet = useCallback(() => {
+    setSheetAnimating(false)
+    setTimeout(() => {
+      setSheetVisible(false)
+      setActiveItem(null)
+    }, 300)
+  }, [])
+
+  const handleDownload = async (assetId: string) => {
     setDownloadingFileId(assetId)
-    const result = await downloadEntitledFile(assetId)
+    await downloadEntitledFile(assetId)
     setDownloadingFileId(null)
-
-    if (result.success) {
-      showToast(`Successfully downloaded${fileName ? `: ${fileName}` : ""}`)
-    }
   }
 
-  const closeMobileSheet = useCallback(() => {
-    setSheetClosing(true)
-    setTimeout(() => {
-      setActiveItem(null)
-      setSheetClosing(false)
-    }, 250)
-  }, [])
+  const handleChooseFile = useCallback(
+    (item: DownloadItem) => {
+      if (isMobile) {
+        openMobileSheet(item)
+      } else {
+        setActiveItem(item)
+      }
+    },
+    [isMobile, openMobileSheet],
+  )
 
   const fileRows = (
-    <div className="max-h-[60vh] space-y-2 overflow-auto pr-1">
+    <div className="space-y-2">
       {activeItem?.files.map((file) => (
         <div key={file.id} className="flex items-center justify-between rounded-xl border border-neutral-200 px-3 py-2.5">
           <p className="truncate pr-3 text-sm text-neutral-700">{file.fileName || "File"}</p>
           <Button
             size="sm"
-            onClick={() => handleDownload(file.id, file.fileName)}
+            onClick={() => handleDownload(file.id)}
             disabled={downloadingFileId === file.id}
             className="shrink-0 cursor-pointer bg-neutral-900 text-white hover:bg-black"
           >
@@ -105,8 +97,6 @@ export function DownloadsGrid({ items }: { items: DownloadItem[] }) {
 
   return (
     <>
-      <DownloadToast message={toastMessage} visible={toastVisible} onDone={hideToast} />
-
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {items.map((item) => (
           <div
@@ -144,7 +134,7 @@ export function DownloadsGrid({ items }: { items: DownloadItem[] }) {
               {item.files.length === 1 ? (
                 <Button
                   className="w-full h-12 cursor-pointer bg-neutral-900 text-white hover:bg-black overflow-hidden"
-                  onClick={() => handleDownload(item.files[0].id, item.files[0].fileName)}
+                  onClick={() => handleDownload(item.files[0].id)}
                   disabled={downloadingFileId === item.files[0].id}
                 >
                   {downloadingFileId === item.files[0].id ? (
@@ -160,7 +150,7 @@ export function DownloadsGrid({ items }: { items: DownloadItem[] }) {
                   )}
                 </Button>
               ) : item.files.length > 1 ? (
-                <Button className="w-full h-12 cursor-pointer" variant="outline" onClick={() => setActiveItem(item)}>
+                <Button className="w-full h-12 cursor-pointer" variant="outline" onClick={() => handleChooseFile(item)}>
                   <FileText className="mr-2 h-4 w-4" />
                   Choose file ({item.files.length})
                 </Button>
@@ -191,29 +181,47 @@ export function DownloadsGrid({ items }: { items: DownloadItem[] }) {
       )}
 
       {/* Mobile bottom sheet with smooth open/close animation */}
-      {isMobile && activeItem && (
-        <div
-          className={`fixed inset-0 z-[80] transition-opacity duration-250 ${sheetClosing ? "opacity-0" : "opacity-100 bg-black/45"}`}
-          onClick={closeMobileSheet}
-        >
+      {isMobile && sheetVisible && (
+        <div className="fixed inset-0 z-[80]">
+          {/* Backdrop */}
           <div
-            className={`absolute bottom-0 left-0 right-0 rounded-t-3xl bg-white p-4 pt-3 shadow-2xl transition-transform duration-250 ease-out ${
-              sheetClosing ? "translate-y-full" : "translate-y-0 animate-in slide-in-from-bottom duration-300"
-            }`}
+            className="absolute inset-0 bg-black/50"
+            style={{
+              opacity: sheetAnimating ? 1 : 0,
+              transition: "opacity 300ms cubic-bezier(0.32, 0.72, 0, 1)",
+            }}
+            onClick={closeMobileSheet}
+          />
+          {/* Sheet */}
+          <div
+            className="absolute bottom-0 left-0 right-0 rounded-t-2xl bg-white shadow-2xl"
+            style={{
+              transform: sheetAnimating ? "translateY(0)" : "translateY(100%)",
+              transition: "transform 300ms cubic-bezier(0.32, 0.72, 0, 1)",
+              maxHeight: "80vh",
+              paddingBottom: "env(safe-area-inset-bottom, 0px)",
+            }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="mx-auto mb-3 h-1.5 w-14 rounded-full bg-neutral-200" />
-            <div className="mb-3 flex items-center justify-between">
-              <h4 className="text-[16px] font-semibold text-neutral-900 truncate pr-2">{activeItem.title}</h4>
+            {/* Handle */}
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="h-1 w-10 rounded-full bg-neutral-300" />
+            </div>
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 pb-3">
+              <h4 className="text-base font-semibold text-neutral-900 truncate pr-2">{activeItem?.title}</h4>
               <button
                 type="button"
-                className="h-8 w-8 rounded-full border border-neutral-200 text-neutral-500 flex items-center justify-center cursor-pointer"
+                className="h-8 w-8 shrink-0 rounded-full bg-neutral-100 text-neutral-500 flex items-center justify-center cursor-pointer"
                 onClick={closeMobileSheet}
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
-            {fileRows}
+            {/* File list */}
+            <div className="px-4 pb-4 max-h-[60vh] overflow-y-auto overscroll-contain">
+              {fileRows}
+            </div>
           </div>
         </div>
       )}
