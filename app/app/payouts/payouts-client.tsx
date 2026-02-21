@@ -3175,11 +3175,17 @@ function ExportDropdown({
     <>
       <div className="relative" ref={ref}>
         <button
-          title="Download CSV"
+          title="Export CSV"
           onClick={() => setOpen((o) => !o)}
-          className="p-1.5 rounded-lg hover:bg-[#f3f4f6] transition-colors text-[#9ca3af] hover:text-[#6b7280]"
+          className={cn(
+            "flex items-center gap-1.5 rounded-lg transition-colors",
+            isMobile
+              ? "px-2.5 py-1.5 bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#374151]"
+              : "p-1.5 hover:bg-[#f3f4f6] text-[#9ca3af] hover:text-[#6b7280]",
+          )}
         >
-          <Download className="h-4 w-4" />
+          <Download className="h-3.5 w-3.5" />
+          {isMobile && <span className="text-[11px] font-medium">Export</span>}
         </button>
 
         {/* Desktop dropdown */}
@@ -4536,10 +4542,10 @@ export function PayoutsClient({
       requestAnimationFrame(() => {
         requestAnimationFrame(() => setIsPageLoading(false));
       });
-    }, 180);
+    }, 120);
   };
 
-  // Smooth two-phase transition: quick fade out (100ms) → swap → fade in (150ms)
+  // Smooth two-phase transition: quick fade out → swap → fade in
   const smoothSwitch = useCallback((swapFn: () => void) => {
     setIsPageLoading(true);
     setTimeout(() => {
@@ -4823,101 +4829,110 @@ export function PayoutsClient({
         {initialOrders.length > 0 ? (
           <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
             {/* Tab bar */}
-            <div className="px-4 sm:px-5 pt-4 pb-0 border-b border-[#e5e7eb] flex flex-col sm:flex-row sm:items-end sm:justify-between gap-0">
-              {/* Tab buttons */}
-              <div className="flex items-end gap-0 -mb-px">
-                <button
-                  onClick={() => {
-                    if (recentTab === "sales") return;
-                    smoothSwitch(() => { setRecentTab("sales"); setRecentPage(0); });
-                  }}
-                  className={cn(
-                    "relative px-5 py-2.5 text-[13px] font-semibold rounded-t-xl border border-b-0 transition-colors duration-200 whitespace-nowrap",
-                    recentTab === "sales"
-                      ? "bg-white border-[#e5e7eb] text-[#1a1a2e] z-10"
-                      : "bg-transparent border-transparent text-[#6b7280] hover:text-[#374151]",
-                  )}
-                >
-                  Sales
-                </button>
-                <button
-                  onClick={() => {
-                    if (recentTab === "payouts") return;
-                    smoothSwitch(() => { setRecentTab("payouts"); setRecentPage(0); });
-                  }}
-                  className={cn(
-                    "relative px-5 py-2.5 text-[13px] font-semibold rounded-t-xl border border-b-0 transition-colors duration-200 whitespace-nowrap ml-1",
-                    recentTab === "payouts"
-                      ? "bg-white border-[#e5e7eb] text-[#1a1a2e] z-10"
-                      : "bg-transparent border-transparent text-[#6b7280] hover:text-[#374151]",
-                  )}
-                >
-                  Payouts
-                </button>
-              </div>
-              {/* Status filter chips (Sales tab only) + Pagination + export */}
-              <div className="flex items-center justify-end gap-2 py-2 text-[#6b7280]">
-                {recentTab === "sales" && (
-                  <div className="flex items-center gap-1 mr-auto sm:mr-2">
-                    {(["all", "completed", "refunded", "disputed"] as const).map((f) => {
-                      const count = f === "all"
-                        ? initialOrders.length
-                        : initialOrders.filter((o) => o.status === f).length;
-                      if (f !== "all" && count === 0) return null;
-                      return (
-                        <button
-                          key={f}
-                          onClick={() => {
-                            if (salesFilter === f) return;
-                            smoothSwitch(() => { setSalesFilter(f); setRecentPage(0); });
-                          }}
-                          className={cn(
-                            "px-2.5 py-1 text-[11px] font-medium rounded-full transition-all duration-200 capitalize",
-                            salesFilter === f
-                              ? "bg-[#1a1a2e] text-white shadow-sm"
-                              : "bg-[#f3f4f6] text-[#6b7280] hover:bg-[#e5e7eb]",
-                          )}
-                        >
-                          {f === "all" ? "All" : f}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-                <div className="hidden sm:block">
-                  <ExportDropdown orders={filteredOrders} currency={currency} />
+            <div className="px-4 sm:px-5 pt-3 pb-0 border-b border-[#e5e7eb]">
+              {/* Top row: Tabs + Export + Pagination */}
+              <div className="flex items-center justify-between gap-2 mb-2.5">
+                {/* Tab pill switcher */}
+                <div className="relative flex items-center bg-[#f3f4f6] rounded-lg p-0.5">
+                  {/* Sliding indicator */}
+                  <div
+                    className="absolute top-0.5 bottom-0.5 bg-white rounded-[7px] shadow-sm transition-all duration-250 ease-[cubic-bezier(0.25,0.1,0.25,1)]"
+                    style={{
+                      left: recentTab === "sales" ? "2px" : "50%",
+                      width: "calc(50% - 2px)",
+                    }}
+                  />
+                  <button
+                    onClick={() => {
+                      if (recentTab === "sales") return;
+                      smoothSwitch(() => { setRecentTab("sales"); setRecentPage(0); });
+                    }}
+                    className={cn(
+                      "relative z-10 px-4 py-1.5 text-[12px] font-semibold rounded-[7px] transition-colors duration-200 whitespace-nowrap",
+                      recentTab === "sales" ? "text-[#1a1a2e]" : "text-[#6b7280] hover:text-[#374151]",
+                    )}
+                  >
+                    Sales
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (recentTab === "payouts") return;
+                      smoothSwitch(() => { setRecentTab("payouts"); setRecentPage(0); });
+                    }}
+                    className={cn(
+                      "relative z-10 px-4 py-1.5 text-[12px] font-semibold rounded-[7px] transition-colors duration-200 whitespace-nowrap",
+                      recentTab === "payouts" ? "text-[#1a1a2e]" : "text-[#6b7280] hover:text-[#374151]",
+                    )}
+                  >
+                    Payouts
+                  </button>
                 </div>
-                <span className="text-[11px] text-[#9ca3af]">
-                  {recentPage + 1} / {pageCount}
-                </span>
-                <div className="flex items-center gap-1">
-                  <button
-                    disabled={recentPage <= 0}
-                    onClick={() => changePage(Math.max(0, recentPage - 1))}
-                    className="h-7 w-7 flex items-center justify-center rounded-lg border border-[#e5e7eb] bg-white hover:bg-[#f9fafb] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                    aria-label="Previous page"
-                  >
-                    <ChevronLeft className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    disabled={recentPage >= pageCount - 1}
-                    onClick={() => changePage(Math.min(pageCount - 1, recentPage + 1))}
-                    className="h-7 w-7 flex items-center justify-center rounded-lg border border-[#e5e7eb] bg-white hover:bg-[#f9fafb] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                    aria-label="Next page"
-                  >
-                    <ChevronRight className="h-3.5 w-3.5" />
-                  </button>
+
+                {/* Right side: Export + Pagination */}
+                <div className="flex items-center gap-1.5 text-[#6b7280]">
+                  <ExportDropdown orders={filteredOrders} currency={currency} />
+                  <span className="text-[11px] text-[#9ca3af]">
+                    {recentPage + 1} / {pageCount}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      disabled={recentPage <= 0}
+                      onClick={() => changePage(Math.max(0, recentPage - 1))}
+                      className="h-7 w-7 flex items-center justify-center rounded-lg border border-[#e5e7eb] bg-white hover:bg-[#f9fafb] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                      aria-label="Previous page"
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      disabled={recentPage >= pageCount - 1}
+                      onClick={() => changePage(Math.min(pageCount - 1, recentPage + 1))}
+                      className="h-7 w-7 flex items-center justify-center rounded-lg border border-[#e5e7eb] bg-white hover:bg-[#f9fafb] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                      aria-label="Next page"
+                    >
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Filter pills row (Sales tab only) */}
+              <div className="overflow-hidden" style={{ height: recentTab === "sales" ? "36px" : "0px", transition: "height 200ms ease" }}>
+                <div className="flex items-center gap-1.5 pb-2.5">
+                  {(["all", "completed", "refunded", "disputed"] as const).map((f) => {
+                    const count = f === "all"
+                      ? initialOrders.length
+                      : initialOrders.filter((o) => o.status === f).length;
+                    if (f !== "all" && count === 0) return null;
+                    return (
+                      <button
+                        key={f}
+                        onClick={() => {
+                          if (salesFilter === f) return;
+                          smoothSwitch(() => { setSalesFilter(f); setRecentPage(0); });
+                        }}
+                        className={cn(
+                          "px-3 py-1 text-[11px] font-medium rounded-full transition-all duration-200 capitalize",
+                          salesFilter === f
+                            ? "bg-[#1a1a2e] text-white shadow-sm scale-[1.02]"
+                            : "bg-[#f3f4f6] text-[#6b7280] hover:bg-[#e5e7eb]",
+                        )}
+                      >
+                        {f === "all" ? `All (${count})` : `${f} (${count})`}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>
 
             <div
-              className="will-change-[opacity]"
+              className="will-change-[opacity,transform]"
               style={{
                 opacity: isPageLoading ? 0 : 1,
+                transform: isPageLoading ? "translateY(4px)" : "translateY(0)",
                 transition: isPageLoading
-                  ? "opacity 80ms ease-out"
-                  : "opacity 150ms ease-in",
+                  ? "opacity 80ms ease-out, transform 80ms ease-out"
+                  : "opacity 200ms ease-out, transform 200ms ease-out",
               }}
             >
               {recentTab === "payouts" ? (
@@ -4932,20 +4947,9 @@ export function PayoutsClient({
                 />
               ) : (
                 <>
-                  {isPageLoading && (
-                    <div className="p-4 space-y-2">
-                      {[1, 2, 3, 4].map((i) => (
-                        <div
-                          key={i}
-                          className="h-10 rounded-lg bg-[#f3f4f6] animate-pulse"
-                        />
-                      ))}
-                    </div>
-                  )}
-
                   {/* Mobile card list */}
                   <div className="sm:hidden divide-y divide-[#f3f4f6]">
-                    {(isPageLoading ? [] : pagedOrders).map((order) => {
+                    {(isPageLoading ? [] : pagedOrders).map((order, idx) => {
                       const productImage = order.product?.thumbnail_url;
                       const customerName =
                         order.buyer?.display_name ||
@@ -4961,7 +4965,8 @@ export function PayoutsClient({
                       return (
                         <div
                           key={order.id}
-                          className="px-4 py-3.5 active:bg-[#f9fafb] transition-colors"
+                          className="px-4 py-3.5 active:bg-[#f9fafb] transition-colors animate-in fade-in-0 slide-in-from-bottom-1"
+                          style={{ animationDelay: `${idx * 40}ms`, animationFillMode: "both", animationDuration: "250ms" }}
                           onClick={() => openOrderDetails(order)}
                         >
                           <div className="flex items-center gap-3">
@@ -5025,12 +5030,13 @@ export function PayoutsClient({
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[#e5e7eb]">
-                        {(isPageLoading ? [] : pagedOrders).map((order) => {
+                        {(isPageLoading ? [] : pagedOrders).map((order, idx) => {
                           const productImage = order.product?.thumbnail_url;
                           return (
                             <tr
                               key={order.id}
-                              className="hover:bg-[#f9fafb] transition-colors cursor-pointer"
+                              className="hover:bg-[#f9fafb] transition-colors cursor-pointer animate-in fade-in-0 slide-in-from-bottom-1"
+                              style={{ animationDelay: `${idx * 40}ms`, animationFillMode: "both", animationDuration: "250ms" }}
                               onClick={(e) => {
                                 if (
                                   (e.target as HTMLElement).closest(
