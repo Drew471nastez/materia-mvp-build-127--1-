@@ -56,7 +56,7 @@ export function DownloadsGrid({ items }: { items: DownloadItem[] }) {
     setTimeout(() => {
       setPickerVisible(false)
       setActiveItem(null)
-    }, 300)
+    }, 400)
   }, [])
 
   // Close on Escape key
@@ -69,6 +69,19 @@ export function DownloadsGrid({ items }: { items: DownloadItem[] }) {
     return () => document.removeEventListener("keydown", handler)
   }, [pickerVisible, closePicker])
 
+  // Body scroll lock while file picker is open
+  useEffect(() => {
+    if (!pickerVisible) return
+    const scrollY = window.scrollY
+    document.body.style.setProperty("--scroll-y", `-${scrollY}px`)
+    document.body.classList.add("modal-open")
+    return () => {
+      document.body.classList.remove("modal-open")
+      document.body.style.removeProperty("--scroll-y")
+      window.scrollTo(0, scrollY)
+    }
+  }, [pickerVisible])
+
   const handleDownload = async (assetId: string) => {
     setDownloadingFileId(assetId)
     await downloadEntitledFile(assetId)
@@ -76,15 +89,18 @@ export function DownloadsGrid({ items }: { items: DownloadItem[] }) {
   }
 
   const fileRows = (
-    <div className="space-y-2">
+    <div className="space-y-2.5">
       {activeItem?.files.map((file) => (
-        <div key={file.id} className="flex items-center justify-between rounded-xl border border-neutral-200 px-3 py-2.5">
-          <p className="truncate pr-3 text-sm text-neutral-700">{file.fileName || "File"}</p>
+        <div key={file.id} className="flex items-center justify-between rounded-xl border border-neutral-200 bg-neutral-50/50 px-4 py-3 min-h-[52px]">
+          <div className="flex items-center gap-3 min-w-0 pr-3">
+            <FileText className="h-4 w-4 shrink-0 text-neutral-400" />
+            <p className="truncate text-sm font-medium text-neutral-700">{file.fileName || "File"}</p>
+          </div>
           <Button
             size="sm"
             onClick={() => handleDownload(file.id)}
             disabled={downloadingFileId === file.id}
-            className="shrink-0 cursor-pointer bg-neutral-900 text-white hover:bg-black"
+            className="shrink-0 cursor-pointer bg-neutral-900 text-white hover:bg-black h-9 px-3"
           >
             {downloadingFileId === file.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
           </Button>
@@ -167,46 +183,51 @@ export function DownloadsGrid({ items }: { items: DownloadItem[] }) {
 
       {/* File picker - custom overlay + modal (desktop) / bottom sheet (mobile) */}
       {pickerVisible && (
-        <div className="fixed inset-0 z-[80]">
+        <div className="fixed inset-0 z-[2147483638]">
           {/* Backdrop overlay */}
           <div
-            className="absolute inset-0 bg-black/50"
+            className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
             style={{
               opacity: pickerAnimating ? 1 : 0,
               transition: "opacity 300ms cubic-bezier(0.32, 0.72, 0, 1)",
             }}
             onClick={closePicker}
+            aria-hidden="true"
           />
 
           {isMobile ? (
             /* Mobile: Bottom sheet */
             <div
-              className="absolute bottom-0 left-0 right-0 rounded-t-2xl bg-white shadow-2xl"
+              className="absolute bottom-0 left-0 right-0 rounded-t-[20px] bg-white shadow-[0_-8px_30px_rgba(0,0,0,0.12)]"
               style={{
                 transform: pickerAnimating ? "translateY(0)" : "translateY(100%)",
-                transition: "transform 300ms cubic-bezier(0.32, 0.72, 0, 1)",
-                maxHeight: "80vh",
+                transition: "transform 380ms cubic-bezier(0.32, 0.72, 0, 1)",
+                maxHeight: "85vh",
                 paddingBottom: "env(safe-area-inset-bottom, 0px)",
               }}
               onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-label={activeItem?.title || "Choose file"}
             >
-              {/* Handle */}
+              {/* Drag handle */}
               <div className="flex justify-center pt-3 pb-1">
-                <div className="h-1 w-10 rounded-full bg-neutral-300" />
+                <div className="h-[5px] w-10 rounded-full bg-neutral-300" />
               </div>
               {/* Header */}
-              <div className="flex items-center justify-between px-4 pb-3">
-                <h4 className="text-base font-semibold text-neutral-900 truncate pr-2">{activeItem?.title}</h4>
+              <div className="flex items-center justify-between px-5 pt-1 pb-4 border-b border-neutral-100">
+                <h4 className="text-[17px] font-semibold text-neutral-900 truncate pr-3">{activeItem?.title}</h4>
                 <button
                   type="button"
-                  className="h-8 w-8 shrink-0 rounded-full bg-neutral-100 text-neutral-500 flex items-center justify-center cursor-pointer"
+                  className="h-9 w-9 shrink-0 rounded-full bg-neutral-100 text-neutral-500 flex items-center justify-center cursor-pointer active:scale-95 transition-transform"
                   onClick={closePicker}
+                  aria-label="Close"
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-[18px] w-[18px]" />
                 </button>
               </div>
               {/* File list */}
-              <div className="px-4 pb-4 max-h-[60vh] overflow-y-auto overscroll-contain">
+              <div className="px-5 py-4 max-h-[calc(85vh-100px)] overflow-y-auto overscroll-contain">
                 {fileRows}
               </div>
             </div>
@@ -217,29 +238,33 @@ export function DownloadsGrid({ items }: { items: DownloadItem[] }) {
               onClick={closePicker}
             >
               <div
-                className="bg-white rounded-xl shadow-xl w-full max-w-lg border border-neutral-200"
+                className="bg-white rounded-2xl shadow-2xl w-full max-w-lg border border-neutral-200/80 ring-1 ring-black/[0.04]"
                 style={{
                   opacity: pickerAnimating ? 1 : 0,
-                  transform: pickerAnimating ? "scale(1) translateY(0)" : "scale(0.96) translateY(8px)",
-                  transition: "opacity 200ms ease-out, transform 200ms ease-out",
+                  transform: pickerAnimating ? "scale(1) translateY(0)" : "scale(0.97) translateY(6px)",
+                  transition: "opacity 250ms cubic-bezier(0.32, 0.72, 0, 1), transform 250ms cubic-bezier(0.32, 0.72, 0, 1)",
                 }}
                 onClick={(e) => e.stopPropagation()}
+                role="dialog"
+                aria-modal="true"
+                aria-label={activeItem?.title || "Choose file"}
               >
                 {/* Header */}
-                <div className="flex items-center justify-between p-6 pb-4">
-                  <h3 className="text-lg font-semibold text-neutral-900 truncate pr-2">
+                <div className="flex items-center justify-between p-6 pb-4 border-b border-neutral-100">
+                  <h3 className="text-lg font-semibold text-neutral-900 truncate pr-3">
                     {activeItem?.title || "Download files"}
                   </h3>
                   <button
                     type="button"
-                    className="h-8 w-8 shrink-0 rounded-full hover:bg-neutral-100 text-neutral-500 flex items-center justify-center cursor-pointer transition-colors"
+                    className="h-9 w-9 shrink-0 rounded-full hover:bg-neutral-100 text-neutral-500 flex items-center justify-center cursor-pointer transition-colors"
                     onClick={closePicker}
+                    aria-label="Close"
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-[18px] w-[18px]" />
                   </button>
                 </div>
                 {/* File list */}
-                <div className="px-6 pb-6 max-h-[60vh] overflow-y-auto">
+                <div className="px-6 py-5 max-h-[60vh] overflow-y-auto">
                   {fileRows}
                 </div>
               </div>

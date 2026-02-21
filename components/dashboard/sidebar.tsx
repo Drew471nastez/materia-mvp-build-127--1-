@@ -25,11 +25,19 @@ export function DashboardSidebar() {
 
   // Manual CSS-based scroll lock for mobile sidebar (replaces react-remove-scroll
   // since we use modal={false} to avoid stale event listeners after navigation).
+  // Properly saves/restores scroll position to prevent visual jump on open/close.
   useEffect(() => {
     if (mobileMenuOpen) {
+      const scrollY = window.scrollY
+      document.body.style.setProperty("--scroll-y", `-${scrollY}px`)
       document.body.classList.add("modal-open")
     } else {
+      const scrollY = document.body.style.getPropertyValue("--scroll-y")
       document.body.classList.remove("modal-open")
+      document.body.style.removeProperty("--scroll-y")
+      if (scrollY) {
+        window.scrollTo(0, parseInt(scrollY || "0") * -1)
+      }
     }
   }, [mobileMenuOpen])
 
