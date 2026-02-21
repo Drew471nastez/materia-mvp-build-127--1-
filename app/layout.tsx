@@ -4,6 +4,7 @@ import { Inter, Plus_Jakarta_Sans, Space_Grotesk, DM_Sans, Poppins, Montserrat }
 import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
 import { LocaleProvider } from "@/components/locale-provider"
+import { BodyScrollRestorer } from "@/components/body-scroll-restorer"
 
 const inter = Inter({ 
   subsets: ["latin"],
@@ -105,6 +106,7 @@ export default function RootLayout({
     <html lang="en" className="light" style={{ colorScheme: "light" }}>
       <body className={`${inter.variable} ${plusJakartaSans.variable} ${spaceGrotesk.variable} ${dmSans.variable} ${poppins.variable} ${montserrat.variable} font-sans antialiased bg-background text-foreground overflow-x-hidden`}>
         <LocaleProvider>{children}</LocaleProvider>
+        <BodyScrollRestorer />
         <Analytics />
       </body>
     </html>
