@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     // Validate: no concurrent in-transit payout (prevent double withdrawal)
     const { data: ledger } = await adminSupabase
       .from("seller_ledger")
-      .select("in_transit_amount, available_amount")
+      .select("in_transit_amount, available_amount, negative_balance")
       .eq("creator_id", creator.id)
       .maybeSingle()
 
@@ -64,6 +64,14 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "A payout is already in transit. Please wait until it arrives before withdrawing again." },
         { status: 409 },
+      )
+    }
+
+    // Block withdrawal when balance is negative (Stan-style)
+    if (ledger && (ledger.negative_balance || 0) > 0) {
+      return NextResponse.json(
+        { error: "Your balance is negative due to a refund or dispute. Future sales will cover this automatically." },
+        { status: 400 },
       )
     }
 

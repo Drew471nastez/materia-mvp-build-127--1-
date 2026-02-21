@@ -66,7 +66,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No balance found" }, { status: 400 })
     }
 
-    // Validate: has available funds
+    // Validate: has available funds and no negative balance
+    // Stan-style: negative balance (from refunds/disputes) must be covered by
+    // future sales before cashout is allowed. Stripe already deducted these funds.
+    if (ledger.negative_balance > 0) {
+      return NextResponse.json(
+        { error: "Your balance is negative due to a refund or dispute. Future sales will cover this automatically." },
+        { status: 400 },
+      )
+    }
+
     if (ledger.available_amount <= 0) {
       return NextResponse.json(
         { error: "No funds available for cashout" },

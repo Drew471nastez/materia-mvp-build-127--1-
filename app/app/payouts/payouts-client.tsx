@@ -1008,22 +1008,32 @@ function WithdrawPanel({
     );
   }
 
-  const helper =
-    availableBalance <= 0
+  // Effective balance: what the seller actually has (Stan-style)
+  // If negative_balance > 0, the seller owes money (refund/dispute debt)
+  const effectiveBalance = availableBalance - negativeBalance;
+  const isNegative = effectiveBalance < 0;
+  const canCashOut = effectiveBalance > 0 && negativeBalance === 0;
+
+  const helper = isNegative
+    ? "Your balance is negative due to a refund or dispute. Future sales will cover this automatically."
+    : effectiveBalance <= 0
       ? "No funds available yet. New sales take 2–7 business days to settle before they become available."
       : "Cash out your full available balance. Funds arrive in 24–48 hours. Minimum $1.00.";
 
   return (
     <div className="bg-[#f8fafc] rounded-2xl border border-[#e5e7eb] p-5 sm:p-6 flex flex-col gap-5 min-w-[240px]">
-      <div className="rounded-xl border border-[#e5e7eb] bg-white p-5">
+      <div className={cn("rounded-xl border bg-white p-5", isNegative ? "border-red-200" : "border-[#e5e7eb]")}>
         <div className="grid grid-cols-2 gap-4">
           <div>
             <p className="text-[10px] text-[#6b7280] font-semibold tracking-widest uppercase leading-tight">
               Available for cashout
             </p>
             {balanceReady ? (
-              <p className="text-[28px] sm:text-[32px] leading-none font-bold text-[#1a1a2e] mt-2 tabular-nums">
-                {fmt(availableBalance, currency)}
+              <p className={cn(
+                "text-[28px] sm:text-[32px] leading-none font-bold mt-2 tabular-nums",
+                isNegative ? "text-red-600" : "text-[#1a1a2e]"
+              )}>
+                {isNegative ? `-${fmt(Math.abs(effectiveBalance), currency)}` : fmt(effectiveBalance, currency)}
               </p>
             ) : (
               <div className="h-8 w-24 mt-2 rounded-lg bg-gray-200 animate-pulse" />
@@ -1069,11 +1079,11 @@ function WithdrawPanel({
             </button>
           </div>
         </div>
-        {negativeBalance > 0 && (
-          <div className="flex items-center gap-2 mt-3 px-3 py-2 bg-red-50 border border-red-200 rounded-lg">
+        {isNegative && (
+          <div className="flex items-center gap-2 mt-3 px-3 py-2.5 bg-red-50 border border-red-200 rounded-lg">
             <AlertCircle className="h-3.5 w-3.5 text-red-500 shrink-0" />
             <p className="text-[11px] text-red-700 leading-snug">
-              <span className="font-semibold">-{fmt(negativeBalance, currency)}</span> balance from disputes/refunds — future sales will cover this automatically
+              Balance is negative due to a refund or dispute. Future sales will cover this automatically — no action needed.
             </p>
           </div>
         )}
@@ -1107,9 +1117,9 @@ function WithdrawPanel({
               <button
                 onClick={() => {
                   if (loading) return;
-                  if (availableBalance <= 0) {
+                  if (!canCashOut) {
                     setShowWithdrawHint(true);
-                    window.setTimeout(() => setShowWithdrawHint(false), 2200);
+                    window.setTimeout(() => setShowWithdrawHint(false), 3000);
                     return;
                   }
                   handleWithdraw();
@@ -1117,14 +1127,14 @@ function WithdrawPanel({
                 disabled={loading}
                 className={cn(
                   "w-full flex items-center justify-center gap-2 px-4 py-3 text-[15px] font-medium text-white rounded-xl transition-colors",
-                  availableBalance <= 0
+                  !canCashOut
                     ? "bg-[#635bff] opacity-40 cursor-not-allowed"
                     : "bg-[#635bff] hover:bg-[#564de8] disabled:opacity-50 disabled:cursor-not-allowed",
                 )}
               >
                 {loading ? (
                   <><Loader2 className="h-4 w-4 animate-spin" /> Processing…</>
-                ) : availableBalance <= 0 ? (
+                ) : !canCashOut ? (
                   <><Clock className="h-4 w-4" /> Cash out</>
                 ) : (
                   <><Banknote className="h-4 w-4" /> Cash out</>
@@ -1133,7 +1143,9 @@ function WithdrawPanel({
             </div>
             {showWithdrawHint && (
               <div className="absolute left-2 right-2 -top-11 z-30 rounded-xl bg-[#111827] px-3 py-2.5 text-[11px] text-white text-center shadow-lg">
-                No funds ready yet — new sales take 2–7 business days to settle
+                {isNegative
+                  ? "Your available balance must be positive to cash out"
+                  : "No funds ready yet — new sales take 2–7 business days to settle"}
               </div>
             )}
             <button
@@ -4270,10 +4282,11 @@ export function PayoutsClient({
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-[13px] font-medium text-[#374151]">
-                  Your balance is affected by a past dispute
+                  Your balance is negative due to a refund
                 </p>
                 <p className="text-[11px] text-[#9ca3af] mt-0.5">
-                  Your account has a -{fmt(negativeBalance)} balance from a previous dispute or refund. Future sales will automatically cover this — no action is needed from you.
+                  Stripe removed {fmt(negativeBalance)} from your balance. Future sales will automatically cover this — no action needed.
+                  Cashouts are paused until your balance is positive again.
                 </p>
               </div>
             </div>
