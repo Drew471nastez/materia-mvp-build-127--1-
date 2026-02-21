@@ -335,10 +335,11 @@ const timeframeOptions: TimeframeOption[] = [
 
 // Chart colors - matching reference image
 const CHART_COLORS = {
-  views: "#1a1a2e",
+  views: "#8b5cf6",
   clicks: "#a78bfa",
   orders: "#8b5cf6",
   revenue: "#3b82f6",
+  refunds: "#f59e0b",
 }
 
 const PIE_COLORS = ["#8b5cf6", "#a78bfa", "#c4b5fd", "#ddd6fe", "#ede9fe", "#f5f3ff"]
@@ -2452,6 +2453,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                       <stop offset="0%" stopColor={CHART_COLORS.revenue} stopOpacity={0.15} />
                       <stop offset="100%" stopColor={CHART_COLORS.revenue} stopOpacity={0} />
                     </linearGradient>
+                    <linearGradient id="gradRefunds" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={CHART_COLORS.refunds} stopOpacity={0.15} />
+                      <stop offset="100%" stopColor={CHART_COLORS.refunds} stopOpacity={0} />
+                    </linearGradient>
                     <linearGradient id="gradConversion" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="#10b981" stopOpacity={0.15} />
                       <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
@@ -2483,7 +2488,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                       payload.forEach((p: any) => {
                         const name = p.dataKey as string
                         const val = p.value as number
-                        const labels: Record<string, string> = { views: "Views", clicks: "Clicks", sales: "Orders", revenue: "Revenue", subscribers: "Subscribers", conversion: "Conversion", ctr: "CTR" }
+                        const labels: Record<string, string> = { views: "Views", clicks: "Clicks", sales: "Orders", revenue: "Revenue", subscribers: "Subscribers", conversion: "Conversion", ctr: "CTR", refunds: "Refunds" }
                         const displayLabel = labels[name] || name
                         let displayVal: string
                         if (name === "revenue") displayVal = formatPrice(val)
@@ -2491,16 +2496,12 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                         else displayVal = val.toLocaleString()
                         lines.push({ label: displayLabel, value: displayVal })
                       })
-                      const refunds = point?.refunds || 0
                       return (
                         <div style={{ background: "#1a1a2e", border: "none", borderRadius: "8px", fontSize: "12px", color: "#fff", padding: "8px 12px" }}>
                           <p style={{ fontSize: "11px", color: "#9ca3af", marginBottom: "2px" }}>{label}</p>
                           {lines.map((l, i) => (
-                            <p key={i} style={{ fontWeight: 500 }}>{l.label}: {l.value}</p>
+                            <p key={i} style={{ fontWeight: 500, color: l.label === "Refunds" ? CHART_COLORS.refunds : undefined }}>{l.label}: {l.value}</p>
                           ))}
-                          {refunds > 0 && (
-                            <p style={{ fontSize: "10px", color: "#f59e0b", marginTop: "2px" }}>{refunds} refunded</p>
-                          )}
                         </div>
                       )
                     }}
@@ -2511,6 +2512,9 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   )}
                   {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "orders") && (
                     <Area type="monotone" dataKey="sales" stroke={CHART_COLORS.orders} strokeWidth={2} fill="url(#gradOrders)" dot={false} activeDot={{ r: 4, fill: CHART_COLORS.orders, strokeWidth: 2, stroke: "#fff" }} name="sales" animationDuration={800} animationEasing="ease-in-out" animationBegin={0} />
+                  )}
+                  {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "orders") && (
+                    <Area type="monotone" dataKey="refunds" stroke={CHART_COLORS.refunds} strokeWidth={2} fill="url(#gradRefunds)" dot={false} activeDot={{ r: 4, fill: CHART_COLORS.refunds, strokeWidth: 2, stroke: "#fff" }} name="refunds" animationDuration={800} animationEasing="ease-in-out" animationBegin={200} />
                   )}
                   {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "revenue") && (
                     <Area type="monotone" dataKey="revenue" stroke={CHART_COLORS.revenue} strokeWidth={2} fill="url(#gradRevenue)" dot={false} activeDot={{ r: 4, fill: CHART_COLORS.revenue, strokeWidth: 2, stroke: "#fff" }} name="revenue" animationDuration={800} animationEasing="ease-in-out" animationBegin={0} />
