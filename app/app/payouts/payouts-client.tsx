@@ -3353,28 +3353,57 @@ type PayoutMethodData = {
     delayDays: number | null;
   } | null;
   payoutsEnabled: boolean;
+  chargesEnabled?: boolean;
+  detailsSubmitted?: boolean;
+  requirementsDue?: string[];
+  requirementsPastDue?: string[];
+  requirementsEventuallyDue?: string[];
 };
 
-function payoutSpeedLabel(schedule: PayoutMethodData["payoutSchedule"]): string {
-  if (!schedule) return "Standard";
-  const { interval, weeklyAnchor, monthlyAnchor, delayDays } = schedule;
-  if (interval === "daily") return "Daily (automatic)";
-  if (interval === "weekly") {
-    const day = weeklyAnchor
-      ? weeklyAnchor.charAt(0).toUpperCase() + weeklyAnchor.slice(1)
-      : "Monday";
-    return `Weekly on ${day}s`;
-  }
-  if (interval === "monthly") {
-    const d = monthlyAnchor ?? 1;
-    const suffix = d === 1 ? "st" : d === 2 ? "nd" : d === 3 ? "rd" : "th";
-    return `Monthly on the ${d}${suffix}`;
-  }
-  if (interval === "manual") return "Manual (you control)";
-  if (delayDays != null) {
-    return `${delayDays} business day${delayDays !== 1 ? "s" : ""}`;
-  }
-  return "Standard (2–3 days)";
+// Storelib model: all accounts are manual — sellers cash out via the button
+function payoutSpeedLabel(_schedule: PayoutMethodData["payoutSchedule"]): string {
+  return "Manual (you control)";
+}
+
+// Friendly labels for Stripe requirement keys
+const REQUIREMENT_LABELS: Record<string, string> = {
+  "individual.verification.document": "Photo ID",
+  "individual.verification.additional_document": "Additional ID document",
+  "individual.id_number": "SSN or tax ID",
+  "individual.dob.day": "Date of birth",
+  "individual.dob.month": "Date of birth",
+  "individual.dob.year": "Date of birth",
+  "individual.address.line1": "Home address",
+  "individual.address.city": "Home address",
+  "individual.address.state": "Home address",
+  "individual.address.postal_code": "Home address",
+  "individual.first_name": "Legal name",
+  "individual.last_name": "Legal name",
+  "individual.email": "Email address",
+  "individual.phone": "Phone number",
+  "individual.ssn_last_4": "Last 4 of SSN",
+  "business_profile.url": "Website URL",
+  "business_profile.mcc": "Business category",
+  "company.tax_id": "Business tax ID",
+  "company.name": "Business name",
+  "company.address.line1": "Business address",
+  "company.address.city": "Business address",
+  "company.address.state": "Business address",
+  "company.address.postal_code": "Business address",
+  "external_account": "Bank account",
+  "tos_acceptance.date": "Terms of service",
+  "tos_acceptance.ip": "Terms of service",
+};
+
+function friendlyRequirements(keys: string[]): string[] {
+  const seen = new Set<string>();
+  return keys
+    .map((k) => REQUIREMENT_LABELS[k] || k.split(".").pop()?.replace(/_/g, " ") || k)
+    .filter((label) => {
+      if (seen.has(label)) return false;
+      seen.add(label);
+      return true;
+    });
 }
 
 function PayoutMethodCard() {
@@ -3431,13 +3460,65 @@ function PayoutMethodCard() {
   };
 
   const bank = data?.bankAccount;
-  const needsVerification = data && !data.payoutsEnabled;
   const needsBank = data && !bank;
+  // Use requirements from Stripe directly — only show setup banner when there are actual requirements due
+  const hasRequirementsDue = data && (data.requirementsDue?.length ?? 0) > 0;
+  const hasPastDueRequirements = data && (data.requirementsPastDue?.length ?? 0) > 0;
+  const hasVerificationNeeded = data && !data.payoutsEnabled && data.detailsSubmitted && !needsBank;
+  // Show "Complete account setup" only when details NOT yet submitted (first-time onboarding)
+  const needsOnboarding = data && !data.detailsSubmitted && !data.payoutsEnabled;
+  // Identity verification: has requirements but already submitted details & has bank
+  const allRequirements = [
+    ...(data?.requirementsPastDue || []),
+    ...(data?.requirementsDue || []),
+  ];
+  const friendlyReqs = allRequirements.length > 0 ? friendlyRequirements(allRequirements) : [];
 
   return (
     <div className="space-y-2">
-      {/* Action required banners */}
-      {!loading && needsVerification && !needsBank && (
+      {/* Action required: identity verification with friendly labels */}
+      {!loading && hasVerificationNeeded && friendlyReqs.length > 0 && (
+        <div className="flex items-start gap-3 px-4 py-3 bg-[#f8f8f9] border border-[#e8e8ec] rounded-xl">
+          <div className="w-7 h-7 rounded-lg bg-[#fef3c7] flex items-center justify-center shrink-0 mt-0.5">
+            <AlertCircle className="h-3.5 w-3.5 text-[#d97706]" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[13px] font-medium text-[#374151] mb-1">
+              {hasPastDueRequirements ? "Action required to keep receiving payouts" : "Verification needed to enable payouts"}
+            </p>
+            <p className="text-[12px] text-[#6b7280] mb-1.5">
+              Stripe needs: {friendlyReqs.slice(0, 3).join(", ")}{friendlyReqs.length > 3 ? ` +${friendlyReqs.length - 3} more` : ""}
+            </p>
+          </div>
+          <button
+            onClick={openManageSettings}
+            disabled={actionLoading}
+            className="text-[12px] font-medium text-[#8b5cf6] hover:text-[#7c3aed] transition-colors whitespace-nowrap shrink-0 mt-0.5"
+          >
+            {actionLoading ? "Opening..." : "Complete verification"}
+          </button>
+        </div>
+      )}
+      {/* Action required: first-time onboarding incomplete */}
+      {!loading && needsOnboarding && !needsBank && (
+        <div className="flex items-center gap-3 px-4 py-3 bg-[#f8f8f9] border border-[#e8e8ec] rounded-xl">
+          <div className="w-7 h-7 rounded-lg bg-[#fef3c7] flex items-center justify-center shrink-0">
+            <AlertCircle className="h-3.5 w-3.5 text-[#d97706]" />
+          </div>
+          <p className="text-[13px] text-[#4b5563] flex-1">
+            Complete your account setup to receive payouts
+          </p>
+          <button
+            onClick={openManageSettings}
+            disabled={actionLoading}
+            className="text-[12px] font-medium text-[#8b5cf6] hover:text-[#7c3aed] transition-colors whitespace-nowrap shrink-0"
+          >
+            {actionLoading ? "Opening..." : "Complete setup"}
+          </button>
+        </div>
+      )}
+      {/* Verification needed but no specific requirements to show */}
+      {!loading && hasVerificationNeeded && friendlyReqs.length === 0 && (
         <div className="flex items-center gap-3 px-4 py-3 bg-[#f8f8f9] border border-[#e8e8ec] rounded-xl">
           <div className="w-7 h-7 rounded-lg bg-[#fef3c7] flex items-center justify-center shrink-0">
             <AlertCircle className="h-3.5 w-3.5 text-[#d97706]" />
@@ -3942,7 +4023,7 @@ export function PayoutsClient({
     }, 180);
   };
 
-  // Smooth two-phase transition helper: fade out → swap → fade in
+  // Smooth two-phase transition: quick fade out (100ms) → swap → fade in (150ms)
   const smoothSwitch = useCallback((swapFn: () => void) => {
     setIsPageLoading(true);
     setTimeout(() => {
@@ -3950,7 +4031,7 @@ export function PayoutsClient({
       requestAnimationFrame(() => {
         requestAnimationFrame(() => setIsPageLoading(false));
       });
-    }, 180);
+    }, 100);
   }, []);
 
   // Close order action menu on outside click
@@ -4138,13 +4219,12 @@ export function PayoutsClient({
             </div>
 
             <div
-              className="will-change-[opacity,transform]"
+              className="will-change-[opacity]"
               style={{
                 opacity: isPageLoading ? 0 : 1,
-                transform: isPageLoading ? "translateY(4px)" : "translateY(0)",
                 transition: isPageLoading
-                  ? "opacity 120ms ease-out, transform 120ms ease-out"
-                  : "opacity 250ms ease-in, transform 250ms ease-in",
+                  ? "opacity 80ms ease-out"
+                  : "opacity 150ms ease-in",
               }}
             >
               {recentTab === "payouts" ? (

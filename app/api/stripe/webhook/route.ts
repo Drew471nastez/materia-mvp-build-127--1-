@@ -4,7 +4,7 @@ import type Stripe from "stripe"
 import { stripe } from "@/lib/stripe"
 import { createClient } from "@supabase/supabase-js"
 import { generateReceiptToken } from "@/lib/security"
-import { sendOrderEmails, triggerEmailFlows, sendPayoutStatusEmail, sendFirstPayoutEmail, sendBankUpdatedEmail, sendPayoutsPausedEmail } from "@/lib/email"
+import { sendOrderEmails, triggerEmailFlows, sendPayoutStatusEmail, sendFirstPayoutEmail, sendBankUpdatedEmail, sendPayoutsPausedEmail, sendVerificationRequiredEmail } from "@/lib/email"
 import { v4 as uuidv4 } from "uuid"
 
 export const runtime = "nodejs"
@@ -929,6 +929,22 @@ export async function POST(request: Request) {
                     console.log("[Connect] Sent bank updated email to:", profile.email)
                   }
                 }
+              }
+
+              // Verification required email: when Stripe adds new requirements
+              const requirements = (account as any).requirements || {}
+              const currentlyDue: string[] = requirements.currently_due || []
+              const pastDue: string[] = requirements.past_due || []
+              const allReqs = [...pastDue, ...currentlyDue]
+              if (allReqs.length > 0 && detailsSubmitted) {
+                await sendVerificationRequiredEmail({
+                  to: profile.email,
+                  sellerName: profile.display_name || "Seller",
+                  creatorId: creator.id,
+                  requirements: allReqs,
+                  isPastDue: pastDue.length > 0,
+                })
+                console.log("[Connect] Sent verification required email to:", profile.email)
               }
             }
           }

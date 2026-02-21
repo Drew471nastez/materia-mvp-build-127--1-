@@ -2,12 +2,18 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
+/**
+ * POST /api/settings/payouts
+ *
+ * Storelib model: ALL accounts are locked to manual payouts.
+ * Sellers cash out via the "Cash out" button — no automatic schedules.
+ * This endpoint only persists the payout_threshold (min cashout) preference.
+ */
 export async function POST(request: Request) {
   try {
     const supabase = await createClient()
     const adminSupabase = createAdminClient()
 
-    // Check authentication
     const {
       data: { user },
     } = await supabase.auth.getUser()
@@ -16,10 +22,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Get creator profile
     const { data: creator, error: creatorError } = await supabase
       .from("creators")
-      .select("*")
+      .select("id")
       .eq("user_id", user.id)
       .single()
 
@@ -28,26 +33,20 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { payoutSchedule, payoutThreshold, instantPayoutsEnabled } = body
-
-    // Validate payout schedule
-    const validSchedules = ["daily", "weekly", "monthly"]
-    if (payoutSchedule && !validSchedules.includes(payoutSchedule)) {
-      return NextResponse.json({ error: "Invalid payout schedule" }, { status: 400 })
-    }
+    const { payoutThreshold } = body
 
     // Validate payout threshold (must be non-negative)
     if (payoutThreshold !== undefined && payoutThreshold < 0) {
       return NextResponse.json({ error: "Payout threshold must be non-negative" }, { status: 400 })
     }
 
-    // Update payout settings
+    // Force manual schedule — sellers cannot change this
     await adminSupabase
       .from("creators")
       .update({
-        payout_schedule: payoutSchedule || "daily",
+        payout_schedule: "manual",
         payout_threshold: payoutThreshold || 0,
-        instant_payouts_enabled: instantPayoutsEnabled || false,
+        instant_payouts_enabled: false,
       })
       .eq("id", creator.id)
 
@@ -65,7 +64,6 @@ export async function GET() {
   try {
     const supabase = await createClient()
 
-    // Check authentication
     const {
       data: { user },
     } = await supabase.auth.getUser()
@@ -74,7 +72,6 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Get creator profile with payout settings
     const { data: creator, error: creatorError } = await supabase
       .from("creators")
       .select("payout_schedule, payout_threshold, instant_payouts_enabled")
@@ -85,10 +82,11 @@ export async function GET() {
       return NextResponse.json({ error: "Creator profile not found" }, { status: 404 })
     }
 
+    // Always report manual — Storelib controls payout timing
     return NextResponse.json({
-      payoutSchedule: creator.payout_schedule || "daily",
+      payoutSchedule: "manual",
       payoutThreshold: creator.payout_threshold || 0,
-      instantPayoutsEnabled: creator.instant_payouts_enabled || false,
+      instantPayoutsEnabled: false,
     })
   } catch (error) {
     console.error("[Payout Settings Fetch Error]", error)

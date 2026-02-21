@@ -2548,6 +2548,126 @@ export async function sendPayoutsPausedEmail(params: {
   }
 }
 
+// ─── Verification Required Email (with 24h throttling) ────────────────────────
+
+// In-memory throttle map: creatorId → last sent timestamp
+const verificationEmailThrottle = new Map<string, number>()
+const VERIFICATION_THROTTLE_MS = 24 * 60 * 60 * 1000 // 24 hours
+
+// Friendly labels for Stripe requirement keys
+const REQUIREMENT_FRIENDLY_LABELS: Record<string, string> = {
+  "individual.verification.document": "Photo ID (passport, driver's license, or national ID)",
+  "individual.verification.additional_document": "Additional identity document",
+  "individual.id_number": "SSN or government tax ID",
+  "individual.dob.day": "Date of birth",
+  "individual.dob.month": "Date of birth",
+  "individual.dob.year": "Date of birth",
+  "individual.address.line1": "Home address",
+  "individual.address.city": "Home address",
+  "individual.address.state": "Home address",
+  "individual.address.postal_code": "Home address",
+  "individual.first_name": "Legal name",
+  "individual.last_name": "Legal name",
+  "individual.email": "Email address",
+  "individual.phone": "Phone number",
+  "individual.ssn_last_4": "Last 4 of SSN",
+  "external_account": "Bank account for payouts",
+  "tos_acceptance.date": "Accept terms of service",
+  "tos_acceptance.ip": "Accept terms of service",
+  "business_profile.url": "Website or store URL",
+  "business_profile.mcc": "Business category",
+}
+
+function friendlyRequirementLabels(keys: string[]): string[] {
+  const seen = new Set<string>()
+  return keys
+    .map((k) => REQUIREMENT_FRIENDLY_LABELS[k] || k.split(".").pop()?.replace(/_/g, " ") || k)
+    .filter((label) => {
+      if (seen.has(label)) return false
+      seen.add(label)
+      return true
+    })
+}
+
+export async function sendVerificationRequiredEmail(params: {
+  to: string
+  sellerName: string
+  creatorId: string
+  requirements: string[]
+  isPastDue?: boolean
+}): Promise<void> {
+  // 24h throttle per creator
+  const lastSent = verificationEmailThrottle.get(params.creatorId)
+  if (lastSent && Date.now() - lastSent < VERIFICATION_THROTTLE_MS) {
+    console.log("[email] Verification email throttled for creator:", params.creatorId)
+    return
+  }
+
+  const baseUrl = getStableBaseUrl()
+  const friendlyReqs = friendlyRequirementLabels(params.requirements)
+
+  const requirementsList = friendlyReqs
+    .slice(0, 5)
+    .map((r) => `<li style="padding:4px 0;font-size:14px;color:#374151;">${safeText(r)}</li>`)
+    .join("")
+
+  const requirementsText = friendlyReqs.slice(0, 5).join(", ")
+
+  try {
+    await withRetry(
+      async () => {
+        const result = await sendEmail({
+          from: buildFromHeaderLocal("Storelib"),
+          to: params.to,
+          subject: params.isPastDue
+            ? "Action required: complete verification to keep receiving payouts"
+            : "Verification needed to enable payouts",
+          html: `<!DOCTYPE html>
+<html>
+<head><meta name="viewport" content="width=device-width,initial-scale=1.0"><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></head>
+<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background-color:#f6f9fc;">
+  <table role="presentation" style="width:100%;padding:32px 16px;">
+    <tr><td align="center">
+      <table role="presentation" style="max-width:560px;width:100%;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+        <tr><td style="padding:32px 28px;">
+          <h1 style="margin:0 0 16px 0;font-size:20px;font-weight:700;color:#1a1a2e;">${params.isPastDue ? "Action required" : "Verification needed"}</h1>
+          <p style="margin:0 0 16px 0;font-size:15px;color:#374151;line-height:1.6;">Hi ${safeText(params.sellerName)},</p>
+          <p style="margin:0 0 16px 0;font-size:15px;color:#374151;line-height:1.6;">${params.isPastDue
+            ? "To continue receiving payouts, Stripe needs you to complete the following verification:"
+            : "To enable payouts on your account, Stripe needs you to provide some additional information:"}</p>
+          <div style="background:#f8f8f9;border:1px solid #e8e8ec;border-radius:8px;padding:14px 18px;margin:0 0 20px 0;">
+            <ul style="margin:0;padding:0 0 0 16px;list-style:disc;">${requirementsList}</ul>
+          </div>
+          <p style="margin:0 0 20px 0;font-size:14px;color:#6b7280;line-height:1.5;">This usually takes less than 2 minutes. Your information is handled securely by Stripe.</p>
+          <table role="presentation" style="width:100%;"><tr><td align="center">
+            <a href="${baseUrl}/app/payouts" style="display:inline-block;padding:12px 28px;background:#7c3aed;color:#fff;font-size:14px;font-weight:600;text-decoration:none;border-radius:8px;">Complete verification →</a>
+          </td></tr></table>
+        </td></tr>
+        <tr><td style="padding:16px 22px;text-align:center;background:#f9fafb;color:#9ca3af;font-size:11px;">
+          &copy; ${new Date().getFullYear()} Storelib &nbsp;&middot;&nbsp;
+          <a href="${baseUrl}/app/payouts" style="color:#aaa;text-decoration:none;">Manage payouts</a>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`,
+          text: `${params.isPastDue ? "Action required" : "Verification needed"}\n\nHi ${params.sellerName},\n\n${params.isPastDue ? "To continue receiving payouts, Stripe needs:" : "To enable payouts, Stripe needs:"}\n\n${requirementsText}\n\nComplete verification: ${baseUrl}/app/payouts`,
+        })
+        if (!result.success) throw new Error(result.error || "Failed to send verification email")
+        return result
+      },
+      MAX_RETRIES,
+      "verification required email"
+    )
+
+    // Mark throttle on success
+    verificationEmailThrottle.set(params.creatorId, Date.now())
+  } catch (err) {
+    console.error("[email] Failed to send verification required email:", err)
+  }
+}
+
 function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim()
 }

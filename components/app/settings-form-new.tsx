@@ -861,6 +861,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   const [showStripeManage, setShowStripeManage] = useState(false)
   const [stripeBankInfo, setStripeBankInfo] = useState<{ bankName: string | null; last4: string; currency: string; status: string | null } | null>(null)
   const [stripeBankLoading, setStripeBankLoading] = useState(false)
+  const [stripePayoutInfo, setStripePayoutInfo] = useState<{ payoutsEnabled: boolean; detailsSubmitted: boolean; requirementsDue: string[]; requirementsPastDue: string[] } | null>(null)
 
   const [activeTab, setActiveTab] = useState<TabId>(initialTab)
   const tabNavRef = useRef<HTMLDivElement>(null)
@@ -978,6 +979,15 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
       const data = await res.json()
       if (res.ok && data.bankAccount) setStripeBankInfo(data.bankAccount)
       else setStripeBankInfo(null)
+      // Store requirements & status info
+      if (res.ok) {
+        setStripePayoutInfo({
+          payoutsEnabled: data.payoutsEnabled ?? false,
+          detailsSubmitted: data.detailsSubmitted ?? false,
+          requirementsDue: data.requirementsDue || [],
+          requirementsPastDue: data.requirementsPastDue || [],
+        })
+      }
     } catch {
       setStripeBankInfo(null)
     } finally {
@@ -2603,13 +2613,24 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   )}
                 </div>
               )}
-              {/* Action required banners */}
-              {stripeStatus.connected && !stripeStatus.payoutsEnabled && !stripeBankLoading && (
+              {/* Action required banners — use requirements from payout-method API */}
+              {stripeStatus.connected && !stripeBankLoading && stripePayoutInfo && !stripePayoutInfo.payoutsEnabled && stripePayoutInfo.detailsSubmitted && (stripePayoutInfo.requirementsDue.length > 0 || stripePayoutInfo.requirementsPastDue.length > 0) && (
+                <div className="flex items-start gap-3 px-4 py-3 bg-[#f8f8f9] border border-[#e8e8ec] rounded-xl">
+                  <div className="w-7 h-7 rounded-lg bg-[#fef3c7] flex items-center justify-center shrink-0 mt-0.5">
+                    <AlertCircle className="h-3.5 w-3.5 text-[#d97706]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] font-medium text-[#374151]">{stripePayoutInfo.requirementsPastDue.length > 0 ? "Action required to keep receiving payouts" : "Verification needed to enable payouts"}</p>
+                  </div>
+                  <button type="button" onClick={manageStripe} disabled={stripeBusy !== null} className="text-[12px] font-medium text-[#8b5cf6] hover:text-[#7c3aed] transition-colors whitespace-nowrap shrink-0 mt-0.5 cursor-pointer">{stripeBusy ? "Opening..." : "Complete verification"}</button>
+                </div>
+              )}
+              {stripeStatus.connected && !stripeBankLoading && stripePayoutInfo && !stripePayoutInfo.detailsSubmitted && !stripePayoutInfo.payoutsEnabled && (
                 <div className="flex items-center gap-3 px-4 py-3 bg-[#f8f8f9] border border-[#e8e8ec] rounded-xl">
                   <div className="w-7 h-7 rounded-lg bg-[#fef3c7] flex items-center justify-center shrink-0">
                     <AlertCircle className="h-3.5 w-3.5 text-[#d97706]" />
                   </div>
-                  <p className="text-[13px] text-[#4b5563] flex-1">Complete verification to receive payouts</p>
+                  <p className="text-[13px] text-[#4b5563] flex-1">Complete your account setup to receive payouts</p>
                   <button type="button" onClick={manageStripe} disabled={stripeBusy !== null} className="text-[12px] font-medium text-[#8b5cf6] hover:text-[#7c3aed] transition-colors whitespace-nowrap shrink-0 cursor-pointer">{stripeBusy ? "Opening..." : "Complete setup"}</button>
                 </div>
               )}

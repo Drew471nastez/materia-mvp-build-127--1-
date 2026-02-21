@@ -6,7 +6,10 @@ import { stripe } from "@/lib/stripe"
 /**
  * GET /api/stripe/payout-method
  *
- * Returns the seller's connected bank account info and payout schedule.
+ * Returns the seller's connected bank account info, payout schedule,
+ * verification requirements, and account status.
+ *
+ * Also RE-ENFORCES manual payouts if Stripe somehow changed it.
  */
 export async function GET() {
   try {
@@ -29,7 +32,13 @@ export async function GET() {
 
     const stripeAccountId = creator.stripe_account_id
     if (!stripeAccountId) {
-      return NextResponse.json({ bankAccount: null, payoutSchedule: null, payoutsEnabled: false })
+      return NextResponse.json({
+        bankAccount: null,
+        payoutSchedule: null,
+        payoutsEnabled: false,
+        detailsSubmitted: false,
+        requirementsDue: [],
+      })
     }
 
     // Fetch account info and external bank accounts in parallel
@@ -54,19 +63,44 @@ export async function GET() {
         }
       : null
 
+    // RE-ENFORCE manual payouts — Storelib controls when sellers cash out
     const schedule = (account as any).settings?.payouts?.schedule || null
+    if (schedule?.interval !== "manual") {
+      try {
+        await stripe.accounts.update(stripeAccountId, {
+          settings: {
+            payouts: {
+              schedule: { interval: "manual" as const },
+            },
+          },
+        })
+        console.log("[Payout Method] Re-enforced manual payouts for:", stripeAccountId)
+      } catch (enforceErr) {
+        console.error("[Payout Method] Failed to enforce manual payouts:", enforceErr)
+      }
+    }
+
+    // Extract requirements for verification banners
+    const requirements = (account as any).requirements || {}
+    const currentlyDue: string[] = requirements.currently_due || []
+    const eventuallyDue: string[] = requirements.eventually_due || []
+    const pastDue: string[] = requirements.past_due || []
 
     return NextResponse.json({
       bankAccount,
-      payoutSchedule: schedule
-        ? {
-            interval: schedule.interval,
-            weeklyAnchor: schedule.weekly_anchor || null,
-            monthlyAnchor: schedule.monthly_anchor || null,
-            delayDays: schedule.delay_days ?? null,
-          }
-        : null,
+      // Always report manual — that's the Storelib model
+      payoutSchedule: {
+        interval: "manual",
+        weeklyAnchor: null,
+        monthlyAnchor: null,
+        delayDays: null,
+      },
       payoutsEnabled: account.payouts_enabled ?? false,
+      chargesEnabled: account.charges_enabled ?? false,
+      detailsSubmitted: account.details_submitted ?? false,
+      requirementsDue: currentlyDue,
+      requirementsPastDue: pastDue,
+      requirementsEventuallyDue: eventuallyDue,
     })
   } catch (error: any) {
     console.error("[Payout Method Error]", error)
