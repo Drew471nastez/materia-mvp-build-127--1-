@@ -1010,9 +1010,18 @@ function WithdrawPanel({
       <div className="rounded-xl border border-[#e5e7eb] bg-white p-5">
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <p className="text-[10px] text-[#6b7280] font-semibold tracking-widest uppercase leading-tight">
-              Available for cashout
-            </p>
+            <div className="flex items-center gap-1">
+              <p className="text-[10px] text-[#6b7280] font-semibold tracking-widest uppercase leading-tight">
+                Available for cashout
+              </p>
+              <div className="relative group">
+                <Info className="h-3 w-3 text-[#9ca3af] cursor-help hover:text-[#6b7280] transition-colors" />
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#1a1a2e] text-white text-[11px] leading-relaxed rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 w-[200px] z-50 pointer-events-none">
+                  Settled funds ready to withdraw to your bank account
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px border-4 border-transparent border-t-[#1a1a2e]" />
+                </div>
+              </div>
+            </div>
             {balanceReady ? (
               <p className="text-[28px] sm:text-[32px] leading-none font-bold text-[#1a1a2e] mt-2 tabular-nums">
                 {fmt(availableBalance, currency)}
@@ -1022,9 +1031,18 @@ function WithdrawPanel({
             )}
           </div>
           <div className="text-right">
-            <p className="text-[10px] text-[#6b7280] font-semibold tracking-widest uppercase leading-tight text-right">
-              Arriving soon
-            </p>
+            <div className="flex items-center gap-1 justify-end">
+              <p className="text-[10px] text-[#6b7280] font-semibold tracking-widest uppercase leading-tight text-right">
+                Arriving soon
+              </p>
+              <div className="relative group">
+                <Info className="h-3 w-3 text-[#9ca3af] cursor-help hover:text-[#6b7280] transition-colors" />
+                <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-[#1a1a2e] text-white text-[11px] leading-relaxed rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 w-[220px] z-50 pointer-events-none">
+                  Sales are held 2–7 days by Stripe before becoming available for cashout
+                  <div className="absolute top-full right-3 -mt-px border-4 border-transparent border-t-[#1a1a2e]" />
+                </div>
+              </div>
+            </div>
             {balanceReady ? (
               <p className="text-[24px] sm:text-[28px] leading-none font-bold text-[#6b7280] mt-2 tabular-nums">
                 {fmt(pendingBalance, currency)}
@@ -3936,10 +3954,41 @@ export function PayoutsClient({
     inTransitAmount: number;
   }>({ hasInTransit: false, hasFailed: false, totalPayouts: 0, failedAmount: 0, inTransitAmount: 0 });
 
+  // Stan-style payout state machine — account status from Stripe
+  const [accountStatus, setAccountStatus] = useState<{
+    charges_enabled: boolean;
+    payouts_enabled: boolean;
+    details_submitted: boolean;
+    requirements: {
+      currently_due: string[];
+      eventually_due: string[];
+      past_due: string[];
+      disabled_reason: string | null;
+    };
+  } | null>(null);
+
   const sourceCurrency = (creator.default_currency || "usd").toLowerCase();
   const currency = "usd";
   const hasStripe = !!creator.stripe_account_id;
   const payoutsEnabled = creator.payouts_enabled !== false;
+
+  // Shared account link opener — used by both banners and withdraw panel
+  const openAccountLink = useCallback(async (type: "onboarding" | "update" = "update") => {
+    try {
+      const r = await fetch("/api/stripe/account-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type }),
+      });
+      const json = await r.json();
+      if (!r.ok) throw new Error(json.error || "Failed to open account settings");
+      if (json.url) {
+        window.open(json.url, "_blank", "noopener,noreferrer");
+      }
+    } catch {
+      // Non-fatal — user can retry
+    }
+  }, []);
 
   const refreshBalances = useCallback(async () => {
     setRefreshKey((k) => k + 1);
@@ -3981,23 +4030,36 @@ export function PayoutsClient({
           row.pending += b.amount;
           byCurrency.set(b.currency, row);
         }
-        const preferredCurrency = sourceCurrency;
-        const dominant =
-          [...byCurrency.entries()].sort(
-            (a, b) =>
-              b[1].available + b[1].pending - (a[1].available + a[1].pending),
-          )[0] || null;
 
-        const selected = byCurrency.get(preferredCurrency)
-          ? ([preferredCurrency, byCurrency.get(preferredCurrency)!] as const)
-          : dominant;
+        // Only update balances if Stripe returned actual currency entries.
+        // When Stripe account is new/reconnected with no transactions yet,
+        // both arrays can be empty — in that case, keep the server-side values
+        // which may include platform-computed fallback from order data.
+        if (byCurrency.size > 0) {
+          const preferredCurrency = sourceCurrency;
+          const dominant =
+            [...byCurrency.entries()].sort(
+              (a, b) =>
+                b[1].available + b[1].pending - (a[1].available + a[1].pending),
+            )[0] || null;
 
-        if (selected) {
-          // Use Stripe's balance directly — it already accounts for
-          // pending refunds (payment_refund txns reduce the pending balance)
-          setAvailableBalance(Math.max(0, selected[1].available));
-          setPendingBalance(Math.max(0, selected[1].pending));
+          const selected = byCurrency.get(preferredCurrency)
+            ? ([preferredCurrency, byCurrency.get(preferredCurrency)!] as const)
+            : dominant;
+
+          if (selected) {
+            // Use Stripe's balance directly — it already accounts for
+            // pending refunds (payment_refund txns reduce the pending balance)
+            setAvailableBalance(Math.max(0, selected[1].available));
+            setPendingBalance(Math.max(0, selected[1].pending));
+          }
         }
+        // If byCurrency is empty (no entries from Stripe), we intentionally
+        // keep the existing state values from the server-side initial render.
+      }
+      // Update account status for state machine banners
+      if (json.accountStatus) {
+        setAccountStatus(json.accountStatus);
       }
     } catch {
       /* non-fatal */
@@ -4116,51 +4178,135 @@ export function PayoutsClient({
           </div>
         </div>
       )}
-      {/* Contextual payout banners */}
-      {latestPayoutStatus.hasInTransit && (
-        <div className="flex items-start gap-3 px-4 py-3.5 bg-[#f8f8f9] border border-[#e8e8ec] rounded-xl mb-5">
-          <div className="w-7 h-7 rounded-lg bg-[#ede9fe] flex items-center justify-center shrink-0 mt-0.5">
-            <Send className="h-3.5 w-3.5 text-[#8b5cf6]" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-[13px] font-medium text-[#374151]">Your payout is on the way to your bank account</p>
-            <p className="text-[11px] text-[#9ca3af] mt-0.5">This usually takes 1–3 business days.</p>
-          </div>
-        </div>
-      )}
-      {latestPayoutStatus.hasFailed && (
-        <div className="flex items-start gap-3 px-4 py-3.5 bg-[#f8f8f9] border border-[#e8e8ec] rounded-xl mb-5">
-          <div className="w-7 h-7 rounded-lg bg-[#fef2f2] flex items-center justify-center shrink-0 mt-0.5">
-            <AlertCircle className="h-3.5 w-3.5 text-[#ef4444]" />
-          </div>
-          <div className="flex-1 min-w-0 flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[13px] font-medium text-[#374151]">Your last payout failed. Please update your bank account.</p>
-              <p className="text-[11px] text-[#9ca3af] mt-0.5">Funds have been returned to your available balance.</p>
+      {/* Stan-style state machine banners — ONE primary banner at a time */}
+      {(() => {
+        // Priority order: failed payout > finish setup > verify identity > under review > in-transit > first payout setup
+
+        // 1. Payout failed — highest priority, needs action
+        if (latestPayoutStatus.hasFailed) {
+          return (
+            <div className="flex items-start gap-3 px-4 py-3.5 bg-[#fef8f8] border border-[#fecaca] rounded-xl mb-5">
+              <div className="w-7 h-7 rounded-lg bg-[#fef2f2] flex items-center justify-center shrink-0 mt-0.5">
+                <AlertCircle className="h-3.5 w-3.5 text-[#ef4444]" />
+              </div>
+              <div className="flex-1 min-w-0 flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[13px] font-medium text-[#374151]">Your last payout failed. Please update your bank account.</p>
+                  <p className="text-[11px] text-[#9ca3af] mt-0.5">Funds have been returned to your available balance.</p>
+                </div>
+                <button
+                  onClick={() => {
+                    const card = document.querySelector("[data-payout-card]");
+                    if (card) (card.querySelector("button") as HTMLElement)?.click();
+                  }}
+                  className="text-[12px] font-medium text-[#8b5cf6] hover:text-[#7c3aed] transition-colors whitespace-nowrap shrink-0 mt-0.5"
+                >
+                  Update bank
+                </button>
+              </div>
             </div>
-            <button
-              onClick={() => {
-                const card = document.querySelector("[data-payout-card]");
-                if (card) (card.querySelector("button") as HTMLElement)?.click();
-              }}
-              className="text-[12px] font-medium text-[#8b5cf6] hover:text-[#7c3aed] transition-colors whitespace-nowrap shrink-0 mt-0.5"
-            >
-              Update bank
-            </button>
-          </div>
-        </div>
-      )}
-      {latestPayoutStatus.totalPayouts === 0 && (availableBalance > 0 || pendingBalance > 0) && (
-        <div className="flex items-start gap-3 px-4 py-3.5 bg-[#f8f8f9] border border-[#e8e8ec] rounded-xl mb-5">
-          <div className="w-7 h-7 rounded-lg bg-[#fef3c7] flex items-center justify-center shrink-0 mt-0.5">
-            <Clock className="h-3.5 w-3.5 text-[#d97706]" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-[13px] font-medium text-[#374151]">Your first payout may take a little longer while your account is being set up</p>
-            <p className="text-[11px] text-[#9ca3af] mt-0.5">This is normal for new accounts. Future payouts will be faster.</p>
-          </div>
-        </div>
-      )}
+          );
+        }
+
+        // 2. Finish setup — onboarding incomplete, details not submitted
+        if (accountStatus && !accountStatus.details_submitted) {
+          return (
+            <div className="flex items-start gap-3 px-4 py-3.5 bg-[#fffbeb] border border-[#fde68a] rounded-xl mb-5">
+              <div className="w-7 h-7 rounded-lg bg-[#fef3c7] flex items-center justify-center shrink-0 mt-0.5">
+                <AlertCircle className="h-3.5 w-3.5 text-[#d97706]" />
+              </div>
+              <div className="flex-1 min-w-0 flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[13px] font-medium text-[#374151]">Finish setting up your account to receive payouts</p>
+                  <p className="text-[11px] text-[#9ca3af] mt-0.5">Complete your profile, identity, and bank details to get paid.</p>
+                </div>
+                <button
+                  onClick={() => openAccountLink("onboarding")}
+                  className="text-[12px] font-medium text-[#8b5cf6] hover:text-[#7c3aed] transition-colors whitespace-nowrap shrink-0 mt-0.5"
+                >
+                  Finish setup
+                </button>
+              </div>
+            </div>
+          );
+        }
+
+        // 3. Verify identity — Stripe specifically asking for ID/docs
+        const idRequirements = accountStatus?.requirements?.currently_due?.filter(
+          (r: string) => r.includes("verification") || r.includes("id_number") || r.includes("ssn")
+        ) || [];
+        const hasPastDue = (accountStatus?.requirements?.past_due?.length || 0) > 0;
+
+        if (accountStatus && (idRequirements.length > 0 || hasPastDue)) {
+          return (
+            <div className="flex items-start gap-3 px-4 py-3.5 bg-[#fffbeb] border border-[#fde68a] rounded-xl mb-5">
+              <div className="w-7 h-7 rounded-lg bg-[#fef3c7] flex items-center justify-center shrink-0 mt-0.5">
+                <Users className="h-3.5 w-3.5 text-[#d97706]" />
+              </div>
+              <div className="flex-1 min-w-0 flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[13px] font-medium text-[#374151]">{hasPastDue ? "Action required: verify your identity" : "Identity verification needed"}</p>
+                  <p className="text-[11px] text-[#9ca3af] mt-0.5">Stripe needs additional information to keep your payouts active.</p>
+                </div>
+                <button
+                  onClick={() => openAccountLink("update")}
+                  className="text-[12px] font-medium text-[#8b5cf6] hover:text-[#7c3aed] transition-colors whitespace-nowrap shrink-0 mt-0.5"
+                >
+                  Verify now
+                </button>
+              </div>
+            </div>
+          );
+        }
+
+        // 4. Under review — details submitted, but payouts/charges not yet enabled, no due items
+        if (accountStatus && accountStatus.details_submitted && (!accountStatus.payouts_enabled || !accountStatus.charges_enabled) &&
+            (accountStatus.requirements?.currently_due?.length || 0) === 0) {
+          return (
+            <div className="flex items-start gap-3 px-4 py-3.5 bg-[#f8f8f9] border border-[#e8e8ec] rounded-xl mb-5">
+              <div className="w-7 h-7 rounded-lg bg-[#ede9fe] flex items-center justify-center shrink-0 mt-0.5">
+                <Clock className="h-3.5 w-3.5 text-[#8b5cf6]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-medium text-[#374151]">We're reviewing your information</p>
+                <p className="text-[11px] text-[#9ca3af] mt-0.5">No action needed. Stripe is reviewing your account — this usually takes a few minutes.</p>
+              </div>
+            </div>
+          );
+        }
+
+        // 5. Payout in transit — money is on the way
+        if (latestPayoutStatus.hasInTransit) {
+          return (
+            <div className="flex items-start gap-3 px-4 py-3.5 bg-[#f8f8f9] border border-[#e8e8ec] rounded-xl mb-5">
+              <div className="w-7 h-7 rounded-lg bg-[#ede9fe] flex items-center justify-center shrink-0 mt-0.5">
+                <Send className="h-3.5 w-3.5 text-[#8b5cf6]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-medium text-[#374151]">Your payout is on the way to your bank account</p>
+                <p className="text-[11px] text-[#9ca3af] mt-0.5">This usually takes 1–3 business days.</p>
+              </div>
+            </div>
+          );
+        }
+
+        // 6. First payout setup — account is ready but hasn't cashed out yet
+        if (latestPayoutStatus.totalPayouts === 0 && (availableBalance > 0 || pendingBalance > 0)) {
+          return (
+            <div className="flex items-start gap-3 px-4 py-3.5 bg-[#f8f8f9] border border-[#e8e8ec] rounded-xl mb-5">
+              <div className="w-7 h-7 rounded-lg bg-[#fef3c7] flex items-center justify-center shrink-0 mt-0.5">
+                <Clock className="h-3.5 w-3.5 text-[#d97706]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-medium text-[#374151]">Your first payout may take a little longer while your account is being set up</p>
+                <p className="text-[11px] text-[#9ca3af] mt-0.5">This is normal for new accounts. Future payouts will be faster.</p>
+              </div>
+            </div>
+          );
+        }
+
+        return null;
+      })()}
 
       <div className="space-y-6">
         {/* Chart + Withdraw panel side-by-side on desktop */}

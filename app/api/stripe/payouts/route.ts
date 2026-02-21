@@ -140,7 +140,7 @@ export async function GET() {
       }
     })
 
-    const balance = balanceResult
+    let balance = balanceResult
       ? {
           available: balanceResult.available.map((b) => ({
             amount: b.amount,
@@ -153,7 +153,53 @@ export async function GET() {
         }
       : null
 
-    return NextResponse.json({ payouts, balance, exchangeRate, payoutScheduleInterval, payoutScheduleDelay })
+    // Fallback: if Stripe returned empty balance arrays (e.g. new/reconnected
+    // account with no transactions yet) but platform has recorded orders,
+    // use the seller_ledger as fallback so the UI doesn't flash $0.
+    const hasStripeBalance = balance &&
+      (balance.available.some((b) => b.amount !== 0) || balance.pending.some((b) => b.amount !== 0))
+
+    if (!hasStripeBalance && orderPendingUsd > 0) {
+      try {
+        const { data: ledger } = await adminSupabase
+          .from("seller_ledger")
+          .select("available_amount, pending_amount")
+          .eq("creator_id", creator.id)
+          .maybeSingle()
+
+        if (ledger) {
+          const ledgerAvail = ledger.available_amount || 0
+          const ledgerPending = ledger.pending_amount || 0
+          if (ledgerAvail > 0 || ledgerPending > 0) {
+            balance = {
+              available: [{ amount: ledgerAvail, currency: "usd" }],
+              pending: [{ amount: ledgerPending, currency: "usd" }],
+            }
+          } else if (orderPendingUsd > 0) {
+            // Ledger also empty — use order net as pending (funds settling)
+            balance = {
+              available: [{ amount: 0, currency: "usd" }],
+              pending: [{ amount: orderPendingUsd, currency: "usd" }],
+            }
+          }
+        }
+      } catch { /* non-fatal */ }
+    }
+
+    // Include account status for the client state machine
+    const accountStatus = accountResult ? {
+      charges_enabled: (accountResult as any).charges_enabled || false,
+      payouts_enabled: (accountResult as any).payouts_enabled || false,
+      details_submitted: (accountResult as any).details_submitted || false,
+      requirements: {
+        currently_due: (accountResult as any).requirements?.currently_due || [],
+        eventually_due: (accountResult as any).requirements?.eventually_due || [],
+        past_due: (accountResult as any).requirements?.past_due || [],
+        disabled_reason: (accountResult as any).requirements?.disabled_reason || null,
+      },
+    } : null
+
+    return NextResponse.json({ payouts, balance, exchangeRate, payoutScheduleInterval, payoutScheduleDelay, accountStatus })
   } catch (error: any) {
     console.error("[Stripe Payouts Error]", error)
     return NextResponse.json(

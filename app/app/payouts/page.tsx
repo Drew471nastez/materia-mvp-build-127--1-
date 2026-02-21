@@ -148,6 +148,32 @@ export default async function PayoutsPage() {
         stripeAvailableBalance = selected[1].available;
         stripePendingBalance = selected[1].pending;
       }
+
+      // Fallback: if Stripe returned $0 for both available + pending (e.g. after
+      // reconnecting with a new account) but platform has recorded orders, use
+      // the platform's seller_ledger as the source of truth for display.
+      if (stripeAvailableBalance === 0 && stripePendingBalance === 0 && orderPendingUsd > 0) {
+        const { data: ledger } = await adminSupabase
+          .from("seller_ledger")
+          .select("available_amount, pending_amount")
+          .eq("creator_id", creator.id)
+          .maybeSingle();
+
+        if (ledger) {
+          const ledgerTotal = (ledger.available_amount || 0) + (ledger.pending_amount || 0);
+          if (ledgerTotal > 0) {
+            stripeAvailableBalance = ledger.available_amount || 0;
+            stripePendingBalance = ledger.pending_amount || 0;
+          } else {
+            // Ledger also empty — use order net as pending (funds are settling)
+            stripePendingBalance = orderPendingUsd;
+            detectedCurrency = "usd";
+          }
+        } else {
+          stripePendingBalance = orderPendingUsd;
+          detectedCurrency = "usd";
+        }
+      }
     } catch (err) {
       console.error("[Payouts] Failed to fetch Stripe balances:", err);
       stripePendingBalance = Math.round(orderPendingUsd * (stripeExchangeRate || 1));
