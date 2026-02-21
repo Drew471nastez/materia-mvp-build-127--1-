@@ -831,7 +831,7 @@ export function PlatformHeaderClient() {
 
   const startSellingHref = useMemo(() => {
     if (!user) return "/signup"
-    return hasCompletedSellerOnboarding ? "/app" : "/onboarding"
+    return hasCompletedSellerOnboarding ? "/app" : "/library"
   }, [user, hasCompletedSellerOnboarding])
 
   const dashboardHref = useMemo(() => {
@@ -1007,8 +1007,8 @@ export function PlatformHeaderClient() {
                       </Tooltip>
                       {/* Primary CTA */}
                       <Button asChild className="h-11 rounded-lg px-6 text-[15px] bg-violet-600 text-white hover:bg-violet-700 cursor-pointer">
-                        <Link href={getCanonicalOrRelativePath(hasCompletedSellerOnboarding ? "/app" : "/onboarding")} onClick={(e) => onCanonicalNav(e, hasCompletedSellerOnboarding ? "/app" : "/onboarding")}>
-                          {hasCompletedSellerOnboarding ? "Dashboard" : "Start Selling"}
+                        <Link href={getCanonicalOrRelativePath(hasCompletedSellerOnboarding ? "/app" : "/library")} onClick={(e) => onCanonicalNav(e, hasCompletedSellerOnboarding ? "/app" : "/library")}>
+                          {hasCompletedSellerOnboarding ? "Dashboard" : "Library"}
                         </Link>
                       </Button>
                     </>
@@ -1443,10 +1443,10 @@ export function PlatformHeaderClient() {
                   </TooltipContent>
                 </Tooltip>
 
-                {/* Start Selling or Dashboard */}
+                {/* Library or Dashboard */}
                 <Button asChild className="h-11 rounded-full px-6 text-[15px] bg-violet-600 text-white hover:bg-violet-700">
                   <Link href={getCanonicalOrRelativePath(user && hasCompletedSellerOnboarding ? "/app" : startSellingHref)} onClick={(e) => onCanonicalNav(e, user && hasCompletedSellerOnboarding ? "/app" : startSellingHref)}>
-                    {user && hasCompletedSellerOnboarding ? t("dashboard") : t("start_selling")}
+                    {user && hasCompletedSellerOnboarding ? t("dashboard") : user ? "Library" : t("start_selling")}
                   </Link>
                 </Button>
 
@@ -1533,8 +1533,8 @@ export function PlatformHeaderClient() {
                           <span>My Library</span>
                         </Link>
                         <Link
-                          href={getCanonicalOrRelativePath("/app/settings")}
-                          onClick={(e) => { onCanonicalNav(e, "/app/settings"); setDesktopProfileOpen(false) }}
+                          href={getCanonicalOrRelativePath(hasCompletedSellerOnboarding ? "/app/settings" : "/library/settings")}
+                          onClick={(e) => { onCanonicalNav(e, hasCompletedSellerOnboarding ? "/app/settings" : "/library/settings"); setDesktopProfileOpen(false) }}
                           className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 cursor-pointer"
                         >
                           <Settings className="h-4 w-4 shrink-0" />
@@ -2102,8 +2102,8 @@ export function PlatformHeaderClient() {
               <ChevronRight className="h-5 w-5 text-gray-400" />
             </Link>
             <Link
-              href={getCanonicalOrRelativePath("/app/settings")}
-              onClick={(e) => { onCanonicalNav(e, "/app/settings"); setMobileProfileOpen(false) }}
+              href={getCanonicalOrRelativePath(hasCompletedSellerOnboarding ? "/app/settings" : "/library/settings")}
+              onClick={(e) => { onCanonicalNav(e, hasCompletedSellerOnboarding ? "/app/settings" : "/library/settings"); setMobileProfileOpen(false) }}
               className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-3">
