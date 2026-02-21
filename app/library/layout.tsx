@@ -20,15 +20,15 @@ export default async function LibraryLayout({
   }
 
   return (
-    <div className="h-[100dvh] overflow-hidden bg-[#fafafa]">
+    <div className="min-h-svh bg-[#fafafa]">
       <PurchaseSyncProvider />
       <DashboardSidebar />
 
       {/* Main content column — sits next to sidebar on desktop */}
-      <div className="flex h-full flex-col md:ml-64">
-        {/* Scrollable content — this is the ONLY scroll container */}
+      <div className="flex min-h-svh flex-col md:ml-64">
+        {/* Content area — body scrolls naturally (no internal scroll container) */}
         <main
-          className="flex-1 overflow-y-auto pt-14 md:pt-0 overscroll-y-auto"
+          className="flex-1 pt-14 md:pt-0"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
           <div className="px-4 py-6 sm:px-6 md:px-8 pb-[max(2rem,env(safe-area-inset-bottom))]">
