@@ -199,7 +199,51 @@ export async function GET() {
       },
     } : null
 
-    return NextResponse.json({ payouts, balance, exchangeRate, payoutScheduleInterval, payoutScheduleDelay, accountStatus })
+    // Fetch dispute data from ledger + active disputes from Stripe
+    let disputeData: {
+      negativeBalance: number
+      activeDisputes: number
+      totalDisputedAmount: number
+      hasActiveDisputes: boolean
+    } = { negativeBalance: 0, activeDisputes: 0, totalDisputedAmount: 0, hasActiveDisputes: false }
+
+    try {
+      const { data: ledger } = await adminSupabase
+        .from("seller_ledger")
+        .select("negative_balance")
+        .eq("creator_id", creator.id)
+        .maybeSingle()
+
+      const negativeBalance = ledger?.negative_balance || 0
+
+      // Count active (open) disputed orders
+      const { data: products } = await adminSupabase
+        .from("products")
+        .select("id")
+        .eq("creator_id", creator.id)
+      const pIds = (products || []).map((p) => p.id)
+      let activeDisputes = 0
+      let totalDisputedAmount = 0
+
+      if (pIds.length > 0) {
+        const { data: disputedOrders } = await adminSupabase
+          .from("orders")
+          .select("amount_cents")
+          .in("product_id", pIds)
+          .eq("status", "disputed")
+        activeDisputes = disputedOrders?.length || 0
+        totalDisputedAmount = (disputedOrders || []).reduce((s, o) => s + (o.amount_cents || 0), 0)
+      }
+
+      disputeData = {
+        negativeBalance,
+        activeDisputes,
+        totalDisputedAmount,
+        hasActiveDisputes: activeDisputes > 0,
+      }
+    } catch { /* non-fatal */ }
+
+    return NextResponse.json({ payouts, balance, exchangeRate, payoutScheduleInterval, payoutScheduleDelay, accountStatus, disputeData })
   } catch (error: any) {
     console.error("[Stripe Payouts Error]", error)
     return NextResponse.json(

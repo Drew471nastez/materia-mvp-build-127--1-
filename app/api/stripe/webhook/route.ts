@@ -4,7 +4,7 @@ import type Stripe from "stripe"
 import { stripe } from "@/lib/stripe"
 import { createClient } from "@supabase/supabase-js"
 import { generateReceiptToken } from "@/lib/security"
-import { sendOrderEmails, triggerEmailFlows, sendPayoutStatusEmail, sendFirstPayoutEmail, sendBankUpdatedEmail, sendPayoutsPausedEmail, sendVerificationRequiredEmail, sendFirstSaleEmail, resolveSellerEmail } from "@/lib/email"
+import { sendOrderEmails, triggerEmailFlows, sendPayoutStatusEmail, sendFirstPayoutEmail, sendBankUpdatedEmail, sendPayoutsPausedEmail, sendVerificationRequiredEmail, sendFirstSaleEmail, resolveSellerEmail, sendDisputeCreatedEmail, sendDisputeWonEmail, sendDisputeLostEmail } from "@/lib/email"
 import { v4 as uuidv4 } from "uuid"
 
 export const runtime = "nodejs"
@@ -1378,10 +1378,30 @@ export async function POST(request: Request) {
       }
 
       const disputeAmountCents = dispute.amount
+      // Stripe charges a $15 dispute fee for US accounts (1500 cents)
+      const disputeFeeCents = (dispute as any).balance_transactions?.find(
+        (bt: any) => bt.fee > 0
+      )?.fee || 1500
 
       if (event.type === "charge.dispute.created") {
+        // Idempotency: check if we already processed this dispute
+        const { data: existingEvent } = await supabaseAdmin
+          .from("ledger_events")
+          .select("id")
+          .eq("stripe_dispute_id", dispute.id)
+          .eq("event_type", "dispute_created")
+          .maybeSingle()
+
+        if (existingEvent) {
+          console.log("[Webhook] Dispute already processed:", dispute.id)
+          return NextResponse.json({ received: true })
+        }
+
         // Dispute opened — funds are withdrawn by Stripe.
         // Subtract from available → pending → create negative balance
+        // Include the dispute fee in the total deduction
+        const totalDeduction = disputeAmountCents + disputeFeeCents
+
         const { data: ledger } = await supabaseAdmin
           .from("seller_ledger")
           .select("*")
@@ -1389,7 +1409,7 @@ export async function POST(request: Request) {
           .single()
 
         if (ledger) {
-          let remaining = disputeAmountCents
+          let remaining = totalDeduction
           let availableDelta = 0
           let pendingDelta = 0
           let newNegative = ledger.negative_balance
@@ -1421,30 +1441,123 @@ export async function POST(request: Request) {
           await supabaseAdmin.from("ledger_events").insert({
             creator_id: creator.id,
             event_type: "dispute_created",
-            amount_cents: disputeAmountCents,
-            net_seller_cents: disputeAmountCents,
+            amount_cents: totalDeduction,
+            net_seller_cents: totalDeduction,
+            fee_cents: disputeFeeCents,
             currency: (dispute.currency || "usd").toLowerCase(),
             available_delta: availableDelta,
             pending_delta: pendingDelta,
             stripe_dispute_id: dispute.id,
-            description: `Dispute opened: $${(disputeAmountCents / 100).toFixed(2)} held`,
+            description: `Dispute opened: $${(disputeAmountCents / 100).toFixed(2)} held + $${(disputeFeeCents / 100).toFixed(2)} fee`,
           })
         }
 
-        // Update the order status to "disputed" if we can find it
-        if (dispute.charge) {
-          const chargeId = typeof dispute.charge === "string" ? dispute.charge : dispute.charge.id
-          await supabaseAdmin
-            .from("orders")
-            .update({ status: "disputed" })
-            .eq("stripe_payment_intent_id", chargeId)
+        // Update the order status to "disputed" if we can find it.
+        // dispute.charge is a charge ID (ch_xxx) — need to resolve to payment_intent (pi_xxx)
+        // because orders table stores stripe_payment_intent_id, not charge ID.
+        let productName: string | null = null
+        if (dispute.charge || dispute.payment_intent) {
+          let paymentIntentId: string | null = null
+
+          // Try payment_intent first (available on newer disputes)
+          if (dispute.payment_intent) {
+            paymentIntentId = typeof dispute.payment_intent === "string"
+              ? dispute.payment_intent
+              : (dispute.payment_intent as any)?.id || null
+          }
+
+          // Fallback: resolve charge → payment_intent via Stripe API
+          if (!paymentIntentId && dispute.charge) {
+            try {
+              const chargeId = typeof dispute.charge === "string" ? dispute.charge : dispute.charge.id
+              const charge = await stripe.charges.retrieve(chargeId, {
+                stripeAccount: connectedAccountId,
+              })
+              paymentIntentId = typeof charge.payment_intent === "string"
+                ? charge.payment_intent
+                : (charge.payment_intent as any)?.id || null
+            } catch (chargeErr) {
+              console.error("[Webhook] Failed to resolve charge to payment_intent:", chargeErr)
+            }
+          }
+
+          if (paymentIntentId) {
+            const { data: disputeOrder } = await supabaseAdmin
+              .from("orders")
+              .select("id, product_id")
+              .eq("stripe_payment_intent_id", paymentIntentId)
+              .maybeSingle()
+
+            if (disputeOrder) {
+              await supabaseAdmin
+                .from("orders")
+                .update({ status: "disputed" })
+                .eq("id", disputeOrder.id)
+
+              // Get product name for email
+              if (disputeOrder.product_id) {
+                const { data: prod } = await supabaseAdmin
+                  .from("products")
+                  .select("title")
+                  .eq("id", disputeOrder.product_id)
+                  .single()
+                productName = prod?.title || null
+              }
+            }
+          }
+        }
+
+        // Send dispute created email to seller
+        try {
+          const sellerEmail = await resolveSellerEmail(supabaseAdmin, creator.id)
+          if (sellerEmail) {
+            const { data: profile } = await supabaseAdmin
+              .from("profiles")
+              .select("display_name")
+              .eq("user_id", (await supabaseAdmin.from("creators").select("user_id").eq("id", creator.id).single()).data?.user_id || "")
+              .single()
+
+            const evidenceDueBy = (dispute as any).evidence_details?.due_by
+              ? new Date((dispute as any).evidence_details.due_by * 1000).toISOString()
+              : null
+
+            await sendDisputeCreatedEmail({
+              to: sellerEmail,
+              sellerName: profile?.display_name || "Seller",
+              disputedAmountCents: disputeAmountCents,
+              disputeFeeCents,
+              currency: (dispute.currency || "usd").toLowerCase(),
+              productName,
+              disputeReason: dispute.reason || null,
+              evidenceDueBy,
+              disputeId: dispute.id,
+            })
+          }
+        } catch (emailErr) {
+          console.error("[Webhook] Dispute email failed (non-fatal):", emailErr)
         }
       }
 
       if (event.type === "charge.dispute.closed") {
-        // Dispute resolved. If won (status=won), reverse the hold.
+        // Idempotency: check if we already processed this dispute closure
+        const { data: existingClosed } = await supabaseAdmin
+          .from("ledger_events")
+          .select("id")
+          .eq("stripe_dispute_id", dispute.id)
+          .eq("event_type", "dispute_closed")
+          .maybeSingle()
+
+        if (existingClosed) {
+          console.log("[Webhook] Dispute close already processed:", dispute.id)
+          return NextResponse.json({ received: true })
+        }
+
+        // Dispute resolved. If won (status=won), reverse the hold + fee.
         // If lost (status=lost/warning_closed), the money is gone — no reversal.
         if (dispute.status === "won") {
+          // When dispute is won, Stripe returns both the disputed amount AND the fee
+          const totalRestored = disputeAmountCents + disputeFeeCents
+
           const { data: ledger } = await supabaseAdmin
             .from("seller_ledger")
             .select("*")
@@ -1453,7 +1566,7 @@ export async function POST(request: Request) {
 
           if (ledger) {
             // Restore funds — first absorb any negative balance, rest goes to available
-            let toAvailable = disputeAmountCents
+            let toAvailable = totalRestored
             let newNegative = ledger.negative_balance
 
             if (newNegative > 0 && toAvailable > 0) {
@@ -1473,26 +1586,61 @@ export async function POST(request: Request) {
             await supabaseAdmin.from("ledger_events").insert({
               creator_id: creator.id,
               event_type: "dispute_closed",
-              amount_cents: disputeAmountCents,
+              amount_cents: totalRestored,
               net_seller_cents: toAvailable,
               currency: (dispute.currency || "usd").toLowerCase(),
               available_delta: toAvailable,
               stripe_dispute_id: dispute.id,
-              description: `Dispute won: $${(disputeAmountCents / 100).toFixed(2)} restored`,
+              description: `Dispute won: $${(totalRestored / 100).toFixed(2)} restored (incl. fee)`,
             })
           }
 
-          // Restore order status
-          if (dispute.charge) {
-            const chargeId = typeof dispute.charge === "string" ? dispute.charge : dispute.charge.id
-            await supabaseAdmin
-              .from("orders")
-              .update({ status: "completed" })
-              .eq("stripe_payment_intent_id", chargeId)
-              .eq("status", "disputed")
+          // Restore order status — resolve charge → payment_intent
+          if (dispute.charge || dispute.payment_intent) {
+            let piId: string | null = null
+            if (dispute.payment_intent) {
+              piId = typeof dispute.payment_intent === "string"
+                ? dispute.payment_intent : (dispute.payment_intent as any)?.id || null
+            }
+            if (!piId && dispute.charge) {
+              try {
+                const cId = typeof dispute.charge === "string" ? dispute.charge : dispute.charge.id
+                const ch = await stripe.charges.retrieve(cId, { stripeAccount: connectedAccountId })
+                piId = typeof ch.payment_intent === "string" ? ch.payment_intent : (ch.payment_intent as any)?.id || null
+              } catch { /* non-fatal */ }
+            }
+            if (piId) {
+              await supabaseAdmin
+                .from("orders")
+                .update({ status: "completed" })
+                .eq("stripe_payment_intent_id", piId)
+                .eq("status", "disputed")
+            }
+          }
+
+          // Send dispute won email
+          try {
+            const sellerEmail = await resolveSellerEmail(supabaseAdmin, creator.id)
+            if (sellerEmail) {
+              const { data: crRow } = await supabaseAdmin.from("creators").select("user_id").eq("id", creator.id).single()
+              const { data: profile } = await supabaseAdmin
+                .from("profiles")
+                .select("display_name")
+                .eq("user_id", crRow?.user_id || "")
+                .single()
+
+              await sendDisputeWonEmail({
+                to: sellerEmail,
+                sellerName: profile?.display_name || "Seller",
+                amountCents: totalRestored,
+                currency: (dispute.currency || "usd").toLowerCase(),
+              })
+            }
+          } catch (emailErr) {
+            console.error("[Webhook] Dispute won email failed (non-fatal):", emailErr)
           }
         } else {
-          // Lost — just log it, funds already deducted
+          // Lost — log it, funds already deducted
           await supabaseAdmin.from("ledger_events").insert({
             creator_id: creator.id,
             event_type: "dispute_closed",
@@ -1502,6 +1650,28 @@ export async function POST(request: Request) {
             stripe_dispute_id: dispute.id,
             description: `Dispute lost: $${(disputeAmountCents / 100).toFixed(2)} forfeited`,
           })
+
+          // Send dispute lost email
+          try {
+            const sellerEmail = await resolveSellerEmail(supabaseAdmin, creator.id)
+            if (sellerEmail) {
+              const { data: crRow } = await supabaseAdmin.from("creators").select("user_id").eq("id", creator.id).single()
+              const { data: profile } = await supabaseAdmin
+                .from("profiles")
+                .select("display_name")
+                .eq("user_id", crRow?.user_id || "")
+                .single()
+
+              await sendDisputeLostEmail({
+                to: sellerEmail,
+                sellerName: profile?.display_name || "Seller",
+                amountCents: disputeAmountCents,
+                currency: (dispute.currency || "usd").toLowerCase(),
+              })
+            }
+          } catch (emailErr) {
+            console.error("[Webhook] Dispute lost email failed (non-fatal):", emailErr)
+          }
         }
       }
     } catch (error: any) {

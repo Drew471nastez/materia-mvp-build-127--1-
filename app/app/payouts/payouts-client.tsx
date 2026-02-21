@@ -825,6 +825,7 @@ function WithdrawPanel({
   payoutsEnabled,
   balanceReady = true,
   onSuccess,
+  negativeBalance = 0,
 }: {
   availableBalance: number;
   pendingBalance: number;
@@ -832,6 +833,7 @@ function WithdrawPanel({
   payoutsEnabled: boolean;
   balanceReady?: boolean;
   onSuccess: () => void;
+  negativeBalance?: number;
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1067,6 +1069,14 @@ function WithdrawPanel({
             </button>
           </div>
         </div>
+        {negativeBalance > 0 && (
+          <div className="flex items-center gap-2 mt-3 px-3 py-2 bg-red-50 border border-red-200 rounded-lg">
+            <AlertCircle className="h-3.5 w-3.5 text-red-500 shrink-0" />
+            <p className="text-[11px] text-red-700 leading-snug">
+              <span className="font-semibold">-{fmt(negativeBalance, currency)}</span> balance from disputes/refunds — future sales will cover this automatically
+            </p>
+          </div>
+        )}
       </div>
 
       {!payoutsEnabled ? (
@@ -2428,6 +2438,41 @@ function OrderDetailsModal({
               Reason: {order.refund_reason}
             </p>
           )}
+        </div>
+      )}
+
+      {/* Dispute Details */}
+      {order.status === "disputed" && (
+        <div
+          className={cn(
+            "bg-red-50 rounded-xl border border-red-200/60 space-y-1.5",
+            compact ? "p-3" : "p-4",
+          )}
+        >
+          <p
+            className={cn(
+              "font-medium text-red-700 flex items-center gap-1.5",
+              compact ? "text-[12px]" : "text-[13px]",
+            )}
+          >
+            <AlertCircle className="h-3.5 w-3.5 text-red-500" /> Dispute in Progress
+          </p>
+          <p
+            className={cn(
+              "text-red-600/80",
+              compact ? "text-[11px]" : "text-[12px]",
+            )}
+          >
+            A customer asked their bank to reverse this payment. Stripe has removed {fmt(order.amount_cents, currency)} from your balance while the dispute is reviewed.
+          </p>
+          <p
+            className={cn(
+              "text-red-600/70",
+              compact ? "text-[10px]" : "text-[11px]",
+            )}
+          >
+            Disputes typically take weeks to resolve. The customer's bank makes the final decision. You can submit evidence through Stripe.
+          </p>
         </div>
       )}
 
@@ -3904,6 +3949,9 @@ interface PayoutsClientProps {
     availableBalance: number;
     paidOut?: number;
     exchangeRate?: number | null;
+    negativeBalance?: number;
+    activeDisputeCount?: number;
+    totalDisputedAmount?: number;
   };
   initialOrders?: OrderPayment[];
 }
@@ -3954,6 +4002,17 @@ export function PayoutsClient({
       disabled_reason: string | null;
     };
   } | null>(null);
+
+  // Dispute & negative balance state
+  const [negativeBalance, setNegativeBalance] = useState(
+    initialData.negativeBalance || 0,
+  );
+  const [activeDisputeCount, setActiveDisputeCount] = useState(
+    initialData.activeDisputeCount || 0,
+  );
+  const [totalDisputedAmount, setTotalDisputedAmount] = useState(
+    initialData.totalDisputedAmount || 0,
+  );
 
   const sourceCurrency = (creator.default_currency || "usd").toLowerCase();
   const currency = "usd";
@@ -4048,6 +4107,12 @@ export function PayoutsClient({
       // Update account status for state machine banners
       if (json.accountStatus) {
         setAccountStatus(json.accountStatus);
+      }
+      // Update dispute data
+      if (json.disputeData) {
+        setNegativeBalance(json.disputeData.negativeBalance || 0);
+        setActiveDisputeCount(json.disputeData.activeDisputes || 0);
+        setTotalDisputedAmount(json.disputeData.totalDisputedAmount || 0);
       }
     } catch {
       /* non-fatal */
@@ -4168,9 +4233,54 @@ export function PayoutsClient({
       )}
       {/* Stan-style state machine banners — ONE primary banner at a time */}
       {(() => {
-        // Priority order: failed payout > finish setup > verify identity > under review > in-transit > first payout setup
+        // Priority order: active dispute > negative balance > failed payout > finish setup > verify identity > under review > in-transit > first payout setup
 
-        // 1. Payout failed — highest priority, needs action
+        // 0a. Active dispute — highest priority, action required
+        if (activeDisputeCount > 0) {
+          return (
+            <div className="flex items-start gap-3 px-4 py-3.5 bg-[#fef8f8] border border-[#fecaca] rounded-xl mb-5">
+              <div className="w-7 h-7 rounded-lg bg-[#fef2f2] flex items-center justify-center shrink-0 mt-0.5">
+                <AlertCircle className="h-3.5 w-3.5 text-[#ef4444]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-medium text-[#374151]">
+                  {activeDisputeCount === 1
+                    ? "A payment was disputed by a customer"
+                    : `${activeDisputeCount} payments are being disputed`}
+                </p>
+                <p className="text-[11px] text-[#9ca3af] mt-0.5">
+                  Stripe has temporarily removed {fmt(totalDisputedAmount)} from your balance while the {activeDisputeCount === 1 ? "dispute is" : "disputes are"} reviewed. The customer's bank makes the final decision — this usually takes a few weeks.
+                </p>
+                {negativeBalance > 0 && (
+                  <p className="text-[11px] text-[#dc2626] mt-1 font-medium">
+                    Your balance is -{fmt(negativeBalance)} due to this dispute. Future sales will automatically cover the difference.
+                  </p>
+                )}
+              </div>
+            </div>
+          );
+        }
+
+        // 0b. Negative balance (from disputes or refunds) — no active dispute but balance still negative
+        if (negativeBalance > 0 && activeDisputeCount === 0) {
+          return (
+            <div className="flex items-start gap-3 px-4 py-3.5 bg-[#fffbeb] border border-[#fde68a] rounded-xl mb-5">
+              <div className="w-7 h-7 rounded-lg bg-[#fef3c7] flex items-center justify-center shrink-0 mt-0.5">
+                <AlertCircle className="h-3.5 w-3.5 text-[#d97706]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-medium text-[#374151]">
+                  Your balance is affected by a past dispute
+                </p>
+                <p className="text-[11px] text-[#9ca3af] mt-0.5">
+                  Your account has a -{fmt(negativeBalance)} balance from a previous dispute or refund. Future sales will automatically cover this — no action is needed from you.
+                </p>
+              </div>
+            </div>
+          );
+        }
+
+        // 1. Payout failed — needs action
         if (latestPayoutStatus.hasFailed) {
           return (
             <div className="flex items-start gap-3 px-4 py-3.5 bg-[#fef8f8] border border-[#fecaca] rounded-xl mb-5">
@@ -4307,6 +4417,7 @@ export function PayoutsClient({
               currency={currency}
               payoutsEnabled={payoutsEnabled}
               balanceReady={true}
+              negativeBalance={negativeBalance}
               onSuccess={() => {
                 refreshBalances();
                 setRecentTab("payouts");

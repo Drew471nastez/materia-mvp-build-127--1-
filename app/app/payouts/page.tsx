@@ -199,6 +199,30 @@ export default async function PayoutsPage() {
   // Net earnings = what seller keeps after all fees (Stripe + platform)
   const netEarnings = orderNetUsd;
 
+  // Fetch dispute/negative balance data from ledger
+  let negativeBalance = 0;
+  let activeDisputeCount = 0;
+  let totalDisputedAmount = 0;
+  try {
+    const { data: ledger } = await adminSupabase
+      .from("seller_ledger")
+      .select("negative_balance")
+      .eq("creator_id", creator.id)
+      .maybeSingle();
+    negativeBalance = ledger?.negative_balance || 0;
+
+    // Count active disputed orders
+    if (productIds.length > 0) {
+      const { data: dOrders } = await adminSupabase
+        .from("orders")
+        .select("amount_cents")
+        .in("product_id", productIds)
+        .eq("status", "disputed");
+      activeDisputeCount = dOrders?.length || 0;
+      totalDisputedAmount = (dOrders || []).reduce((s, o) => s + (o.amount_cents || 0), 0);
+    }
+  } catch { /* non-fatal */ }
+
   return (
     <div className="h-full overflow-y-auto page-scroll bg-[#fafafa]">
       {/* Announcement Bar — fixed above black header on mobile */}
@@ -242,6 +266,9 @@ export default async function PayoutsPage() {
             availableBalance: stripeAvailableBalance,
             paidOut,
             exchangeRate: stripeExchangeRate,
+            negativeBalance,
+            activeDisputeCount,
+            totalDisputedAmount,
           }}
           initialOrders={allOrders}
         />

@@ -3143,6 +3143,417 @@ export async function sendFirstSaleEmail(params: {
   }
 }
 
+// ─── Dispute Emails ─────────────────────────────────────────────────────────
+
+/**
+ * Dispute Created — "A payment was disputed"
+ * Sent when a customer opens a chargeback. Calm + action-oriented.
+ */
+export async function sendDisputeCreatedEmail(params: {
+  to: string
+  sellerName: string
+  disputedAmountCents: number
+  disputeFeeCents: number
+  currency: string
+  productName: string | null
+  disputeReason: string | null
+  evidenceDueBy: string | null
+  disputeId: string
+}): Promise<void> {
+  const baseUrl = getStableBaseUrl()
+  const fmtAmt = (c: number) => `$${(c / 100).toFixed(2)}`
+  const reasonLabel = params.disputeReason
+    ? params.disputeReason.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+    : "Unspecified"
+  const dueDateText = params.evidenceDueBy
+    ? new Date(params.evidenceDueBy).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+    : null
+
+  try {
+    await withRetry(
+      async () => {
+        const result = await sendEmail({
+          from: buildFromHeaderLocal("Storelib"),
+          to: params.to,
+          subject: `A payment was disputed — ${fmtAmt(params.disputedAmountCents)} held`,
+          html: `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
+  <title>Payment Disputed</title>
+  <style>
+    :root { color-scheme: light only; }
+    [data-ogsc] .storelib-logo, [data-ogsb] .storelib-logo { filter: none !important; -webkit-filter: none !important; }
+    @media (prefers-color-scheme: dark) { .storelib-logo { filter: none !important; -webkit-filter: none !important; } }
+  </style>
+</head>
+<body class="body" style="margin:0;padding:0;background-color:#f5f5f7;font-family:-apple-system,'Segoe UI',Helvetica,sans-serif;color:#1a1a1a;-webkit-font-smoothing:antialiased;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f5f7;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.04),0 8px 30px rgba(0,0,0,0.06);">
+          <tr>
+            <td style="padding:36px 36px 28px;border-bottom:1px solid #eeedea;">
+              <table role="presentation" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+                <tr>
+                  <td style="vertical-align:middle;"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/storelilgoo.png" alt="Storelib" width="32" height="32" style="display:block;width:32px;height:32px;border:0;outline:none;border-radius:8px;" class="storelib-logo" /></td>
+                  <td style="padding-left:14px;vertical-align:middle;">
+                    <span style="font-size:18px;font-weight:600;color:#1a1a1a;letter-spacing:-0.2px;">Storelib</span>
+                  </td>
+                </tr>
+              </table>
+              <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;letter-spacing:-0.5px;color:#1a1a1a;line-height:1.3;">A payment was disputed</h1>
+              <p style="margin:0;font-size:14.5px;color:#6b6b6b;line-height:1.55;">A customer asked their bank to reverse a payment. Stripe has temporarily removed the funds while the dispute is reviewed.</p>
+            </td>
+          </tr>
+          <!-- Amount Hero -->
+          <tr>
+            <td style="padding:32px 36px;text-align:center;background:#fef8f8;border-bottom:1px solid #eeedea;">
+              <p style="margin:0 0 8px;font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px;color:#dc2626;">Disputed Amount</p>
+              <p style="margin:0 0 12px;font-size:44px;font-weight:800;letter-spacing:-2px;color:#dc2626;line-height:1;">${fmtAmt(params.disputedAmountCents)}</p>
+              <table role="presentation" cellpadding="0" cellspacing="0" align="center">
+                <tr>
+                  <td style="background:#fee2e2;color:#b91c1c;font-size:12.5px;font-weight:600;padding:6px 16px;border-radius:100px;letter-spacing:0.1px;">
+                    Funds Held
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <!-- Details -->
+          <tr>
+            <td style="padding:28px 36px;border-bottom:1px solid #eeedea;">
+              <p style="margin:0 0 12px;font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#aaa;">Dispute Details</p>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafaf8;border:1px solid #eeedea;border-radius:12px;overflow:hidden;">
+                <tr>
+                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13px;color:#888;font-weight:500;">Reason</td>
+                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13.5px;color:#1a1a1a;font-weight:600;text-align:right;">${reasonLabel}</td>
+                </tr>
+                ${params.productName ? `<tr>
+                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13px;color:#888;font-weight:500;">Product</td>
+                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13.5px;color:#1a1a1a;font-weight:600;text-align:right;">${safeText(params.productName)}</td>
+                </tr>` : ""}
+                ${params.disputeFeeCents > 0 ? `<tr>
+                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13px;color:#888;font-weight:500;">Dispute fee</td>
+                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13.5px;color:#dc2626;font-weight:600;text-align:right;">${fmtAmt(params.disputeFeeCents)}</td>
+                </tr>` : ""}
+                ${dueDateText ? `<tr>
+                  <td style="padding:13px 18px;font-size:13px;color:#888;font-weight:500;">Evidence due by</td>
+                  <td style="padding:13px 18px;font-size:13.5px;color:#dc2626;font-weight:600;text-align:right;">${dueDateText}</td>
+                </tr>` : ""}
+              </table>
+            </td>
+          </tr>
+          <!-- Info notice -->
+          <tr>
+            <td style="padding:24px 36px;border-bottom:1px solid #eeedea;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafaf8;border:1px solid #eeedea;border-radius:12px;">
+                <tr>
+                  <td style="padding:14px 16px;vertical-align:top;width:30px;">
+                    <span style="font-size:16px;color:#999;">&#9432;</span>
+                  </td>
+                  <td style="padding:14px 16px 14px 0;font-size:13.5px;line-height:1.5;color:#6b6b6b;">
+                    Disputes typically take weeks to resolve. The customer's bank makes the final decision. You can submit evidence through Stripe before the deadline.
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <!-- CTA -->
+          <tr>
+            <td style="padding:28px 36px;text-align:center;">
+              <table role="presentation" cellpadding="0" cellspacing="0" align="center">
+                <tr>
+                  <td style="background:#1a1a1a;border-radius:10px;">
+                    <a href="${baseUrl}/app/payouts" style="display:inline-block;color:#ffffff;font-size:13.5px;font-weight:600;padding:12px 30px;text-decoration:none;letter-spacing:-0.1px;">View Payouts</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="background:#fafaf8;padding:28px 36px;text-align:center;border-top:1px solid #eeedea;">
+              <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin-bottom:12px;">
+                <tr>
+                  <td><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/storelilgoo.png" alt="Storelib" width="20" height="20" style="display:block;width:20px;height:20px;border:0;outline:none;border-radius:5px;" class="storelib-logo" /></td>
+                </tr>
+              </table>
+              <p style="margin:0 0 14px;font-size:11.5px;color:#bbb;line-height:1.65;">
+                This is an automated notification from Storelib.<br>
+                You received this because of dispute activity on your store.
+              </p>
+              <p style="margin:0;font-size:11.5px;color:#aaa;">
+                <a href="${baseUrl}" style="color:#aaa;text-decoration:none;">Storelib.com</a>
+                <span style="color:#ddd;font-size:8px;">&nbsp;&middot;&nbsp;</span>
+                <a href="${baseUrl}/help" style="color:#aaa;text-decoration:none;">Help Center</a>
+                <span style="color:#ddd;font-size:8px;">&nbsp;&middot;&nbsp;</span>
+                <a href="${baseUrl}/terms" style="color:#aaa;text-decoration:none;">Terms</a>
+                <span style="color:#ddd;font-size:8px;">&nbsp;&middot;&nbsp;</span>
+                <a href="${baseUrl}/privacy" style="color:#aaa;text-decoration:none;">Privacy</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`,
+          text: `A payment was disputed\n\nHi ${params.sellerName},\n\nA customer asked their bank to reverse a ${fmtAmt(params.disputedAmountCents)} payment. Stripe has temporarily removed the funds.\n\nReason: ${reasonLabel}\n${params.disputeFeeCents > 0 ? `Dispute fee: ${fmtAmt(params.disputeFeeCents)}\n` : ""}${dueDateText ? `Evidence due by: ${dueDateText}\n` : ""}\nDisputes typically take weeks to resolve. The customer's bank makes the final decision.\n\n${baseUrl}/app/payouts`,
+        })
+        if (!result.success) throw new Error(result.error || "Failed to send dispute created email")
+        return result
+      },
+      MAX_RETRIES,
+      "dispute created email"
+    )
+  } catch (err) {
+    console.error("[email] Failed to send dispute created email:", err)
+  }
+}
+
+/**
+ * Dispute Won — "Dispute resolved in your favor"
+ */
+export async function sendDisputeWonEmail(params: {
+  to: string
+  sellerName: string
+  amountCents: number
+  currency: string
+}): Promise<void> {
+  const baseUrl = getStableBaseUrl()
+  const fmtAmt = (c: number) => `$${(c / 100).toFixed(2)}`
+
+  try {
+    await withRetry(
+      async () => {
+        const result = await sendEmail({
+          from: buildFromHeaderLocal("Storelib"),
+          to: params.to,
+          subject: `Dispute resolved in your favor — ${fmtAmt(params.amountCents)} restored`,
+          html: `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
+  <title>Dispute Won</title>
+  <style>
+    :root { color-scheme: light only; }
+    [data-ogsc] .storelib-logo, [data-ogsb] .storelib-logo { filter: none !important; -webkit-filter: none !important; }
+    @media (prefers-color-scheme: dark) { .storelib-logo { filter: none !important; -webkit-filter: none !important; } }
+  </style>
+</head>
+<body class="body" style="margin:0;padding:0;background-color:#f5f5f7;font-family:-apple-system,'Segoe UI',Helvetica,sans-serif;color:#1a1a1a;-webkit-font-smoothing:antialiased;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f5f7;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.04),0 8px 30px rgba(0,0,0,0.06);">
+          <tr>
+            <td style="padding:36px 36px 28px;border-bottom:1px solid #eeedea;">
+              <table role="presentation" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+                <tr>
+                  <td style="vertical-align:middle;"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/storelilgoo.png" alt="Storelib" width="32" height="32" style="display:block;width:32px;height:32px;border:0;outline:none;border-radius:8px;" class="storelib-logo" /></td>
+                  <td style="padding-left:14px;vertical-align:middle;">
+                    <span style="font-size:18px;font-weight:600;color:#1a1a1a;letter-spacing:-0.2px;">Storelib</span>
+                  </td>
+                </tr>
+              </table>
+              <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;letter-spacing:-0.5px;color:#1a1a1a;line-height:1.3;">Dispute resolved in your favor</h1>
+              <p style="margin:0;font-size:14.5px;color:#6b6b6b;line-height:1.55;">Great news! The customer's bank ruled in your favor and the held funds have been returned to your balance.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px 36px;text-align:center;background:#f0fdf4;border-bottom:1px solid #eeedea;">
+              <p style="margin:0 0 8px;font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px;color:#059669;">Amount Restored</p>
+              <p style="margin:0 0 12px;font-size:44px;font-weight:800;letter-spacing:-2px;color:#059669;line-height:1;">${fmtAmt(params.amountCents)}</p>
+              <table role="presentation" cellpadding="0" cellspacing="0" align="center">
+                <tr>
+                  <td style="background:#dcfce7;color:#15803d;font-size:12.5px;font-weight:600;padding:6px 16px;border-radius:100px;letter-spacing:0.1px;">
+                    Dispute Won
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:28px 36px;text-align:center;">
+              <table role="presentation" cellpadding="0" cellspacing="0" align="center">
+                <tr>
+                  <td style="background:#1a1a1a;border-radius:10px;">
+                    <a href="${baseUrl}/app/payouts" style="display:inline-block;color:#ffffff;font-size:13.5px;font-weight:600;padding:12px 30px;text-decoration:none;letter-spacing:-0.1px;">View Payouts</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#fafaf8;padding:28px 36px;text-align:center;border-top:1px solid #eeedea;">
+              <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin-bottom:12px;">
+                <tr><td><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/storelilgoo.png" alt="Storelib" width="20" height="20" style="display:block;width:20px;height:20px;border:0;outline:none;border-radius:5px;" class="storelib-logo" /></td></tr>
+              </table>
+              <p style="margin:0 0 14px;font-size:11.5px;color:#bbb;line-height:1.65;">This is an automated notification from Storelib.<br>You received this because of dispute activity on your store.</p>
+              <p style="margin:0;font-size:11.5px;color:#aaa;">
+                <a href="${baseUrl}" style="color:#aaa;text-decoration:none;">Storelib.com</a>
+                <span style="color:#ddd;font-size:8px;">&nbsp;&middot;&nbsp;</span>
+                <a href="${baseUrl}/help" style="color:#aaa;text-decoration:none;">Help Center</a>
+                <span style="color:#ddd;font-size:8px;">&nbsp;&middot;&nbsp;</span>
+                <a href="${baseUrl}/terms" style="color:#aaa;text-decoration:none;">Terms</a>
+                <span style="color:#ddd;font-size:8px;">&nbsp;&middot;&nbsp;</span>
+                <a href="${baseUrl}/privacy" style="color:#aaa;text-decoration:none;">Privacy</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`,
+          text: `Dispute resolved in your favor\n\nHi ${params.sellerName},\n\nGreat news! The customer's bank ruled in your favor and ${fmtAmt(params.amountCents)} has been returned to your balance.\n\n${baseUrl}/app/payouts`,
+        })
+        if (!result.success) throw new Error(result.error || "Failed to send dispute won email")
+        return result
+      },
+      MAX_RETRIES,
+      "dispute won email"
+    )
+  } catch (err) {
+    console.error("[email] Failed to send dispute won email:", err)
+  }
+}
+
+/**
+ * Dispute Lost — "Dispute closed — funds kept by customer"
+ */
+export async function sendDisputeLostEmail(params: {
+  to: string
+  sellerName: string
+  amountCents: number
+  currency: string
+}): Promise<void> {
+  const baseUrl = getStableBaseUrl()
+  const fmtAmt = (c: number) => `$${(c / 100).toFixed(2)}`
+
+  try {
+    await withRetry(
+      async () => {
+        const result = await sendEmail({
+          from: buildFromHeaderLocal("Storelib"),
+          to: params.to,
+          subject: `Dispute lost — ${fmtAmt(params.amountCents)} deducted permanently`,
+          html: `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
+  <title>Dispute Lost</title>
+  <style>
+    :root { color-scheme: light only; }
+    [data-ogsc] .storelib-logo, [data-ogsb] .storelib-logo { filter: none !important; -webkit-filter: none !important; }
+    @media (prefers-color-scheme: dark) { .storelib-logo { filter: none !important; -webkit-filter: none !important; } }
+  </style>
+</head>
+<body class="body" style="margin:0;padding:0;background-color:#f5f5f7;font-family:-apple-system,'Segoe UI',Helvetica,sans-serif;color:#1a1a1a;-webkit-font-smoothing:antialiased;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f5f7;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.04),0 8px 30px rgba(0,0,0,0.06);">
+          <tr>
+            <td style="padding:36px 36px 28px;border-bottom:1px solid #eeedea;">
+              <table role="presentation" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+                <tr>
+                  <td style="vertical-align:middle;"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/storelilgoo.png" alt="Storelib" width="32" height="32" style="display:block;width:32px;height:32px;border:0;outline:none;border-radius:8px;" class="storelib-logo" /></td>
+                  <td style="padding-left:14px;vertical-align:middle;">
+                    <span style="font-size:18px;font-weight:600;color:#1a1a1a;letter-spacing:-0.2px;">Storelib</span>
+                  </td>
+                </tr>
+              </table>
+              <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;letter-spacing:-0.5px;color:#1a1a1a;line-height:1.3;">Dispute closed — funds kept by customer</h1>
+              <p style="margin:0;font-size:14.5px;color:#6b6b6b;line-height:1.55;">The customer's bank ruled against you and the funds have been permanently deducted from your balance.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px 36px;text-align:center;background:#fef8f8;border-bottom:1px solid #eeedea;">
+              <p style="margin:0 0 8px;font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px;color:#dc2626;">Amount Lost</p>
+              <p style="margin:0 0 12px;font-size:44px;font-weight:800;letter-spacing:-2px;color:#dc2626;line-height:1;">-${fmtAmt(params.amountCents)}</p>
+              <table role="presentation" cellpadding="0" cellspacing="0" align="center">
+                <tr>
+                  <td style="background:#fee2e2;color:#b91c1c;font-size:12.5px;font-weight:600;padding:6px 16px;border-radius:100px;letter-spacing:0.1px;">
+                    Dispute Lost
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:24px 36px;border-bottom:1px solid #eeedea;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafaf8;border:1px solid #eeedea;border-radius:12px;">
+                <tr>
+                  <td style="padding:14px 16px;vertical-align:top;width:30px;">
+                    <span style="font-size:16px;color:#999;">&#9432;</span>
+                  </td>
+                  <td style="padding:14px 16px 14px 0;font-size:13.5px;line-height:1.5;color:#6b6b6b;">
+                    If this puts your balance below zero, future sales will automatically cover the difference. No manual action is needed.
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:28px 36px;text-align:center;">
+              <table role="presentation" cellpadding="0" cellspacing="0" align="center">
+                <tr>
+                  <td style="background:#1a1a1a;border-radius:10px;">
+                    <a href="${baseUrl}/app/payouts" style="display:inline-block;color:#ffffff;font-size:13.5px;font-weight:600;padding:12px 30px;text-decoration:none;letter-spacing:-0.1px;">View Payouts</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#fafaf8;padding:28px 36px;text-align:center;border-top:1px solid #eeedea;">
+              <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin-bottom:12px;">
+                <tr><td><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/storelilgoo.png" alt="Storelib" width="20" height="20" style="display:block;width:20px;height:20px;border:0;outline:none;border-radius:5px;" class="storelib-logo" /></td></tr>
+              </table>
+              <p style="margin:0 0 14px;font-size:11.5px;color:#bbb;line-height:1.65;">This is an automated notification from Storelib.<br>You received this because of dispute activity on your store.</p>
+              <p style="margin:0;font-size:11.5px;color:#aaa;">
+                <a href="${baseUrl}" style="color:#aaa;text-decoration:none;">Storelib.com</a>
+                <span style="color:#ddd;font-size:8px;">&nbsp;&middot;&nbsp;</span>
+                <a href="${baseUrl}/help" style="color:#aaa;text-decoration:none;">Help Center</a>
+                <span style="color:#ddd;font-size:8px;">&nbsp;&middot;&nbsp;</span>
+                <a href="${baseUrl}/terms" style="color:#aaa;text-decoration:none;">Terms</a>
+                <span style="color:#ddd;font-size:8px;">&nbsp;&middot;&nbsp;</span>
+                <a href="${baseUrl}/privacy" style="color:#aaa;text-decoration:none;">Privacy</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`,
+          text: `Dispute lost\n\nHi ${params.sellerName},\n\nThe customer's bank ruled against you and ${fmtAmt(params.amountCents)} has been permanently deducted.\n\nIf this puts your balance below zero, future sales will automatically cover the difference.\n\n${baseUrl}/app/payouts`,
+        })
+        if (!result.success) throw new Error(result.error || "Failed to send dispute lost email")
+        return result
+      },
+      MAX_RETRIES,
+      "dispute lost email"
+    )
+  } catch (err) {
+    console.error("[email] Failed to send dispute lost email:", err)
+  }
+}
+
 function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim()
 }
