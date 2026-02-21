@@ -7,10 +7,34 @@ import { usePathname } from "next/navigation"
  * Fixes scroll after SPA navigation between route groups.
  *
  * Cleans up any scroll-blocking CSS artefacts (classes, inline styles,
- * attributes, injected <style> tags) left behind by previous routes,
- * and forces the browser to recalculate scroll containers via an
- * overflow toggle + forced reflow + synthetic resize event.
+ * attributes, injected <style> tags) left behind by previous routes.
+ *
+ * Uses a MutationObserver to catch scroll locks that get re-applied
+ * AFTER initial cleanup (e.g., by react-remove-scroll during teardown).
  */
+
+function isScrollLocked(): boolean {
+  const html = document.documentElement
+  const body = document.body
+  return (
+    html.hasAttribute("data-scroll-locked") ||
+    body.hasAttribute("data-scroll-locked") ||
+    body.classList.contains("modal-open") ||
+    body.classList.contains("with-scroll-bars-hidden") ||
+    html.style.overflow === "hidden" ||
+    body.style.overflow === "hidden" ||
+    body.style.position === "fixed"
+  )
+}
+
+function hasOpenOverlay(): boolean {
+  // Check if any Radix dialog/sheet content is currently in the DOM.
+  // This covers both open state AND close animation (content stays mounted
+  // during exit animation), so we don't yank scroll-lock mid-animation.
+  return !!document.querySelector(
+    '[data-slot="dialog-content"], [data-slot="sheet-content"]'
+  )
+}
 
 function cleanScrollLocks() {
   const body = document.body
@@ -90,19 +114,66 @@ function repair() {
   forceScrollRecalculation()
 }
 
+/**
+ * Runs cleanup only when scroll IS locked AND no dialog/sheet is open.
+ * Safe to call frequently — it's a no-op when scroll is fine.
+ */
+function guardedRepair() {
+  if (isScrollLocked() && !hasOpenOverlay()) {
+    repair()
+  }
+}
+
 export function BodyScrollRestorer() {
   const pathname = usePathname()
 
   useEffect(() => {
+    // ── Immediate + timed cleanup on every navigation ──
     repair()
     const raf = requestAnimationFrame(repair)
-    const t1 = setTimeout(repair, 100)
-    const t2 = setTimeout(repair, 400)
+    const timers = [50, 150, 300, 500, 1000].map((ms) =>
+      setTimeout(repair, ms)
+    )
+
+    // ── MutationObserver: catch scroll locks re-applied AFTER cleanup ──
+    // react-remove-scroll's teardown can fire after our timers, re-adding
+    // data-scroll-locked to <html>. The observer catches that immediately.
+    const attrObserver = new MutationObserver(() => {
+      guardedRepair()
+    })
+
+    attrObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-scroll-locked", "data-remove-scroll-bar"],
+    })
+
+    attrObserver.observe(document.body, {
+      attributes: true,
+      attributeFilter: ["data-scroll-locked", "data-remove-scroll-bar", "class"],
+    })
+
+    // ── Child observer: catch portal unmount without proper cleanup ──
+    // When a Radix dialog portal unmounts but react-remove-scroll doesn't
+    // clean up, the attribute observer won't fire (no attribute change).
+    // Watching childList on body catches the portal removal.
+    const childObserver = new MutationObserver(() => {
+      if (isScrollLocked() && !hasOpenOverlay()) {
+        // Small delay to let react-remove-scroll finish its own teardown
+        setTimeout(() => {
+          if (isScrollLocked() && !hasOpenOverlay()) {
+            repair()
+          }
+        }, 100)
+      }
+    })
+
+    childObserver.observe(document.body, { childList: true })
 
     return () => {
       cancelAnimationFrame(raf)
-      clearTimeout(t1)
-      clearTimeout(t2)
+      timers.forEach(clearTimeout)
+      attrObserver.disconnect()
+      childObserver.disconnect()
     }
   }, [pathname])
 
