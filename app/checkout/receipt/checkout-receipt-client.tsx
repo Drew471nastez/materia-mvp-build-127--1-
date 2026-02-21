@@ -585,8 +585,8 @@ export default function CheckoutReceiptClient({
         <div className="mx-auto max-w-[640px] px-6 sm:px-10 py-8 pb-[max(2rem,env(safe-area-inset-bottom))] space-y-6 animate-in fade-in-0 duration-500">
           {/* Success header */}
           <div className="text-center">
-            <div className="mx-auto w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mb-4 animate-in zoom-in-50 duration-300">
-              <CheckCircle className="h-8 w-8 text-emerald-600" />
+            <div className="mx-auto w-12 h-12 rounded-full bg-[#22c55e] flex items-center justify-center mb-4">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
             </div>
             <h1 className="text-2xl font-bold text-gray-900">Order Complete</h1>
             <p className="text-sm text-gray-500 mt-1">Your download is ready</p>
@@ -761,8 +761,8 @@ export default function CheckoutReceiptClient({
           <div className="max-w-[600px] ml-auto py-10 px-10 xl:px-16 animate-in fade-in-0 slide-in-from-bottom-2 duration-500">
             {/* Success header */}
             <div className="mb-8">
-              <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center mb-4 animate-in zoom-in-50 duration-300">
-                <CheckCircle className="h-7 w-7 text-emerald-600" />
+              <div className="w-12 h-12 rounded-full bg-[#22c55e] flex items-center justify-center mb-4">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
               </div>
               <h1 className="text-[28px] font-bold text-gray-900">Order Complete</h1>
               <p className="text-sm text-gray-500 mt-1">Your purchase was successful. Download your files below.</p>
