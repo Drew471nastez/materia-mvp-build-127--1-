@@ -18,11 +18,11 @@ export default async function MyDownloadsPage() {
   if (!user) {
     return (
       <div className="p-8">
-        <div className="rounded-lg border border-dashed border-border p-12 text-center">
-          <Package className="mx-auto h-12 w-12 text-muted-foreground/50" />
-          <h3 className="mt-4 font-medium">Please sign in</h3>
-          <p className="mt-1 text-sm text-muted-foreground">Sign in to access your downloads.</p>
-          <Button asChild className="mt-4">
+        <div className="rounded-2xl border border-dashed border-neutral-300 bg-white p-12 text-center">
+          <Package className="mx-auto h-12 w-12 text-neutral-400" />
+          <h3 className="mt-4 font-semibold text-neutral-900">Please sign in</h3>
+          <p className="mt-1 text-sm text-neutral-500">Sign in to access your downloads.</p>
+          <Button asChild className="mt-4 bg-neutral-900 text-white hover:bg-black">
             <Link href="/login">Sign in</Link>
           </Button>
         </div>
@@ -33,16 +33,26 @@ export default async function MyDownloadsPage() {
   const downloads = await getLibraryDownloads(user.id)
 
   return (
-    <div className="space-y-5 px-2 sm:px-0">
-      <div className="p-1 sm:p-0">
-        <Link href="/library" className="mb-4 inline-flex items-center text-sm text-neutral-500 hover:text-neutral-900">
-          <ArrowLeft className="mr-2 h-4 w-4" />
+    <div className="max-w-5xl mx-auto space-y-5 px-2 sm:px-0">
+      <div>
+        <Link
+          href="/library"
+          className="mb-4 inline-flex items-center gap-2 text-sm text-neutral-500 hover:text-neutral-900 transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
           Back to library
         </Link>
-        <h1 className="text-2xl font-bold tracking-tight text-[#1a1a2e]">My Downloads</h1>
-        <p className="mt-1 text-sm text-[#6b7280]">
-          {downloads.length} {downloads.length === 1 ? "product" : "products"} purchased
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-neutral-900">My Downloads</h1>
+            <p className="mt-1 text-sm text-neutral-500">
+              {downloads.length} {downloads.length === 1 ? "product" : "products"} purchased
+            </p>
+          </div>
+          <div className="h-10 w-10 rounded-xl bg-neutral-100 flex items-center justify-center">
+            <Download className="h-5 w-5 text-neutral-600" />
+          </div>
+        </div>
       </div>
 
       {downloads.length > 0 ? (
@@ -50,9 +60,11 @@ export default async function MyDownloadsPage() {
       ) : (
         <div className="rounded-2xl border border-dashed border-neutral-300 bg-white p-12 text-center">
           <Download className="mx-auto h-12 w-12 text-neutral-400" />
-          <h3 className="mt-4 text-lg font-semibold text-neutral-900">No downloads yet</h3>
-          <p className="mt-1 text-sm text-[#6b7280]">Digital products you purchase will appear here for instant download.</p>
-          <Button asChild className="mt-4">
+          <h3 className="mt-4 text-lg font-bold text-neutral-900">No downloads yet</h3>
+          <p className="mt-1 text-sm text-neutral-500 max-w-sm mx-auto">
+            Digital products you purchase will appear here for instant download.
+          </p>
+          <Button asChild className="mt-4 bg-neutral-900 text-white hover:bg-black">
             <Link href="/explore">
               Explore products <ArrowRight className="ml-2 h-4 w-4" />
             </Link>

@@ -1,5 +1,7 @@
 import { Metadata } from "next"
 import { Suspense } from "react"
+import Link from "next/link"
+import { ArrowLeft, Heart } from "lucide-react"
 import { WishlistContent } from "@/components/wishlist/wishlist-content"
 
 export const metadata: Metadata = {
@@ -28,10 +30,24 @@ function WishlistSkeleton() {
 
 export default function LibraryWishlistPage() {
   return (
-    <div className="max-w-5xl">
+    <div className="max-w-5xl mx-auto px-2 sm:px-0">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-neutral-900">Wishlist</h1>
-        <p className="text-sm text-neutral-500 mt-1">Products you&apos;ve saved for later</p>
+        <Link
+          href="/library"
+          className="mb-4 inline-flex items-center gap-2 text-sm text-neutral-500 hover:text-neutral-900 transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to library
+        </Link>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-neutral-900">Wishlist</h1>
+            <p className="text-sm text-neutral-500 mt-1">Products you&apos;ve saved for later</p>
+          </div>
+          <div className="h-10 w-10 rounded-xl bg-neutral-100 flex items-center justify-center">
+            <Heart className="h-5 w-5 text-neutral-600" />
+          </div>
+        </div>
       </div>
       <Suspense fallback={<WishlistSkeleton />}>
         <WishlistContent isLibrary />
