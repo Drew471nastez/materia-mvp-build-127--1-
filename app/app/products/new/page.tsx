@@ -3360,7 +3360,7 @@ export default function NewProductPage() {
   // Skeleton loading component - exact match to final UI structure
   if (!isPageReady) {
     return (
-      <div className="h-screen bg-gray-50 flex flex-col overflow-hidden overflow-x-hidden">
+      <div className="h-full bg-gray-50 flex flex-col overflow-hidden overflow-x-hidden">
         {/* Skeleton Header - exact match */}
         <div className="flex-shrink-0 bg-white border-b border-gray-200 z-30 shadow-sm">
           <div className="px-4 sm:px-6 lg:px-8">
@@ -3512,7 +3512,7 @@ export default function NewProductPage() {
   }
 
   return (
-    <div className="h-screen bg-gray-50 flex flex-col overflow-hidden overflow-x-hidden">
+    <div className="h-full bg-gray-50 flex flex-col overflow-hidden overflow-x-hidden">
       {/* Success Notification - Modern black toast */}
       {showNotification && (
         <div
