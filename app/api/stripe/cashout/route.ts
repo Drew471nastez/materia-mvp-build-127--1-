@@ -97,6 +97,29 @@ export async function POST(request: Request) {
       )
     }
 
+    // ATOMIC LOCK: Conditionally update ledger only if in_transit is still 0
+    // and available funds haven't changed. This prevents double-cashout from
+    // concurrent requests — only one request can match the WHERE clause.
+    const cashoutUsdCents = ledger.available_amount
+    const { data: lockedLedger, error: lockErr } = await adminSupabase
+      .from("seller_ledger")
+      .update({
+        available_amount: 0,
+        in_transit_amount: ledger.in_transit_amount + cashoutUsdCents,
+      })
+      .eq("creator_id", creator.id)
+      .eq("in_transit_amount", 0)
+      .gte("available_amount", minCashout)
+      .select()
+      .single()
+
+    if (lockErr || !lockedLedger) {
+      return NextResponse.json(
+        { error: "Cashout already in progress or balance changed. Please refresh and try again." },
+        { status: 409 },
+      )
+    }
+
     // Get Stripe balance in native currency
     const stripeBalance = await stripe.balance.retrieve(
       {},
@@ -113,6 +136,14 @@ export async function POST(request: Request) {
 
     const selectedEntry = nativeEntry || fallbackEntry
     if (!selectedEntry) {
+      // Rollback ledger: Stripe has no available funds despite our ledger saying so
+      await adminSupabase
+        .from("seller_ledger")
+        .update({
+          available_amount: cashoutUsdCents,
+          in_transit_amount: Math.max(0, (lockedLedger.in_transit_amount || 0) - cashoutUsdCents),
+        })
+        .eq("creator_id", creator.id)
       return NextResponse.json(
         { error: "Stripe balance not ready. Try again in a few minutes." },
         { status: 400 },
@@ -125,33 +156,38 @@ export async function POST(request: Request) {
     // Create Stripe payout with idempotency
     const idempotencyKey = `cashout_${creator.id}_${Date.now()}`
 
-    const stripePayout = await stripe.payouts.create(
-      {
-        amount: payoutAmountNative,
-        currency: payoutCurrency,
-        description: "Storelib cashout",
-        metadata: {
-          creator_id: creator.id,
-          platform: "storelib",
-          ledger_available_usd_cents: String(ledger.available_amount),
+    let stripePayout
+    try {
+      stripePayout = await stripe.payouts.create(
+        {
+          amount: payoutAmountNative,
+          currency: payoutCurrency,
+          description: "Storelib cashout",
+          metadata: {
+            creator_id: creator.id,
+            platform: "storelib",
+            ledger_available_usd_cents: String(ledger.available_amount),
+          },
         },
-      },
-      {
-        stripeAccount: stripeAccountId,
-        idempotencyKey,
-      },
-    )
+        {
+          stripeAccount: stripeAccountId,
+          idempotencyKey,
+        },
+      )
+    } catch (stripeErr: any) {
+      // Rollback ledger: move funds back from in_transit to available
+      await adminSupabase
+        .from("seller_ledger")
+        .update({
+          available_amount: cashoutUsdCents,
+          in_transit_amount: Math.max(0, (lockedLedger.in_transit_amount || 0) - cashoutUsdCents),
+        })
+        .eq("creator_id", creator.id)
+      console.error("[Cashout] Stripe payout failed, ledger rolled back:", stripeErr)
+      throw stripeErr
+    }
 
-    // Update ledger: available → in_transit
-    const cashoutUsdCents = ledger.available_amount
-
-    await adminSupabase
-      .from("seller_ledger")
-      .update({
-        available_amount: 0,
-        in_transit_amount: ledger.in_transit_amount + cashoutUsdCents,
-      })
-      .eq("creator_id", creator.id)
+    // Ledger already updated atomically above (available → in_transit)
 
     // Create ledger event
     await adminSupabase.from("ledger_events").insert({

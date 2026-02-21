@@ -1031,8 +1031,9 @@ export async function POST(request: Request) {
 
           // Try extra refund columns (may not exist yet)
           try {
+            // Use the most recent refund object's amount (not cumulative charge.amount_refunded)
             const refund = charge.refunds?.data?.[0]
-            const refundAmountCents = charge.amount_refunded || order.amount_cents
+            const refundAmountCents = refund?.amount || charge.amount_refunded || order.amount_cents
             await supabaseAdmin
               .from("orders")
               .update({
@@ -1050,7 +1051,9 @@ export async function POST(request: Request) {
 
           // ── Ledger: process refund bucket subtraction ───────────────────
           try {
-            const refundAmountCents = charge.amount_refunded || order.amount_cents
+            // Use actual refund amount from the refund object, not cumulative charge.amount_refunded
+            const latestRefund = charge.refunds?.data?.[0]
+            const refundAmountCents = latestRefund?.amount || charge.amount_refunded || order.amount_cents
 
             // Find the creator via the order's product
             const { data: product } = await supabaseAdmin

@@ -53,6 +53,25 @@ export async function POST(request: Request) {
       // No body provided — full withdrawal
     }
 
+    // Validate: no concurrent in-transit payout (prevent double withdrawal)
+    const { data: ledger } = await adminSupabase
+      .from("seller_ledger")
+      .select("in_transit_amount, available_amount")
+      .eq("creator_id", creator.id)
+      .maybeSingle()
+
+    if (ledger && ledger.in_transit_amount > 0) {
+      return NextResponse.json(
+        { error: "A payout is already in transit. Please wait until it arrives before withdrawing again." },
+        { status: 409 },
+      )
+    }
+
+    // Validate: requested amount is positive
+    if (requestedAmountCents !== null && requestedAmountCents <= 0) {
+      return NextResponse.json({ error: "Amount must be greater than zero" }, { status: 400 })
+    }
+
     // Fetch current balance from the connected account
     const balance = await stripe.balance.retrieve(
       { stripeAccount: stripeAccountId }
