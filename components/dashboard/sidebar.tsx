@@ -4,7 +4,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { LayoutDashboard, Package, LogOut, Download, Menu, Heart, Compass, Settings } from "lucide-react"
+import { LayoutDashboard, Package, LogOut, Download, Menu, Heart, Compass, Settings, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
@@ -103,8 +103,9 @@ export function DashboardSidebar() {
           <Link
             href="/signup/success?action=become-creator"
             onClick={onItemClick}
-            className="mb-1 flex items-center justify-center rounded-lg px-3 py-3 min-h-[44px] text-sm font-medium bg-neutral-900 text-white hover:bg-black active:scale-[0.98] transition-colors"
+            className="mb-1 flex items-center justify-center gap-2 rounded-lg px-3 py-3 min-h-[44px] text-sm font-medium bg-purple-600 text-white hover:bg-purple-700 active:scale-[0.98] transition-colors"
           >
+            <Sparkles className="h-4 w-4 shrink-0" />
             <span>Start Selling</span>
           </Link>
         )}

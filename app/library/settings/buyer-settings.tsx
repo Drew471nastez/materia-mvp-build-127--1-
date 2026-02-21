@@ -81,13 +81,13 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
       const path = `avatars/${userId}.${ext}`
 
       const { error: uploadError } = await supabase.storage
-        .from("profile-images")
+        .from("avatars")
         .upload(path, file, { upsert: true })
 
       if (uploadError) throw uploadError
 
       const { data: { publicUrl } } = supabase.storage
-        .from("profile-images")
+        .from("avatars")
         .getPublicUrl(path)
 
       const url = `${publicUrl}?t=${Date.now()}`
