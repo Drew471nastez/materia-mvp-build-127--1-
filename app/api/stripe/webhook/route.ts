@@ -4,7 +4,7 @@ import type Stripe from "stripe"
 import { stripe } from "@/lib/stripe"
 import { createClient } from "@supabase/supabase-js"
 import { generateReceiptToken } from "@/lib/security"
-import { sendOrderEmails, triggerEmailFlows, sendPayoutStatusEmail, sendFirstPayoutEmail, sendBankUpdatedEmail, sendPayoutsPausedEmail, sendVerificationRequiredEmail } from "@/lib/email"
+import { sendOrderEmails, triggerEmailFlows, sendPayoutStatusEmail, sendFirstPayoutEmail, sendBankUpdatedEmail, sendPayoutsPausedEmail, sendVerificationRequiredEmail, sendFirstSaleEmail, resolveSellerEmail } from "@/lib/email"
 import { v4 as uuidv4 } from "uuid"
 
 export const runtime = "nodejs"
@@ -563,6 +563,33 @@ export async function POST(request: Request) {
       }
     } catch (emailErr) {
       console.error("[Webhook] Email sending failed (order still ok):", emailErr)
+    }
+
+    // First sale email — fires once per seller lifetime
+    try {
+      const { count: totalOrders } = await supabaseAdmin
+        .from("orders")
+        .select("id", { count: "exact", head: true })
+        .eq("creator_id", creatorId)
+        .in("status", ["completed", "refunded"])
+
+      if (totalOrders === 1) {
+        const sellerEmail = await resolveSellerEmail(supabaseAdmin, creatorId)
+        const sellerNet = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" })
+          .format((totalAmount - applicationFeeAmount) / 100)
+
+        await sendFirstSaleEmail({
+          admin: supabaseAdmin,
+          sellerEmail,
+          creatorId,
+          productName: productTitle,
+          sellerNet,
+          buyerCountry: metadata.buyer_country || null,
+          saleTime: new Date().toISOString(),
+        })
+      }
+    } catch (firstSaleErr) {
+      console.error("[Webhook] First sale email error (non-fatal):", firstSaleErr)
     }
 
     return NextResponse.json({ received: true })

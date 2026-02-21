@@ -615,7 +615,16 @@ function RevenueChart() {
     <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5 flex-1 min-w-0">
       <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
         <div>
-          <p className="text-[13px] font-medium text-[#6b7280]">Revenue</p>
+          <div className="flex items-center gap-1.5">
+            <p className="text-[13px] font-medium text-[#6b7280]">Revenue</p>
+            <div className="relative group">
+              <Info className="h-3.5 w-3.5 text-[#9ca3af] cursor-help hover:text-[#6b7280] transition-colors" />
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#1a1a2e] text-white text-[11px] leading-relaxed rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 pointer-events-none">
+                Total gross revenue from all completed sales
+                <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px border-4 border-transparent border-t-[#1a1a2e]" />
+              </div>
+            </div>
+          </div>
           {!numReady ? (
             <div className="h-7 w-32 mt-1 rounded-lg bg-gray-200 animate-pulse" />
           ) : (
@@ -4107,6 +4116,52 @@ export function PayoutsClient({
           </div>
         </div>
       )}
+      {/* Contextual payout banners */}
+      {latestPayoutStatus.hasInTransit && (
+        <div className="flex items-start gap-3 px-4 py-3.5 bg-[#f8f8f9] border border-[#e8e8ec] rounded-xl mb-5">
+          <div className="w-7 h-7 rounded-lg bg-[#ede9fe] flex items-center justify-center shrink-0 mt-0.5">
+            <Send className="h-3.5 w-3.5 text-[#8b5cf6]" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[13px] font-medium text-[#374151]">Your payout is on the way to your bank account</p>
+            <p className="text-[11px] text-[#9ca3af] mt-0.5">This usually takes 1–3 business days.</p>
+          </div>
+        </div>
+      )}
+      {latestPayoutStatus.hasFailed && (
+        <div className="flex items-start gap-3 px-4 py-3.5 bg-[#f8f8f9] border border-[#e8e8ec] rounded-xl mb-5">
+          <div className="w-7 h-7 rounded-lg bg-[#fef2f2] flex items-center justify-center shrink-0 mt-0.5">
+            <AlertCircle className="h-3.5 w-3.5 text-[#ef4444]" />
+          </div>
+          <div className="flex-1 min-w-0 flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[13px] font-medium text-[#374151]">Your last payout failed. Please update your bank account.</p>
+              <p className="text-[11px] text-[#9ca3af] mt-0.5">Funds have been returned to your available balance.</p>
+            </div>
+            <button
+              onClick={() => {
+                const card = document.querySelector("[data-payout-card]");
+                if (card) (card.querySelector("button") as HTMLElement)?.click();
+              }}
+              className="text-[12px] font-medium text-[#8b5cf6] hover:text-[#7c3aed] transition-colors whitespace-nowrap shrink-0 mt-0.5"
+            >
+              Update bank
+            </button>
+          </div>
+        </div>
+      )}
+      {latestPayoutStatus.totalPayouts === 0 && (availableBalance > 0 || pendingBalance > 0) && (
+        <div className="flex items-start gap-3 px-4 py-3.5 bg-[#f8f8f9] border border-[#e8e8ec] rounded-xl mb-5">
+          <div className="w-7 h-7 rounded-lg bg-[#fef3c7] flex items-center justify-center shrink-0 mt-0.5">
+            <Clock className="h-3.5 w-3.5 text-[#d97706]" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[13px] font-medium text-[#374151]">Your first payout may take a little longer while your account is being set up</p>
+            <p className="text-[11px] text-[#9ca3af] mt-0.5">This is normal for new accounts. Future payouts will be faster.</p>
+          </div>
+        </div>
+      )}
+
       <div className="space-y-6">
         {/* Chart + Withdraw panel side-by-side on desktop */}
         <div className="flex flex-col lg:flex-row gap-5">
@@ -4481,52 +4536,6 @@ export function PayoutsClient({
             <p className="text-[13px] text-[#6b7280] mt-1">
               Your first sale will appear here once customers purchase.
             </p>
-          </div>
-        )}
-
-        {/* Contextual payout banners */}
-        {latestPayoutStatus.hasInTransit && (
-          <div className="flex items-start gap-3 px-4 py-3.5 bg-[#f8f8f9] border border-[#e8e8ec] rounded-xl">
-            <div className="w-7 h-7 rounded-lg bg-[#ede9fe] flex items-center justify-center shrink-0 mt-0.5">
-              <Send className="h-3.5 w-3.5 text-[#8b5cf6]" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-medium text-[#374151]">Your payout is on the way to your bank account</p>
-              <p className="text-[11px] text-[#9ca3af] mt-0.5">This usually takes 1–3 business days.</p>
-            </div>
-          </div>
-        )}
-        {latestPayoutStatus.hasFailed && (
-          <div className="flex items-start gap-3 px-4 py-3.5 bg-[#f8f8f9] border border-[#e8e8ec] rounded-xl">
-            <div className="w-7 h-7 rounded-lg bg-[#fef2f2] flex items-center justify-center shrink-0 mt-0.5">
-              <AlertCircle className="h-3.5 w-3.5 text-[#ef4444]" />
-            </div>
-            <div className="flex-1 min-w-0 flex items-start justify-between gap-3">
-              <div>
-                <p className="text-[13px] font-medium text-[#374151]">Your last payout failed. Please update your bank account.</p>
-                <p className="text-[11px] text-[#9ca3af] mt-0.5">Funds have been returned to your available balance.</p>
-              </div>
-              <button
-                onClick={() => {
-                  const card = document.querySelector("[data-payout-card]");
-                  if (card) (card.querySelector("button") as HTMLElement)?.click();
-                }}
-                className="text-[12px] font-medium text-[#8b5cf6] hover:text-[#7c3aed] transition-colors whitespace-nowrap shrink-0 mt-0.5"
-              >
-                Update bank
-              </button>
-            </div>
-          </div>
-        )}
-        {latestPayoutStatus.totalPayouts === 0 && (availableBalance > 0 || pendingBalance > 0) && (
-          <div className="flex items-start gap-3 px-4 py-3.5 bg-[#f8f8f9] border border-[#e8e8ec] rounded-xl">
-            <div className="w-7 h-7 rounded-lg bg-[#fef3c7] flex items-center justify-center shrink-0 mt-0.5">
-              <Clock className="h-3.5 w-3.5 text-[#d97706]" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-medium text-[#374151]">Your first payout may take a little longer while your account is being set up</p>
-              <p className="text-[11px] text-[#9ca3af] mt-0.5">This is normal for new accounts. Future payouts will be faster.</p>
-            </div>
           </div>
         )}
 

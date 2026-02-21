@@ -2207,79 +2207,164 @@ function payoutEmailHtml(params: {
   statusColor: string
   statusLabel: string
 }): string {
-  const shortId = params.payoutId.replace("po_", "").slice(0, 12).toUpperCase()
+  const shortId = params.payoutId ? params.payoutId.replace("po_", "").slice(0, 12).toUpperCase() : ""
   const arrivalText = params.arrivalDate
     ? new Date(params.arrivalDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
     : "1–3 business days depending on your bank"
 
+  const isFailed = params.statusLabel === "Failed"
+  const isPaid = params.statusLabel === "Paid"
+  const heroColor = isFailed ? "#dc2626" : isPaid ? "#059669" : "#8b5cf6"
+  const heroBg = isFailed ? "#fef8f8" : isPaid ? "#f0fdf4" : "#f5f3ff"
+  const badgeBg = isFailed ? "#fee2e2" : isPaid ? "#dcfce7" : "#ede9fe"
+  const badgeColor = isFailed ? "#b91c1c" : isPaid ? "#15803d" : "#6d28d9"
+  const baseUrl = params.baseUrl
+
   return `<!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta name="viewport" content="width=device-width,initial-scale=1.0">
-  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
   <title>${params.heading}</title>
+  <style>
+    :root { color-scheme: light only; }
+    u + .body .storelib-logo { /* Gmail dark mode */ }
+    [data-ogsc] .storelib-logo, [data-ogsb] .storelib-logo {
+      filter: none !important;
+      -webkit-filter: none !important;
+    }
+    @media (prefers-color-scheme: dark) {
+      .storelib-logo {
+        filter: none !important;
+        -webkit-filter: none !important;
+      }
+    }
+  </style>
 </head>
-<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background-color:#f6f9fc;">
-  <table role="presentation" style="width:100%;padding:32px 16px;">
+<body class="body" style="margin:0;padding:0;background-color:#f5f5f7;font-family:-apple-system,'Segoe UI',Helvetica,sans-serif;color:#1a1a1a;-webkit-font-smoothing:antialiased;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f5f7;padding:40px 16px;">
     <tr>
       <td align="center">
-        <table role="presentation" style="max-width:600px;width:100%;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.08);">
-          <tr>
-            <td style="padding:44px 36px 30px;text-align:center;background:#7c3aed;">
-              <h1 style="margin:0;font-size:26px;font-weight:800;color:#fff;">${params.heading}</h1>
-              <p style="margin:10px 0 0 0;font-size:15px;color:rgba(255,255,255,0.9);">Storelib Payouts</p>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:34px 34px 12px;">
-              <p style="margin:0 0 18px 0;font-size:15px;color:#374151;line-height:1.55;">Hi ${safeText(params.sellerName)},</p>
-              <p style="margin:0 0 24px 0;font-size:15px;color:#374151;line-height:1.55;">${params.bodyText}</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.04),0 8px 30px rgba(0,0,0,0.06);">
 
-              <table role="presentation" style="width:100%;background:#f3f4f6;border-radius:10px;padding:20px;margin:0 0 22px 0;">
+          <!-- Header -->
+          <tr>
+            <td style="padding:36px 36px 28px;border-bottom:1px solid #eeedea;">
+              <table role="presentation" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
                 <tr>
-                  <td style="padding:6px 0;">
-                    <span style="font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:0.9px;font-weight:700;">Amount</span>
-                    <p style="margin:4px 0 0 0;font-size:22px;font-weight:800;color:#111827;">${params.formattedAmount}</p>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding:12px 0 0 0;border-top:1px solid #e5e7eb;margin-top:12px;">
-                    <table role="presentation" style="width:100%;">
-                      <tr>
-                        <td style="font-size:13px;color:#6b7280;padding:4px 0;">Status</td>
-                        <td style="font-size:13px;color:${params.statusColor};font-weight:700;text-align:right;">${params.statusLabel}</td>
-                      </tr>
-                      <tr>
-                        <td style="font-size:13px;color:#6b7280;padding:4px 0;">Reference</td>
-                        <td style="font-size:13px;color:#111827;font-weight:600;text-align:right;font-family:monospace;">${shortId}</td>
-                      </tr>
-                      ${!params.failureMessage ? `<tr>
-                        <td style="font-size:13px;color:#6b7280;padding:4px 0;">Estimated arrival</td>
-                        <td style="font-size:13px;color:#111827;font-weight:600;text-align:right;">${arrivalText}</td>
-                      </tr>` : ""}
-                      ${params.failureMessage ? `<tr>
-                        <td colspan="2" style="font-size:13px;color:#dc2626;padding:8px;background:#fef2f2;border-radius:6px;margin-top:8px;">⚠️ ${safeText(params.failureMessage)}</td>
-                      </tr>` : ""}
-                    </table>
+                  <td style="vertical-align:middle;"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/storelilgoo.png" alt="${PLATFORM_BRAND_NAME}" width="32" height="32" style="display:block;width:32px;height:32px;border:0;outline:none;border-radius:8px;" class="storelib-logo" /></td>
+                  <td style="padding-left:14px;vertical-align:middle;">
+                    <span style="font-size:18px;font-weight:600;color:#1a1a1a;letter-spacing:-0.2px;">${PLATFORM_BRAND_NAME}</span>
                   </td>
                 </tr>
               </table>
+              <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;letter-spacing:-0.5px;color:#1a1a1a;line-height:1.3;">${params.heading}</h1>
+              <p style="margin:0;font-size:14.5px;color:#6b6b6b;line-height:1.55;">${params.bodyText}</p>
+            </td>
+          </tr>
 
-              <table role="presentation" style="width:100%;margin:0 0 18px 0;">
+          <!-- Amount Hero -->
+          <tr>
+            <td style="padding:32px 36px;text-align:center;background:${heroBg};border-bottom:1px solid #eeedea;">
+              <p style="margin:0 0 8px;font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px;color:${heroColor};">Payout Amount</p>
+              <p style="margin:0 0 12px;font-size:44px;font-weight:800;letter-spacing:-2px;color:${heroColor};line-height:1;">${params.formattedAmount}</p>
+              <table role="presentation" cellpadding="0" cellspacing="0" align="center">
                 <tr>
-                  <td align="center">
-                    <a href="${params.baseUrl}/app/payouts" style="display:inline-block;padding:14px 32px;background:#7c3aed;color:#fff;font-size:15px;font-weight:700;text-decoration:none;border-radius:8px;">View payout details →</a>
+                  <td style="background:${badgeBg};color:${badgeColor};font-size:12.5px;font-weight:600;padding:6px 16px;border-radius:100px;letter-spacing:0.1px;">
+                    ${params.statusLabel}
                   </td>
                 </tr>
               </table>
             </td>
           </tr>
+
+          <!-- Payout Details -->
           <tr>
-            <td style="padding:16px 22px;text-align:center;background:#f9fafb;color:#9ca3af;font-size:11px;">
-              © ${new Date().getFullYear()} Storelib &nbsp;·&nbsp;
-              <a href="${params.baseUrl}/app/payouts" style="color:#aaa;text-decoration:none;">Manage payouts</a>
+            <td style="padding:28px 36px;border-bottom:1px solid #eeedea;">
+              <p style="margin:0 0 12px;font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#aaa;">Payout Details</p>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafaf8;border:1px solid #eeedea;border-radius:12px;overflow:hidden;">
+                <tr>
+                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13px;color:#888;font-weight:500;">Status</td>
+                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13.5px;color:${heroColor};font-weight:600;text-align:right;">${params.statusLabel}</td>
+                </tr>
+                ${shortId ? `<tr>
+                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13px;color:#888;font-weight:500;">Reference</td>
+                  <td style="padding:13px 18px;border-bottom:1px solid #eeedea;font-size:13.5px;color:#1a1a1a;font-weight:600;text-align:right;font-family:monospace;">${shortId}</td>
+                </tr>` : ""}
+                ${!params.failureMessage ? `<tr>
+                  <td style="padding:13px 18px;font-size:13px;color:#888;font-weight:500;">Estimated arrival</td>
+                  <td style="padding:13px 18px;font-size:13.5px;color:#1a1a1a;font-weight:600;text-align:right;">${arrivalText}</td>
+                </tr>` : ""}
+              </table>
             </td>
           </tr>
+
+          <!-- Notices -->
+          ${params.failureMessage ? `<tr>
+            <td style="padding:24px 36px;border-bottom:1px solid #eeedea;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fef8f8;border:1px solid #fecaca;border-radius:12px;margin-bottom:10px;">
+                <tr>
+                  <td style="padding:14px 16px;vertical-align:top;width:30px;">
+                    <span style="font-size:16px;color:#dc2626;">&#9888;</span>
+                  </td>
+                  <td style="padding:14px 16px 14px 0;font-size:13.5px;line-height:1.5;color:#991b1b;">
+                    ${safeText(params.failureMessage)}. Funds have been returned to your available balance.
+                  </td>
+                </tr>
+              </table>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafaf8;border:1px solid #eeedea;border-radius:12px;">
+                <tr>
+                  <td style="padding:14px 16px;vertical-align:top;width:30px;">
+                    <span style="font-size:16px;color:#999;">&#9432;</span>
+                  </td>
+                  <td style="padding:14px 16px 14px 0;font-size:13.5px;line-height:1.5;color:#6b6b6b;">
+                    Please update your bank details and try cashing out again.
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>` : ""}
+
+          <!-- CTA -->
+          <tr>
+            <td style="padding:28px 36px;text-align:center;">
+              <p style="margin:0 0 16px;font-size:13.5px;color:#888;line-height:1.6;">Track your payouts and earnings</p>
+              <table role="presentation" cellpadding="0" cellspacing="0" align="center">
+                <tr>
+                  <td style="background:#1a1a1a;border-radius:10px;">
+                    <a href="${baseUrl}/app/payouts" style="display:inline-block;color:#ffffff;font-size:13.5px;font-weight:600;padding:12px 30px;text-decoration:none;letter-spacing:-0.1px;">View Payouts</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background:#fafaf8;padding:28px 36px;text-align:center;border-top:1px solid #eeedea;">
+              <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin-bottom:12px;">
+                <tr>
+                  <td><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/storelilgoo.png" alt="${PLATFORM_BRAND_NAME}" width="20" height="20" style="display:block;width:20px;height:20px;border:0;outline:none;border-radius:5px;" class="storelib-logo" /></td>
+                </tr>
+              </table>
+              <p style="margin:0 0 14px;font-size:11.5px;color:#bbb;line-height:1.65;">
+                This is an automated notification from ${PLATFORM_BRAND_NAME}.<br>
+                You received this because of payout activity on your store.
+              </p>
+              <p style="margin:0;font-size:11.5px;color:#aaa;">
+                <a href="${baseUrl}" style="color:#aaa;text-decoration:none;">Storelib.com</a>
+                <span style="color:#ddd;font-size:8px;">&nbsp;&middot;&nbsp;</span>
+                <a href="${baseUrl}/help" style="color:#aaa;text-decoration:none;">Help Center</a>
+                <span style="color:#ddd;font-size:8px;">&nbsp;&middot;&nbsp;</span>
+                <a href="${baseUrl}/terms" style="color:#aaa;text-decoration:none;">Terms</a>
+                <span style="color:#ddd;font-size:8px;">&nbsp;&middot;&nbsp;</span>
+                <a href="${baseUrl}/privacy" style="color:#aaa;text-decoration:none;">Privacy</a>
+              </p>
+            </td>
+          </tr>
+
         </table>
       </td>
     </tr>
@@ -2455,28 +2540,100 @@ export async function sendBankUpdatedEmail(params: {
           to: params.to,
           subject: `Your payout details were updated`,
           html: `<!DOCTYPE html>
-<html>
-<head><meta name="viewport" content="width=device-width,initial-scale=1.0"><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></head>
-<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background-color:#f6f9fc;">
-  <table role="presentation" style="width:100%;padding:32px 16px;">
-    <tr><td align="center">
-      <table role="presentation" style="max-width:560px;width:100%;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
-        <tr><td style="padding:32px 28px;">
-          <h1 style="margin:0 0 16px 0;font-size:20px;font-weight:700;color:#1a1a2e;">Your bank account has been updated</h1>
-          <p style="margin:0 0 16px 0;font-size:15px;color:#374151;line-height:1.6;">Hi ${safeText(params.sellerName)},</p>
-          <p style="margin:0 0 16px 0;font-size:15px;color:#374151;line-height:1.6;">Your payout account was successfully updated to:</p>
-          <div style="background:#f8f8f9;border:1px solid #e8e8ec;border-radius:8px;padding:14px 18px;margin:0 0 16px 0;">
-            <p style="margin:0;font-size:15px;font-weight:600;color:#1a1a2e;">${safeText(bankDisplay)}</p>
-          </div>
-          <p style="margin:0 0 16px 0;font-size:15px;color:#374151;line-height:1.6;">All future payouts will be sent to this account.</p>
-          <p style="margin:0 0 0 0;font-size:13px;color:#9ca3af;line-height:1.5;">If you didn't make this change, please contact support immediately.</p>
-        </td></tr>
-        <tr><td style="padding:16px 22px;text-align:center;background:#f9fafb;color:#9ca3af;font-size:11px;">
-          &copy; ${new Date().getFullYear()} Storelib &nbsp;&middot;&nbsp;
-          <a href="${baseUrl}/app/payouts" style="color:#aaa;text-decoration:none;">Manage payouts</a>
-        </td></tr>
-      </table>
-    </td></tr>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
+  <title>Bank Account Updated</title>
+  <style>
+    :root { color-scheme: light only; }
+    u + .body .storelib-logo { }
+    [data-ogsc] .storelib-logo, [data-ogsb] .storelib-logo { filter: none !important; -webkit-filter: none !important; }
+    @media (prefers-color-scheme: dark) { .storelib-logo { filter: none !important; -webkit-filter: none !important; } }
+  </style>
+</head>
+<body class="body" style="margin:0;padding:0;background-color:#f5f5f7;font-family:-apple-system,'Segoe UI',Helvetica,sans-serif;color:#1a1a1a;-webkit-font-smoothing:antialiased;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f5f7;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.04),0 8px 30px rgba(0,0,0,0.06);">
+          <tr>
+            <td style="padding:36px 36px 28px;border-bottom:1px solid #eeedea;">
+              <table role="presentation" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+                <tr>
+                  <td style="vertical-align:middle;"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/storelilgoo.png" alt="Storelib" width="32" height="32" style="display:block;width:32px;height:32px;border:0;outline:none;border-radius:8px;" class="storelib-logo" /></td>
+                  <td style="padding-left:14px;vertical-align:middle;">
+                    <span style="font-size:18px;font-weight:600;color:#1a1a1a;letter-spacing:-0.2px;">Storelib</span>
+                  </td>
+                </tr>
+              </table>
+              <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;letter-spacing:-0.5px;color:#1a1a1a;line-height:1.3;">Your bank account has been updated</h1>
+              <p style="margin:0;font-size:14.5px;color:#6b6b6b;line-height:1.55;">Your payout details were changed. All future payouts will be sent to the new account.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:28px 36px;border-bottom:1px solid #eeedea;">
+              <p style="margin:0 0 12px;font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#aaa;">Updated Account</p>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafaf8;border:1px solid #eeedea;border-radius:12px;overflow:hidden;">
+                <tr>
+                  <td style="padding:13px 18px;font-size:13px;color:#888;font-weight:500;">Bank account</td>
+                  <td style="padding:13px 18px;font-size:13.5px;color:#1a1a1a;font-weight:600;text-align:right;">${safeText(bankDisplay)}</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:24px 36px;border-bottom:1px solid #eeedea;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafaf8;border:1px solid #eeedea;border-radius:12px;">
+                <tr>
+                  <td style="padding:14px 16px;vertical-align:top;width:30px;">
+                    <span style="font-size:16px;color:#999;">&#9432;</span>
+                  </td>
+                  <td style="padding:14px 16px 14px 0;font-size:13.5px;line-height:1.5;color:#6b6b6b;">
+                    If you didn't make this change, please contact support immediately.
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:28px 36px;text-align:center;">
+              <table role="presentation" cellpadding="0" cellspacing="0" align="center">
+                <tr>
+                  <td style="background:#1a1a1a;border-radius:10px;">
+                    <a href="${baseUrl}/app/payouts" style="display:inline-block;color:#ffffff;font-size:13.5px;font-weight:600;padding:12px 30px;text-decoration:none;letter-spacing:-0.1px;">View Payouts</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#fafaf8;padding:28px 36px;text-align:center;border-top:1px solid #eeedea;">
+              <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin-bottom:12px;">
+                <tr>
+                  <td><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/storelilgoo.png" alt="Storelib" width="20" height="20" style="display:block;width:20px;height:20px;border:0;outline:none;border-radius:5px;" class="storelib-logo" /></td>
+                </tr>
+              </table>
+              <p style="margin:0 0 14px;font-size:11.5px;color:#bbb;line-height:1.65;">
+                This is an automated notification from Storelib.<br>
+                You received this because your payout details were updated.
+              </p>
+              <p style="margin:0;font-size:11.5px;color:#aaa;">
+                <a href="${baseUrl}" style="color:#aaa;text-decoration:none;">Storelib.com</a>
+                <span style="color:#ddd;font-size:8px;">&nbsp;&middot;&nbsp;</span>
+                <a href="${baseUrl}/help" style="color:#aaa;text-decoration:none;">Help Center</a>
+                <span style="color:#ddd;font-size:8px;">&nbsp;&middot;&nbsp;</span>
+                <a href="${baseUrl}/terms" style="color:#aaa;text-decoration:none;">Terms</a>
+                <span style="color:#ddd;font-size:8px;">&nbsp;&middot;&nbsp;</span>
+                <a href="${baseUrl}/privacy" style="color:#aaa;text-decoration:none;">Privacy</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
   </table>
 </body>
 </html>`,
@@ -2509,29 +2666,99 @@ export async function sendPayoutsPausedEmail(params: {
           to: params.to,
           subject: `Some of your funds are temporarily unavailable`,
           html: `<!DOCTYPE html>
-<html>
-<head><meta name="viewport" content="width=device-width,initial-scale=1.0"><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></head>
-<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background-color:#f6f9fc;">
-  <table role="presentation" style="width:100%;padding:32px 16px;">
-    <tr><td align="center">
-      <table role="presentation" style="max-width:560px;width:100%;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
-        <tr><td style="padding:32px 28px;">
-          <h1 style="margin:0 0 16px 0;font-size:20px;font-weight:700;color:#1a1a2e;">Payouts temporarily paused</h1>
-          <p style="margin:0 0 16px 0;font-size:15px;color:#374151;line-height:1.6;">Hi ${safeText(params.sellerName)},</p>
-          <p style="margin:0 0 16px 0;font-size:15px;color:#374151;line-height:1.6;">Some of your funds are temporarily unavailable while your account is being reviewed.</p>
-          <p style="margin:0 0 16px 0;font-size:15px;color:#374151;line-height:1.6;">This is a normal part of the payout process for new activity or account updates. No action is required from you.</p>
-          <p style="margin:0 0 16px 0;font-size:15px;color:#374151;line-height:1.6;">Your payouts will resume automatically once the review is complete.</p>
-          <p style="margin:0 0 20px 0;font-size:15px;color:#374151;line-height:1.6;">You can continue making sales as usual.</p>
-          <table role="presentation" style="width:100%;"><tr><td align="center">
-            <a href="${baseUrl}/app/payouts" style="display:inline-block;padding:12px 28px;background:#7c3aed;color:#fff;font-size:14px;font-weight:600;text-decoration:none;border-radius:8px;">View your payouts</a>
-          </td></tr></table>
-        </td></tr>
-        <tr><td style="padding:16px 22px;text-align:center;background:#f9fafb;color:#9ca3af;font-size:11px;">
-          &copy; ${new Date().getFullYear()} Storelib &nbsp;&middot;&nbsp;
-          <a href="${baseUrl}/app/payouts" style="color:#aaa;text-decoration:none;">Manage payouts</a>
-        </td></tr>
-      </table>
-    </td></tr>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
+  <title>Payouts Paused</title>
+  <style>
+    :root { color-scheme: light only; }
+    u + .body .storelib-logo { }
+    [data-ogsc] .storelib-logo, [data-ogsb] .storelib-logo { filter: none !important; -webkit-filter: none !important; }
+    @media (prefers-color-scheme: dark) { .storelib-logo { filter: none !important; -webkit-filter: none !important; } }
+  </style>
+</head>
+<body class="body" style="margin:0;padding:0;background-color:#f5f5f7;font-family:-apple-system,'Segoe UI',Helvetica,sans-serif;color:#1a1a1a;-webkit-font-smoothing:antialiased;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f5f7;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.04),0 8px 30px rgba(0,0,0,0.06);">
+          <tr>
+            <td style="padding:36px 36px 28px;border-bottom:1px solid #eeedea;">
+              <table role="presentation" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+                <tr>
+                  <td style="vertical-align:middle;"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/storelilgoo.png" alt="Storelib" width="32" height="32" style="display:block;width:32px;height:32px;border:0;outline:none;border-radius:8px;" class="storelib-logo" /></td>
+                  <td style="padding-left:14px;vertical-align:middle;">
+                    <span style="font-size:18px;font-weight:600;color:#1a1a1a;letter-spacing:-0.2px;">Storelib</span>
+                  </td>
+                </tr>
+              </table>
+              <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;letter-spacing:-0.5px;color:#1a1a1a;line-height:1.3;">Payouts temporarily paused</h1>
+              <p style="margin:0;font-size:14.5px;color:#6b6b6b;line-height:1.55;">Some of your funds are temporarily unavailable while your account is being reviewed.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:24px 36px;border-bottom:1px solid #eeedea;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;margin-bottom:10px;">
+                <tr>
+                  <td style="padding:14px 16px;vertical-align:top;width:30px;">
+                    <span style="font-size:16px;">&#9203;</span>
+                  </td>
+                  <td style="padding:14px 16px 14px 0;font-size:13.5px;line-height:1.5;color:#92400e;">
+                    This is a normal part of the payout process for new activity or account updates. <strong>No action is required from you.</strong>
+                  </td>
+                </tr>
+              </table>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafaf8;border:1px solid #eeedea;border-radius:12px;">
+                <tr>
+                  <td style="padding:14px 16px;vertical-align:top;width:30px;">
+                    <span style="font-size:16px;color:#999;">&#9432;</span>
+                  </td>
+                  <td style="padding:14px 16px 14px 0;font-size:13.5px;line-height:1.5;color:#6b6b6b;">
+                    Your payouts will resume automatically once the review is complete. You can continue making sales as usual.
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:28px 36px;text-align:center;">
+              <table role="presentation" cellpadding="0" cellspacing="0" align="center">
+                <tr>
+                  <td style="background:#1a1a1a;border-radius:10px;">
+                    <a href="${baseUrl}/app/payouts" style="display:inline-block;color:#ffffff;font-size:13.5px;font-weight:600;padding:12px 30px;text-decoration:none;letter-spacing:-0.1px;">View Payouts</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#fafaf8;padding:28px 36px;text-align:center;border-top:1px solid #eeedea;">
+              <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin-bottom:12px;">
+                <tr>
+                  <td><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/storelilgoo.png" alt="Storelib" width="20" height="20" style="display:block;width:20px;height:20px;border:0;outline:none;border-radius:5px;" class="storelib-logo" /></td>
+                </tr>
+              </table>
+              <p style="margin:0 0 14px;font-size:11.5px;color:#bbb;line-height:1.65;">
+                This is an automated notification from Storelib.<br>
+                You received this because of payout activity on your store.
+              </p>
+              <p style="margin:0;font-size:11.5px;color:#aaa;">
+                <a href="${baseUrl}" style="color:#aaa;text-decoration:none;">Storelib.com</a>
+                <span style="color:#ddd;font-size:8px;">&nbsp;&middot;&nbsp;</span>
+                <a href="${baseUrl}/help" style="color:#aaa;text-decoration:none;">Help Center</a>
+                <span style="color:#ddd;font-size:8px;">&nbsp;&middot;&nbsp;</span>
+                <a href="${baseUrl}/terms" style="color:#aaa;text-decoration:none;">Terms</a>
+                <span style="color:#ddd;font-size:8px;">&nbsp;&middot;&nbsp;</span>
+                <a href="${baseUrl}/privacy" style="color:#aaa;text-decoration:none;">Privacy</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
   </table>
 </body>
 </html>`,
@@ -2623,32 +2850,103 @@ export async function sendVerificationRequiredEmail(params: {
             ? "Action required: complete verification to keep receiving payouts"
             : "Verification needed to enable payouts",
           html: `<!DOCTYPE html>
-<html>
-<head><meta name="viewport" content="width=device-width,initial-scale=1.0"><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></head>
-<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background-color:#f6f9fc;">
-  <table role="presentation" style="width:100%;padding:32px 16px;">
-    <tr><td align="center">
-      <table role="presentation" style="max-width:560px;width:100%;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
-        <tr><td style="padding:32px 28px;">
-          <h1 style="margin:0 0 16px 0;font-size:20px;font-weight:700;color:#1a1a2e;">${params.isPastDue ? "Action required" : "Verification needed"}</h1>
-          <p style="margin:0 0 16px 0;font-size:15px;color:#374151;line-height:1.6;">Hi ${safeText(params.sellerName)},</p>
-          <p style="margin:0 0 16px 0;font-size:15px;color:#374151;line-height:1.6;">${params.isPastDue
-            ? "To continue receiving payouts, Stripe needs you to complete the following verification:"
-            : "To enable payouts on your account, Stripe needs you to provide some additional information:"}</p>
-          <div style="background:#f8f8f9;border:1px solid #e8e8ec;border-radius:8px;padding:14px 18px;margin:0 0 20px 0;">
-            <ul style="margin:0;padding:0 0 0 16px;list-style:disc;">${requirementsList}</ul>
-          </div>
-          <p style="margin:0 0 20px 0;font-size:14px;color:#6b7280;line-height:1.5;">This usually takes less than 2 minutes. Your information is handled securely by Stripe.</p>
-          <table role="presentation" style="width:100%;"><tr><td align="center">
-            <a href="${baseUrl}/app/payouts" style="display:inline-block;padding:12px 28px;background:#7c3aed;color:#fff;font-size:14px;font-weight:600;text-decoration:none;border-radius:8px;">Complete verification →</a>
-          </td></tr></table>
-        </td></tr>
-        <tr><td style="padding:16px 22px;text-align:center;background:#f9fafb;color:#9ca3af;font-size:11px;">
-          &copy; ${new Date().getFullYear()} Storelib &nbsp;&middot;&nbsp;
-          <a href="${baseUrl}/app/payouts" style="color:#aaa;text-decoration:none;">Manage payouts</a>
-        </td></tr>
-      </table>
-    </td></tr>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
+  <title>${params.isPastDue ? "Action Required" : "Verification Needed"}</title>
+  <style>
+    :root { color-scheme: light only; }
+    u + .body .storelib-logo { }
+    [data-ogsc] .storelib-logo, [data-ogsb] .storelib-logo { filter: none !important; -webkit-filter: none !important; }
+    @media (prefers-color-scheme: dark) { .storelib-logo { filter: none !important; -webkit-filter: none !important; } }
+  </style>
+</head>
+<body class="body" style="margin:0;padding:0;background-color:#f5f5f7;font-family:-apple-system,'Segoe UI',Helvetica,sans-serif;color:#1a1a1a;-webkit-font-smoothing:antialiased;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f5f7;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.04),0 8px 30px rgba(0,0,0,0.06);">
+          <tr>
+            <td style="padding:36px 36px 28px;border-bottom:1px solid #eeedea;">
+              <table role="presentation" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+                <tr>
+                  <td style="vertical-align:middle;"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/storelilgoo.png" alt="Storelib" width="32" height="32" style="display:block;width:32px;height:32px;border:0;outline:none;border-radius:8px;" class="storelib-logo" /></td>
+                  <td style="padding-left:14px;vertical-align:middle;">
+                    <span style="font-size:18px;font-weight:600;color:#1a1a1a;letter-spacing:-0.2px;">Storelib</span>
+                  </td>
+                </tr>
+              </table>
+              <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;letter-spacing:-0.5px;color:#1a1a1a;line-height:1.3;">${params.isPastDue ? "Action required" : "Verification needed"}</h1>
+              <p style="margin:0;font-size:14.5px;color:#6b6b6b;line-height:1.55;">${params.isPastDue
+                ? "To continue receiving payouts, Stripe needs you to complete the following verification."
+                : "To enable payouts on your account, Stripe needs you to provide some additional information."}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:28px 36px;border-bottom:1px solid #eeedea;">
+              <p style="margin:0 0 12px;font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#aaa;">What's Needed</p>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafaf8;border:1px solid #eeedea;border-radius:12px;overflow:hidden;">
+                <tr>
+                  <td style="padding:16px 18px;">
+                    <ul style="margin:0;padding:0 0 0 16px;list-style:disc;">${requirementsList}</ul>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:24px 36px;border-bottom:1px solid #eeedea;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafaf8;border:1px solid #eeedea;border-radius:12px;">
+                <tr>
+                  <td style="padding:14px 16px;vertical-align:top;width:30px;">
+                    <span style="font-size:16px;color:#999;">&#9432;</span>
+                  </td>
+                  <td style="padding:14px 16px 14px 0;font-size:13.5px;line-height:1.5;color:#6b6b6b;">
+                    This usually takes less than 2 minutes. Your information is handled securely by Stripe.
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:28px 36px;text-align:center;">
+              <table role="presentation" cellpadding="0" cellspacing="0" align="center">
+                <tr>
+                  <td style="background:#1a1a1a;border-radius:10px;">
+                    <a href="${baseUrl}/app/payouts" style="display:inline-block;color:#ffffff;font-size:13.5px;font-weight:600;padding:12px 30px;text-decoration:none;letter-spacing:-0.1px;">Complete Verification</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#fafaf8;padding:28px 36px;text-align:center;border-top:1px solid #eeedea;">
+              <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin-bottom:12px;">
+                <tr>
+                  <td><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/storelilgoo.png" alt="Storelib" width="20" height="20" style="display:block;width:20px;height:20px;border:0;outline:none;border-radius:5px;" class="storelib-logo" /></td>
+                </tr>
+              </table>
+              <p style="margin:0 0 14px;font-size:11.5px;color:#bbb;line-height:1.65;">
+                This is an automated notification from Storelib.<br>
+                You received this because verification is needed on your account.
+              </p>
+              <p style="margin:0;font-size:11.5px;color:#aaa;">
+                <a href="${baseUrl}" style="color:#aaa;text-decoration:none;">Storelib.com</a>
+                <span style="color:#ddd;font-size:8px;">&nbsp;&middot;&nbsp;</span>
+                <a href="${baseUrl}/help" style="color:#aaa;text-decoration:none;">Help Center</a>
+                <span style="color:#ddd;font-size:8px;">&nbsp;&middot;&nbsp;</span>
+                <a href="${baseUrl}/terms" style="color:#aaa;text-decoration:none;">Terms</a>
+                <span style="color:#ddd;font-size:8px;">&nbsp;&middot;&nbsp;</span>
+                <a href="${baseUrl}/privacy" style="color:#aaa;text-decoration:none;">Privacy</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
   </table>
 </body>
 </html>`,
@@ -2665,6 +2963,183 @@ export async function sendVerificationRequiredEmail(params: {
     verificationEmailThrottle.set(params.creatorId, Date.now())
   } catch (err) {
     console.error("[email] Failed to send verification required email:", err)
+  }
+}
+
+// ─── First Sale Notification Email ────────────────────────────────────────────
+
+export async function sendFirstSaleEmail(params: {
+  admin: any
+  sellerEmail: string
+  creatorId: string
+  productName: string
+  sellerNet: string
+  buyerCountry: string | null
+  saleTime: string
+}): Promise<void> {
+  const baseUrl = getStableBaseUrl()
+
+  // Check if already sent — fires once per seller lifetime
+  const { data: creator } = await params.admin
+    .from("creators")
+    .select("first_sale_email_sent")
+    .eq("id", params.creatorId)
+    .maybeSingle()
+
+  if (creator?.first_sale_email_sent) {
+    console.log("[email] First sale email already sent for creator:", params.creatorId)
+    return
+  }
+
+  const saleTimeFormatted = new Date(params.saleTime).toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  })
+
+  try {
+    await withRetry(
+      async () => {
+        const result = await sendEmail({
+          from: buildFromHeaderLocal("Storelib"),
+          to: params.sellerEmail,
+          subject: `You just made your first sale 🎉`,
+          html: `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
+  <title>Your First Sale</title>
+  <style>
+    :root { color-scheme: light only; }
+    u + .body .storelib-logo { }
+    [data-ogsc] .storelib-logo, [data-ogsb] .storelib-logo { filter: none !important; -webkit-filter: none !important; }
+    @media (prefers-color-scheme: dark) { .storelib-logo { filter: none !important; -webkit-filter: none !important; } }
+  </style>
+</head>
+<body class="body" style="margin:0;padding:0;background-color:#f5f5f7;font-family:-apple-system,'Segoe UI',Helvetica,sans-serif;color:#1a1a1a;-webkit-font-smoothing:antialiased;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f5f7;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.04),0 8px 30px rgba(0,0,0,0.06);">
+
+          <!-- Header -->
+          <tr>
+            <td style="padding:36px 36px 28px;border-bottom:1px solid #eeedea;">
+              <table role="presentation" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+                <tr>
+                  <td style="vertical-align:middle;"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/storelilgoo.png" alt="Storelib" width="32" height="32" style="display:block;width:32px;height:32px;border:0;outline:none;border-radius:8px;" class="storelib-logo" /></td>
+                  <td style="padding-left:14px;vertical-align:middle;">
+                    <span style="font-size:18px;font-weight:600;color:#1a1a1a;letter-spacing:-0.2px;">Storelib</span>
+                  </td>
+                </tr>
+              </table>
+              <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;letter-spacing:-0.5px;color:#1a1a1a;line-height:1.3;">You just made your first sale.</h1>
+              <p style="margin:0;font-size:14.5px;color:#6b6b6b;line-height:1.55;">Someone believed in what you made. That's the hardest part — and you did it.</p>
+            </td>
+          </tr>
+
+          <!-- Sale Details -->
+          <tr>
+            <td style="padding:28px 36px;border-bottom:1px solid #eeedea;">
+              <p style="margin:0 0 12px;font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#aaa;">Sale Details</p>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;overflow:hidden;">
+                <tr>
+                  <td style="padding:13px 18px;border-bottom:1px solid #bbf7d0;font-size:13px;color:#166534;font-weight:500;">Product sold</td>
+                  <td style="padding:13px 18px;border-bottom:1px solid #bbf7d0;font-size:13.5px;color:#14532d;font-weight:600;text-align:right;">${safeText(params.productName)}</td>
+                </tr>
+                <tr>
+                  <td style="padding:13px 18px;border-bottom:1px solid #bbf7d0;font-size:13px;color:#166534;font-weight:500;">Amount earned</td>
+                  <td style="padding:13px 18px;border-bottom:1px solid #bbf7d0;font-size:13.5px;color:#14532d;font-weight:600;text-align:right;">${safeText(params.sellerNet)} <span style="font-size:11px;color:#166534;font-weight:400;">(after Storelib fee)</span></td>
+                </tr>
+                ${params.buyerCountry ? `<tr>
+                  <td style="padding:13px 18px;border-bottom:1px solid #bbf7d0;font-size:13px;color:#166534;font-weight:500;">Buyer location</td>
+                  <td style="padding:13px 18px;border-bottom:1px solid #bbf7d0;font-size:13.5px;color:#14532d;font-weight:600;text-align:right;">${safeText(params.buyerCountry)}</td>
+                </tr>` : ""}
+                <tr>
+                  <td style="padding:13px 18px;font-size:13px;color:#166534;font-weight:500;">Sold at</td>
+                  <td style="padding:13px 18px;font-size:13.5px;color:#14532d;font-weight:600;text-align:right;">${saleTimeFormatted}</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- CTA -->
+          <tr>
+            <td style="padding:28px 36px;text-align:center;border-bottom:1px solid #eeedea;">
+              <table role="presentation" cellpadding="0" cellspacing="0" align="center">
+                <tr>
+                  <td style="background:#1a1a1a;border-radius:10px;">
+                    <a href="${baseUrl}/app" style="display:inline-block;color:#ffffff;font-size:13.5px;font-weight:600;padding:12px 30px;text-decoration:none;letter-spacing:-0.1px;">View Your Dashboard</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Celebration block -->
+          <tr>
+            <td style="padding:28px 36px;border-bottom:1px solid #eeedea;">
+              <p style="margin:0;font-size:14.5px;color:#374151;line-height:1.65;">
+                This is just the beginning. Share your store, keep creating, and the sales will follow. You've already done the hardest part.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background:#fafaf8;padding:28px 36px;text-align:center;border-top:1px solid #eeedea;">
+              <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin-bottom:12px;">
+                <tr>
+                  <td><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/storelilgoo.png" alt="Storelib" width="20" height="20" style="display:block;width:20px;height:20px;border:0;outline:none;border-radius:5px;" class="storelib-logo" /></td>
+                </tr>
+              </table>
+              <p style="margin:0 0 14px;font-size:11.5px;color:#bbb;line-height:1.65;">
+                This is an automated notification from Storelib.<br>
+                You received this because you made your first sale.
+              </p>
+              <p style="margin:0;font-size:11.5px;color:#aaa;">
+                <a href="${baseUrl}" style="color:#aaa;text-decoration:none;">Storelib.com</a>
+                <span style="color:#ddd;font-size:8px;">&nbsp;&middot;&nbsp;</span>
+                <a href="${baseUrl}/help" style="color:#aaa;text-decoration:none;">Help Center</a>
+                <span style="color:#ddd;font-size:8px;">&nbsp;&middot;&nbsp;</span>
+                <a href="${baseUrl}/terms" style="color:#aaa;text-decoration:none;">Terms</a>
+                <span style="color:#ddd;font-size:8px;">&nbsp;&middot;&nbsp;</span>
+                <a href="${baseUrl}/privacy" style="color:#aaa;text-decoration:none;">Privacy</a>
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`,
+          text: `You just made your first sale!\n\nSomeone believed in what you made. That's the hardest part — and you did it.\n\nProduct sold: ${params.productName}\nAmount earned: ${params.sellerNet} (after Storelib fee)\n${params.buyerCountry ? `Buyer location: ${params.buyerCountry}\n` : ""}Sold at: ${saleTimeFormatted}\n\nView your dashboard: ${baseUrl}/app\n\nThis is just the beginning. Share your store, keep creating, and the sales will follow. You've already done the hardest part.`,
+        })
+        if (!result.success) throw new Error(result.error || "Failed to send first sale email")
+        return result
+      },
+      MAX_RETRIES,
+      "first sale notification email"
+    )
+
+    // Mark as sent — never send again
+    await params.admin
+      .from("creators")
+      .update({ first_sale_email_sent: true })
+      .eq("id", params.creatorId)
+
+    console.log("[email] ✅ First sale email sent for creator:", params.creatorId)
+  } catch (err) {
+    console.error("[email] Failed to send first sale email:", err)
   }
 }
 
