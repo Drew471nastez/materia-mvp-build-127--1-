@@ -145,14 +145,57 @@ export async function GET(request: Request, { params }: { params: Promise<{ asse
           .select("id")
           .eq("buyer_id", user.id)
           .eq("product_id", asset.product_id)
-          .single()
+          .maybeSingle()
 
         if (entitlement) {
           hasAccess = true
           entitlementId = entitlement.id
         }
       } catch {
-        // Non-fatal — continue to creator check
+        // Non-fatal — continue to order check
+      }
+
+      // Check user access via completed order (fallback when no entitlement record)
+      if (!hasAccess) {
+        try {
+          const { data: userOrder } = await admin
+            .from("orders")
+            .select("id, variant_id")
+            .eq("buyer_id", user.id)
+            .eq("product_id", asset.product_id)
+            .eq("status", "completed")
+            .limit(1)
+            .maybeSingle()
+
+          if (userOrder) {
+            orderIdForLog = userOrder.id
+
+            // Variant access check (fail-open)
+            let variantAccessOk = true
+            if (userOrder.variant_id) {
+              try {
+                const { data: variantFile, error: variantError } = await admin
+                  .from("product_variant_files")
+                  .select("id")
+                  .eq("variant_id", userOrder.variant_id)
+                  .eq("digital_asset_id", assetId)
+                  .maybeSingle()
+
+                if (!variantError && !variantFile) {
+                  variantAccessOk = false
+                }
+              } catch {
+                // Fail-open
+              }
+            }
+
+            if (variantAccessOk) {
+              hasAccess = true
+            }
+          }
+        } catch {
+          // Non-fatal — continue to creator check
+        }
       }
 
       // Allow creator access
@@ -163,7 +206,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ asse
             .select("id")
             .eq("user_id", user.id)
             .eq("id", asset.product.creator_id)
-            .single()
+            .maybeSingle()
 
           if (creator) {
             hasAccess = true
