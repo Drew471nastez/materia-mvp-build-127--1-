@@ -16,7 +16,14 @@ function cleanScrollLocks() {
   const body = document.body
   const html = document.documentElement
 
+  // Remove data attributes from BOTH html and body.
+  // react-remove-scroll adds data-scroll-locked to <html>, not <body>.
+  html.removeAttribute("data-scroll-locked")
   body.removeAttribute("data-scroll-locked")
+
+  // Also remove any other scroll-related data attributes
+  html.removeAttribute("data-remove-scroll-bar")
+  body.removeAttribute("data-remove-scroll-bar")
 
   body.classList.remove("with-scroll-bars-hidden")
   body.classList.remove("modal-open")
@@ -44,15 +51,20 @@ function cleanScrollLocks() {
   body.style.removeProperty("--removed-body-scroll-bar-size")
 
   html.style.overflow = ""
+  html.style.overflowX = ""
   html.style.overflowY = ""
   html.style.overscrollBehavior = ""
+  html.style.paddingRight = ""
+  html.style.marginRight = ""
 
+  // Remove injected <style> elements from react-remove-scroll / react-remove-scroll-bar
   document.querySelectorAll("style").forEach((el) => {
     const t = el.textContent || ""
     if (
       t.includes("data-scroll-locked") ||
       t.includes("block-interactivity") ||
-      t.includes("with-scroll-bars-hidden")
+      t.includes("with-scroll-bars-hidden") ||
+      t.includes("data-remove-scroll-bar")
     ) {
       el.remove()
     }
@@ -60,27 +72,16 @@ function cleanScrollLocks() {
 }
 
 function forceScrollRecalculation() {
-  const html = document.documentElement
-  const body = document.body
+  // Force the browser to recalculate scroll containers by reading layout
+  // properties and dispatching a synthetic resize event.
+  // NOTE: Do NOT toggle overflow to hidden/visible — that temporarily blocks
+  // scroll and can itself cause the scroll to stick in some browsers.
+  void document.documentElement.scrollHeight
+  void document.body.scrollHeight
+  void document.documentElement.offsetHeight
+  void document.body.offsetHeight
 
-  void html.scrollHeight
-  void body.scrollHeight
-
-  // Toggle overflow-y to force the browser to re-evaluate scroll containers
-  html.style.overflowY = "hidden"
-  void html.offsetHeight
-  html.style.overflowY = ""
-  void html.offsetHeight
-
-  body.style.overflowY = "hidden"
-  void body.offsetHeight
-  body.style.overflowY = ""
-  void body.offsetHeight
-
-  // Synthetic resize forces full compositor recalculation
   window.dispatchEvent(new Event("resize"))
-
-  // Force scroll position write to activate scroll machinery
   window.scrollTo(0, window.scrollY)
 }
 
