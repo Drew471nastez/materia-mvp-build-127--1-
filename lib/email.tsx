@@ -3589,3 +3589,152 @@ function wrapFlowEmailHtml(bodyContent: string, fromName: string): string {
 </body>
 </html>`
 }
+
+// ─── 1099-K Tax Form Notification Email ──────────────────────────────────────
+
+export async function send1099KNotificationEmail(params: {
+  to: string
+  sellerName: string
+  taxYear: number
+  grossEarningsCents: number
+  transactionCount: number
+  isEligible: boolean
+}): Promise<void> {
+  const baseUrl = getStableBaseUrl()
+  const fmtAmt = (c: number) => `$${(c / 100).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`
+
+  try {
+    await withRetry(
+      async () => {
+        const result = await sendEmail({
+          from: buildFromHeaderLocal("Storelib"),
+          to: params.to,
+          subject: params.isEligible
+            ? `Your ${params.taxYear} 1099-K is available`
+            : `Your ${params.taxYear} earnings summary is ready`,
+          html: `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
+  <title>${params.taxYear} Tax Documents</title>
+  <style>
+    :root { color-scheme: light only; }
+    [data-ogsc] .storelib-logo, [data-ogsb] .storelib-logo { filter: none !important; -webkit-filter: none !important; }
+    @media (prefers-color-scheme: dark) { .storelib-logo { filter: none !important; -webkit-filter: none !important; } }
+  </style>
+</head>
+<body class="body" style="margin:0;padding:0;background-color:#f5f5f7;font-family:-apple-system,'Segoe UI',Helvetica,sans-serif;color:#1a1a1a;-webkit-font-smoothing:antialiased;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f5f7;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.04),0 8px 30px rgba(0,0,0,0.06);">
+          <tr>
+            <td style="padding:36px 36px 28px;border-bottom:1px solid #eeedea;">
+              <table role="presentation" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+                <tr>
+                  <td style="vertical-align:middle;"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/storelilgoo.png" alt="Storelib" width="32" height="32" style="display:block;width:32px;height:32px;border:0;outline:none;border-radius:8px;" class="storelib-logo" /></td>
+                  <td style="padding-left:14px;vertical-align:middle;">
+                    <span style="font-size:18px;font-weight:600;color:#1a1a1a;letter-spacing:-0.2px;">Storelib</span>
+                  </td>
+                </tr>
+              </table>
+              <h1 style="margin:0 0 8px;font-size:22px;font-weight:700;letter-spacing:-0.5px;color:#1a1a1a;line-height:1.3;">
+                ${params.isEligible ? `Your ${params.taxYear} 1099-K is ready` : `Your ${params.taxYear} earnings summary`}
+              </h1>
+              <p style="margin:0;font-size:14.5px;color:#6b6b6b;line-height:1.55;">
+                ${params.isEligible
+                  ? `Hi ${safeText(params.sellerName)}, you're eligible for a 1099-K form for the ${params.taxYear} tax year. Stripe will send it directly to this email address.`
+                  : `Hi ${safeText(params.sellerName)}, here's a summary of your ${params.taxYear} earnings on Storelib.`
+                }
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px 36px;text-align:center;background:${params.isEligible ? '#f0fdf4' : '#f9fafb'};border-bottom:1px solid #eeedea;">
+              <p style="margin:0 0 8px;font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px;color:${params.isEligible ? '#16a34a' : '#6b7280'};">
+                ${params.taxYear} Gross Earnings
+              </p>
+              <p style="margin:0 0 12px;font-size:44px;font-weight:800;letter-spacing:-2px;color:#1a1a1a;line-height:1;">
+                ${fmtAmt(params.grossEarningsCents)}
+              </p>
+              <table role="presentation" cellpadding="0" cellspacing="0" align="center">
+                <tr>
+                  <td style="background:${params.isEligible ? '#dcfce7' : '#f3f4f6'};color:${params.isEligible ? '#16a34a' : '#6b7280'};font-size:12.5px;font-weight:600;padding:6px 16px;border-radius:100px;letter-spacing:0.1px;">
+                    ${params.transactionCount.toLocaleString()} transactions
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:28px 36px;border-bottom:1px solid #eeedea;">
+              ${params.isEligible ? `
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="padding:16px;background:#f0fdf4;border-radius:12px;border:1px solid #bbf7d0;">
+                    <p style="margin:0 0 8px;font-size:14px;font-weight:600;color:#16a34a;">You qualify for a 1099-K</p>
+                    <p style="margin:0;font-size:13px;color:#6b6b6b;line-height:1.5;">
+                      You earned ${fmtAmt(params.grossEarningsCents)} across ${params.transactionCount.toLocaleString()} transactions, which exceeds the federal threshold ($20,000 + 200 transactions).
+                    </p>
+                    <p style="margin:12px 0 0;font-size:13px;color:#6b6b6b;line-height:1.5;">
+                      <strong>Stripe will email your official 1099-K by January 31, ${params.taxYear + 1}.</strong> You can also download it from your Storelib payouts page.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+              ` : `
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="padding:16px;background:#fffbeb;border-radius:12px;border:1px solid #fde68a;">
+                    <p style="margin:0 0 8px;font-size:14px;font-weight:600;color:#92400e;">Below 1099-K threshold</p>
+                    <p style="margin:0;font-size:13px;color:#6b6b6b;line-height:1.5;">
+                      You earned ${fmtAmt(params.grossEarningsCents)} across ${params.transactionCount.toLocaleString()} transactions. The federal threshold is $20,000 and 200+ transactions.
+                    </p>
+                    <p style="margin:12px 0 0;font-size:13px;color:#6b6b6b;line-height:1.5;">
+                      We can't send you an official 1099-K, but you can download a <strong>draft earnings summary</strong> from your payouts page to share with a tax professional.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+              `}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:28px 36px 36px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" align="center">
+                <tr>
+                  <td style="background:#8b5cf6;border-radius:12px;">
+                    <a href="${baseUrl}/app/payouts" style="display:inline-block;padding:14px 36px;font-size:14.5px;font-weight:600;color:#ffffff;text-decoration:none;letter-spacing:0.1px;">View Tax Documents</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:20px 36px;text-align:center;background:#f9fafb;color:#9ca3af;font-size:11px;border-top:1px solid #eeedea;">
+              This is an automated tax notification from Storelib. Not tax advice — consult a professional.
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`,
+          text: `${params.taxYear} Tax Documents\n\nHi ${params.sellerName},\n\n${params.isEligible
+            ? `You qualify for a 1099-K for ${params.taxYear}. Gross earnings: ${fmtAmt(params.grossEarningsCents)} across ${params.transactionCount} transactions. Stripe will email your official 1099-K by January 31.`
+            : `Your ${params.taxYear} earnings: ${fmtAmt(params.grossEarningsCents)} across ${params.transactionCount} transactions. You didn't meet the 1099-K threshold. Download a draft summary from your payouts page.`
+          }\n\nView: ${baseUrl}/app/payouts`,
+        })
+        if (!result.success) throw new Error(result.error || "Failed to send 1099-K notification email")
+      },
+      3,
+      "1099-K notification email",
+    )
+  } catch (err) {
+    console.error("[email] Failed to send 1099-K notification:", err)
+  }
+}

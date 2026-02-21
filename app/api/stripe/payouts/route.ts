@@ -243,7 +243,61 @@ export async function GET() {
       }
     } catch { /* non-fatal */ }
 
-    return NextResponse.json({ payouts, balance, exchangeRate, payoutScheduleInterval, payoutScheduleDelay, accountStatus, disputeData })
+    // ── 1099-K Tax Data ────────────────────────────────────────────────────────
+    // Calculate gross earnings + transaction count for current and previous tax year
+    // Federal threshold: $20,000 AND 200+ transactions
+    let taxData: {
+      currentYear: { year: number; grossCents: number; transactionCount: number; isEligible: boolean }
+      previousYear: { year: number; grossCents: number; transactionCount: number; isEligible: boolean }
+      stripeExpressDashboardUrl: string | null
+    } = {
+      currentYear: { year: new Date().getFullYear(), grossCents: 0, transactionCount: 0, isEligible: false },
+      previousYear: { year: new Date().getFullYear() - 1, grossCents: 0, transactionCount: 0, isEligible: false },
+      stripeExpressDashboardUrl: null,
+    }
+
+    try {
+      const { data: allProducts } = await adminSupabase
+        .from("products")
+        .select("id")
+        .eq("creator_id", creator.id)
+      const allProdIds = (allProducts || []).map((p) => p.id)
+
+      if (allProdIds.length > 0) {
+        const currentYear = new Date().getFullYear()
+        const previousYear = currentYear - 1
+
+        // Fetch completed orders for both years (gross amount for 1099-K = total charged, not net)
+        const { data: taxOrders } = await adminSupabase
+          .from("orders")
+          .select("amount_cents, created_at, status")
+          .in("product_id", allProdIds)
+          .in("status", ["completed", "refunded", "disputed"])
+          .gte("created_at", `${previousYear}-01-01T00:00:00Z`)
+
+        for (const order of taxOrders || []) {
+          const orderYear = new Date(order.created_at).getFullYear()
+          const bucket = orderYear === currentYear ? taxData.currentYear : orderYear === previousYear ? taxData.previousYear : null
+          if (bucket) {
+            bucket.grossCents += order.amount_cents || 0
+            bucket.transactionCount += 1
+          }
+        }
+
+        taxData.currentYear.isEligible = taxData.currentYear.grossCents >= 2000000 && taxData.currentYear.transactionCount >= 200
+        taxData.previousYear.isEligible = taxData.previousYear.grossCents >= 2000000 && taxData.previousYear.transactionCount >= 200
+      }
+
+      // Generate Stripe Express Dashboard login link for tax form access
+      if (stripeAccountId) {
+        try {
+          const loginLink = await stripe.accounts.createLoginLink(stripeAccountId)
+          taxData.stripeExpressDashboardUrl = loginLink.url
+        } catch { /* Express dashboard not available for this account type */ }
+      }
+    } catch { /* non-fatal */ }
+
+    return NextResponse.json({ payouts, balance, exchangeRate, payoutScheduleInterval, payoutScheduleDelay, accountStatus, disputeData, taxData })
   } catch (error: any) {
     console.error("[Stripe Payouts Error]", error)
     return NextResponse.json(

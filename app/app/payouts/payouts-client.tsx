@@ -3407,6 +3407,370 @@ function ExportBottomSheet({
   );
 }
 
+// ─── Tax Documents Section ────────────────────────────────────────────────────
+
+function TaxDocumentsSection({
+  taxData,
+  currency,
+}: {
+  taxData: {
+    currentYear: { year: number; grossCents: number; transactionCount: number; isEligible: boolean };
+    previousYear: { year: number; grossCents: number; transactionCount: number; isEligible: boolean };
+    stripeExpressDashboardUrl: string | null;
+  } | null;
+  currency: string;
+}) {
+  const [downloadingYear, setDownloadingYear] = useState<number | null>(null);
+  const [summaryData, setSummaryData] = useState<any>(null);
+  const [showSummary, setShowSummary] = useState(false);
+
+  if (!taxData) return null;
+
+  const years = [taxData.previousYear, taxData.currentYear].filter(
+    (y) => y.grossCents > 0 || y.transactionCount > 0,
+  );
+
+  // Don't show section if seller has never earned anything
+  if (years.length === 0) return null;
+
+  const handleDownloadDraft = async (year: number) => {
+    setDownloadingYear(year);
+    try {
+      const r = await fetch(`/api/stripe/tax-summary?year=${year}`);
+      if (!r.ok) throw new Error("Failed to fetch");
+      const data = await r.json();
+      setSummaryData(data);
+      setShowSummary(true);
+    } catch {
+      // silent
+    } finally {
+      setDownloadingYear(null);
+    }
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const fmtUsd = (cents: number) =>
+    new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 2,
+    }).format(cents / 100);
+
+  return (
+    <>
+      <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+        <div className="px-5 py-4 border-b border-[#f3f4f6] flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-[#f5f3ff] flex items-center justify-center">
+              <FileText className="h-4 w-4 text-[#8b5cf6]" />
+            </div>
+            <div>
+              <h3 className="text-[14px] font-semibold text-[#1a1a2e]">Tax Documents</h3>
+              <p className="text-[11px] text-[#9ca3af]">1099-K forms and earnings summaries</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="divide-y divide-[#f3f4f6]">
+          {years.map((yearData) => {
+            const threshold = 2000000; // $20,000 in cents
+            const txThreshold = 200;
+            const progressPct = Math.min(100, Math.round((yearData.grossCents / threshold) * 100));
+            const txProgressPct = Math.min(100, Math.round((yearData.transactionCount / txThreshold) * 100));
+            const isCurrentYear = yearData.year === new Date().getFullYear();
+
+            return (
+              <div key={yearData.year} className="px-5 py-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[13px] font-semibold text-[#1a1a2e]">
+                        {yearData.year} Tax Year
+                      </span>
+                      {yearData.isEligible ? (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#dcfce7] text-[#16a34a]">
+                          1099-K Eligible
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#f3f4f6] text-[#6b7280]">
+                          Below Threshold
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="mt-2 space-y-1.5">
+                      {/* Gross earnings progress */}
+                      <div>
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span className="text-[11px] text-[#6b7280]">
+                            Gross earnings: {fmtUsd(yearData.grossCents)}
+                          </span>
+                          <span className="text-[11px] text-[#9ca3af]">
+                            {fmtUsd(threshold)} threshold
+                          </span>
+                        </div>
+                        <div className="w-full h-1.5 bg-[#f3f4f6] rounded-full overflow-hidden">
+                          <div
+                            className={cn(
+                              "h-full rounded-full transition-all",
+                              yearData.grossCents >= threshold ? "bg-[#16a34a]" : "bg-[#8b5cf6]",
+                            )}
+                            style={{ width: `${progressPct}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Transaction count progress */}
+                      <div>
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span className="text-[11px] text-[#6b7280]">
+                            Transactions: {yearData.transactionCount.toLocaleString()}
+                          </span>
+                          <span className="text-[11px] text-[#9ca3af]">
+                            {txThreshold} threshold
+                          </span>
+                        </div>
+                        <div className="w-full h-1.5 bg-[#f3f4f6] rounded-full overflow-hidden">
+                          <div
+                            className={cn(
+                              "h-full rounded-full transition-all",
+                              yearData.transactionCount >= txThreshold ? "bg-[#16a34a]" : "bg-[#8b5cf6]",
+                            )}
+                            style={{ width: `${txProgressPct}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {yearData.isEligible ? (
+                      <p className="text-[11px] text-[#16a34a] mt-2">
+                        {isCurrentYear
+                          ? "You're on track to receive a 1099-K. Stripe will email it by January 31."
+                          : "Your 1099-K is available. Check your email or download from Stripe."
+                        }
+                      </p>
+                    ) : (
+                      <p className="text-[11px] text-[#6b7280] mt-2">
+                        {isCurrentYear
+                          ? "You haven't met the federal 1099-K threshold yet this year."
+                          : "You didn't meet the threshold. Download a draft summary for your tax professional."
+                        }
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex flex-col gap-1.5 shrink-0">
+                    {yearData.isEligible && !isCurrentYear && taxData.stripeExpressDashboardUrl ? (
+                      <a
+                        href={taxData.stripeExpressDashboardUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-white bg-[#8b5cf6] hover:bg-[#7c3aed] rounded-lg transition-colors"
+                      >
+                        <Download className="h-3 w-3" />
+                        1099-K
+                      </a>
+                    ) : null}
+                    {!isCurrentYear && (
+                      <button
+                        onClick={() => handleDownloadDraft(yearData.year)}
+                        disabled={downloadingYear === yearData.year}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-[#374151] bg-[#f3f4f6] hover:bg-[#e5e7eb] rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        {downloadingYear === yearData.year ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <FileText className="h-3 w-3" />
+                        )}
+                        Draft Summary
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Info footer */}
+        <div className="px-5 py-3 bg-[#fafafa] border-t border-[#f3f4f6]">
+          <p className="text-[11px] text-[#9ca3af] leading-relaxed">
+            You'll receive a 1099-K if you earned $20,000+ across 200+ transactions in a tax year.
+            Stripe sends official forms directly to your email by January 31.
+            {taxData.stripeExpressDashboardUrl && (
+              <>
+                {" "}You can also access forms from your{" "}
+                <a
+                  href={taxData.stripeExpressDashboardUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#8b5cf6] hover:underline"
+                >
+                  Stripe Dashboard
+                </a>.
+              </>
+            )}
+          </p>
+        </div>
+      </div>
+
+      {/* ── Draft Summary Modal ── */}
+      {showSummary && summaryData && createPortal(
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowSummary(false); }}
+        >
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+          <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-2xl m-4">
+            {/* Header */}
+            <div className="sticky top-0 bg-white border-b border-[#e5e7eb] px-6 py-4 flex items-center justify-between rounded-t-2xl z-10">
+              <div>
+                <h2 className="text-[16px] font-bold text-[#1a1a2e]">
+                  {summaryData.year} Earnings Summary
+                </h2>
+                <p className="text-[11px] text-[#9ca3af] mt-0.5">Draft — Not an official tax document</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handlePrint}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-[#374151] bg-[#f3f4f6] hover:bg-[#e5e7eb] rounded-lg transition-colors"
+                >
+                  <Download className="h-3 w-3" />
+                  Print / Save PDF
+                </button>
+                <button onClick={() => setShowSummary(false)} className="p-1.5 hover:bg-[#f3f4f6] rounded-lg transition-colors">
+                  <X className="h-4 w-4 text-[#6b7280]" />
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="px-6 py-5 space-y-6 print:px-0">
+              {/* Disclaimer */}
+              <div className="px-4 py-3 bg-[#fffbeb] border border-[#fde68a] rounded-xl">
+                <div className="flex gap-2">
+                  <AlertCircle className="h-4 w-4 text-[#d97706] shrink-0 mt-0.5" />
+                  <p className="text-[12px] text-[#92400e] leading-relaxed">
+                    {summaryData.disclaimer}
+                  </p>
+                </div>
+              </div>
+
+              {/* Summary totals */}
+              <div>
+                <h3 className="text-[13px] font-semibold text-[#1a1a2e] mb-3">Summary for {summaryData.sellerName}</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="bg-[#f9fafb] rounded-xl px-4 py-3">
+                    <p className="text-[11px] text-[#6b7280]">Gross Earnings</p>
+                    <p className="text-[16px] font-bold text-[#1a1a2e] mt-0.5">{fmtUsd(summaryData.grossEarnings)}</p>
+                  </div>
+                  <div className="bg-[#f9fafb] rounded-xl px-4 py-3">
+                    <p className="text-[11px] text-[#6b7280]">Platform Fees</p>
+                    <p className="text-[16px] font-bold text-[#ef4444] mt-0.5">-{fmtUsd(summaryData.platformFees)}</p>
+                  </div>
+                  <div className="bg-[#f9fafb] rounded-xl px-4 py-3">
+                    <p className="text-[11px] text-[#6b7280]">Refunds</p>
+                    <p className="text-[16px] font-bold text-[#ef4444] mt-0.5">-{fmtUsd(summaryData.refunds)}</p>
+                  </div>
+                  <div className="bg-[#f5f3ff] rounded-xl px-4 py-3">
+                    <p className="text-[11px] text-[#6b7280]">Net Earnings</p>
+                    <p className="text-[16px] font-bold text-[#8b5cf6] mt-0.5">{fmtUsd(summaryData.netEarnings)}</p>
+                  </div>
+                </div>
+                <p className="text-[11px] text-[#9ca3af] mt-2">
+                  {summaryData.transactionCount.toLocaleString()} transactions total
+                </p>
+              </div>
+
+              {/* Monthly breakdown */}
+              {summaryData.monthlyBreakdown?.length > 0 && (
+                <div>
+                  <h3 className="text-[13px] font-semibold text-[#1a1a2e] mb-3">Monthly Breakdown</h3>
+                  <div className="border border-[#e5e7eb] rounded-xl overflow-hidden">
+                    <table className="w-full text-[12px]">
+                      <thead>
+                        <tr className="bg-[#f9fafb]">
+                          <th className="text-left px-4 py-2.5 text-[#6b7280] font-medium">Month</th>
+                          <th className="text-right px-4 py-2.5 text-[#6b7280] font-medium">Gross</th>
+                          <th className="text-right px-4 py-2.5 text-[#6b7280] font-medium">Fees</th>
+                          <th className="text-right px-4 py-2.5 text-[#6b7280] font-medium">Net</th>
+                          <th className="text-right px-4 py-2.5 text-[#6b7280] font-medium"># Txns</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#f3f4f6]">
+                        {summaryData.monthlyBreakdown.map((m: any) => (
+                          <tr key={m.month} className="hover:bg-[#fafafa]">
+                            <td className="px-4 py-2.5 text-[#374151] font-medium">{m.monthLabel}</td>
+                            <td className="px-4 py-2.5 text-right text-[#374151]">{fmtUsd(m.grossCents)}</td>
+                            <td className="px-4 py-2.5 text-right text-[#ef4444]">-{fmtUsd(m.feesCents)}</td>
+                            <td className="px-4 py-2.5 text-right text-[#1a1a2e] font-medium">{fmtUsd(m.netCents)}</td>
+                            <td className="px-4 py-2.5 text-right text-[#6b7280]">{m.transactionCount}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Product breakdown */}
+              {summaryData.productBreakdown?.length > 0 && (
+                <div>
+                  <h3 className="text-[13px] font-semibold text-[#1a1a2e] mb-3">By Product</h3>
+                  <div className="border border-[#e5e7eb] rounded-xl overflow-hidden">
+                    <table className="w-full text-[12px]">
+                      <thead>
+                        <tr className="bg-[#f9fafb]">
+                          <th className="text-left px-4 py-2.5 text-[#6b7280] font-medium">Product</th>
+                          <th className="text-right px-4 py-2.5 text-[#6b7280] font-medium">Gross</th>
+                          <th className="text-right px-4 py-2.5 text-[#6b7280] font-medium">Net</th>
+                          <th className="text-right px-4 py-2.5 text-[#6b7280] font-medium"># Sales</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#f3f4f6]">
+                        {summaryData.productBreakdown.map((p: any) => (
+                          <tr key={p.productId} className="hover:bg-[#fafafa]">
+                            <td className="px-4 py-2.5 text-[#374151] font-medium max-w-[200px] truncate">{p.productName}</td>
+                            <td className="px-4 py-2.5 text-right text-[#374151]">{fmtUsd(p.grossCents)}</td>
+                            <td className="px-4 py-2.5 text-right text-[#1a1a2e] font-medium">{fmtUsd(p.netCents)}</td>
+                            <td className="px-4 py-2.5 text-right text-[#6b7280]">{p.transactionCount}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Eligibility note */}
+              <div className="px-4 py-3 bg-[#f9fafb] rounded-xl">
+                <p className="text-[11px] text-[#6b7280] leading-relaxed">
+                  <strong>1099-K eligibility:</strong>{" "}
+                  {summaryData.isEligible ? (
+                    <>You met the federal threshold ({fmtUsd(summaryData.grossEarnings)} gross across {summaryData.transactionCount} transactions). Stripe will send your official 1099-K by January 31.</>
+                  ) : (
+                    <>You did not meet the federal threshold ($20,000 + 200 transactions). This draft summary is for your records — consult a tax professional for filing guidance.</>
+                  )}
+                </p>
+              </div>
+
+              {/* Generated timestamp */}
+              <p className="text-[10px] text-[#9ca3af] text-center">
+                Generated {new Date(summaryData.generatedAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })} — Storelib
+              </p>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
+    </>
+  );
+}
+
 // ─── Payout Method Card ───────────────────────────────────────────────────────
 
 type PayoutMethodData = {
@@ -3964,6 +4328,11 @@ interface PayoutsClientProps {
     negativeBalance?: number;
     activeDisputeCount?: number;
     totalDisputedAmount?: number;
+    taxData?: {
+      currentYear: { year: number; grossCents: number; transactionCount: number; isEligible: boolean };
+      previousYear: { year: number; grossCents: number; transactionCount: number; isEligible: boolean };
+      stripeExpressDashboardUrl: string | null;
+    } | null;
   };
   initialOrders?: OrderPayment[];
 }
@@ -4025,6 +4394,13 @@ export function PayoutsClient({
   const [totalDisputedAmount, setTotalDisputedAmount] = useState(
     initialData.totalDisputedAmount || 0,
   );
+
+  // 1099-K tax data
+  const [taxData, setTaxData] = useState<{
+    currentYear: { year: number; grossCents: number; transactionCount: number; isEligible: boolean };
+    previousYear: { year: number; grossCents: number; transactionCount: number; isEligible: boolean };
+    stripeExpressDashboardUrl: string | null;
+  } | null>(initialData.taxData || null);
 
   const sourceCurrency = (creator.default_currency || "usd").toLowerCase();
   const currency = "usd";
@@ -4125,6 +4501,10 @@ export function PayoutsClient({
         setNegativeBalance(json.disputeData.negativeBalance || 0);
         setActiveDisputeCount(json.disputeData.activeDisputes || 0);
         setTotalDisputedAmount(json.disputeData.totalDisputedAmount || 0);
+      }
+      // Update tax data
+      if (json.taxData) {
+        setTaxData(json.taxData);
       }
     } catch {
       /* non-fatal */
@@ -4796,6 +5176,9 @@ export function PayoutsClient({
             </p>
           </div>
         )}
+
+        {/* ── Tax Documents Section ── */}
+        <TaxDocumentsSection taxData={taxData} currency={currency} />
 
         {/* Payout method card */}
         <PayoutMethodCard />
