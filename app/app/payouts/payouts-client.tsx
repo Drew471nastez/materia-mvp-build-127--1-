@@ -3898,9 +3898,22 @@ export function PayoutsClient({
     setIsPageLoading(true);
     setTimeout(() => {
       setRecentPage(next);
-      setIsPageLoading(false);
-    }, 200);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => setIsPageLoading(false));
+      });
+    }, 180);
   };
+
+  // Smooth two-phase transition helper: fade out → swap → fade in
+  const smoothSwitch = useCallback((swapFn: () => void) => {
+    setIsPageLoading(true);
+    setTimeout(() => {
+      swapFn();
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => setIsPageLoading(false));
+      });
+    }, 180);
+  }, []);
 
   // Close order action menu on outside click
   useEffect(() => {
@@ -3999,15 +4012,10 @@ export function PayoutsClient({
                 <button
                   onClick={() => {
                     if (recentTab === "sales") return;
-                    setIsPageLoading(true);
-                    setTimeout(() => {
-                      setRecentTab("sales");
-                      setRecentPage(0);
-                      setIsPageLoading(false);
-                    }, 150);
+                    smoothSwitch(() => { setRecentTab("sales"); setRecentPage(0); });
                   }}
                   className={cn(
-                    "relative px-5 py-2.5 text-[13px] font-semibold rounded-t-xl border border-b-0 transition-colors duration-150 whitespace-nowrap",
+                    "relative px-5 py-2.5 text-[13px] font-semibold rounded-t-xl border border-b-0 transition-colors duration-200 whitespace-nowrap",
                     recentTab === "sales"
                       ? "bg-white border-[#e5e7eb] text-[#1a1a2e] z-10"
                       : "bg-transparent border-transparent text-[#6b7280] hover:text-[#374151]",
@@ -4018,15 +4026,10 @@ export function PayoutsClient({
                 <button
                   onClick={() => {
                     if (recentTab === "payouts") return;
-                    setIsPageLoading(true);
-                    setTimeout(() => {
-                      setRecentTab("payouts");
-                      setRecentPage(0);
-                      setIsPageLoading(false);
-                    }, 150);
+                    smoothSwitch(() => { setRecentTab("payouts"); setRecentPage(0); });
                   }}
                   className={cn(
-                    "relative px-5 py-2.5 text-[13px] font-semibold rounded-t-xl border border-b-0 transition-colors duration-150 whitespace-nowrap ml-1",
+                    "relative px-5 py-2.5 text-[13px] font-semibold rounded-t-xl border border-b-0 transition-colors duration-200 whitespace-nowrap ml-1",
                     recentTab === "payouts"
                       ? "bg-white border-[#e5e7eb] text-[#1a1a2e] z-10"
                       : "bg-transparent border-transparent text-[#6b7280] hover:text-[#374151]",
@@ -4049,17 +4052,12 @@ export function PayoutsClient({
                           key={f}
                           onClick={() => {
                             if (salesFilter === f) return;
-                            setIsPageLoading(true);
-                            setTimeout(() => {
-                              setSalesFilter(f);
-                              setRecentPage(0);
-                              setIsPageLoading(false);
-                            }, 150);
+                            smoothSwitch(() => { setSalesFilter(f); setRecentPage(0); });
                           }}
                           className={cn(
                             "px-2.5 py-1 text-[11px] font-medium rounded-full transition-all duration-200 capitalize",
                             salesFilter === f
-                              ? "bg-[#1a1a2e] text-white"
+                              ? "bg-[#1a1a2e] text-white shadow-sm"
                               : "bg-[#f3f4f6] text-[#6b7280] hover:bg-[#e5e7eb]",
                           )}
                         >
@@ -4097,8 +4095,14 @@ export function PayoutsClient({
             </div>
 
             <div
-              className="transition-all duration-200 ease-in-out"
-              style={{ opacity: isPageLoading ? 0.3 : 1, transform: isPageLoading ? "translateY(2px)" : "translateY(0)" }}
+              className="will-change-[opacity,transform]"
+              style={{
+                opacity: isPageLoading ? 0 : 1,
+                transform: isPageLoading ? "translateY(4px)" : "translateY(0)",
+                transition: isPageLoading
+                  ? "opacity 120ms ease-out, transform 120ms ease-out"
+                  : "opacity 250ms ease-in, transform 250ms ease-in",
+              }}
             >
               {recentTab === "payouts" ? (
                 <PayoutsHistoryList
