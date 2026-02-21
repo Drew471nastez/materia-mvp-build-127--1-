@@ -4,66 +4,13 @@ import Link from "next/link"
 import Image from "next/image"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { LayoutDashboard, Package, LogOut, Download, Menu, Heart, Compass, Settings, Sparkles } from "lucide-react"
+import { LayoutDashboard, LogOut, Download, Menu, Heart, Compass, Settings, Sparkles, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { useState, useEffect, useCallback } from "react"
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 
 const LOGO_URL = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
-
-/**
- * Removes every known scroll-blocking artefact from body/html.
- * Called as a safety-net on mount, unmount, and pathname changes so that
- * stale locks left by Radix, react-remove-scroll, or other pages can
- * never permanently freeze scrolling.
- */
-function nukeScrollLocks() {
-  const body = document.body
-  const html = document.documentElement
-
-  body.removeAttribute("data-scroll-locked")
-
-  body.classList.remove("with-scroll-bars-hidden", "modal-open")
-  const toRemove: string[] = []
-  body.classList.forEach((cls) => {
-    if (cls.startsWith("block-interactivity-")) toRemove.push(cls)
-  })
-  toRemove.forEach((cls) => body.classList.remove(cls))
-
-  body.style.overflow = ""
-  body.style.overflowX = ""
-  body.style.overflowY = ""
-  body.style.pointerEvents = ""
-  body.style.position = ""
-  body.style.width = ""
-  body.style.top = ""
-  body.style.left = ""
-  body.style.right = ""
-  body.style.bottom = ""
-  body.style.paddingRight = ""
-  body.style.marginRight = ""
-  body.style.overscrollBehavior = ""
-  body.style.touchAction = ""
-  body.style.removeProperty("--scroll-y")
-  body.style.removeProperty("--removed-body-scroll-bar-size")
-
-  html.style.overflow = ""
-  html.style.overflowY = ""
-  html.style.overscrollBehavior = ""
-
-  document.querySelectorAll("style").forEach((el) => {
-    const t = el.textContent || ""
-    if (
-      t.includes("data-scroll-locked") ||
-      t.includes("block-interactivity") ||
-      t.includes("with-scroll-bars-hidden")
-    ) {
-      el.remove()
-    }
-  })
-}
 
 export function DashboardSidebar() {
   const pathname = usePathname()
@@ -71,30 +18,19 @@ export function DashboardSidebar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [isCreator, setIsCreator] = useState(false)
 
-  // Close mobile menu on every navigation within /library.
+  // Close on navigation
   useEffect(() => {
     setMobileMenuOpen(false)
   }, [pathname])
 
-  // Safety-net: nuke stale scroll locks on mount + unmount.
-  // Catches artefacts left by other pages (e.g. /explore filter modals).
+  // Close on Escape key
   useEffect(() => {
-    nukeScrollLocks()
-    const t = setTimeout(nukeScrollLocks, 400)
-    return () => {
-      clearTimeout(t)
-      nukeScrollLocks()
+    if (!mobileMenuOpen) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMobileMenuOpen(false)
     }
-  }, [])
-
-  // Safety-net: after the sidebar closes AND its Radix animation finishes,
-  // make sure nothing is left blocking scroll.  Runs 500ms after close
-  // which is well past the 350ms Sheet exit animation + Radix teardown.
-  useEffect(() => {
-    if (!mobileMenuOpen) {
-      const t = setTimeout(nukeScrollLocks, 500)
-      return () => clearTimeout(t)
-    }
+    document.addEventListener("keydown", handler)
+    return () => document.removeEventListener("keydown", handler)
   }, [mobileMenuOpen])
 
   useEffect(() => {
@@ -119,6 +55,8 @@ export function DashboardSidebar() {
     setMobileMenuOpen(false)
     router.push("/")
   }
+
+  const closeSidebar = useCallback(() => setMobileMenuOpen(false), [])
 
   const navItems = [
     { href: "/library", label: "Overview", icon: LayoutDashboard },
@@ -219,6 +157,7 @@ export function DashboardSidebar() {
 
   return (
     <>
+      {/* Mobile header */}
       <header className="fixed top-0 left-0 right-0 z-50 flex h-14 items-center justify-between border-b border-border bg-background px-4 pt-[env(safe-area-inset-top)] md:hidden">
         <Link href="/library" className="flex items-center gap-2">
           <Image
@@ -250,19 +189,39 @@ export function DashboardSidebar() {
         </div>
       </header>
 
-      {/* modal={true} (default) lets Radix natively handle scroll lock,
-          focus trapping, overlay dismiss, and escape key.  No manual
-          overflow manipulation needed — eliminates all race conditions. */}
-      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-        <SheetContent side="left" className="w-[280px] max-w-[85vw] p-0 pt-[env(safe-area-inset-top)]">
-          <SheetHeader className="sr-only">
-            <SheetTitle>Navigation Menu</SheetTitle>
-          </SheetHeader>
-          <div className="flex h-full flex-col">
-            <SidebarContent onItemClick={() => setMobileMenuOpen(false)} />
-          </div>
-        </SheetContent>
-      </Sheet>
+      {/* ──────────────────────────────────────────────────────────────
+          Mobile sidebar drawer — pure CSS transitions, NO Radix Dialog.
+          Eliminates every possible scroll-lock side-effect (no
+          react-remove-scroll, no overscrollBehavior manipulation, no
+          touchmove preventDefault, no data-scroll-locked attributes).
+          ────────────────────────────────────────────────────────────── */}
+
+      {/* Backdrop — always in DOM, visibility controlled by opacity + pointer-events */}
+      <div
+        className="fixed inset-0 z-50 bg-black/50 transition-opacity duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] md:hidden"
+        style={{
+          opacity: mobileMenuOpen ? 1 : 0,
+          pointerEvents: mobileMenuOpen ? "auto" : "none",
+        }}
+        onClick={closeSidebar}
+        aria-hidden="true"
+      />
+
+      {/* Sidebar panel — always in DOM, slides via translateX */}
+      <div
+        className="fixed inset-y-0 left-0 z-50 w-[280px] max-w-[85vw] bg-background shadow-xl border-r border-border transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] md:hidden"
+        style={{
+          transform: mobileMenuOpen ? "translateX(0)" : "translateX(-100%)",
+          paddingTop: "env(safe-area-inset-top)",
+        }}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Navigation Menu"
+      >
+        <div className="flex h-full flex-col">
+          <SidebarContent onItemClick={closeSidebar} />
+        </div>
+      </div>
 
       {/* Desktop sidebar */}
       <aside className="fixed left-0 top-0 z-40 hidden h-svh w-64 flex-col border-r border-border bg-background md:flex">
