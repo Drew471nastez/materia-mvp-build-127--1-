@@ -126,8 +126,8 @@ export default async function ProductAccessPage({ params }: ProductAccessPagePro
       })
     : null
 
-  // Build seller page URL
-  const sellerUrl = creatorSlug ? `/u/${creatorSlug}` : null
+  // Build seller page URL (subdomain format: slug.storelib.com)
+  const sellerUrl = creatorSlug ? `https://${creatorSlug}.storelib.com` : null
 
   return (
     <div className="max-w-5xl mx-auto px-2 sm:px-0 animate-in fade-in-0 duration-300">
@@ -143,8 +143,8 @@ export default async function ProductAccessPage({ params }: ProductAccessPagePro
       {/* Product card — side-by-side on desktop, stacked on mobile */}
       <div className="rounded-2xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
         <div className="flex flex-col md:flex-row">
-          {/* Left: Cover image — object-cover, fills container */}
-          <div className="relative w-full md:w-1/2 aspect-[16/10] md:aspect-auto md:min-h-[380px] bg-neutral-100 shrink-0">
+          {/* Left: Cover image — 480x360 (4:3) ratio, object-cover */}
+          <div className="relative w-full md:w-1/2 aspect-[4/3] md:aspect-auto md:min-h-[340px] bg-neutral-100 shrink-0">
             {product?.thumbnail_url ? (
               <Image
                 src={product.thumbnail_url}
@@ -201,11 +201,8 @@ export default async function ProductAccessPage({ params }: ProductAccessPagePro
               )}
             </div>
 
-            {/* Spacer */}
-            <div className="flex-1 min-h-6" />
-
             {/* Download section */}
-            <div className="mt-6 pt-4 border-t border-neutral-100">
+            <div className="mt-5 pt-4 border-t border-neutral-100">
               <h3 className="text-sm font-semibold text-neutral-900 mb-3">
                 Files{assets && assets.length > 0 ? ` (${assets.length})` : ""}
               </h3>

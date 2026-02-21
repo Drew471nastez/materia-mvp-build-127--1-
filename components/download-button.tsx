@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Download, Loader2, CheckCircle, AlertCircle } from "lucide-react"
 
@@ -91,6 +91,33 @@ export async function downloadEntitledFile(
   }
 }
 
+// Top toast notification for download success/error
+function DownloadToast({ message, visible, variant, onDone }: { message: string; visible: boolean; variant: "success" | "error"; onDone: () => void }) {
+  useEffect(() => {
+    if (visible) {
+      const t = setTimeout(onDone, 4000)
+      return () => clearTimeout(t)
+    }
+  }, [visible, onDone])
+
+  return (
+    <div
+      className={`fixed top-4 left-1/2 -translate-x-1/2 z-[100] transition-all duration-300 ease-out ${
+        visible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-3 pointer-events-none"
+      }`}
+    >
+      <div className="flex items-center gap-2 rounded-xl bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white shadow-lg">
+        {variant === "success" ? (
+          <CheckCircle className="h-4 w-4 shrink-0 text-green-400" />
+        ) : (
+          <AlertCircle className="h-4 w-4 shrink-0 text-red-400" />
+        )}
+        {message}
+      </div>
+    </div>
+  )
+}
+
 export function DownloadButton({
   assetId,
   orderId,
@@ -105,6 +132,11 @@ export function DownloadButton({
 }: DownloadButtonProps) {
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle")
   const [error, setError] = useState<string | null>(null)
+  const [toastVisible, setToastVisible] = useState(false)
+  const [toastMsg, setToastMsg] = useState("")
+  const [toastVariant, setToastVariant] = useState<"success" | "error">("success")
+
+  const hideToast = useCallback(() => setToastVisible(false), [])
 
   const handleDownload = async () => {
     setStatus("loading")
@@ -118,10 +150,16 @@ export function DownloadButton({
 
     if (result.success) {
       setStatus("success")
+      setToastMsg("Successfully downloaded")
+      setToastVariant("success")
+      setToastVisible(true)
       setTimeout(() => setStatus("idle"), 2000)
     } else {
       setError(result.error || "Download failed")
       setStatus("error")
+      setToastMsg(result.error || "Download failed")
+      setToastVariant("error")
+      setToastVisible(true)
       setTimeout(() => {
         setStatus("idle")
         setError(null)
@@ -131,6 +169,7 @@ export function DownloadButton({
 
   return (
     <div className="flex flex-col relative z-10">
+      <DownloadToast message={toastMsg} visible={toastVisible} variant={toastVariant} onDone={hideToast} />
       <Button
         type="button"
         variant={variant}

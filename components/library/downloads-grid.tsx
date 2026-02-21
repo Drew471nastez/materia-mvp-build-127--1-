@@ -1,9 +1,9 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { ArrowRight, Calendar, Download, FileText, Loader2, Package, X } from "lucide-react"
+import { ArrowRight, Calendar, CheckCircle, Download, FileText, Loader2, Package, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { downloadEntitledFile } from "@/components/download-button"
@@ -24,16 +24,66 @@ type DownloadItem = {
   highlight?: boolean
 }
 
+// Lightweight toast notification
+function DownloadToast({ message, visible, onDone }: { message: string; visible: boolean; onDone: () => void }) {
+  useEffect(() => {
+    if (visible) {
+      const t = setTimeout(onDone, 4000)
+      return () => clearTimeout(t)
+    }
+  }, [visible, onDone])
+
+  return (
+    <div
+      className={`fixed top-4 left-1/2 -translate-x-1/2 z-[100] transition-all duration-300 ease-out ${
+        visible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-3 pointer-events-none"
+      }`}
+    >
+      <div className="flex items-center gap-2 rounded-xl bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white shadow-lg">
+        <CheckCircle className="h-4 w-4 shrink-0 text-green-400" />
+        {message}
+      </div>
+    </div>
+  )
+}
+
 export function DownloadsGrid({ items }: { items: DownloadItem[] }) {
   const [activeItem, setActiveItem] = useState<DownloadItem | null>(null)
   const [downloadingFileId, setDownloadingFileId] = useState<string | null>(null)
+  const [toastMessage, setToastMessage] = useState("")
+  const [toastVisible, setToastVisible] = useState(false)
+
+  // Mobile bottom sheet close animation state
+  const [sheetClosing, setSheetClosing] = useState(false)
+
   const isMobile = useMemo(() => typeof window !== "undefined" && window.innerWidth <= 768, [activeItem])
 
-  const handleDownload = async (assetId: string) => {
+  const showToast = useCallback((msg: string) => {
+    setToastMessage(msg)
+    setToastVisible(true)
+  }, [])
+
+  const hideToast = useCallback(() => {
+    setToastVisible(false)
+  }, [])
+
+  const handleDownload = async (assetId: string, fileName?: string) => {
     setDownloadingFileId(assetId)
-    await downloadEntitledFile(assetId)
+    const result = await downloadEntitledFile(assetId)
     setDownloadingFileId(null)
+
+    if (result.success) {
+      showToast(`Successfully downloaded${fileName ? `: ${fileName}` : ""}`)
+    }
   }
+
+  const closeMobileSheet = useCallback(() => {
+    setSheetClosing(true)
+    setTimeout(() => {
+      setActiveItem(null)
+      setSheetClosing(false)
+    }, 250)
+  }, [])
 
   const fileRows = (
     <div className="max-h-[60vh] space-y-2 overflow-auto pr-1">
@@ -42,7 +92,7 @@ export function DownloadsGrid({ items }: { items: DownloadItem[] }) {
           <p className="truncate pr-3 text-sm text-neutral-700">{file.fileName || "File"}</p>
           <Button
             size="sm"
-            onClick={() => handleDownload(file.id)}
+            onClick={() => handleDownload(file.id, file.fileName)}
             disabled={downloadingFileId === file.id}
             className="shrink-0 cursor-pointer bg-neutral-900 text-white hover:bg-black"
           >
@@ -55,6 +105,8 @@ export function DownloadsGrid({ items }: { items: DownloadItem[] }) {
 
   return (
     <>
+      <DownloadToast message={toastMessage} visible={toastVisible} onDone={hideToast} />
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {items.map((item) => (
           <div
@@ -91,19 +143,19 @@ export function DownloadsGrid({ items }: { items: DownloadItem[] }) {
             <div className="border-t border-neutral-200 p-3">
               {item.files.length === 1 ? (
                 <Button
-                  className="w-full h-12 cursor-pointer bg-neutral-900 text-white hover:bg-black"
-                  onClick={() => handleDownload(item.files[0].id)}
+                  className="w-full h-12 cursor-pointer bg-neutral-900 text-white hover:bg-black overflow-hidden"
+                  onClick={() => handleDownload(item.files[0].id, item.files[0].fileName)}
                   disabled={downloadingFileId === item.files[0].id}
                 >
                   {downloadingFileId === item.files[0].id ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Downloading...
+                      <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />
+                      <span className="truncate">Downloading...</span>
                     </>
                   ) : (
                     <>
-                      <Download className="mr-2 h-4 w-4" />
-                      Download File
+                      <Download className="mr-2 h-4 w-4 shrink-0" />
+                      <span className="truncate">Download File</span>
                     </>
                   )}
                 </Button>
@@ -125,6 +177,7 @@ export function DownloadsGrid({ items }: { items: DownloadItem[] }) {
         ))}
       </div>
 
+      {/* Desktop dialog */}
       {!isMobile && (
         <Dialog open={!!activeItem} onOpenChange={(open) => !open && setActiveItem(null)}>
           <DialogContent className="sm:max-w-lg">
@@ -137,10 +190,16 @@ export function DownloadsGrid({ items }: { items: DownloadItem[] }) {
         </Dialog>
       )}
 
+      {/* Mobile bottom sheet with smooth open/close animation */}
       {isMobile && activeItem && (
-        <div className="fixed inset-0 z-[80] bg-black/45" onClick={() => setActiveItem(null)}>
+        <div
+          className={`fixed inset-0 z-[80] transition-opacity duration-250 ${sheetClosing ? "opacity-0" : "opacity-100 bg-black/45"}`}
+          onClick={closeMobileSheet}
+        >
           <div
-            className="absolute bottom-0 left-0 right-0 rounded-t-3xl bg-white p-4 pt-3 shadow-2xl animate-in slide-in-from-bottom duration-300"
+            className={`absolute bottom-0 left-0 right-0 rounded-t-3xl bg-white p-4 pt-3 shadow-2xl transition-transform duration-250 ease-out ${
+              sheetClosing ? "translate-y-full" : "translate-y-0 animate-in slide-in-from-bottom duration-300"
+            }`}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mx-auto mb-3 h-1.5 w-14 rounded-full bg-neutral-200" />
@@ -149,7 +208,7 @@ export function DownloadsGrid({ items }: { items: DownloadItem[] }) {
               <button
                 type="button"
                 className="h-8 w-8 rounded-full border border-neutral-200 text-neutral-500 flex items-center justify-center cursor-pointer"
-                onClick={() => setActiveItem(null)}
+                onClick={closeMobileSheet}
               >
                 <X className="h-4 w-4" />
               </button>
