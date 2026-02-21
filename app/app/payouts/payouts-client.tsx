@@ -950,28 +950,43 @@ function WithdrawPanel({
     }
   }, [openDetails]);
 
+  // Auto-dismiss success block after 8 seconds
+  useEffect(() => {
+    if (!successPayout) return;
+    const timer = setTimeout(() => {
+      setSuccessPayout(null);
+      onSuccess();
+    }, 8000);
+    return () => clearTimeout(timer);
+  }, [successPayout, onSuccess]);
+
   if (successPayout) {
     return (
-      <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-6 flex flex-col items-center justify-center text-center h-full min-h-[260px]">
-        <div className="w-12 h-12 bg-violet-100 rounded-full flex items-center justify-center mx-auto mb-3">
-          <CheckCircle2 className="h-6 w-6 text-violet-600" />
+      <div className="bg-gradient-to-br from-[#f5f3ff] to-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-6 flex flex-col items-center justify-center text-center h-full min-h-[260px] relative overflow-hidden">
+        {/* Subtle animated pulse ring */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="w-32 h-32 rounded-full bg-[#8b5cf6]/5 animate-ping" style={{ animationDuration: "3s" }} />
         </div>
-        <h3 className="text-[16px] font-semibold text-[#1a1a2e] mb-1">
-          Cash out initiated!
-        </h3>
-        <p className="text-[13px] text-[#6b7280] mb-1">
-          <strong>{fmt(successPayout.amount, successPayout.currency)}</strong>{" "}
-          is on its way to your bank.
-        </p>
-        <p className="text-[12px] text-[#9ca3af] mb-4">
-          Funds typically arrive within 24–48 hours.
-        </p>
-        <button
-          onClick={onSuccess}
-          className="px-4 py-2 text-[13px] font-medium text-white bg-[#8b5cf6] rounded-lg hover:bg-[#7c3aed] transition-colors"
-        >
-          View history →
-        </button>
+        <div className="relative z-10">
+          <div className="w-14 h-14 bg-[#8b5cf6] rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg shadow-[#8b5cf6]/20">
+            <Send className="h-6 w-6 text-white" />
+          </div>
+          <p className="text-[28px] font-bold text-[#1a1a2e] mb-1 tabular-nums">
+            {fmt(successPayout.amount, successPayout.currency)}
+          </p>
+          <p className="text-[14px] font-medium text-[#374151] mb-1">
+            payout is on the way
+          </p>
+          <p className="text-[12px] text-[#9ca3af] mb-5">
+            Funds typically arrive within 1–3 business days.
+          </p>
+          <button
+            onClick={() => { setSuccessPayout(null); onSuccess(); }}
+            className="px-5 py-2.5 text-[13px] font-medium text-[#8b5cf6] bg-white border border-[#e5e7eb] rounded-lg hover:bg-[#f9fafb] transition-colors"
+          >
+            View payout history
+          </button>
+        </div>
       </div>
     );
   }
@@ -3565,17 +3580,21 @@ function PayoutsHistoryList({
   const [payouts, setPayouts] = useState<StripePayout[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const hasLoadedOnce = useRef(false);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    // Only show skeleton on first load — subsequent refreshes are silent
+    if (!hasLoadedOnce.current) setLoading(true);
     setError(null);
     try {
       const r = await fetch("/api/stripe/payouts");
       const json = await r.json();
       if (json.error) throw new Error(json.error);
       setPayouts(json.payouts || []);
+      hasLoadedOnce.current = true;
     } catch (e: any) {
-      setError(e.message);
+      // Only show error on first load — silent fail on background refresh
+      if (!hasLoadedOnce.current) setError(e.message);
     } finally {
       setLoading(false);
     }
@@ -3818,6 +3837,14 @@ export function PayoutsClient({
     initialData.pendingAmount,
   );
   const [openMenuOrderId, setOpenMenuOrderId] = useState<string | null>(null);
+  // Payout status tracking for banners
+  const [latestPayoutStatus, setLatestPayoutStatus] = useState<{
+    hasInTransit: boolean;
+    hasFailed: boolean;
+    totalPayouts: number;
+    failedAmount: number;
+    inTransitAmount: number;
+  }>({ hasInTransit: false, hasFailed: false, totalPayouts: 0, failedAmount: 0, inTransitAmount: 0 });
 
   const sourceCurrency = (creator.default_currency || "usd").toLowerCase();
   const currency = "usd";
@@ -3832,6 +3859,17 @@ export function PayoutsClient({
       const json = await r.json();
       // Update exchange rate from Stripe's balance transactions if provided
       if (json.exchangeRate) setStripeExchangeRate(json.exchangeRate);
+      // Extract payout status for banners
+      if (json.payouts) {
+        const payouts = json.payouts as Array<{ status: string; amount: number }>;
+        setLatestPayoutStatus({
+          hasInTransit: payouts.some((p) => p.status === "in_transit" || p.status === "pending"),
+          hasFailed: payouts.some((p) => p.status === "failed"),
+          totalPayouts: payouts.length,
+          failedAmount: payouts.filter((p) => p.status === "failed").reduce((s, p) => s + p.amount, 0),
+          inTransitAmount: payouts.filter((p) => p.status === "in_transit" || p.status === "pending").reduce((s, p) => s + p.amount, 0),
+        });
+      }
       if (json.balance) {
         const byCurrency = new Map<
           string,
@@ -3927,12 +3965,17 @@ export function PayoutsClient({
 
   useEffect(() => {
     if (!hasStripe) return;
+    let lastRefresh = 0;
     const tick = () => {
       if (document.visibilityState !== "visible") return;
+      const now = Date.now();
+      // Debounce: skip if refreshed less than 10s ago
+      if (now - lastRefresh < 10000) return;
+      lastRefresh = now;
       refreshBalances();
     };
     tick();
-    const id = window.setInterval(tick, 15000);
+    const id = window.setInterval(tick, 30000);
     const onVisible = () => tick();
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("focus", onVisible);
@@ -4358,6 +4401,52 @@ export function PayoutsClient({
             <p className="text-[13px] text-[#6b7280] mt-1">
               Your first sale will appear here once customers purchase.
             </p>
+          </div>
+        )}
+
+        {/* Contextual payout banners */}
+        {latestPayoutStatus.hasInTransit && (
+          <div className="flex items-start gap-3 px-4 py-3.5 bg-[#f8f8f9] border border-[#e8e8ec] rounded-xl">
+            <div className="w-7 h-7 rounded-lg bg-[#ede9fe] flex items-center justify-center shrink-0 mt-0.5">
+              <Send className="h-3.5 w-3.5 text-[#8b5cf6]" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[13px] font-medium text-[#374151]">Your payout is on the way to your bank account</p>
+              <p className="text-[11px] text-[#9ca3af] mt-0.5">This usually takes 1–3 business days.</p>
+            </div>
+          </div>
+        )}
+        {latestPayoutStatus.hasFailed && (
+          <div className="flex items-start gap-3 px-4 py-3.5 bg-[#f8f8f9] border border-[#e8e8ec] rounded-xl">
+            <div className="w-7 h-7 rounded-lg bg-[#fef2f2] flex items-center justify-center shrink-0 mt-0.5">
+              <AlertCircle className="h-3.5 w-3.5 text-[#ef4444]" />
+            </div>
+            <div className="flex-1 min-w-0 flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[13px] font-medium text-[#374151]">Your last payout failed. Please update your bank account.</p>
+                <p className="text-[11px] text-[#9ca3af] mt-0.5">Funds have been returned to your available balance.</p>
+              </div>
+              <button
+                onClick={() => {
+                  const card = document.querySelector("[data-payout-card]");
+                  if (card) (card.querySelector("button") as HTMLElement)?.click();
+                }}
+                className="text-[12px] font-medium text-[#8b5cf6] hover:text-[#7c3aed] transition-colors whitespace-nowrap shrink-0 mt-0.5"
+              >
+                Update bank
+              </button>
+            </div>
+          </div>
+        )}
+        {latestPayoutStatus.totalPayouts === 0 && (availableBalance > 0 || pendingBalance > 0) && (
+          <div className="flex items-start gap-3 px-4 py-3.5 bg-[#f8f8f9] border border-[#e8e8ec] rounded-xl">
+            <div className="w-7 h-7 rounded-lg bg-[#fef3c7] flex items-center justify-center shrink-0 mt-0.5">
+              <Clock className="h-3.5 w-3.5 text-[#d97706]" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[13px] font-medium text-[#374151]">Your first payout may take a little longer while your account is being set up</p>
+              <p className="text-[11px] text-[#9ca3af] mt-0.5">This is normal for new accounts. Future payouts will be faster.</p>
+            </div>
           </div>
         )}
 

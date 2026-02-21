@@ -4,7 +4,7 @@ import type Stripe from "stripe"
 import { stripe } from "@/lib/stripe"
 import { createClient } from "@supabase/supabase-js"
 import { generateReceiptToken } from "@/lib/security"
-import { sendOrderEmails, triggerEmailFlows, sendPayoutStatusEmail } from "@/lib/email"
+import { sendOrderEmails, triggerEmailFlows, sendPayoutStatusEmail, sendFirstPayoutEmail, sendBankUpdatedEmail, sendPayoutsPausedEmail } from "@/lib/email"
 import { v4 as uuidv4 } from "uuid"
 
 export const runtime = "nodejs"
@@ -868,7 +868,7 @@ export async function POST(request: Request) {
     try {
       const { data: creator } = await supabaseAdmin
         .from("creators")
-        .select("id")
+        .select("id, user_id, payouts_enabled")
         .eq("stripe_account_id", account.id)
         .maybeSingle()
 
@@ -877,6 +877,8 @@ export async function POST(request: Request) {
         const payoutsEnabled = account.payouts_enabled || false
         const detailsSubmitted = account.details_submitted || false
         const onboardingStatus = chargesEnabled && payoutsEnabled && detailsSubmitted ? "connected" : "pending"
+
+        const previousPayoutsEnabled = (creator as any).payouts_enabled ?? false
 
         await supabaseAdmin
           .from("creators")
@@ -890,6 +892,49 @@ export async function POST(request: Request) {
           .eq("id", creator.id)
 
         console.log("[Connect] Updated creator:", creator.id, "status:", onboardingStatus)
+
+        // Email triggers (non-blocking)
+        try {
+          const userId = (creator as any).user_id
+          if (userId) {
+            const { data: profile } = await supabaseAdmin
+              .from("profiles")
+              .select("email, display_name")
+              .eq("user_id", userId)
+              .maybeSingle()
+
+            if (profile?.email) {
+              // Payouts paused email: was enabled, now disabled
+              if (previousPayoutsEnabled && !payoutsEnabled) {
+                await sendPayoutsPausedEmail({
+                  to: profile.email,
+                  sellerName: profile.display_name || "Seller",
+                })
+                console.log("[Connect] Sent payouts paused email to:", profile.email)
+              }
+
+              // Bank account updated email: check if external accounts changed
+              if (detailsSubmitted && account.external_accounts?.data?.length) {
+                const bankAccount = account.external_accounts.data[0] as any
+                if (bankAccount?.last4) {
+                  // Only send if the previous_attributes indicate a bank change
+                  const prevAttrs = (event.data as any).previous_attributes
+                  if (prevAttrs?.external_accounts || prevAttrs?.details_submitted) {
+                    await sendBankUpdatedEmail({
+                      to: profile.email,
+                      sellerName: profile.display_name || "Seller",
+                      bankName: bankAccount.bank_name || null,
+                      bankLast4: bankAccount.last4,
+                    })
+                    console.log("[Connect] Sent bank updated email to:", profile.email)
+                  }
+                }
+              }
+            }
+          }
+        } catch (emailErr) {
+          console.error("[Connect] Email trigger failed (non-fatal):", emailErr)
+        }
 
         // RE-ENFORCE manual payouts — Storelib controls when sellers cash out
         const schedule = (account as any).settings?.payouts?.schedule
@@ -1200,18 +1245,53 @@ export async function POST(request: Request) {
         .eq("user_id", creator.user_id)
         .maybeSingle()
 
-      if (profile?.email && (event.type === "payout.paid" || event.type === "payout.failed" || event.type === "payout.created")) {
-        await sendPayoutStatusEmail({
-          to: profile.email,
-          sellerName: profile.display_name || "Seller",
-          amountCents: payout.amount,
-          currency: payout.currency,
-          payoutId: payout.id,
-          status: payout.status,
-          arrivalDate,
-          failureMessage: (payout as any).failure_message || null,
-          eventType: event.type,
-        })
+      // Get bank last4 for email context
+      let bankLast4: string | null = null
+      try {
+        const destObj = payout.destination as any
+        if (destObj?.last4) bankLast4 = destObj.last4
+        else if (typeof destObj === "string" && destObj.includes("••••")) {
+          bankLast4 = destObj.split("••••")[1]?.trim() || null
+        }
+      } catch { /* non-fatal */ }
+
+      if (profile?.email) {
+        // Check if this is the first payout (celebration email)
+        if (event.type === "payout.paid") {
+          const { data: ledgerCheck } = await supabaseAdmin
+            .from("seller_ledger")
+            .select("lifetime_paid_out")
+            .eq("creator_id", creator.id)
+            .single()
+
+          // lifetime_paid_out was just updated above — if it equals this payout amount,
+          // this is the first ever payout
+          const isFirstPayout = ledgerCheck && ledgerCheck.lifetime_paid_out <= payout.amount + 100
+
+          if (isFirstPayout) {
+            await sendFirstPayoutEmail({
+              to: profile.email,
+              sellerName: profile.display_name || "Seller",
+              amountCents: payout.amount,
+              currency: payout.currency,
+            })
+          }
+        }
+
+        if (event.type === "payout.paid" || event.type === "payout.failed" || event.type === "payout.created") {
+          await sendPayoutStatusEmail({
+            to: profile.email,
+            sellerName: profile.display_name || "Seller",
+            amountCents: payout.amount,
+            currency: payout.currency,
+            payoutId: payout.id,
+            status: payout.status,
+            arrivalDate,
+            failureMessage: (payout as any).failure_message || null,
+            eventType: event.type,
+            bankLast4,
+          })
+        }
       }
     } catch (emailErr) {
       console.error("[Webhook] Payout email failed (non-fatal):", emailErr)

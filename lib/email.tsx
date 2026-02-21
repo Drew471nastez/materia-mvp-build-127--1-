@@ -2182,6 +2182,8 @@ export interface PayoutEmailParams {
   arrivalDate: string | null
   failureMessage?: string | null
   eventType?: string
+  bankLast4?: string | null
+  isFirstPayout?: boolean
 }
 
 function formatPayoutAmount(cents: number, currency: string): string {
@@ -2296,7 +2298,7 @@ export async function sendPayoutCreatedEmail(params: PayoutEmailParams): Promise
         const result = await sendEmail({
           from: buildFromHeaderLocal("Storelib"),
           to: params.to,
-          subject: `Withdrawal of ${formattedAmount} initiated`,
+          subject: `Your payout is on the way`,
           html: payoutEmailHtml({
             sellerName: params.sellerName,
             formattedAmount,
@@ -2305,12 +2307,12 @@ export async function sendPayoutCreatedEmail(params: PayoutEmailParams): Promise
             arrivalDate: params.arrivalDate,
             failureMessage: null,
             baseUrl,
-            heading: "Withdrawal initiated",
-            bodyText: `Your withdrawal of ${formattedAmount} has been created and is being processed.`,
-            statusColor: "#d97706",
-            statusLabel: "Processing",
+            heading: "Your payout has been sent",
+            bodyText: `Your payout of ${formattedAmount} has been sent to your bank account${params.bankLast4 ? ` ending in ${params.bankLast4}` : ""}. It should arrive in ${params.arrivalDate ? "1–3 business days" : "1–3 business days"}.\n\nYou can track the status anytime from your payouts page.\n\nKeep going — you're getting paid.`,
+            statusColor: "#8b5cf6",
+            statusLabel: "On the way",
           }),
-          text: `Withdrawal of ${formattedAmount} initiated.\n\nYour withdrawal is being processed. View details: ${baseUrl}/app/payouts`,
+          text: `Your payout has been sent\n\nHi ${params.sellerName},\n\nYour payout of ${formattedAmount} has been sent to your bank account${params.bankLast4 ? ` ending in ${params.bankLast4}` : ""}.\n\nIt should arrive in 1–3 business days.\n\nTrack status: ${baseUrl}/app/payouts`,
         })
         if (!result.success) throw new Error(result.error || "Failed to send payout created email")
         return result
@@ -2329,25 +2331,25 @@ export async function sendPayoutStatusEmail(params: PayoutEmailParams): Promise<
 
   const config = {
     "payout.paid": {
-      subject: `${formattedAmount} has arrived in your bank account`,
-      heading: "Payout arrived! 🎉",
-      bodyText: `Great news! Your payout of ${formattedAmount} has been deposited into your bank account.`,
+      subject: `You just got paid — ${formattedAmount}`,
+      heading: "Your payout is complete",
+      bodyText: `Your payout of ${formattedAmount} has been deposited into your bank account${params.bankLast4 ? ` ending in ${params.bankLast4}` : ""}.\n\nYou can view your full earnings and upcoming payouts from your dashboard anytime.`,
       statusColor: "#059669",
       statusLabel: "Paid",
     },
     "payout.failed": {
-      subject: `Payout of ${formattedAmount} failed — action required`,
-      heading: "Payout failed",
-      bodyText: `Unfortunately, your payout of ${formattedAmount} could not be completed. Please check your bank account details in Stripe.`,
+      subject: `Action required: your payout couldn't be completed`,
+      heading: "Your payout failed",
+      bodyText: `We couldn't complete your recent payout of ${formattedAmount}.\n\nDon't worry — the funds have been safely returned to your available balance.\n\nTo receive future payouts, please update your bank details. Once updated, you can cash out again instantly.`,
       statusColor: "#dc2626",
       statusLabel: "Failed",
     },
     "payout.created": {
-      subject: `Withdrawal of ${formattedAmount} initiated`,
-      heading: "Withdrawal initiated",
-      bodyText: `Your withdrawal of ${formattedAmount} has been created and is being processed.`,
-      statusColor: "#d97706",
-      statusLabel: "Processing",
+      subject: `Your payout is on the way`,
+      heading: "Your payout has been sent",
+      bodyText: `Your payout of ${formattedAmount} has been sent to your bank account. It should arrive in 1–3 business days.\n\nYou can track the status anytime from your payouts page.`,
+      statusColor: "#8b5cf6",
+      statusLabel: "On the way",
     },
   }[params.eventType || "payout.created"] ?? {
     subject: `Payout update: ${formattedAmount}`,
@@ -2387,6 +2389,162 @@ export async function sendPayoutStatusEmail(params: PayoutEmailParams): Promise<
     )
   } catch (err) {
     console.error("[email] Failed to send payout status email:", err)
+  }
+}
+
+// ─── First Payout Celebration Email ────────────────────────────────────────────
+
+export async function sendFirstPayoutEmail(params: {
+  to: string
+  sellerName: string
+  amountCents: number
+  currency: string
+}): Promise<void> {
+  const baseUrl = getStableBaseUrl()
+  const formattedAmount = formatPayoutAmount(params.amountCents, params.currency)
+
+  try {
+    await withRetry(
+      async () => {
+        const result = await sendEmail({
+          from: buildFromHeaderLocal("Storelib"),
+          to: params.to,
+          subject: `You just received your first payout 🎉`,
+          html: payoutEmailHtml({
+            sellerName: params.sellerName,
+            formattedAmount,
+            status: "paid",
+            payoutId: "",
+            arrivalDate: null,
+            failureMessage: null,
+            baseUrl,
+            heading: "Your first payout is complete",
+            bodyText: `You've just received your first payout of ${formattedAmount}.\n\nThis is real — your products are generating income and it's now in your bank account.\n\nHere's to the first of many.\n\nYou can view your full earnings and upcoming payouts from your dashboard anytime.\n\nWe're glad you're here.`,
+            statusColor: "#059669",
+            statusLabel: "Paid",
+          }),
+          text: `Your first payout is complete\n\nHi ${params.sellerName},\n\nYou've just received your first payout of ${formattedAmount}.\n\nThis is real — your products are generating income and it's now in your bank account.\n\nHere's to the first of many.\n\n${baseUrl}/app/payouts`,
+        })
+        if (!result.success) throw new Error(result.error || "Failed to send first payout email")
+        return result
+      },
+      MAX_RETRIES,
+      "first payout celebration email"
+    )
+  } catch (err) {
+    console.error("[email] Failed to send first payout celebration email:", err)
+  }
+}
+
+// ─── Bank Account Updated Email ───────────────────────────────────────────────
+
+export async function sendBankUpdatedEmail(params: {
+  to: string
+  sellerName: string
+  bankName: string | null
+  bankLast4: string
+}): Promise<void> {
+  const baseUrl = getStableBaseUrl()
+
+  try {
+    await withRetry(
+      async () => {
+        const bankDisplay = params.bankName ? `${params.bankName} ••••${params.bankLast4}` : `Bank account ••••${params.bankLast4}`
+        const result = await sendEmail({
+          from: buildFromHeaderLocal("Storelib"),
+          to: params.to,
+          subject: `Your payout details were updated`,
+          html: `<!DOCTYPE html>
+<html>
+<head><meta name="viewport" content="width=device-width,initial-scale=1.0"><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></head>
+<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background-color:#f6f9fc;">
+  <table role="presentation" style="width:100%;padding:32px 16px;">
+    <tr><td align="center">
+      <table role="presentation" style="max-width:560px;width:100%;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+        <tr><td style="padding:32px 28px;">
+          <h1 style="margin:0 0 16px 0;font-size:20px;font-weight:700;color:#1a1a2e;">Your bank account has been updated</h1>
+          <p style="margin:0 0 16px 0;font-size:15px;color:#374151;line-height:1.6;">Hi ${safeText(params.sellerName)},</p>
+          <p style="margin:0 0 16px 0;font-size:15px;color:#374151;line-height:1.6;">Your payout account was successfully updated to:</p>
+          <div style="background:#f8f8f9;border:1px solid #e8e8ec;border-radius:8px;padding:14px 18px;margin:0 0 16px 0;">
+            <p style="margin:0;font-size:15px;font-weight:600;color:#1a1a2e;">${safeText(bankDisplay)}</p>
+          </div>
+          <p style="margin:0 0 16px 0;font-size:15px;color:#374151;line-height:1.6;">All future payouts will be sent to this account.</p>
+          <p style="margin:0 0 0 0;font-size:13px;color:#9ca3af;line-height:1.5;">If you didn't make this change, please contact support immediately.</p>
+        </td></tr>
+        <tr><td style="padding:16px 22px;text-align:center;background:#f9fafb;color:#9ca3af;font-size:11px;">
+          &copy; ${new Date().getFullYear()} Storelib &nbsp;&middot;&nbsp;
+          <a href="${baseUrl}/app/payouts" style="color:#aaa;text-decoration:none;">Manage payouts</a>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`,
+          text: `Your bank account has been updated\n\nHi ${params.sellerName},\n\nYour payout account was successfully updated to: ${bankDisplay}\n\nAll future payouts will be sent to this account.\n\nIf you didn't make this change, please contact support immediately.`,
+        })
+        if (!result.success) throw new Error(result.error || "Failed to send bank updated email")
+        return result
+      },
+      MAX_RETRIES,
+      "bank updated email"
+    )
+  } catch (err) {
+    console.error("[email] Failed to send bank updated email:", err)
+  }
+}
+
+// ─── Risk Hold / Payouts Paused Email ─────────────────────────────────────────
+
+export async function sendPayoutsPausedEmail(params: {
+  to: string
+  sellerName: string
+}): Promise<void> {
+  const baseUrl = getStableBaseUrl()
+
+  try {
+    await withRetry(
+      async () => {
+        const result = await sendEmail({
+          from: buildFromHeaderLocal("Storelib"),
+          to: params.to,
+          subject: `Some of your funds are temporarily unavailable`,
+          html: `<!DOCTYPE html>
+<html>
+<head><meta name="viewport" content="width=device-width,initial-scale=1.0"><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></head>
+<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background-color:#f6f9fc;">
+  <table role="presentation" style="width:100%;padding:32px 16px;">
+    <tr><td align="center">
+      <table role="presentation" style="max-width:560px;width:100%;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+        <tr><td style="padding:32px 28px;">
+          <h1 style="margin:0 0 16px 0;font-size:20px;font-weight:700;color:#1a1a2e;">Payouts temporarily paused</h1>
+          <p style="margin:0 0 16px 0;font-size:15px;color:#374151;line-height:1.6;">Hi ${safeText(params.sellerName)},</p>
+          <p style="margin:0 0 16px 0;font-size:15px;color:#374151;line-height:1.6;">Some of your funds are temporarily unavailable while your account is being reviewed.</p>
+          <p style="margin:0 0 16px 0;font-size:15px;color:#374151;line-height:1.6;">This is a normal part of the payout process for new activity or account updates. No action is required from you.</p>
+          <p style="margin:0 0 16px 0;font-size:15px;color:#374151;line-height:1.6;">Your payouts will resume automatically once the review is complete.</p>
+          <p style="margin:0 0 20px 0;font-size:15px;color:#374151;line-height:1.6;">You can continue making sales as usual.</p>
+          <table role="presentation" style="width:100%;"><tr><td align="center">
+            <a href="${baseUrl}/app/payouts" style="display:inline-block;padding:12px 28px;background:#7c3aed;color:#fff;font-size:14px;font-weight:600;text-decoration:none;border-radius:8px;">View your payouts</a>
+          </td></tr></table>
+        </td></tr>
+        <tr><td style="padding:16px 22px;text-align:center;background:#f9fafb;color:#9ca3af;font-size:11px;">
+          &copy; ${new Date().getFullYear()} Storelib &nbsp;&middot;&nbsp;
+          <a href="${baseUrl}/app/payouts" style="color:#aaa;text-decoration:none;">Manage payouts</a>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`,
+          text: `Payouts temporarily paused\n\nHi ${params.sellerName},\n\nSome of your funds are temporarily unavailable while your account is being reviewed.\n\nThis is a normal part of the payout process for new activity or account updates. No action is required from you.\n\nYour payouts will resume automatically once the review is complete.\n\nYou can continue making sales as usual.\n\n${baseUrl}/app/payouts`,
+        })
+        if (!result.success) throw new Error(result.error || "Failed to send payouts paused email")
+        return result
+      },
+      MAX_RETRIES,
+      "payouts paused email"
+    )
+  } catch (err) {
+    console.error("[email] Failed to send payouts paused email:", err)
   }
 }
 

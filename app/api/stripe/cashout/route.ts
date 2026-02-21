@@ -203,6 +203,10 @@ export async function POST(request: Request) {
         .single()
 
       if (profile?.email) {
+        // Extract bank last4 for email
+        const destObj = stripePayout.destination as any
+        const bankLast4 = destObj?.last4 || (destination?.includes("••••") ? destination.split("••••")[1] : null)
+
         await sendPayoutCreatedEmail({
           to: profile.email,
           sellerName: profile.display_name || "Seller",
@@ -211,6 +215,7 @@ export async function POST(request: Request) {
           payoutId: stripePayout.id,
           status: stripePayout.status,
           arrivalDate,
+          bankLast4,
         })
       }
     } catch (emailErr) {
