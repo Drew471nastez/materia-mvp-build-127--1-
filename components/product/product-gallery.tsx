@@ -43,26 +43,33 @@ export function ProductGallery({
   backgroundColor
 }: ProductGalleryProps) {
   const [currentIndex, setCurrentIndex] = useState(0)
-  const [touchStart, setTouchStart] = useState<number | null>(null)
-  const [touchEnd, setTouchEnd] = useState<number | null>(null)
-  const [isDragging, setIsDragging] = useState(false)
-  const [startX, setStartX] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
   const [isMobileScreen, setIsMobileScreen] = useState(false)
   const [isDesktopScreen, setIsDesktopScreen] = useState(true)
   const [isHovering, setIsHovering] = useState(false)
-  const [isTransitioning, setIsTransitioning] = useState(false)
+
+  // GPU-accelerated drag state — uses refs to avoid re-renders during drag
+  const [dragOffset, setDragOffset] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+  const isDraggingRef = useRef(false)
+  const dragStartXRef = useRef(0)
+  const dragCurrentXRef = useRef(0)
+  const containerWidthRef = useRef(0)
   const imageRef = useRef<HTMLDivElement>(null)
   const autoplayRef = useRef<NodeJS.Timeout | null>(null)
+  const rafRef = useRef<number | null>(null)
+  const isTransitioningRef = useRef(false)
 
   // Minimum swipe distance (in px) to trigger navigation
-  const minSwipeDistance = 50
+  const minSwipeDistance = 40
+  // Velocity threshold for fast swipe detection (px/ms)
+  const velocityThreshold = 0.3
+  const dragStartTimeRef = useRef(0)
 
   // Detect actual screen size (only for live page, not editor preview)
   useEffect(() => {
-    // Skip screen detection if we're in editor preview mode
     if (forceDotsMode || forceDesktopDotsMode || isEditorMobilePreview) return
-    
+
     const checkScreen = () => {
       const width = window.innerWidth
       setIsMobileScreen(width < 640)
@@ -74,44 +81,35 @@ export function ProductGallery({
   }, [forceDotsMode, forceDesktopDotsMode, isEditorMobilePreview])
 
   // Determine if we should show dots navigation
-  // Priority: Editor preview modes > Live page screen detection
   const showDotsNavigation = (() => {
-    // Editor mobile preview: only show dots if mobile dots is enabled
     if (isEditorMobilePreview) {
-      return forceDotsMode // This is true when mobileGalleryDots is ON and we're in mobile preview
+      return forceDotsMode
     }
-    
-    // Editor desktop preview: only show dots if desktop dots is enabled
     if (forceDesktopDotsMode) {
       return true
     }
-    
-    // Live page: check actual screen size
     if (mobileDotsMode && isMobileScreen) {
       return true
     }
     if (desktopDotsMode && isDesktopScreen) {
       return true
     }
-    
     return false
   })()
 
   const goToPrevious = useCallback(() => {
-    if (isTransitioning) return
-    setIsTransitioning(true)
+    if (isTransitioningRef.current) return
+    isTransitioningRef.current = true
     setCurrentIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1))
-    // Reset transition state after animation completes
-    setTimeout(() => setIsTransitioning(false), 300)
-  }, [images.length, isTransitioning])
+    setTimeout(() => { isTransitioningRef.current = false }, 400)
+  }, [images.length])
 
   const goToNext = useCallback(() => {
-    if (isTransitioning) return
-    setIsTransitioning(true)
+    if (isTransitioningRef.current) return
+    isTransitioningRef.current = true
     setCurrentIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1))
-    // Reset transition state after animation completes
-    setTimeout(() => setIsTransitioning(false), 300)
-  }, [images.length, isTransitioning])
+    setTimeout(() => { isTransitioningRef.current = false }, 400)
+  }, [images.length])
 
   // Autoplay for dots mode
   useEffect(() => {
@@ -131,67 +129,102 @@ export function ProductGallery({
   // Pause autoplay on user interaction, resume after delay
   const handleUserInteraction = useCallback(() => {
     setIsPaused(true)
-    // Resume autoplay after 10 seconds of no interaction
     setTimeout(() => setIsPaused(false), 10000)
   }, [])
 
-  const onTouchStart = (e: React.TouchEvent) => {
-    setTouchEnd(null)
-    setTouchStart(e.targetTouches[0].clientX)
-    handleUserInteraction()
-  }
-
-  const onTouchMove = (e: React.TouchEvent) => {
-    setTouchEnd(e.targetTouches[0].clientX)
-  }
-
-  const onTouchEnd = () => {
-    if (!touchStart || !touchEnd) return
-
-    const distance = touchStart - touchEnd
-    const isLeftSwipe = distance > minSwipeDistance
-    const isRightSwipe = distance < -minSwipeDistance
-
-    if (isLeftSwipe) {
-      goToNext()
-    } else if (isRightSwipe) {
-      goToPrevious()
+  // Cleanup RAF on unmount
+  useEffect(() => {
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
     }
+  }, [])
 
-    setTouchStart(null)
-    setTouchEnd(null)
-  }
+  // --- GPU-accelerated drag handlers ---
 
-  const onMouseDown = (e: React.MouseEvent) => {
+  const startDrag = useCallback((clientX: number) => {
+    if (images.length <= 1) return
+    isDraggingRef.current = true
     setIsDragging(true)
-    setStartX(e.clientX)
+    dragStartXRef.current = clientX
+    dragCurrentXRef.current = clientX
+    dragStartTimeRef.current = Date.now()
+    containerWidthRef.current = imageRef.current?.offsetWidth || 300
     handleUserInteraction()
-  }
+  }, [images.length, handleUserInteraction])
 
-  const onMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging) return
-    e.preventDefault()
-  }
+  const moveDrag = useCallback((clientX: number) => {
+    if (!isDraggingRef.current) return
+    dragCurrentXRef.current = clientX
+    const delta = dragCurrentXRef.current - dragStartXRef.current
+    // Clamp offset for rubber-band effect at edges
+    const maxDrag = containerWidthRef.current * 0.4
+    const clamped = Math.max(-maxDrag, Math.min(maxDrag, delta))
+    // Use RAF for smooth GPU-composited updates
+    if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    rafRef.current = requestAnimationFrame(() => {
+      setDragOffset(clamped)
+    })
+  }, [])
 
-  const onMouseUp = (e: React.MouseEvent) => {
-    if (!isDragging) return
+  const endDrag = useCallback(() => {
+    if (!isDraggingRef.current) return
+    isDraggingRef.current = false
+    setIsDragging(false)
 
-    const distance = startX - e.clientX
-    const isLeftSwipe = distance > minSwipeDistance
-    const isRightSwipe = distance < -minSwipeDistance
+    const distance = dragCurrentXRef.current - dragStartXRef.current
+    const elapsed = Date.now() - dragStartTimeRef.current
+    const velocity = Math.abs(distance) / Math.max(elapsed, 1)
+    const isFastSwipe = velocity > velocityThreshold
 
-    if (isLeftSwipe) {
-      goToNext()
-    } else if (isRightSwipe) {
-      goToPrevious()
+    if (rafRef.current) cancelAnimationFrame(rafRef.current)
+
+    // Determine if swipe should trigger navigation
+    const shouldNavigate = Math.abs(distance) > minSwipeDistance || isFastSwipe
+    if (shouldNavigate) {
+      if (distance < 0) {
+        goToNext()
+      } else {
+        goToPrevious()
+      }
     }
 
-    setIsDragging(false)
-  }
+    // Animate drag offset back to 0 smoothly (CSS transition handles this)
+    setDragOffset(0)
+  }, [goToNext, goToPrevious])
 
-  const onMouseLeave = () => {
-    setIsDragging(false)
-  }
+  // Touch events
+  const onTouchStart = useCallback((e: React.TouchEvent) => {
+    startDrag(e.touches[0].clientX)
+  }, [startDrag])
+
+  const onTouchMove = useCallback((e: React.TouchEvent) => {
+    moveDrag(e.touches[0].clientX)
+  }, [moveDrag])
+
+  const onTouchEnd = useCallback(() => {
+    endDrag()
+  }, [endDrag])
+
+  // Mouse events
+  const onMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    startDrag(e.clientX)
+  }, [startDrag])
+
+  const onMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!isDraggingRef.current) return
+    e.preventDefault()
+    moveDrag(e.clientX)
+  }, [moveDrag])
+
+  const onMouseUp = useCallback(() => {
+    endDrag()
+  }, [endDrag])
+
+  const onMouseLeave = useCallback(() => {
+    if (isDraggingRef.current) endDrag()
+    setIsHovering(false)
+  }, [endDrag])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -206,7 +239,7 @@ export function ProductGallery({
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [currentIndex, images.length, goToPrevious, goToNext, handleUserInteraction])
+  }, [goToPrevious, goToNext, handleUserInteraction])
 
   if (images.length === 0) return null
 
@@ -220,35 +253,51 @@ export function ProductGallery({
           !backgroundColor && "bg-muted",
           isDragging ? "cursor-grabbing" : "cursor-grab",
         )}
-        style={backgroundColor ? { backgroundColor } : undefined}
+        style={{
+          ...(backgroundColor ? { backgroundColor } : {}),
+          touchAction: images.length > 1 ? 'pan-y pinch-zoom' : 'auto',
+        }}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
         onMouseDown={onMouseDown}
         onMouseMove={onMouseMove}
         onMouseUp={onMouseUp}
-        onMouseLeave={() => {
-          setIsDragging(false)
-          setIsHovering(false)
-        }}
+        onMouseLeave={onMouseLeave}
         onMouseEnter={() => setIsHovering(true)}
       >
-        {/* Images with smooth fade transition */}
-        {images.map((image, index) => (
-          <Image
-            key={index}
-            src={image || "/placeholder.svg"}
-            alt={`${title} - Image ${index + 1}`}
-            fill
-            sizes="(max-width: 768px) 100vw, (max-width: 1024px) 66vw, 50vw"
-            className={cn(
-              "object-cover pointer-events-none select-none transition-opacity duration-300 ease-in-out",
-              currentIndex === index ? "opacity-100" : "opacity-0"
-            )}
-            priority={index === 0}
-            draggable={false}
-          />
-        ))}
+        {/* GPU-accelerated sliding image container */}
+        <div
+          className="absolute inset-0"
+          style={{
+            transform: `translate3d(${dragOffset}px, 0, 0)`,
+            transition: isDragging ? 'none' : 'transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+            willChange: 'transform',
+          }}
+        >
+          {/* Images with smooth crossfade transition */}
+          {images.map((image, index) => (
+            <Image
+              key={index}
+              src={image || "/placeholder.svg"}
+              alt={`${title} - Image ${index + 1}`}
+              fill
+              sizes="(max-width: 768px) 100vw, (max-width: 1024px) 66vw, 50vw"
+              className={cn(
+                "object-cover pointer-events-none select-none",
+                "transition-opacity duration-[400ms] ease-[cubic-bezier(0.25,0.46,0.45,0.94)]",
+                currentIndex === index ? "opacity-100" : "opacity-0"
+              )}
+              style={{
+                willChange: 'opacity',
+                backfaceVisibility: 'hidden',
+              }}
+              priority={index === 0}
+              loading={index === 0 ? "eager" : "lazy"}
+              draggable={false}
+            />
+          ))}
+        </div>
 
         {/* Navigation Arrows - show on hover for desktop, always visible on mobile */}
         {images.length > 1 && (
@@ -257,8 +306,7 @@ export function ProductGallery({
               variant="secondary"
               size="icon"
               className={cn(
-                "absolute left-2 sm:left-3 top-1/2 h-9 w-9 sm:h-10 sm:w-10 -translate-y-1/2 rounded-full bg-white/90 shadow-md hover:bg-white transition-all duration-200 ease-in-out",
-                // Mobile: always visible, Desktop: show on hover with smooth animation
+                "absolute left-2 sm:left-3 top-1/2 h-9 w-9 sm:h-10 sm:w-10 -translate-y-1/2 rounded-full bg-white/90 shadow-md hover:bg-white transition-all duration-200 ease-in-out z-10",
                 "sm:opacity-0 sm:scale-95 sm:group-hover:opacity-100 sm:group-hover:scale-100"
               )}
               onClick={(e) => {
@@ -274,8 +322,7 @@ export function ProductGallery({
               variant="secondary"
               size="icon"
               className={cn(
-                "absolute right-2 sm:right-3 top-1/2 h-9 w-9 sm:h-10 sm:w-10 -translate-y-1/2 rounded-full bg-white/90 shadow-md hover:bg-white transition-all duration-200 ease-in-out",
-                // Mobile: always visible, Desktop: show on hover with smooth animation
+                "absolute right-2 sm:right-3 top-1/2 h-9 w-9 sm:h-10 sm:w-10 -translate-y-1/2 rounded-full bg-white/90 shadow-md hover:bg-white transition-all duration-200 ease-in-out z-10",
                 "sm:opacity-0 sm:scale-95 sm:group-hover:opacity-100 sm:group-hover:scale-100"
               )}
               onClick={(e) => {
@@ -292,14 +339,14 @@ export function ProductGallery({
 
         {/* Image Counter (show when not in dots mode) */}
         {images.length > 1 && !showDotsNavigation && (
-          <div className="absolute bottom-2 sm:bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-2.5 py-1 text-xs sm:text-sm text-white">
+          <div className="absolute bottom-2 sm:bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-2.5 py-1 text-xs sm:text-sm text-white z-10">
             {currentIndex + 1} / {images.length}
           </div>
         )}
 
         {/* Dots Navigation (when dots mode is active) */}
         {images.length > 1 && showDotsNavigation && (
-          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5">
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10">
             {images.map((_, index) => (
               <button
                 key={index}
@@ -351,6 +398,7 @@ export function ProductGallery({
                   fill
                   sizes="(max-width: 640px) 80px, 96px"
                   className="object-cover"
+                  loading="lazy"
                 />
               </button>
             ))}

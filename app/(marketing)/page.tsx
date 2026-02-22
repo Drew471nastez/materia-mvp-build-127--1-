@@ -1,12 +1,40 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import Link from "next/link"
-import { motion } from "framer-motion"
+import { motion, useReducedMotion } from "framer-motion"
 import { ArrowRight, Play, Check, Menu, X } from "lucide-react"
+
+// GPU-accelerated style hint applied to all animated collage elements
+const gpuStyle = { willChange: 'transform, opacity', transform: 'translateZ(0)' } as const
+
+// Smooth spring transition for entrance animations
+const springIn = { type: "spring" as const, stiffness: 80, damping: 18, mass: 0.8 }
+
+// Floating keyframe configs for continuous subtle movement after entrance
+const floatConfigs = [
+  { y: [0, -6, 0], duration: 5, delay: 0 },
+  { y: [0, 5, 0], duration: 6, delay: 0.5 },
+  { y: [0, -4, 0], duration: 7, delay: 1 },
+  { y: [0, 7, 0], duration: 5.5, delay: 0.3 },
+  { y: [0, -5, 0], duration: 6.5, delay: 0.8 },
+  { y: [0, 6, 0], duration: 5.8, delay: 0.6 },
+]
 
 export default function StorelibLanding() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const prefersReducedMotion = useReducedMotion()
+
+  // Pre-compute float animations (memoized to avoid re-creation on render)
+  const floatAnimations = useMemo(() => {
+    if (prefersReducedMotion) return floatConfigs.map(() => ({}))
+    return floatConfigs.map(cfg => ({
+      y: cfg.y,
+      transition: {
+        y: { repeat: Infinity, repeatType: "loop" as const, duration: cfg.duration, ease: "easeInOut", delay: cfg.delay },
+      },
+    }))
+  }, [prefersReducedMotion])
 
   return (
     <div className="bg-[#faf8f5] overflow-x-hidden">
@@ -21,34 +49,35 @@ export default function StorelibLanding() {
             </svg>
             <span className="text-[15px] font-semibold text-[#1a1a1a]">Storelib</span>
           </Link>
-          
+
           <div className="hidden md:flex items-center gap-6">
             {["Solutions", "Pricing", "Community", "Discover"].map((item) => (
               <Link key={item} href="#" className="text-[13px] text-[#666] hover:text-[#1a1a1a] transition-colors">{item}</Link>
             ))}
           </div>
-          
+
           <div className="hidden md:flex items-center gap-3">
             <Link href="/login" className="text-[13px] text-[#666] hover:text-[#1a1a1a] transition-colors">Log in</Link>
             <Link href="/signup" className="px-4 py-2 text-[13px] font-medium bg-[#1a1a1a] text-white rounded-lg hover:bg-[#333] transition-colors">Open Storelib</Link>
           </div>
-          
+
           <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="md:hidden p-2">
             {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
       </nav>
 
-      {/* HERO - Lovable style */}
+      {/* HERO - Lovable style with GPU-accelerated animations */}
       <section className="relative min-h-screen pt-20 overflow-hidden">
-        {/* Floating elements with dashed borders */}
+        {/* Floating collage elements with GPU-accelerated smooth animations */}
         <div className="absolute inset-0 pointer-events-none">
           {/* Top left - Pink/blue gradient */}
-          <motion.div 
+          <motion.div
             className="absolute top-24 left-8 lg:left-16"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2, duration: 0.6 }}
+            style={gpuStyle}
+            initial={{ opacity: 0, y: 30, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1, ...floatAnimations[0] }}
+            transition={{ ...springIn, delay: 0.2 }}
           >
             <div className="w-40 h-48 rounded-2xl overflow-hidden shadow-lg">
               <div className="w-full h-full bg-gradient-to-br from-blue-400 via-purple-400 to-pink-500"></div>
@@ -56,21 +85,23 @@ export default function StorelibLanding() {
           </motion.div>
 
           {/* Top center left - Empty dashed box */}
-          <motion.div 
+          <motion.div
             className="absolute top-16 left-1/4 hidden lg:block"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.6 }}
+            style={gpuStyle}
+            initial={{ opacity: 0, y: 25, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1, ...floatAnimations[1] }}
+            transition={{ ...springIn, delay: 0.35 }}
           >
             <div className="w-32 h-16 rounded-xl border-2 border-dashed border-[#ccc]"></div>
           </motion.div>
 
           {/* Color dots */}
-          <motion.div 
+          <motion.div
             className="absolute top-48 left-1/3 hidden lg:block"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.4, duration: 0.6 }}
+            style={gpuStyle}
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1, ...floatAnimations[2] }}
+            transition={{ ...springIn, delay: 0.45 }}
           >
             <div className="flex flex-col gap-2">
               <div className="flex gap-2">
@@ -85,11 +116,12 @@ export default function StorelibLanding() {
           </motion.div>
 
           {/* Top right - Aa typography */}
-          <motion.div 
+          <motion.div
             className="absolute top-20 right-1/4 hidden lg:block"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.35, duration: 0.6 }}
+            style={gpuStyle}
+            initial={{ opacity: 0, y: 25, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1, ...floatAnimations[3] }}
+            transition={{ ...springIn, delay: 0.4 }}
           >
             <div className="w-28 h-24 rounded-xl border-2 border-dashed border-[#ccc] flex items-center justify-center">
               <span className="text-4xl font-serif text-[#1a1a1a]">Aa</span>
@@ -97,11 +129,12 @@ export default function StorelibLanding() {
           </motion.div>
 
           {/* Right side - Avatar group */}
-          <motion.div 
+          <motion.div
             className="absolute top-36 right-16 hidden lg:block"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4, duration: 0.6 }}
+            style={gpuStyle}
+            initial={{ opacity: 0, y: 25, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1, ...floatAnimations[4] }}
+            transition={{ ...springIn, delay: 0.5 }}
           >
             <div className="w-32 h-20 rounded-xl border-2 border-dashed border-[#ccc] flex items-center justify-center">
               <div className="flex -space-x-2">
@@ -113,11 +146,12 @@ export default function StorelibLanding() {
           </motion.div>
 
           {/* Far right - Pink gradient */}
-          <motion.div 
+          <motion.div
             className="absolute top-32 right-8 hidden md:block"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.45, duration: 0.6 }}
+            style={gpuStyle}
+            initial={{ opacity: 0, y: 30, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1, ...floatAnimations[5] }}
+            transition={{ ...springIn, delay: 0.55 }}
           >
             <div className="w-36 h-32 rounded-2xl border-2 border-dashed border-[#ccc] overflow-hidden p-1">
               <div className="w-full h-full rounded-xl bg-gradient-to-br from-pink-300 via-purple-300 to-blue-400"></div>
@@ -130,22 +164,23 @@ export default function StorelibLanding() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
+            transition={{ type: "spring", stiffness: 60, damping: 16, mass: 0.8 }}
+            style={{ willChange: 'transform, opacity' }}
           >
             <p className="text-[13px] text-[#666] mb-6">Storelib for creators</p>
-            
+
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-normal text-[#1a1a1a] leading-[1.1] tracking-tight mb-6" style={{ fontFamily: 'Georgia, serif' }}>
               Your best products,
               <br />
               <span className="italic">in production</span>
             </h1>
-            
+
             <p className="text-[15px] text-[#666] mb-8 max-w-md mx-auto leading-relaxed">
               Bring your vision to life.
               <br />
               Create Storelib experiences.
             </p>
-            
+
             <Link href="/signup" className="inline-flex items-center gap-2 px-6 py-3 bg-[#1a1a1a] text-white text-[14px] font-medium rounded-lg hover:bg-[#333] transition-colors">
               Get started
             </Link>
@@ -153,11 +188,11 @@ export default function StorelibLanding() {
         </div>
 
         {/* Logo cloud */}
-        <motion.div 
+        <motion.div
           className="relative z-10 py-12 border-t border-black/5"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.5, duration: 0.6 }}
+          transition={{ delay: 0.5, duration: 0.8, ease: "easeOut" }}
         >
           <div className="max-w-[1000px] mx-auto px-6">
             <div className="flex flex-wrap items-center justify-center gap-x-12 gap-y-6">
@@ -175,7 +210,8 @@ export default function StorelibLanding() {
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
+            viewport={{ once: true, margin: "-50px" }}
+            transition={{ type: "spring", stiffness: 60, damping: 18 }}
             className="mb-16"
           >
             <h2 className="text-4xl md:text-5xl font-normal text-[#1a1a1a] leading-tight tracking-tight mb-4" style={{ fontFamily: 'Georgia, serif' }}>
@@ -192,7 +228,8 @@ export default function StorelibLanding() {
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
+            viewport={{ once: true, margin: "-50px" }}
+            transition={{ type: "spring", stiffness: 60, damping: 18 }}
             className="bg-white rounded-3xl p-8 shadow-sm border border-black/5"
           >
             <div className="grid md:grid-cols-2 gap-8 items-center">
@@ -268,7 +305,8 @@ export default function StorelibLanding() {
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
+            viewport={{ once: true, margin: "-50px" }}
+            transition={{ type: "spring", stiffness: 60, damping: 18 }}
             className="text-center mb-16"
           >
             <h2 className="text-4xl md:text-5xl font-normal text-[#1a1a1a] leading-tight tracking-tight mb-4" style={{ fontFamily: 'Georgia, serif' }}>
@@ -284,7 +322,8 @@ export default function StorelibLanding() {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
+              viewport={{ once: true, margin: "-30px" }}
+              transition={{ type: "spring", stiffness: 70, damping: 18 }}
               className="bg-[#faf8f5] rounded-3xl p-8 relative overflow-hidden min-h-[320px]"
             >
               <div className="absolute top-8 right-8 w-44">
@@ -315,8 +354,8 @@ export default function StorelibLanding() {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.1 }}
+              viewport={{ once: true, margin: "-30px" }}
+              transition={{ type: "spring", stiffness: 70, damping: 18, delay: 0.08 }}
               className="bg-[#faf8f5] rounded-3xl p-8 relative overflow-hidden min-h-[320px]"
             >
               <div className="absolute top-8 right-8 w-48">
@@ -348,8 +387,8 @@ export default function StorelibLanding() {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.2 }}
+              viewport={{ once: true, margin: "-30px" }}
+              transition={{ type: "spring", stiffness: 70, damping: 18, delay: 0.16 }}
               className="bg-[#faf8f5] rounded-3xl p-8"
             >
               <h3 className="text-2xl font-medium text-[#1a1a1a] mb-6">Sell to anyone</h3>
@@ -374,8 +413,8 @@ export default function StorelibLanding() {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.3 }}
+              viewport={{ once: true, margin: "-30px" }}
+              transition={{ type: "spring", stiffness: 70, damping: 18, delay: 0.24 }}
               className="bg-[#faf8f5] rounded-3xl p-8 relative overflow-hidden"
             >
               <div className="absolute top-8 right-8 flex flex-col gap-2">
@@ -407,7 +446,8 @@ export default function StorelibLanding() {
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
+            viewport={{ once: true, margin: "-50px" }}
+            transition={{ type: "spring", stiffness: 60, damping: 18 }}
             className="text-center mb-12"
           >
             <h2 className="text-4xl md:text-5xl font-normal text-[#1a1a1a] leading-tight tracking-tight mb-4" style={{ fontFamily: 'Georgia, serif' }}>
@@ -421,7 +461,8 @@ export default function StorelibLanding() {
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
+            viewport={{ once: true, margin: "-50px" }}
+            transition={{ type: "spring", stiffness: 50, damping: 18 }}
             className="relative"
           >
             <div className="bg-[#1a1a1a] rounded-2xl overflow-hidden shadow-2xl">
@@ -483,7 +524,8 @@ export default function StorelibLanding() {
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
+            viewport={{ once: true, margin: "-50px" }}
+            transition={{ type: "spring", stiffness: 60, damping: 18 }}
           >
             <div className="text-[100px] leading-none text-[#1a1a1a] font-serif">"</div>
             <h2 className="text-3xl md:text-4xl font-normal text-[#1a1a1a] leading-snug tracking-tight mb-10" style={{ fontFamily: 'Georgia, serif' }}>
@@ -506,7 +548,8 @@ export default function StorelibLanding() {
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
+            viewport={{ once: true, margin: "-50px" }}
+            transition={{ type: "spring", stiffness: 60, damping: 18 }}
             className="text-center mb-16"
           >
             <h2 className="text-4xl md:text-5xl font-normal text-[#1a1a1a] leading-tight tracking-tight mb-4" style={{ fontFamily: 'Georgia, serif' }}>
@@ -520,7 +563,8 @@ export default function StorelibLanding() {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
+              viewport={{ once: true, margin: "-30px" }}
+              transition={{ type: "spring", stiffness: 70, damping: 18 }}
               className="bg-white rounded-3xl p-6 shadow-sm"
             >
               <div className="flex items-center gap-3 mb-4">
@@ -544,8 +588,8 @@ export default function StorelibLanding() {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.1 }}
+              viewport={{ once: true, margin: "-30px" }}
+              transition={{ type: "spring", stiffness: 70, damping: 18, delay: 0.08 }}
               className="bg-white rounded-3xl overflow-hidden shadow-sm"
             >
               <div className="aspect-[3/4] bg-gradient-to-br from-amber-100 to-orange-100 relative">
@@ -567,8 +611,8 @@ export default function StorelibLanding() {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.2 }}
+              viewport={{ once: true, margin: "-30px" }}
+              transition={{ type: "spring", stiffness: 70, damping: 18, delay: 0.16 }}
               className="space-y-6"
             >
               <div className="bg-white rounded-3xl p-6 shadow-sm">
@@ -604,7 +648,8 @@ export default function StorelibLanding() {
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
+            viewport={{ once: true, margin: "-50px" }}
+            transition={{ type: "spring", stiffness: 60, damping: 18 }}
             className="text-center mb-16"
           >
             <h2 className="text-4xl md:text-5xl font-normal text-[#1a1a1a] leading-tight tracking-tight mb-4" style={{ fontFamily: 'Georgia, serif' }}>
@@ -626,8 +671,8 @@ export default function StorelibLanding() {
                 key={i}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.05 }}
+                viewport={{ once: true, margin: "-30px" }}
+                transition={{ type: "spring", stiffness: 70, damping: 18, delay: i * 0.05 }}
                 className={`bg-gradient-to-br ${f.color} rounded-3xl p-6`}
               >
                 <div className="h-28 bg-white/50 rounded-2xl mb-4 flex items-center justify-center">
@@ -647,7 +692,8 @@ export default function StorelibLanding() {
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
+            viewport={{ once: true, margin: "-50px" }}
+            transition={{ type: "spring", stiffness: 60, damping: 18 }}
             className="text-center mb-16"
           >
             <h2 className="text-4xl md:text-5xl font-normal text-[#1a1a1a] leading-tight tracking-tight mb-4" style={{ fontFamily: 'Georgia, serif' }}>
@@ -661,7 +707,8 @@ export default function StorelibLanding() {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
+              viewport={{ once: true, margin: "-30px" }}
+              transition={{ type: "spring", stiffness: 70, damping: 18 }}
               className="bg-white rounded-3xl p-8 border border-black/5"
             >
               <div className="text-[14px] font-medium text-[#1a1a1a] mb-2">Free</div>
@@ -684,8 +731,8 @@ export default function StorelibLanding() {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.1 }}
+              viewport={{ once: true, margin: "-30px" }}
+              transition={{ type: "spring", stiffness: 70, damping: 18, delay: 0.08 }}
               className="bg-[#1a1a1a] rounded-3xl p-8 relative"
             >
               <div className="absolute top-4 right-4 bg-emerald-500 text-white text-[11px] font-medium px-3 py-1 rounded-full">Popular</div>
@@ -712,12 +759,13 @@ export default function StorelibLanding() {
       <section className="py-32 bg-[#1a1a1a] relative overflow-hidden">
         <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-purple-500/10 rounded-full blur-3xl"></div>
         <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-blue-500/10 rounded-full blur-3xl"></div>
-        
+
         <div className="relative z-10 max-w-[700px] mx-auto px-6 text-center">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
+            viewport={{ once: true, margin: "-50px" }}
+            transition={{ type: "spring", stiffness: 60, damping: 18 }}
           >
             <h2 className="text-4xl md:text-5xl font-normal text-white leading-tight tracking-tight mb-6" style={{ fontFamily: 'Georgia, serif' }}>
               Ready to start selling?
