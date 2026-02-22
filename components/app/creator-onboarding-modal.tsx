@@ -1034,6 +1034,17 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
                       </button>
                     ))}
 
+                    {/* Show selected extended category inline so user can see it */}
+                    {selectedCategory && !PRIMARY_CATEGORIES.includes(selectedCategory) && (
+                      <button
+                        key={selectedCategory}
+                        onClick={() => setSelectedCategory(null)}
+                        className="px-4 sm:px-5 py-2.5 sm:py-3 rounded-full text-sm font-medium transition-all bg-gray-100 border-2 border-black text-black"
+                      >
+                        {selectedCategory}
+                      </button>
+                    )}
+
                     {/* See more button */}
                     <button
                       onClick={() => setShowCategoryModal(true)}
