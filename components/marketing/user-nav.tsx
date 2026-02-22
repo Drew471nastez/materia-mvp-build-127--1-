@@ -76,7 +76,7 @@ export function UserNav({ user, profile, isCreator }: UserNavProps) {
           </DropdownMenuItem>
         ) : (
           <DropdownMenuItem asChild>
-            <Link href="/onboarding" className="cursor-pointer">
+            <Link href="/signup/success?action=become-creator" className="cursor-pointer">
               <Sparkles className="mr-2 h-4 w-4" />
               Become a Seller
             </Link>

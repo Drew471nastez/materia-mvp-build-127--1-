@@ -10,8 +10,9 @@ export default function OnboardingPage() {
   const router = useRouter()
 
   useEffect(() => {
-    // Redirect to signup/success for the new welcome selection flow
-    router.replace("/signup/success")
+    // Redirect to signup/success with action=become-creator so the
+    // onboarding modal opens directly (even for existing buyers)
+    router.replace("/signup/success?action=become-creator")
   }, [router])
 
   return (

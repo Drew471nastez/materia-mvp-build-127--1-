@@ -83,6 +83,15 @@ export default function SignupSuccessPage() {
         return
       }
 
+      // Check for action=become-creator FIRST — a buyer explicitly wants to
+      // become a seller, so we must NOT redirect them back to /library.
+      const action = searchParams.get("action")
+      if (action === "become-creator") {
+        setIsCheckingAuth(false)
+        setShowCreatorOnboarding(true)
+        return
+      }
+
       // Check profile for welcome_completed status (for buyers)
       const { data: profile } = await supabase
         .from("profiles")
@@ -94,14 +103,6 @@ export default function SignupSuccessPage() {
 
       if (profile?.welcome_completed === true && profile?.is_creator === false) {
         router.replace("/library")
-        return
-      }
-
-      // Check for action=become-creator to auto-start onboarding
-      const action = searchParams.get("action")
-      if (action === "become-creator") {
-        setIsCheckingAuth(false)
-        setShowCreatorOnboarding(true)
         return
       }
 

@@ -38,12 +38,14 @@ export function DashboardSidebar() {
     async function checkCreatorStatus() {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("is_creator")
-          .eq("id", user.id)
-          .single()
-        setIsCreator(profile?.is_creator ?? false)
+        // Use creators.onboarding_completed as source of truth (not profiles.is_creator
+        // which can be true before onboarding is fully completed)
+        const { data: creator } = await supabase
+          .from("creators")
+          .select("onboarding_completed")
+          .eq("user_id", user.id)
+          .maybeSingle()
+        setIsCreator(creator?.onboarding_completed === true)
       }
     }
     checkCreatorStatus()
