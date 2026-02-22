@@ -285,6 +285,40 @@
   .snap-start {
     scroll-snap-align: start;
   }
+
+  /* GPU-accelerated compositing layer for smooth animations */
+  .gpu-accelerated {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    will-change: transform;
+    perspective: 1000px;
+  }
+
+  /* Smooth image rendering for carousel/gallery transitions */
+  .smooth-image {
+    image-rendering: auto;
+    -webkit-font-smoothing: subpixel-antialiased;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+
+  /* Optimized carousel track — GPU compositing for silky swipe */
+  .carousel-track {
+    will-change: transform;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    transform: translateZ(0);
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Touch interaction optimization */
+  .touch-smooth {
+    -webkit-overflow-scrolling: touch;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: pan-y pinch-zoom;
+  }
 }
 
 /* Responsive table styling - simplified to avoid Tailwind v4 issues */
@@ -448,72 +482,72 @@
 
 /* OnePage Button Animations */
 
-/* Pulse - subtle scale effect (20% more subtle) */
+/* Pulse - subtle scale effect (20% more subtle), GPU-accelerated */
 @keyframes onepage-pulse {
   0%, 100% {
-    transform: scale(1);
+    transform: scale(1) translateZ(0);
   }
   50% {
-    transform: scale(1.015);
+    transform: scale(1.015) translateZ(0);
   }
 }
 
-/* Bounce - stay down, then bounce up smoothly */
+/* Bounce - stay down, then bounce up smoothly, GPU-accelerated */
 @keyframes onepage-bounce {
   0%, 60% {
-    transform: translateY(0);
+    transform: translateY(0) translateZ(0);
   }
   70% {
-    transform: translateY(-6px);
+    transform: translateY(-6px) translateZ(0);
   }
   80% {
-    transform: translateY(-2px);
+    transform: translateY(-2px) translateZ(0);
   }
   90% {
-    transform: translateY(-4px);
+    transform: translateY(-4px) translateZ(0);
   }
   100% {
-    transform: translateY(0);
+    transform: translateY(0) translateZ(0);
   }
 }
 
-/* Shake - smooth buzz/vibrate effect with pauses */
+/* Shake - smooth buzz/vibrate effect with pauses, GPU-accelerated */
 @keyframes onepage-shake {
   0%, 85% {
-    transform: translateX(0) rotate(0deg);
+    transform: translateX(0) rotate(0deg) translateZ(0);
   }
   86% {
-    transform: translateX(-1.5px) rotate(-0.3deg);
+    transform: translateX(-1.5px) rotate(-0.3deg) translateZ(0);
   }
   87% {
-    transform: translateX(1.5px) rotate(0.3deg);
+    transform: translateX(1.5px) rotate(0.3deg) translateZ(0);
   }
   88% {
-    transform: translateX(-1.5px) rotate(-0.3deg);
+    transform: translateX(-1.5px) rotate(-0.3deg) translateZ(0);
   }
   89% {
-    transform: translateX(1.5px) rotate(0.3deg);
+    transform: translateX(1.5px) rotate(0.3deg) translateZ(0);
   }
   90% {
-    transform: translateX(-1px) rotate(-0.2deg);
+    transform: translateX(-1px) rotate(-0.2deg) translateZ(0);
   }
   91% {
-    transform: translateX(1px) rotate(0.2deg);
+    transform: translateX(1px) rotate(0.2deg) translateZ(0);
   }
   92% {
-    transform: translateX(-1px) rotate(-0.2deg);
+    transform: translateX(-1px) rotate(-0.2deg) translateZ(0);
   }
   93% {
-    transform: translateX(1px) rotate(0.2deg);
+    transform: translateX(1px) rotate(0.2deg) translateZ(0);
   }
   94% {
-    transform: translateX(-0.5px) rotate(-0.1deg);
+    transform: translateX(-0.5px) rotate(-0.1deg) translateZ(0);
   }
   95% {
-    transform: translateX(0.5px) rotate(0.1deg);
+    transform: translateX(0.5px) rotate(0.1deg) translateZ(0);
   }
   96%, 100% {
-    transform: translateX(0) rotate(0deg);
+    transform: translateX(0) rotate(0deg) translateZ(0);
   }
 }
 
@@ -539,18 +573,28 @@
 
 .animate-onepage-pulse {
   animation: onepage-pulse 2.5s ease-in-out infinite;
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 
 .animate-onepage-bounce {
   animation: onepage-bounce 2.5s ease-in-out infinite;
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 
 .animate-onepage-shake {
   animation: onepage-shake 3.5s ease-in-out infinite;
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 
 .animate-onepage-glow {
   animation: onepage-glow 2s ease-in-out infinite;
+  will-change: box-shadow;
 }
 
 .animate-onepage-swipe {

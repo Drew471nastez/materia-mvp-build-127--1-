@@ -680,10 +680,13 @@ function UnifiedAboutSection({
                               src={item.url}
                               alt={item.caption || ""}
                               fill
+                              sizes="(max-width: 768px) 100vw, 50vw"
                               className={cn(
                                 "object-cover transition-opacity duration-300",
                                 mediaLoading[item.id] !== false ? "opacity-0" : "opacity-100"
                               )}
+                              style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
+                              loading="lazy"
                               onLoadStart={() => handleMediaLoadStart(item.id)}
                               onLoad={() => handleMediaLoad(item.id)}
                             />
@@ -1319,12 +1322,17 @@ function UnifiedImageTextSection({
                 src={settings.imageUrl || "/placeholder.svg"}
                 alt=""
                 fill
+                sizes="(max-width: 768px) 100vw, 50vw"
                 className="object-cover"
-                style={
-                  settings.imageFocalPoint
+                style={{
+                  ...(settings.imageFocalPoint
                     ? { objectPosition: `${settings.imageFocalPoint.x}% ${settings.imageFocalPoint.y}%` }
-                    : undefined
-                }
+                    : {}),
+                  transform: 'translateZ(0)',
+                  backfaceVisibility: 'hidden',
+                  WebkitBackfaceVisibility: 'hidden',
+                }}
+                loading="lazy"
               />
             </div>
           ) : (
@@ -1586,14 +1594,16 @@ function UnifiedBenefitsSection({ settings, isMobile, isPreviewMode }: { setting
   // Carousel state
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isHovered, setIsHovered] = useState(false)
-  const [touchStart, setTouchStart] = useState<number | null>(null)
-  const [touchEnd, setTouchEnd] = useState<number | null>(null)
-  // Mouse drag state for trackpad support
+  // GPU-accelerated drag state — refs avoid re-renders during drag
   const [isDragging, setIsDragging] = useState(false)
-  const [mouseStart, setMouseStart] = useState<number | null>(null)
-  const [mouseEnd, setMouseEnd] = useState<number | null>(null)
+  const isDraggingRef = useRef(false)
+  const dragStartXRef = useRef(0)
+  const dragCurrentXRef = useRef(0)
+  const dragStartTimeRef = useRef(0)
   const carouselRef = useRef<HTMLDivElement>(null)
+  const carouselTrackRef = useRef<HTMLDivElement>(null)
   const autoplayRef = useRef<NodeJS.Timeout | null>(null)
+  const rafRef = useRef<number | null>(null)
 
   // Client-side mobile detection for live pages
   const [clientIsMobile, setClientIsMobile] = useState(false)
@@ -1675,69 +1685,97 @@ function UnifiedBenefitsSection({ settings, isMobile, isPreviewMode }: { setting
     }
   }, [enableCarousel, autoplay, autoplaySpeed, isHovered, goToNext])
 
-  // Touch handlers for swipe support
-  const minSwipeDistance = 50
+  // GPU-accelerated swipe handlers — direct DOM manipulation, no React state during drag
+  const minSwipeDistance = 35
+  const velocityThreshold = 0.25
 
-  const onTouchStart = (e: React.TouchEvent) => {
-    setTouchEnd(null)
-    setTouchStart(e.targetTouches[0].clientX)
-  }
-
-  const onTouchMove = (e: React.TouchEvent) => {
-    setTouchEnd(e.targetTouches[0].clientX)
-  }
-
-  const onTouchEnd = () => {
-    if (!touchStart || !touchEnd) return
-    const distance = touchStart - touchEnd
-    const isLeftSwipe = distance > minSwipeDistance
-    const isRightSwipe = distance < -minSwipeDistance
-
-    if (isLeftSwipe) {
-      goToNext()
-    } else if (isRightSwipe) {
-      goToPrev()
-    }
-  }
-
-  // Mouse drag handlers for trackpad/mouse support
-  const onMouseDown = (e: React.MouseEvent) => {
+  const startDrag = useCallback((clientX: number) => {
+    isDraggingRef.current = true
     setIsDragging(true)
-    setMouseEnd(null)
-    setMouseStart(e.clientX)
-  }
+    dragStartXRef.current = clientX
+    dragCurrentXRef.current = clientX
+    dragStartTimeRef.current = Date.now()
+    // Kill transition for instant drag tracking
+    if (carouselTrackRef.current) {
+      carouselTrackRef.current.style.transition = 'none'
+    }
+  }, [])
 
-  const onMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging) return
-    setMouseEnd(e.clientX)
-  }
+  const moveDrag = useCallback((clientX: number) => {
+    if (!isDraggingRef.current) return
+    dragCurrentXRef.current = clientX
+    const delta = dragCurrentXRef.current - dragStartXRef.current
+    // Direct DOM manipulation via RAF for zero-latency GPU compositing
+    if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    rafRef.current = requestAnimationFrame(() => {
+      if (carouselTrackRef.current) {
+        const baseOffset = -currentIndex * 100
+        const pxToPercent = (delta / (carouselRef.current?.offsetWidth || 300)) * 100
+        carouselTrackRef.current.style.transform = `translate3d(${baseOffset + pxToPercent}%, 0, 0)`
+      }
+    })
+  }, [currentIndex])
 
-  const onMouseUp = () => {
-    if (!isDragging) return
+  const endDrag = useCallback(() => {
+    if (!isDraggingRef.current) return
+    isDraggingRef.current = false
     setIsDragging(false)
 
-    if (!mouseStart || !mouseEnd) return
-    const distance = mouseStart - mouseEnd
-    const isLeftSwipe = distance > minSwipeDistance
-    const isRightSwipe = distance < -minSwipeDistance
+    const distance = dragCurrentXRef.current - dragStartXRef.current
+    const elapsed = Date.now() - dragStartTimeRef.current
+    const velocity = Math.abs(distance) / Math.max(elapsed, 1)
+    const isFastSwipe = velocity > velocityThreshold
 
-    if (isLeftSwipe) {
-      goToNext()
-    } else if (isRightSwipe) {
-      goToPrev()
+    if (rafRef.current) cancelAnimationFrame(rafRef.current)
+
+    const shouldNavigate = Math.abs(distance) > minSwipeDistance || isFastSwipe
+    if (shouldNavigate) {
+      if (distance < 0) goToNext()
+      else goToPrev()
     }
 
-    setMouseStart(null)
-    setMouseEnd(null)
-  }
-
-  const onMouseLeave = () => {
-    if (isDragging) {
-      setIsDragging(false)
-      setMouseStart(null)
-      setMouseEnd(null)
+    // Re-enable smooth transition for snap-back
+    if (carouselTrackRef.current) {
+      carouselTrackRef.current.style.transition = 'transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+      carouselTrackRef.current.style.transform = `translate3d(-${currentIndex * 100}%, 0, 0)`
     }
-  }
+  }, [goToNext, goToPrev, currentIndex])
+
+  // Cleanup RAF on unmount
+  useEffect(() => {
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current) }
+  }, [])
+
+  const onTouchStart = useCallback((e: React.TouchEvent) => {
+    startDrag(e.touches[0].clientX)
+  }, [startDrag])
+
+  const onTouchMove = useCallback((e: React.TouchEvent) => {
+    moveDrag(e.touches[0].clientX)
+  }, [moveDrag])
+
+  const onTouchEnd = useCallback(() => {
+    endDrag()
+  }, [endDrag])
+
+  const onMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    startDrag(e.clientX)
+  }, [startDrag])
+
+  const onMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!isDraggingRef.current) return
+    e.preventDefault()
+    moveDrag(e.clientX)
+  }, [moveDrag])
+
+  const onMouseUp = useCallback(() => {
+    endDrag()
+  }, [endDrag])
+
+  const onMouseLeave = useCallback(() => {
+    if (isDraggingRef.current) endDrag()
+  }, [endDrag])
 
   // Render a single benefit item
   const renderBenefitItem = (benefit: typeof settings.benefits[0], index: number) => {
@@ -1763,6 +1801,8 @@ function UnifiedBenefitsSection({ settings, isMobile, isPreviewMode }: { setting
               width={effectiveMobile ? 48 : 56}
               height={effectiveMobile ? 48 : 56}
               className="w-full h-full object-cover"
+              loading="lazy"
+              style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
             />
           ) : IconComponent ? (
             <IconComponent
@@ -1837,7 +1877,10 @@ function UnifiedBenefitsSection({ settings, isMobile, isPreviewMode }: { setting
           <div
             ref={carouselRef}
             className={cn("overflow-hidden select-none relative", isDragging && "cursor-grabbing")}
-            style={{ cursor: isDragging ? "grabbing" : "grab" }}
+            style={{
+              cursor: isDragging ? "grabbing" : "grab",
+              touchAction: 'pan-y pinch-zoom',
+            }}
             onTouchStart={onTouchStart}
             onTouchMove={onTouchMove}
             onTouchEnd={onTouchEnd}
@@ -1847,9 +1890,14 @@ function UnifiedBenefitsSection({ settings, isMobile, isPreviewMode }: { setting
             onMouseLeave={onMouseLeave}
           >
             <div
-              className="flex transition-transform duration-500 ease-out"
+              ref={carouselTrackRef}
+              className="flex"
               style={{
-                transform: `translateX(-${currentIndex * 100}%)`,
+                transform: `translate3d(-${currentIndex * 100}%, 0, 0)`,
+                transition: 'transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+                willChange: 'transform',
+                backfaceVisibility: 'hidden',
+                WebkitBackfaceVisibility: 'hidden',
               }}
             >
               {settings.benefits.map((benefit, index) => (
@@ -2743,6 +2791,9 @@ export function UnifiedShopHeader({
                 ? `${settings.coverFocalPoint.x}% ${settings.coverFocalPoint.y}%`
                 : undefined,
               filter: `brightness(${settings.coverBrightness ?? 1.0})`,
+              transform: 'translateZ(0)',
+              backfaceVisibility: 'hidden',
+              WebkitBackfaceVisibility: 'hidden',
             }}
             priority
           />
@@ -3984,7 +4035,9 @@ export function UnifiedProductsGrid({
                     src={product.thumbnail_url || "/placeholder.svg"}
                     alt={product.title}
                     fill
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                     className="object-cover transition-transform group-hover:scale-105"
+                    loading="lazy"
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center">
@@ -4159,7 +4212,9 @@ function UnifiedMoreFromSellerSection({
                     src={product.thumbnail_url || "/placeholder.svg"}
                     alt={product.title}
                     fill
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                     className="object-cover transition-transform group-hover:scale-105"
+                    loading="lazy"
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center">

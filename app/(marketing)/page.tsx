@@ -5,20 +5,26 @@ import Link from "next/link"
 import { motion, useReducedMotion } from "framer-motion"
 import { ArrowRight, Play, Check, Menu, X } from "lucide-react"
 
-// GPU-accelerated style hint applied to all animated collage elements
-const gpuStyle = { willChange: 'transform, opacity', transform: 'translateZ(0)' } as const
+// GPU-accelerated style hint — force compositing layer for all animated collage elements
+const gpuStyle = {
+  willChange: 'transform, opacity',
+  transform: 'translateZ(0)',
+  backfaceVisibility: 'hidden' as const,
+  WebkitBackfaceVisibility: 'hidden' as const,
+} as const
 
-// Smooth spring transition for entrance animations
-const springIn = { type: "spring" as const, stiffness: 80, damping: 18, mass: 0.8 }
+// Smooth spring transition for entrance animations — tuned for 60fps feel
+const springIn = { type: "spring" as const, stiffness: 70, damping: 20, mass: 0.7 }
 
 // Floating keyframe configs for continuous subtle movement after entrance
+// Smaller amplitudes + longer durations = silky smooth, no jank
 const floatConfigs = [
-  { y: [0, -6, 0], duration: 5, delay: 0 },
-  { y: [0, 5, 0], duration: 6, delay: 0.5 },
-  { y: [0, -4, 0], duration: 7, delay: 1 },
-  { y: [0, 7, 0], duration: 5.5, delay: 0.3 },
-  { y: [0, -5, 0], duration: 6.5, delay: 0.8 },
-  { y: [0, 6, 0], duration: 5.8, delay: 0.6 },
+  { y: [0, -5, 0], duration: 6, delay: 0 },
+  { y: [0, 4, 0], duration: 7, delay: 0.5 },
+  { y: [0, -3, 0], duration: 8, delay: 1 },
+  { y: [0, 5, 0], duration: 6.5, delay: 0.3 },
+  { y: [0, -4, 0], duration: 7.5, delay: 0.8 },
+  { y: [0, 5, 0], duration: 7, delay: 0.6 },
 ]
 
 export default function StorelibLanding() {
@@ -31,7 +37,13 @@ export default function StorelibLanding() {
     return floatConfigs.map(cfg => ({
       y: cfg.y,
       transition: {
-        y: { repeat: Infinity, repeatType: "loop" as const, duration: cfg.duration, ease: "easeInOut", delay: cfg.delay },
+        y: {
+          repeat: Infinity,
+          repeatType: "loop" as const,
+          duration: cfg.duration,
+          ease: [0.45, 0.05, 0.55, 0.95], // custom smooth cubic-bezier for buttery float
+          delay: cfg.delay,
+        },
       },
     }))
   }, [prefersReducedMotion])

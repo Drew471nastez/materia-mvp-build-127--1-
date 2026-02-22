@@ -56,14 +56,15 @@ export function ProductGallery({
   const dragCurrentXRef = useRef(0)
   const containerWidthRef = useRef(0)
   const imageRef = useRef<HTMLDivElement>(null)
+  const slideContainerRef = useRef<HTMLDivElement>(null)
   const autoplayRef = useRef<NodeJS.Timeout | null>(null)
   const rafRef = useRef<number | null>(null)
   const isTransitioningRef = useRef(false)
 
   // Minimum swipe distance (in px) to trigger navigation
-  const minSwipeDistance = 40
+  const minSwipeDistance = 30
   // Velocity threshold for fast swipe detection (px/ms)
-  const velocityThreshold = 0.3
+  const velocityThreshold = 0.25
   const dragStartTimeRef = useRef(0)
 
   // Detect actual screen size (only for live page, not editor preview)
@@ -101,14 +102,14 @@ export function ProductGallery({
     if (isTransitioningRef.current) return
     isTransitioningRef.current = true
     setCurrentIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1))
-    setTimeout(() => { isTransitioningRef.current = false }, 400)
+    setTimeout(() => { isTransitioningRef.current = false }, 350)
   }, [images.length])
 
   const goToNext = useCallback(() => {
     if (isTransitioningRef.current) return
     isTransitioningRef.current = true
     setCurrentIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1))
-    setTimeout(() => { isTransitioningRef.current = false }, 400)
+    setTimeout(() => { isTransitioningRef.current = false }, 350)
   }, [images.length])
 
   // Autoplay for dots mode
@@ -149,6 +150,10 @@ export function ProductGallery({
     dragCurrentXRef.current = clientX
     dragStartTimeRef.current = Date.now()
     containerWidthRef.current = imageRef.current?.offsetWidth || 300
+    // Kill transition immediately for zero-latency drag tracking
+    if (slideContainerRef.current) {
+      slideContainerRef.current.style.transition = 'none'
+    }
     handleUserInteraction()
   }, [images.length, handleUserInteraction])
 
@@ -157,11 +162,14 @@ export function ProductGallery({
     dragCurrentXRef.current = clientX
     const delta = dragCurrentXRef.current - dragStartXRef.current
     // Clamp offset for rubber-band effect at edges
-    const maxDrag = containerWidthRef.current * 0.4
+    const maxDrag = containerWidthRef.current * 0.45
     const clamped = Math.max(-maxDrag, Math.min(maxDrag, delta))
-    // Use RAF for smooth GPU-composited updates
+    // Direct DOM manipulation via RAF for zero-latency GPU-composited drag
     if (rafRef.current) cancelAnimationFrame(rafRef.current)
     rafRef.current = requestAnimationFrame(() => {
+      if (slideContainerRef.current) {
+        slideContainerRef.current.style.transform = `translate3d(${clamped}px, 0, 0)`
+      }
       setDragOffset(clamped)
     })
   }, [])
@@ -188,7 +196,11 @@ export function ProductGallery({
       }
     }
 
-    // Animate drag offset back to 0 smoothly (CSS transition handles this)
+    // Animate drag offset back to 0 — re-enable CSS transition for snap-back
+    if (slideContainerRef.current) {
+      slideContainerRef.current.style.transition = 'transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+      slideContainerRef.current.style.transform = 'translate3d(0, 0, 0)'
+    }
     setDragOffset(0)
   }, [goToNext, goToPrevious])
 
@@ -268,11 +280,15 @@ export function ProductGallery({
       >
         {/* GPU-accelerated sliding image container */}
         <div
+          ref={slideContainerRef}
           className="absolute inset-0"
           style={{
             transform: `translate3d(${dragOffset}px, 0, 0)`,
-            transition: isDragging ? 'none' : 'transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+            transition: isDragging ? 'none' : 'transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
             willChange: 'transform',
+            backfaceVisibility: 'hidden',
+            WebkitBackfaceVisibility: 'hidden',
+            perspective: 1000,
           }}
         >
           {/* Images with smooth crossfade transition */}
@@ -285,12 +301,14 @@ export function ProductGallery({
               sizes="(max-width: 768px) 100vw, (max-width: 1024px) 66vw, 50vw"
               className={cn(
                 "object-cover pointer-events-none select-none",
-                "transition-opacity duration-[400ms] ease-[cubic-bezier(0.25,0.46,0.45,0.94)]",
+                "transition-opacity duration-[350ms] ease-[cubic-bezier(0.4,0,0.2,1)]",
                 currentIndex === index ? "opacity-100" : "opacity-0"
               )}
               style={{
                 willChange: 'opacity',
                 backfaceVisibility: 'hidden',
+                WebkitBackfaceVisibility: 'hidden',
+                transform: 'translateZ(0)',
               }}
               priority={index === 0}
               loading={index === 0 ? "eager" : "lazy"}
@@ -398,6 +416,10 @@ export function ProductGallery({
                   fill
                   sizes="(max-width: 640px) 80px, 96px"
                   className="object-cover"
+                  style={{
+                    transform: 'translateZ(0)',
+                    backfaceVisibility: 'hidden',
+                  }}
                   loading="lazy"
                 />
               </button>
