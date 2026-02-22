@@ -2854,7 +2854,7 @@ Tips:
               </div>
               <Button
                 onClick={() => setShowCreateFlowDialog(true)}
-                className="rounded-[8px] bg-violet-600 hover:bg-violet-700 cursor-pointer group"
+                className="hidden sm:inline-flex rounded-[8px] bg-violet-600 hover:bg-violet-700 cursor-pointer group"
               >
                 <Plus className="h-4 w-4 mr-2 transition-transform duration-300 group-hover:rotate-90" />
                 Create Flow

@@ -23,16 +23,19 @@ export async function loadSettingsData() {
     .eq("owner_id", user.id)
     .maybeSingle()
 
-  const { data: storeConfig } = await supabase
-    .from("store_builder_configs")
-    .select("published_config")
-    .eq("creator_id", user.id)
-    .eq("page_type", "shop")
-    .maybeSingle()
+  const { data: storeConfig } = creator
+    ? await supabase
+        .from("store_builder_configs")
+        .select("published_config, draft_config")
+        .eq("creator_id", creator.id)
+        .eq("page_type", "shop")
+        .maybeSingle()
+    : { data: null }
 
-  const storeBuilderAvatarUrl = (storeConfig?.published_config as Record<string, unknown>)?.headerSettings
-    ? ((storeConfig?.published_config as Record<string, unknown>)?.headerSettings as Record<string, unknown>)?.avatarUrl as string | null
-    : null
+  // Check published_config first, then fall back to draft_config for avatar
+  const publishedHeader = (storeConfig?.published_config as Record<string, unknown>)?.headerSettings as Record<string, unknown> | undefined
+  const draftHeader = (storeConfig?.draft_config as Record<string, unknown>)?.headerSettings as Record<string, unknown> | undefined
+  const storeBuilderAvatarUrl = (publishedHeader?.avatarUrl as string | null) || (draftHeader?.avatarUrl as string | null) || null
 
   const googleAvatarUrl = user.user_metadata?.avatar_url || user.user_metadata?.picture || null
 

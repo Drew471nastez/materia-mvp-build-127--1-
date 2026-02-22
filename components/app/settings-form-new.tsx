@@ -2177,15 +2177,15 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 <button
                   type="button"
                   onClick={() => setShowTimezoneModal(true)}
-                  className="w-full h-11 px-3 text-left border border-[#e5e7eb] rounded-xl text-[14px] bg-white hover:bg-[#f9fafb] transition-colors flex items-center justify-between cursor-pointer"
+                  className="w-full h-11 px-3 text-left border border-[#e5e7eb] rounded-xl text-[14px] bg-white hover:bg-[#f9fafb] transition-colors flex items-center gap-2 cursor-pointer"
                 >
-                  <span className="text-[#1a1a2e]">
+                  <span className="text-[#1a1a2e] truncate min-w-0 flex-1">
                     {TIMEZONES.find(tz => tz.code === selectedTimezone)?.name || selectedTimezone}
                     <span className="text-[#9ca3af] ml-2">
                       ({TIMEZONES.find(tz => tz.code === selectedTimezone)?.offset || ""})
                     </span>
                   </span>
-                  <ChevronRight className="h-4 w-4 text-[#9ca3af]" />
+                  <ChevronRight className="h-4 w-4 text-[#9ca3af] shrink-0" />
                 </button>
               </div>
 

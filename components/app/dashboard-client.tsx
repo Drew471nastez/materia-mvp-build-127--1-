@@ -809,7 +809,18 @@ export function DashboardClient({
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [expandedStep, setExpandedStep] = useState<string | null>(null)
   const [openKPIModal, setOpenKPIModal] = useState<KPIType>("views")
-  const [chartExpanded, setChartExpanded] = useState(false)
+  const [chartExpanded, setChartExpanded] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("storelib_chart_expanded")
+      return saved !== null ? saved === "true" : true // default open
+    }
+    return true
+  })
+  // Persist chart expanded/collapsed preference
+  useEffect(() => {
+    localStorage.setItem("storelib_chart_expanded", String(chartExpanded))
+  }, [chartExpanded])
+
   const [chartData, setChartData] = useState<ChartDataPoint[]>([])
   const [isChartLoading, setIsChartLoading] = useState(false)
   const [analyticsData, setAnalyticsData] = useState({

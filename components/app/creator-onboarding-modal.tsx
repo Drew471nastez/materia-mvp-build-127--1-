@@ -1102,7 +1102,7 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
                       {/* Instagram */}
                       <div className="flex items-center gap-3 px-4 sm:px-5 h-[50px] sm:h-[56px] rounded-[14px] bg-[#F3F3F3] border-2 border-transparent focus-within:bg-white focus-within:border-black transition-all">
                         <Instagram className="w-5 h-5 text-pink-500 shrink-0" />
-                        <span className="text-sm sm:text-base text-gray-500 select-none shrink-0">@</span>
+                        <span className="text-sm sm:text-base text-gray-500 select-none shrink-0 -mr-2">@</span>
                         <input
                           type="text"
                           value={socials.instagram}
@@ -1115,7 +1115,7 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
                       {/* TikTok */}
                       <div className="flex items-center gap-3 px-4 sm:px-5 h-[50px] sm:h-[56px] rounded-[14px] bg-[#F3F3F3] border-2 border-transparent focus-within:bg-white focus-within:border-black transition-all">
                         <TikTokIcon className="w-5 h-5 shrink-0" />
-                        <span className="text-sm sm:text-base text-gray-500 select-none shrink-0">@</span>
+                        <span className="text-sm sm:text-base text-gray-500 select-none shrink-0 -mr-2">@</span>
                         <input
                           type="text"
                           value={socials.tiktok}
