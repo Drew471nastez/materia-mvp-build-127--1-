@@ -2,8 +2,18 @@
 
 import { useState, useMemo } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { motion, useReducedMotion } from "framer-motion"
 import { ArrowRight, Play, Check, Menu, X } from "lucide-react"
+
+// Collage images — Supabase-hosted optimized WebP
+const collageImages = [
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Monetize%20(5)%20(2).webp",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Monetize%20(6)%20(1).webp",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Monetize%20(7)%20(1).webp",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Monetize%20(8)%20(1).webp",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Monetize%20(9).webp",
+] as const
 
 // GPU-accelerated style hint — force compositing layer for all animated collage elements
 const gpuStyle = {
@@ -81,92 +91,110 @@ export default function StorelibLanding() {
 
       {/* HERO - Lovable style with GPU-accelerated animations */}
       <section className="relative min-h-screen pt-20 overflow-hidden">
-        {/* Floating collage elements with GPU-accelerated smooth animations */}
+        {/* Floating collage images with GPU-accelerated smooth animations */}
         <div className="absolute inset-0 pointer-events-none">
-          {/* Top left - Pink/blue gradient */}
+          {/* Top left — large portrait card */}
           <motion.div
-            className="absolute top-24 left-8 lg:left-16"
+            className="absolute top-20 left-6 lg:left-14"
             style={gpuStyle}
-            initial={{ opacity: 0, y: 30, scale: 0.95 }}
+            initial={{ opacity: 0, y: 30, scale: 0.92 }}
             animate={{ opacity: 1, y: 0, scale: 1, ...floatAnimations[0] }}
             transition={{ ...springIn, delay: 0.2 }}
           >
-            <div className="w-40 h-48 rounded-2xl overflow-hidden shadow-lg">
-              <div className="w-full h-full bg-gradient-to-br from-blue-400 via-purple-400 to-pink-500"></div>
+            <div className="w-36 h-44 lg:w-44 lg:h-52 rounded-2xl overflow-hidden shadow-xl ring-1 ring-black/5">
+              <Image
+                src={collageImages[0]}
+                alt="Creator monetization"
+                width={176}
+                height={208}
+                className="w-full h-full object-cover"
+                style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
+                priority
+              />
             </div>
           </motion.div>
 
-          {/* Top center left - Empty dashed box */}
+          {/* Center left — smaller landscape card */}
           <motion.div
-            className="absolute top-16 left-1/4 hidden lg:block"
+            className="absolute top-14 left-[22%] hidden lg:block"
             style={gpuStyle}
-            initial={{ opacity: 0, y: 25, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1, ...floatAnimations[1] }}
+            initial={{ opacity: 0, y: 25, scale: 0.9, rotate: -3 }}
+            animate={{ opacity: 1, y: 0, scale: 1, rotate: -2, ...floatAnimations[1] }}
             transition={{ ...springIn, delay: 0.35 }}
           >
-            <div className="w-32 h-16 rounded-xl border-2 border-dashed border-[#ccc]"></div>
+            <div className="w-36 h-24 rounded-xl overflow-hidden shadow-lg ring-1 ring-black/5">
+              <Image
+                src={collageImages[1]}
+                alt="Digital products"
+                width={144}
+                height={96}
+                className="w-full h-full object-cover"
+                style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
+                loading="lazy"
+              />
+            </div>
           </motion.div>
 
-          {/* Color dots */}
+          {/* Below center left — tilted card */}
           <motion.div
-            className="absolute top-48 left-1/3 hidden lg:block"
+            className="absolute top-48 left-[30%] hidden lg:block"
             style={gpuStyle}
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1, ...floatAnimations[2] }}
+            initial={{ opacity: 0, scale: 0.85, rotate: 2 }}
+            animate={{ opacity: 1, scale: 1, rotate: 3, ...floatAnimations[2] }}
             transition={{ ...springIn, delay: 0.45 }}
           >
-            <div className="flex flex-col gap-2">
-              <div className="flex gap-2">
-                <div className="w-8 h-8 rounded-full bg-[#1a1a1a]"></div>
-                <div className="w-8 h-8 rounded-full bg-[#e8d5f0]"></div>
-              </div>
-              <div className="flex gap-2">
-                <div className="w-8 h-8 rounded-full bg-[#f0b8d0]"></div>
-                <div className="w-8 h-8 rounded-full bg-[#f5d860]"></div>
-              </div>
+            <div className="w-28 h-36 rounded-xl overflow-hidden shadow-lg ring-1 ring-black/5">
+              <Image
+                src={collageImages[2]}
+                alt="Sell online"
+                width={112}
+                height={144}
+                className="w-full h-full object-cover"
+                style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
+                loading="lazy"
+              />
             </div>
           </motion.div>
 
-          {/* Top right - Aa typography */}
+          {/* Top right — landscape card */}
           <motion.div
-            className="absolute top-20 right-1/4 hidden lg:block"
+            className="absolute top-16 right-[20%] hidden lg:block"
             style={gpuStyle}
-            initial={{ opacity: 0, y: 25, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1, ...floatAnimations[3] }}
+            initial={{ opacity: 0, y: 25, scale: 0.9, rotate: 2 }}
+            animate={{ opacity: 1, y: 0, scale: 1, rotate: 2, ...floatAnimations[3] }}
             transition={{ ...springIn, delay: 0.4 }}
           >
-            <div className="w-28 h-24 rounded-xl border-2 border-dashed border-[#ccc] flex items-center justify-center">
-              <span className="text-4xl font-serif text-[#1a1a1a]">Aa</span>
+            <div className="w-40 h-28 rounded-xl overflow-hidden shadow-lg ring-1 ring-black/5">
+              <Image
+                src={collageImages[3]}
+                alt="Monetize your content"
+                width={160}
+                height={112}
+                className="w-full h-full object-cover"
+                style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
+                loading="lazy"
+              />
             </div>
           </motion.div>
 
-          {/* Right side - Avatar group */}
+          {/* Far right — large portrait card */}
           <motion.div
-            className="absolute top-36 right-16 hidden lg:block"
+            className="absolute top-28 right-6 lg:right-12 hidden md:block"
             style={gpuStyle}
-            initial={{ opacity: 0, y: 25, scale: 0.9 }}
+            initial={{ opacity: 0, y: 30, scale: 0.92 }}
             animate={{ opacity: 1, y: 0, scale: 1, ...floatAnimations[4] }}
             transition={{ ...springIn, delay: 0.5 }}
           >
-            <div className="w-32 h-20 rounded-xl border-2 border-dashed border-[#ccc] flex items-center justify-center">
-              <div className="flex -space-x-2">
-                <div className="w-10 h-10 rounded-full bg-amber-200 border-2 border-white"></div>
-                <div className="w-10 h-10 rounded-full bg-rose-200 border-2 border-white"></div>
-                <div className="w-10 h-10 rounded-full bg-blue-200 border-2 border-white"></div>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Far right - Pink gradient */}
-          <motion.div
-            className="absolute top-32 right-8 hidden md:block"
-            style={gpuStyle}
-            initial={{ opacity: 0, y: 30, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1, ...floatAnimations[5] }}
-            transition={{ ...springIn, delay: 0.55 }}
-          >
-            <div className="w-36 h-32 rounded-2xl border-2 border-dashed border-[#ccc] overflow-hidden p-1">
-              <div className="w-full h-full rounded-xl bg-gradient-to-br from-pink-300 via-purple-300 to-blue-400"></div>
+            <div className="w-36 h-48 lg:w-40 lg:h-52 rounded-2xl overflow-hidden shadow-xl ring-1 ring-black/5">
+              <Image
+                src={collageImages[4]}
+                alt="Creator earnings"
+                width={160}
+                height={208}
+                className="w-full h-full object-cover"
+                style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
+                loading="lazy"
+              />
             </div>
           </motion.div>
         </div>
