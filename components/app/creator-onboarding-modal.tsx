@@ -1102,11 +1102,12 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
                       {/* Instagram */}
                       <div className="flex items-center gap-3 px-4 sm:px-5 h-[50px] sm:h-[56px] rounded-[14px] bg-[#F3F3F3] border-2 border-transparent focus-within:bg-white focus-within:border-black transition-all">
                         <Instagram className="w-5 h-5 text-pink-500 shrink-0" />
+                        <span className="text-sm sm:text-base text-gray-500 select-none shrink-0">@</span>
                         <input
                           type="text"
                           value={socials.instagram}
-                          onChange={(e) => setSocials({ ...socials, instagram: e.target.value })}
-                          placeholder="@username"
+                          onChange={(e) => setSocials({ ...socials, instagram: e.target.value.replace(/@/g, "") })}
+                          placeholder="username"
                           className="flex-1 text-sm sm:text-base outline-none bg-transparent"
                         />
                       </div>
@@ -1114,11 +1115,12 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
                       {/* TikTok */}
                       <div className="flex items-center gap-3 px-4 sm:px-5 h-[50px] sm:h-[56px] rounded-[14px] bg-[#F3F3F3] border-2 border-transparent focus-within:bg-white focus-within:border-black transition-all">
                         <TikTokIcon className="w-5 h-5 shrink-0" />
+                        <span className="text-sm sm:text-base text-gray-500 select-none shrink-0">@</span>
                         <input
                           type="text"
                           value={socials.tiktok}
-                          onChange={(e) => setSocials({ ...socials, tiktok: e.target.value })}
-                          placeholder="@username"
+                          onChange={(e) => setSocials({ ...socials, tiktok: e.target.value.replace(/@/g, "") })}
+                          placeholder="username"
                           className="flex-1 text-sm sm:text-base outline-none bg-transparent"
                         />
                       </div>
