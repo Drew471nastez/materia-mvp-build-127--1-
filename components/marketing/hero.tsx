@@ -126,11 +126,11 @@ export function Hero() {
   const [cardOrder, setCardOrder] = useState([0, 1, 2, 3, 4])
   const [transition, setTransition] = useState<CardTransition | null>(null)
   const [isMobile, setIsMobile] = useState(false)
-  const [imagesLoaded, setImagesLoaded] = useState(false)
+  const [loadedImages, setLoadedImages] = useState<Set<number>>(new Set())
+  const imagesLoaded = loadedImages.size === IMAGES.length
   const [logosLoaded, setLogosLoaded] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isCreator, setIsCreator] = useState(false)
-  const loadedImagesCount = useRef(0)
   const loadedLogosCount = useRef(0)
 
   const autoplayRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -229,31 +229,30 @@ export function Hero() {
     }
   }, [clearAutoplay, restartAutoplay])
 
-  // Preload collage images
+  // Preload collage images – center card first for faster perceived load
   useEffect(() => {
-    loadedImagesCount.current = 0
-    const loadImage = (src: string) => {
+    const loadImage = (src: string, idx: number) => {
       return new Promise<void>((resolve) => {
         const img = new Image()
         img.onload = () => {
-          loadedImagesCount.current++
-          if (loadedImagesCount.current === IMAGES.length) {
-            setImagesLoaded(true)
-          }
+          setLoadedImages(prev => new Set(prev).add(idx))
           resolve()
         }
         img.onerror = () => {
-          loadedImagesCount.current++
-          if (loadedImagesCount.current === IMAGES.length) {
-            setImagesLoaded(true)
-          }
+          setLoadedImages(prev => new Set(prev).add(idx))
           resolve()
         }
         img.src = src
       })
     }
 
-    Promise.all(IMAGES.map(loadImage))
+    // Load center image (index 2) first, then the rest in parallel
+    const CENTER = 2
+    loadImage(IMAGES[CENTER], CENTER).then(() => {
+      IMAGES.forEach((src, idx) => {
+        if (idx !== CENTER) loadImage(src, idx)
+      })
+    })
   }, [])
 
   // Preload partner logos
@@ -468,7 +467,7 @@ export function Hero() {
                     filter: `saturate(${saturation})`,
                   }}
                 >
-                  {!imagesLoaded ? (
+                  {!loadedImages.has(imageIdx) ? (
                     <Skeleton className="w-full h-full" />
                   ) : (
                     <img
@@ -476,6 +475,9 @@ export function Hero() {
                       alt=""
                       className="w-full h-full object-cover pointer-events-none"
                       draggable={false}
+                      decoding="async"
+                      loading="eager"
+                      fetchPriority={imageIdx === cardOrder[2] ? "high" : "low"}
                     />
                   )}
                 </div>
