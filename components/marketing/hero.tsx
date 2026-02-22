@@ -56,11 +56,11 @@ const PARTNER_LOGOS = [
 ]
 
 const IMAGES = [
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Monetize%20(5).webp",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Monetize%20(59.webp",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Monetize%20(6).webp",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Monetize%20(7).webp",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Monetize%20(8).webp",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Monetize%20(5)%20(2).webp",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Monetize%20(6)%20(1).webp",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Monetize%20(7)%20(1).webp",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Monetize%20(8)%20(1).webp",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Monetize%20(9).webp",
 ]
 
 interface CardDef {
@@ -98,10 +98,10 @@ const MOBILE_CARDS: CardDef[] = [
 const CANVAS_W = 1100
 const CANVAS_H = 460
 const AUTOPLAY_INTERVAL = 5000
-const CARD_TRANSITION_MS = 1400
+const CARD_TRANSITION_MS = 1200
 const SWIPE_THRESHOLD = 40
 const SWIPE_COMMIT_DISTANCE = 140
-const DRAG_SMOOTHING = 0.42
+const DRAG_SMOOTHING = 0.5
 const DRAG_SLOWDOWN = 0.60
 const MAX_DRAG_DISTANCE = 180
 
@@ -137,6 +137,7 @@ export function Hero() {
   const orderRef = useRef(cardOrder)
   const animatingRef = useRef(false)
   const rafRef = useRef<number | null>(null)
+  const dragRafRef = useRef<number | null>(null)
   const dragRef = useRef({ active: false, startX: 0, delta: 0, rawDelta: 0 })
 
   const clearAutoplay = useCallback(() => {
@@ -226,6 +227,7 @@ export function Hero() {
     return () => {
       clearAutoplay()
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
+      if (dragRafRef.current !== null) cancelAnimationFrame(dragRafRef.current)
     }
   }, [clearAutoplay, restartAutoplay])
 
@@ -304,6 +306,31 @@ export function Hero() {
     setTransition({ from, to, progress })
   }, [])
 
+  const queueDragTransitionUpdate = useCallback((rawDelta: number) => {
+    if (dragRafRef.current !== null) return
+    dragRafRef.current = requestAnimationFrame(() => {
+      dragRafRef.current = null
+      updateDragTransition(rawDelta)
+    })
+  }, [updateDragTransition])
+
+  const stopDrag = useCallback((rawDelta: number) => {
+    const clampedDelta = Math.max(-MAX_DRAG_DISTANCE, Math.min(MAX_DRAG_DISTANCE, rawDelta))
+    const progress = transition?.progress ?? Math.min(0.88, Math.abs(clampedDelta * DRAG_SLOWDOWN) / SWIPE_COMMIT_DISTANCE)
+
+    dragRef.current.active = false
+    dragRef.current.delta = 0
+    dragRef.current.rawDelta = 0
+
+    if (Math.abs(clampedDelta) >= SWIPE_THRESHOLD) {
+      startRotation(clampedDelta < 0 ? 1 : -1, progress)
+    } else {
+      setTransition(null)
+    }
+
+    restartAutoplay()
+  }, [restartAutoplay, startRotation, transition?.progress])
+
   const activeCards = isMobile ? MOBILE_CARDS : DESKTOP_CARDS
 
   // Attach non-passive touchmove listener so we can call preventDefault()
@@ -316,14 +343,14 @@ export function Hero() {
       if (!dragRef.current.active || animatingRef.current) return
       // Prevent the browser from triggering pull-to-refresh or overscroll bounce
       e.preventDefault()
-      updateDragTransition(e.touches[0].clientX - dragRef.current.startX)
+      queueDragTransitionUpdate(e.touches[0].clientX - dragRef.current.startX)
     }
     // { passive: false } is required to allow preventDefault() in touch handlers
     el.addEventListener("touchmove", handleTouchMove, { passive: false })
     return () => {
       el.removeEventListener("touchmove", handleTouchMove)
     }
-  }, [updateDragTransition])
+  }, [queueDragTransitionUpdate])
 
   return (
     <section className="flex flex-col items-center bg-white pt-6 sm:pt-10 pb-12 sm:pb-[67px] overflow-hidden">
@@ -362,78 +389,27 @@ export function Hero() {
           <div
             ref={collageRef}
             className="hero-collage-inner absolute left-1/2 -translate-x-1/2 origin-top select-none cursor-pointer"
-            style={{ width: CANVAS_W, height: CANVAS_H, touchAction: "pan-y" }}
-            onTouchStart={(e) => {
+            style={{ width: CANVAS_W, height: CANVAS_H, touchAction: "pan-y pinch-zoom" }}
+            onPointerDown={(e) => {
               clearAutoplay()
-              dragRef.current = { active: true, startX: e.touches[0].clientX, delta: 0, rawDelta: 0 }
-            }}
-            onTouchEnd={(e) => {
-              if (!dragRef.current.active) return
-
-              const rawDelta = dragRef.current.rawDelta || e.changedTouches[0].clientX - dragRef.current.startX
-              const progress = transition?.progress ?? Math.min(0.95, Math.abs(rawDelta * DRAG_SLOWDOWN) / SWIPE_COMMIT_DISTANCE)
-              dragRef.current.active = false
-              dragRef.current.delta = 0
-              dragRef.current.rawDelta = 0
-
-              if (Math.abs(rawDelta) >= SWIPE_THRESHOLD) {
-                startRotation(rawDelta < 0 ? 1 : -1, progress)
-              } else {
-                setTransition(null)
-              }
-
-              restartAutoplay()
-            }}
-            onTouchCancel={() => {
-              dragRef.current.active = false
-              dragRef.current.delta = 0
-              dragRef.current.rawDelta = 0
-              setTransition(null)
-              restartAutoplay()
-            }}
-            onMouseDown={(e) => {
-              clearAutoplay()
+              e.currentTarget.setPointerCapture(e.pointerId)
               dragRef.current = { active: true, startX: e.clientX, delta: 0, rawDelta: 0 }
             }}
-            onMouseMove={(e) => {
+            onPointerMove={(e) => {
               if (!dragRef.current.active || animatingRef.current) return
-              updateDragTransition(e.clientX - dragRef.current.startX)
+              queueDragTransitionUpdate(e.clientX - dragRef.current.startX)
             }}
-            onMouseUp={(e) => {
+            onPointerUp={(e) => {
               if (!dragRef.current.active) return
-
-              const rawDelta = dragRef.current.rawDelta || e.clientX - dragRef.current.startX
-              const clampedDelta = Math.max(-MAX_DRAG_DISTANCE, Math.min(MAX_DRAG_DISTANCE, rawDelta))
-              const progress = transition?.progress ?? Math.min(0.88, Math.abs(clampedDelta * DRAG_SLOWDOWN) / SWIPE_COMMIT_DISTANCE)
-              dragRef.current.active = false
-              dragRef.current.delta = 0
-              dragRef.current.rawDelta = 0
-
-              if (Math.abs(clampedDelta) >= SWIPE_THRESHOLD) {
-                startRotation(clampedDelta < 0 ? 1 : -1, progress)
-              } else {
-                setTransition(null)
-              }
-
-              restartAutoplay()
+              stopDrag(dragRef.current.rawDelta || e.clientX - dragRef.current.startX)
+            }}
+            onPointerCancel={() => {
+              if (!dragRef.current.active) return
+              stopDrag(dragRef.current.rawDelta)
             }}
             onMouseLeave={() => {
               if (!dragRef.current.active) return
-
-              const rawDelta = dragRef.current.rawDelta
-              const clampedDelta = Math.max(-MAX_DRAG_DISTANCE, Math.min(MAX_DRAG_DISTANCE, rawDelta))
-              const progress = transition?.progress ?? Math.min(0.88, Math.abs(clampedDelta * DRAG_SLOWDOWN) / SWIPE_COMMIT_DISTANCE)
-              dragRef.current.active = false
-              dragRef.current.delta = 0
-              dragRef.current.rawDelta = 0
-
-              if (Math.abs(clampedDelta) >= SWIPE_THRESHOLD) {
-                startRotation(clampedDelta < 0 ? 1 : -1, progress)
-              } else {
-                setTransition(null)
-              }
-
-              restartAutoplay()
+              stopDrag(dragRef.current.rawDelta)
             }}
           >
             {IMAGES.map((src, imageIdx) => {
@@ -476,7 +452,7 @@ export function Hero() {
                       className="w-full h-full object-cover pointer-events-none"
                       draggable={false}
                       decoding="async"
-                      loading="eager"
+                      loading={imageIdx === cardOrder[2] ? "eager" : "lazy"}
                       fetchPriority={imageIdx === cardOrder[2] ? "high" : "low"}
                     />
                   )}
