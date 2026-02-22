@@ -28,11 +28,15 @@ function isScrollLocked(): boolean {
 }
 
 function hasOpenOverlay(): boolean {
-  // Check if any Radix dialog/sheet content is currently in the DOM.
-  // This covers both open state AND close animation (content stays mounted
-  // during exit animation), so we don't yank scroll-lock mid-animation.
+  // Only treat overlays as active when they are actually open.
+  // Some routes keep dialog/sheet content mounted while closed, which would
+  // otherwise prevent cleanup from ever running.
   return !!document.querySelector(
-    '[data-slot="dialog-content"], [data-slot="sheet-content"]'
+    [
+      '[data-slot="dialog-content"][data-state="open"]',
+      '[data-slot="sheet-content"][data-state="open"]',
+      '[role="dialog"][aria-modal="true"][data-state="open"]',
+    ].join(", ")
   )
 }
 
@@ -131,9 +135,17 @@ export function BodyScrollRestorer() {
     // ── Immediate + timed cleanup on every navigation ──
     repair()
     const raf = requestAnimationFrame(repair)
-    const timers = [50, 150, 300, 500, 1000].map((ms) =>
+    const timers = [50, 150, 300, 500, 1000, 1500].map((ms) =>
       setTimeout(repair, ms)
     )
+
+    // If the page wakes from bfcache/background with stale scroll lock,
+    // re-run repair as soon as the user interacts.
+    const handleUserIntent = () => guardedRepair()
+    window.addEventListener("pageshow", handleUserIntent)
+    window.addEventListener("focus", handleUserIntent)
+    window.addEventListener("wheel", handleUserIntent, { passive: true })
+    window.addEventListener("touchstart", handleUserIntent, { passive: true })
 
     // ── MutationObserver: catch scroll locks re-applied AFTER cleanup ──
     // react-remove-scroll's teardown can fire after our timers, re-adding
@@ -174,6 +186,10 @@ export function BodyScrollRestorer() {
       timers.forEach(clearTimeout)
       attrObserver.disconnect()
       childObserver.disconnect()
+      window.removeEventListener("pageshow", handleUserIntent)
+      window.removeEventListener("focus", handleUserIntent)
+      window.removeEventListener("wheel", handleUserIntent)
+      window.removeEventListener("touchstart", handleUserIntent)
     }
   }, [pathname])
 
