@@ -60,7 +60,7 @@ const IMAGES = [
   "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/2423.png",
   "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitle1411241d%20design.png",
   "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/1212.png",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/51351.png",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Monetize%20(2).webp",
 ]
 
 interface CardDef {

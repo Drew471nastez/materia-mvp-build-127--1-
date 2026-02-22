@@ -887,7 +887,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   const [domainIssues, setDomainIssues] = useState<string[]>([])
   const [copiedValue, setCopiedValue] = useState<string | null>(null)
 
-  // Avatar fallback order: Profile (manually set) → Store Builder → OnePage → Google → Initials
+  // Avatar fallback order: Profile → Creator → Store Builder → OnePage → Google → Initials
   // Filter out placeholder URLs to match layout.tsx logic for sidebar consistency
   const isValidAvatarUrl = (url: string | null | undefined): boolean => {
     return !!url && !url.includes("placeholder.svg")
@@ -895,6 +895,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
   const getDefaultAvatarUrl = () => {
     if (isValidAvatarUrl(profile.avatar_url)) return profile.avatar_url!
+    if (isValidAvatarUrl(creator.avatar_url)) return creator.avatar_url!
     if (isValidAvatarUrl(storeBuilderAvatarUrl)) return storeBuilderAvatarUrl!
     if (isValidAvatarUrl(onepageAvatarUrl)) return onepageAvatarUrl!
     if (isValidAvatarUrl(googleAvatarUrl)) return googleAvatarUrl!

@@ -116,7 +116,7 @@ export default async function AppLayout({
           displayName={displayName}
           stripeConnected={!!creator.stripe_account_id}
           stripeStatus={creator.stripe_onboarding_status || "not_connected"}
-          onePagePublished={onepage?.published || false}
+          onePagePublished={!!onepage}
           setupProgress={{ completed: completedSteps, total: totalSteps }}
         />
         <main className="h-svh pt-[68px] md:pt-[58px] md:pl-[220px] bg-white rounded-t-[20px] md:rounded-none overflow-hidden app-main-content">
