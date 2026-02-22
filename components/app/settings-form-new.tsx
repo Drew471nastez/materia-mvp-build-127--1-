@@ -24,7 +24,6 @@ import type { Profile, Creator } from "@/lib/types"
 import { isValidUsername } from "@/lib/reserved-words"
 import { getLinksUrl, getStoreUrl, getStoreUrlDisplay } from "@/lib/url-helpers"
 import { useLanguage, LANGUAGES } from "@/lib/i18n"
-import Image from "next/image"
 
 function ChainLinkIcon({ className = "w-3 h-3", stroke = "#ffffff" }: { className?: string; stroke?: string }) {
   return (
@@ -1990,18 +1989,19 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                     className="relative group cursor-pointer"
                   >
                     {avatarUrl ? (
-                      <Image
+                      <img
                         src={avatarUrl}
                         alt="Profile"
-                        width={72}
-                        height={72}
                         className="w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-full object-cover bg-[#f3f4f6]"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none"
+                          e.currentTarget.nextElementSibling?.classList.remove("hidden")
+                        }}
                       />
-                    ) : (
-                      <div className="w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-full bg-gradient-to-br from-[#8b5cf6] to-[#a78bfa] flex items-center justify-center text-white text-xl sm:text-2xl font-bold">
-                        {firstName?.[0]?.toUpperCase() || "U"}
-                      </div>
-                    )}
+                    ) : null}
+                    <div className={`w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-full bg-gradient-to-br from-[#8b5cf6] to-[#a78bfa] flex items-center justify-center text-white text-xl sm:text-2xl font-bold ${avatarUrl ? "hidden" : ""}`}>
+                      {firstName?.[0]?.toUpperCase() || "U"}
+                    </div>
                   </a>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-[#1a1a2e] text-[15px]">Profile Photo</p>

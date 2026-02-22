@@ -56,11 +56,11 @@ const PARTNER_LOGOS = [
 ]
 
 const IMAGES = [
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/1351351.png",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/2423.png",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitle1411241d%20design.png",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/1212.png",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Monetize%20(2).webp",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Monetize%20(5).webp",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Monetize%20(59.webp",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Monetize%20(6).webp",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Monetize%20(7).webp",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Monetize%20(8).webp",
 ]
 
 interface CardDef {
