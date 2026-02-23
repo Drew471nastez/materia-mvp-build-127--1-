@@ -2,7 +2,6 @@ import { Suspense } from "react"
 import { notFound, redirect } from "next/navigation"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
-import { cookies, headers } from "next/headers"
 import CheckoutReceiptClient from "./checkout-receipt-client"
 
 interface CheckoutReceiptPageProps {
@@ -96,8 +95,6 @@ async function CheckoutReceiptContent({ searchParams }: CheckoutReceiptPageProps
 
   const admin = createAdminClient()
   const supabase = await createClient()
-  const cookieStore = await cookies()
-  const headersList = await headers()
 
   // Fetch order with product + creator
   const { data: order, error: orderError } = await admin
@@ -138,40 +135,17 @@ async function CheckoutReceiptContent({ searchParams }: CheckoutReceiptPageProps
     data: { user },
   } = await supabase.auth.getUser()
 
-  let hasAccess = false
-  let requiresVerification = false
-  let isOwner = false
-
-  // --- SECURITY MODEL (matches /receipt/[token]) ---
-  if (user && order.buyer_id === user.id) {
-    hasAccess = true
-    isOwner = true
-  } else {
-    const sessionCookie = cookieStore.get("materia_session")
-    const userAgent = headersList.get("user-agent") || "unknown"
-    const forwardedFor = headersList.get("x-forwarded-for")
-    const ip = forwardedFor?.split(",")[0]?.trim() || "unknown"
-
-    const allowedFingerprints = order.allowed_fingerprints || []
-
-    if (order.session_fingerprint && sessionCookie?.value === order.session_fingerprint) {
-      hasAccess = true
-    } else if (sessionCookie && allowedFingerprints.includes(sessionCookie.value)) {
-      hasAccess = true
-    } else {
-      requiresVerification = true
-    }
-
-    if (requiresVerification) {
-      await admin.from("security_events").insert({
-        order_id: order.id,
-        event_type: "fingerprint_mismatch",
-        fingerprint: sessionCookie?.value || null,
-        ip,
-        user_agent: userAgent,
-      })
-    }
-  }
+  // The receipt token in the URL is the sole access credential — a random,
+  // unguessable token issued at purchase time. Possessing it is sufficient
+  // proof of purchase, consistent with the download API behavior.
+  // Device-fingerprint gating was removed: it randomly blocked legitimate buyers
+  // right after checkout because (a) the materia_session cookie isn't reliably
+  // delivered to the browser via a fetch() response before the page renders,
+  // and (b) orders created via the minimal fallback strategy have no
+  // session_fingerprint, so the check always failed for those orders.
+  const hasAccess = true
+  const requiresVerification = false
+  const isOwner = !!(user && order.buyer_id === user.id)
 
   // Fetch assets
   let assets: any[] = []

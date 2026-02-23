@@ -130,6 +130,21 @@ export function PurchaseStatusWrapper({
     initialVariant ? (initialVariant.price_cents || 0) : priceCents
   )
 
+  // When purchase status is detected from localStorage (after mount), auto-select
+  // the purchased variant if the currently selected one isn't owned.
+  useEffect(() => {
+    if (purchasedVariantIds.length === 0 || variants.length === 0) return
+    const currentIsOwned = selectedVariant ? purchasedVariantIds.includes(selectedVariant.id) : false
+    if (!currentIsOwned) {
+      const purchasedVariant = variants.find(v => purchasedVariantIds.includes(v.id))
+      if (purchasedVariant) {
+        setSelectedVariant(purchasedVariant)
+        setCurrentPrice(purchasedVariant.price_cents || 0)
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [purchasedVariantIds])
+
   // Track if user has access to the CURRENTLY selected variant
   const currentVariantHasAccess = selectedVariant
     ? hasVariantAccess(selectedVariant.id)
