@@ -5,6 +5,7 @@ import Image from "next/image"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { COOKIE_PREFS_EVENT } from "@/components/cookie-consent-banner"
 
 const LOGO_URL = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
 
@@ -208,6 +209,13 @@ export function MarketingFooter() {
               <Link href="/legal/privacy" className="block text-sm text-gray-400 hover:text-white transition-colors">
                 Privacy Policy
               </Link>
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new CustomEvent(COOKIE_PREFS_EVENT))}
+                className="block text-left text-sm text-gray-400 hover:text-white transition-colors"
+              >
+                Cookie Preferences
+              </button>
             </div>
           </div>
 
