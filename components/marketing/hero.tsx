@@ -127,7 +127,8 @@ export function Hero() {
   const [transition, setTransition] = useState<CardTransition | null>(null)
   const [isMobile, setIsMobile] = useState(false)
   const [loadedImages, setLoadedImages] = useState<Set<number>>(new Set())
-  const imagesLoaded = loadedImages.size === IMAGES.length
+  // imagesLoaded (all-5 flag) removed — text is now shown immediately without waiting
+  // for all images. Per-card skeleton uses loadedImages.has(idx) instead.
   const [logosLoaded, setLogosLoaded] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isCreator, setIsCreator] = useState(false)
@@ -139,10 +140,7 @@ export function Hero() {
   const rafRef = useRef<number | null>(null)
   const dragRafRef = useRef<number | null>(null)
   const dragRef = useRef({ active: false, startX: 0, delta: 0, rawDelta: 0 })
-  const imageLoadQueueRef = useRef<number[]>([])
-  const queuedImageSetRef = useRef(new Set<number>())
   const loadedImageSetRef = useRef(new Set<number>())
-  const imageLoadingRef = useRef(false)
 
   const clearAutoplay = useCallback(() => {
     if (autoplayRef.current) {
@@ -259,40 +257,17 @@ export function Hero() {
     })
   }, [markImageLoaded])
 
-  const drainImageQueue = useCallback(() => {
-    if (imageLoadingRef.current) return
-    const next = imageLoadQueueRef.current.shift()
-    if (next === undefined) return
-    queuedImageSetRef.current.delete(next)
-
-    imageLoadingRef.current = true
-    loadImageByIndex(next).finally(() => {
-      imageLoadingRef.current = false
-      drainImageQueue()
-    })
-  }, [loadImageByIndex])
-
-  const queueImageLoad = useCallback((idx: number, priority = false) => {
-    if (loadedImageSetRef.current.has(idx) || queuedImageSetRef.current.has(idx)) return
-    queuedImageSetRef.current.add(idx)
-
-    if (priority) {
-      imageLoadQueueRef.current.unshift(idx)
-    } else {
-      imageLoadQueueRef.current.push(idx)
-    }
-
-    drainImageQueue()
-  }, [drainImageQueue])
 
   // Progressive image loading for collage:
-  // - prioritize center + adjacent cards
-  // - defer far-edge cards on constrained connections
+  // Center + adjacent cards load IN PARALLEL for fast initial display.
+  // Sequential queue was too slow on poor connections (5 images × wait-time each).
+  // Edge cards (0, 4) are deferred until the browser is idle.
   useEffect(() => {
     const CENTER = 2
-    queueImageLoad(CENTER, true)
-    queueImageLoad(CENTER - 1, true)
-    queueImageLoad(CENTER + 1, true)
+    // Fire all three requests simultaneously — browser HTTP/2 handles concurrency
+    loadImageByIndex(CENTER)
+    loadImageByIndex(CENTER - 1)
+    loadImageByIndex(CENTER + 1)
 
     const connection = (navigator as Navigator & {
       connection?: { saveData?: boolean; effectiveType?: string }
@@ -306,8 +281,8 @@ export function Hero() {
     if (isConstrained) return
 
     const scheduleBackgroundLoad = () => {
-      queueImageLoad(0)
-      queueImageLoad(4)
+      loadImageByIndex(0)
+      loadImageByIndex(4)
     }
 
     if (typeof window.requestIdleCallback === "function") {
@@ -317,25 +292,20 @@ export function Hero() {
 
     const timeout = window.setTimeout(scheduleBackgroundLoad, 700)
     return () => window.clearTimeout(timeout)
-  }, [queueImageLoad])
+  }, [loadImageByIndex])
 
-  // Ensure currently visible cards are always requested first
+  // Ensure currently visible cards are always loaded — load directly, no queue overhead
   useEffect(() => {
     const fromOrder = transition?.from ?? cardOrder
     const toOrder = transition?.to ?? cardOrder
     const prioritized = new Set<number>([
-      fromOrder[1],
-      fromOrder[2],
-      fromOrder[3],
-      toOrder[1],
-      toOrder[2],
-      toOrder[3],
+      fromOrder[1], fromOrder[2], fromOrder[3],
+      toOrder[1],   toOrder[2],   toOrder[3],
     ])
-
     for (const idx of prioritized) {
-      if (typeof idx === "number") queueImageLoad(idx, idx === toOrder[2] || idx === fromOrder[2])
+      if (typeof idx === "number") loadImageByIndex(idx)
     }
-  }, [cardOrder, queueImageLoad, transition])
+  }, [cardOrder, loadImageByIndex, transition])
 
   // Preload partner logos
   useEffect(() => {
@@ -458,9 +428,12 @@ export function Hero() {
           animation: logo-scroll 30s linear infinite;
         }
         .collage-card {
-          will-change: left, top, width, height, opacity, transform, filter;
+          /* Only list GPU-compositable properties — left/top/width/height/filter
+             are layout/paint ops that cannot be composited and hurt perf in will-change */
+          will-change: transform, opacity;
           backface-visibility: hidden;
-          transform-style: preserve-3d;
+          /* transform-style: preserve-3d removed — creates an expensive 3D stacking
+             context on every card with no visual benefit for this 2D collage */
         }
       `}} />
 
@@ -506,7 +479,8 @@ export function Hero() {
               const scale = lerp(fromCard.scale ?? 1, toCard.scale ?? 1, t)
               const opacity = lerp(fromCard.opacity ?? 1, toCard.opacity ?? 1, t)
               const zIndex = Math.round(lerp(fromCard.zIndex, toCard.zIndex, t))
-              const saturation = lerp(fromCard.zIndex === 3 ? 1 : 0.96, toCard.zIndex === 3 ? 1 : 0.96, t)
+              // saturation removed — was lerped from 0.96→1, imperceptible difference
+              // but caused a CSS filter repaint on every RAF tick (60fps × 5 cards)
 
               return (
                 <div
@@ -520,7 +494,6 @@ export function Hero() {
                     zIndex,
                     opacity,
                     transform: `translateZ(0) scale(${scale})`,
-                    filter: `saturate(${saturation})`,
                   }}
                 >
                   {!loadedImages.has(imageIdx) ? (
@@ -543,34 +516,27 @@ export function Hero() {
 
           <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none -translate-y-[2%] sm:translate-y-0">
             <div className="relative bg-white rounded-[24px] sm:rounded-[28px] shadow-lg shadow-neutral-200/50 border border-neutral-100/80 px-5 sm:px-10 md:px-14 md:pt-14 md:pb-12 w-[82%] max-w-[480px] text-center pointer-events-auto scale-y-[0.99] sm:scale-y-100 origin-top pt-9 pb-9 sm:pt-12 sm:pb-10">
-              {!imagesLoaded ? (
-                <>
-                  <div className="absolute left-1/2 -translate-x-1/2 -top-3.5 sm:-top-4">
-                    <Skeleton className="h-[28px] sm:h-[30px] w-[120px] rounded-full" />
-                  </div>
-                  <div className="flex flex-col items-center gap-3">
-                    <Skeleton className="h-[28px] sm:h-[36px] md:h-[46px] w-[85%]" />
-                    <Skeleton className="h-[28px] sm:h-[36px] md:h-[46px] w-[75%]" />
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="absolute left-1/2 -translate-x-1/2 -top-3.5 sm:-top-4">
-                    <div className="flex items-center gap-2 bg-gray-100/95 backdrop-blur-sm text-gray-700 text-[10px] sm:text-[11px] font-medium px-3 sm:px-3.5 py-1.5 rounded-full whitespace-nowrap shadow-sm border border-gray-200/50">
-                      <span className="w-4 h-4 sm:w-[18px] sm:h-[18px] rounded-full bg-gray-900 inline-flex items-center justify-center overflow-hidden">
-                        <img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/image2vector.svg" alt="" width={12} height={12} className="w-[10px] h-[10px] sm:w-3 sm:h-3" loading="eager" decoding="async" />
-                      </span>
-                      All-in-one
-                    </div>
-                  </div>
-                  <h1 className="text-[22px] sm:text-3xl md:text-[38px] md:leading-[1.2] font-bold text-neutral-900 leading-tight min-h-[2.5em] sm:min-h-[2.4em] flex items-center justify-center">
-                    <span>
-                      {typedText}
-                      <span className="inline-block w-[3px] h-[0.85em] bg-violet-500 ml-0.5 animate-pulse align-middle rounded-full" />
+              {/* Text shown immediately — no dependency on image loading state.
+                  Previously gated on imagesLoaded which meant ALL 5 collage images
+                  had to finish before the headline or CTA text would appear. On slow
+                  connections this could take 10–30 s. Now the text appears instantly
+                  and the typing cursor starts right away. */}
+              <>
+                <div className="absolute left-1/2 -translate-x-1/2 -top-3.5 sm:-top-4">
+                  <div className="flex items-center gap-2 bg-gray-100/95 backdrop-blur-sm text-gray-700 text-[10px] sm:text-[11px] font-medium px-3 sm:px-3.5 py-1.5 rounded-full whitespace-nowrap shadow-sm border border-gray-200/50">
+                    <span className="w-4 h-4 sm:w-[18px] sm:h-[18px] rounded-full bg-gray-900 inline-flex items-center justify-center overflow-hidden">
+                      <img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/image2vector.svg" alt="" width={12} height={12} className="w-[10px] h-[10px] sm:w-3 sm:h-3" loading="eager" decoding="async" />
                     </span>
-                  </h1>
-                </>
-              )}
+                    All-in-one
+                  </div>
+                </div>
+                <h1 className="text-[22px] sm:text-3xl md:text-[38px] md:leading-[1.2] font-bold text-neutral-900 leading-tight min-h-[2.5em] sm:min-h-[2.4em] flex items-center justify-center">
+                  <span>
+                    {typedText}
+                    <span className="inline-block w-[3px] h-[0.85em] bg-violet-500 ml-0.5 animate-pulse align-middle rounded-full" />
+                  </span>
+                </h1>
+              </>
             </div>
           </div>
         </div>

@@ -231,8 +231,13 @@
     -webkit-overflow-scrolling: touch;
     /* Prevent overscroll bounce that can cause scroll lock */
     overscroll-behavior-x: none;
-    /* Safe area support for iOS notch/home indicator */
-    padding-top: env(safe-area-inset-top);
+    /* Safe area support for iOS notch/home indicator.
+     * NOTE: padding-top is intentionally NOT set here. Setting it on body causes a
+     * visible white gap when the page is opened inside Instagram, TikTok, Facebook,
+     * or other social-media in-app browsers — their WebView inflates
+     * env(safe-area-inset-top) to include their own browser chrome (toolbar + status
+     * bar = up to 88px), producing a large blank strip at the top of every page.
+     * Safe-area top padding belongs on fixed navigation headers, not on body. */
     padding-bottom: env(safe-area-inset-bottom);
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
