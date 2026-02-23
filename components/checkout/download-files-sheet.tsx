@@ -73,7 +73,9 @@ export function DownloadFilesSheet({
     }
   }, [isOpen])
 
-  // Lock body scroll while sheet is visible
+  // Lock body scroll while sheet is visible.
+  // Now that globals.css no longer has overflow-y: auto !important on body,
+  // overflow: hidden works correctly on iOS Safari too.
   useEffect(() => {
     if (!mounted) return
     const prev = document.body.style.overflow
@@ -236,6 +238,9 @@ export function DownloadFilesSheet({
           backgroundColor: "rgba(0,0,0,0.48)",
           opacity: animateIn ? 1 : 0,
           transition: "opacity 280ms ease",
+          // pointer-events: none when invisible — prevents this fixed overlay
+          // from consuming touches/scroll when the sheet is closing/closed.
+          pointerEvents: animateIn ? "auto" : "none",
         }}
       />
 
@@ -250,6 +255,7 @@ export function DownloadFilesSheet({
           alignItems: "center",
           justifyContent: "center",
           padding: "24px",
+          pointerEvents: animateIn ? "auto" : "none",
         }}
       >
         <div
@@ -373,6 +379,8 @@ export function DownloadFilesSheet({
           right: 0,
           bottom: 0,
           zIndex: 99999,
+          // pointer-events: none when translated off-screen (closing/closed)
+          pointerEvents: animateIn ? "auto" : "none",
         }}
       >
         <div

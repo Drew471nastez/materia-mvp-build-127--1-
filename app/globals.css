@@ -195,16 +195,17 @@
   .delay-400 { animation-delay: 400ms; }
   .delay-500 { animation-delay: 500ms; }
 
-  /* Global overflow prevention - prevents horizontal scrolling */
+  /* Global overflow prevention.
+   * NOTE: overflow-x: hidden is set on <html>, NOT <body>.
+   * Setting overflow-x: hidden (or any non-visible overflow) on <body> is a
+   * known iOS Safari bug — it can completely block touch-based vertical
+   * scrolling. The <html> element is not affected by this bug. */
   html {
-    overflow-x: hidden;
+    overflow-x: hidden; /* Safe on html; clips horizontal overflow at window level */
     overflow-y: scroll; /* Desktop: always show vertical scrollbar to prevent layout shift */
-    -webkit-overflow-scrolling: touch;
     scroll-behavior: auto;
     /* Enable touch scrolling on mobile devices */
     touch-action: pan-y pinch-zoom;
-    /* Prevent overscroll bounce that can cause scroll lock */
-    overscroll-behavior-x: none;
   }
 
   /* Mobile: hide the persistent scrollbar — touch devices don't need it visible */
@@ -221,16 +222,15 @@
   }
 
   body {
-    overflow-x: hidden;
-    overflow-y: auto !important; /* Ensure vertical scrolling is NEVER blocked */
+    /* No overflow-x/y on body — avoids iOS Safari touch-scroll bug where
+     * overflow-x: hidden on body prevents vertical touch scrolling entirely.
+     * Horizontal overflow is contained by the page wrapper div. */
     width: 100%;
     max-width: 100vw;
     min-height: 100svh;
     /* Enable touch scrolling on mobile devices */
     touch-action: pan-y pinch-zoom;
     -webkit-overflow-scrolling: touch;
-    /* Prevent overscroll bounce that can cause scroll lock */
-    overscroll-behavior-x: none;
     /* Safe area support for iOS notch/home indicator.
      * NOTE: padding-top is intentionally NOT set here. Setting it on body causes a
      * visible white gap when the page is opened inside Instagram, TikTok, Facebook,
