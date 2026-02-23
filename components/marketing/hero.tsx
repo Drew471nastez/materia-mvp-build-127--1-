@@ -527,7 +527,7 @@ export function Hero() {
                         .join(", ")}
                       sizes="(max-width: 639px) 55vw, 34vw"
                       alt=""
-                      className="w-full h-full object-cover pointer-events-none"
+                      className="w-full h-full object-contain bg-white pointer-events-none"
                       draggable={false}
                       decoding="async"
                       loading={imageIdx === cardOrder[2] ? "eager" : "lazy"}
