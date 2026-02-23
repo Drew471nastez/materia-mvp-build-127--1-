@@ -2,7 +2,6 @@ import { Suspense } from "react"
 import { notFound } from "next/navigation"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
-import { cookies, headers } from "next/headers"
 import ReceiptContent from "@/components/receipt/receipt-content"
 
 interface ReceiptPageProps {
@@ -51,8 +50,6 @@ async function ReceiptPageContent({ params }: ReceiptPageProps) {
   const { token } = await params
   const admin = createAdminClient()
   const supabase = await createClient()
-  const cookieStore = await cookies()
-  const headersList = await headers()
 
   // IMPORTANT:
   // We fetch order normally. "*" already includes email status fields if they exist in the table:
@@ -95,52 +92,14 @@ async function ReceiptPageContent({ params }: ReceiptPageProps) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  let hasAccess = false
-  let requiresVerification = false
-  let isOwner = false
-
-  if (user && order.buyer_id === user.id) {
-    hasAccess = true
-    isOwner = true
-  } else {
-    const sessionCookie = cookieStore.get("materia_session")
-    const userAgent = headersList.get("user-agent") || "unknown"
-    const forwardedFor = headersList.get("x-forwarded-for")
-    const ip = forwardedFor?.split(",")[0]?.trim() || "unknown"
-
-    const allowedFingerprints = order.allowed_fingerprints || []
-
-    console.log("[v0] Receipt access check:", {
-      orderId: order.id,
-      sessionFingerprint: order.session_fingerprint,
-      currentCookie: sessionCookie?.value,
-      allowedFingerprints,
-      hasMatch:
-        sessionCookie &&
-        (sessionCookie.value === order.session_fingerprint || allowedFingerprints.includes(sessionCookie.value)),
-    })
-
-    if (order.session_fingerprint && sessionCookie?.value === order.session_fingerprint) {
-      hasAccess = true
-      console.log("[v0] ✅ Access granted - matches original purchase device")
-    } else if (sessionCookie && allowedFingerprints.includes(sessionCookie.value)) {
-      hasAccess = true
-      console.log("[v0] ✅ Access granted - device in allowed list")
-    } else {
-      requiresVerification = true
-      console.log("[v0] ❌ Verification required - device not recognized")
-    }
-
-    if (requiresVerification) {
-      await admin.from("security_events").insert({
-        order_id: order.id,
-        event_type: "fingerprint_mismatch",
-        fingerprint: sessionCookie?.value || null,
-        ip,
-        user_agent: userAgent,
-      })
-    }
-  }
+  // The receipt token in the URL is the sole access credential — a random,
+  // unguessable token issued at purchase time. Possessing it is sufficient
+  // proof of purchase (consistent with the download API and /checkout/receipt).
+  // Device-fingerprint gating was removed: it blocked users opening their
+  // receipt email link on any device other than the one used to purchase.
+  const hasAccess = true
+  const requiresVerification = false
+  const isOwner = !!(user && order.buyer_id === user.id)
 
   // Fetch assets - if variant was purchased, only get files assigned to that variant
   let assets: any[] = []
