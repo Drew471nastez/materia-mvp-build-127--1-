@@ -9,6 +9,7 @@ import {
 } from "@/lib/storage"
 import { isAssetSafeToDownload } from "@/lib/storage/antivirus"
 import { headers } from "next/headers"
+import { ensureProductBundle, getBundleSignedUrl, BUNDLE_THRESHOLD } from "@/lib/bundles"
 
 export const runtime = "nodejs"
 
@@ -102,7 +103,7 @@ export async function GET(
       }
     }
 
-    // Increment download count
+    // Increment download count (once, regardless of file count)
     await admin
       .from("subscriber_digital_products")
       .update({
@@ -112,12 +113,45 @@ export async function GET(
       })
       .eq("id", record.id)
 
-    // Generate signed URLs for all assets
+    // ── ≥6 files → serve as a single ZIP ───────────────────────────────────
+    if (assets.length >= BUNDLE_THRESHOLD) {
+      // Get creator ID for bundle path
+      const { data: creator } = await admin
+        .from("creators")
+        .select("id")
+        .eq("id", product.creator_id)
+        .single()
+
+      const creatorId = creator?.id ?? product.creator_id
+
+      // Get or generate cached bundle (fast if already cached)
+      const bundle = await ensureProductBundle(admin, product.id, product.title, creatorId)
+      if (bundle) {
+        const zipUrl = await getBundleSignedUrl(admin, bundle.zipPath)
+        if (zipUrl) {
+          // Log one download event for the bundle
+          await logDownloadEvent(admin, {
+            assetId: assets[0].id,
+            downloadToken: token,
+            ip,
+            userAgent,
+          }).catch(() => {})
+          return NextResponse.redirect(zipUrl)
+        }
+      }
+      // Bundle generation failed — fall through to per-file JSON (graceful degradation)
+    }
+
+    // ── < 6 files (or bundle fallback) ──────────────────────────────────────
     const downloadLinks = await Promise.all(
       assets.map(async (asset) => {
-        const signed = await generateSignedDownloadUrl(admin, asset.file_path, undefined, asset.storage_bucket || undefined)
+        const signed = await generateSignedDownloadUrl(
+          admin,
+          asset.file_path,
+          undefined,
+          asset.storage_bucket || undefined,
+        )
 
-        // Log download event
         await logDownloadEvent(admin, {
           assetId: asset.id,
           downloadToken: token,
@@ -140,7 +174,7 @@ export async function GET(
       return NextResponse.redirect(downloadLinks[0].downloadUrl)
     }
 
-    // Multiple files: return JSON with all links
+    // 2–5 files: return JSON list for the frontend to handle
     return NextResponse.json({
       success: true,
       productTitle: product.title,

@@ -124,6 +124,17 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId, cre
 
   const canPublish = !!thumbnailUrl && (product.type !== "digital" || assets.length > 0)
 
+  // Fire-and-forget: trigger ZIP bundle generation when file count reaches threshold.
+  // Runs in the background after save/publish so the seller never has to wait.
+  const triggerBundleIfNeeded = (fileCount: number) => {
+    if (product.type !== "digital" || fileCount < 6) return
+    fetch("/api/v2/upload/bundle", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ productId: product.id }),
+    }).catch(() => {}) // silent — buyer gets ZIP on next download if this fails
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
@@ -168,6 +179,10 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId, cre
         })
       }
 
+      // Regenerate ZIP bundle in the background if file count ≥ 6
+      // (title may have changed, so always re-trigger to update zip filename/hash)
+      triggerBundleIfNeeded(assets.length)
+
       router.refresh()
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred")
@@ -206,6 +221,11 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId, cre
 
     const supabase = createClient()
     await supabase.from("products").update({ status: newStatus }).eq("id", product.id)
+
+    // When publishing, ensure bundle is ready so first buyer gets instant ZIP download
+    if (newStatus === "published") {
+      triggerBundleIfNeeded(assets.length)
+    }
 
     router.refresh()
   }
@@ -518,7 +538,19 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId, cre
         {product.type === "digital" && (
           <Card className="border-border">
             <CardHeader>
-              <CardTitle>Digital Files</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                Digital Files
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      If multiple files, upload ZIP.
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </CardTitle>
               <CardDescription>Upload the files customers will receive after purchase (max 1GB each)</CardDescription>
             </CardHeader>
             <CardContent>
