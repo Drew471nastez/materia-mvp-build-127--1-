@@ -43,6 +43,59 @@ export function usePurchaseStatus(
   const [isChecking, setIsChecking] = useState(!serverHasPurchased)
 
   useEffect(() => {
+    // ── 1. URL-token path (Safari/WhatsApp/in-app-browser proof) ────────────────
+    // When the user completes checkout and clicks "Back to product", the receipt
+    // page appends ?purchaseToken=<token>&purchaseVariantId=<vid> to the product URL.
+    // Reading from the URL is immune to:
+    //   • Safari ITP localStorage clearing (cross-site tracking prevention)
+    //   • Safari/Chrome private/incognito mode (storage quota = 0)
+    //   • In-app browsers (WhatsApp, Instagram) that don't share cookies/storage
+    //     with the main Safari session
+    let urlToken: string | null = null
+    let urlVariantId: string | null = null
+    try {
+      const params = new URLSearchParams(window.location.search)
+      urlToken = params.get("purchaseToken")
+      urlVariantId = params.get("purchaseVariantId")
+    } catch { /* ignore */ }
+
+    if (urlToken) {
+      // Trust the URL token immediately. It is only placed there by our own
+      // receipt page after a confirmed purchase. The actual download API
+      // independently verifies the token server-side, so there's no security risk.
+      const variantIds = urlVariantId
+        ? [urlVariantId]
+        : serverPurchasedVariantIds.length > 0
+          ? [...serverPurchasedVariantIds]
+          : [""] // empty-string = no-variant product
+
+      setHasPurchased(true)
+      setReceiptToken(urlToken)
+      setPurchasedVariantIds(variantIds)
+
+      // Remove the token from the visible URL (keeps it clean in history)
+      try {
+        const cleanUrl = new URL(window.location.href)
+        cleanUrl.searchParams.delete("purchaseToken")
+        cleanUrl.searchParams.delete("purchaseVariantId")
+        window.history.replaceState({}, "", cleanUrl.toString())
+      } catch { /* ignore */ }
+
+      // Best-effort: persist to localStorage for future visits on this device
+      try {
+        const stored = localStorage.getItem(PURCHASED_PRODUCTS_KEY)
+        const purchases: Record<string, PurchaseInfo> = stored ? JSON.parse(stored) : {}
+        if (!purchases[productId]?.receiptToken) {
+          purchases[productId] = { receiptToken: urlToken, assets: [], variantIds }
+          localStorage.setItem(PURCHASED_PRODUCTS_KEY, JSON.stringify(purchases))
+        }
+      } catch { /* localStorage may be unavailable in private mode — that's fine */ }
+
+      setIsChecking(false)
+      return
+    }
+
+    // ── 2. localStorage path (normal browsers, non-private mode) ────────────────
     // If server already confirmed purchase, merge with localStorage for complete picture
     try {
       const stored = localStorage.getItem(PURCHASED_PRODUCTS_KEY)

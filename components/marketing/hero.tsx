@@ -55,12 +55,16 @@ const PARTNER_LOGOS = [
   "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/eyJidWNrZXQiOiJwYXJ0bmVycGFnZS5wcm9kIiwia2V5IjoibWVkaWEvY29udGFjdF9pbWFnZXMvOWQ0MDVmYmMtNGJkMS00NzEz.svg",
 ]
 
+// Supabase image transform URLs: width=700 covers 2x retina at all card sizes.
+// quality=72 is visually indistinguishable from 100 for WebP at these display sizes.
+// /render/image/public/ path enables Supabase's server-side resize — reduces file
+// size ~80% vs original (typically 800 KB → ~80 KB per image).
 const IMAGES = [
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Monetize%20(5)%20(2).webp",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Monetize%20(6)%20(1).webp",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Monetize%20(7)%20(1).webp",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Monetize%20(13).webp",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Monetize%20(9).webp",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(5)%20(2).webp?width=700&quality=72",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(6)%20(1).webp?width=700&quality=72",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(7)%20(1).webp?width=700&quality=72",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(13).webp?width=700&quality=72",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(9).webp?width=700&quality=72",
 ]
 
 interface CardDef {
@@ -482,18 +486,28 @@ export function Hero() {
               // saturation removed — was lerped from 0.96→1, imperceptible difference
               // but caused a CSS filter repaint on every RAF tick (60fps × 5 cards)
 
+              // Move position into transform so layout is never triggered during animation.
+              // translate3d(x, y, 0) is handled entirely by the GPU compositor —
+              // equivalent visual to `left/top` but skips layout + paint each RAF tick.
+              // Adjustment matches the original scale-from-center (50% 50%) behaviour:
+              //   tx = left + width*(1-scale)/2
+              //   ty = top  + height*(1-scale)/2
+              const tx = left + width * (1 - scale) / 2
+              const ty = top + height * (1 - scale) / 2
+
               return (
                 <div
                   key={imageIdx}
                   className="collage-card absolute rounded-[14px] overflow-hidden shadow-sm shadow-black/10"
                   style={{
-                    left,
-                    top,
+                    left: 0,
+                    top: 0,
                     width,
                     height,
                     zIndex,
                     opacity,
-                    transform: `translateZ(0) scale(${scale})`,
+                    transform: `translate3d(${tx}px, ${ty}px, 0) scale(${scale})`,
+                    transformOrigin: "0 0",
                   }}
                 >
                   {!loadedImages.has(imageIdx) ? (

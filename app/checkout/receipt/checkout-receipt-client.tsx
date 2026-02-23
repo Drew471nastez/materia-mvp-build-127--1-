@@ -107,6 +107,14 @@ export default function CheckoutReceiptClient({
   const creatorUsername = product.creator?.username || product.creator?.slug || ""
   const productUrl = creatorUsername ? getProductUrl(creatorUsername, product.slug) : "/explore"
 
+  // "Back to product" URL includes purchaseToken (and variant if applicable) so the
+  // product page can show the Download button immediately without depending on
+  // localStorage — which may be unavailable in Safari private mode, iOS in-app
+  // browsers (WhatsApp, Instagram), or after ITP storage clearing.
+  const backToProductUrl = hasAccess && receiptToken
+    ? `${productUrl}${productUrl.includes("?") ? "&" : "?"}purchaseToken=${encodeURIComponent(receiptToken)}${order.variant_id ? `&purchaseVariantId=${encodeURIComponent(order.variant_id)}` : ""}`
+    : productUrl
+
   // Verification state (for different-device access)
   const [verifyEmail, setVerifyEmail] = useState("")
   const [verificationCode, setVerificationCode] = useState("")
@@ -570,7 +578,7 @@ export default function CheckoutReceiptClient({
       {/* Header */}
       <header className="border-b border-gray-200 bg-white pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex h-14 max-w-[1400px] items-center justify-between px-6 sm:px-10 lg:px-16">
-          <a href={productUrl} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 min-h-[44px] transition-colors">
+          <a href={backToProductUrl} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 min-h-[44px] transition-colors">
             <ArrowLeft className="h-4 w-4 shrink-0" />
             <span className="truncate">Back to product</span>
           </a>
