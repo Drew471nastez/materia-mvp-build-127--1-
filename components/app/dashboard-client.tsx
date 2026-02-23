@@ -115,6 +115,7 @@ interface DashboardClientProps {
   creatorHandle?: string
   connectedDomain?: string | null
   brandingDetail?: { hasAvatar: boolean; hasName: boolean; hasBio: boolean }
+  subscriptionPlanId?: string
 }
 
 function ChainLinkIcon({ className = "w-4 h-4", stroke = "#ffffff" }: { className?: string; stroke?: string }) {
@@ -782,6 +783,7 @@ export function DashboardClient({
   creatorHandle = "",
   connectedDomain = null,
   brandingDetail,
+  subscriptionPlanId = "free",
 }: DashboardClientProps) {
   const [timeframe, setTimeframe] = useState(() => {
     if (typeof window !== "undefined") {
@@ -1897,7 +1899,7 @@ export function DashboardClient({
           </div>
         </div>
 
-        {/* Storelib Promotional Banner - Responsive for all devices */}
+        {/* Dashboard Banner — content changes based on subscription plan */}
         <div className="mb-8">
           <div className="relative overflow-hidden rounded-2xl">
             <Image
@@ -1910,28 +1912,44 @@ export function DashboardClient({
             />
             <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-black/30" />
             <div className="relative z-10 px-5 py-5 sm:px-8 sm:py-6">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-[13px] sm:text-[15px] font-semibold text-white">Storelib Editions</span>
-                <span className="text-white/60 hidden sm:inline">|</span>
-                <span className="text-[13px] sm:text-[15px] text-white/90 hidden sm:inline">Winter '26</span>
-              </div>
-              <p className="text-[16px] sm:text-[20px] font-medium text-white mb-3 sm:mb-4">{t("dashboard.commerceRenaissance")}</p>
-              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                <Link
-                  href="/editions"
-                  className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 bg-white rounded-lg text-[12px] sm:text-[13px] font-semibold text-[#1a1a2e] hover:bg-white/90 transition-colors"
-                >
-                  {t("dashboard.exploreUpdates")}
-                </Link>
-                <Link
-                  href="/editions"
-                  className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-[12px] sm:text-[13px] font-medium text-white hover:bg-white/20 transition-colors"
-                >
-                  <ExternalLink className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                  <span className="hidden sm:inline">/editions</span>
-                  <span className="sm:hidden">View</span>
-                </Link>
-              </div>
+              {subscriptionPlanId === "growth" || subscriptionPlanId === "pro" ? (
+                /* Growth / Pro plan banner */
+                <>
+                  <p className="text-[16px] sm:text-[20px] font-medium text-white mb-1">Track what&apos;s working in real time</p>
+                  <p className="text-[13px] sm:text-[14px] text-white/80 mb-3 sm:mb-4">Use your dashboard to optimize for more sales.</p>
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                    <Link
+                      href="/app/analytics"
+                      className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 bg-white rounded-lg text-[12px] sm:text-[13px] font-semibold text-[#1a1a2e] hover:bg-white/90 transition-colors"
+                    >
+                      <BarChart3 className="h-3.5 w-3.5" />
+                      View analytics
+                    </Link>
+                  </div>
+                </>
+              ) : (
+                /* Free plan banner */
+                <>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[13px] sm:text-[15px] font-semibold text-white">Unlock Growth features</span>
+                  </div>
+                  <p className="text-[14px] sm:text-[16px] text-white/90 mb-3 sm:mb-4">Scale faster with advanced tools, higher limits, and lower fees.</p>
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                    <Link
+                      href="/app/settings/billing/upgrade"
+                      className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 bg-white rounded-lg text-[12px] sm:text-[13px] font-semibold text-[#1a1a2e] hover:bg-white/90 transition-colors"
+                    >
+                      Upgrade
+                    </Link>
+                    <Link
+                      href="/features"
+                      className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-[12px] sm:text-[13px] font-medium text-white hover:bg-white/20 transition-colors"
+                    >
+                      Features
+                    </Link>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>

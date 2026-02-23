@@ -158,6 +158,7 @@ export default async function AppDashboard() {
       creatorHandle={profile?.username || creator.slug || ""}
       connectedDomain={activeDomain?.domain || null}
       brandingDetail={{ hasAvatar, hasName, hasBio }}
+      subscriptionPlanId={creator.subscription_plan_id || "free"}
     />
   )
 }
