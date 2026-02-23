@@ -323,7 +323,7 @@ function SignUpFormContent() {
 
   return (
     <div className="flex min-h-svh w-full lg:h-svh lg:overflow-hidden">
-      <div className="flex w-full flex-col justify-center px-6 py-12 lg:w-1/2 lg:px-16 xl:px-24">
+      <div className="flex w-full flex-col justify-center px-6 py-12 lg:w-1/2 lg:h-svh lg:overflow-y-auto lg:px-16 xl:px-24">
         <div className="mx-auto w-full max-w-[400px] animate-fade-in-up">
           <Link href="/" className="mb-12 inline-flex items-center gap-2">
             <img
@@ -467,7 +467,7 @@ function SignUpFormContent() {
         </div>
       </div>
 
-      <div className="relative hidden lg:block lg:w-1/2 overflow-hidden bg-neutral-900">
+      <div className="relative hidden lg:block lg:w-1/2 lg:h-svh overflow-hidden bg-neutral-900">
         <Image
           src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20design%20(8).webp"
           alt="Signup banner"

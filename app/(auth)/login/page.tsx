@@ -9,7 +9,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useEffect, Suspense, useRef } from "react"
 import { Eye, EyeOff } from "lucide-react"
 import { getCanonicalSiteUrl } from "@/lib/url-helpers"
-import { CountdownBanner } from "@/components/auth/countdown-banner"
+import Image from "next/image"
 
 function LoginFormContent() {
   const [email, setEmail] = useState("")
@@ -322,7 +322,7 @@ function LoginFormContent() {
 
   return (
     <div className="flex min-h-svh w-full lg:h-svh lg:overflow-hidden">
-      <div className="flex w-full flex-col justify-center px-6 py-12 lg:w-1/2 lg:px-16 xl:px-24">
+      <div className="flex w-full flex-col justify-center px-6 py-12 lg:w-1/2 lg:h-svh lg:overflow-y-auto lg:px-16 xl:px-24">
         <div className="mx-auto w-full max-w-[400px] animate-fade-in-up">
           <Link href="/" className="mb-12 inline-flex items-center gap-2">
             <img
@@ -443,10 +443,17 @@ function LoginFormContent() {
         </div>
       </div>
 
-      <CountdownBanner
-        imageSrc="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20design%20(9).webp"
-        imageAlt="Login banner"
-      />
+      <div className="relative hidden lg:block lg:w-1/2 lg:h-svh overflow-hidden bg-neutral-900">
+        <Image
+          src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(10).webp"
+          alt="Login banner"
+          width={1024}
+          height={1964}
+          className="h-full w-full object-cover object-center"
+          sizes="(min-width: 1024px) 50vw, 0px"
+          quality={65}
+        />
+      </div>
     </div>
   )
 }

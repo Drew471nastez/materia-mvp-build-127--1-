@@ -184,7 +184,7 @@ export default function VerifyEmailContent() {
   return (
     <div className="flex min-h-svh w-full lg:h-svh lg:overflow-hidden">
       {/* Left side - Form */}
-      <div className="flex w-full flex-col justify-center px-6 py-12 lg:w-1/2 lg:px-16 xl:px-24">
+      <div className="flex w-full flex-col justify-center px-6 py-12 lg:w-1/2 lg:h-svh lg:overflow-y-auto lg:px-16 xl:px-24">
         <div className="mx-auto w-full max-w-[400px]">
           <Link href="/" className="mb-12 inline-flex items-center gap-2">
             <img
@@ -304,7 +304,7 @@ export default function VerifyEmailContent() {
       </div>
 
       {/* Right side - Same image as signup page */}
-      <div className="relative hidden lg:block lg:w-1/2">
+      <div className="relative hidden lg:block lg:w-1/2 lg:h-svh">
         {!isBannerLoaded && <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-neutral-100 via-neutral-200 to-neutral-100" />}
         <Image
           src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20design%20(8).webp"
