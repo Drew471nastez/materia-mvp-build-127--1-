@@ -879,6 +879,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   const [domainInput, setDomainInput] = useState("")
   const [domainAdding, setDomainAdding] = useState(false)
   const [domainError, setDomainError] = useState<string | null>(null)
+  const [domainInfo, setDomainInfo] = useState<string | null>(null)
   const [domainVerifying, setDomainVerifying] = useState<string | null>(null)
   const [domainRemoving, setDomainRemoving] = useState<string | null>(null)
   const [dnsRecordStatus, setDnsRecordStatus] = useState<{ aRecord: boolean; cname: boolean; txt: boolean } | null>(null)
@@ -1338,6 +1339,10 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     if (!domainInput.trim()) return
     setDomainAdding(true)
     setDomainError(null)
+    setDomainInfo(null)
+    setDomainWarnings([])
+    setDomainIssues([])
+    setDnsRecordStatus(null)
     try {
       const res = await fetch("/api/domains", {
         method: "POST",
@@ -1372,15 +1377,19 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
       if (data.warnings) setDomainWarnings(data.warnings)
       if (data.issues) setDomainIssues(data.issues)
       if (data.verified && data.sslPending) {
-        // DNS verified but SSL certificate is still being issued
+        // DNS verified but SSL certificate is still being issued — info, not an error
         setDomains((prev) => prev.map((d) => d.id === domainId ? { ...d, status: "ssl_provisioning", verified_at: new Date().toISOString(), ssl_status: "provisioning" } : d))
-        setDomainError(data.message || "DNS verified! SSL certificate is being issued. Check back in a few minutes.")
+        setDomainError(null)
+        setDomainInfo(data.message || "DNS verified! SSL certificate is being issued. This usually takes 1–10 minutes.")
       } else if (data.verified) {
         // Fully connected with SSL
         setDomains((prev) => prev.map((d) => d.id === domainId ? { ...d, status: "active", verified_at: new Date().toISOString(), ssl_status: "active" } : d))
+        setDomainError(null)
+        setDomainInfo(null)
         setDomainWarnings([])
         setDomainIssues([])
       } else {
+        setDomainInfo(null)
         setDomainError(data.message || "Verification failed")
       }
     } catch (err) {
@@ -1392,6 +1401,11 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
   const removeDomain = async (domainId: string) => {
     setDomainRemoving(domainId)
+    setDomainError(null)
+    setDomainInfo(null)
+    setDomainWarnings([])
+    setDomainIssues([])
+    setDnsRecordStatus(null)
     try {
       const res = await fetch("/api/domains", {
         method: "DELETE",
@@ -2901,7 +2915,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                     <input
                       type="text"
                       value={domainInput}
-                      onChange={(e) => { setDomainInput(e.target.value); setDomainError(null) }}
+                      onChange={(e) => { setDomainInput(e.target.value); setDomainError(null); setDomainInfo(null) }}
                       onKeyDown={(e) => e.key === "Enter" && addDomain()}
                       placeholder="Enter your domain (e.g. mydomain.com)"
                       className="w-full h-11 pl-10 pr-4 text-[14px] border border-[#e5e7eb] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#8b5cf6] focus:border-[#8b5cf6] transition-colors"
@@ -2921,6 +2935,13 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   <div className="mt-3 flex items-center gap-2 text-[12px] text-red-600">
                     <AlertCircle className="h-3.5 w-3.5 shrink-0" />
                     {domainError}
+                  </div>
+                )}
+
+                {domainInfo && (
+                  <div className="mt-3 flex items-center gap-2 text-[12px] text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                    <CheckCircle className="h-3.5 w-3.5 shrink-0 text-blue-500" />
+                    {domainInfo}
                   </div>
                 )}
 
