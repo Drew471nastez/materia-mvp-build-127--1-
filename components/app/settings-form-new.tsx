@@ -880,6 +880,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   const [domainAdding, setDomainAdding] = useState(false)
   const [domainError, setDomainError] = useState<string | null>(null)
   const [domainInfo, setDomainInfo] = useState<string | null>(null)
+  const [lastVerifyDomainId, setLastVerifyDomainId] = useState<string | null>(null)
   const [domainVerifying, setDomainVerifying] = useState<string | null>(null)
   const [domainRemoving, setDomainRemoving] = useState<string | null>(null)
   const [dnsRecordStatus, setDnsRecordStatus] = useState<{ aRecord: boolean; cname: boolean; txt: boolean } | null>(null)
@@ -1340,6 +1341,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     setDomainAdding(true)
     setDomainError(null)
     setDomainInfo(null)
+    setLastVerifyDomainId(null)
     setDomainWarnings([])
     setDomainIssues([])
     setDnsRecordStatus(null)
@@ -1366,6 +1368,9 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
   const verifyDomain = async (domainId: string) => {
     setDomainVerifying(domainId)
+    setLastVerifyDomainId(domainId)
+    setDomainError(null)
+    setDomainInfo(null)
     try {
       const res = await fetch("/api/domains/verify", {
         method: "POST",
@@ -1386,14 +1391,15 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
         setDomains((prev) => prev.map((d) => d.id === domainId ? { ...d, status: "active", verified_at: new Date().toISOString(), ssl_status: "active" } : d))
         setDomainError(null)
         setDomainInfo(null)
+        setLastVerifyDomainId(null)
         setDomainWarnings([])
         setDomainIssues([])
       } else {
         setDomainInfo(null)
-        setDomainError(data.message || "Verification failed")
+        setDomainError(data.message || "DNS records not found yet. Please check your records and try again.")
       }
     } catch (err) {
-      setDomainError("Verification failed")
+      setDomainError("Verification failed — please try again.")
     } finally {
       setDomainVerifying(null)
     }
@@ -1403,6 +1409,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     setDomainRemoving(domainId)
     setDomainError(null)
     setDomainInfo(null)
+    setLastVerifyDomainId(null)
     setDomainWarnings([])
     setDomainIssues([])
     setDnsRecordStatus(null)
@@ -3090,6 +3097,14 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                             </button>
                           </div>
                         </div>
+
+                        {/* Inline verify feedback — shown only for the last-verified domain */}
+                        {lastVerifyDomainId === d.id && (domainError || domainInfo) && (
+                          <div className={`hidden sm:flex items-start gap-2 px-4 py-2.5 mx-0 mb-1 rounded-xl text-[12px] leading-relaxed ${domainError ? "bg-red-50 border border-red-200 text-red-700" : "bg-blue-50 border border-blue-200 text-blue-700"}`}>
+                            {domainError ? <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" /> : <CheckCircle className="h-3.5 w-3.5 shrink-0 mt-0.5 text-blue-500" />}
+                            <span>{domainError || domainInfo}</span>
+                          </div>
+                        )}
 
                         {/* Mobile Card */}
                         <div className="sm:hidden bg-[#f9fafb] rounded-xl p-4 border border-[#e5e7eb] mb-3">
