@@ -476,6 +476,9 @@ function SignUpFormContent() {
           className="h-full w-full object-cover object-center"
           sizes="(min-width: 1024px) 50vw, 0px"
           quality={65}
+          loading="lazy"
+          fetchPriority="low"
+          decoding="async"
         />
       </div>
     </div>

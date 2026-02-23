@@ -445,13 +445,16 @@ function LoginFormContent() {
 
       <div className="relative hidden lg:block lg:w-1/2 lg:h-svh overflow-hidden bg-neutral-900">
         <Image
-          src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(10).webp"
+          src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(11).webp"
           alt="Login banner"
           width={1024}
           height={1964}
           className="h-full w-full object-cover object-center"
           sizes="(min-width: 1024px) 50vw, 0px"
           quality={65}
+          loading="lazy"
+          fetchPriority="low"
+          decoding="async"
         />
       </div>
     </div>
