@@ -745,7 +745,7 @@ export default function CheckoutPageClient({
   const [vatId, setVatId] = useState(() => loadSessionField(SESSION_KEYS.vatId))
   const [country, setCountry] = useState(() => loadSessionField(SESSION_KEYS.country) || "US")
   const [agreedToTerms, setAgreedToTerms] = useState(false)
-  const [emailOptIn, setEmailOptIn] = useState(true)
+  const [emailOptIn, setEmailOptIn] = useState(false)
   const [nameOnCard, setNameOnCard] = useState("")
 
   const [tipAmount, setTipAmount] = useState(0)
