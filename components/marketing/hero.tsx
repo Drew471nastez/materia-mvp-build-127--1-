@@ -139,6 +139,10 @@ export function Hero() {
   const rafRef = useRef<number | null>(null)
   const dragRafRef = useRef<number | null>(null)
   const dragRef = useRef({ active: false, startX: 0, delta: 0, rawDelta: 0 })
+  const imageLoadQueueRef = useRef<number[]>([])
+  const queuedImageSetRef = useRef(new Set<number>())
+  const loadedImageSetRef = useRef(new Set<number>())
+  const imageLoadingRef = useRef(false)
 
   const clearAutoplay = useCallback(() => {
     if (autoplayRef.current) {
@@ -231,31 +235,107 @@ export function Hero() {
     }
   }, [clearAutoplay, restartAutoplay])
 
-  // Preload collage images – center card first for faster perceived load
-  useEffect(() => {
-    const loadImage = (src: string, idx: number) => {
-      return new Promise<void>((resolve) => {
-        const img = new Image()
-        img.onload = () => {
-          setLoadedImages(prev => new Set(prev).add(idx))
-          resolve()
-        }
-        img.onerror = () => {
-          setLoadedImages(prev => new Set(prev).add(idx))
-          resolve()
-        }
-        img.src = src
-      })
+  const markImageLoaded = useCallback((idx: number) => {
+    if (loadedImageSetRef.current.has(idx)) return
+    loadedImageSetRef.current.add(idx)
+    setLoadedImages(new Set(loadedImageSetRef.current))
+  }, [])
+
+  const loadImageByIndex = useCallback((idx: number) => {
+    if (loadedImageSetRef.current.has(idx)) return Promise.resolve()
+
+    return new Promise<void>((resolve) => {
+      const img = new Image()
+      img.decoding = "async"
+      img.onload = () => {
+        markImageLoaded(idx)
+        resolve()
+      }
+      img.onerror = () => {
+        markImageLoaded(idx)
+        resolve()
+      }
+      img.src = IMAGES[idx]
+    })
+  }, [markImageLoaded])
+
+  const drainImageQueue = useCallback(() => {
+    if (imageLoadingRef.current) return
+    const next = imageLoadQueueRef.current.shift()
+    if (next === undefined) return
+    queuedImageSetRef.current.delete(next)
+
+    imageLoadingRef.current = true
+    loadImageByIndex(next).finally(() => {
+      imageLoadingRef.current = false
+      drainImageQueue()
+    })
+  }, [loadImageByIndex])
+
+  const queueImageLoad = useCallback((idx: number, priority = false) => {
+    if (loadedImageSetRef.current.has(idx) || queuedImageSetRef.current.has(idx)) return
+    queuedImageSetRef.current.add(idx)
+
+    if (priority) {
+      imageLoadQueueRef.current.unshift(idx)
+    } else {
+      imageLoadQueueRef.current.push(idx)
     }
 
-    // Load center image (index 2) first, then the rest in parallel
+    drainImageQueue()
+  }, [drainImageQueue])
+
+  // Progressive image loading for collage:
+  // - prioritize center + adjacent cards
+  // - defer far-edge cards on constrained connections
+  useEffect(() => {
     const CENTER = 2
-    loadImage(IMAGES[CENTER], CENTER).then(() => {
-      IMAGES.forEach((src, idx) => {
-        if (idx !== CENTER) loadImage(src, idx)
-      })
-    })
-  }, [])
+    queueImageLoad(CENTER, true)
+    queueImageLoad(CENTER - 1, true)
+    queueImageLoad(CENTER + 1, true)
+
+    const connection = (navigator as Navigator & {
+      connection?: { saveData?: boolean; effectiveType?: string }
+    }).connection
+    const isConstrained = Boolean(
+      connection?.saveData ||
+      connection?.effectiveType?.includes("2g") ||
+      connection?.effectiveType === "slow-2g",
+    )
+
+    if (isConstrained) return
+
+    const scheduleBackgroundLoad = () => {
+      queueImageLoad(0)
+      queueImageLoad(4)
+    }
+
+    if (typeof window.requestIdleCallback === "function") {
+      const idleHandle = window.requestIdleCallback(scheduleBackgroundLoad, { timeout: 1400 })
+      return () => window.cancelIdleCallback(idleHandle)
+    }
+
+    const timeout = window.setTimeout(scheduleBackgroundLoad, 700)
+    return () => window.clearTimeout(timeout)
+  }, [queueImageLoad])
+
+  // Ensure currently visible cards are always requested first
+  useEffect(() => {
+    const fromOrder = transition?.from ?? cardOrder
+    const toOrder = transition?.to ?? cardOrder
+    const prioritized = new Set<number>([
+      fromOrder[1],
+      fromOrder[2],
+      fromOrder[3],
+      toOrder[1],
+      toOrder[2],
+      toOrder[3],
+    ])
+
+    for (const idx of prioritized) {
+      if (typeof idx === "number") queueImageLoad(idx, idx === toOrder[2] || idx === fromOrder[2])
+    }
+  }, [cardOrder, queueImageLoad, transition])
 
   // Preload partner logos
   useEffect(() => {
