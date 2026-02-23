@@ -97,6 +97,7 @@ export function usePurchaseStatus(
 
     // ── 2. localStorage path (normal browsers, non-private mode) ────────────────
     // If server already confirmed purchase, merge with localStorage for complete picture
+    let foundInStorage = false
     try {
       const stored = localStorage.getItem(PURCHASED_PRODUCTS_KEY)
       if (stored) {
@@ -126,14 +127,67 @@ export function usePurchaseStatus(
             if (purchaseInfo.assets && purchaseInfo.assets.length > 0) {
               setAssetId(purchaseInfo.assets[0].id)
             }
+            foundInStorage = true
           }
         }
       }
     } catch (e) {
       console.error("[usePurchaseStatus] Error checking localStorage:", e)
-    } finally {
-      setIsChecking(false)
     }
+
+    // ── 3. Cross-subdomain cookie path (Safari / WhatsApp / subdomain mismatch) ─
+    //
+    // Product pages live at username.storelib.com but checkout runs at storelib.com.
+    // These are different origins → each has its own isolated localStorage.
+    // A cookie set with Domain=.storelib.com IS shared across all subdomains, so
+    // this is the only reliable fallback when localStorage is siloed or unavailable
+    // (private mode, ITP storage clearing, or in-app browser isolation).
+    //
+    // The cookie is written by the receipt page immediately after purchase confirmation.
+    // We only use it when localStorage didn't already yield a result for this product,
+    // to avoid unnecessary cookie parsing.
+    if (!foundInStorage) {
+      try {
+        const cookieMatch = document.cookie
+          .split(";")
+          .map(c => c.trim())
+          .find(c => c.startsWith("materia_last_purchase="))
+
+        if (cookieMatch) {
+          const raw = decodeURIComponent(cookieMatch.replace("materia_last_purchase=", ""))
+          const cookieData: { t?: string; p?: string; v?: string | null } = JSON.parse(raw)
+
+          // Only apply if this cookie is for the current product
+          if (cookieData.p === productId && cookieData.t) {
+            const cookieVariantIds = cookieData.v ? [cookieData.v] : [""]
+            const mergedVariantIds = [...new Set([...serverPurchasedVariantIds, ...cookieVariantIds])]
+
+            setHasPurchased(true)
+            setReceiptToken(cookieData.t)
+            setPurchasedVariantIds(mergedVariantIds)
+
+            // Best-effort: mirror into localStorage for this origin so future
+            // page loads on the same subdomain skip the cookie check
+            try {
+              const stored = localStorage.getItem(PURCHASED_PRODUCTS_KEY)
+              const purchases: Record<string, PurchaseInfo> = stored ? JSON.parse(stored) : {}
+              if (!purchases[productId]?.receiptToken) {
+                purchases[productId] = {
+                  receiptToken: cookieData.t,
+                  assets: [],
+                  variantIds: mergedVariantIds,
+                }
+                localStorage.setItem(PURCHASED_PRODUCTS_KEY, JSON.stringify(purchases))
+              }
+            } catch { /* localStorage unavailable — cookie fallback stays active */ }
+          }
+        }
+      } catch (e) {
+        console.error("[usePurchaseStatus] Error checking cross-subdomain cookie:", e)
+      }
+    }
+
+    setIsChecking(false)
   }, [productId, serverHasPurchased, serverPurchasedVariantIds])
 
   // Helper to check if a specific variant was purchased

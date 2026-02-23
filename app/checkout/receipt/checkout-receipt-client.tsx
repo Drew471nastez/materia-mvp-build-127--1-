@@ -168,7 +168,20 @@ export default function CheckoutReceiptClient({
     }, 5000)
   }, [])
 
-  // Save purchase to localStorage
+  // Save purchase to localStorage + cross-subdomain cookie
+  //
+  // WHY THE COOKIE?
+  // ───────────────
+  // localStorage is scoped per origin. Checkout lives at storelib.com but product
+  // pages live at username.storelib.com — a different origin with its own isolated
+  // localStorage. This means users who reach the product page via the browser back
+  // button (rather than the "Back to product" link) would see the Buy button again
+  // even though they just purchased.
+  //
+  // Cookies set with Domain=.storelib.com are shared across ALL subdomains, so the
+  // usePurchaseStatus hook can find the purchase info regardless of which subdomain
+  // the product page is on. This is the standard first-party cookie pattern and is
+  // NOT affected by Safari ITP (which only restricts cross-site / third-party cookies).
   useEffect(() => {
     if (!hasAccess || !order.product_id || !receiptToken) return
     try {
@@ -193,6 +206,33 @@ export default function CheckoutReceiptClient({
       }
       localStorage.setItem(PURCHASED_PRODUCTS_KEY, JSON.stringify(purchases))
     } catch {}
+
+    // ── Cross-subdomain cookie ───────────────────────────────────────────────
+    // Write the same purchase info into a first-party cookie scoped to the
+    // parent domain so product pages at username.storelib.com can read it.
+    // This is the only storage mechanism that works across subdomains without
+    // an API round-trip.
+    try {
+      const mainDomain = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
+      // Only set a parent-domain cookie when we're actually on the real domain
+      // (skip localhost / non-matching envs where subdomains aren't used)
+      if (!mainDomain.includes("localhost")) {
+        const cookiePayload = JSON.stringify({
+          t: receiptToken,
+          p: order.product_id,
+          v: order.variant_id || null,
+        })
+        // Expires in 30 days — long enough to survive a Safari ITP purge window
+        const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toUTCString()
+        document.cookie = [
+          `materia_last_purchase=${encodeURIComponent(cookiePayload)}`,
+          `expires=${expires}`,
+          "path=/",
+          `domain=.${mainDomain}`,
+          "SameSite=Lax",
+        ].join("; ")
+      }
+    } catch { /* cookie API unavailable — the URL-token fallback still covers this */ }
   }, [hasAccess, order.product_id, order.variant_id, receiptToken, assets])
 
   // Auto toast: only once per order per session
