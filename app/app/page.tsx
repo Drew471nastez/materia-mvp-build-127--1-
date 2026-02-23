@@ -132,7 +132,7 @@ export default async function AppDashboard() {
       description: "Share your link and sell",
       tooltip: "Share your link to get sales",
       completed: hasFirstSale,
-      href: "/app/sales",
+      href: "/app/orders",
     },
   ]
 

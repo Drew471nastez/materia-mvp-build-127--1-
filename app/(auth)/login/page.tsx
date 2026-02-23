@@ -321,7 +321,7 @@ function LoginFormContent() {
   }
 
   return (
-    <div className="flex min-h-svh w-full">
+    <div className="flex min-h-svh w-full lg:h-svh lg:overflow-hidden">
       <div className="flex w-full flex-col justify-center px-6 py-12 lg:w-1/2 lg:px-16 xl:px-24">
         <div className="mx-auto w-full max-w-[400px] animate-fade-in-up">
           <Link href="/" className="mb-12 inline-flex items-center gap-2">

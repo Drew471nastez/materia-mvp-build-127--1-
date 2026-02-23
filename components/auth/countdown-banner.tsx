@@ -47,8 +47,9 @@ export function CountdownBanner({ imageSrc, imageAlt, priority = false }: Countd
       <Image
         src={imageSrc}
         alt={imageAlt}
-        fill
-        className="object-cover scale-110 blur-[18px] brightness-[0.7]"
+        width={1024}
+        height={1964}
+        className="h-full w-full object-cover object-center scale-110 blur-[18px] brightness-[0.7]"
         sizes="(min-width: 1024px) 50vw, 0px"
         quality={65}
         priority={priority}

@@ -182,7 +182,7 @@ export default function VerifyEmailContent() {
   }
 
   return (
-    <div className="flex min-h-svh w-full">
+    <div className="flex min-h-svh w-full lg:h-svh lg:overflow-hidden">
       {/* Left side - Form */}
       <div className="flex w-full flex-col justify-center px-6 py-12 lg:w-1/2 lg:px-16 xl:px-24">
         <div className="mx-auto w-full max-w-[400px]">
@@ -309,8 +309,9 @@ export default function VerifyEmailContent() {
         <Image
           src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20design%20(8).webp"
           alt="Verify email banner"
-          fill
-          className="object-cover transition-opacity duration-500"
+          width={1024}
+          height={1964}
+          className="h-full w-full object-cover object-center transition-opacity duration-500"
           sizes="(min-width: 1024px) 50vw, 0px"
           quality={65}
           onLoad={() => setIsBannerLoaded(true)}

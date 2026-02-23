@@ -92,7 +92,7 @@ const stepSubsteps: Record<string, { labelKey: string; check: (data: any) => boo
   ],
   sale: [
     { labelKey: "setup.shareLink", check: () => false, href: "/app/onepage" },
-    { labelKey: "setup.getFirstSale", check: (d) => d.hasFirstSale, href: "/app/sales" },
+    { labelKey: "setup.getFirstSale", check: (d) => d.hasFirstSale, href: "/app/orders" },
   ],
 }
 

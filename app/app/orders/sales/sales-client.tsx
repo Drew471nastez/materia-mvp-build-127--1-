@@ -2954,7 +2954,7 @@ export function SalesClient({
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 sm:gap-3.5">
               <h1 className="text-[20px] sm:text-[26px] font-semibold text-[#1a1a2e] tracking-tight">
-                Sales
+                Orders
               </h1>
 
               {/* Desktop Timeframe Dropdown */}
