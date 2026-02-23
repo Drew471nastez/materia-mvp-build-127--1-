@@ -520,19 +520,35 @@ export function Hero() {
                   {!loadedImages.has(imageIdx) ? (
                     <Skeleton className="w-full h-full" />
                   ) : (
-                    <img
-                      src={src}
-                      srcSet={[280, 420, 560, 760]
-                        .map((candidateWidth) => `${getOptimizedImageUrl(IMAGE_BASE_PATHS[imageIdx], candidateWidth, quality)} ${candidateWidth}w`)
-                        .join(", ")}
-                      sizes="(max-width: 639px) 55vw, 34vw"
-                      alt=""
-                      className="w-full h-full object-contain object-center bg-white pointer-events-none"
-                      draggable={false}
-                      decoding="async"
-                      loading={imageIdx === cardOrder[2] ? "eager" : "lazy"}
-                      fetchPriority={imageIdx === cardOrder[2] ? "high" : "low"}
-                    />
+                    <>
+                      <img
+                        src={src}
+                        srcSet={[280, 420, 560, 760]
+                          .map((candidateWidth) => `${getOptimizedImageUrl(IMAGE_BASE_PATHS[imageIdx], candidateWidth, quality)} ${candidateWidth}w`)
+                          .join(", ")}
+                        sizes="(max-width: 639px) 55vw, 34vw"
+                        alt=""
+                        className="absolute inset-0 w-full h-full object-cover scale-[1.04] opacity-35 pointer-events-none"
+                        draggable={false}
+                        aria-hidden="true"
+                        decoding="async"
+                        loading={imageIdx === cardOrder[2] ? "eager" : "lazy"}
+                        fetchPriority={imageIdx === cardOrder[2] ? "high" : "low"}
+                      />
+                      <img
+                        src={src}
+                        srcSet={[280, 420, 560, 760]
+                          .map((candidateWidth) => `${getOptimizedImageUrl(IMAGE_BASE_PATHS[imageIdx], candidateWidth, quality)} ${candidateWidth}w`)
+                          .join(", ")}
+                        sizes="(max-width: 639px) 55vw, 34vw"
+                        alt=""
+                        className="relative z-[1] w-full h-full object-contain object-center pointer-events-none"
+                        draggable={false}
+                        decoding="async"
+                        loading={imageIdx === cardOrder[2] ? "eager" : "lazy"}
+                        fetchPriority={imageIdx === cardOrder[2] ? "high" : "low"}
+                      />
+                    </>
                   )}
                 </div>
               )
