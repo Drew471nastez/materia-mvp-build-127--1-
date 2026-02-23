@@ -19,8 +19,11 @@ try {
   // Not available
 }
 
-// Vercel's official A record IPs for custom domains
-const VERCEL_IPS = ["76.76.21.21"]
+// Vercel's official A record IPs for custom domains.
+// 216.150.1.1 is the new recommended IP (Vercel's anycast expansion, 2025+).
+// 76.76.21.21 is the legacy IP — still functional but Vercel marks it as
+// "DNS Change Recommended". Accept both so existing sellers stay verified.
+const VERCEL_IPS = ["216.150.1.1", "76.76.21.21"]
 
 const VERCEL_TOKEN = process.env.VERCEL_TOKEN
 const VERCEL_PROJECT_ID = process.env.VERCEL_PROJECT_ID
@@ -341,7 +344,7 @@ export async function POST(request: Request) {
 
       const hints: string[] = []
       if (!aRecordVerified && !cnameVerified) {
-        hints.push("DNS records not pointing to Vercel. Add an A record pointing to 76.76.21.21 for your apex domain, and a CNAME pointing to cname.vercel-dns.com for www.")
+        hints.push("DNS records not pointing to Vercel. Add an A record pointing to 216.150.1.1 for your apex domain, and a CNAME pointing to cname.vercel-dns.com for www.")
       }
       if (!txtVerified) {
         hints.push("TXT verification record not found at _storelib." + domainRecord.domain)

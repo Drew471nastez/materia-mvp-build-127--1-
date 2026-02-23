@@ -3202,11 +3202,11 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2 text-[12px]">
                             <span className="text-[#6b7280] w-14">Value:</span>
-                            <span className="font-mono font-medium text-[#7c3aed]">76.76.21.21</span>
+                            <span className="font-mono font-medium text-[#7c3aed]">216.150.1.1</span>
                           </div>
-                          <button onClick={() => copyToClipboard("76.76.21.21")} className="text-[11px] text-[#7c3aed] hover:text-[#6d28d9] cursor-pointer flex items-center gap-1">
-                            {copiedValue === "76.76.21.21" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                            {copiedValue === "76.76.21.21" ? "Copied" : "Copy"}
+                          <button onClick={() => copyToClipboard("216.150.1.1")} className="text-[11px] text-[#7c3aed] hover:text-[#6d28d9] cursor-pointer flex items-center gap-1">
+                            {copiedValue === "216.150.1.1" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                            {copiedValue === "216.150.1.1" ? "Copied" : "Copy"}
                           </button>
                         </div>
                       </div>

@@ -323,7 +323,7 @@ export async function POST(request: Request) {
 
     // Register www as primary domain and apex as redirect → www
     // www is canonical because Vercel provisions SSL more reliably for CNAME-based hosts.
-    // Apex uses A record (76.76.21.21) and redirects to www at the Vercel edge.
+    // Apex uses A record (216.150.1.1, Vercel's recommended IP) and redirects to www at the Vercel edge.
     const wwwResult = await addDomainToVercel(`www.${cleanDomain}`)
     if (!wwwResult.success) {
       // Fallback: try adding apex directly
