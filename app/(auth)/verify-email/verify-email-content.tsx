@@ -190,9 +190,9 @@ export default function VerifyEmailContent() {
             <img
               src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
               alt="Storelib"
-              className="h-[38px] w-[38px]"
+              className="h-[38px] w-[38px] lg:h-[40px] lg:w-[40px]"
             />
-            <span className="text-[23px] font-bold tracking-tight text-neutral-900">Storelib</span>
+            <span className="text-[23px] lg:text-[24px] font-bold tracking-tight text-neutral-900">Storelib</span>
           </Link>
 
           {success ? (
@@ -307,7 +307,7 @@ export default function VerifyEmailContent() {
       <div className="relative hidden lg:block lg:w-1/2 lg:h-[100dvh] shrink-0 overflow-hidden">
         {!isBannerLoaded && <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-neutral-100 via-neutral-200 to-neutral-100" />}
         <Image
-          src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20design%20(8).webp"
+          src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20design%20(12).webp"
           alt="Verify email banner"
           width={1024}
           height={1964}
