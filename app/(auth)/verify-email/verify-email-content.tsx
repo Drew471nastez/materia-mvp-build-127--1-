@@ -182,17 +182,17 @@ export default function VerifyEmailContent() {
   }
 
   return (
-    <div className="flex min-h-svh w-full">
+    <div className="flex min-h-svh w-full lg:h-[100dvh] lg:max-h-[100dvh] lg:overflow-hidden">
       {/* Left side - Form */}
-      <div className="flex w-full flex-col justify-center px-6 py-12 lg:w-1/2 lg:px-16 xl:px-24">
-        <div className="mx-auto w-full max-w-[400px]">
+      <div className="flex w-full flex-col justify-start px-6 py-8 sm:py-10 lg:w-1/2 lg:h-[100dvh] lg:overflow-y-auto page-scroll lg:px-16 lg:py-10 xl:px-24">
+        <div className="mx-auto w-full max-w-[400px] py-2 sm:py-3 lg:py-4">
           <Link href="/" className="mb-12 inline-flex items-center gap-2">
             <img
               src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
               alt="Storelib"
-              className="h-[38px] w-[38px]"
+              className="h-[38px] w-[38px] lg:h-[40px] lg:w-[40px]"
             />
-            <span className="text-[23px] font-bold tracking-tight text-neutral-900">Storelib</span>
+            <span className="text-[23px] lg:text-[24px] font-bold tracking-tight text-neutral-900">Storelib</span>
           </Link>
 
           {success ? (
@@ -304,15 +304,19 @@ export default function VerifyEmailContent() {
       </div>
 
       {/* Right side - Same image as signup page */}
-      <div className="relative hidden lg:block lg:w-1/2">
+      <div className="relative hidden lg:block lg:w-1/2 lg:h-[100dvh] shrink-0 overflow-hidden">
         {!isBannerLoaded && <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-neutral-100 via-neutral-200 to-neutral-100" />}
         <Image
-          src="/images/design-mode/banner-signup-desktop-Dq7usIXX.webp"
+          src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20design%20(12).webp"
           alt="Verify email banner"
           fill
-          className="object-cover transition-opacity duration-500"
+          className="object-cover object-center transition-opacity duration-500"
+          sizes="(min-width: 1024px) 50vw, 0px"
+          quality={65}
+          loading="lazy"
+          fetchPriority="low"
+          decoding="async"
           onLoad={() => setIsBannerLoaded(true)}
-          priority
         />
       </div>
     </div>

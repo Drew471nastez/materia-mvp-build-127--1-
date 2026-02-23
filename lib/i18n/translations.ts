@@ -26,7 +26,7 @@ export const translations = {
   en: {
     // Navigation
     "nav.dashboard": "Dashboard",
-    "nav.sales": "Sales",
+    "nav.sales": "Orders",
     "nav.products": "Products",
     "nav.analytics": "Analytics",
     "nav.onepage": "OnePage",

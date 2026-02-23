@@ -9,7 +9,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useEffect, Suspense, useRef } from "react"
 import { Eye, EyeOff } from "lucide-react"
 import { getCanonicalSiteUrl } from "@/lib/url-helpers"
-import { CountdownBanner } from "@/components/auth/countdown-banner"
+import Image from "next/image"
 
 function LoginFormContent() {
   const [email, setEmail] = useState("")
@@ -321,16 +321,16 @@ function LoginFormContent() {
   }
 
   return (
-    <div className="flex min-h-svh w-full">
-      <div className="flex w-full flex-col justify-center px-6 py-12 lg:w-1/2 lg:px-16 xl:px-24">
-        <div className="mx-auto w-full max-w-[400px] animate-fade-in-up">
+    <div className="flex min-h-svh w-full lg:h-[100dvh] lg:max-h-[100dvh] lg:overflow-hidden">
+      <div className="flex w-full flex-col justify-start px-6 py-8 sm:py-10 lg:w-1/2 lg:h-[100dvh] lg:overflow-y-auto page-scroll lg:px-16 lg:py-10 xl:px-24">
+        <div className="mx-auto w-full max-w-[400px] py-2 sm:py-3 lg:py-4 animate-fade-in-up">
           <Link href="/" className="mb-12 inline-flex items-center gap-2">
             <img
               src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
               alt="Storelib"
-              className="h-[46px] w-[46px] md:h-[38px] md:w-[38px]"
+              className="h-[46px] w-[46px] md:h-[38px] md:w-[38px] lg:h-[40px] lg:w-[40px]"
             />
-            <span className="text-[29px] md:text-[23px] font-bold tracking-tight text-neutral-900">Storelib</span>
+            <span className="text-[29px] md:text-[23px] lg:text-[24px] font-bold tracking-tight text-neutral-900">Storelib</span>
           </Link>
 
           <h1 className="mb-2 text-[32px] font-bold tracking-tight text-neutral-900">Welcome back</h1>
@@ -443,10 +443,19 @@ function LoginFormContent() {
         </div>
       </div>
 
-      <CountdownBanner
-        imageSrc="/images/design-mode/banner-login-desktop-D8selsDi.webp"
-        imageAlt="Login banner"
-      />
+      <div className="relative hidden lg:block lg:w-1/2 lg:h-[100dvh] shrink-0 overflow-hidden bg-neutral-900">
+        <Image
+          src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(11).webp"
+          alt="Login banner"
+          fill
+          className="object-cover object-center"
+          sizes="(min-width: 1024px) 50vw, 0px"
+          quality={65}
+          loading="lazy"
+          fetchPriority="low"
+          decoding="async"
+        />
+      </div>
     </div>
   )
 }

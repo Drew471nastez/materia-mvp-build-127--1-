@@ -10,12 +10,12 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useEffect, Suspense, useRef } from "react"
 import { Eye, EyeOff } from "lucide-react"
 import { getCanonicalSiteUrl } from "@/lib/url-helpers"
-import { CountdownBanner } from "@/components/auth/countdown-banner"
+import Image from "next/image"
 
 function SignUpFormContent() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [agreeToTerms, setAgreeToTerms] = useState(true)
+  const [agreeToTerms, setAgreeToTerms] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
@@ -123,11 +123,6 @@ function SignUpFormContent() {
 
   const handleContinue = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    if (!agreeToTerms) {
-      setError("Please agree to receive offers to continue")
-      return
-    }
 
     if (!showPasswordField) {
       if (!email.trim()) {
@@ -259,11 +254,6 @@ function SignUpFormContent() {
   }
 
   const handleGoogleSignIn = async () => {
-    if (!agreeToTerms) {
-      setError("Please agree to receive offers to continue")
-      return
-    }
-
     // Prevent rapid clicks that could cause rate limiting
     if (isGoogleLoading) return
 
@@ -319,8 +309,6 @@ function SignUpFormContent() {
     }
   }
 
-  const isFormValid = agreeToTerms
-
   // Show loading while checking auth status
   if (isCheckingAuth || isRedirecting) {
     return (
@@ -334,16 +322,16 @@ function SignUpFormContent() {
   }
 
   return (
-    <div className="flex min-h-svh w-full">
-      <div className="flex w-full flex-col justify-center px-6 py-12 lg:w-1/2 lg:px-16 xl:px-24">
-        <div className="mx-auto w-full max-w-[400px] animate-fade-in-up">
+    <div className="flex min-h-svh w-full lg:h-[100dvh] lg:max-h-[100dvh] lg:overflow-hidden">
+      <div className="flex w-full flex-col justify-start px-6 py-8 sm:py-10 lg:w-1/2 lg:h-[100dvh] lg:overflow-y-auto page-scroll lg:px-16 lg:py-10 xl:px-24">
+        <div className="mx-auto w-full max-w-[400px] py-2 sm:py-3 lg:py-4 animate-fade-in-up">
           <Link href="/" className="mb-12 inline-flex items-center gap-2">
             <img
               src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
               alt="Storelib"
-              className="h-[46px] w-[46px] md:h-[38px] md:w-[38px]"
+              className="h-[46px] w-[46px] md:h-[38px] md:w-[38px] lg:h-[40px] lg:w-[40px]"
             />
-            <span className="text-[29px] md:text-[23px] font-bold tracking-tight text-neutral-900">Storelib</span>
+            <span className="text-[29px] md:text-[23px] lg:text-[24px] font-bold tracking-tight text-neutral-900">Storelib</span>
           </Link>
 
           <h1 className="mb-2 text-[32px] font-bold tracking-tight text-neutral-900">Join Storelib</h1>
@@ -412,10 +400,10 @@ function SignUpFormContent() {
             <Button
               type="submit"
               className="h-12 w-full rounded-full bg-neutral-200 text-[15px] font-semibold text-neutral-400 hover:bg-neutral-300 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={isLoading || isContinueLoading || !isFormValid}
+              disabled={isLoading || isContinueLoading}
               style={{
-                backgroundColor: isFormValid ? "#171717" : undefined,
-                color: isFormValid ? "#fff" : undefined,
+                backgroundColor: "#171717",
+                color: "#fff",
               }}
             >
               {isLoading ? "Creating account..." : isContinueLoading ? "Checking..." : "Continue"}
@@ -479,10 +467,19 @@ function SignUpFormContent() {
         </div>
       </div>
 
-      <CountdownBanner
-        imageSrc="/images/design-mode/banner-signup-desktop-Dq7usIXX.webp"
-        imageAlt="Signup banner"
-      />
+      <div className="relative hidden lg:block lg:w-1/2 lg:h-[100dvh] shrink-0 overflow-hidden bg-neutral-900">
+        <Image
+          src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20design%20(12).webp"
+          alt="Signup banner"
+          fill
+          className="object-cover object-center"
+          sizes="(min-width: 1024px) 50vw, 0px"
+          quality={65}
+          loading="lazy"
+          fetchPriority="low"
+          decoding="async"
+        />
+      </div>
     </div>
   )
 }
