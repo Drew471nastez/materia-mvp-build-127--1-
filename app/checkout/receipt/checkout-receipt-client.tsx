@@ -7,7 +7,7 @@ import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { DownloadButton } from "@/components/download-button"
+import { downloadEntitledFile } from "@/components/download-button"
 import { ReviewForm } from "@/components/reviews/review-form"
 import {
   CheckCircle,
@@ -24,6 +24,8 @@ import {
   X,
   RefreshCw,
   UserPlus,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react"
 import { getProductUrl } from "@/lib/url-helpers"
 
@@ -154,6 +156,13 @@ export default function CheckoutReceiptClient({
   const [toastMessage, setToastMessage] = useState("")
   const [toastType, setToastType] = useState<"success" | "error">("success")
 
+  // Download show-all state
+  const [showAllDownloads, setShowAllDownloads] = useState(false)
+  const [downloadingAssetId, setDownloadingAssetId] = useState<string | null>(null)
+  const INITIAL_VISIBLE_DOWNLOADS = 4
+  const visibleAssets = showAllDownloads ? assets : assets.slice(0, INITIAL_VISIBLE_DOWNLOADS)
+  const hasMoreDownloads = assets.length > INITIAL_VISIBLE_DOWNLOADS
+
   const showToast = useCallback((message: string, type: "success" | "error" = "success") => {
     setToastMessage(message)
     setToastType(type)
@@ -167,6 +176,15 @@ export default function CheckoutReceiptClient({
       }, 400)
     }, 5000)
   }, [])
+
+  const handleReceiptDownload = useCallback(async (assetId: string) => {
+    if (!receiptToken || downloadingAssetId === assetId) return
+    setDownloadingAssetId(assetId)
+    try {
+      await downloadEntitledFile(assetId, { receiptToken })
+    } catch {}
+    finally { setDownloadingAssetId(null) }
+  }, [downloadingAssetId, receiptToken])
 
   // Save purchase to localStorage
   useEffect(() => {
@@ -395,29 +413,23 @@ export default function CheckoutReceiptClient({
   ) : null
 
   // ---------- DOWNLOAD FILE ITEM ----------
-  const renderDownloadItem = (asset: any, idx: number) => {
-    const fileName = asset.file_name || "Download"
-    const fileSize = formatFileSize(asset.file_size)
-    const displayName = truncateFileName(fileName, 36)
+  const renderDownloadItem = (asset: any) => {
+    const fileName = asset.file_name || "Download file"
+    const isDownloading = downloadingAssetId === asset.id
 
     return (
-      <DownloadButton
+      <button
         key={asset.id}
-        assetId={asset.id}
-        receiptToken={receiptToken}
-        fileName={asset.file_name}
-        size="lg"
-        className={`w-full h-auto min-h-[48px] rounded-xl text-sm font-medium px-4 py-3 bg-[#7c3aed] hover:bg-[#6d28d9] text-white`}
+        type="button"
+        onClick={() => handleReceiptDownload(asset.id)}
+        disabled={isDownloading}
+        className="w-full h-16 rounded-2xl border border-gray-200 bg-white px-4 flex items-center justify-between text-left transition-all hover:border-gray-300 hover:shadow-sm disabled:opacity-60 disabled:cursor-default"
       >
-        <span className="flex items-center gap-2 w-full min-w-0">
-          <span className="truncate">{displayName}</span>
-          {fileSize && (
-            <span className="shrink-0 text-xs font-normal text-white/60">
-              {fileSize}
-            </span>
-          )}
+        <span className="text-base font-medium text-gray-900 truncate pr-3">{fileName}</span>
+        <span className="h-10 w-10 shrink-0 rounded-full bg-[#171923] text-white inline-flex items-center justify-center">
+          {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
         </span>
-      </DownloadButton>
+      </button>
     )
   }
 
@@ -628,8 +640,37 @@ export default function CheckoutReceiptClient({
               Download Files
             </h3>
             {assets.length > 0 ? (
-              <div className="space-y-2">
-                {assets.map((asset: any, idx: number) => renderDownloadItem(asset, idx))}
+              <div className="relative">
+                <div className="space-y-2.5">
+                  {visibleAssets.map((asset: any) => renderDownloadItem(asset))}
+                </div>
+                {!showAllDownloads && hasMoreDownloads && (
+                  <>
+                    <div className="pointer-events-none absolute bottom-11 left-0 right-0 h-16 bg-gradient-to-t from-white via-white/90 to-transparent" />
+                    <div className="pt-3 text-center">
+                      <button
+                        type="button"
+                        onClick={() => setShowAllDownloads(true)}
+                        className="text-sm font-semibold text-gray-600 hover:text-gray-900 inline-flex items-center gap-1"
+                      >
+                        Show all ({assets.length})
+                        <ChevronDown className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </>
+                )}
+                {showAllDownloads && hasMoreDownloads && (
+                  <div className="pt-3 text-center">
+                    <button
+                      type="button"
+                      onClick={() => setShowAllDownloads(false)}
+                      className="text-sm font-semibold text-gray-600 hover:text-gray-900 inline-flex items-center gap-1"
+                    >
+                      Show less
+                      <ChevronUp className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/50 p-6 text-center">
@@ -807,8 +848,37 @@ export default function CheckoutReceiptClient({
                 Download Files
               </h3>
               {assets.length > 0 ? (
-                <div className="space-y-2">
-                  {assets.map((asset: any, idx: number) => renderDownloadItem(asset, idx))}
+                <div className="relative">
+                  <div className="space-y-2.5">
+                    {visibleAssets.map((asset: any) => renderDownloadItem(asset))}
+                  </div>
+                  {!showAllDownloads && hasMoreDownloads && (
+                    <>
+                      <div className="pointer-events-none absolute bottom-11 left-0 right-0 h-16 bg-gradient-to-t from-white via-white/90 to-transparent" />
+                      <div className="pt-3 text-center">
+                        <button
+                          type="button"
+                          onClick={() => setShowAllDownloads(true)}
+                          className="text-sm font-semibold text-gray-600 hover:text-gray-900 inline-flex items-center gap-1"
+                        >
+                          Show all ({assets.length})
+                          <ChevronDown className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </>
+                  )}
+                  {showAllDownloads && hasMoreDownloads && (
+                    <div className="pt-3 text-center">
+                      <button
+                        type="button"
+                        onClick={() => setShowAllDownloads(false)}
+                        className="text-sm font-semibold text-gray-600 hover:text-gray-900 inline-flex items-center gap-1"
+                      >
+                        Show less
+                        <ChevronUp className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/50 p-6 text-center">
