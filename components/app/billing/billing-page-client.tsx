@@ -83,10 +83,9 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
       const subRes = await fetch("/api/billing/subscription")
       if (subRes.ok) {
         const subData = await subRes.json()
-        if (subData.subscription) {
-          setLiveSubscription(subData.subscription)
-          setLiveCurrentPlan(subData.currentPlan || initialData.currentPlan)
-        }
+        // Always update from API (source of truth from Stripe)
+        setLiveSubscription(subData.subscription || null)
+        setLiveCurrentPlan(subData.currentPlan || initialData.currentPlan)
       }
     } catch (err) {
       console.error("[Billing] Client refresh error:", err)
@@ -323,10 +322,22 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
               <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-[#e5e7eb]">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-[15px] font-semibold text-[#1a1a2e]">Current Plan</h3>
-                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full text-white bg-[#1a1a2e]">
-                    <CheckCircle className="h-3 w-3" />
-                    {currentPlan.name}
-                  </span>
+                  {subscription?.status === "canceled" ? (
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full text-red-700 bg-red-50 border border-red-200">
+                      <XCircle className="h-3 w-3" />
+                      Canceled
+                    </span>
+                  ) : subscription?.cancel_at_period_end ? (
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full text-amber-700 bg-amber-50 border border-amber-200">
+                      <AlertCircle className="h-3 w-3" />
+                      Canceling
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full text-white bg-[#1a1a2e]">
+                      <CheckCircle className="h-3 w-3" />
+                      {currentPlan.name}
+                    </span>
+                  )}
                 </div>
 
                 {/* Pending downgrade info */}
@@ -352,7 +363,7 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                       {benefit}
                     </li>
                   ))}
-                  {subscription?.current_period_end && (
+                  {subscription?.current_period_end && subscription.status !== "canceled" && (
                     <li className={`flex items-center gap-2.5 text-[13px] ${subscription.cancel_at_period_end ? "text-amber-700 font-medium" : "text-[#6b7280]"}`}>
                       <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 ${subscription.cancel_at_period_end ? "bg-amber-100" : "bg-gray-100"}`}>
                         <Clock className={`h-2.5 w-2.5 ${subscription.cancel_at_period_end ? "text-amber-500" : "text-gray-500"}`} />
@@ -512,7 +523,16 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                 </p>
               </div>
             )}
-            {!isSubscribed && !subscription?.cancel_at_period_end && (
+            {subscription?.status === "canceled" && (
+              <div className="flex items-start gap-2.5 p-3 bg-red-50 border border-red-200 rounded-xl mb-4">
+                <XCircle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
+                <p className="text-[13px] text-red-700">
+                  Your subscription has been canceled.{" "}
+                  <a href="/app/settings/billing/upgrade" className="font-semibold text-red-700 hover:text-red-900 underline underline-offset-2">Reactivate a plan</a>
+                </p>
+              </div>
+            )}
+            {!isSubscribed && subscription?.status !== "canceled" && !subscription?.cancel_at_period_end && (
               <p className="text-[13px] text-[#6b7280] mb-4">No active subscription.</p>
             )}
 

@@ -220,6 +220,7 @@ export async function GET() {
               status: sub.status,
               current_period_start: safeTimestamp(periodStart),
               current_period_end: safeTimestamp(periodEnd),
+              cancel_at_period_end: sub.cancel_at_period_end,
               updated_at: new Date().toISOString(),
             }, { onConflict: "creator_id" })
         } catch (syncError) {
@@ -230,6 +231,33 @@ export async function GET() {
           subscription,
           currentPlan,
           status: sub.status,
+        })
+      }
+
+      // No active subscription — check for a recently canceled one so the UI can show the notice
+      const canceledSub = stripeSubs.data.find((s: any) => s.status === "canceled")
+      if (canceledSub) {
+        const canceledPriceId = canceledSub.items?.data?.[0]?.price?.id
+        const canceledPlanId = getPlanIdFromPriceId(canceledPriceId)
+        const canceledPlan = getPlanObject(canceledPlanId)
+        const canceledSubscription = {
+          id: canceledSub.id,
+          stripe_subscription_id: canceledSub.id,
+          plan_id: canceledPlanId,
+          status: "canceled" as const,
+          canceled_at: (canceledSub as any).canceled_at
+            ? safeTimestamp((canceledSub as any).canceled_at)
+            : null,
+          cancel_at_period_end: false,
+          current_period_end: (canceledSub as any).ended_at
+            ? safeTimestamp((canceledSub as any).ended_at)
+            : null,
+        }
+
+        return NextResponse.json({
+          subscription: canceledSubscription,
+          currentPlan: FREE_PLAN,
+          status: "canceled",
         })
       }
     } catch (err) {
