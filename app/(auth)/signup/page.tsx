@@ -10,7 +10,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useEffect, Suspense, useRef } from "react"
 import { Eye, EyeOff } from "lucide-react"
 import { getCanonicalSiteUrl } from "@/lib/url-helpers"
-import { CountdownBanner } from "@/components/auth/countdown-banner"
+import Image from "next/image"
 
 function SignUpFormContent() {
   const [email, setEmail] = useState("")
@@ -467,10 +467,16 @@ function SignUpFormContent() {
         </div>
       </div>
 
-      <CountdownBanner
-        imageSrc="/images/design-mode/banner-signup-desktop-Dq7usIXX.webp"
-        imageAlt="Signup banner"
-      />
+      <div className="relative hidden lg:block lg:w-1/2 overflow-hidden bg-neutral-900">
+        <Image
+          src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20design%20(8).webp"
+          alt="Signup banner"
+          fill
+          className="object-cover"
+          sizes="(min-width: 1024px) 50vw, 0px"
+          quality={65}
+        />
+      </div>
     </div>
   )
 }

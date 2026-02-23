@@ -6,6 +6,7 @@ import Image from "next/image"
 interface CountdownBannerProps {
   imageSrc: string
   imageAlt: string
+  priority?: boolean
 }
 
 const TARGET_DATE = new Date("2026-03-10T00:00:00")
@@ -28,7 +29,7 @@ function pad(n: number) {
   return String(n).padStart(2, "0")
 }
 
-export function CountdownBanner({ imageSrc, imageAlt }: CountdownBannerProps) {
+export function CountdownBanner({ imageSrc, imageAlt, priority = false }: CountdownBannerProps) {
   const [time, setTime] = useState(getTimeRemaining)
   const [mounted, setMounted] = useState(false)
 
@@ -48,7 +49,9 @@ export function CountdownBanner({ imageSrc, imageAlt }: CountdownBannerProps) {
         alt={imageAlt}
         fill
         className="object-cover scale-110 blur-[18px] brightness-[0.7]"
-        priority
+        sizes="(min-width: 1024px) 50vw, 0px"
+        quality={65}
+        priority={priority}
       />
 
       {/* Glass overlay */}

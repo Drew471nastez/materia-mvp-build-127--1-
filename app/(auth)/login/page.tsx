@@ -444,7 +444,7 @@ function LoginFormContent() {
       </div>
 
       <CountdownBanner
-        imageSrc="/images/design-mode/banner-login-desktop-D8selsDi.webp"
+        imageSrc="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20design%20(9).webp"
         imageAlt="Login banner"
       />
     </div>

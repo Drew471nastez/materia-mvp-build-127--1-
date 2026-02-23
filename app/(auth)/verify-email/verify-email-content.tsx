@@ -307,12 +307,13 @@ export default function VerifyEmailContent() {
       <div className="relative hidden lg:block lg:w-1/2">
         {!isBannerLoaded && <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-neutral-100 via-neutral-200 to-neutral-100" />}
         <Image
-          src="/images/design-mode/banner-signup-desktop-Dq7usIXX.webp"
+          src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20design%20(8).webp"
           alt="Verify email banner"
           fill
           className="object-cover transition-opacity duration-500"
+          sizes="(min-width: 1024px) 50vw, 0px"
+          quality={65}
           onLoad={() => setIsBannerLoaded(true)}
-          priority
         />
       </div>
     </div>
