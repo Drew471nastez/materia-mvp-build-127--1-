@@ -386,15 +386,33 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                     </button>
                   )}
                 </div>
-                {/* Cancel notice — prominent confirmation */}
+                {/* Cancel-at-period-end notice — subscription active but will expire */}
                 {isSubscribed && subscription.cancel_at_period_end && (
                   <div className="flex items-start gap-3 p-3.5 bg-amber-50 border border-amber-200 rounded-xl mt-3">
                     <AlertCircle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
                     <div>
-                      <p className="text-[13px] font-semibold text-amber-800">Subscription cancelled</p>
+                      <p className="text-[13px] font-semibold text-amber-800">Subscription canceling</p>
                       <p className="text-[12px] text-amber-700 mt-0.5">
                         Your plan remains active until {formatDate(subscription.current_period_end)}. No further charges will be made.
                       </p>
+                    </div>
+                  </div>
+                )}
+                {/* Fully canceled subscription notice */}
+                {subscription?.status === "canceled" && (
+                  <div className="flex items-start gap-3 p-3.5 bg-red-50 border border-red-200 rounded-xl mt-3">
+                    <XCircle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-semibold text-red-800">Subscription canceled</p>
+                      <p className="text-[12px] text-red-700 mt-0.5">
+                        {subscription.canceled_at
+                          ? `Your ${plans.find((p: any) => p.id === subscription.plan_id)?.name || "paid"} plan was canceled on ${formatDate(subscription.canceled_at)}.`
+                          : `Your paid plan has been canceled.`}{" "}
+                        You are now on the Free plan.
+                      </p>
+                      <a href="/app/settings/billing/upgrade" className="inline-flex items-center gap-1 text-[12px] font-semibold text-red-700 hover:text-red-900 underline underline-offset-2 mt-1.5">
+                        Reactivate a plan
+                      </a>
                     </div>
                   </div>
                 )}

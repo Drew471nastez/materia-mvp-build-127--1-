@@ -228,6 +228,27 @@ export default async function BillingPage() {
           console.error("[Billing] Error syncing subscription to DB:", syncError)
         }
       }
+
+      // If no active subscription found, check for a recently canceled one so the UI can show the notice
+      if (!subscription) {
+        const canceledSub = stripeSubs.data.find((s: any) => s.status === "canceled")
+        if (canceledSub) {
+          const canceledPriceId = canceledSub.items.data[0]?.price?.id
+          subscription = {
+            id: canceledSub.id,
+            stripe_subscription_id: canceledSub.id,
+            plan_id: getPlanIdFromPriceId(canceledPriceId),
+            status: "canceled",
+            canceled_at: (canceledSub as any).canceled_at
+              ? safeTimestamp((canceledSub as any).canceled_at)
+              : null,
+            cancel_at_period_end: false,
+            current_period_end: (canceledSub as any).ended_at
+              ? safeTimestamp((canceledSub as any).ended_at)
+              : null,
+          }
+        }
+      }
     } catch (error) {
       console.error("[Billing] Error fetching subscriptions from Stripe:", error)
     }

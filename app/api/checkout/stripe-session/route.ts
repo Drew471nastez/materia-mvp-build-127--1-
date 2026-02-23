@@ -238,7 +238,6 @@ export async function POST(request: Request) {
         creator_name: creatorProfile?.display_name || "Creator",
         email_opt_in: emailOptIn ? "true" : "false",
       },
-      receipt_email: email,
     }
 
     // Add Stripe Connect destination charge if seller has Stripe
@@ -318,7 +317,6 @@ export async function POST(request: Request) {
             buyer_browser: deviceInfo.browser,
             creator_name: creatorProfile?.display_name || "Creator",
           },
-          receipt_email: email,
         }
 
         if (product.creator.stripe_account_id) {

@@ -80,7 +80,6 @@ export async function POST(req: Request) {
     const intentParams: Stripe.PaymentIntentCreateParams = {
       amount: product.price_cents,
       currency,
-      receipt_email: email,
       automatic_payment_methods: { enabled: true },
       metadata: {
         product_id: product.id,

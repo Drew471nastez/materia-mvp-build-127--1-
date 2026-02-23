@@ -4,7 +4,7 @@ import type Stripe from "stripe"
 import { stripe } from "@/lib/stripe"
 import { createClient } from "@supabase/supabase-js"
 import { generateReceiptToken } from "@/lib/security"
-import { sendOrderEmails, triggerEmailFlows, sendPayoutStatusEmail, sendFirstPayoutEmail, sendBankUpdatedEmail, sendPayoutsPausedEmail, sendVerificationRequiredEmail, sendFirstSaleEmail, resolveSellerEmail, sendDisputeCreatedEmail, sendDisputeWonEmail, sendDisputeLostEmail } from "@/lib/email"
+import { sendOrderEmails, triggerEmailFlows, sendPayoutStatusEmail, sendFirstPayoutEmail, sendBankUpdatedEmail, sendPayoutsPausedEmail, sendVerificationRequiredEmail, sendFirstSaleEmail, resolveSellerEmail, sendDisputeCreatedEmail, sendDisputeWonEmail, sendDisputeLostEmail, sendRefundEmails } from "@/lib/email"
 import { v4 as uuidv4 } from "uuid"
 
 export const runtime = "nodejs"
@@ -1154,6 +1154,50 @@ export async function POST(request: Request) {
             }
           } catch (ledgerRefundErr) {
             console.error("[Webhook] Ledger refund update failed (non-fatal):", ledgerRefundErr)
+          }
+
+          // Send refund notification emails (non-fatal — never block the webhook response)
+          try {
+            const { data: fullRefundOrder } = await supabaseAdmin
+              .from("orders")
+              .select("buyer_email, customer_email, created_at, product:products(title, creator:creators(display_name, avatar_url, username, user_id))")
+              .eq("id", order.id)
+              .single()
+
+            if (fullRefundOrder) {
+              const refundBuyerEmail = (fullRefundOrder as any).buyer_email || (fullRefundOrder as any).customer_email
+              const refundProduct = (fullRefundOrder as any).product as any
+              const refundProductTitle = refundProduct?.title || "Your purchase"
+              const refundCreator = refundProduct?.creator as any
+              const refundStoreName = refundCreator?.display_name || refundCreator?.username || "Storelib"
+              const latestRefund = charge.refunds?.data?.[0]
+              const refundAmountForEmail = (latestRefund?.amount || charge.amount_refunded || order.amount_cents) / 100
+
+              let refundSellerEmail: string | undefined
+              if (refundCreator?.user_id) {
+                const { data: sp } = await supabaseAdmin
+                  .from("profiles")
+                  .select("email")
+                  .eq("id", refundCreator.user_id)
+                  .single()
+                refundSellerEmail = sp?.email || undefined
+              }
+
+              await sendRefundEmails({
+                buyerEmail: refundBuyerEmail,
+                sellerEmail: refundSellerEmail,
+                productTitle: refundProductTitle,
+                refundAmount: refundAmountForEmail,
+                currency: charge.currency || "usd",
+                orderId: order.id,
+                reason: latestRefund?.reason || "requested_by_customer",
+                storeName: refundStoreName,
+                orderDate: (fullRefundOrder as any).created_at,
+              })
+              console.log("[Webhook] Refund emails sent for order:", order.id)
+            }
+          } catch (refundEmailErr) {
+            console.error("[Webhook] Refund email send failed (non-fatal):", refundEmailErr)
           }
         }
       } catch (error) {
