@@ -4,12 +4,12 @@ import type React from "react"
 import { useEffect, useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { Star, Download, Loader2, X, Check } from "lucide-react"
+import { Star, Download } from "lucide-react"
 import { stickyAddToCartButtonPresets } from "@/lib/store-builder/defaults"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { downloadEntitledFile } from "@/components/download-button"
 import { getCanonicalSiteUrl } from "@/lib/url-helpers"
 import { usePurchaseStatus } from "@/components/checkout/use-purchase-status"
+import { DownloadFilesSheet } from "@/components/checkout/download-files-sheet"
 
 export interface StickyAddToCartSettings {
   visible: boolean
@@ -80,16 +80,6 @@ export function EditorStickyAddToCart({
     : getButtonText(settings.buttonStyle)
   const [showFilesModal, setShowFilesModal] = useState(false)
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
-  const [isMobileViewport, setIsMobileViewport] = useState(false)
-
-  useEffect(() => {
-    if (typeof window === "undefined") return
-    const media = window.matchMedia("(max-width: 639px)")
-    const sync = () => setIsMobileViewport(media.matches)
-    sync()
-    media.addEventListener("change", sync)
-    return () => media.removeEventListener("change", sync)
-  }, [])
 
   const handleDownloadFile = async (assetId: string) => {
     setDownloadingId(assetId)
@@ -230,50 +220,14 @@ export function EditorStickyAddToCart({
       </div>
 
       {downloadFiles.length > 1 && (
-        <>
-          {!isMobileViewport && <Dialog open={showFilesModal} onOpenChange={setShowFilesModal}>
-            <DialogContent className="sm:max-w-lg">
-              <DialogHeader>
-                <DialogTitle>{product.title}</DialogTitle>
-                <DialogDescription className="sr-only">Choose and download included files.</DialogDescription>
-              </DialogHeader>
-              <div className="max-h-[60vh] space-y-2 overflow-auto pr-1">
-                {downloadFiles.map((file) => (
-                  <div key={file.id} className="flex items-center justify-between rounded-xl border border-neutral-200 px-3 py-2.5">
-                    <p className="truncate pr-3 text-sm text-neutral-700">{file.file_name || "File"}</p>
-                    <Button size="sm" onClick={() => handleDownloadFile(file.id)} disabled={downloadingId === file.id} className="shrink-0 cursor-pointer bg-neutral-900 text-white hover:bg-black">
-                      {downloadingId === file.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </DialogContent>
-          </Dialog>}
-
-          {showFilesModal && isMobileViewport && (
-            <div className="sm:hidden fixed inset-0 z-[80] bg-black/45" onClick={() => setShowFilesModal(false)}>
-              <div className="absolute bottom-0 left-0 right-0 rounded-t-3xl bg-white p-4 pt-3 shadow-2xl animate-in slide-in-from-bottom duration-300" onClick={(e) => e.stopPropagation()}>
-                <div className="mx-auto mb-3 h-1.5 w-14 rounded-full bg-neutral-200" />
-                <div className="mb-3 flex items-center justify-between">
-                  <h4 className="text-[16px] font-semibold text-neutral-900 truncate pr-2">{product.title}</h4>
-                  <button type="button" className="h-8 w-8 rounded-full border border-neutral-200 text-neutral-500 flex items-center justify-center cursor-pointer" onClick={() => setShowFilesModal(false)}>
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-                <div className="max-h-[60vh] space-y-2 overflow-auto pr-1 pb-2">
-                  {downloadFiles.map((file) => (
-                    <div key={file.id} className="flex items-center justify-between rounded-xl border border-neutral-200 px-3 py-2.5">
-                      <p className="truncate pr-3 text-sm text-neutral-700">{file.file_name || "File"}</p>
-                      <Button size="sm" onClick={() => handleDownloadFile(file.id)} disabled={downloadingId === file.id} className="shrink-0 cursor-pointer bg-neutral-900 text-white hover:bg-black">
-                        {downloadingId === file.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-        </>
+        <DownloadFilesSheet
+          isOpen={showFilesModal}
+          onClose={() => setShowFilesModal(false)}
+          title={product.title}
+          files={downloadFiles}
+          downloadingFileId={downloadingId}
+          onDownload={handleDownloadFile}
+        />
       )}
     </>
   )
@@ -304,18 +258,11 @@ export function LiveStickyAddToCart({
   const [isMounted, setIsMounted] = useState(false)
   const [showFilesModal, setShowFilesModal] = useState(false)
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
-  const [isMobileViewport, setIsMobileViewport] = useState(false)
   const barRef = useRef<HTMLDivElement>(null)
 
   // Mount on client
   useEffect(() => {
     setIsMounted(true)
-    if (typeof window === "undefined") return
-    const media = window.matchMedia("(max-width: 639px)")
-    const sync = () => setIsMobileViewport(media.matches)
-    sync()
-    media.addEventListener("change", sync)
-    return () => media.removeEventListener("change", sync)
   }, [])
 
   // Handle scroll visibility - show when reaching description section, hide near footer
@@ -570,50 +517,14 @@ export function LiveStickyAddToCart({
     </div>
 
       {downloadFiles.length > 1 && (
-        <>
-          {!isMobileViewport && <Dialog open={showFilesModal} onOpenChange={setShowFilesModal}>
-            <DialogContent className="sm:max-w-lg">
-              <DialogHeader>
-                <DialogTitle>{product.title}</DialogTitle>
-                <DialogDescription className="sr-only">Choose and download included files.</DialogDescription>
-              </DialogHeader>
-              <div className="max-h-[60vh] space-y-2 overflow-auto pr-1">
-                {downloadFiles.map((file) => (
-                  <div key={file.id} className="flex items-center justify-between rounded-xl border border-neutral-200 px-3 py-2.5">
-                    <p className="truncate pr-3 text-sm text-neutral-700">{file.file_name || "File"}</p>
-                    <Button size="sm" onClick={() => handleDownloadFile(file.id)} disabled={downloadingId === file.id} className="shrink-0 cursor-pointer bg-neutral-900 text-white hover:bg-black">
-                      {downloadingId === file.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </DialogContent>
-          </Dialog>}
-
-          {showFilesModal && isMobileViewport && (
-            <div className="sm:hidden fixed inset-0 z-[80] bg-black/45" onClick={() => setShowFilesModal(false)}>
-              <div className="absolute bottom-0 left-0 right-0 rounded-t-3xl bg-white p-4 pt-3 shadow-2xl animate-in slide-in-from-bottom duration-300" onClick={(e) => e.stopPropagation()}>
-                <div className="mx-auto mb-3 h-1.5 w-14 rounded-full bg-neutral-200" />
-                <div className="mb-3 flex items-center justify-between">
-                  <h4 className="text-[16px] font-semibold text-neutral-900 truncate pr-2">{product.title}</h4>
-                  <button type="button" className="h-8 w-8 rounded-full border border-neutral-200 text-neutral-500 flex items-center justify-center cursor-pointer" onClick={() => setShowFilesModal(false)}>
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-                <div className="max-h-[60vh] space-y-2 overflow-auto pr-1 pb-2">
-                  {downloadFiles.map((file) => (
-                    <div key={file.id} className="flex items-center justify-between rounded-xl border border-neutral-200 px-3 py-2.5">
-                      <p className="truncate pr-3 text-sm text-neutral-700">{file.file_name || "File"}</p>
-                      <Button size="sm" onClick={() => handleDownloadFile(file.id)} disabled={downloadingId === file.id} className="shrink-0 cursor-pointer bg-neutral-900 text-white hover:bg-black">
-                        {downloadingId === file.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-        </>
+        <DownloadFilesSheet
+          isOpen={showFilesModal}
+          onClose={() => setShowFilesModal(false)}
+          title={product.title}
+          files={downloadFiles}
+          downloadingFileId={downloadingId}
+          onDownload={handleDownloadFile}
+        />
       )}
     </>
   )
