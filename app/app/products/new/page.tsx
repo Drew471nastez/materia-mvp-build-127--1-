@@ -2414,6 +2414,15 @@ export default function NewProductPage() {
                 if (variantFilesError) {
                   console.error("Error saving variant files:", variantFilesError)
                 }
+
+                // Auto-generate variant ZIP bundle when variant has 6+ assigned files
+                if (assets.length >= 6) {
+                  fetch("/api/v2/upload/bundle", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ productId: finalProductId, variantId: savedVariant.id }),
+                  }).catch(() => { /* Non-critical: bundle can be regenerated on next save */ })
+                }
               }
             }
           }
@@ -2432,13 +2441,13 @@ export default function NewProductPage() {
 
       setHasUnsavedChanges(false)
 
-      // Auto-generate ZIP bundle when product has 2+ digital files
-      if (digitalFiles.length >= 2) {
+      // Auto-generate ZIP bundle when product has 6+ digital files
+      if (digitalFiles.length >= 6) {
         fetch("/api/v2/upload/bundle", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ productId: finalProductId }),
-        }).catch(() => { /* Non-critical: bundle can be regenerated */ })
+        }).catch(() => { /* Non-critical: bundle can be regenerated on next save */ })
       }
 
       return { productId: finalProductId, slug: finalSlug }
@@ -4157,7 +4166,7 @@ export default function NewProductPage() {
                     <h2 className="text-base sm:text-lg font-semibold text-gray-900">Digital Files</h2>
                     <span className="text-red-500 text-sm">*</span>
                     <TooltipIcon
-                      content={<p>Files customers receive after purchase</p>}
+                      content={<p>If multiple files, upload ZIP.</p>}
                     />
                   </div>
                   <p className="text-xs sm:text-sm text-gray-500">
