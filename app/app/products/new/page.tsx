@@ -60,6 +60,7 @@ import { DescriptionRichEditor } from "@/components/store-builder/description-ri
 import { DirectUploader, type UploadStatus } from "@/lib/storage/chunked-upload"
 import {
   DndContext,
+  DragOverlay,
   closestCenter,
   KeyboardSensor,
   PointerSensor,
@@ -67,6 +68,7 @@ import {
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragStartEvent,
 } from "@dnd-kit/core"
 import {
   arrayMove,
@@ -379,9 +381,7 @@ function SortableMediaItem({ item, index, onRemove }: SortableMediaItemProps) {
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    zIndex: isDragging ? 9999 : undefined,
-    opacity: isDragging ? 0.9 : 1,
-    position: isDragging ? 'relative' as const : undefined,
+    opacity: isDragging ? 0 : 1,
   }
 
   return (
@@ -389,7 +389,7 @@ function SortableMediaItem({ item, index, onRemove }: SortableMediaItemProps) {
       ref={setNodeRef}
       style={style}
       className={`relative aspect-video rounded-lg overflow-hidden border group select-none ${
-        isDragging ? "shadow-2xl ring-2 ring-violet-500 scale-105 bg-white" : "border-gray-200 hover:border-gray-300 transition-shadow"
+        isDragging ? "border-dashed border-violet-300 bg-violet-50/40" : "border-gray-200 hover:border-gray-300 transition-shadow"
       }`}
     >
       {item.type === "image" && (
@@ -798,6 +798,7 @@ export default function NewProductPage() {
 
   // Media section fields - unified draggable media
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([])
+  const [activeDragItem, setActiveDragItem] = useState<MediaItem | null>(null)
   const [uploadingMedia, setUploadingMedia] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
 
@@ -992,10 +993,16 @@ export default function NewProductPage() {
     }
   }, [])
 
-  // Handle media drag end - reorder media items
-  const handleMediaDragEnd = useCallback((event: DragEndEvent) => {
-    const { active, over } = event
+  // Handle media drag start - track which item is being dragged (for DragOverlay)
+  const handleMediaDragStart = useCallback((event: DragStartEvent) => {
+    const item = mediaItems.find((i) => i.id === event.active.id)
+    setActiveDragItem(item || null)
+  }, [mediaItems])
 
+  // Handle media drag end - reorder media items and clear overlay
+  const handleMediaDragEnd = useCallback((event: DragEndEvent) => {
+    setActiveDragItem(null)
+    const { active, over } = event
     if (over && active.id !== over.id) {
       setMediaItems((prev) => {
         const oldIndex = prev.findIndex((item) => item.id === active.id)
@@ -3830,31 +3837,57 @@ export default function NewProductPage() {
                   </p>
                 </div>
 
-                {/* Draggable Media Grid - @dnd-kit powered, 2 per row, overflow-hidden prevents white space on drag */}
+                {/* Draggable Media Grid - @dnd-kit powered, 2 per row */}
                 {mediaItems.length > 0 && (
-                  <div className="overflow-hidden">
-                    <DndContext
-                      sensors={mediaSensors}
-                      collisionDetection={closestCenter}
-                      onDragEnd={handleMediaDragEnd}
+                  <DndContext
+                    sensors={mediaSensors}
+                    collisionDetection={closestCenter}
+                    onDragStart={handleMediaDragStart}
+                    onDragEnd={handleMediaDragEnd}
+                  >
+                    <SortableContext
+                      items={mediaItems.map(item => item.id)}
+                      strategy={rectSortingStrategy}
                     >
-                      <SortableContext
-                        items={mediaItems.map(item => item.id)}
-                        strategy={rectSortingStrategy}
-                      >
-                        <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                          {mediaItems.map((item, index) => (
-                            <SortableMediaItem
-                              key={item.id}
-                              item={item}
-                              index={index}
-                              onRemove={removeMedia}
-                            />
-                          ))}
+                      <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                        {mediaItems.map((item, index) => (
+                          <SortableMediaItem
+                            key={item.id}
+                            item={item}
+                            index={index}
+                            onRemove={removeMedia}
+                          />
+                        ))}
+                      </div>
+                    </SortableContext>
+                    {/* DragOverlay renders via portal at document.body — floats freely above all containers */}
+                    <DragOverlay dropAnimation={{ duration: 180, easing: "ease" }}>
+                      {activeDragItem ? (
+                        <div className="aspect-video rounded-lg overflow-hidden shadow-2xl ring-2 ring-violet-500 rotate-1 scale-105 cursor-grabbing">
+                          {activeDragItem.type === "image" && (
+                            <img src={activeDragItem.url} alt="" className="w-full h-full object-cover" draggable={false} />
+                          )}
+                          {activeDragItem.type === "youtube" && (
+                            <div className="relative w-full h-full">
+                              <img
+                                src={`https://img.youtube.com/vi/${parseYouTubeUrl(activeDragItem.url)}/hqdefault.jpg`}
+                                alt=""
+                                className="w-full h-full object-cover"
+                                draggable={false}
+                              />
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-red-600 flex items-center justify-center">
+                                  <svg viewBox="0 0 24 24" className="h-4 w-4 sm:h-5 sm:w-5 text-white ml-0.5" fill="currentColor">
+                                    <path d="M8 5v14l11-7z"/>
+                                  </svg>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      </SortableContext>
-                    </DndContext>
-                  </div>
+                      ) : null}
+                    </DragOverlay>
+                  </DndContext>
                 )}
 
                 {/* Upload Zone with skeleton loading */}
