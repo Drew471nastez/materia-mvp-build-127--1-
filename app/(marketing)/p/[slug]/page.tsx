@@ -459,7 +459,9 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     }
   }
 
-  if (hasPurchased && product.type === "digital") {
+  // Always query product-level files — no hasPurchased gate.
+  // The download API enforces entitlement; exposing file IDs is safe.
+  if (product.type === "digital") {
     const { data: assets } = await supabase
       .from("digital_assets")
       .select("id, file_name")
@@ -515,6 +517,29 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
       file_name: pvf.digital_assets?.file_name,
     })).filter((f: any) => f.id) || [],
   })) || []
+
+  // Merge variant files into productDownloadFiles so the sticky bar and purchase
+  // wrapper both see ALL files. Prefer the purchased variant's files; fall back to
+  // every variant's files (needed when the buyer is identified client-side only).
+  if (product.type === "digital" && variants.length > 0) {
+    const targetVariants =
+      purchasedVariantIds.length > 0
+        ? variants.filter((v) => purchasedVariantIds.includes(v.id))
+        : variants
+    const variantFiles = targetVariants
+      .flatMap((v) => v.files)
+      .filter((f): f is { id: string; file_name?: string } => !!f.id)
+      .map((f) => ({ id: f.id as string, file_name: f.file_name || "File" }))
+
+    // Merge, deduplicating by id
+    const existingIds = new Set(productDownloadFiles.map((f) => f.id))
+    const newFiles = variantFiles.filter((f) => !existingIds.has(f.id))
+    productDownloadFiles = [...productDownloadFiles, ...newFiles]
+
+    if (!firstAssetId && productDownloadFiles.length > 0) {
+      firstAssetId = productDownloadFiles[0].id
+    }
+  }
 
   // ---------------------------------------------------------------------------
   // More products from seller (for "More from seller" section)
