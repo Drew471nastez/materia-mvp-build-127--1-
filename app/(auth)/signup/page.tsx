@@ -15,7 +15,7 @@ import { CountdownBanner } from "@/components/auth/countdown-banner"
 function SignUpFormContent() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [agreeToTerms, setAgreeToTerms] = useState(true)
+  const [agreeToTerms, setAgreeToTerms] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
@@ -123,11 +123,6 @@ function SignUpFormContent() {
 
   const handleContinue = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    if (!agreeToTerms) {
-      setError("Please agree to receive offers to continue")
-      return
-    }
 
     if (!showPasswordField) {
       if (!email.trim()) {
@@ -259,11 +254,6 @@ function SignUpFormContent() {
   }
 
   const handleGoogleSignIn = async () => {
-    if (!agreeToTerms) {
-      setError("Please agree to receive offers to continue")
-      return
-    }
-
     // Prevent rapid clicks that could cause rate limiting
     if (isGoogleLoading) return
 
@@ -318,8 +308,6 @@ function SignUpFormContent() {
       setIsGoogleLoading(false)
     }
   }
-
-  const isFormValid = agreeToTerms
 
   // Show loading while checking auth status
   if (isCheckingAuth || isRedirecting) {
@@ -412,10 +400,10 @@ function SignUpFormContent() {
             <Button
               type="submit"
               className="h-12 w-full rounded-full bg-neutral-200 text-[15px] font-semibold text-neutral-400 hover:bg-neutral-300 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={isLoading || isContinueLoading || !isFormValid}
+              disabled={isLoading || isContinueLoading}
               style={{
-                backgroundColor: isFormValid ? "#171717" : undefined,
-                color: isFormValid ? "#fff" : undefined,
+                backgroundColor: "#171717",
+                color: "#fff",
               }}
             >
               {isLoading ? "Creating account..." : isContinueLoading ? "Checking..." : "Continue"}
