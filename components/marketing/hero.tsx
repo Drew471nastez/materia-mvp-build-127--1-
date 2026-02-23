@@ -55,17 +55,16 @@ const PARTNER_LOGOS = [
   "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/eyJidWNrZXQiOiJwYXJ0bmVycGFnZS5wcm9kIiwia2V5IjoibWVkaWEvY29udGFjdF9pbWFnZXMvOWQ0MDVmYmMtNGJkMS00NzEz.svg",
 ]
 
-// Supabase image transform URLs: width=700 covers 2x retina at all card sizes.
-// quality=72 is visually indistinguishable from 100 for WebP at these display sizes.
-// /render/image/public/ path enables Supabase's server-side resize — reduces file
-// size ~80% vs original (typically 800 KB → ~80 KB per image).
-const IMAGES = [
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(5)%20(2).webp?width=700&quality=72",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(6)%20(1).webp?width=700&quality=72",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(7)%20(1).webp?width=700&quality=72",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(13).webp?width=700&quality=72",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(9).webp?width=700&quality=72",
+const IMAGE_BASE_PATHS = [
+  "platform%20images/collage%20imags/Monetize%20(5)%20(2).webp",
+  "platform%20images/collage%20imags/Monetize%20(6)%20(1).webp",
+  "platform%20images/collage%20imags/Monetize%20(7)%20(1).webp",
+  "platform%20images/collage%20imags/Monetize%20(13).webp",
+  "platform%20images/collage%20imags/Monetize%20(9).webp",
 ]
+
+const getOptimizedImageUrl = (path: string, width: number, quality: number) =>
+  `https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/${path}?width=${width}&quality=${quality}`
 
 interface CardDef {
   left: number
@@ -130,6 +129,7 @@ export function Hero() {
   const [cardOrder, setCardOrder] = useState([0, 1, 2, 3, 4])
   const [transition, setTransition] = useState<CardTransition | null>(null)
   const [isMobile, setIsMobile] = useState(false)
+  const [isConstrainedConnection, setIsConstrainedConnection] = useState(false)
   const [loadedImages, setLoadedImages] = useState<Set<number>>(new Set())
   // imagesLoaded (all-5 flag) removed — text is now shown immediately without waiting
   // for all images. Per-card skeleton uses loadedImages.has(idx) instead.
@@ -145,6 +145,11 @@ export function Hero() {
   const dragRafRef = useRef<number | null>(null)
   const dragRef = useRef({ active: false, startX: 0, delta: 0, rawDelta: 0 })
   const loadedImageSetRef = useRef(new Set<number>())
+  const dpr = typeof window === "undefined" ? 1 : Math.min(2, window.devicePixelRatio || 1)
+  const baseWidth = isMobile ? 340 : 420
+  const quality = isConstrainedConnection ? 54 : 66
+  const requestWidth = Math.round(baseWidth * dpr)
+  const collageImages = IMAGE_BASE_PATHS.map((path) => getOptimizedImageUrl(path, requestWidth, quality))
 
   const clearAutoplay = useCallback(() => {
     if (autoplayRef.current) {
@@ -186,8 +191,9 @@ export function Hero() {
 
   const restartAutoplay = useCallback(() => {
     clearAutoplay()
+    if (isConstrainedConnection) return
     autoplayRef.current = setInterval(() => startRotation(1), AUTOPLAY_INTERVAL)
-  }, [clearAutoplay, startRotation])
+  }, [clearAutoplay, isConstrainedConnection, startRotation])
 
   useEffect(() => {
     const update = () => setIsMobile(window.innerWidth < 640)
@@ -257,9 +263,9 @@ export function Hero() {
         markImageLoaded(idx)
         resolve()
       }
-      img.src = IMAGES[idx]
+      img.src = collageImages[idx]
     })
-  }, [markImageLoaded])
+  }, [collageImages, markImageLoaded])
 
 
   // Progressive image loading for collage:
@@ -282,6 +288,7 @@ export function Hero() {
       connection?.effectiveType === "slow-2g",
     )
 
+    setIsConstrainedConnection(isConstrained)
     if (isConstrained) return
 
     const scheduleBackgroundLoad = () => {
@@ -469,7 +476,7 @@ export function Hero() {
               stopDrag(dragRef.current.rawDelta)
             }}
           >
-            {IMAGES.map((src, imageIdx) => {
+            {collageImages.map((src, imageIdx) => {
               const fromPos = transition ? transition.from.indexOf(imageIdx) : cardOrder.indexOf(imageIdx)
               const toPos = transition ? transition.to.indexOf(imageIdx) : fromPos
               const fromCard = activeCards[fromPos]
@@ -515,6 +522,10 @@ export function Hero() {
                   ) : (
                     <img
                       src={src}
+                      srcSet={[280, 420, 560, 760]
+                        .map((candidateWidth) => `${getOptimizedImageUrl(IMAGE_BASE_PATHS[imageIdx], candidateWidth, quality)} ${candidateWidth}w`)
+                        .join(", ")}
+                      sizes="(max-width: 639px) 55vw, 34vw"
                       alt=""
                       className="w-full h-full object-cover pointer-events-none"
                       draggable={false}
