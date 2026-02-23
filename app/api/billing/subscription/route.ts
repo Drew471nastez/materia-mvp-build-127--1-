@@ -239,7 +239,6 @@ export async function GET() {
       if (canceledSub) {
         const canceledPriceId = canceledSub.items?.data?.[0]?.price?.id
         const canceledPlanId = getPlanIdFromPriceId(canceledPriceId)
-        const canceledPlan = getPlanObject(canceledPlanId)
         const canceledSubscription = {
           id: canceledSub.id,
           stripe_subscription_id: canceledSub.id,
