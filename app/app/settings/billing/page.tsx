@@ -222,6 +222,7 @@ export default async function BillingPage() {
               status: preferredSubscription.status,
               current_period_start: safeTimestamp(periodStartTs),
               current_period_end: safeTimestamp(periodEndTs),
+              cancel_at_period_end: preferredSubscription.cancel_at_period_end,
               updated_at: new Date().toISOString(),
             }, { onConflict: "creator_id" })
         } catch (syncError) {

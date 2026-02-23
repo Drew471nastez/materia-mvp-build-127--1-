@@ -106,6 +106,13 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
     setRefreshing(false)
   }, [initialData.currentPlan])
 
+  // Refresh billing data from Stripe on mount so status is always current
+  // (handles the case where user canceled via Stripe portal then navigated back)
+  useEffect(() => {
+    refreshBillingData()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   useEffect(() => {
     const success = searchParams.get("success")
     const setupSuccess = searchParams.get("setup_success")
@@ -346,11 +353,11 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                     </li>
                   ))}
                   {subscription?.current_period_end && (
-                    <li className="flex items-center gap-2.5 text-[13px] text-[#6b7280]">
-                      <div className="w-4 h-4 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-                        <Clock className="h-2.5 w-2.5 text-gray-500" />
+                    <li className={`flex items-center gap-2.5 text-[13px] ${subscription.cancel_at_period_end ? "text-amber-700 font-medium" : "text-[#6b7280]"}`}>
+                      <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 ${subscription.cancel_at_period_end ? "bg-amber-100" : "bg-gray-100"}`}>
+                        <Clock className={`h-2.5 w-2.5 ${subscription.cancel_at_period_end ? "text-amber-500" : "text-gray-500"}`} />
                       </div>
-                      {subscription.cancel_at_period_end ? "Expires" : "Renews"}: {formatDate(subscription.current_period_end)}
+                      {subscription.cancel_at_period_end ? "Cancels on" : "Renews"}: {formatDate(subscription.current_period_end)}
                     </li>
                   )}
                 </ul>

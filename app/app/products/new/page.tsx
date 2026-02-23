@@ -3642,7 +3642,7 @@ export default function NewProductPage() {
 
             {/* Pills Row */}
             <div
-              className={`py-3 transition-all duration-300 ease-out ${isScrolled ? '' : 'pt-0 sm:pt-0.5'}`}
+              className={`py-3 lg:py-2 transition-all duration-300 ease-out ${isScrolled ? '' : 'pt-0 sm:pt-0.5'}`}
             >
               <div className="flex items-center justify-between">
                 <div
@@ -3662,14 +3662,14 @@ export default function NewProductPage() {
                         ref={(el) => { pillRefs.current[section.id as SectionId] = el }}
                         onClick={() => scrollToSection(section.id as SectionId)}
                         className={`
-                          flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 lg:px-5 py-2 rounded-full text-[13px] sm:text-[14px] lg:text-[15px] font-medium transition-all duration-400 whitespace-nowrap flex-shrink-0
+                          flex items-center gap-1.5 sm:gap-2 lg:gap-1.5 px-3 sm:px-4 lg:px-4 py-2 lg:py-1.5 rounded-full text-[13px] sm:text-[14px] lg:text-[13px] font-medium transition-all duration-400 whitespace-nowrap flex-shrink-0
                           bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-800
                         `}
                       >
                         {/* Checkmark circle icon - purple when active, gray otherwise - smooth animation */}
                         <span
                           className={`
-                            flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-full
+                            flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 lg:w-5 lg:h-5 rounded-full
                             transition-all duration-500 ease-out
                             ${isActive
                               ? "bg-violet-500 scale-100 shadow-sm shadow-violet-200"
@@ -3683,7 +3683,7 @@ export default function NewProductPage() {
                         >
                           <Check
                             className={`
-                              h-3 w-3 sm:h-3.5 sm:w-3.5
+                              h-3 w-3 sm:h-3.5 sm:w-3.5 lg:h-3 lg:w-3
                               transition-all duration-500 ease-out
                               ${isActive ? "text-white scale-110" : "text-gray-500 scale-100"}
                             `}
