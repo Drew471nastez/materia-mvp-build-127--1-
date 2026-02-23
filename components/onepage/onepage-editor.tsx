@@ -21,6 +21,8 @@ import {
   Save,
   Eye,
   Edit3,
+  Globe,
+  Zap,
 } from "lucide-react"
 import { useState, useEffect, useCallback, useRef } from "react"
 import type { OnePage } from "@/lib/onepage/types"
@@ -285,8 +287,9 @@ function EditorLayout() {
   
   const [showOnboarding, setShowOnboarding] = useState(false) // Start with false, check DB
   const [connectedDomain, setConnectedDomain] = useState<string | null>(null)
+  const [userPlan, setUserPlan] = useState<"free" | "growth" | "pro" | null>(null)
 
-  // Fetch custom domain on mount
+  // Fetch custom domain and user plan on mount
   useEffect(() => {
     fetch("/api/domains")
       .then((res) => res.json())
@@ -295,6 +298,14 @@ function EditorLayout() {
         if (active) setConnectedDomain(active.domain)
       })
       .catch(() => {})
+
+    fetch("/api/billing/subscription")
+      .then((res) => res.json())
+      .then((data) => {
+        const plan = data.plan_id as "free" | "growth" | "pro" | undefined
+        setUserPlan(plan || "free")
+      })
+      .catch(() => setUserPlan("free"))
   }, [])
 
   const [onboardingChecked, setOnboardingChecked] = useState(false) // Track if we've checked
@@ -963,6 +974,31 @@ function EditorLayout() {
               <ExternalLink className="h-4 w-4 mr-3" />
               Open in new tab
             </Button>
+
+            {/* Add a custom domain — only shown when no domain is connected */}
+            {!connectedDomain && (
+              <Button
+                variant="outline"
+                className="w-full justify-between h-11 rounded-xl text-sm cursor-pointer text-[#374151] hover:text-[#1a1a2e]"
+                onClick={() => { window.location.href = "/app/settings?tab=domains" }}
+              >
+                <span className="flex items-center gap-3">
+                  <Globe className="h-4 w-4 text-[#6b7280] shrink-0" />
+                  Add a custom domain
+                </span>
+                <Zap
+                  className="h-4 w-4 shrink-0"
+                  style={{
+                    color: userPlan === "growth" || userPlan === "pro"
+                      ? "#d1d5db"   /* light gray — feature already included in plan */
+                      : "#7c3aed", /* purple — premium upgrade suggestion */
+                    fill: userPlan === "growth" || userPlan === "pro"
+                      ? "#d1d5db"
+                      : "#7c3aed",
+                  }}
+                />
+              </Button>
+            )}
           </div>
         </DialogContent>
       </Dialog>

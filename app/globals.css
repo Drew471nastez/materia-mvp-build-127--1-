@@ -198,13 +198,26 @@
   /* Global overflow prevention - prevents horizontal scrolling */
   html {
     overflow-x: hidden;
-    overflow-y: scroll; /* Always show vertical scrollbar to prevent layout shift */
+    overflow-y: scroll; /* Desktop: always show vertical scrollbar to prevent layout shift */
     -webkit-overflow-scrolling: touch;
     scroll-behavior: auto;
     /* Enable touch scrolling on mobile devices */
     touch-action: pan-y pinch-zoom;
     /* Prevent overscroll bounce that can cause scroll lock */
     overscroll-behavior-x: none;
+  }
+
+  /* Mobile: hide the persistent scrollbar — touch devices don't need it visible */
+  @media (max-width: 768px) {
+    html {
+      overflow-y: auto; /* No forced scrollbar track on mobile */
+      scrollbar-width: none; /* Firefox Android */
+      -ms-overflow-style: none; /* IE/Edge mobile */
+    }
+    html::-webkit-scrollbar {
+      width: 0;
+      background: transparent; /* Chrome/Samsung Internet Android */
+    }
   }
 
   body {
