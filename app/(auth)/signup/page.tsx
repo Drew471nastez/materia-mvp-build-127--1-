@@ -471,9 +471,8 @@ function SignUpFormContent() {
         <Image
           src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20design%20(12).webp"
           alt="Signup banner"
-          width={1024}
-          height={1964}
-          className="h-full w-full object-cover object-center"
+          fill
+          className="object-cover object-center"
           sizes="(min-width: 1024px) 50vw, 0px"
           quality={65}
           loading="lazy"
