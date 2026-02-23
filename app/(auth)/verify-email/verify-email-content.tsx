@@ -182,10 +182,10 @@ export default function VerifyEmailContent() {
   }
 
   return (
-    <div className="flex min-h-svh w-full lg:h-svh lg:overflow-hidden">
+    <div className="flex min-h-svh w-full lg:h-[100dvh] lg:max-h-[100dvh] lg:overflow-hidden">
       {/* Left side - Form */}
-      <div className="flex w-full flex-col justify-center px-6 py-12 lg:w-1/2 lg:h-svh lg:overflow-y-auto lg:px-16 xl:px-24">
-        <div className="mx-auto w-full max-w-[400px]">
+      <div className="flex w-full flex-col justify-start px-6 py-8 sm:py-10 lg:w-1/2 lg:h-[100dvh] lg:overflow-y-auto lg:px-16 lg:py-10 xl:px-24">
+        <div className="mx-auto w-full max-w-[400px] py-2 sm:py-3 lg:py-4">
           <Link href="/" className="mb-12 inline-flex items-center gap-2">
             <img
               src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
@@ -304,7 +304,7 @@ export default function VerifyEmailContent() {
       </div>
 
       {/* Right side - Same image as signup page */}
-      <div className="relative hidden lg:block lg:w-1/2 lg:h-svh">
+      <div className="relative hidden lg:block lg:w-1/2 lg:h-[100dvh] shrink-0 overflow-hidden">
         {!isBannerLoaded && <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-neutral-100 via-neutral-200 to-neutral-100" />}
         <Image
           src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20design%20(8).webp"
