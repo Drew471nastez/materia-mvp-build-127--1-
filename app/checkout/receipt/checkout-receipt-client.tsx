@@ -586,7 +586,10 @@ export default function CheckoutReceiptClient({
           {/* Success header */}
           <div className="text-center">
             <div className="mx-auto w-12 h-12 flex items-center justify-center mb-4">
-              <CheckCircle className="w-12 h-12 text-green-500" strokeWidth={1.5} />
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="12" cy="12" r="10" stroke="#3d6aff" strokeWidth="0.552"/>
+                <path d="M8.5 12.5L10.5 14.5L15.5 9.5" stroke="#3d6aff" strokeWidth="0.552" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
             </div>
             <h1 className="text-2xl font-bold text-gray-900">Order Complete</h1>
             <p className="text-sm text-gray-500 mt-1">Your download is ready</p>
@@ -762,7 +765,10 @@ export default function CheckoutReceiptClient({
             {/* Success header */}
             <div className="mb-8">
               <div className="w-12 h-12 flex items-center justify-center mb-4">
-                <CheckCircle className="w-12 h-12 text-green-500" strokeWidth={1.5} />
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="12" cy="12" r="10" stroke="#3d6aff" strokeWidth="0.552"/>
+                  <path d="M8.5 12.5L10.5 14.5L15.5 9.5" stroke="#3d6aff" strokeWidth="0.552" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
               </div>
               <h1 className="text-[28px] font-bold text-gray-900">Order Complete</h1>
               <p className="text-sm text-gray-500 mt-1">Your purchase was successful. Download your files below.</p>

@@ -2574,7 +2574,7 @@ function OrderDetailsModal({
               )}
             >
               <RotateCcw className="h-3.5 w-3.5" />
-              Issue Refund
+              Refund
             </button>
           )}
 
@@ -2618,7 +2618,7 @@ function OrderDetailsModal({
         />
         <div
           className={cn(
-            "relative bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl transition-all mx-4",
+            "relative bg-white rounded-2xl w-full max-w-xl max-h-[90vh] shadow-xl transition-all mx-4 flex flex-col",
             isAnimating ? "opacity-100 scale-100" : "opacity-0 scale-95",
           )}
           style={{
@@ -2627,7 +2627,7 @@ function OrderDetailsModal({
           }}
         >
           {/* Desktop Header */}
-          <div className="sticky top-0 bg-white border-b border-[#e5e7eb] px-6 py-4 flex items-center justify-between">
+          <div className="border-b border-[#e5e7eb] px-6 py-4 flex items-center justify-between flex-shrink-0">
             <h2 className="text-[18px] font-semibold text-[#1a1a2e]">
               Order Details
             </h2>
@@ -2641,8 +2641,57 @@ function OrderDetailsModal({
               </button>
             </div>
           </div>
-          <div className="p-6 space-y-4">
-            <ContentSections compact={false} />
+          {/* Scrollable content */}
+          <div className="p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
+            <ContentSections compact={false} hideActions={true} />
+          </div>
+          {/* Sticky footer — action buttons */}
+          <div className="border-t border-[#e5e7eb] px-6 py-4 flex-shrink-0 flex items-center gap-2">
+            {order.stripe_payment_intent_id ? (
+              <a
+                href={`/api/stripe/invoice?orderId=${order.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-[13px] text-[#374151] bg-[#f3f4f6] rounded-xl hover:bg-[#e5e7eb] transition-colors"
+              >
+                <FileText className="h-3.5 w-3.5" />
+                Invoice
+              </a>
+            ) : (
+              <span className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-[13px] text-[#9ca3af] bg-[#f3f4f6] rounded-xl cursor-not-allowed opacity-60">
+                <FileText className="h-3.5 w-3.5" />
+                Invoice
+              </span>
+            )}
+            <button
+              onClick={handleResend}
+              disabled={resendLoading}
+              className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-[13px] text-[#374151] bg-[#f3f4f6] rounded-xl hover:bg-[#e5e7eb] transition-colors disabled:opacity-60"
+            >
+              {resendLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+              {resendLoading ? "Sending…" : `Resend${receiptResendCounts[order.id] ? ` (${receiptResendCounts[order.id]}/5)` : ""}`}
+            </button>
+            <button
+              onClick={openEditEmail}
+              className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-[13px] text-[#374151] bg-[#f3f4f6] rounded-xl hover:bg-[#e5e7eb] transition-colors"
+            >
+              <Mail className="h-3.5 w-3.5" />
+              Edit Email
+            </button>
+            {order.status === "completed" && !refundDone ? (
+              <button
+                onClick={() => { setRefundReason(""); setRefundError(null); setShowRefundConfirm(true); }}
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-[13px] text-rose-600 bg-rose-50 rounded-xl hover:bg-rose-100 transition-colors"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                Refund
+              </button>
+            ) : order.status === "refunded" || refundDone ? (
+              <span className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-[13px] text-rose-400 bg-rose-50 rounded-xl cursor-not-allowed opacity-70">
+                <RotateCcw className="h-3.5 w-3.5" />
+                Refunded
+              </span>
+            ) : null}
           </div>
         </div>
       </div>
