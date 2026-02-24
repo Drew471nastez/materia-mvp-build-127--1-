@@ -89,7 +89,7 @@ export function PricingSection() {
             {PLANS.map((plan) => (
               <div
                 key={plan.name}
-                className={`bg-white rounded-lg p-9 relative flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-md ${
+                className={`bg-white rounded-3xl p-9 relative flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-md ${
                   plan.popular
                     ? "border-[1.5px] border-violet-600 shadow-[0_0_0_1px_#7c3aed] shadow-md"
                     : "border-[1.5px] border-neutral-200"
@@ -113,7 +113,7 @@ export function PricingSection() {
                 {/* CTA button — right under description */}
                 <Link
                   href={plan.href}
-                  className={`relative w-full inline-flex items-center justify-center gap-2 text-[15px] font-semibold py-3.5 px-8 rounded-full transition-all duration-300 hover:-translate-y-0.5 overflow-hidden mb-7 ${
+                  className={`relative w-full inline-flex items-center justify-center gap-2 text-[15px] font-semibold py-3.5 px-8 rounded-lg transition-all duration-300 hover:-translate-y-0.5 overflow-hidden mb-7 ${
                     plan.popular
                       ? "bg-violet-600 text-white hover:bg-violet-700"
                       : "bg-white text-neutral-900 border-[1.5px] border-neutral-200 hover:border-neutral-400"

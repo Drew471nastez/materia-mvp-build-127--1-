@@ -7,7 +7,7 @@ import dynamic from "next/dynamic"
 const GlobeWidget = dynamic(() => import("./globe-widget"), {
   ssr: false,
   loading: () => (
-    <div className="w-[130px] h-[130px] mx-auto rounded-full bg-indigo-950/30 animate-pulse" />
+    <div className="w-[170px] h-[170px] mx-auto rounded-full bg-indigo-950/30 animate-pulse" />
   ),
 })
 
@@ -78,8 +78,8 @@ function GlobeSection() {
       timeout = setTimeout(() => {
         setSetIndex((prev) => (prev + 1) % CURRENCY_SETS.length)
         setFadeIn(true)
-      }, 600)
-    }, 4000)
+      }, 800)
+    }, 4500)
     return () => {
       clearInterval(interval)
       clearTimeout(timeout)
@@ -89,7 +89,7 @@ function GlobeSection() {
   const currentSet = CURRENCY_SETS[setIndex]
 
   return (
-    <div className="relative flex items-center justify-center my-4 min-h-[140px]">
+    <div className="relative flex items-center justify-center my-4 min-h-[180px]">
       {/* Real 3D globe */}
       <GlobeWidget />
 
@@ -100,8 +100,8 @@ function GlobeSection() {
           className={`absolute flex flex-col items-center gap-1 z-[3] ${TAG_POSITIONS[i]}`}
           style={{
             opacity: fadeIn ? 1 : 0,
-            transform: fadeIn ? "scale(1) translateY(0)" : "scale(0.8) translateY(6px)",
-            transition: "opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1), transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)",
+            transform: fadeIn ? "scale(1) translateY(0)" : "scale(0.85) translateY(8px)",
+            transition: `opacity 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) ${i * 0.1}s, transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) ${i * 0.1}s`,
           }}
         >
           <div className="w-9 h-9 rounded-full border-[3px] border-[#D4F542] flex items-center justify-center text-base shadow-md bg-white">
@@ -166,9 +166,9 @@ function CountUpRevenue() {
               <stop offset="0%" stopColor="#4f46e5" stopOpacity="0.3" />
               <stop offset="100%" stopColor="#4f46e5" stopOpacity="0.03" />
             </linearGradient>
-            <linearGradient id="grad-unique" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#a855f7" stopOpacity="0.3" />
-              <stop offset="100%" stopColor="#a855f7" stopOpacity="0.03" />
+            <linearGradient id="grad-revenue" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#22c55e" stopOpacity="0.3" />
+              <stop offset="100%" stopColor="#22c55e" stopOpacity="0.03" />
             </linearGradient>
           </defs>
 
@@ -185,14 +185,14 @@ function CountUpRevenue() {
             strokeLinecap="round"
           />
 
-          {/* Unique visitors — purple area */}
+          {/* Revenue — green area */}
           <path
             d="M0,82 C25,79 50,73 80,66 C110,59 140,53 170,48 C200,44 230,38 260,35 L280,33 L280,90 L0,90 Z"
-            fill="url(#grad-unique)"
+            fill="url(#grad-revenue)"
           />
           <path
             d="M0,82 C25,79 50,73 80,66 C110,59 140,53 170,48 C200,44 230,38 260,35 L280,33"
-            stroke="#a855f7"
+            stroke="#22c55e"
             strokeWidth="2"
             fill="none"
             strokeLinecap="round"
@@ -204,11 +204,11 @@ function CountUpRevenue() {
           <circle cx="170" cy="28" r="2.5" fill="#4f46e5" />
           <circle cx="280" cy="14" r="2.5" fill="#4f46e5" />
 
-          {/* Data points — Unique visitors */}
-          <circle cx="0" cy="82" r="2.5" fill="#a855f7" />
-          <circle cx="80" cy="66" r="2.5" fill="#a855f7" />
-          <circle cx="170" cy="48" r="2.5" fill="#a855f7" />
-          <circle cx="280" cy="33" r="2.5" fill="#a855f7" />
+          {/* Data points — Revenue */}
+          <circle cx="0" cy="82" r="2.5" fill="#22c55e" />
+          <circle cx="80" cy="66" r="2.5" fill="#22c55e" />
+          <circle cx="170" cy="48" r="2.5" fill="#22c55e" />
+          <circle cx="280" cy="33" r="2.5" fill="#22c55e" />
         </svg>
 
         {/* Legend */}
@@ -218,8 +218,8 @@ function CountUpRevenue() {
             <span className="text-[10px] text-neutral-400 font-medium">Visits</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <div className="w-2.5 h-2.5 rounded-full bg-purple-500" />
-            <span className="text-[10px] text-neutral-400 font-medium">Unique visitors</span>
+            <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
+            <span className="text-[10px] text-neutral-400 font-medium">Revenue</span>
           </div>
         </div>
       </div>
@@ -318,9 +318,9 @@ export function BentoGrid() {
               </p>
               <div className="mt-5 flex-1 flex items-center justify-center">
                 <img
-                  src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20(1250%20x%20500%20px)%20(1250%20x%20400%20px)%20(1100%20x%20400%20px)%20(1).png?width=600&quality=75"
+                  src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20(1250%20x%20500%20px)%20(1250%20x%20400%20px)%20(1100%20x%20400%20px)%20(3).png?width=600&quality=75"
                   alt="Digital products showcase"
-                  className="w-full rounded-xl shadow-sm"
+                  className="w-full rounded-xl"
                   loading="lazy"
                   decoding="async"
                   width={600}
