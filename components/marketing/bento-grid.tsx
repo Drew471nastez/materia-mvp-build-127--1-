@@ -49,7 +49,7 @@ function AnimateOnScroll({ children, className = "" }: { children: React.ReactNo
     if (!el) return
     const obs = new IntersectionObserver(
       ([entry]) => { if (entry.isIntersecting) setVisible(true) },
-      { threshold: 0.1, rootMargin: "0px 0px -50px 0px" },
+      { threshold: 0.05, rootMargin: "0px 0px 100px 0px" },
     )
     obs.observe(el)
     return () => obs.disconnect()
@@ -58,7 +58,7 @@ function AnimateOnScroll({ children, className = "" }: { children: React.ReactNo
   return (
     <div
       ref={ref}
-      className={`transition-all duration-700 ease-out ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"} ${className}`}
+      className={`transition-[opacity,transform] duration-700 ease-out ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"} ${className}`}
     >
       {children}
     </div>
@@ -265,7 +265,7 @@ export function BentoGrid() {
         <AnimateOnScroll>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Sell anything — light purple + illustration image */}
-            <div className="rounded-3xl p-9 bg-violet-50/80 min-h-[320px] flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
+            <div className="rounded-3xl p-9 bg-violet-50/80 min-h-[320px] flex flex-col">
               <h3 className="text-2xl font-semibold tracking-tight leading-snug mb-2.5">Sell anything</h3>
               <p className="text-sm leading-relaxed text-neutral-500 max-w-[320px]">
                 Courses, digital products, memberships, bookings — if you made it, you can sell it here on Storelib.
@@ -284,7 +284,7 @@ export function BentoGrid() {
             </div>
 
             {/* Make your own money $ — count-up + area chart */}
-            <div className="rounded-3xl p-9 bg-white border border-neutral-200 min-h-[320px] flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
+            <div className="rounded-3xl p-9 bg-white border border-neutral-200 min-h-[320px] flex flex-col">
               <h3 className="text-2xl font-semibold tracking-tight leading-snug mb-2.5">
                 <span className="hidden sm:inline">Make your own money $</span>
                 <span className="sm:hidden">Make your own $$</span>
@@ -296,7 +296,7 @@ export function BentoGrid() {
             </div>
 
             {/* Sell to anyone — black card + globe + currencies */}
-            <div className="rounded-3xl p-7 bg-neutral-950 min-h-[200px] flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
+            <div className="rounded-3xl p-7 bg-neutral-950 min-h-[200px] flex flex-col">
               <h3 className="text-2xl font-semibold tracking-tight leading-snug mb-2.5 text-white">Sell to anyone</h3>
               <p className="text-sm leading-relaxed text-neutral-400 max-w-[320px]">
                 Accept payments from 135+ countries. Customers pay in their currency, you get paid in yours.
@@ -305,7 +305,7 @@ export function BentoGrid() {
             </div>
 
             {/* Sell anywhere — light gray + image */}
-            <div className="rounded-3xl p-7 bg-neutral-100 min-h-[200px] flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
+            <div className="rounded-3xl p-7 bg-neutral-100 min-h-[200px] flex flex-col">
               <h3 className="text-2xl font-semibold tracking-tight leading-snug mb-2.5">Sell anywhere</h3>
               <p className="text-sm leading-relaxed text-neutral-500 max-w-[320px]">
                 Your storefront, any website, or social bio. Reach your audience everywhere.

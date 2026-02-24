@@ -11,13 +11,17 @@ function AuthCompleteContent() {
   const [status, setStatus] = useState("Completing sign in...")
 
   useEffect(() => {
+    // Hard safety net — if anything hangs for > 8s, force redirect to /app
+    const hardTimeout = setTimeout(() => {
+      console.warn("Auth complete: hard timeout reached, redirecting to /app")
+      window.location.href = "/app"
+    }, 8000)
+
     const completeAuth = async () => {
       try {
         // Check if there's a stored redirect URL from before OAuth
-        // Check both localStorage and cookie for reliability
         let storedRedirect = localStorage.getItem("storelib_auth_redirect")
 
-        // If not in localStorage, check cookie
         if (!storedRedirect) {
           const cookieMatch = document.cookie
             .split("; ")
@@ -35,9 +39,7 @@ function AuthCompleteContent() {
           try {
             const redirectData = JSON.parse(storedRedirect)
 
-            // Clear both localStorage and cookie
             localStorage.removeItem("storelib_auth_redirect")
-            // Clear cookie
             const mainDomain = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
             const isLocalhost = mainDomain.includes("localhost")
             let clearCookie = "storelib_auth_redirect=; max-age=0; path=/"
@@ -46,7 +48,6 @@ function AuthCompleteContent() {
             }
             document.cookie = clearCookie
 
-            // If autoBuyer flag is set, pre-set user type as buyer and skip welcome
             if (redirectData.autoBuyer) {
               localStorage.setItem("storelib_user_type", "buyer")
               localStorage.setItem("storelib_welcome_shown", "true")
@@ -54,11 +55,11 @@ function AuthCompleteContent() {
 
             if (redirectData.url) {
               let finalUrl = redirectData.url
-              // Add pendingReview param if it was set
               if (redirectData.pendingReview && !finalUrl.includes("pendingReview")) {
                 finalUrl += (finalUrl.includes("?") ? "&" : "?") + "pendingReview=true"
               }
               setStatus("Redirecting back...")
+              clearTimeout(hardTimeout)
               router.push(finalUrl)
               return
             }
@@ -67,32 +68,52 @@ function AuthCompleteContent() {
           }
         }
 
-        // No stored redirect - check URL params for fallback destination
         const fallback = searchParams.get("fallback") || "/app"
         const isNewUser = searchParams.get("new") === "1"
 
         if (isNewUser) {
-          // New users go to welcome/success page
+          clearTimeout(hardTimeout)
           router.push("/signup/success")
           return
         }
 
-        // Check user type and redirect appropriately
+        // Retry getUser up to 3 times — session cookies may not be available
+        // immediately after the OAuth redirect on the first render
         const supabase = createClient()
-        const { data: { user } } = await supabase.auth.getUser()
+        let user = null
+        for (let attempt = 0; attempt < 3; attempt++) {
+          const { data } = await supabase.auth.getUser()
+          if (data.user) {
+            user = data.user
+            break
+          }
+          if (attempt < 2) {
+            await new Promise((r) => setTimeout(r, 600))
+          }
+        }
 
         if (!user) {
-          // Use hard navigation to avoid client-side redirect loops
+          clearTimeout(hardTimeout)
           window.location.href = "/login"
           return
         }
 
-        // Check DB for user status (more reliable than localStorage)
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("welcome_completed, is_creator")
-          .eq("id", user.id)
-          .maybeSingle()
+        // Run profile and creator queries in parallel for speed
+        const [profileResult, creatorResult] = await Promise.all([
+          supabase
+            .from("profiles")
+            .select("welcome_completed, is_creator")
+            .eq("id", user.id)
+            .maybeSingle(),
+          supabase
+            .from("creators")
+            .select("id, onboarding_completed")
+            .eq("user_id", user.id)
+            .maybeSingle(),
+        ])
+
+        const profile = profileResult.data
+        const creator = creatorResult.data
 
         if (profile?.welcome_completed) {
           localStorage.setItem("storelib_welcome_shown", "true")
@@ -100,39 +121,29 @@ function AuthCompleteContent() {
 
         const welcomeShown = profile?.welcome_completed || localStorage.getItem("storelib_welcome_shown")
         if (!welcomeShown) {
+          clearTimeout(hardTimeout)
           router.push("/signup/success")
           return
         }
 
-        // Check if user is a creator
-        const { data: creator } = await supabase
-          .from("creators")
-          .select("id, onboarding_completed")
-          .eq("user_id", user.id)
-          .maybeSingle()
+        clearTimeout(hardTimeout)
 
         if (creator) {
-          if (creator.onboarding_completed) {
-            router.push("/app")
-          } else {
-            router.push("/signup/success")
-          }
+          router.push(creator.onboarding_completed ? "/app" : "/signup/success")
         } else {
-          // Buyer - go to library
           const userType = localStorage.getItem("storelib_user_type")
-          if (userType === "buyer") {
-            router.push("/library")
-          } else {
-            router.push(fallback)
-          }
+          router.push(userType === "buyer" ? "/library" : fallback)
         }
       } catch (error) {
         console.error("Auth complete error:", error)
+        clearTimeout(hardTimeout)
         router.push("/app")
       }
     }
 
     completeAuth()
+
+    return () => clearTimeout(hardTimeout)
   }, [router, searchParams])
 
   return (
