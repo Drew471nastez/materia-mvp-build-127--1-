@@ -389,7 +389,7 @@ export function Hero() {
     <section ref={sectionRef} className="flex flex-col items-center bg-white pt-7 sm:pt-10 pb-8 sm:pb-[67px] overflow-hidden">
       <style dangerouslySetInnerHTML={{ __html: `
         .hero-collage-inner {
-          transform: scale(1.01);
+          transform: scale(0.96);
         }
         @media (min-width: 640px) {
           .hero-collage-inner { transform: scale(0.77); }
