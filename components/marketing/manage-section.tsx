@@ -3,11 +3,11 @@
 import { AnimateOnScroll } from "./bento-grid"
 
 const FLOATING_ICONS = [
-  { emoji: "📅", label: "Calendar", pos: "top-5 left-[5%]", delay: "0s" },
-  { emoji: "📕", label: "Digital Products", pos: "top-[-10px] left-[45%]", delay: "0.5s" },
-  { emoji: "🖥️", label: "Webinars", pos: "top-[60px] right-[2%]", delay: "1s" },
-  { emoji: "🎓", label: "Courses", pos: "bottom-[60px] left-0", delay: "1.5s", hideMobile: true },
-  { emoji: "🔗", label: "Links", pos: "bottom-10 right-0", delay: "2s", hideMobile: true },
+  { emoji: "📅", label: "Calendar", pos: "top-5 left-[5%]", delay: "0s", zClass: "z-[2]" },
+  { emoji: "📕", label: "Digital Products", pos: "md:top-[40%] md:left-[-4%] top-[-10px] left-[45%]", delay: "0.5s", zClass: "z-[2]" },
+  { emoji: "🖥️", label: "Webinars", pos: "top-[60px] right-[2%]", delay: "1s", zClass: "z-[5]" },
+  { emoji: "🎓", label: "Courses", pos: "bottom-[60px] left-0", delay: "1.5s", hideMobile: true, zClass: "z-[2]" },
+  { emoji: "🔗", label: "Links", pos: "bottom-10 right-0", delay: "2s", hideMobile: true, zClass: "z-[5]" },
 ]
 
 export function ManageSection() {
@@ -36,7 +36,7 @@ export function ManageSection() {
             {FLOATING_ICONS.map((icon) => (
               <div
                 key={icon.label}
-                className={`absolute flex-col items-center gap-2 z-[2] manage-float-anim ${icon.pos} ${icon.hideMobile ? "hidden md:flex" : "flex"}`}
+                className={`absolute flex-col items-center gap-2 ${icon.zClass} manage-float-anim ${icon.pos} ${icon.hideMobile ? "hidden md:flex" : "flex"}`}
                 style={{ animationDelay: icon.delay }}
               >
                 <div className="w-16 h-16 rounded-full bg-violet-50 flex items-center justify-center text-[28px] shadow-md">
@@ -51,11 +51,11 @@ export function ManageSection() {
             {/* Laptop */}
             <div className="relative z-[1] max-w-[700px] mx-auto">
               <div className="bg-neutral-900 rounded-t-xl p-2">
-                <div className="rounded-t-md overflow-hidden bg-neutral-100 aspect-[16/10] relative">
+                <div className="rounded-t-md overflow-hidden bg-neutral-100 aspect-[16/9] relative">
                   <img
-                    src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/download.jpeg"
+                    src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20design%20(16).png"
                     alt="Storelib Dashboard"
-                    className="w-full h-full object-cover object-top-left"
+                    className="w-full h-full object-cover"
                     loading="lazy"
                     decoding="async"
                   />
