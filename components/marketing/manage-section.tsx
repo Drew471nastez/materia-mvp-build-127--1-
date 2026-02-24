@@ -5,9 +5,9 @@ import { AnimateOnScroll } from "./bento-grid"
 const FLOATING_ICONS = [
   { emoji: "📅", label: "Calendar", pos: "top-5 left-[5%]", delay: "0s", zClass: "z-[2]" },
   { emoji: "📕", label: "Digital Products", pos: "md:top-[40%] md:left-[-4%] top-[-10px] left-[45%]", delay: "0.5s", zClass: "z-[2]" },
-  { emoji: "🖥️", label: "Webinars", pos: "top-[30px] right-[2%]", delay: "1s", zClass: "z-[5]" },
+  { emoji: "🖥️", label: "Webinars", pos: "top-[10px] right-[2%]", delay: "1s", zClass: "z-[5]" },
   { emoji: "🎓", label: "Courses", pos: "bottom-[60px] left-0", delay: "1.5s", hideMobile: true, zClass: "z-[2]" },
-  { emoji: "🔗", label: "Links", pos: "bottom-10 right-[-30px]", delay: "2s", hideMobile: true, zClass: "z-[5]" },
+  { emoji: "🔗", label: "Links", pos: "bottom-10 right-[-50px]", delay: "2s", hideMobile: true, zClass: "z-[5]" },
 ]
 
 export function ManageSection() {
@@ -53,7 +53,7 @@ export function ManageSection() {
               <div className="bg-neutral-900 rounded-t-xl p-2">
                 <div className="rounded-t-md overflow-hidden bg-neutral-100 aspect-[16/9] relative">
                   <img
-                    src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20design%20(17).png"
+                    src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/awa.png"
                     alt="Storelib Dashboard"
                     className="w-full h-full object-cover"
                     loading="lazy"
@@ -73,11 +73,13 @@ export function ManageSection() {
               <div className="bg-neutral-900 rounded-[28px] p-2 shadow-lg">
                 <div className="rounded-[22px] overflow-hidden bg-neutral-100 aspect-[9/19.5] relative">
                   <img
-                    src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/download%20(1).png"
+                    src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20design%20(18).png"
                     alt="Storelib Mobile"
                     className="w-full h-full object-cover object-top"
                     loading="lazy"
                     decoding="async"
+                    fetchPriority="low"
+                    sizes="(max-width: 640px) 140px, 200px"
                   />
                 </div>
               </div>
