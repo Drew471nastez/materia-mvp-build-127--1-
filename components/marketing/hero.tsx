@@ -81,18 +81,18 @@ interface CardTransition {
   progress: number
 }
 
-// Card aspect ratio = 4:5 (1080×1350). 10px gap between every card. Depth scale restored.
+// Card aspect ratio = 4:5 (1080×1350). 7px gap between every card. Depth scale restored.
 // Positions derived by working outward from center (canvas center = 550).
 // tx = left + width*(1−scale)/2  →  rendered_left/right verified below.
 //
-// Desktop — rendered edges (all gaps = 10px):
-//   edge -35→155 | 10 | adj 165→400 | 10 | center 410→690 | 10 | adj 700→936 | 10 | edge 946→1136
+// Desktop — rendered edges (all gaps = 7px):
+//   edge -29→161 | 7 | adj 168→403 | 7 | center 410→690 | 7 | adj 697→933 | 7 | edge 940→1130
 const DESKTOP_CARDS: CardDef[] = [
-  { left: -40,  top: 50, width: 200, height: 250, zIndex: 1, opacity: 0.82, scale: 0.95 },
-  { left: 163,  top: 25, width: 240, height: 300, zIndex: 2, opacity: 0.92, scale: 0.98 },
+  { left: -34,  top: 50, width: 200, height: 250, zIndex: 1, opacity: 0.82, scale: 0.95 },
+  { left: 166,  top: 25, width: 240, height: 300, zIndex: 2, opacity: 0.92, scale: 0.98 },
   { left: 410,  top: 0,  width: 280, height: 350, zIndex: 3, opacity: 1,    scale: 1    },
-  { left: 698,  top: 25, width: 240, height: 300, zIndex: 2, opacity: 0.92, scale: 0.98 },
-  { left: 941,  top: 50, width: 200, height: 250, zIndex: 1, opacity: 0.82, scale: 0.95 },
+  { left: 695,  top: 25, width: 240, height: 300, zIndex: 2, opacity: 0.92, scale: 0.98 },
+  { left: 935,  top: 50, width: 200, height: 250, zIndex: 1, opacity: 0.82, scale: 0.95 },
 ]
 
 // Mobile — rendered edges (all gaps = 10px):
@@ -400,10 +400,10 @@ export function Hero() {
           .hero-collage-inner { transform: scale(0.80); }
         }
         @media (min-width: 1024px) {
-          .hero-collage-inner { transform: scale(0.94); }
+          .hero-collage-inner { transform: scale(0.96); }
         }
         @media (min-width: 1280px) {
-          .hero-collage-inner { transform: scale(1.07); }
+          .hero-collage-inner { transform: scale(1.09); }
         }
         @media (prefers-reduced-motion: reduce) {
           .hero-collage-inner, .collage-card {
@@ -436,7 +436,7 @@ export function Hero() {
       `}} />
 
       <div className="relative w-full mb-10 sm:mb-8 animate-scale-fade-in">
-        <div className="relative w-full h-[330px] sm:h-[251px] md:h-[300px] lg:h-[353px] xl:h-[401px]">
+        <div className="relative w-full h-[330px] sm:h-[251px] md:h-[300px] lg:h-[360px] xl:h-[409px]">
           <div
             className="hero-collage-inner absolute left-1/2 -translate-x-1/2 origin-top select-none"
             style={{ width: CANVAS_W, height: CANVAS_H }}

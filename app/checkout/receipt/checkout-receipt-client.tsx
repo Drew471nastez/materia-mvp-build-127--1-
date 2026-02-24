@@ -7,7 +7,7 @@ import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { DownloadButton } from "@/components/download-button"
+import { downloadEntitledFile } from "@/components/download-button"
 import { ReviewForm } from "@/components/reviews/review-form"
 import {
   CheckCircle,
@@ -396,24 +396,42 @@ export default function CheckoutReceiptClient({
 
   // ---------- DOWNLOAD FILE ITEM ----------
   const [showAllDownloads, setShowAllDownloads] = useState(false)
+  const [downloadingId, setDownloadingId] = useState<string | null>(null)
   const MAX_VISIBLE_DOWNLOADS = 4
+
+  const handleFileDownload = async (assetId: string) => {
+    setDownloadingId(assetId)
+    await downloadEntitledFile(assetId, { receiptToken })
+    setDownloadingId(null)
+  }
 
   const renderDownloadItem = (asset: any, idx: number) => {
     const fileName = asset.file_name || "Download"
     const displayName = truncateFileName(fileName, 28)
+    const isDownloading = downloadingId === asset.id
 
     return (
-      <DownloadButton
+      <button
         key={asset.id}
-        assetId={asset.id}
-        receiptToken={receiptToken}
-        fileName={asset.file_name}
-        variant="outline"
-        size="lg"
-        className="w-full h-auto min-h-[48px] rounded-xl text-sm font-medium px-4 py-3 border-gray-200 bg-white hover:bg-gray-50 text-gray-900"
+        type="button"
+        onClick={() => handleFileDownload(asset.id)}
+        disabled={isDownloading}
+        className="flex items-center w-full p-3 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 transition-colors cursor-pointer disabled:opacity-55 disabled:cursor-default"
       >
-        {displayName}
-      </DownloadButton>
+        <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-gray-100 shrink-0">
+          <FileText className="w-5 h-5 text-gray-400" />
+        </div>
+        <span className="flex-1 text-sm font-medium text-gray-900 truncate px-3 text-left">
+          {displayName}
+        </span>
+        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-neutral-900 text-white shrink-0">
+          {isDownloading ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          ) : (
+            <Download className="w-3.5 h-3.5" />
+          )}
+        </div>
+      </button>
     )
   }
 

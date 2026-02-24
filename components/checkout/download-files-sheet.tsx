@@ -21,7 +21,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { createPortal } from "react-dom"
-import { Download, Loader2, X } from "lucide-react"
+import { Download, Loader2, X, FileText } from "lucide-react"
 
 export interface DownloadFileEntry {
   id: string
@@ -162,6 +162,21 @@ export function DownloadFilesSheet({
             el.style.boxShadow = "none"
           }}
         >
+          {/* File icon in gray square */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 40,
+              height: 40,
+              borderRadius: 10,
+              backgroundColor: "#f3f4f6",
+              flexShrink: 0,
+            }}
+          >
+            <FileText style={{ width: 20, height: 20, color: "#9ca3af" }} />
+          </div>
           {/* File name */}
           <span
             style={{
@@ -173,6 +188,7 @@ export function DownloadFilesSheet({
               whiteSpace: "nowrap" as const,
               minWidth: 0,
               flex: 1,
+              paddingLeft: 12,
               paddingRight: 12,
             }}
           >

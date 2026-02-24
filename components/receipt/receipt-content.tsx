@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { DownloadButton } from "@/components/download-button"
+import { downloadEntitledFile } from "@/components/download-button"
 import {
   CheckCircle,
   Package,
@@ -25,8 +25,11 @@ import {
   User,
   LogIn,
   FileDown,
+  FileText,
+  Download,
   Sparkles,
 } from "lucide-react"
+import { downloadEntitledFile } from "@/components/download-button"
 import { ReviewForm } from "@/components/reviews/review-form"
 import { getStoreUrl } from "@/lib/url-helpers"
 
@@ -163,6 +166,13 @@ export default function ReceiptContent({
   const [updateEmailLoading, setUpdateEmailLoading] = useState(false)
   const [updateEmailError, setUpdateEmailError] = useState("")
   const [emailAlreadyChanged, setEmailAlreadyChanged] = useState(false)
+  const [downloadingFileId, setDownloadingFileId] = useState<string | null>(null)
+
+  const handleFileDownload = async (assetId: string) => {
+    setDownloadingFileId(assetId)
+    await downloadEntitledFile(assetId, { receiptToken })
+    setDownloadingFileId(null)
+  }
 
   const [reviewStatus, setReviewStatus] = useState<{
     canReview: boolean
@@ -709,17 +719,32 @@ export default function ReceiptContent({
               </div>
             ) : (
               <div className="space-y-2.5">
-                {assets.map((asset, index) => (
-                  <DownloadButton
-                    key={asset.id}
-                    assetId={asset.id}
-                    receiptToken={receiptToken}
-                    size="lg"
-                    className="w-full h-12 rounded-xl font-medium bg-[#7c3aed] hover:bg-[#6d28d9] text-white shadow-sm"
-                  >
-                    Download {product?.title}
-                  </DownloadButton>
-                ))}
+                {assets.map((asset: any) => {
+                  const isActive = downloadingFileId === asset.id
+                  return (
+                    <button
+                      key={asset.id}
+                      type="button"
+                      onClick={() => handleFileDownload(asset.id)}
+                      disabled={isActive}
+                      className="flex items-center w-full p-3 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 transition-colors cursor-pointer disabled:opacity-55 disabled:cursor-default"
+                    >
+                      <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-gray-100 shrink-0">
+                        <FileText className="w-5 h-5 text-gray-400" />
+                      </div>
+                      <span className="flex-1 text-sm font-medium text-gray-900 truncate px-3 text-left">
+                        {asset.file_name || product?.title || "Download"}
+                      </span>
+                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-neutral-900 text-white shrink-0">
+                        {isActive ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Download className="w-3.5 h-3.5" />
+                        )}
+                      </div>
+                    </button>
+                  )
+                })}
               </div>
             )}
           </CardContent>
