@@ -81,28 +81,28 @@ interface CardTransition {
   progress: number
 }
 
-// Card aspect ratio = 4:5 (1080×1350). 7px gap between every card. Depth scale restored.
+// Card aspect ratio = 4:5 (1080×1350). ~3px gap between every card. Depth scale restored.
 // Positions derived by working outward from center (canvas center = 550).
 // tx = left + width*(1−scale)/2  →  rendered_left/right verified below.
 //
-// Desktop — rendered edges (all gaps = 7px):
-//   edge -29→161 | 7 | adj 168→403 | 7 | center 410→690 | 7 | adj 697→933 | 7 | edge 940→1130
+// Desktop — rendered edges (all gaps ≈ 3px):
+//   edge -21→169 | 3 | adj 172→408 | 3 | center 410→690 | 3 | adj 693→929 | 3 | edge 932→1122
 const DESKTOP_CARDS: CardDef[] = [
-  { left: -34,  top: 50, width: 200, height: 250, zIndex: 1, opacity: 0.82, scale: 0.95 },
-  { left: 166,  top: 25, width: 240, height: 300, zIndex: 2, opacity: 0.92, scale: 0.98 },
+  { left: -26,  top: 50, width: 200, height: 250, zIndex: 1, opacity: 0.82, scale: 0.95 },
+  { left: 170,  top: 25, width: 240, height: 300, zIndex: 2, opacity: 0.92, scale: 0.98 },
   { left: 410,  top: 0,  width: 280, height: 350, zIndex: 3, opacity: 1,    scale: 1    },
-  { left: 695,  top: 25, width: 240, height: 300, zIndex: 2, opacity: 0.92, scale: 0.98 },
-  { left: 935,  top: 50, width: 200, height: 250, zIndex: 1, opacity: 0.82, scale: 0.95 },
+  { left: 691,  top: 25, width: 240, height: 300, zIndex: 2, opacity: 0.92, scale: 0.98 },
+  { left: 927,  top: 50, width: 200, height: 250, zIndex: 1, opacity: 0.82, scale: 0.95 },
 ]
 
-// Mobile — rendered edges (all gaps = 10px):
-//   edge   14→184 | 10 | adj 194→410 | 10 | center 420→680 | 10 | adj 690→906 | 10 | edge 916→1087
+// Mobile — rendered edges (all gaps ≈ 6px):
+//   edge   22→192 | 6 | adj 198→414 | 6 | center 420→680 | 6 | adj 686→902 | 6 | edge 908→1078
 const MOBILE_CARDS: CardDef[] = [
-  { left: 9,    top: 50, width: 180, height: 225, zIndex: 1, opacity: 0,    scale: 0.95 },
-  { left: 192,  top: 25, width: 220, height: 275, zIndex: 2, opacity: 0.85, scale: 0.98 },
+  { left: 17,   top: 50, width: 180, height: 225, zIndex: 1, opacity: 0,    scale: 0.95 },
+  { left: 196,  top: 25, width: 220, height: 275, zIndex: 2, opacity: 0.85, scale: 0.98 },
   { left: 420,  top: 0,  width: 260, height: 325, zIndex: 3, opacity: 1,    scale: 1    },
-  { left: 688,  top: 25, width: 220, height: 275, zIndex: 2, opacity: 0.85, scale: 0.98 },
-  { left: 911,  top: 50, width: 180, height: 225, zIndex: 1, opacity: 0,    scale: 0.95 },
+  { left: 684,  top: 25, width: 220, height: 275, zIndex: 2, opacity: 0.85, scale: 0.98 },
+  { left: 903,  top: 50, width: 180, height: 225, zIndex: 1, opacity: 0,    scale: 0.95 },
 ]
 
 const CANVAS_W = 1100

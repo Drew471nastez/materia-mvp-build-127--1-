@@ -439,7 +439,7 @@ export default function CheckoutReceiptClient({
 
   const renderDownloadList = (assetsList: any[]) => {
     const hasMore = assetsList.length > MAX_VISIBLE_DOWNLOADS
-    // Collapsed height: each item ~58px + 8px gap, so MAX_VISIBLE_DOWNLOADS items
+    // Collapsed: each item ~58px + 8px gap
     const collapsedHeight = MAX_VISIBLE_DOWNLOADS * 58 + (MAX_VISIBLE_DOWNLOADS - 1) * 8
 
     return (
@@ -448,7 +448,7 @@ export default function CheckoutReceiptClient({
           ref={downloadListRef}
           className="space-y-2 overflow-hidden"
           style={{
-            maxHeight: hasMore && !showAllDownloads ? `${collapsedHeight}px` : `${assetsList.length * 66}px`,
+            maxHeight: hasMore && !showAllDownloads ? `${collapsedHeight}px` : `${assetsList.length * 80}px`,
             transition: "max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
           }}
         >
