@@ -24,6 +24,10 @@ const CITIES = [
   { lat: 59.33, lng: 18.07 },    // Stockholm
   { lat: -34.60, lng: -58.38 },  // Buenos Aires
   { lat: 6.52, lng: 3.38 },      // Lagos
+  { lat: 41.90, lng: 12.50 },    // Rome
+  { lat: 39.90, lng: 116.40 },   // Beijing
+  { lat: 33.87, lng: -84.39 },   // Atlanta
+  { lat: 13.76, lng: 100.50 },   // Bangkok
 ]
 
 /* Arcs — simulated orders flying between cities */
@@ -40,6 +44,12 @@ const ARCS = [
   { startLat: 59.33, startLng: 18.07, endLat: -34.60, endLng: -58.38 },
   { startLat: 6.52, startLng: 3.38, endLat: 48.86, endLng: 2.35 },
   { startLat: 22.32, startLng: 114.17, endLat: 35.68, endLng: 139.69 },
+  { startLat: 51.51, startLng: -0.13, endLat: 25.20, endLng: 55.27 },
+  { startLat: 41.90, startLng: 12.50, endLat: 40.71, endLng: -74.01 },
+  { startLat: 39.90, startLng: 116.40, endLat: -33.87, endLng: 151.21 },
+  { startLat: 33.87, startLng: -84.39, endLat: 52.52, endLng: 13.41 },
+  { startLat: 13.76, startLng: 100.50, endLat: 1.35, endLng: 103.82 },
+  { startLat: 28.61, startLng: 77.23, endLat: 6.52, endLng: 3.38 },
 ]
 
 export default function GlobeWidget() {
@@ -56,40 +66,42 @@ export default function GlobeWidget() {
       if (cancelled || !containerRef.current) return
 
       const globe = new GlobeGl(containerRef.current)
-        .globeImageUrl("//unpkg.com/three-globe/example/img/earth-night.jpg")
+        .globeImageUrl("//unpkg.com/three-globe/example/img/earth-blue-marble.jpg")
         .bumpImageUrl("//unpkg.com/three-globe/example/img/earth-topology.png")
         .backgroundColor("rgba(0,0,0,0)")
         .showAtmosphere(true)
-        .atmosphereColor("#fbbf24")
-        .atmosphereAltitude(0.18)
-        .width(170)
-        .height(170)
-        .enablePointerInteraction(false)
-        // City dots
+        .atmosphereColor("#60a5fa")
+        .atmosphereAltitude(0.22)
+        .width(220)
+        .height(220)
+        .enablePointerInteraction(true)
+        // City dots — blue glow
         .pointsData(CITIES)
         .pointLat("lat")
         .pointLng("lng")
-        .pointColor(() => "#fbbf24")
+        .pointColor(() => "#93c5fd")
         .pointAltitude(0.01)
-        .pointRadius(0.35)
-        // Animated arcs
+        .pointRadius(0.4)
+        // Animated arcs — blue/purple glow
         .arcsData(ARCS)
         .arcStartLat("startLat")
         .arcStartLng("startLng")
         .arcEndLat("endLat")
         .arcEndLng("endLng")
-        .arcColor(() => ["#fbbf2480", "#fb923c80"])
-        .arcDashLength(0.4)
-        .arcDashGap(0.2)
-        .arcDashAnimateTime(3000)
-        .arcStroke(0.5)
+        .arcColor(() => ["#60a5facc", "#818cf8cc"])
+        .arcDashLength(0.5)
+        .arcDashGap(0.15)
+        .arcDashAnimateTime(2500)
+        .arcStroke(0.7)
 
       const controls = globe.controls()
       controls.autoRotate = true
-      controls.autoRotateSpeed = 0.6
+      controls.autoRotateSpeed = 0.5
       controls.enableZoom = false
-      controls.enableRotate = false
+      controls.enableRotate = true
       controls.enablePan = false
+      controls.minPolarAngle = Math.PI * 0.3
+      controls.maxPolarAngle = Math.PI * 0.7
 
       globeRef.current = globe
     })()
@@ -107,7 +119,7 @@ export default function GlobeWidget() {
     <div
       ref={containerRef}
       className="mx-auto overflow-hidden rounded-full"
-      style={{ width: 170, height: 170 }}
+      style={{ width: 220, height: 220 }}
     />
   )
 }

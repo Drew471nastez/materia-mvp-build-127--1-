@@ -7,7 +7,7 @@ import dynamic from "next/dynamic"
 const GlobeWidget = dynamic(() => import("./globe-widget"), {
   ssr: false,
   loading: () => (
-    <div className="w-[170px] h-[170px] mx-auto rounded-full bg-indigo-950/30 animate-pulse" />
+    <div className="w-[220px] h-[220px] mx-auto rounded-full bg-indigo-950/30 animate-pulse" />
   ),
 })
 
@@ -33,10 +33,10 @@ const CURRENCY_SETS = [
 ]
 
 const TAG_POSITIONS = [
-  "top-0 left-[8%]",
-  "top-1 right-[5%]",
-  "bottom-0 left-[15%]",
-  "bottom-1 right-[10%]",
+  "top-0 left-[5%]",
+  "top-2 right-[2%]",
+  "bottom-0 left-[12%]",
+  "bottom-2 right-[6%]",
 ]
 
 function AnimateOnScroll({ children, className = "" }: { children: React.ReactNode; className?: string }) {
@@ -89,7 +89,7 @@ function GlobeSection() {
   const currentSet = CURRENCY_SETS[setIndex]
 
   return (
-    <div className="relative flex items-center justify-center my-4 min-h-[180px]">
+    <div className="relative flex items-center justify-center my-4 min-h-[230px]">
       {/* Real 3D globe */}
       <GlobeWidget />
 
@@ -104,7 +104,7 @@ function GlobeSection() {
             transition: `opacity 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) ${i * 0.1}s, transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) ${i * 0.1}s`,
           }}
         >
-          <div className="w-9 h-9 rounded-full border-[3px] border-[#D4F542] flex items-center justify-center text-base shadow-md bg-white">
+          <div className="w-9 h-9 rounded-full border-[3px] border-white flex items-center justify-center text-base shadow-md bg-white">
             {b.flag}
           </div>
           <div className="bg-white rounded-md px-2 py-0.5 text-[10px] font-bold shadow-md whitespace-nowrap">
@@ -130,12 +130,13 @@ function CountUpRevenue() {
         if (entry.isIntersecting && !animatedRef.current) {
           animatedRef.current = true
           const target = 4289
-          const duration = 2200
+          const duration = 3200
           const start = performance.now()
           const tick = (now: number) => {
             const elapsed = now - start
             const progress = Math.min(elapsed / duration, 1)
-            const eased = 1 - Math.pow(1 - progress, 3)
+            // Smoother ease-out quartic
+            const eased = 1 - Math.pow(1 - progress, 4)
             setCount(Math.round(eased * target))
             if (progress < 1) requestAnimationFrame(tick)
           }
@@ -158,7 +159,7 @@ function CountUpRevenue() {
         ${count.toLocaleString()}
       </div>
 
-      {/* Area chart illustration — Visits + Unique visitors */}
+      {/* Area chart illustration — Visits + Revenue */}
       <div className="w-full max-w-[320px]">
         <svg viewBox="0 0 280 90" className="w-full" preserveAspectRatio="xMidYMid meet">
           <defs>
@@ -167,9 +168,16 @@ function CountUpRevenue() {
               <stop offset="100%" stopColor="#4f46e5" stopOpacity="0.03" />
             </linearGradient>
             <linearGradient id="grad-revenue" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#22c55e" stopOpacity="0.3" />
-              <stop offset="100%" stopColor="#22c55e" stopOpacity="0.03" />
+              <stop offset="0%" stopColor="#c084fc" stopOpacity="0.35" />
+              <stop offset="100%" stopColor="#c084fc" stopOpacity="0.03" />
             </linearGradient>
+            <filter id="glow-revenue">
+              <feGaussianBlur stdDeviation="2" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
           </defs>
 
           {/* Visits — indigo area */}
@@ -185,17 +193,18 @@ function CountUpRevenue() {
             strokeLinecap="round"
           />
 
-          {/* Revenue — green area */}
+          {/* Revenue — light purple area with glow */}
           <path
             d="M0,82 C25,79 50,73 80,66 C110,59 140,53 170,48 C200,44 230,38 260,35 L280,33 L280,90 L0,90 Z"
             fill="url(#grad-revenue)"
           />
           <path
             d="M0,82 C25,79 50,73 80,66 C110,59 140,53 170,48 C200,44 230,38 260,35 L280,33"
-            stroke="#22c55e"
-            strokeWidth="2"
+            stroke="#c084fc"
+            strokeWidth="2.5"
             fill="none"
             strokeLinecap="round"
+            filter="url(#glow-revenue)"
           />
 
           {/* Data points — Visits */}
@@ -205,10 +214,10 @@ function CountUpRevenue() {
           <circle cx="280" cy="14" r="2.5" fill="#4f46e5" />
 
           {/* Data points — Revenue */}
-          <circle cx="0" cy="82" r="2.5" fill="#22c55e" />
-          <circle cx="80" cy="66" r="2.5" fill="#22c55e" />
-          <circle cx="170" cy="48" r="2.5" fill="#22c55e" />
-          <circle cx="280" cy="33" r="2.5" fill="#22c55e" />
+          <circle cx="0" cy="82" r="3" fill="#c084fc" />
+          <circle cx="80" cy="66" r="3" fill="#c084fc" />
+          <circle cx="170" cy="48" r="3" fill="#c084fc" />
+          <circle cx="280" cy="33" r="3" fill="#c084fc" />
         </svg>
 
         {/* Legend */}
@@ -218,66 +227,9 @@ function CountUpRevenue() {
             <span className="text-[10px] text-neutral-400 font-medium">Visits</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
+            <div className="w-2.5 h-2.5 rounded-full bg-purple-400" />
             <span className="text-[10px] text-neutral-400 font-medium">Revenue</span>
           </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-/* ── Sell Anywhere Illustration ── */
-function SellAnywhereIllustration() {
-  return (
-    <div className="mt-5 flex items-center justify-center flex-1">
-      <div className="relative w-full max-w-[300px]">
-        {/* Browser window mockup */}
-        <div className="bg-white/10 backdrop-blur-sm rounded-xl border border-white/15 p-3 relative z-[2]">
-          <div className="flex items-center gap-1.5 mb-2">
-            <div className="w-2 h-2 rounded-full bg-red-400/60" />
-            <div className="w-2 h-2 rounded-full bg-yellow-400/60" />
-            <div className="w-2 h-2 rounded-full bg-green-400/60" />
-            <div className="ml-2 flex-1 h-4 bg-white/10 rounded-md text-[7px] text-white/40 flex items-center px-2">
-              yourbrand.storelib.com
-            </div>
-          </div>
-          <div className="bg-white/5 rounded-lg p-2">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-5 h-5 rounded-full bg-violet-500/40" />
-              <div className="flex-1">
-                <div className="h-1.5 bg-white/15 rounded-full w-16 mb-1" />
-                <div className="h-1 bg-white/10 rounded-full w-10" />
-              </div>
-            </div>
-            <div className="grid grid-cols-3 gap-1.5">
-              {[
-                { bg: "bg-violet-500/30", label: "Course" },
-                { bg: "bg-pink-500/30", label: "Template" },
-                { bg: "bg-amber-500/30", label: "eBook" },
-              ].map((item) => (
-                <div key={item.label} className="flex flex-col items-center">
-                  <div className={`w-full aspect-[4/3] rounded-md ${item.bg} mb-1`} />
-                  <div className="text-[6px] text-white/40 font-medium">{item.label}</div>
-                  <div className="h-1 bg-white/10 rounded-full w-8 mt-0.5" />
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Floating platform badges */}
-        <div className="absolute -top-3 -right-2 bg-white/15 border border-white/20 rounded-lg px-2 py-1 text-[8px] font-bold text-white/70 z-[3] shadow-lg sell-anywhere-float" style={{ animationDelay: "0s" }}>
-          🌐 Website
-        </div>
-        <div className="absolute -bottom-3 -left-2 bg-white/15 border border-white/20 rounded-lg px-2 py-1 text-[8px] font-bold text-white/70 z-[3] shadow-lg sell-anywhere-float" style={{ animationDelay: "0.8s" }}>
-          📱 Social Bio
-        </div>
-        <div className="absolute top-1/3 -right-4 bg-white/15 border border-white/20 rounded-lg px-2 py-1 text-[8px] font-bold text-white/70 z-[3] shadow-lg sell-anywhere-float" style={{ animationDelay: "0.4s" }}>
-          📋 Embed
-        </div>
-        <div className="absolute bottom-1/3 -left-4 bg-white/15 border border-white/20 rounded-lg px-2 py-1 text-[8px] font-bold text-white/70 z-[3] shadow-lg sell-anywhere-float" style={{ animationDelay: "1.2s" }}>
-          🔗 QR Code
         </div>
       </div>
     </div>
@@ -287,15 +239,6 @@ function SellAnywhereIllustration() {
 export function BentoGrid() {
   return (
     <section className="py-20 sm:py-24 bg-white">
-      <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes sell-anywhere-bob {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-6px); }
-        }
-        .sell-anywhere-float {
-          animation: sell-anywhere-bob 3s ease-in-out infinite;
-        }
-      `}} />
       <div className="max-w-[1200px] mx-auto px-6">
         <AnimateOnScroll>
           <div className="text-center max-w-[640px] mx-auto mb-14">
@@ -310,11 +253,11 @@ export function BentoGrid() {
 
         <AnimateOnScroll>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Sell anything — lighter purple + illustration image */}
+            {/* Sell anything — light purple + illustration image */}
             <div className="rounded-3xl p-9 bg-violet-50/80 min-h-[320px] flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
               <h3 className="text-2xl font-semibold tracking-tight leading-snug mb-2.5">Sell anything</h3>
               <p className="text-sm leading-relaxed text-neutral-500 max-w-[320px]">
-                Courses, templates, memberships, files — if you made it, you can sell it here on Storelib.
+                Courses, digital products, memberships, bookings — if you made it, you can sell it here on Storelib.
               </p>
               <div className="mt-5 flex-1 flex items-center justify-center">
                 <img
@@ -338,30 +281,40 @@ export function BentoGrid() {
               <CountUpRevenue />
             </div>
 
-            {/* Sell to anyone — real globe.gl + currencies */}
-            <div className="rounded-3xl p-9 bg-[#D4F542] min-h-[224px] flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
-              <h3 className="text-2xl font-semibold tracking-tight leading-snug mb-2.5">Sell to anyone</h3>
-              <p className="text-sm leading-relaxed text-neutral-500 max-w-[320px]">
+            {/* Sell to anyone — black card + globe + currencies */}
+            <div className="rounded-3xl p-9 bg-neutral-950 min-h-[224px] flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
+              <h3 className="text-2xl font-semibold tracking-tight leading-snug mb-2.5 text-white">Sell to anyone</h3>
+              <p className="text-sm leading-relaxed text-neutral-400 max-w-[320px]">
                 Accept payments from 135+ countries. Customers pay in their currency, you get paid in yours.
               </p>
               <GlobeSection />
               <div className="mt-auto flex flex-col gap-2.5">
                 {["One-time, recurring, or pay-what-you-want", "Instant file delivery after purchase"].map((f) => (
-                  <div key={f} className="flex items-center gap-2.5 text-[13px] font-medium">
-                    <span className="w-[22px] h-[22px] rounded-full bg-black/20 flex items-center justify-center text-xs shrink-0 text-white font-bold">✓</span>
+                  <div key={f} className="flex items-center gap-2.5 text-[13px] font-medium text-white/80">
+                    <span className="w-[22px] h-[22px] rounded-full bg-white/15 flex items-center justify-center text-xs shrink-0 text-white font-bold">✓</span>
                     {f}
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Sell anywhere — illustration */}
-            <div className="rounded-3xl p-9 bg-indigo-950 text-white min-h-[224px] flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
+            {/* Sell anywhere — light gray + image */}
+            <div className="rounded-3xl p-9 bg-neutral-100 min-h-[224px] flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
               <h3 className="text-2xl font-semibold tracking-tight leading-snug mb-2.5">Sell anywhere</h3>
-              <p className="text-sm leading-relaxed text-white/60 max-w-[320px]">
-                Embed your store on any website, share via social bio links, or launch your own Storelib storefront. Be everywhere your audience is.
+              <p className="text-sm leading-relaxed text-neutral-500 max-w-[320px]">
+                Your storefront, any website, or social bio. Reach your audience everywhere.
               </p>
-              <SellAnywhereIllustration />
+              <div className="mt-5 flex-1 flex items-center justify-center">
+                <img
+                  src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20(1250%20x%20500%20px)%20(1250%20x%20400%20px)%20(1100%20x%20400%20px)%20(4).png?width=600&quality=75"
+                  alt="Sell anywhere illustration"
+                  className="w-full rounded-xl"
+                  loading="lazy"
+                  decoding="async"
+                  width={600}
+                  height={218}
+                />
+              </div>
             </div>
           </div>
         </AnimateOnScroll>
