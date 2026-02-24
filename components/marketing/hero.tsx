@@ -55,17 +55,20 @@ const PARTNER_LOGOS = [
   "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/eyJidWNrZXQiOiJwYXJ0bmVycGFnZS5wcm9kIiwia2V5IjoibWVkaWEvY29udGFjdF9pbWFnZXMvOWQ0MDVmYmMtNGJkMS00NzEz.svg",
 ]
 
-// Supabase image transform URLs: width=700 covers 2x retina at all card sizes.
-// quality=72 is visually indistinguishable from 100 for WebP at these display sizes.
-// /render/image/public/ path enables Supabase's server-side resize — reduces file
-// size ~80% vs original (typically 800 KB → ~80 KB per image).
-const IMAGES = [
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(5)%20(2).webp?width=700&quality=72",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(6)%20(1).webp?width=700&quality=72",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(7)%20(1).webp?width=700&quality=72",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(13).webp?width=700&quality=72",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(9).webp?width=700&quality=72",
+// Supabase image transform URLs – two sizes for responsive <img srcSet>:
+//   • 400w @ quality 50 → ~25-35 KB each (mobile / tablet cards ≤ 262 px)
+//   • 700w @ quality 55 → ~45-55 KB each (desktop center card = 340 px @ 2x)
+// /render/image/public/ enables Supabase server-side resize.
+const IMAGE_BASE = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/"
+const IMAGE_NAMES = [
+  "Monetize%20(5)%20(2).webp",
+  "Monetize%20(6)%20(1).webp",
+  "Monetize%20(7)%20(1).webp",
+  "Monetize%20(13).webp",
+  "Monetize%20(9).webp",
 ]
+const IMAGES = IMAGE_NAMES.map((n) => `${IMAGE_BASE}${n}?width=400&quality=50`)
+const IMAGES_HD = IMAGE_NAMES.map((n) => `${IMAGE_BASE}${n}?width=700&quality=55`)
 
 interface CardDef {
   left: number
@@ -257,6 +260,7 @@ export function Hero() {
         markImageLoaded(idx)
         resolve()
       }
+      // Load the small 400w variant for fastest initial render
       img.src = IMAGES[idx]
     })
   }, [markImageLoaded])
@@ -436,8 +440,15 @@ export function Hero() {
              are layout/paint ops that cannot be composited and hurt perf in will-change */
           will-change: transform, opacity;
           backface-visibility: hidden;
+          -webkit-backface-visibility: hidden;
+          /* Force GPU layer for smoother compositing on mobile */
+          contain: layout style paint;
           /* transform-style: preserve-3d removed — creates an expensive 3D stacking
              context on every card with no visual benefit for this 2D collage */
+        }
+        .collage-card img {
+          /* Prevent layout shift while image loads */
+          content-visibility: auto;
         }
       `}} />
 
@@ -515,6 +526,8 @@ export function Hero() {
                   ) : (
                     <img
                       src={src}
+                      srcSet={`${src} 400w, ${IMAGES_HD[imageIdx]} 700w`}
+                      sizes="(max-width: 640px) 262px, (max-width: 1024px) 289px, 340px"
                       alt=""
                       className="w-full h-full object-cover pointer-events-none"
                       draggable={false}

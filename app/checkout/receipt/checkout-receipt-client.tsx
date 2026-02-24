@@ -24,6 +24,7 @@ import {
   X,
   RefreshCw,
   UserPlus,
+  ChevronDown,
 } from "lucide-react"
 import { getProductUrl } from "@/lib/url-helpers"
 
@@ -138,6 +139,12 @@ export default function CheckoutReceiptClient({
   const [updateEmailError, setUpdateEmailError] = useState("")
   const [emailAlreadyChanged, setEmailAlreadyChanged] = useState(false)
 
+  // Show all downloads toggle (default: collapsed to 4)
+  const MAX_VISIBLE_DOWNLOADS = 4
+  const [showAllDownloads, setShowAllDownloads] = useState(false)
+  const visibleAssets = showAllDownloads ? assets : assets.slice(0, MAX_VISIBLE_DOWNLOADS)
+  const hasMoreDownloads = assets.length > MAX_VISIBLE_DOWNLOADS
+
   // Review status
   const [reviewStatus, setReviewStatus] = useState<{
     canReview: boolean
@@ -168,7 +175,7 @@ export default function CheckoutReceiptClient({
     }, 5000)
   }, [])
 
-  // Save purchase to localStorage
+  // Save purchase to localStorage + cookie (cookie survives Safari ITP / in-app browsers)
   useEffect(() => {
     if (!hasAccess || !order.product_id || !receiptToken) return
     try {
@@ -192,6 +199,12 @@ export default function CheckoutReceiptClient({
         variantIds,
       }
       localStorage.setItem(PURCHASED_PRODUCTS_KEY, JSON.stringify(purchases))
+    } catch {}
+    // Cookie fallback for Safari ITP / WhatsApp / in-app browsers
+    try {
+      const variantToAdd = order.variant_id || ""
+      const value = JSON.stringify({ t: receiptToken, v: [variantToAdd] })
+      document.cookie = `mp_${order.product_id}=${encodeURIComponent(value)}; path=/; max-age=${60 * 60 * 24 * 365}; SameSite=Lax`
     } catch {}
   }, [hasAccess, order.product_id, order.variant_id, receiptToken, assets])
 
@@ -394,10 +407,9 @@ export default function CheckoutReceiptClient({
     </div>
   ) : null
 
-  // ---------- DOWNLOAD FILE ITEM ----------
+  // ---------- DOWNLOAD FILE ITEM (outline style matching the download modal) ----------
   const renderDownloadItem = (asset: any, idx: number) => {
     const fileName = asset.file_name || "Download"
-    const fileSize = formatFileSize(asset.file_size)
     const displayName = truncateFileName(fileName, 36)
 
     return (
@@ -406,18 +418,57 @@ export default function CheckoutReceiptClient({
         assetId={asset.id}
         receiptToken={receiptToken}
         fileName={asset.file_name}
+        variant="outline"
         size="lg"
-        className={`w-full h-auto min-h-[48px] rounded-xl text-sm font-medium px-4 py-3 bg-[#7c3aed] hover:bg-[#6d28d9] text-white`}
+        className="w-full h-auto min-h-[48px] rounded-[14px] text-sm font-medium px-3.5 py-3 border-[#ebebeb] bg-white hover:bg-[#fafafa] text-[#18181b] justify-between"
       >
-        <span className="flex items-center gap-2 w-full min-w-0">
-          <span className="truncate">{displayName}</span>
-          {fileSize && (
-            <span className="shrink-0 text-xs font-normal text-white/60">
-              {fileSize}
-            </span>
-          )}
+        <span className="truncate min-w-0">{displayName}</span>
+        <span className="flex items-center justify-center w-[34px] h-[34px] rounded-full bg-[#18181b] text-white shrink-0 ml-3">
+          <Download className="w-3.5 h-3.5" />
         </span>
       </DownloadButton>
+    )
+  }
+
+  // ---------- DOWNLOAD LIST WITH SHOW ALL ----------
+  const renderDownloadList = () => {
+    if (assets.length === 0) {
+      return (
+        <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/50 p-6 text-center">
+          <p className="text-sm text-gray-500">No files available yet. Check back soon!</p>
+        </div>
+      )
+    }
+
+    return (
+      <div className="relative">
+        <div className="space-y-2">
+          {visibleAssets.map((asset: any, idx: number) => renderDownloadItem(asset, idx))}
+        </div>
+        {hasMoreDownloads && !showAllDownloads && (
+          <div className="relative mt-0">
+            {/* Fade overlay on last item */}
+            <div className="absolute -top-12 left-0 right-0 h-12 bg-gradient-to-t from-white to-transparent pointer-events-none z-10" />
+            <button
+              type="button"
+              onClick={() => setShowAllDownloads(true)}
+              className="w-full flex items-center justify-center gap-1.5 py-2.5 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors cursor-pointer"
+            >
+              Show All ({assets.length})
+              <ChevronDown className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+        {hasMoreDownloads && showAllDownloads && (
+          <button
+            type="button"
+            onClick={() => setShowAllDownloads(false)}
+            className="w-full flex items-center justify-center gap-1.5 py-2.5 mt-1 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors cursor-pointer"
+          >
+            Show Less
+          </button>
+        )}
+      </div>
     )
   }
 
@@ -627,15 +678,7 @@ export default function CheckoutReceiptClient({
               <Download className="h-4 w-4 text-gray-500" />
               Download Files
             </h3>
-            {assets.length > 0 ? (
-              <div className="space-y-2">
-                {assets.map((asset: any, idx: number) => renderDownloadItem(asset, idx))}
-              </div>
-            ) : (
-              <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/50 p-6 text-center">
-                <p className="text-sm text-gray-500">No files available yet. Check back soon!</p>
-              </div>
-            )}
+            {renderDownloadList()}
           </div>
 
           {/* Review section (mobile) */}
@@ -806,15 +849,7 @@ export default function CheckoutReceiptClient({
                 <Download className="h-4 w-4 text-gray-500" />
                 Download Files
               </h3>
-              {assets.length > 0 ? (
-                <div className="space-y-2">
-                  {assets.map((asset: any, idx: number) => renderDownloadItem(asset, idx))}
-                </div>
-              ) : (
-                <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/50 p-6 text-center">
-                  <p className="text-sm text-gray-500">No files available yet. Check back soon!</p>
-                </div>
-              )}
+              {renderDownloadList()}
             </div>
 
             {/* Actions row */}

@@ -5,6 +5,32 @@ import { useState, useEffect, useCallback } from "react"
 // localStorage key for purchased products
 const PURCHASED_PRODUCTS_KEY = "materia_purchased_products"
 
+// Cookie-based fallback for Safari ITP / in-app browsers (WhatsApp, Instagram)
+// that may clear localStorage between navigations or not share it with the
+// system browser. Cookies survive better in these contexts.
+const COOKIE_PREFIX = "mp_"
+const COOKIE_MAX_AGE = 60 * 60 * 24 * 365 // 1 year
+
+function setCookiePurchase(productId: string, receiptToken: string, variantIds: string[]) {
+  try {
+    const value = JSON.stringify({ t: receiptToken, v: variantIds })
+    document.cookie = `${COOKIE_PREFIX}${productId}=${encodeURIComponent(value)}; path=/; max-age=${COOKIE_MAX_AGE}; SameSite=Lax`
+  } catch { /* ignore */ }
+}
+
+function getCookiePurchase(productId: string): { receiptToken: string; variantIds: string[] } | null {
+  try {
+    const prefix = `${COOKIE_PREFIX}${productId}=`
+    const cookie = document.cookie.split("; ").find((c) => c.startsWith(prefix))
+    if (!cookie) return null
+    const raw = decodeURIComponent(cookie.slice(prefix.length))
+    const parsed = JSON.parse(raw)
+    return { receiptToken: parsed.t || "", variantIds: parsed.v || [] }
+  } catch {
+    return null
+  }
+}
+
 interface PurchaseInfo {
   receiptToken: string
   assets: Array<{ id: string; file_name?: string }>
@@ -81,7 +107,7 @@ export function usePurchaseStatus(
         window.history.replaceState({}, "", cleanUrl.toString())
       } catch { /* ignore */ }
 
-      // Best-effort: persist to localStorage for future visits on this device
+      // Best-effort: persist to localStorage + cookie for future visits on this device
       try {
         const stored = localStorage.getItem(PURCHASED_PRODUCTS_KEY)
         const purchases: Record<string, PurchaseInfo> = stored ? JSON.parse(stored) : {}
@@ -90,50 +116,76 @@ export function usePurchaseStatus(
           localStorage.setItem(PURCHASED_PRODUCTS_KEY, JSON.stringify(purchases))
         }
       } catch { /* localStorage may be unavailable in private mode — that's fine */ }
+      // Cookie fallback: survives Safari ITP and in-app browsers
+      setCookiePurchase(productId, urlToken, variantIds)
 
       setIsChecking(false)
       return
     }
 
-    // ── 2. localStorage path (normal browsers, non-private mode) ────────────────
-    // If server already confirmed purchase, merge with localStorage for complete picture
+    // ── 2. localStorage + cookie path ──────────────────────────────────────────
+    // Check both localStorage and cookie for purchase data; merge everything.
+    let foundPurchase = false
     try {
       const stored = localStorage.getItem(PURCHASED_PRODUCTS_KEY)
       if (stored) {
         const purchases: Record<string, PurchaseInfo> = JSON.parse(stored)
         const purchaseInfo = purchases[productId]
         if (purchaseInfo) {
-          // Merge localStorage variants with server variants
           const localVariantIds: string[] = []
-
-          // Handle new array format
           if (purchaseInfo.variantIds && Array.isArray(purchaseInfo.variantIds)) {
             localVariantIds.push(...purchaseInfo.variantIds)
-          }
-          // Handle legacy single variantId format
-          else if (purchaseInfo.variantId) {
+          } else if (purchaseInfo.variantId) {
             localVariantIds.push(purchaseInfo.variantId)
           }
 
-          // Merge with server variants (deduplicate)
           const allVariantIds = [...new Set([...serverPurchasedVariantIds, ...localVariantIds])]
 
           if (allVariantIds.length > 0 || purchaseInfo.receiptToken) {
             setHasPurchased(true)
             setPurchasedVariantIds(allVariantIds)
             setReceiptToken(purchaseInfo.receiptToken)
-
             if (purchaseInfo.assets && purchaseInfo.assets.length > 0) {
               setAssetId(purchaseInfo.assets[0].id)
             }
+            foundPurchase = true
+            // Sync to cookie for cross-browser resilience
+            setCookiePurchase(productId, purchaseInfo.receiptToken, allVariantIds)
           }
         }
       }
     } catch (e) {
       console.error("[usePurchaseStatus] Error checking localStorage:", e)
-    } finally {
-      setIsChecking(false)
     }
+
+    // ── 3. Cookie fallback (Safari ITP / WhatsApp / in-app browsers) ──────────
+    // If localStorage had nothing, try cookie. This handles the case where
+    // localStorage was cleared by ITP but the first-party cookie survived.
+    if (!foundPurchase) {
+      const cookieData = getCookiePurchase(productId)
+      if (cookieData && (cookieData.receiptToken || cookieData.variantIds.length > 0)) {
+        const allVariantIds = [...new Set([...serverPurchasedVariantIds, ...cookieData.variantIds])]
+        setHasPurchased(true)
+        setPurchasedVariantIds(allVariantIds)
+        setReceiptToken(cookieData.receiptToken)
+
+        // Re-hydrate localStorage from cookie
+        try {
+          const stored = localStorage.getItem(PURCHASED_PRODUCTS_KEY)
+          const purchases: Record<string, PurchaseInfo> = stored ? JSON.parse(stored) : {}
+          if (!purchases[productId]) {
+            purchases[productId] = {
+              receiptToken: cookieData.receiptToken,
+              assets: [],
+              variantIds: allVariantIds,
+            }
+            localStorage.setItem(PURCHASED_PRODUCTS_KEY, JSON.stringify(purchases))
+          }
+        } catch { /* localStorage unavailable */ }
+      }
+    }
+
+    setIsChecking(false)
   }, [productId, serverHasPurchased, serverPurchasedVariantIds])
 
   // Helper to check if a specific variant was purchased
@@ -195,6 +247,9 @@ export function usePurchaseStatus(
       if (assets.length > 0) {
         setAssetId(assets[0].id)
       }
+
+      // Cookie fallback for Safari ITP / in-app browsers
+      setCookiePurchase(productId, newReceiptToken, existing.variantIds)
     } catch (e) {
       console.error("[usePurchaseStatus] Error updating localStorage:", e)
     }
