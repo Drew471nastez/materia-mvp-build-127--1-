@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
@@ -435,35 +435,42 @@ export default function CheckoutReceiptClient({
     )
   }
 
+  const downloadListRef = useRef<HTMLDivElement>(null)
+
   const renderDownloadList = (assetsList: any[]) => {
-    const visibleAssets = showAllDownloads ? assetsList : assetsList.slice(0, MAX_VISIBLE_DOWNLOADS)
     const hasMore = assetsList.length > MAX_VISIBLE_DOWNLOADS
+    // Collapsed height: each item ~58px + 8px gap, so MAX_VISIBLE_DOWNLOADS items
+    const collapsedHeight = MAX_VISIBLE_DOWNLOADS * 58 + (MAX_VISIBLE_DOWNLOADS - 1) * 8
 
     return (
       <>
-        <div className="space-y-2">
-          {visibleAssets.map((asset: any, idx: number) => renderDownloadItem(asset, idx))}
+        <div
+          ref={downloadListRef}
+          className="space-y-2 overflow-hidden"
+          style={{
+            maxHeight: hasMore && !showAllDownloads ? `${collapsedHeight}px` : `${assetsList.length * 66}px`,
+            transition: "max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
+          }}
+        >
+          {assetsList.map((asset: any, idx: number) => renderDownloadItem(asset, idx))}
         </div>
-        {hasMore && !showAllDownloads && (
+        {hasMore && (
           <div className="relative mt-0">
-            <div className="absolute -top-10 left-0 right-0 h-10 bg-gradient-to-t from-white to-transparent pointer-events-none" />
+            <div
+              className="absolute -top-10 left-0 right-0 h-10 bg-gradient-to-t from-white to-transparent pointer-events-none"
+              style={{
+                opacity: showAllDownloads ? 0 : 1,
+                transition: "opacity 0.3s ease",
+              }}
+            />
             <button
               type="button"
-              onClick={() => setShowAllDownloads(true)}
+              onClick={() => setShowAllDownloads(!showAllDownloads)}
               className="w-full py-2.5 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors cursor-pointer"
             >
-              Show All ({assetsList.length})
+              {showAllDownloads ? "Show Less" : `Show All (${assetsList.length})`}
             </button>
           </div>
-        )}
-        {hasMore && showAllDownloads && (
-          <button
-            type="button"
-            onClick={() => setShowAllDownloads(false)}
-            className="w-full py-2.5 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors cursor-pointer"
-          >
-            Show Less
-          </button>
         )}
       </>
     )

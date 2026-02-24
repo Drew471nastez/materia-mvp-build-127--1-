@@ -400,10 +400,10 @@ export function Hero() {
           .hero-collage-inner { transform: scale(0.80); }
         }
         @media (min-width: 1024px) {
-          .hero-collage-inner { transform: scale(0.96); }
+          .hero-collage-inner { transform: scale(0.95); }
         }
         @media (min-width: 1280px) {
-          .hero-collage-inner { transform: scale(1.09); }
+          .hero-collage-inner { transform: scale(1.08); }
         }
         @media (prefers-reduced-motion: reduce) {
           .hero-collage-inner, .collage-card {
