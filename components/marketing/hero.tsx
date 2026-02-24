@@ -108,12 +108,7 @@ const MOBILE_CARDS: CardDef[] = [
 const CANVAS_W = 1100
 const CANVAS_H = 375
 const AUTOPLAY_INTERVAL = 5000
-const CARD_TRANSITION_MS = 1200
-const SWIPE_THRESHOLD = 40
-const SWIPE_COMMIT_DISTANCE = 140
-const DRAG_SMOOTHING = 0.5
-const DRAG_SLOWDOWN = 0.60
-const MAX_DRAG_DISTANCE = 180
+const CARD_TRANSITION_MS = 1500
 
 const rotateOrder = (order: number[], direction: 1 | -1) => {
   const next = [...order]
@@ -128,8 +123,8 @@ const rotateOrder = (order: number[], direction: 1 | -1) => {
 }
 
 const lerp = (from: number, to: number, t: number) => from + (to - from) * t
-// Smooth ease-out quartic for silky card transitions
-const ease = (t: number) => 1 - Math.pow(1 - t, 4)
+// Smooth ease-in-out quartic — gentle start AND gentle end for silky autoplay
+const ease = (t: number) => t < 0.5 ? 8 * t * t * t * t : 1 - Math.pow(-2 * t + 2, 4) / 2
 
 export function Hero() {
   const typedText = useTypingEffect(TYPING_PHRASES)
@@ -148,9 +143,6 @@ export function Hero() {
   const orderRef = useRef(cardOrder)
   const animatingRef = useRef(false)
   const rafRef = useRef<number | null>(null)
-  const dragRafRef = useRef<number | null>(null)
-  const dragRef = useRef({ active: false, startX: 0, delta: 0, rawDelta: 0 })
-  const latestDragDelta = useRef(0)
   const loadedImageSetRef = useRef(new Set<number>())
 
   const clearAutoplay = useCallback(() => {
@@ -160,23 +152,17 @@ export function Hero() {
     }
   }, [])
 
-  // Immediately cancel any in-progress RAF animation and reset lock.
-  // This MUST be called before the user's drag takes over so the collage
-  // never feels "stuck" when autoplay or a prior swipe is mid-flight.
+  // Cancel any in-progress RAF animation and reset the animating lock.
   const cancelAnimation = useCallback(() => {
     if (rafRef.current !== null) {
       cancelAnimationFrame(rafRef.current)
       rafRef.current = null
     }
-    if (dragRafRef.current !== null) {
-      cancelAnimationFrame(dragRafRef.current)
-      dragRafRef.current = null
-    }
     animatingRef.current = false
     setTransition(null)
   }, [])
 
-  const startRotation = useCallback((direction: 1 | -1 = 1, initialProgress = 0) => {
+  const startRotation = useCallback((direction: 1 | -1 = 1) => {
     if (animatingRef.current) return
 
     const from = orderRef.current
@@ -194,20 +180,8 @@ export function Hero() {
     animatingRef.current = true
 
     const tick = (now: number) => {
-      // If user started dragging while animation was in flight, abort cleanly
-      if (dragRef.current.active) {
-        animatingRef.current = false
-        rafRef.current = null
-        setTransition(null)
-        return
-      }
-
-      const elapsed = now - start
-      const remaining = Math.max(0.001, 1 - initialProgress)
-      const duration = Math.max(180, CARD_TRANSITION_MS * remaining)
-      const raw = Math.min(1, elapsed / duration)
-      const progress = initialProgress + (1 - initialProgress) * ease(raw)
-      setTransition({ from, to, progress })
+      const raw = Math.min(1, (now - start) / CARD_TRANSITION_MS)
+      setTransition({ from, to, progress: ease(raw) })
 
       if (raw < 1) {
         rafRef.current = requestAnimationFrame(tick)
@@ -276,7 +250,6 @@ export function Hero() {
       return () => {
         clearAutoplay()
         if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
-        if (dragRafRef.current !== null) cancelAnimationFrame(dragRafRef.current)
       }
     }
 
@@ -308,7 +281,6 @@ export function Hero() {
       document.removeEventListener("visibilitychange", onVisibility)
       clearAutoplay()
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
-      if (dragRafRef.current !== null) cancelAnimationFrame(dragRafRef.current)
     }
   }, [clearAutoplay, restartAutoplay])
 
@@ -413,79 +385,7 @@ export function Hero() {
     Promise.all(PARTNER_LOGOS.map(loadLogo))
   }, [])
 
-  const updateDragTransition = useCallback((rawDelta: number) => {
-    // Clamp raw delta to prevent excessive dragging
-    const clampedRawDelta = Math.max(-MAX_DRAG_DISTANCE, Math.min(MAX_DRAG_DISTANCE, rawDelta))
-    dragRef.current.rawDelta = clampedRawDelta
-
-    const slowedDelta = clampedRawDelta * DRAG_SLOWDOWN
-    const smoothedDelta = lerp(dragRef.current.delta, slowedDelta, DRAG_SMOOTHING)
-    dragRef.current.delta = smoothedDelta
-
-    const distance = Math.abs(smoothedDelta)
-    if (distance < 1) {
-      setTransition(null)
-      return
-    }
-
-    const direction = clampedRawDelta < 0 ? 1 : -1
-    const progress = Math.min(0.88, distance / SWIPE_COMMIT_DISTANCE)
-    const from = orderRef.current
-    const to = rotateOrder(from, direction)
-    setTransition({ from, to, progress })
-  }, [])
-
-  const queueDragTransitionUpdate = useCallback((rawDelta: number) => {
-    // Always capture the latest position so the RAF callback uses the most
-    // up-to-date pointer location — prevents jerky lag from dropped events.
-    latestDragDelta.current = rawDelta
-    if (dragRafRef.current !== null) return
-    dragRafRef.current = requestAnimationFrame(() => {
-      dragRafRef.current = null
-      updateDragTransition(latestDragDelta.current)
-    })
-  }, [updateDragTransition])
-
-  const stopDrag = useCallback((rawDelta: number) => {
-    const clampedDelta = Math.max(-MAX_DRAG_DISTANCE, Math.min(MAX_DRAG_DISTANCE, rawDelta))
-    // Compute progress from the delta directly — never depend on React state
-    // which may be stale and cause wrong snap-back behavior.
-    const progress = Math.min(0.88, Math.abs(clampedDelta * DRAG_SLOWDOWN) / SWIPE_COMMIT_DISTANCE)
-
-    dragRef.current.active = false
-    dragRef.current.delta = 0
-    dragRef.current.rawDelta = 0
-    latestDragDelta.current = 0
-
-    if (Math.abs(clampedDelta) >= SWIPE_THRESHOLD) {
-      startRotation(clampedDelta < 0 ? 1 : -1, progress)
-    } else {
-      setTransition(null)
-    }
-
-    restartAutoplay()
-  }, [restartAutoplay, startRotation])
-
   const activeCards = isMobile ? MOBILE_CARDS : DESKTOP_CARDS
-
-  // Attach non-passive touchmove listener so we can call preventDefault()
-  // to stop iOS Safari pull-to-refresh / rubber-band bounce during horizontal swipe
-  const collageRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const el = collageRef.current
-    if (!el) return
-    const handleTouchMove = (e: TouchEvent) => {
-      if (!dragRef.current.active) return
-      // Prevent the browser from triggering pull-to-refresh or overscroll bounce
-      e.preventDefault()
-      queueDragTransitionUpdate(e.touches[0].clientX - dragRef.current.startX)
-    }
-    // { passive: false } is required to allow preventDefault() in touch handlers
-    el.addEventListener("touchmove", handleTouchMove, { passive: false })
-    return () => {
-      el.removeEventListener("touchmove", handleTouchMove)
-    }
-  }, [queueDragTransitionUpdate])
 
   return (
     <section ref={sectionRef} className="flex flex-col items-center bg-white pt-6 sm:pt-10 pb-12 sm:pb-[67px] overflow-hidden">
@@ -500,10 +400,10 @@ export function Hero() {
           .hero-collage-inner { transform: scale(0.80); }
         }
         @media (min-width: 1024px) {
-          .hero-collage-inner { transform: scale(0.99); }
+          .hero-collage-inner { transform: scale(0.94); }
         }
         @media (min-width: 1280px) {
-          .hero-collage-inner { transform: scale(1.13); }
+          .hero-collage-inner { transform: scale(1.07); }
         }
         @media (prefers-reduced-motion: reduce) {
           .hero-collage-inner, .collage-card {
@@ -536,35 +436,10 @@ export function Hero() {
       `}} />
 
       <div className="relative w-full mb-10 sm:mb-8 animate-scale-fade-in">
-        <div className="relative w-full h-[330px] sm:h-[251px] md:h-[300px] lg:h-[371px] xl:h-[424px]">
+        <div className="relative w-full h-[330px] sm:h-[251px] md:h-[300px] lg:h-[353px] xl:h-[401px]">
           <div
-            ref={collageRef}
-            className="hero-collage-inner absolute left-1/2 -translate-x-1/2 origin-top select-none cursor-pointer"
-            style={{ width: CANVAS_W, height: CANVAS_H, touchAction: "pan-y pinch-zoom" }}
-            onPointerDown={(e) => {
-              clearAutoplay()
-              // Cancel any in-flight animation so drag takes over immediately
-              cancelAnimation()
-              e.currentTarget.setPointerCapture(e.pointerId)
-              dragRef.current = { active: true, startX: e.clientX, delta: 0, rawDelta: 0 }
-              latestDragDelta.current = 0
-            }}
-            onPointerMove={(e) => {
-              if (!dragRef.current.active) return
-              queueDragTransitionUpdate(e.clientX - dragRef.current.startX)
-            }}
-            onPointerUp={(e) => {
-              if (!dragRef.current.active) return
-              stopDrag(dragRef.current.rawDelta || e.clientX - dragRef.current.startX)
-            }}
-            onPointerCancel={() => {
-              if (!dragRef.current.active) return
-              stopDrag(dragRef.current.rawDelta)
-            }}
-            onMouseLeave={() => {
-              if (!dragRef.current.active) return
-              stopDrag(dragRef.current.rawDelta)
-            }}
+            className="hero-collage-inner absolute left-1/2 -translate-x-1/2 origin-top select-none"
+            style={{ width: CANVAS_W, height: CANVAS_H }}
           >
             {IMAGES.map((src, imageIdx) => {
               const fromPos = transition ? transition.from.indexOf(imageIdx) : cardOrder.indexOf(imageIdx)
@@ -625,7 +500,7 @@ export function Hero() {
             })}
           </div>
 
-          <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none -translate-y-[2%] sm:translate-y-0">
+          <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none -translate-y-[7%] sm:translate-y-0">
             <div className="relative bg-white rounded-[24px] sm:rounded-[28px] shadow-lg shadow-neutral-200/50 border border-neutral-100/80 px-5 sm:px-10 md:px-14 md:pt-14 md:pb-12 w-[82%] max-w-[480px] text-center pointer-events-auto scale-y-[0.99] sm:scale-y-100 origin-top pt-9 pb-9 sm:pt-12 sm:pb-10">
               {/* Text shown immediately — no dependency on image loading state.
                   Previously gated on imagesLoaded which meant ALL 5 collage images
