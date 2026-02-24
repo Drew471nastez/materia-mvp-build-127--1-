@@ -204,23 +204,22 @@ export function SmartBuyButton({
       <Button
         onClick={handleDownloadClick}
         disabled={downloadLoading}
-        className="w-full min-h-[44px]"
+        className="w-full min-h-[44px] !justify-between"
         style={{
           backgroundColor: backgroundColor || undefined,
           color: textColor || undefined,
         }}
       >
-        {downloadLoading ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Downloading...
-          </>
-        ) : (
-          <>
-            <Download className="mr-2 h-4 w-4" />
-            Download File
-          </>
-        )}
+        <span className="truncate min-w-0 text-left">
+          {downloadLoading ? "Downloading..." : "Download File"}
+        </span>
+        <span className="flex items-center justify-center w-7 h-7 rounded-full bg-black/90 text-white shrink-0">
+          {downloadLoading ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Download className="h-3.5 w-3.5" />
+          )}
+        </span>
       </Button>
     )
   }

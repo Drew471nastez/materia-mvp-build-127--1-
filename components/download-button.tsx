@@ -165,7 +165,7 @@ export function DownloadButton({
         type="button"
         variant={variant}
         size={size}
-        className={`cursor-pointer overflow-hidden ${className || ""}`}
+        className={`cursor-pointer overflow-hidden !justify-between ${className || ""}`}
         style={style}
         onClick={handleDownload}
         disabled={status === "loading"}

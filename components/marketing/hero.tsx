@@ -84,23 +84,23 @@ interface CardTransition {
 }
 
 const DESKTOP_CARDS: CardDef[] = [
-  { left: -163, top: 60, width: 238, height: 294, zIndex: 1, opacity: 0.82, scale: 0.95 },
-  { left: 83,   top: 30, width: 289, height: 357, zIndex: 2, opacity: 0.92, scale: 0.98 },
-  { left: 380,  top: 0,  width: 340, height: 420, zIndex: 3, opacity: 1,    scale: 1 },
-  { left: 728,  top: 30, width: 289, height: 357, zIndex: 2, opacity: 0.92, scale: 0.98 },
-  { left: 1025, top: 60, width: 238, height: 294, zIndex: 1, opacity: 0.82, scale: 0.95 },
+  { left: -65,  top: 60, width: 206, height: 317, zIndex: 1, opacity: 0.82, scale: 0.95 },
+  { left: 149,  top: 30, width: 248, height: 382, zIndex: 2, opacity: 0.92, scale: 0.98 },
+  { left: 405,  top: 0,  width: 290, height: 446, zIndex: 3, opacity: 1,    scale: 1 },
+  { left: 703,  top: 30, width: 248, height: 382, zIndex: 2, opacity: 0.92, scale: 0.98 },
+  { left: 959,  top: 60, width: 206, height: 317, zIndex: 1, opacity: 0.82, scale: 0.95 },
 ]
 
 const MOBILE_CARDS: CardDef[] = [
-  { left: -104, top: 86, width: 206, height: 268, zIndex: 1, opacity: 0,    scale: 0.92 },
-  { left: 110,  top: 48, width: 262, height: 341, zIndex: 2, opacity: 0.85, scale: 0.92 },
-  { left: 380,  top: 0,  width: 340, height: 442, zIndex: 3, opacity: 1,    scale: 1 },
-  { left: 728,  top: 48, width: 262, height: 341, zIndex: 2, opacity: 0.85, scale: 0.92 },
-  { left: 998,  top: 86, width: 206, height: 268, zIndex: 1, opacity: 0,    scale: 0.92 },
+  { left: -6,   top: 86, width: 180, height: 277, zIndex: 1, opacity: 0,    scale: 0.92 },
+  { left: 182,  top: 48, width: 220, height: 338, zIndex: 2, opacity: 0.85, scale: 0.92 },
+  { left: 410,  top: 0,  width: 280, height: 431, zIndex: 3, opacity: 1,    scale: 1 },
+  { left: 698,  top: 48, width: 220, height: 338, zIndex: 2, opacity: 0.85, scale: 0.92 },
+  { left: 926,  top: 86, width: 180, height: 277, zIndex: 1, opacity: 0,    scale: 0.92 },
 ]
 
 const CANVAS_W = 1100
-const CANVAS_H = 460
+const CANVAS_H = 480
 const AUTOPLAY_INTERVAL = 5000
 const CARD_TRANSITION_MS = 1200
 const SWIPE_THRESHOLD = 40
@@ -467,12 +467,12 @@ export function Hero() {
         }
         .collage-card img {
           content-visibility: auto;
-          contain-intrinsic-size: 340px 420px;
+          contain-intrinsic-size: 290px 446px;
         }
       `}} />
 
       <div className="relative w-full mb-10 sm:mb-8 animate-scale-fade-in">
-        <div className="relative w-full h-[296px] sm:h-[224px] md:h-[277px] lg:h-[352px] xl:h-[409px]">
+        <div className="relative w-full h-[336px] sm:h-[245px] md:h-[302px] lg:h-[384px] xl:h-[446px]">
           <div
             ref={collageRef}
             className="hero-collage-inner absolute left-1/2 -translate-x-1/2 origin-top select-none cursor-pointer"
@@ -528,7 +528,7 @@ export function Hero() {
               return (
                 <div
                   key={imageIdx}
-                  className="collage-card absolute rounded-[14px] overflow-hidden shadow-sm shadow-black/10 bg-gray-50"
+                  className="collage-card absolute rounded-[14px] overflow-hidden shadow-sm shadow-black/10"
                   style={{
                     left: 0,
                     top: 0,
@@ -546,7 +546,7 @@ export function Hero() {
                     <img
                       src={src}
                       alt=""
-                      className="w-full h-full object-contain pointer-events-none"
+                      className="w-full h-full object-cover pointer-events-none"
                       draggable={false}
                       decoding="async"
                       loading={imageIdx === cardOrder[2] ? "eager" : "lazy"}
