@@ -75,24 +75,27 @@ export default function GlobeWidget() {
         .width(220)
         .height(220)
         .enablePointerInteraction(true)
-        // City dots — blue glow
+        // City dots — brighter blue glow
         .pointsData(CITIES)
         .pointLat("lat")
         .pointLng("lng")
-        .pointColor(() => "#93c5fd")
-        .pointAltitude(0.01)
-        .pointRadius(0.4)
-        // Animated arcs — blue/purple glow
+        .pointColor(() => "#bfdbfe")
+        .pointAltitude(0.015)
+        .pointRadius(0.5)
+        // Animated arcs — thicker, more vivid blue/purple glow
         .arcsData(ARCS)
         .arcStartLat("startLat")
         .arcStartLng("startLng")
         .arcEndLat("endLat")
         .arcEndLng("endLng")
-        .arcColor(() => ["#60a5facc", "#818cf8cc"])
-        .arcDashLength(0.5)
-        .arcDashGap(0.15)
-        .arcDashAnimateTime(2500)
-        .arcStroke(0.7)
+        .arcColor(() => ["#93c5fdee", "#a78bfaee"])
+        .arcDashLength(0.45)
+        .arcDashGap(0.12)
+        .arcDashAnimateTime(2200)
+        .arcStroke(1.0)
+
+      /* High-DPI / Retina sharpness */
+      globe.renderer().setPixelRatio(Math.min(window.devicePixelRatio, 2))
 
       const controls = globe.controls()
       controls.autoRotate = true

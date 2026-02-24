@@ -32,11 +32,12 @@ const CURRENCY_SETS = [
   ],
 ]
 
+/* Tags pulled in closer — less vertical spread */
 const TAG_POSITIONS = [
-  "top-0 left-[5%]",
-  "top-2 right-[2%]",
-  "bottom-0 left-[12%]",
-  "bottom-2 right-[6%]",
+  "top-[18%] left-[3%]",
+  "top-[18%] right-[1%]",
+  "bottom-[18%] left-[8%]",
+  "bottom-[18%] right-[4%]",
 ]
 
 function AnimateOnScroll({ children, className = "" }: { children: React.ReactNode; className?: string }) {
@@ -68,43 +69,45 @@ export { AnimateOnScroll }
 
 /* ── Globe + cycling currency tags ── */
 function GlobeSection() {
-  const [setIndex, setSetIndex] = useState(0)
+  /* visibleIndex only changes DURING the invisible phase — no key remounting */
+  const [visibleIndex, setVisibleIndex] = useState(0)
   const [fadeIn, setFadeIn] = useState(true)
 
   useEffect(() => {
-    let timeout: NodeJS.Timeout
+    const timers: ReturnType<typeof setTimeout>[] = []
     const interval = setInterval(() => {
       setFadeIn(false)
-      timeout = setTimeout(() => {
-        setSetIndex((prev) => (prev + 1) % CURRENCY_SETS.length)
+      const t = setTimeout(() => {
+        setVisibleIndex((prev) => (prev + 1) % CURRENCY_SETS.length)
         setFadeIn(true)
-      }, 800)
+      }, 750)
+      timers.push(t)
     }, 4500)
     return () => {
       clearInterval(interval)
-      clearTimeout(timeout)
+      timers.forEach(clearTimeout)
     }
   }, [])
 
-  const currentSet = CURRENCY_SETS[setIndex]
+  const currentSet = CURRENCY_SETS[visibleIndex]
 
   return (
-    <div className="relative flex items-center justify-center my-4 min-h-[230px]">
+    <div className="relative flex items-center justify-center my-2 min-h-[200px]">
       {/* Real 3D globe */}
       <GlobeWidget />
 
-      {/* Cycling currency tags — smooth fade in/out */}
+      {/* Cycling currency tags — smooth cross-fade, no remount */}
       {currentSet.map((b, i) => (
         <div
-          key={`${setIndex}-${i}`}
-          className={`absolute flex flex-col items-center gap-1 z-[3] ${TAG_POSITIONS[i]}`}
+          key={i}
+          className={`absolute flex flex-col items-center gap-0.5 z-[3] ${TAG_POSITIONS[i]}`}
           style={{
             opacity: fadeIn ? 1 : 0,
-            transform: fadeIn ? "scale(1) translateY(0)" : "scale(0.85) translateY(8px)",
-            transition: `opacity 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) ${i * 0.1}s, transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) ${i * 0.1}s`,
+            transform: fadeIn ? "scale(1) translateY(0)" : "scale(0.88) translateY(6px)",
+            transition: `opacity 0.75s cubic-bezier(0.4, 0, 0.2, 1) ${i * 0.08}s, transform 0.75s cubic-bezier(0.4, 0, 0.2, 1) ${i * 0.08}s`,
           }}
         >
-          <div className="w-9 h-9 rounded-full border-[3px] border-white flex items-center justify-center text-base shadow-md bg-white">
+          <div className="w-8 h-8 rounded-full border-2 border-white flex items-center justify-center text-sm shadow-md bg-white">
             {b.flag}
           </div>
           <div className="bg-white rounded-md px-2 py-0.5 text-[10px] font-bold shadow-md whitespace-nowrap">
@@ -135,7 +138,6 @@ function CountUpRevenue() {
           const tick = (now: number) => {
             const elapsed = now - start
             const progress = Math.min(elapsed / duration, 1)
-            // Smoother ease-out quartic
             const eased = 1 - Math.pow(1 - progress, 4)
             setCount(Math.round(eased * target))
             if (progress < 1) requestAnimationFrame(tick)
@@ -281,34 +283,26 @@ export function BentoGrid() {
               <CountUpRevenue />
             </div>
 
-            {/* Sell to anyone — black card + globe + currencies */}
-            <div className="rounded-3xl p-9 bg-neutral-950 min-h-[224px] flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
+            {/* Sell to anyone — black card + globe + currencies (no checklist) */}
+            <div className="rounded-3xl p-7 bg-neutral-950 min-h-[200px] flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
               <h3 className="text-2xl font-semibold tracking-tight leading-snug mb-2.5 text-white">Sell to anyone</h3>
               <p className="text-sm leading-relaxed text-neutral-400 max-w-[320px]">
                 Accept payments from 135+ countries. Customers pay in their currency, you get paid in yours.
               </p>
               <GlobeSection />
-              <div className="mt-auto flex flex-col gap-2.5">
-                {["One-time, recurring, or pay-what-you-want", "Instant file delivery after purchase"].map((f) => (
-                  <div key={f} className="flex items-center gap-2.5 text-[13px] font-medium text-white/80">
-                    <span className="w-[22px] h-[22px] rounded-full bg-white/15 flex items-center justify-center text-xs shrink-0 text-white font-bold">✓</span>
-                    {f}
-                  </div>
-                ))}
-              </div>
             </div>
 
             {/* Sell anywhere — light gray + image */}
-            <div className="rounded-3xl p-9 bg-neutral-100 min-h-[224px] flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
+            <div className="rounded-3xl p-7 bg-neutral-100 min-h-[200px] flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
               <h3 className="text-2xl font-semibold tracking-tight leading-snug mb-2.5">Sell anywhere</h3>
               <p className="text-sm leading-relaxed text-neutral-500 max-w-[320px]">
                 Your storefront, any website, or social bio. Reach your audience everywhere.
               </p>
-              <div className="mt-5 flex-1 flex items-center justify-center">
+              <div className="mt-4 flex-1 flex items-center justify-center overflow-hidden">
                 <img
                   src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20(1250%20x%20500%20px)%20(1250%20x%20400%20px)%20(1100%20x%20400%20px)%20(4).png?width=600&quality=75"
                   alt="Sell anywhere illustration"
-                  className="w-full rounded-xl"
+                  className="w-[112%] rounded-xl"
                   loading="lazy"
                   decoding="async"
                   width={600}
