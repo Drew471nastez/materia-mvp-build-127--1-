@@ -52,7 +52,7 @@ export function SmartBuyButton({
   const [receiptToken, setReceiptToken] = useState<string | null>(null)
   const [isChecking, setIsChecking] = useState(!serverHasPurchased)
 
-  // Check localStorage and API for purchase status on mount
+  // Check URL tokens, localStorage, and API for purchase status on mount
   useEffect(() => {
     // If server already confirmed purchase, no need to check
     if (serverHasPurchased && serverAssetId) {
@@ -62,7 +62,28 @@ export function SmartBuyButton({
 
     const checkPurchaseStatus = async () => {
       try {
-        // First check localStorage
+        // 1. Check URL token first (Safari/WhatsApp/in-app browser proof)
+        try {
+          const params = new URLSearchParams(window.location.search)
+          const urlToken = params.get("purchaseToken")
+          if (urlToken) {
+            setHasPurchased(true)
+            setReceiptToken(urlToken)
+            // Persist to localStorage for future visits
+            try {
+              const stored = localStorage.getItem(PURCHASED_PRODUCTS_KEY)
+              const purchases: Record<string, PurchaseInfo> = stored ? JSON.parse(stored) : {}
+              if (!purchases[productId]?.receiptToken) {
+                purchases[productId] = { receiptToken: urlToken, assets: [] }
+                localStorage.setItem(PURCHASED_PRODUCTS_KEY, JSON.stringify(purchases))
+              }
+            } catch { /* localStorage may be unavailable */ }
+            setIsChecking(false)
+            return
+          }
+        } catch { /* ignore URL parsing errors */ }
+
+        // 2. Check localStorage
         const stored = localStorage.getItem(PURCHASED_PRODUCTS_KEY)
         if (stored) {
           const purchases: Record<string, PurchaseInfo> = JSON.parse(stored)
@@ -78,7 +99,7 @@ export function SmartBuyButton({
           }
         }
 
-        // If not in localStorage, check API (for logged-in users)
+        // 3. API fallback for logged-in users
         const res = await fetch(`/api/purchases/check?productId=${productId}`, {
           credentials: "include",
         })

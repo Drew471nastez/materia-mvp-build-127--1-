@@ -430,14 +430,20 @@ export function Hero() {
         }
         .logo-marquee {
           animation: logo-scroll 30s linear infinite;
+          will-change: transform;
+          backface-visibility: hidden;
         }
         .collage-card {
           /* Only list GPU-compositable properties — left/top/width/height/filter
              are layout/paint ops that cannot be composited and hurt perf in will-change */
           will-change: transform, opacity;
           backface-visibility: hidden;
+          contain: layout style paint;
           /* transform-style: preserve-3d removed — creates an expensive 3D stacking
              context on every card with no visual benefit for this 2D collage */
+        }
+        .collage-card img {
+          content-visibility: auto;
         }
       `}} />
 

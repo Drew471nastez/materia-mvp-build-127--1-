@@ -4,7 +4,7 @@ import { ReactNode, useState, useCallback, useEffect, useMemo } from "react"
 import { usePurchaseStatus } from "./use-purchase-status"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Loader2, FileText } from "lucide-react"
+import { Loader2, Download as DownloadIcon } from "lucide-react"
 import { DownloadButton } from "@/components/download-button"
 import { BuyButton } from "@/components/checkout/buy-button"
 import { VariantSelector, type ProductVariant } from "@/components/product/variant-selector"
@@ -362,7 +362,7 @@ export function PurchaseStatusWrapper({
                   color: downloadButtonTextColor || undefined,
                 }}
               >
-                <FileText className="mr-2 h-4 w-4" />
+                <DownloadIcon className="mr-2 h-4 w-4" />
                 Download Files ({downloadFiles.length})
               </Button>
             ) : (

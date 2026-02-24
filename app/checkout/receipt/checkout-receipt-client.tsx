@@ -395,10 +395,12 @@ export default function CheckoutReceiptClient({
   ) : null
 
   // ---------- DOWNLOAD FILE ITEM ----------
+  const [showAllDownloads, setShowAllDownloads] = useState(false)
+  const MAX_VISIBLE_DOWNLOADS = 4
+
   const renderDownloadItem = (asset: any, idx: number) => {
     const fileName = asset.file_name || "Download"
-    const fileSize = formatFileSize(asset.file_size)
-    const displayName = truncateFileName(fileName, 36)
+    const displayName = truncateFileName(fileName, 28)
 
     return (
       <DownloadButton
@@ -406,18 +408,46 @@ export default function CheckoutReceiptClient({
         assetId={asset.id}
         receiptToken={receiptToken}
         fileName={asset.file_name}
+        variant="outline"
         size="lg"
-        className={`w-full h-auto min-h-[48px] rounded-xl text-sm font-medium px-4 py-3 bg-[#7c3aed] hover:bg-[#6d28d9] text-white`}
+        className="w-full h-auto min-h-[48px] rounded-xl text-sm font-medium px-4 py-3 border-gray-200 bg-white hover:bg-gray-50 text-gray-900"
       >
-        <span className="flex items-center gap-2 w-full min-w-0">
-          <span className="truncate">{displayName}</span>
-          {fileSize && (
-            <span className="shrink-0 text-xs font-normal text-white/60">
-              {fileSize}
-            </span>
-          )}
-        </span>
+        {displayName}
       </DownloadButton>
+    )
+  }
+
+  const renderDownloadList = (assetsList: any[]) => {
+    const visibleAssets = showAllDownloads ? assetsList : assetsList.slice(0, MAX_VISIBLE_DOWNLOADS)
+    const hasMore = assetsList.length > MAX_VISIBLE_DOWNLOADS
+
+    return (
+      <>
+        <div className="space-y-2">
+          {visibleAssets.map((asset: any, idx: number) => renderDownloadItem(asset, idx))}
+        </div>
+        {hasMore && !showAllDownloads && (
+          <div className="relative mt-0">
+            <div className="absolute -top-10 left-0 right-0 h-10 bg-gradient-to-t from-white to-transparent pointer-events-none" />
+            <button
+              type="button"
+              onClick={() => setShowAllDownloads(true)}
+              className="w-full py-2.5 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors cursor-pointer"
+            >
+              Show All ({assetsList.length})
+            </button>
+          </div>
+        )}
+        {hasMore && showAllDownloads && (
+          <button
+            type="button"
+            onClick={() => setShowAllDownloads(false)}
+            className="w-full py-2.5 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors cursor-pointer"
+          >
+            Show Less
+          </button>
+        )}
+      </>
     )
   }
 
@@ -628,9 +658,7 @@ export default function CheckoutReceiptClient({
               Download Files
             </h3>
             {assets.length > 0 ? (
-              <div className="space-y-2">
-                {assets.map((asset: any, idx: number) => renderDownloadItem(asset, idx))}
-              </div>
+              renderDownloadList(assets)
             ) : (
               <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/50 p-6 text-center">
                 <p className="text-sm text-gray-500">No files available yet. Check back soon!</p>
@@ -807,9 +835,7 @@ export default function CheckoutReceiptClient({
                 Download Files
               </h3>
               {assets.length > 0 ? (
-                <div className="space-y-2">
-                  {assets.map((asset: any, idx: number) => renderDownloadItem(asset, idx))}
-                </div>
+                renderDownloadList(assets)
               ) : (
                 <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/50 p-6 text-center">
                   <p className="text-sm text-gray-500">No files available yet. Check back soon!</p>

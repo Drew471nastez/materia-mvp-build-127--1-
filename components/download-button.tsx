@@ -170,27 +170,26 @@ export function DownloadButton({
         onClick={handleDownload}
         disabled={status === "loading"}
       >
-        {status === "loading" ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />
-            <span className="truncate">Downloading...</span>
-          </>
-        ) : status === "success" ? (
-          <>
-            <Download className="mr-2 h-4 w-4 shrink-0" />
-            <span className="truncate">Downloaded!</span>
-          </>
-        ) : status === "error" ? (
-          <>
-            <AlertCircle className="mr-2 h-4 w-4 shrink-0" />
-            <span className="truncate">Failed</span>
-          </>
-        ) : (
-          <>
-            <Download className="mr-2 h-4 w-4 shrink-0" />
-            <span className="truncate min-w-0">{children || "Download File"}</span>
-          </>
-        )}
+        <span className="flex items-center justify-between w-full gap-2 min-w-0">
+          <span className="truncate min-w-0 text-left">
+            {status === "loading"
+              ? "Downloading..."
+              : status === "success"
+                ? "Downloaded!"
+                : status === "error"
+                  ? "Failed"
+                  : (children || "Download File")}
+          </span>
+          <span className="flex items-center justify-center w-7 h-7 rounded-full bg-black/90 text-white shrink-0">
+            {status === "loading" ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : status === "error" ? (
+              <AlertCircle className="h-3.5 w-3.5" />
+            ) : (
+              <Download className="h-3.5 w-3.5" />
+            )}
+          </span>
+        </span>
       </Button>
 
       {error && <p className="mt-1 text-xs text-destructive">{error}</p>}

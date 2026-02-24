@@ -56,14 +56,36 @@ export function PurchaseAwareButtons({
   const [receiptToken, setReceiptToken] = useState<string | null>(null)
   const [isChecking, setIsChecking] = useState(!serverHasPurchased)
 
-  // Check localStorage for purchase status on mount
+  // Check URL tokens (Safari/WhatsApp proof), localStorage, and API for purchase status
   useEffect(() => {
-    // If server already confirmed purchase, no need to check localStorage
+    // If server already confirmed purchase, no need to check further
     if (serverHasPurchased) {
       setIsChecking(false)
       return
     }
 
+    // 1. Check URL token first (immune to Safari ITP, in-app browsers)
+    try {
+      const params = new URLSearchParams(window.location.search)
+      const urlToken = params.get("purchaseToken")
+      if (urlToken) {
+        setHasPurchased(true)
+        setReceiptToken(urlToken)
+        // Persist to localStorage for future visits
+        try {
+          const stored = localStorage.getItem(PURCHASED_PRODUCTS_KEY)
+          const purchases: Record<string, PurchaseInfo> = stored ? JSON.parse(stored) : {}
+          if (!purchases[productId]?.receiptToken) {
+            purchases[productId] = { receiptToken: urlToken, assets: [] }
+            localStorage.setItem(PURCHASED_PRODUCTS_KEY, JSON.stringify(purchases))
+          }
+        } catch { /* localStorage may be unavailable */ }
+        setIsChecking(false)
+        return
+      }
+    } catch { /* ignore URL parsing errors */ }
+
+    // 2. Check localStorage
     try {
       const stored = localStorage.getItem(PURCHASED_PRODUCTS_KEY)
       if (stored) {
@@ -75,13 +97,32 @@ export function PurchaseAwareButtons({
           if (purchaseInfo.assets && purchaseInfo.assets.length > 0) {
             setAssetId(purchaseInfo.assets[0].id)
           }
+          setIsChecking(false)
+          return
         }
       }
     } catch (e) {
       console.error("[PurchaseAwareButtons] Error checking localStorage:", e)
-    } finally {
-      setIsChecking(false)
     }
+
+    // 3. API fallback for logged-in users (handles cross-device/cleared storage)
+    const checkApi = async () => {
+      try {
+        const res = await fetch(`/api/purchases/check?productId=${productId}`, {
+          credentials: "include",
+        })
+        if (res.ok) {
+          const data = await res.json()
+          if (data.hasPurchased) {
+            setHasPurchased(true)
+            if (data.assetId) setAssetId(data.assetId)
+            if (data.receiptToken) setReceiptToken(data.receiptToken)
+          }
+        }
+      } catch { /* silent */ }
+      finally { setIsChecking(false) }
+    }
+    checkApi()
   }, [productId, serverHasPurchased])
 
   // Loading state while checking localStorage
