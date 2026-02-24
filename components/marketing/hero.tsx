@@ -96,11 +96,11 @@ const DESKTOP_CARDS: CardDef[] = [
 
 // Mobile — rendered edges (~2px overlap between cards):
 const MOBILE_CARDS: CardDef[] = [
-  { left: 28,   top: 50, width: 180, height: 225, zIndex: 1, opacity: 0,    scale: 0.95 },
-  { left: 199,  top: 25, width: 220, height: 275, zIndex: 2, opacity: 0.85, scale: 0.98 },
+  { left: 38,   top: 50, width: 180, height: 225, zIndex: 1, opacity: 0,    scale: 0.95 },
+  { left: 205,  top: 25, width: 220, height: 275, zIndex: 2, opacity: 0.85, scale: 0.98 },
   { left: 415,  top: 0,  width: 260, height: 325, zIndex: 3, opacity: 1,    scale: 1    },
-  { left: 671,  top: 25, width: 220, height: 275, zIndex: 2, opacity: 0.85, scale: 0.98 },
-  { left: 882,  top: 50, width: 180, height: 225, zIndex: 1, opacity: 0,    scale: 0.95 },
+  { left: 665,  top: 25, width: 220, height: 275, zIndex: 2, opacity: 0.85, scale: 0.98 },
+  { left: 872,  top: 50, width: 180, height: 225, zIndex: 1, opacity: 0,    scale: 0.95 },
 ]
 
 const CANVAS_W = 1100
@@ -386,22 +386,22 @@ export function Hero() {
   const activeCards = isMobile ? MOBILE_CARDS : DESKTOP_CARDS
 
   return (
-    <section ref={sectionRef} className="flex flex-col items-center bg-white pt-7 sm:pt-10 pb-12 sm:pb-[67px] overflow-hidden">
+    <section ref={sectionRef} className="flex flex-col items-center bg-white pt-7 sm:pt-10 pb-8 sm:pb-[67px] overflow-hidden">
       <style dangerouslySetInnerHTML={{ __html: `
         .hero-collage-inner {
-          transform: scale(0.88);
+          transform: scale(1.01);
         }
         @media (min-width: 640px) {
-          .hero-collage-inner { transform: scale(0.67); }
+          .hero-collage-inner { transform: scale(0.77); }
         }
         @media (min-width: 768px) {
-          .hero-collage-inner { transform: scale(0.80); }
+          .hero-collage-inner { transform: scale(0.92); }
         }
         @media (min-width: 1024px) {
-          .hero-collage-inner { transform: scale(0.95); }
+          .hero-collage-inner { transform: scale(1.09); }
         }
         @media (min-width: 1280px) {
-          .hero-collage-inner { transform: scale(1.08); }
+          .hero-collage-inner { transform: scale(1.24); }
         }
         @media (prefers-reduced-motion: reduce) {
           .hero-collage-inner, .collage-card {
@@ -542,7 +542,7 @@ export function Hero() {
         </Link>
       </div>
 
-      <p className="text-[16px] sm:text-[19.5px] text-neutral-600 text-center mb-[102px] sm:mb-[127px] max-w-[90%] sm:max-w-[590px] leading-relaxed px-4 mx-auto animate-fade-in-up delay-300">
+      <p className="text-[16px] sm:text-[19.5px] text-neutral-600 text-center mb-[86px] sm:mb-[127px] max-w-[90%] sm:max-w-[590px] leading-relaxed px-4 mx-auto animate-fade-in-up delay-300">
         The #1 e-commerce platform for creators & entrepreneurs. Sell products, manage links & grow an audience.
       </p>
 
