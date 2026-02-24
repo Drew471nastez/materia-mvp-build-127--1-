@@ -108,22 +108,12 @@ export function PricingSection() {
                 {plan.periodLabel && (
                   <p className="text-[13px] text-neutral-400 mb-1">{plan.periodLabel}</p>
                 )}
-                <p className="text-[13px] text-neutral-400 mb-6">{plan.desc}</p>
+                <p className="text-[13px] text-neutral-400 mb-5">{plan.desc}</p>
 
-                <ul className="flex flex-col gap-3 mb-7 flex-1">
-                  {plan.features.map((f) => (
-                    <li key={f} className="flex items-start gap-2.5 text-sm text-neutral-500">
-                      <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${plan.popular ? "bg-violet-600" : "bg-violet-50"}`}>
-                        <Check className={`h-3 w-3 ${plan.popular ? "text-white" : "text-violet-600"}`} strokeWidth={3} />
-                      </div>
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-
+                {/* CTA button — right under description */}
                 <Link
                   href={plan.href}
-                  className={`relative w-full inline-flex items-center justify-center gap-2 text-[15px] font-semibold py-3.5 px-8 rounded-full transition-all duration-300 hover:-translate-y-0.5 overflow-hidden btn-shine-hover ${
+                  className={`relative w-full inline-flex items-center justify-center gap-2 text-[15px] font-semibold py-3.5 px-8 rounded-full transition-all duration-300 hover:-translate-y-0.5 overflow-hidden mb-7 ${
                     plan.popular
                       ? "bg-violet-600 text-white hover:bg-violet-700"
                       : "bg-white text-neutral-900 border-[1.5px] border-neutral-200 hover:border-neutral-400"
@@ -137,6 +127,18 @@ export function PricingSection() {
                     <ArrowRight className="h-4 w-4" />
                   </span>
                 </Link>
+
+                {/* Features list — below button */}
+                <ul className="flex flex-col gap-3 flex-1">
+                  {plan.features.map((f) => (
+                    <li key={f} className="flex items-start gap-2.5 text-sm text-neutral-500">
+                      <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${plan.popular ? "bg-violet-600" : "bg-violet-50"}`}>
+                        <Check className={`h-3 w-3 ${plan.popular ? "text-white" : "text-violet-600"}`} strokeWidth={3} />
+                      </div>
+                      {f}
+                    </li>
+                  ))}
+                </ul>
               </div>
             ))}
           </div>

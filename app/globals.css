@@ -833,10 +833,6 @@
   animation-delay: 1s;
 }
 
-.btn-shine-hover:hover .btn-shine-effect::after {
-  animation-duration: 3s;
-}
-
 /* Shimmer animation for skeleton loading */
 @keyframes shimmer {
   0% {
