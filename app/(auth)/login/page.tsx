@@ -445,7 +445,7 @@ function LoginFormContent() {
 
       <div className="relative hidden lg:block lg:w-1/2 lg:h-[100dvh] shrink-0 overflow-hidden bg-neutral-900">
         <Image
-          src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20design%20(14).webp"
+          src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20design%20(15)%20(1).webp"
           alt="Login banner"
           fill
           className="object-cover object-center"
