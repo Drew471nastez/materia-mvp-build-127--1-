@@ -58,11 +58,11 @@ const PARTNER_LOGOS = [
 // Supabase image transform: width=600&height=750 gives exact 4:5 ratio (matches originals
 // which are 1080×1350). resize=cover ensures Supabase preserves aspect ratio. quality=85.
 const IMAGES = [
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(5)%20(2).webp?width=600&height=750&resize=cover&quality=80",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(6)%20(1).webp?width=600&height=750&resize=cover&quality=80",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(7)%20(1).webp?width=600&height=750&resize=cover&quality=80",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(19).webp?width=600&height=750&resize=cover&quality=80",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(9).webp?width=600&height=750&resize=cover&quality=80",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(5)%20(2).webp?width=600&height=750&resize=cover&quality=75",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(6)%20(1).webp?width=600&height=750&resize=cover&quality=75",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(7)%20(1).webp?width=600&height=750&resize=cover&quality=75",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(19).webp?width=600&height=750&resize=cover&quality=75",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(9).webp?width=600&height=750&resize=cover&quality=75",
 ]
 
 interface CardDef {
@@ -81,26 +81,26 @@ interface CardTransition {
   progress: number
 }
 
-// Card aspect ratio = 4:5 (1080×1350). Near-zero gap between cards. Depth scale restored.
+// Card aspect ratio = 4:5 (1080×1350). Cards nearly touching. Depth scale restored.
 // Positions derived by working outward from center (canvas center = 550).
 // tx = left + width*(1−scale)/2  →  rendered_left/right verified below.
 //
-// Desktop — rendered edges (all gaps ≈ 0.4px):
+// Desktop — rendered edges (gaps ≈ 0px, slight overlap):
 const DESKTOP_CARDS: CardDef[] = [
-  { left: -21,  top: 50, width: 200, height: 250, zIndex: 1, opacity: 0.82, scale: 0.95 },
+  { left: -20,  top: 50, width: 200, height: 250, zIndex: 1, opacity: 0.82, scale: 0.95 },
   { left: 172,  top: 25, width: 240, height: 300, zIndex: 2, opacity: 0.92, scale: 0.98 },
-  { left: 410,  top: 0,  width: 280, height: 350, zIndex: 3, opacity: 1,    scale: 1    },
-  { left: 688,  top: 25, width: 240, height: 300, zIndex: 2, opacity: 0.92, scale: 0.98 },
-  { left: 921,  top: 50, width: 200, height: 250, zIndex: 1, opacity: 0.82, scale: 0.95 },
+  { left: 409,  top: 0,  width: 280, height: 350, zIndex: 3, opacity: 1,    scale: 1    },
+  { left: 686,  top: 25, width: 240, height: 300, zIndex: 2, opacity: 0.92, scale: 0.98 },
+  { left: 918,  top: 50, width: 200, height: 250, zIndex: 1, opacity: 0.82, scale: 0.95 },
 ]
 
-// Mobile — rendered edges (all gaps ≈ 1px):
+// Mobile — rendered edges (gaps ≈ 0px):
 const MOBILE_CARDS: CardDef[] = [
-  { left: 25,   top: 50, width: 180, height: 225, zIndex: 1, opacity: 0,    scale: 0.95 },
+  { left: 26,   top: 50, width: 180, height: 225, zIndex: 1, opacity: 0,    scale: 0.95 },
   { left: 199,  top: 25, width: 220, height: 275, zIndex: 2, opacity: 0.85, scale: 0.98 },
-  { left: 418,  top: 0,  width: 260, height: 325, zIndex: 3, opacity: 1,    scale: 1    },
-  { left: 677,  top: 25, width: 220, height: 275, zIndex: 2, opacity: 0.85, scale: 0.98 },
-  { left: 891,  top: 50, width: 180, height: 225, zIndex: 1, opacity: 0,    scale: 0.95 },
+  { left: 417,  top: 0,  width: 260, height: 325, zIndex: 3, opacity: 1,    scale: 1    },
+  { left: 675,  top: 25, width: 220, height: 275, zIndex: 2, opacity: 0.85, scale: 0.98 },
+  { left: 888,  top: 50, width: 180, height: 225, zIndex: 1, opacity: 0,    scale: 0.95 },
 ]
 
 const CANVAS_W = 1100
