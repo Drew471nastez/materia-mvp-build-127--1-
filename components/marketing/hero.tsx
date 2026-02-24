@@ -58,11 +58,11 @@ const PARTNER_LOGOS = [
 // Supabase image transform: width=600&height=750 gives exact 4:5 ratio (matches originals
 // which are 1080×1350). resize=cover ensures Supabase preserves aspect ratio. quality=85.
 const IMAGES = [
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(5)%20(2).webp?width=600&height=750&resize=cover&quality=85",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(6)%20(1).webp?width=600&height=750&resize=cover&quality=85",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(7)%20(1).webp?width=600&height=750&resize=cover&quality=85",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(13).webp?width=600&height=750&resize=cover&quality=85",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(9).webp?width=600&height=750&resize=cover&quality=85",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(5)%20(2).webp?width=600&height=750&resize=cover&quality=80",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(6)%20(1).webp?width=600&height=750&resize=cover&quality=80",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(7)%20(1).webp?width=600&height=750&resize=cover&quality=80",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(13).webp?width=600&height=750&resize=cover&quality=80",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(9).webp?width=600&height=750&resize=cover&quality=80",
 ]
 
 interface CardDef {
@@ -81,25 +81,28 @@ interface CardTransition {
   progress: number
 }
 
-// Card aspect ratio = 4:5 (1080×1350).  20 px gap between every card.  No scale.
-// Gaps verified: edge→adjacent 20px, adjacent→center 20px (both sides).
+// Card aspect ratio = 4:5 (1080×1350). 13px gap between every card. Depth scale restored.
+// Positions derived by working outward from center (canvas center = 550).
+// tx = left + width*(1−scale)/2  →  rendered_left/right verified below.
 //
-// Desktop: edge -70→130 | 20 | adj 150→390 | 20 | center 410→690 | 20 | adj 710→950 | 20 | edge 970→1170
+// Desktop — rendered edges (all gaps = 13px):
+//   edge  -41→149  | 13 | adj 162→397 | 13 | center 410→690 | 13 | adj 703→938 | 13 | edge 951→1141
 const DESKTOP_CARDS: CardDef[] = [
-  { left: -70,  top: 50, width: 200, height: 250, zIndex: 1, opacity: 0.82, scale: 1 },
-  { left: 150,  top: 25, width: 240, height: 300, zIndex: 2, opacity: 0.92, scale: 1 },
-  { left: 410,  top: 0,  width: 280, height: 350, zIndex: 3, opacity: 1,    scale: 1 },
-  { left: 710,  top: 25, width: 240, height: 300, zIndex: 2, opacity: 0.92, scale: 1 },
-  { left: 970,  top: 50, width: 200, height: 250, zIndex: 1, opacity: 0.82, scale: 1 },
+  { left: -46,  top: 50, width: 200, height: 250, zIndex: 1, opacity: 0.82, scale: 0.95 },
+  { left: 160,  top: 25, width: 240, height: 300, zIndex: 2, opacity: 0.92, scale: 0.98 },
+  { left: 410,  top: 0,  width: 280, height: 350, zIndex: 3, opacity: 1,    scale: 1    },
+  { left: 701,  top: 25, width: 240, height: 300, zIndex: 2, opacity: 0.92, scale: 0.98 },
+  { left: 946,  top: 50, width: 200, height: 250, zIndex: 1, opacity: 0.82, scale: 0.95 },
 ]
 
-// Mobile: edge -20→160 | 20 | adj 180→400 | 20 | center 420→680 | 20 | adj 700→920 | 20 | edge 940→1120
+// Mobile — rendered edges (all gaps = 13px):
+//   edge    8→179  | 13 | adj 192→407 | 13 | center 420→680 | 13 | adj 693→909 | 13 | edge 922→1093
 const MOBILE_CARDS: CardDef[] = [
-  { left: -20,  top: 50, width: 180, height: 225, zIndex: 1, opacity: 0,    scale: 1 },
-  { left: 180,  top: 25, width: 220, height: 275, zIndex: 2, opacity: 0.85, scale: 1 },
-  { left: 420,  top: 0,  width: 260, height: 325, zIndex: 3, opacity: 1,    scale: 1 },
-  { left: 700,  top: 25, width: 220, height: 275, zIndex: 2, opacity: 0.85, scale: 1 },
-  { left: 940,  top: 50, width: 180, height: 225, zIndex: 1, opacity: 0,    scale: 1 },
+  { left: 3,    top: 50, width: 180, height: 225, zIndex: 1, opacity: 0,    scale: 0.95 },
+  { left: 189,  top: 25, width: 220, height: 275, zIndex: 2, opacity: 0.85, scale: 0.98 },
+  { left: 420,  top: 0,  width: 260, height: 325, zIndex: 3, opacity: 1,    scale: 1    },
+  { left: 691,  top: 25, width: 220, height: 275, zIndex: 2, opacity: 0.85, scale: 0.98 },
+  { left: 917,  top: 50, width: 180, height: 225, zIndex: 1, opacity: 0,    scale: 0.95 },
 ]
 
 const CANVAS_W = 1100
@@ -161,14 +164,24 @@ export function Hero() {
 
     const from = orderRef.current
     const to = rotateOrder(from, direction)
-    const start = performance.now()
 
+    // Skip animation for prefers-reduced-motion or hidden tabs (instant swap)
+    const prefersReduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    if (prefersReduced || document.hidden) {
+      orderRef.current = to
+      setCardOrder(to)
+      return
+    }
+
+    const start = performance.now()
     animatingRef.current = true
 
     const tick = (now: number) => {
+      // Cap delta to 100ms to prevent huge jumps after tab wake-up on slow devices
+      const elapsed = Math.min(now - start, (now - start) > 500 ? 100 : now - start)
       const remaining = Math.max(0.001, 1 - initialProgress)
       const duration = Math.max(180, CARD_TRANSITION_MS * remaining)
-      const raw = Math.min(1, (now - start) / duration)
+      const raw = Math.min(1, elapsed / duration)
       const progress = initialProgress + (1 - initialProgress) * ease(raw)
       setTransition({ from, to, progress })
 
@@ -245,7 +258,7 @@ export function Hero() {
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) {
+        if (entry.isIntersecting && !document.hidden) {
           restartAutoplay()
         } else {
           clearAutoplay()
@@ -255,8 +268,22 @@ export function Hero() {
     )
     observer.observe(el)
 
+    // Pause animation when tab goes to background — saves CPU/GPU on slow devices
+    const onVisibility = () => {
+      if (document.hidden) {
+        clearAutoplay()
+        if (rafRef.current !== null) { cancelAnimationFrame(rafRef.current); rafRef.current = null }
+        if (dragRafRef.current !== null) { cancelAnimationFrame(dragRafRef.current); dragRafRef.current = null }
+        animatingRef.current = false
+      } else {
+        restartAutoplay()
+      }
+    }
+    document.addEventListener("visibilitychange", onVisibility)
+
     return () => {
       observer.disconnect()
+      document.removeEventListener("visibilitychange", onVisibility)
       clearAutoplay()
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
       if (dragRafRef.current !== null) cancelAnimationFrame(dragRafRef.current)
@@ -436,19 +463,25 @@ export function Hero() {
     <section ref={sectionRef} className="flex flex-col items-center bg-white pt-6 sm:pt-10 pb-12 sm:pb-[67px] overflow-hidden">
       <style dangerouslySetInnerHTML={{ __html: `
         .hero-collage-inner {
-          transform: scale(0.70);
+          transform: scale(0.80);
         }
         @media (min-width: 640px) {
-          .hero-collage-inner { transform: scale(0.51); }
+          .hero-collage-inner { transform: scale(0.61); }
         }
         @media (min-width: 768px) {
-          .hero-collage-inner { transform: scale(0.63); }
+          .hero-collage-inner { transform: scale(0.73); }
         }
         @media (min-width: 1024px) {
-          .hero-collage-inner { transform: scale(0.80); }
+          .hero-collage-inner { transform: scale(0.90); }
         }
         @media (min-width: 1280px) {
-          .hero-collage-inner { transform: scale(0.93); }
+          .hero-collage-inner { transform: scale(1.03); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .hero-collage-inner, .collage-card {
+            transition: none !important;
+            animation: none !important;
+          }
         }
         @keyframes logo-scroll {
           0% { transform: translateX(0); }
@@ -475,7 +508,7 @@ export function Hero() {
       `}} />
 
       <div className="relative w-full mb-10 sm:mb-8 animate-scale-fade-in">
-        <div className="relative w-full h-[263px] sm:h-[191px] md:h-[236px] lg:h-[300px] xl:h-[349px]">
+        <div className="relative w-full h-[300px] sm:h-[229px] md:h-[274px] lg:h-[338px] xl:h-[386px]">
           <div
             ref={collageRef}
             className="hero-collage-inner absolute left-1/2 -translate-x-1/2 origin-top select-none cursor-pointer"
