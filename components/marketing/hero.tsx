@@ -81,26 +81,26 @@ interface CardTransition {
   progress: number
 }
 
-// Card aspect ratio = 4:5 (1080×1350). Cards nearly touching. Depth scale restored.
+// Card aspect ratio = 4:5 (1080×1350). Cards slightly overlapping. Depth scale restored.
 // Positions derived by working outward from center (canvas center = 550).
 // tx = left + width*(1−scale)/2  →  rendered_left/right verified below.
 //
-// Desktop — rendered edges (gaps ≈ 0px, slight overlap):
+// Desktop — rendered edges (~2px overlap between cards):
 const DESKTOP_CARDS: CardDef[] = [
-  { left: -20,  top: 50, width: 200, height: 250, zIndex: 1, opacity: 0.82, scale: 0.95 },
+  { left: -18,  top: 50, width: 200, height: 250, zIndex: 1, opacity: 0.82, scale: 0.95 },
   { left: 172,  top: 25, width: 240, height: 300, zIndex: 2, opacity: 0.92, scale: 0.98 },
-  { left: 409,  top: 0,  width: 280, height: 350, zIndex: 3, opacity: 1,    scale: 1    },
-  { left: 686,  top: 25, width: 240, height: 300, zIndex: 2, opacity: 0.92, scale: 0.98 },
-  { left: 918,  top: 50, width: 200, height: 250, zIndex: 1, opacity: 0.82, scale: 0.95 },
+  { left: 407,  top: 0,  width: 280, height: 350, zIndex: 3, opacity: 1,    scale: 1    },
+  { left: 682,  top: 25, width: 240, height: 300, zIndex: 2, opacity: 0.92, scale: 0.98 },
+  { left: 912,  top: 50, width: 200, height: 250, zIndex: 1, opacity: 0.82, scale: 0.95 },
 ]
 
-// Mobile — rendered edges (gaps ≈ 0px):
+// Mobile — rendered edges (~2px overlap between cards):
 const MOBILE_CARDS: CardDef[] = [
-  { left: 26,   top: 50, width: 180, height: 225, zIndex: 1, opacity: 0,    scale: 0.95 },
+  { left: 28,   top: 50, width: 180, height: 225, zIndex: 1, opacity: 0,    scale: 0.95 },
   { left: 199,  top: 25, width: 220, height: 275, zIndex: 2, opacity: 0.85, scale: 0.98 },
-  { left: 417,  top: 0,  width: 260, height: 325, zIndex: 3, opacity: 1,    scale: 1    },
-  { left: 675,  top: 25, width: 220, height: 275, zIndex: 2, opacity: 0.85, scale: 0.98 },
-  { left: 888,  top: 50, width: 180, height: 225, zIndex: 1, opacity: 0,    scale: 0.95 },
+  { left: 415,  top: 0,  width: 260, height: 325, zIndex: 3, opacity: 1,    scale: 1    },
+  { left: 671,  top: 25, width: 220, height: 275, zIndex: 2, opacity: 0.85, scale: 0.98 },
+  { left: 882,  top: 50, width: 180, height: 225, zIndex: 1, opacity: 0,    scale: 0.95 },
 ]
 
 const CANVAS_W = 1100
