@@ -433,7 +433,7 @@ export function Hero() {
         }
       `}} />
 
-      <div className="relative w-full mb-7 sm:mb-[42px] animate-scale-fade-in">
+      <div className="relative w-full mb-7 sm:mb-[42px] lg:mb-[55px] animate-scale-fade-in">
         <div className="relative w-full h-[330px] sm:h-[251px] md:h-[300px] lg:h-[360px] xl:h-[409px]">
           <div
             className="hero-collage-inner absolute left-1/2 -translate-x-1/2 origin-top select-none"
