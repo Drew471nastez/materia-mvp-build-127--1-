@@ -89,7 +89,7 @@ export function PricingSection() {
             {PLANS.map((plan) => (
               <div
                 key={plan.name}
-                className={`bg-white rounded-3xl p-9 relative flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-md ${
+                className={`bg-white rounded-lg p-9 relative flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-md ${
                   plan.popular
                     ? "border-[1.5px] border-violet-600 shadow-[0_0_0_1px_#7c3aed] shadow-md"
                     : "border-[1.5px] border-neutral-200"

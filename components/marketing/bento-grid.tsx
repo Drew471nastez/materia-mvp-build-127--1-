@@ -1,12 +1,15 @@
 "use client"
 
 import { useRef, useEffect, useState } from "react"
+import dynamic from "next/dynamic"
 
-const MINI_PRODUCTS = [
-  { emoji: "🎨", type: "Design Kit", price: "$29", bg: "bg-purple-50" },
-  { emoji: "🎓", type: "Course", price: "$79", bg: "bg-amber-50" },
-  { emoji: "📄", type: "Template", price: "$19", bg: "bg-blue-50" },
-]
+/* ── Globe.gl (requires browser — no SSR) ── */
+const GlobeWidget = dynamic(() => import("./globe-widget"), {
+  ssr: false,
+  loading: () => (
+    <div className="w-[130px] h-[130px] mx-auto rounded-full bg-indigo-950/30 animate-pulse" />
+  ),
+})
 
 const CURRENCY_SETS = [
   [
@@ -63,8 +66,8 @@ function AnimateOnScroll({ children, className = "" }: { children: React.ReactNo
 
 export { AnimateOnScroll }
 
-/* ── Enhanced 3D Rotating Globe ── */
-function RotatingGlobe() {
+/* ── Globe + cycling currency tags ── */
+function GlobeSection() {
   const [setIndex, setSetIndex] = useState(0)
   const [fadeIn, setFadeIn] = useState(true)
 
@@ -86,124 +89,9 @@ function RotatingGlobe() {
   const currentSet = CURRENCY_SETS[setIndex]
 
   return (
-    <div className="relative flex items-center justify-center my-4 min-h-[130px]">
-      {/* Outer ambient glow */}
-      <div className="absolute w-[150px] h-[150px] rounded-full z-[1] globe-glow-pulse" style={{
-        background: "radial-gradient(circle, rgba(251,191,36,0.12) 0%, rgba(251,191,36,0.04) 45%, transparent 70%)",
-      }} />
-
-      {/* Globe container */}
-      <div className="relative w-[110px] h-[110px] z-[2] rounded-full overflow-hidden" style={{
-        boxShadow: "0 0 40px rgba(251,191,36,0.12), 0 0 80px rgba(251,191,36,0.06), 0 8px 32px rgba(0,0,0,0.4)",
-      }}>
-        {/* Base sphere — dark ocean with 3D lighting */}
-        <div className="absolute inset-0" style={{
-          background: "radial-gradient(circle at 35% 32%, #1a2744 0%, #0c1a30 45%, #060e1f 75%, #030812 100%)",
-        }} />
-
-        {/* Scrolling continent glow — amber/gold land masses */}
-        <div className="absolute inset-0 overflow-hidden rounded-full">
-          <div className="globe-continents" style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "220%",
-            height: "100%",
-            willChange: "transform",
-            background: [
-              "radial-gradient(ellipse 6% 20% at 5% 38%, rgba(251,191,36,0.45) 0%, transparent 100%)",
-              "radial-gradient(ellipse 9% 28% at 12% 50%, rgba(251,191,36,0.35) 0%, transparent 100%)",
-              "radial-gradient(ellipse 4% 14% at 8% 28%, rgba(251,191,36,0.3) 0%, transparent 100%)",
-              "radial-gradient(ellipse 7% 18% at 22% 40%, rgba(251,191,36,0.38) 0%, transparent 100%)",
-              "radial-gradient(ellipse 11% 30% at 30% 55%, rgba(251,191,36,0.32) 0%, transparent 100%)",
-              "radial-gradient(ellipse 5% 12% at 36% 68%, rgba(251,191,36,0.25) 0%, transparent 100%)",
-              "radial-gradient(ellipse 8% 22% at 44% 42%, rgba(251,191,36,0.35) 0%, transparent 100%)",
-              "radial-gradient(ellipse 5% 16% at 50% 60%, rgba(251,191,36,0.28) 0%, transparent 100%)",
-              "radial-gradient(ellipse 6% 20% at 55% 38%, rgba(251,191,36,0.45) 0%, transparent 100%)",
-              "radial-gradient(ellipse 9% 28% at 62% 50%, rgba(251,191,36,0.35) 0%, transparent 100%)",
-              "radial-gradient(ellipse 4% 14% at 58% 28%, rgba(251,191,36,0.3) 0%, transparent 100%)",
-              "radial-gradient(ellipse 7% 18% at 72% 40%, rgba(251,191,36,0.38) 0%, transparent 100%)",
-              "radial-gradient(ellipse 11% 30% at 80% 55%, rgba(251,191,36,0.32) 0%, transparent 100%)",
-              "radial-gradient(ellipse 5% 12% at 86% 68%, rgba(251,191,36,0.25) 0%, transparent 100%)",
-              "radial-gradient(ellipse 8% 22% at 94% 42%, rgba(251,191,36,0.35) 0%, transparent 100%)",
-              "radial-gradient(ellipse 5% 16% at 100% 60%, rgba(251,191,36,0.28) 0%, transparent 100%)",
-            ].join(","),
-          }} />
-        </div>
-
-        {/* City light dots — scrolling at different speed */}
-        <div className="absolute inset-0 overflow-hidden rounded-full">
-          <div className="globe-city-dots" style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "220%",
-            height: "100%",
-            willChange: "transform",
-            background: [
-              "radial-gradient(circle 1.5px at 6% 35%, rgba(255,220,150,0.8) 0%, transparent 100%)",
-              "radial-gradient(circle 1px at 10% 42%, rgba(255,220,150,0.6) 0%, transparent 100%)",
-              "radial-gradient(circle 1.5px at 14% 52%, rgba(255,220,150,0.7) 0%, transparent 100%)",
-              "radial-gradient(circle 1px at 18% 30%, rgba(255,255,200,0.5) 0%, transparent 100%)",
-              "radial-gradient(circle 1.5px at 24% 45%, rgba(255,220,150,0.7) 0%, transparent 100%)",
-              "radial-gradient(circle 1px at 28% 58%, rgba(255,220,150,0.5) 0%, transparent 100%)",
-              "radial-gradient(circle 1px at 32% 38%, rgba(255,255,200,0.6) 0%, transparent 100%)",
-              "radial-gradient(circle 1.5px at 38% 48%, rgba(255,220,150,0.7) 0%, transparent 100%)",
-              "radial-gradient(circle 1px at 42% 55%, rgba(255,220,150,0.5) 0%, transparent 100%)",
-              "radial-gradient(circle 1px at 46% 35%, rgba(255,255,200,0.6) 0%, transparent 100%)",
-              "radial-gradient(circle 1.5px at 56% 35%, rgba(255,220,150,0.8) 0%, transparent 100%)",
-              "radial-gradient(circle 1px at 60% 42%, rgba(255,220,150,0.6) 0%, transparent 100%)",
-              "radial-gradient(circle 1.5px at 64% 52%, rgba(255,220,150,0.7) 0%, transparent 100%)",
-              "radial-gradient(circle 1px at 68% 30%, rgba(255,255,200,0.5) 0%, transparent 100%)",
-              "radial-gradient(circle 1.5px at 74% 45%, rgba(255,220,150,0.7) 0%, transparent 100%)",
-              "radial-gradient(circle 1px at 78% 58%, rgba(255,220,150,0.5) 0%, transparent 100%)",
-              "radial-gradient(circle 1px at 82% 38%, rgba(255,255,200,0.6) 0%, transparent 100%)",
-              "radial-gradient(circle 1.5px at 88% 48%, rgba(255,220,150,0.7) 0%, transparent 100%)",
-              "radial-gradient(circle 1px at 92% 55%, rgba(255,220,150,0.5) 0%, transparent 100%)",
-              "radial-gradient(circle 1px at 96% 35%, rgba(255,255,200,0.6) 0%, transparent 100%)",
-            ].join(","),
-          }} />
-        </div>
-
-        {/* 3D rotating meridian lines */}
-        <div className="absolute inset-0 rounded-full" style={{ perspective: "600px" }}>
-          <div className="absolute inset-0 globe-spin-anim" style={{ transformStyle: "preserve-3d" }}>
-            {[0, 30, 60, 90, 120, 150].map((deg) => (
-              <div
-                key={deg}
-                className="absolute rounded-full"
-                style={{
-                  inset: "4%",
-                  border: "1px solid rgba(251,191,36,0.08)",
-                  transform: `rotateY(${deg}deg)`,
-                  transformStyle: "preserve-3d",
-                  backfaceVisibility: "visible",
-                }}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Latitude lines */}
-        {[25, 50, 75].map((top) => (
-          <div key={top} className="absolute left-[6%] right-[6%]" style={{
-            top: `${top}%`,
-            height: "1px",
-            background: "rgba(251,191,36,0.06)",
-          }} />
-        ))}
-
-        {/* Atmosphere — inner shadow + specular highlight */}
-        <div className="absolute inset-0 rounded-full" style={{
-          background: "radial-gradient(circle at 28% 22%, rgba(255,255,255,0.08) 0%, transparent 38%)",
-          boxShadow: "inset -5px -5px 15px rgba(0,0,0,0.5), inset 2px 2px 8px rgba(255,255,255,0.03), inset 0 0 30px rgba(251,191,36,0.04)",
-        }} />
-
-        {/* Edge atmosphere ring */}
-        <div className="absolute inset-0 rounded-full" style={{
-          boxShadow: "inset 0 0 3px rgba(100,180,255,0.08), inset 0 0 6px rgba(100,180,255,0.04)",
-        }} />
-      </div>
+    <div className="relative flex items-center justify-center my-4 min-h-[140px]">
+      {/* Real 3D globe */}
+      <GlobeWidget />
 
       {/* Cycling currency tags — smooth fade in/out */}
       {currentSet.map((b, i) => (
@@ -213,7 +101,7 @@ function RotatingGlobe() {
           style={{
             opacity: fadeIn ? 1 : 0,
             transform: fadeIn ? "scale(1) translateY(0)" : "scale(0.8) translateY(6px)",
-            transition: "all 0.6s cubic-bezier(0.4, 0, 0.2, 1)",
+            transition: "opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1), transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)",
           }}
         >
           <div className="w-9 h-9 rounded-full border-[3px] border-[#D4F542] flex items-center justify-center text-base shadow-md bg-white">
@@ -228,7 +116,7 @@ function RotatingGlobe() {
   )
 }
 
-/* ── Count-Up Revenue Card ── */
+/* ── Count-Up $4,289 + area chart ── */
 function CountUpRevenue() {
   const ref = useRef<HTMLDivElement>(null)
   const [count, setCount] = useState(0)
@@ -261,39 +149,78 @@ function CountUpRevenue() {
   }, [])
 
   return (
-    <div ref={ref} className="mt-5 flex flex-col items-center flex-1 justify-center">
+    <div ref={ref} className="mt-4 flex flex-col items-center flex-1 justify-center">
       {/* Large count-up dollar amount */}
       <div
-        className="text-[52px] sm:text-[58px] font-extrabold tracking-tight text-black leading-none mb-4"
+        className="text-[48px] sm:text-[56px] font-extrabold tracking-tight text-black leading-none mb-3"
         style={{ fontVariantNumeric: "tabular-nums" }}
       >
         ${count.toLocaleString()}
       </div>
 
-      {/* 3 stat cards row */}
-      <div className="grid grid-cols-3 gap-2 w-full max-w-[340px]">
-        {/* Green — Storelib users */}
-        <div className="bg-[#4ade80] rounded-xl py-2.5 px-2 flex flex-col items-center">
-          <div className="w-6 h-6 rounded-full bg-white/25 flex items-center justify-center text-[11px] mb-1">👤</div>
-          <div className="text-[15px] font-extrabold text-black leading-tight">30m</div>
-          <div className="text-[7px] font-bold text-black/50 uppercase tracking-wider leading-tight mt-0.5">Storelib users</div>
-        </div>
+      {/* Area chart illustration — Visits + Unique visitors */}
+      <div className="w-full max-w-[320px]">
+        <svg viewBox="0 0 280 90" className="w-full" preserveAspectRatio="xMidYMid meet">
+          <defs>
+            <linearGradient id="grad-visits" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#4f46e5" stopOpacity="0.3" />
+              <stop offset="100%" stopColor="#4f46e5" stopOpacity="0.03" />
+            </linearGradient>
+            <linearGradient id="grad-unique" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#a855f7" stopOpacity="0.3" />
+              <stop offset="100%" stopColor="#a855f7" stopOpacity="0.03" />
+            </linearGradient>
+          </defs>
 
-        {/* Purple — Visitors this week */}
-        <div className="bg-[#c026d3] rounded-xl py-2.5 px-2 flex flex-col items-center text-white">
-          <div className="text-[6px] font-bold uppercase tracking-wider text-white/50 mb-0.5">Monthly AVG</div>
-          <svg className="w-full h-[14px] mb-0.5" viewBox="0 0 80 16" fill="none">
-            <path d="M0,14 C10,12 18,9 28,7 C38,5 44,3 54,5 C64,7 70,2 80,1" stroke="white" strokeWidth="1.5" strokeLinecap="round" opacity="0.6" />
-          </svg>
-          <div className="text-[15px] font-extrabold leading-tight">2.3M</div>
-          <div className="text-[7px] font-bold text-white/50 uppercase tracking-wider leading-tight mt-0.5 text-center">Visitors this week</div>
-        </div>
+          {/* Visits — indigo area */}
+          <path
+            d="M0,68 C25,64 50,55 80,47 C110,39 140,33 170,28 C200,24 230,18 260,16 L280,14 L280,90 L0,90 Z"
+            fill="url(#grad-visits)"
+          />
+          <path
+            d="M0,68 C25,64 50,55 80,47 C110,39 140,33 170,28 C200,24 230,18 260,16 L280,14"
+            stroke="#4f46e5"
+            strokeWidth="2"
+            fill="none"
+            strokeLinecap="round"
+          />
 
-        {/* Teal — Design & Fitness */}
-        <div className="bg-[#06b6d4] rounded-xl py-2.5 px-2 flex flex-col items-center text-white">
-          <div className="w-6 h-6 rounded-full bg-white/25 flex items-center justify-center text-[11px] mb-1">😊</div>
-          <div className="text-[15px] font-extrabold leading-tight">+6%</div>
-          <div className="text-[7px] font-bold text-white/50 uppercase tracking-wider leading-tight mt-0.5 text-center">Design &amp; Fitness</div>
+          {/* Unique visitors — purple area */}
+          <path
+            d="M0,82 C25,79 50,73 80,66 C110,59 140,53 170,48 C200,44 230,38 260,35 L280,33 L280,90 L0,90 Z"
+            fill="url(#grad-unique)"
+          />
+          <path
+            d="M0,82 C25,79 50,73 80,66 C110,59 140,53 170,48 C200,44 230,38 260,35 L280,33"
+            stroke="#a855f7"
+            strokeWidth="2"
+            fill="none"
+            strokeLinecap="round"
+          />
+
+          {/* Data points — Visits */}
+          <circle cx="0" cy="68" r="2.5" fill="#4f46e5" />
+          <circle cx="80" cy="47" r="2.5" fill="#4f46e5" />
+          <circle cx="170" cy="28" r="2.5" fill="#4f46e5" />
+          <circle cx="280" cy="14" r="2.5" fill="#4f46e5" />
+
+          {/* Data points — Unique visitors */}
+          <circle cx="0" cy="82" r="2.5" fill="#a855f7" />
+          <circle cx="80" cy="66" r="2.5" fill="#a855f7" />
+          <circle cx="170" cy="48" r="2.5" fill="#a855f7" />
+          <circle cx="280" cy="33" r="2.5" fill="#a855f7" />
+        </svg>
+
+        {/* Legend */}
+        <div className="flex items-center justify-center gap-5 mt-1.5">
+          <div className="flex items-center gap-1.5">
+            <div className="w-2.5 h-2.5 rounded-full bg-indigo-600" />
+            <span className="text-[10px] text-neutral-400 font-medium">Visits</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-2.5 h-2.5 rounded-full bg-purple-500" />
+            <span className="text-[10px] text-neutral-400 font-medium">Unique visitors</span>
+          </div>
         </div>
       </div>
     </div>
@@ -315,7 +242,6 @@ function SellAnywhereIllustration() {
               yourbrand.storelib.com
             </div>
           </div>
-          {/* Store preview inside browser */}
           <div className="bg-white/5 rounded-lg p-2">
             <div className="flex items-center gap-2 mb-2">
               <div className="w-5 h-5 rounded-full bg-violet-500/40" />
@@ -362,33 +288,9 @@ export function BentoGrid() {
   return (
     <section className="py-20 sm:py-24 bg-white">
       <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes globe-spin {
-          0% { transform: rotateY(0deg); }
-          100% { transform: rotateY(360deg); }
-        }
-        @keyframes globe-scroll {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
-        }
-        @keyframes globe-glow-pulse {
-          0%, 100% { opacity: 0.7; transform: scale(1); }
-          50% { opacity: 1; transform: scale(1.05); }
-        }
         @keyframes sell-anywhere-bob {
           0%, 100% { transform: translateY(0); }
           50% { transform: translateY(-6px); }
-        }
-        .globe-spin-anim {
-          animation: globe-spin 10s linear infinite;
-        }
-        .globe-continents {
-          animation: globe-scroll 25s linear infinite;
-        }
-        .globe-city-dots {
-          animation: globe-scroll 20s linear infinite;
-        }
-        .globe-glow-pulse {
-          animation: globe-glow-pulse 4s ease-in-out infinite;
         }
         .sell-anywhere-float {
           animation: sell-anywhere-bob 3s ease-in-out infinite;
@@ -408,26 +310,26 @@ export function BentoGrid() {
 
         <AnimateOnScroll>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Sell anything — light purple background */}
-            <div className="rounded-3xl p-9 bg-violet-100/70 min-h-[320px] flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
+            {/* Sell anything — lighter purple + illustration image */}
+            <div className="rounded-3xl p-9 bg-violet-50/80 min-h-[320px] flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
               <h3 className="text-2xl font-semibold tracking-tight leading-snug mb-2.5">Sell anything</h3>
               <p className="text-sm leading-relaxed text-neutral-500 max-w-[320px]">
                 Courses, templates, memberships, files — if you made it, you can sell it here on Storelib.
               </p>
-              <div className="mt-6 flex gap-3 justify-center">
-                {MINI_PRODUCTS.map((p) => (
-                  <div key={p.type} className="w-[120px] bg-white rounded-xl overflow-hidden shadow-sm transition-transform duration-300 hover:-translate-y-1.5">
-                    <div className={`h-[90px] flex items-center justify-center text-[32px] ${p.bg}`}>{p.emoji}</div>
-                    <div className="px-2.5 py-2">
-                      <div className="text-[8px] font-bold uppercase tracking-wide text-neutral-400">{p.type}</div>
-                      <div className="text-[13px] font-bold">{p.price}</div>
-                    </div>
-                  </div>
-                ))}
+              <div className="mt-5 flex-1 flex items-center justify-center">
+                <img
+                  src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20(1250%20x%20500%20px)%20(1250%20x%20400%20px)%20(1100%20x%20400%20px)%20(1).png?width=600&quality=75"
+                  alt="Digital products showcase"
+                  className="w-full rounded-xl shadow-sm"
+                  loading="lazy"
+                  decoding="async"
+                  width={600}
+                  height={218}
+                />
               </div>
             </div>
 
-            {/* Make your own money $ — count-up + stat cards */}
+            {/* Make your own money $ — count-up + area chart */}
             <div className="rounded-3xl p-9 bg-white border border-neutral-200 min-h-[320px] flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
               <h3 className="text-2xl font-semibold tracking-tight leading-snug mb-2.5">Make your own money $</h3>
               <p className="text-sm leading-relaxed text-neutral-500 max-w-[320px]">
@@ -436,13 +338,13 @@ export function BentoGrid() {
               <CountUpRevenue />
             </div>
 
-            {/* Sell to anyone — 3D globe + currencies */}
+            {/* Sell to anyone — real globe.gl + currencies */}
             <div className="rounded-3xl p-9 bg-[#D4F542] min-h-[224px] flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
               <h3 className="text-2xl font-semibold tracking-tight leading-snug mb-2.5">Sell to anyone</h3>
               <p className="text-sm leading-relaxed text-neutral-500 max-w-[320px]">
                 Accept payments from 135+ countries. Customers pay in their currency, you get paid in yours.
               </p>
-              <RotatingGlobe />
+              <GlobeSection />
               <div className="mt-auto flex flex-col gap-2.5">
                 {["One-time, recurring, or pay-what-you-want", "Instant file delivery after purchase"].map((f) => (
                   <div key={f} className="flex items-center gap-2.5 text-[13px] font-medium">
@@ -453,7 +355,7 @@ export function BentoGrid() {
               </div>
             </div>
 
-            {/* Sell anywhere — improved illustration */}
+            {/* Sell anywhere — illustration */}
             <div className="rounded-3xl p-9 bg-indigo-950 text-white min-h-[224px] flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
               <h3 className="text-2xl font-semibold tracking-tight leading-snug mb-2.5">Sell anywhere</h3>
               <p className="text-sm leading-relaxed text-white/60 max-w-[320px]">
