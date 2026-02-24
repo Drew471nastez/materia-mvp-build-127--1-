@@ -143,6 +143,7 @@ export function Hero() {
   const rafRef = useRef<number | null>(null)
   const loadedImageSetRef = useRef(new Set<number>())
   const touchStartRef = useRef<{ x: number; time: number } | null>(null)
+  const dragStartRef = useRef<{ x: number; time: number } | null>(null)
 
   const clearAutoplay = useCallback(() => {
     if (autoplayRef.current) {
@@ -434,23 +435,42 @@ export function Hero() {
         }
       `}} />
 
-      <div className="relative w-full mb-10 sm:mb-8 animate-scale-fade-in">
+      <div className="relative w-full mb-8 sm:mb-8 animate-scale-fade-in">
         <div
-          className="relative w-full h-[330px] sm:h-[251px] md:h-[300px] lg:h-[360px] xl:h-[409px] touch-pan-y"
-          onTouchStart={(e) => {
+          className="relative w-full h-[330px] sm:h-[251px] md:h-[300px] lg:h-[360px] xl:h-[409px] touch-pan-y cursor-grab active:cursor-grabbing"
+          onTouchStartCapture={(e) => {
             touchStartRef.current = { x: e.touches[0].clientX, time: Date.now() }
           }}
-          onTouchEnd={(e) => {
+          onTouchEndCapture={(e) => {
             if (!touchStartRef.current) return
             const dx = e.changedTouches[0].clientX - touchStartRef.current.x
             const elapsed = Date.now() - touchStartRef.current.time
             touchStartRef.current = null
             if (Math.abs(dx) > 40 && elapsed < 600) {
+              e.preventDefault()
+              e.stopPropagation()
               cancelAnimation()
               startRotation(dx < 0 ? 1 : -1)
               restartAutoplay()
             }
           }}
+          onMouseDownCapture={(e) => {
+            dragStartRef.current = { x: e.clientX, time: Date.now() }
+          }}
+          onMouseUpCapture={(e) => {
+            if (!dragStartRef.current) return
+            const dx = e.clientX - dragStartRef.current.x
+            const elapsed = Date.now() - dragStartRef.current.time
+            dragStartRef.current = null
+            if (Math.abs(dx) > 40 && elapsed < 600) {
+              e.preventDefault()
+              e.stopPropagation()
+              cancelAnimation()
+              startRotation(dx < 0 ? 1 : -1)
+              restartAutoplay()
+            }
+          }}
+          onMouseLeave={() => { dragStartRef.current = null }}
         >
           <div
             className="hero-collage-inner absolute left-1/2 -translate-x-1/2 origin-top select-none"
@@ -570,7 +590,7 @@ export function Hero() {
           {!logosLoaded ? (
             <div className="flex items-center justify-center gap-6 sm:gap-8 md:gap-10 py-2">
               {[...Array(5)].map((_, i) => (
-                <Skeleton key={i} className="h-[17px] sm:h-5 md:h-6 w-[60px] sm:w-[80px] md:w-[100px]" />
+                <Skeleton key={i} className="h-[20px] sm:h-5 md:h-6 w-[69px] sm:w-[80px] md:w-[100px]" />
               ))}
             </div>
           ) : (
@@ -582,16 +602,16 @@ export function Hero() {
                 const isPopj = src.includes("popj.svg")
                 const isNewLogo = src.includes("eyJidWNrZXQiOiJwYXJ0bmVycGFnZS5wcm9k")
                 const heightClass = isStripe
-                  ? "h-[36px] sm:h-[43px] md:h-[51px]"
+                  ? "h-[41px] sm:h-[43px] md:h-[51px]"
                   : isAnthropic
-                    ? "h-[18px] sm:h-[21px] md:h-[26px]"
+                    ? "h-[21px] sm:h-[21px] md:h-[26px]"
                     : isAtlassian
-                      ? "h-[15px] sm:h-[18px] md:h-[22px]"
+                      ? "h-[17px] sm:h-[18px] md:h-[22px]"
                       : isPopj
-                        ? "h-[30px] sm:h-[36px] md:h-[43px]"
+                        ? "h-[35px] sm:h-[36px] md:h-[43px]"
                         : isNewLogo
-                          ? "h-[22px] sm:h-[26px] md:h-[31px]"
-                          : "h-[17px] sm:h-5 md:h-6"
+                          ? "h-[25px] sm:h-[26px] md:h-[31px]"
+                          : "h-[20px] sm:h-5 md:h-6"
                 return (
                   <img
                     key={i}

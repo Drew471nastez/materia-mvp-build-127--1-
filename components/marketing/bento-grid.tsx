@@ -270,11 +270,11 @@ export function BentoGrid() {
               <p className="text-sm leading-relaxed text-neutral-500 max-w-[320px]">
                 Courses, digital products, memberships, bookings — if you made it, you can sell it here on Storelib.
               </p>
-              <div className="mt-5 flex-1 flex items-center justify-center">
+              <div className="mt-5 flex-1 flex items-center justify-center overflow-hidden">
                 <img
                   src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20(1250%20x%20500%20px)%20(1250%20x%20400%20px)%20(1100%20x%20400%20px)%20(3).png?width=600&quality=75"
                   alt="Digital products showcase"
-                  className="w-full rounded-xl"
+                  className="w-[115%] sm:w-full rounded-xl"
                   loading="lazy"
                   decoding="async"
                   width={600}
@@ -312,9 +312,9 @@ export function BentoGrid() {
               </p>
               <div className="mt-4 flex-1 flex items-center justify-center overflow-hidden">
                 <img
-                  src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20(1250%20x%20500%20px)%20(1250%20x%20400%20px)%20(1100%20x%20400%20px)%20(5).png?width=600&quality=75"
+                  src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20(1250%20x%20500%20px)%20(1250%20x%20400%20px)%20(1100%20x%20400%20px)%20(7).png?width=600&quality=75"
                   alt="Sell anywhere illustration"
-                  className="w-[112%] rounded-xl"
+                  className="w-[148%] sm:w-[123%] rounded-xl"
                   loading="lazy"
                   decoding="async"
                   width={600}
