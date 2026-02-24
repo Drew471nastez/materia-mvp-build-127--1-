@@ -103,8 +103,8 @@ export default function GlobeWidget() {
       controls.enableZoom = false
       controls.enableRotate = true
       controls.enablePan = false
-      controls.minPolarAngle = Math.PI * 0.3
-      controls.maxPolarAngle = Math.PI * 0.7
+      controls.minPolarAngle = 0
+      controls.maxPolarAngle = Math.PI
 
       globeRef.current = globe
     })()

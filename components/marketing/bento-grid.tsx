@@ -32,12 +32,12 @@ const CURRENCY_SETS = [
   ],
 ]
 
-/* Tags pulled in closer — less vertical spread */
+/* Tags: closer vertically, spread more left/right on mobile */
 const TAG_POSITIONS = [
-  "top-[18%] left-[3%]",
-  "top-[18%] right-[1%]",
-  "bottom-[18%] left-[8%]",
-  "bottom-[18%] right-[4%]",
+  "top-[18%] left-[-2%] sm:left-[3%]",
+  "top-[18%] right-[-3%] sm:right-[1%]",
+  "bottom-[18%] left-[0%] sm:left-[8%]",
+  "bottom-[18%] right-[-2%] sm:right-[4%]",
 ]
 
 function AnimateOnScroll({ children, className = "" }: { children: React.ReactNode; className?: string }) {
@@ -69,7 +69,6 @@ export { AnimateOnScroll }
 
 /* ── Globe + cycling currency tags ── */
 function GlobeSection() {
-  /* visibleIndex only changes DURING the invisible phase — no key remounting */
   const [visibleIndex, setVisibleIndex] = useState(0)
   const [fadeIn, setFadeIn] = useState(true)
 
@@ -93,7 +92,6 @@ function GlobeSection() {
 
   return (
     <div className="relative flex items-center justify-center my-2 min-h-[200px]">
-      {/* Real 3D globe */}
       <GlobeWidget />
 
       {/* Cycling currency tags — smooth cross-fade, no remount */}
@@ -161,9 +159,15 @@ function CountUpRevenue() {
         ${count.toLocaleString()}
       </div>
 
-      {/* Area chart illustration — Visits + Revenue */}
-      <div className="w-full max-w-[320px]">
-        <svg viewBox="0 0 280 90" className="w-full" preserveAspectRatio="xMidYMid meet">
+      {/* Area chart — wider, with white edge fades */}
+      <div
+        className="w-full"
+        style={{
+          maskImage: "linear-gradient(to right, transparent, black 8%, black 92%, transparent)",
+          WebkitMaskImage: "linear-gradient(to right, transparent, black 8%, black 92%, transparent)",
+        }}
+      >
+        <svg viewBox="0 0 320 90" className="w-full" preserveAspectRatio="xMidYMid meet">
           <defs>
             <linearGradient id="grad-visits" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#4f46e5" stopOpacity="0.3" />
@@ -184,11 +188,11 @@ function CountUpRevenue() {
 
           {/* Visits — indigo area */}
           <path
-            d="M0,68 C25,64 50,55 80,47 C110,39 140,33 170,28 C200,24 230,18 260,16 L280,14 L280,90 L0,90 Z"
+            d="M0,68 C30,64 60,55 95,47 C130,39 165,33 200,28 C235,24 270,18 300,16 L320,14 L320,90 L0,90 Z"
             fill="url(#grad-visits)"
           />
           <path
-            d="M0,68 C25,64 50,55 80,47 C110,39 140,33 170,28 C200,24 230,18 260,16 L280,14"
+            d="M0,68 C30,64 60,55 95,47 C130,39 165,33 200,28 C235,24 270,18 300,16 L320,14"
             stroke="#4f46e5"
             strokeWidth="2"
             fill="none"
@@ -197,11 +201,11 @@ function CountUpRevenue() {
 
           {/* Revenue — light purple area with glow */}
           <path
-            d="M0,82 C25,79 50,73 80,66 C110,59 140,53 170,48 C200,44 230,38 260,35 L280,33 L280,90 L0,90 Z"
+            d="M0,82 C30,79 60,73 95,66 C130,59 165,53 200,48 C235,44 270,38 300,35 L320,33 L320,90 L0,90 Z"
             fill="url(#grad-revenue)"
           />
           <path
-            d="M0,82 C25,79 50,73 80,66 C110,59 140,53 170,48 C200,44 230,38 260,35 L280,33"
+            d="M0,82 C30,79 60,73 95,66 C130,59 165,53 200,48 C235,44 270,38 300,35 L320,33"
             stroke="#c084fc"
             strokeWidth="2.5"
             fill="none"
@@ -211,15 +215,15 @@ function CountUpRevenue() {
 
           {/* Data points — Visits */}
           <circle cx="0" cy="68" r="2.5" fill="#4f46e5" />
-          <circle cx="80" cy="47" r="2.5" fill="#4f46e5" />
-          <circle cx="170" cy="28" r="2.5" fill="#4f46e5" />
-          <circle cx="280" cy="14" r="2.5" fill="#4f46e5" />
+          <circle cx="95" cy="47" r="2.5" fill="#4f46e5" />
+          <circle cx="200" cy="28" r="2.5" fill="#4f46e5" />
+          <circle cx="320" cy="14" r="2.5" fill="#4f46e5" />
 
           {/* Data points — Revenue */}
           <circle cx="0" cy="82" r="3" fill="#c084fc" />
-          <circle cx="80" cy="66" r="3" fill="#c084fc" />
-          <circle cx="170" cy="48" r="3" fill="#c084fc" />
-          <circle cx="280" cy="33" r="3" fill="#c084fc" />
+          <circle cx="95" cy="66" r="3" fill="#c084fc" />
+          <circle cx="200" cy="48" r="3" fill="#c084fc" />
+          <circle cx="320" cy="33" r="3" fill="#c084fc" />
         </svg>
 
         {/* Legend */}
@@ -248,7 +252,12 @@ export function BentoGrid() {
               Everything in one place
             </h2>
             <p className="text-base text-neutral-500 leading-relaxed">
-              Storelib is the easiest way to make money online. Run your entire creative business from one place, sell products, build your online store and grow your brand!
+              <span className="hidden sm:inline">
+                Storelib is the easiest way to make money online. Run your entire creative business from one place, sell products, build your online store and grow your brand!
+              </span>
+              <span className="sm:hidden">
+                Storelib is the easiest way to make money online. Run your entire creative business from one place.
+              </span>
             </p>
           </div>
         </AnimateOnScroll>
@@ -276,14 +285,17 @@ export function BentoGrid() {
 
             {/* Make your own money $ — count-up + area chart */}
             <div className="rounded-3xl p-9 bg-white border border-neutral-200 min-h-[320px] flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
-              <h3 className="text-2xl font-semibold tracking-tight leading-snug mb-2.5">Make your own money $</h3>
+              <h3 className="text-2xl font-semibold tracking-tight leading-snug mb-2.5">
+                <span className="hidden sm:inline">Make your own money $</span>
+                <span className="sm:hidden">Make your own $$</span>
+              </h3>
               <p className="text-sm leading-relaxed text-neutral-500 max-w-[320px]">
                 Whether you need more balance, flexibility, or just a different gig — chart a new path.
               </p>
               <CountUpRevenue />
             </div>
 
-            {/* Sell to anyone — black card + globe + currencies (no checklist) */}
+            {/* Sell to anyone — black card + globe + currencies */}
             <div className="rounded-3xl p-7 bg-neutral-950 min-h-[200px] flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
               <h3 className="text-2xl font-semibold tracking-tight leading-snug mb-2.5 text-white">Sell to anyone</h3>
               <p className="text-sm leading-relaxed text-neutral-400 max-w-[320px]">
@@ -300,7 +312,7 @@ export function BentoGrid() {
               </p>
               <div className="mt-4 flex-1 flex items-center justify-center overflow-hidden">
                 <img
-                  src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20(1250%20x%20500%20px)%20(1250%20x%20400%20px)%20(1100%20x%20400%20px)%20(4).png?width=600&quality=75"
+                  src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20(1250%20x%20500%20px)%20(1250%20x%20400%20px)%20(1100%20x%20400%20px)%20(5).png?width=600&quality=75"
                   alt="Sell anywhere illustration"
                   className="w-[112%] rounded-xl"
                   loading="lazy"

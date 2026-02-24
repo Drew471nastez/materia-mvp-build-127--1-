@@ -105,7 +105,7 @@ const MOBILE_CARDS: CardDef[] = [
 
 const CANVAS_W = 1100
 const CANVAS_H = 375
-const AUTOPLAY_INTERVAL = 5000
+const AUTOPLAY_INTERVAL = 3800
 const CARD_TRANSITION_MS = 1500
 
 const rotateOrder = (order: number[], direction: 1 | -1) => {
@@ -142,6 +142,7 @@ export function Hero() {
   const animatingRef = useRef(false)
   const rafRef = useRef<number | null>(null)
   const loadedImageSetRef = useRef(new Set<number>())
+  const touchStartRef = useRef<{ x: number; time: number } | null>(null)
 
   const clearAutoplay = useCallback(() => {
     if (autoplayRef.current) {
@@ -434,7 +435,23 @@ export function Hero() {
       `}} />
 
       <div className="relative w-full mb-10 sm:mb-8 animate-scale-fade-in">
-        <div className="relative w-full h-[330px] sm:h-[251px] md:h-[300px] lg:h-[360px] xl:h-[409px]">
+        <div
+          className="relative w-full h-[330px] sm:h-[251px] md:h-[300px] lg:h-[360px] xl:h-[409px] touch-pan-y"
+          onTouchStart={(e) => {
+            touchStartRef.current = { x: e.touches[0].clientX, time: Date.now() }
+          }}
+          onTouchEnd={(e) => {
+            if (!touchStartRef.current) return
+            const dx = e.changedTouches[0].clientX - touchStartRef.current.x
+            const elapsed = Date.now() - touchStartRef.current.time
+            touchStartRef.current = null
+            if (Math.abs(dx) > 40 && elapsed < 600) {
+              cancelAnimation()
+              startRotation(dx < 0 ? 1 : -1)
+              restartAutoplay()
+            }
+          }}
+        >
           <div
             className="hero-collage-inner absolute left-1/2 -translate-x-1/2 origin-top select-none"
             style={{ width: CANVAS_W, height: CANVAS_H }}
@@ -526,7 +543,7 @@ export function Hero() {
         </div>
       </div>
 
-      <div className="flex flex-row items-center gap-3 mb-5 sm:mb-[32px] animate-fade-in-up delay-200">
+      <div className="flex flex-row items-center gap-2.5 sm:gap-3 mb-5 sm:mb-[32px] animate-fade-in-up delay-200">
         <Link
           href="/explore"
           className="inline-flex items-center px-6 sm:px-7 py-2.5 sm:py-3 rounded-full text-sm font-semibold bg-neutral-100 text-neutral-700 hover:bg-neutral-200 transition-colors"
