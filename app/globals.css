@@ -834,7 +834,7 @@
 }
 
 .btn-shine-hover:hover .btn-shine-effect::after {
-  animation-play-state: paused;
+  animation-duration: 3s;
 }
 
 /* Shimmer animation for skeleton loading */

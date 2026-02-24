@@ -26,7 +26,7 @@ export function ManageSection() {
             Manage your business 🚀
           </h2>
           <p className="text-base text-neutral-500 mb-14 max-w-[520px] mx-auto">
-            Storelib has everything you need to run your business. All-in-one place.
+            Storelib has everything you need to run your digital business. All-in-one place.
           </p>
         </AnimateOnScroll>
 

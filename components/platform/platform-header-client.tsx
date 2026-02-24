@@ -935,10 +935,6 @@ export function PlatformHeaderClient() {
   return (
     <>
       <div className="relative z-40 w-full bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/90 pt-[env(safe-area-inset-top)]">
-      {/* Homepage and Features Page Announcement Bar — Beta Countdown */}
-      {(pathname === "/" || pathname === "/features" || pathname === "/pricing" || isBlogRoute) && (
-        <LaunchCountdownBar onCanonicalNav={onCanonicalNav} />
-      )}
     <header className="w-full bg-white border-b border-gray-200">
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
         <div className="flex h-[68px] md:h-[81px] items-center justify-between gap-4 md:py-[3px]">

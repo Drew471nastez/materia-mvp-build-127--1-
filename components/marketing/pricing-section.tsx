@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { Check, ArrowRight } from "lucide-react"
 import { AnimateOnScroll } from "./bento-grid"
 
 const PLANS = [
@@ -8,56 +9,60 @@ const PLANS = [
     name: "Free",
     price: "$0",
     period: "",
-    desc: "Perfect for getting started",
-    fee: "6% + $0.25 per sale",
+    periodLabel: "Free forever",
+    desc: "Perfect for getting started.",
     features: [
+      "6% + $0.25 per transaction",
       "Unlimited digital products",
-      "Basic OnePage",
-      "500 email captures/month",
-      "Store analytics",
+      "Basic OnePage features",
+      "500 emails / month",
       "Community support",
     ],
-    cta: "Get started free",
+    cta: "Start Free",
     href: "/signup",
     popular: false,
-    btnClass: "bg-white text-neutral-900 border-[1.5px] border-neutral-200 hover:border-neutral-400",
+    badge: null as string | null,
   },
   {
     name: "Growth",
     price: "$29",
-    period: "/month",
-    desc: "For creators ready to scale",
-    fee: "3% + $0.25 per sale",
+    period: "/mo",
+    periodLabel: null as string | null,
+    desc: "For creators ready to scale and pay lower fees.",
     features: [
-      "Everything in Free",
+      "3% + $0.25 per transaction",
+      "Unlimited digital products",
       "Premium OnePage features",
       "Custom domain",
-      "Verified badge ✦",
-      "2,000 email captures/month",
+      "Verified badge",
+      "2,000 emails / month",
       "Priority chat support",
     ],
-    cta: "Choose Growth →",
+    cta: "Choose Growth",
     href: "/signup",
     popular: true,
-    btnClass: "bg-violet-600 text-white hover:bg-violet-700",
+    badge: "Most Popular",
   },
   {
     name: "Professional",
     price: "$99",
-    period: "/month",
-    desc: "Lowest fees, max control",
-    fee: "1.5% + $0.25 per sale",
+    period: "/mo",
+    periodLabel: null as string | null,
+    desc: "For serious creators who want the lowest fees and priority support.",
     features: [
-      "Everything in Growth",
-      "5,000 email captures/month",
-      "Advanced analytics + exports",
+      "1.5% + $0.25 per transaction",
+      "Unlimited digital products",
+      "Premium OnePage features",
+      "Custom domain",
+      "Verified badge",
+      "5,000 emails / month",
       "Dedicated priority support",
-      "Early access to features",
+      "Advanced analytics & exports",
     ],
     cta: "Go Professional",
     href: "/signup",
     popular: false,
-    btnClass: "bg-white text-neutral-900 border-[1.5px] border-neutral-200 hover:border-neutral-400",
+    badge: "Recommended",
   },
 ]
 
@@ -74,7 +79,7 @@ export function PricingSection() {
               Start free, upgrade when you&apos;re ready
             </h2>
             <p className="text-base text-neutral-500 leading-relaxed">
-              No surprise fees. No contracts. Cancel anytime.
+              Simple, transparent pricing that grows with you. No hidden fees, no surprises.
             </p>
           </div>
         </AnimateOnScroll>
@@ -84,15 +89,15 @@ export function PricingSection() {
             {PLANS.map((plan) => (
               <div
                 key={plan.name}
-                className={`bg-white rounded-3xl p-9 relative transition-all duration-300 hover:-translate-y-1 hover:shadow-md ${
+                className={`bg-white rounded-3xl p-9 relative flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-md ${
                   plan.popular
                     ? "border-[1.5px] border-violet-600 shadow-[0_0_0_1px_#7c3aed] shadow-md"
                     : "border-[1.5px] border-neutral-200"
                 }`}
               >
-                {plan.popular && (
+                {plan.badge && (
                   <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-violet-600 text-white text-xs font-semibold px-3.5 py-1 rounded-full">
-                    Most popular
+                    {plan.badge}
                   </span>
                 )}
                 <div className="text-lg font-semibold mb-1.5">{plan.name}</div>
@@ -100,22 +105,37 @@ export function PricingSection() {
                   <span className="text-[42px] font-bold tracking-tight">{plan.price}</span>
                   {plan.period && <span className="text-sm text-neutral-400">{plan.period}</span>}
                 </div>
-                <p className="text-[13px] text-neutral-400 mb-5">{plan.desc}</p>
-                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-neutral-50 rounded-full text-[13px] font-medium mb-6">
-                  📊 {plan.fee}
-                </div>
-                <ul className="flex flex-col gap-3 mb-7">
+                {plan.periodLabel && (
+                  <p className="text-[13px] text-neutral-400 mb-1">{plan.periodLabel}</p>
+                )}
+                <p className="text-[13px] text-neutral-400 mb-6">{plan.desc}</p>
+
+                <ul className="flex flex-col gap-3 mb-7 flex-1">
                   {plan.features.map((f) => (
-                    <li key={f} className="flex items-center gap-2.5 text-sm text-neutral-500">
-                      <span className="text-green-500 font-bold text-base shrink-0">✓</span> {f}
+                    <li key={f} className="flex items-start gap-2.5 text-sm text-neutral-500">
+                      <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${plan.popular ? "bg-violet-600" : "bg-violet-50"}`}>
+                        <Check className={`h-3 w-3 ${plan.popular ? "text-white" : "text-violet-600"}`} strokeWidth={3} />
+                      </div>
+                      {f}
                     </li>
                   ))}
                 </ul>
+
                 <Link
                   href={plan.href}
-                  className={`w-full inline-flex items-center justify-center gap-2 text-[15px] font-semibold py-3.5 px-8 rounded-full transition-all duration-300 hover:-translate-y-0.5 ${plan.btnClass}`}
+                  className={`relative w-full inline-flex items-center justify-center gap-2 text-[15px] font-semibold py-3.5 px-8 rounded-full transition-all duration-300 hover:-translate-y-0.5 overflow-hidden btn-shine-hover ${
+                    plan.popular
+                      ? "bg-violet-600 text-white hover:bg-violet-700"
+                      : "bg-white text-neutral-900 border-[1.5px] border-neutral-200 hover:border-neutral-400"
+                  }`}
                 >
-                  {plan.cta}
+                  {plan.popular && (
+                    <span className="btn-shine-effect" aria-hidden="true" />
+                  )}
+                  <span className="relative z-10 flex items-center gap-2">
+                    {plan.cta}
+                    <ArrowRight className="h-4 w-4" />
+                  </span>
                 </Link>
               </div>
             ))}
