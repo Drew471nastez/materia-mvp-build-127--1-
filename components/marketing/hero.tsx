@@ -142,8 +142,6 @@ export function Hero() {
   const animatingRef = useRef(false)
   const rafRef = useRef<number | null>(null)
   const loadedImageSetRef = useRef(new Set<number>())
-  const touchStartRef = useRef<{ x: number; time: number } | null>(null)
-  const dragStartRef = useRef<{ x: number; time: number } | null>(null)
 
   const clearAutoplay = useCallback(() => {
     if (autoplayRef.current) {
@@ -388,7 +386,7 @@ export function Hero() {
   const activeCards = isMobile ? MOBILE_CARDS : DESKTOP_CARDS
 
   return (
-    <section ref={sectionRef} className="flex flex-col items-center bg-white pt-6 sm:pt-10 pb-12 sm:pb-[67px] overflow-hidden">
+    <section ref={sectionRef} className="flex flex-col items-center bg-white pt-7 sm:pt-10 pb-12 sm:pb-[67px] overflow-hidden">
       <style dangerouslySetInnerHTML={{ __html: `
         .hero-collage-inner {
           transform: scale(0.88);
@@ -435,43 +433,8 @@ export function Hero() {
         }
       `}} />
 
-      <div className="relative w-full mb-8 sm:mb-8 animate-scale-fade-in">
-        <div
-          className="relative w-full h-[330px] sm:h-[251px] md:h-[300px] lg:h-[360px] xl:h-[409px] touch-pan-y cursor-grab active:cursor-grabbing"
-          onTouchStartCapture={(e) => {
-            touchStartRef.current = { x: e.touches[0].clientX, time: Date.now() }
-          }}
-          onTouchEndCapture={(e) => {
-            if (!touchStartRef.current) return
-            const dx = e.changedTouches[0].clientX - touchStartRef.current.x
-            const elapsed = Date.now() - touchStartRef.current.time
-            touchStartRef.current = null
-            if (Math.abs(dx) > 40 && elapsed < 600) {
-              e.preventDefault()
-              e.stopPropagation()
-              cancelAnimation()
-              startRotation(dx < 0 ? 1 : -1)
-              restartAutoplay()
-            }
-          }}
-          onMouseDownCapture={(e) => {
-            dragStartRef.current = { x: e.clientX, time: Date.now() }
-          }}
-          onMouseUpCapture={(e) => {
-            if (!dragStartRef.current) return
-            const dx = e.clientX - dragStartRef.current.x
-            const elapsed = Date.now() - dragStartRef.current.time
-            dragStartRef.current = null
-            if (Math.abs(dx) > 40 && elapsed < 600) {
-              e.preventDefault()
-              e.stopPropagation()
-              cancelAnimation()
-              startRotation(dx < 0 ? 1 : -1)
-              restartAutoplay()
-            }
-          }}
-          onMouseLeave={() => { dragStartRef.current = null }}
-        >
+      <div className="relative w-full mb-7 sm:mb-8 animate-scale-fade-in">
+        <div className="relative w-full h-[330px] sm:h-[251px] md:h-[300px] lg:h-[360px] xl:h-[409px]">
           <div
             className="hero-collage-inner absolute left-1/2 -translate-x-1/2 origin-top select-none"
             style={{ width: CANVAS_W, height: CANVAS_H }}

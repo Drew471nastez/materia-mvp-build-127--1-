@@ -274,7 +274,7 @@ export function BentoGrid() {
                 <img
                   src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20(1250%20x%20500%20px)%20(1250%20x%20400%20px)%20(1100%20x%20400%20px)%20(3).png?width=600&quality=75"
                   alt="Digital products showcase"
-                  className="w-[115%] sm:w-full rounded-xl"
+                  className="w-[132%] sm:w-full rounded-xl"
                   loading="lazy"
                   decoding="async"
                   width={600}
@@ -314,7 +314,7 @@ export function BentoGrid() {
                 <img
                   src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20(1250%20x%20500%20px)%20(1250%20x%20400%20px)%20(1100%20x%20400%20px)%20(7).png?width=600&quality=75"
                   alt="Sell anywhere illustration"
-                  className="w-[148%] sm:w-[123%] rounded-xl"
+                  className="w-[170%] sm:w-[123%] rounded-xl"
                   loading="lazy"
                   decoding="async"
                   width={600}
