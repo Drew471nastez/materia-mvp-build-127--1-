@@ -81,28 +81,28 @@ interface CardTransition {
   progress: number
 }
 
-// Card aspect ratio = 4:5 (1080×1350). 13px gap between every card. Depth scale restored.
+// Card aspect ratio = 4:5 (1080×1350). 10px gap between every card. Depth scale restored.
 // Positions derived by working outward from center (canvas center = 550).
 // tx = left + width*(1−scale)/2  →  rendered_left/right verified below.
 //
-// Desktop — rendered edges (all gaps = 13px):
-//   edge  -41→149  | 13 | adj 162→397 | 13 | center 410→690 | 13 | adj 703→938 | 13 | edge 951→1141
+// Desktop — rendered edges (all gaps = 10px):
+//   edge -35→155 | 10 | adj 165→400 | 10 | center 410→690 | 10 | adj 700→936 | 10 | edge 946→1136
 const DESKTOP_CARDS: CardDef[] = [
-  { left: -46,  top: 50, width: 200, height: 250, zIndex: 1, opacity: 0.82, scale: 0.95 },
-  { left: 160,  top: 25, width: 240, height: 300, zIndex: 2, opacity: 0.92, scale: 0.98 },
+  { left: -40,  top: 50, width: 200, height: 250, zIndex: 1, opacity: 0.82, scale: 0.95 },
+  { left: 163,  top: 25, width: 240, height: 300, zIndex: 2, opacity: 0.92, scale: 0.98 },
   { left: 410,  top: 0,  width: 280, height: 350, zIndex: 3, opacity: 1,    scale: 1    },
-  { left: 701,  top: 25, width: 240, height: 300, zIndex: 2, opacity: 0.92, scale: 0.98 },
-  { left: 946,  top: 50, width: 200, height: 250, zIndex: 1, opacity: 0.82, scale: 0.95 },
+  { left: 698,  top: 25, width: 240, height: 300, zIndex: 2, opacity: 0.92, scale: 0.98 },
+  { left: 941,  top: 50, width: 200, height: 250, zIndex: 1, opacity: 0.82, scale: 0.95 },
 ]
 
-// Mobile — rendered edges (all gaps = 13px):
-//   edge    8→179  | 13 | adj 192→407 | 13 | center 420→680 | 13 | adj 693→909 | 13 | edge 922→1093
+// Mobile — rendered edges (all gaps = 10px):
+//   edge   14→184 | 10 | adj 194→410 | 10 | center 420→680 | 10 | adj 690→906 | 10 | edge 916→1087
 const MOBILE_CARDS: CardDef[] = [
-  { left: 3,    top: 50, width: 180, height: 225, zIndex: 1, opacity: 0,    scale: 0.95 },
-  { left: 189,  top: 25, width: 220, height: 275, zIndex: 2, opacity: 0.85, scale: 0.98 },
+  { left: 9,    top: 50, width: 180, height: 225, zIndex: 1, opacity: 0,    scale: 0.95 },
+  { left: 192,  top: 25, width: 220, height: 275, zIndex: 2, opacity: 0.85, scale: 0.98 },
   { left: 420,  top: 0,  width: 260, height: 325, zIndex: 3, opacity: 1,    scale: 1    },
-  { left: 691,  top: 25, width: 220, height: 275, zIndex: 2, opacity: 0.85, scale: 0.98 },
-  { left: 917,  top: 50, width: 180, height: 225, zIndex: 1, opacity: 0,    scale: 0.95 },
+  { left: 688,  top: 25, width: 220, height: 275, zIndex: 2, opacity: 0.85, scale: 0.98 },
+  { left: 911,  top: 50, width: 180, height: 225, zIndex: 1, opacity: 0,    scale: 0.95 },
 ]
 
 const CANVAS_W = 1100
@@ -150,6 +150,7 @@ export function Hero() {
   const rafRef = useRef<number | null>(null)
   const dragRafRef = useRef<number | null>(null)
   const dragRef = useRef({ active: false, startX: 0, delta: 0, rawDelta: 0 })
+  const latestDragDelta = useRef(0)
   const loadedImageSetRef = useRef(new Set<number>())
 
   const clearAutoplay = useCallback(() => {
@@ -157,6 +158,22 @@ export function Hero() {
       clearInterval(autoplayRef.current)
       autoplayRef.current = null
     }
+  }, [])
+
+  // Immediately cancel any in-progress RAF animation and reset lock.
+  // This MUST be called before the user's drag takes over so the collage
+  // never feels "stuck" when autoplay or a prior swipe is mid-flight.
+  const cancelAnimation = useCallback(() => {
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = null
+    }
+    if (dragRafRef.current !== null) {
+      cancelAnimationFrame(dragRafRef.current)
+      dragRafRef.current = null
+    }
+    animatingRef.current = false
+    setTransition(null)
   }, [])
 
   const startRotation = useCallback((direction: 1 | -1 = 1, initialProgress = 0) => {
@@ -177,8 +194,15 @@ export function Hero() {
     animatingRef.current = true
 
     const tick = (now: number) => {
-      // Cap delta to 100ms to prevent huge jumps after tab wake-up on slow devices
-      const elapsed = Math.min(now - start, (now - start) > 500 ? 100 : now - start)
+      // If user started dragging while animation was in flight, abort cleanly
+      if (dragRef.current.active) {
+        animatingRef.current = false
+        rafRef.current = null
+        setTransition(null)
+        return
+      }
+
+      const elapsed = now - start
       const remaining = Math.max(0.001, 1 - initialProgress)
       const duration = Math.max(180, CARD_TRANSITION_MS * remaining)
       const raw = Math.min(1, elapsed / duration)
@@ -272,9 +296,7 @@ export function Hero() {
     const onVisibility = () => {
       if (document.hidden) {
         clearAutoplay()
-        if (rafRef.current !== null) { cancelAnimationFrame(rafRef.current); rafRef.current = null }
-        if (dragRafRef.current !== null) { cancelAnimationFrame(dragRafRef.current); dragRafRef.current = null }
-        animatingRef.current = false
+        cancelAnimation()
       } else {
         restartAutoplay()
       }
@@ -414,20 +436,26 @@ export function Hero() {
   }, [])
 
   const queueDragTransitionUpdate = useCallback((rawDelta: number) => {
+    // Always capture the latest position so the RAF callback uses the most
+    // up-to-date pointer location — prevents jerky lag from dropped events.
+    latestDragDelta.current = rawDelta
     if (dragRafRef.current !== null) return
     dragRafRef.current = requestAnimationFrame(() => {
       dragRafRef.current = null
-      updateDragTransition(rawDelta)
+      updateDragTransition(latestDragDelta.current)
     })
   }, [updateDragTransition])
 
   const stopDrag = useCallback((rawDelta: number) => {
     const clampedDelta = Math.max(-MAX_DRAG_DISTANCE, Math.min(MAX_DRAG_DISTANCE, rawDelta))
-    const progress = transition?.progress ?? Math.min(0.88, Math.abs(clampedDelta * DRAG_SLOWDOWN) / SWIPE_COMMIT_DISTANCE)
+    // Compute progress from the delta directly — never depend on React state
+    // which may be stale and cause wrong snap-back behavior.
+    const progress = Math.min(0.88, Math.abs(clampedDelta * DRAG_SLOWDOWN) / SWIPE_COMMIT_DISTANCE)
 
     dragRef.current.active = false
     dragRef.current.delta = 0
     dragRef.current.rawDelta = 0
+    latestDragDelta.current = 0
 
     if (Math.abs(clampedDelta) >= SWIPE_THRESHOLD) {
       startRotation(clampedDelta < 0 ? 1 : -1, progress)
@@ -436,7 +464,7 @@ export function Hero() {
     }
 
     restartAutoplay()
-  }, [restartAutoplay, startRotation, transition?.progress])
+  }, [restartAutoplay, startRotation])
 
   const activeCards = isMobile ? MOBILE_CARDS : DESKTOP_CARDS
 
@@ -447,7 +475,7 @@ export function Hero() {
     const el = collageRef.current
     if (!el) return
     const handleTouchMove = (e: TouchEvent) => {
-      if (!dragRef.current.active || animatingRef.current) return
+      if (!dragRef.current.active) return
       // Prevent the browser from triggering pull-to-refresh or overscroll bounce
       e.preventDefault()
       queueDragTransitionUpdate(e.touches[0].clientX - dragRef.current.startX)
@@ -463,19 +491,19 @@ export function Hero() {
     <section ref={sectionRef} className="flex flex-col items-center bg-white pt-6 sm:pt-10 pb-12 sm:pb-[67px] overflow-hidden">
       <style dangerouslySetInnerHTML={{ __html: `
         .hero-collage-inner {
-          transform: scale(0.80);
+          transform: scale(0.88);
         }
         @media (min-width: 640px) {
-          .hero-collage-inner { transform: scale(0.61); }
+          .hero-collage-inner { transform: scale(0.67); }
         }
         @media (min-width: 768px) {
-          .hero-collage-inner { transform: scale(0.73); }
+          .hero-collage-inner { transform: scale(0.80); }
         }
         @media (min-width: 1024px) {
-          .hero-collage-inner { transform: scale(0.90); }
+          .hero-collage-inner { transform: scale(0.99); }
         }
         @media (min-width: 1280px) {
-          .hero-collage-inner { transform: scale(1.03); }
+          .hero-collage-inner { transform: scale(1.13); }
         }
         @media (prefers-reduced-motion: reduce) {
           .hero-collage-inner, .collage-card {
@@ -508,18 +536,21 @@ export function Hero() {
       `}} />
 
       <div className="relative w-full mb-10 sm:mb-8 animate-scale-fade-in">
-        <div className="relative w-full h-[300px] sm:h-[229px] md:h-[274px] lg:h-[338px] xl:h-[386px]">
+        <div className="relative w-full h-[330px] sm:h-[251px] md:h-[300px] lg:h-[371px] xl:h-[424px]">
           <div
             ref={collageRef}
             className="hero-collage-inner absolute left-1/2 -translate-x-1/2 origin-top select-none cursor-pointer"
             style={{ width: CANVAS_W, height: CANVAS_H, touchAction: "pan-y pinch-zoom" }}
             onPointerDown={(e) => {
               clearAutoplay()
+              // Cancel any in-flight animation so drag takes over immediately
+              cancelAnimation()
               e.currentTarget.setPointerCapture(e.pointerId)
               dragRef.current = { active: true, startX: e.clientX, delta: 0, rawDelta: 0 }
+              latestDragDelta.current = 0
             }}
             onPointerMove={(e) => {
-              if (!dragRef.current.active || animatingRef.current) return
+              if (!dragRef.current.active) return
               queueDragTransitionUpdate(e.clientX - dragRef.current.startX)
             }}
             onPointerUp={(e) => {
