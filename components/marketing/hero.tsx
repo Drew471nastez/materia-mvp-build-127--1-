@@ -55,15 +55,14 @@ const PARTNER_LOGOS = [
   "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/eyJidWNrZXQiOiJwYXJ0bmVycGFnZS5wcm9kIiwia2V5IjoibWVkaWEvY29udGFjdF9pbWFnZXMvOWQ0MDVmYmMtNGJkMS00NzEz.svg",
 ]
 
-// Supabase image transform URLs: width=600 covers 2x retina at max card size (300px).
-// quality=85 for crisp visuals at display size.
-// /render/image/public/ path enables Supabase's server-side resize.
+// Supabase image transform: width=600&height=750 gives exact 4:5 ratio (matches originals
+// which are 1080×1350). resize=cover ensures Supabase preserves aspect ratio. quality=85.
 const IMAGES = [
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(5)%20(2).webp?width=600&quality=85",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(6)%20(1).webp?width=600&quality=85",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(7)%20(1).webp?width=600&quality=85",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(13).webp?width=600&quality=85",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(9).webp?width=600&quality=85",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(5)%20(2).webp?width=600&height=750&resize=cover&quality=85",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(6)%20(1).webp?width=600&height=750&resize=cover&quality=85",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(7)%20(1).webp?width=600&height=750&resize=cover&quality=85",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(13).webp?width=600&height=750&resize=cover&quality=85",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(9).webp?width=600&height=750&resize=cover&quality=85",
 ]
 
 interface CardDef {
@@ -82,25 +81,29 @@ interface CardTransition {
   progress: number
 }
 
-// Card aspect ratio = 4:5 (1080×1350).  12 px gap between every card.
+// Card aspect ratio = 4:5 (1080×1350).  20 px gap between every card.  No scale.
+// Gaps verified: edge→adjacent 20px, adjacent→center 20px (both sides).
+//
+// Desktop: edge -70→130 | 20 | adj 150→390 | 20 | center 410→690 | 20 | adj 710→950 | 20 | edge 970→1170
 const DESKTOP_CARDS: CardDef[] = [
-  { left: -89,  top: 50, width: 210, height: 263, zIndex: 1, opacity: 0.82, scale: 0.95 },
-  { left: 133,  top: 25, width: 255, height: 319, zIndex: 2, opacity: 0.92, scale: 0.98 },
-  { left: 400,  top: 0,  width: 300, height: 375, zIndex: 3, opacity: 1,    scale: 1 },
-  { left: 712,  top: 25, width: 255, height: 319, zIndex: 2, opacity: 0.92, scale: 0.98 },
-  { left: 979,  top: 50, width: 210, height: 263, zIndex: 1, opacity: 0.82, scale: 0.95 },
+  { left: -70,  top: 50, width: 200, height: 250, zIndex: 1, opacity: 0.82, scale: 1 },
+  { left: 150,  top: 25, width: 240, height: 300, zIndex: 2, opacity: 0.92, scale: 1 },
+  { left: 410,  top: 0,  width: 280, height: 350, zIndex: 3, opacity: 1,    scale: 1 },
+  { left: 710,  top: 25, width: 240, height: 300, zIndex: 2, opacity: 0.92, scale: 1 },
+  { left: 970,  top: 50, width: 200, height: 250, zIndex: 1, opacity: 0.82, scale: 1 },
 ]
 
+// Mobile: edge -20→160 | 20 | adj 180→400 | 20 | center 420→680 | 20 | adj 700→920 | 20 | edge 940→1120
 const MOBILE_CARDS: CardDef[] = [
-  { left: -14,  top: 75, width: 180, height: 225, zIndex: 1, opacity: 0,    scale: 0.92 },
-  { left: 178,  top: 38, width: 220, height: 275, zIndex: 2, opacity: 0.85, scale: 0.92 },
-  { left: 410,  top: 0,  width: 280, height: 350, zIndex: 3, opacity: 1,    scale: 1 },
-  { left: 702,  top: 38, width: 220, height: 275, zIndex: 2, opacity: 0.85, scale: 0.92 },
-  { left: 934,  top: 75, width: 180, height: 225, zIndex: 1, opacity: 0,    scale: 0.92 },
+  { left: -20,  top: 50, width: 180, height: 225, zIndex: 1, opacity: 0,    scale: 1 },
+  { left: 180,  top: 25, width: 220, height: 275, zIndex: 2, opacity: 0.85, scale: 1 },
+  { left: 420,  top: 0,  width: 260, height: 325, zIndex: 3, opacity: 1,    scale: 1 },
+  { left: 700,  top: 25, width: 220, height: 275, zIndex: 2, opacity: 0.85, scale: 1 },
+  { left: 940,  top: 50, width: 180, height: 225, zIndex: 1, opacity: 0,    scale: 1 },
 ]
 
 const CANVAS_W = 1100
-const CANVAS_H = 400
+const CANVAS_H = 375
 const AUTOPLAY_INTERVAL = 5000
 const CARD_TRANSITION_MS = 1200
 const SWIPE_THRESHOLD = 40
@@ -467,12 +470,12 @@ export function Hero() {
         }
         .collage-card img {
           content-visibility: auto;
-          contain-intrinsic-size: 300px 375px;
+          contain-intrinsic-size: 280px 350px;
         }
       `}} />
 
       <div className="relative w-full mb-10 sm:mb-8 animate-scale-fade-in">
-        <div className="relative w-full h-[280px] sm:h-[204px] md:h-[252px] lg:h-[320px] xl:h-[372px]">
+        <div className="relative w-full h-[263px] sm:h-[191px] md:h-[236px] lg:h-[300px] xl:h-[349px]">
           <div
             ref={collageRef}
             className="hero-collage-inner absolute left-1/2 -translate-x-1/2 origin-top select-none cursor-pointer"

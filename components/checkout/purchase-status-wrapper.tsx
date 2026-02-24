@@ -356,18 +356,14 @@ export function PurchaseStatusWrapper({
               <Button
                 type="button"
                 onClick={() => setShowDownloadFilesModal(true)}
-                className="w-full min-h-[48px] cursor-pointer !justify-between"
+                className="w-full min-h-[48px] cursor-pointer"
                 style={{
                   backgroundColor: downloadButtonBgColor || undefined,
                   color: downloadButtonTextColor || undefined,
                 }}
               >
-                <span className="truncate min-w-0 text-left">
-                  Download Files ({downloadFiles.length})
-                </span>
-                <span className="flex items-center justify-center w-7 h-7 rounded-full bg-black/90 text-white shrink-0">
-                  <DownloadIcon className="h-3.5 w-3.5" />
-                </span>
+                <DownloadIcon className="mr-2 h-4 w-4" />
+                Download Files ({downloadFiles.length})
               </Button>
             ) : (
               <DownloadButton
