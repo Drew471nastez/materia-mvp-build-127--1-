@@ -61,7 +61,7 @@ const IMAGES = [
   "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(5)%20(2).webp?width=600&height=750&resize=cover&quality=80",
   "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(6)%20(1).webp?width=600&height=750&resize=cover&quality=80",
   "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(7)%20(1).webp?width=600&height=750&resize=cover&quality=80",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(13).webp?width=600&height=750&resize=cover&quality=80",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(18).webp?width=600&height=750&resize=cover&quality=80",
   "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(9).webp?width=600&height=750&resize=cover&quality=80",
 ]
 
@@ -81,28 +81,28 @@ interface CardTransition {
   progress: number
 }
 
-// Card aspect ratio = 4:5 (1080×1350). ~3px gap between every card. Depth scale restored.
+// Card aspect ratio = 4:5 (1080×1350). ~1px gap between every card. Depth scale restored.
 // Positions derived by working outward from center (canvas center = 550).
 // tx = left + width*(1−scale)/2  →  rendered_left/right verified below.
 //
-// Desktop — rendered edges (all gaps ≈ 3px):
-//   edge -21→169 | 3 | adj 172→408 | 3 | center 410→690 | 3 | adj 693→929 | 3 | edge 932→1122
+// Desktop — rendered edges (all gaps ≈ 1.4px):
+//   edge -17→173 | 1.4 | adj 174→410 | 1 | center 411→691 | 1.4 | adj 692→928 | 1.4 | edge 929→1119
 const DESKTOP_CARDS: CardDef[] = [
-  { left: -26,  top: 50, width: 200, height: 250, zIndex: 1, opacity: 0.82, scale: 0.95 },
-  { left: 170,  top: 25, width: 240, height: 300, zIndex: 2, opacity: 0.92, scale: 0.98 },
-  { left: 410,  top: 0,  width: 280, height: 350, zIndex: 3, opacity: 1,    scale: 1    },
-  { left: 691,  top: 25, width: 240, height: 300, zIndex: 2, opacity: 0.92, scale: 0.98 },
-  { left: 927,  top: 50, width: 200, height: 250, zIndex: 1, opacity: 0.82, scale: 0.95 },
+  { left: -22,  top: 50, width: 200, height: 250, zIndex: 1, opacity: 0.82, scale: 0.95 },
+  { left: 172,  top: 25, width: 240, height: 300, zIndex: 2, opacity: 0.92, scale: 0.98 },
+  { left: 411,  top: 0,  width: 280, height: 350, zIndex: 3, opacity: 1,    scale: 1    },
+  { left: 690,  top: 25, width: 240, height: 300, zIndex: 2, opacity: 0.92, scale: 0.98 },
+  { left: 924,  top: 50, width: 200, height: 250, zIndex: 1, opacity: 0.82, scale: 0.95 },
 ]
 
-// Mobile — rendered edges (all gaps ≈ 6px):
-//   edge   22→192 | 6 | adj 198→414 | 6 | center 420→680 | 6 | adj 686→902 | 6 | edge 908→1078
+// Mobile — rendered edges (all gaps ≈ 3px):
+//   edge   28→199 | 3 | adj 201→417 | 3 | center 420→680 | 3 | adj 683→899 | 3 | edge 902→1072
 const MOBILE_CARDS: CardDef[] = [
-  { left: 17,   top: 50, width: 180, height: 225, zIndex: 1, opacity: 0,    scale: 0.95 },
-  { left: 196,  top: 25, width: 220, height: 275, zIndex: 2, opacity: 0.85, scale: 0.98 },
+  { left: 23,   top: 50, width: 180, height: 225, zIndex: 1, opacity: 0,    scale: 0.95 },
+  { left: 199,  top: 25, width: 220, height: 275, zIndex: 2, opacity: 0.85, scale: 0.98 },
   { left: 420,  top: 0,  width: 260, height: 325, zIndex: 3, opacity: 1,    scale: 1    },
-  { left: 684,  top: 25, width: 220, height: 275, zIndex: 2, opacity: 0.85, scale: 0.98 },
-  { left: 903,  top: 50, width: 180, height: 225, zIndex: 1, opacity: 0,    scale: 0.95 },
+  { left: 681,  top: 25, width: 220, height: 275, zIndex: 2, opacity: 0.85, scale: 0.98 },
+  { left: 897,  top: 50, width: 180, height: 225, zIndex: 1, opacity: 0,    scale: 0.95 },
 ]
 
 const CANVAS_W = 1100
