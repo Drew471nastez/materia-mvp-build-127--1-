@@ -55,16 +55,16 @@ const PARTNER_LOGOS = [
   "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/eyJidWNrZXQiOiJwYXJ0bmVycGFnZS5wcm9kIiwia2V5IjoibWVkaWEvY29udGFjdF9pbWFnZXMvOWQ0MDVmYmMtNGJkMS00NzEz.svg",
 ]
 
-// Supabase image transform URLs: width=700 covers 2x retina at all card sizes.
-// quality=72 is visually indistinguishable from 100 for WebP at these display sizes.
+// Supabase image transform URLs: width=500 covers ~1.5x retina at max card size (340px).
+// quality=65 is visually indistinguishable at these small display sizes.
 // /render/image/public/ path enables Supabase's server-side resize — reduces file
-// size ~80% vs original (typically 800 KB → ~80 KB per image).
+// size ~85% vs original (typically 800 KB → ~50 KB per image).
 const IMAGES = [
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(5)%20(2).webp?width=700&quality=72",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(6)%20(1).webp?width=700&quality=72",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(7)%20(1).webp?width=700&quality=72",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(13).webp?width=700&quality=72",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(9).webp?width=700&quality=72",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(5)%20(2).webp?width=500&quality=65",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(6)%20(1).webp?width=500&quality=65",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(7)%20(1).webp?width=500&quality=65",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(13).webp?width=500&quality=65",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(9).webp?width=500&quality=65",
 ]
 
 interface CardDef {
@@ -84,19 +84,19 @@ interface CardTransition {
 }
 
 const DESKTOP_CARDS: CardDef[] = [
-  { left: -120, top: 60, width: 238, height: 294, zIndex: 1, opacity: 0.82, scale: 0.95 },
-  { left: 106, top: 30, width: 289, height: 357, zIndex: 2, opacity: 0.92, scale: 0.98 },
-  { left: 380, top: 0, width: 340, height: 420, zIndex: 3, opacity: 1, scale: 1 },
-  { left: 705, top: 30, width: 289, height: 357, zIndex: 2, opacity: 0.92, scale: 0.98 },
-  { left: 982, top: 60, width: 238, height: 294, zIndex: 1, opacity: 0.82, scale: 0.95 },
+  { left: -163, top: 60, width: 238, height: 294, zIndex: 1, opacity: 0.82, scale: 0.95 },
+  { left: 83,   top: 30, width: 289, height: 357, zIndex: 2, opacity: 0.92, scale: 0.98 },
+  { left: 380,  top: 0,  width: 340, height: 420, zIndex: 3, opacity: 1,    scale: 1 },
+  { left: 728,  top: 30, width: 289, height: 357, zIndex: 2, opacity: 0.92, scale: 0.98 },
+  { left: 1025, top: 60, width: 238, height: 294, zIndex: 1, opacity: 0.82, scale: 0.95 },
 ]
 
 const MOBILE_CARDS: CardDef[] = [
-  { left: -150, top: 86, width: 206, height: 268, zIndex: 1, opacity: 0, scale: 0.92 },
-  { left: 162, top: 48, width: 262, height: 341, zIndex: 2, opacity: 0.85, scale: 0.92 },
-  { left: 380, top: 0, width: 340, height: 442, zIndex: 3, opacity: 1, scale: 1 },
-  { left: 676, top: 48, width: 262, height: 341, zIndex: 2, opacity: 0.85, scale: 0.92 },
-  { left: 1044, top: 86, width: 206, height: 268, zIndex: 1, opacity: 0, scale: 0.92 },
+  { left: -104, top: 86, width: 206, height: 268, zIndex: 1, opacity: 0,    scale: 0.92 },
+  { left: 110,  top: 48, width: 262, height: 341, zIndex: 2, opacity: 0.85, scale: 0.92 },
+  { left: 380,  top: 0,  width: 340, height: 442, zIndex: 3, opacity: 1,    scale: 1 },
+  { left: 728,  top: 48, width: 262, height: 341, zIndex: 2, opacity: 0.85, scale: 0.92 },
+  { left: 998,  top: 86, width: 206, height: 268, zIndex: 1, opacity: 0,    scale: 0.92 },
 ]
 
 const CANVAS_W = 1100
@@ -227,10 +227,33 @@ export function Hero() {
     }
   }, [])
 
+  // Pause autoplay when hero is scrolled out of view to save CPU
+  const sectionRef = useRef<HTMLElement>(null)
   useEffect(() => {
-    restartAutoplay()
+    const el = sectionRef.current
+    if (!el) {
+      restartAutoplay()
+      return () => {
+        clearAutoplay()
+        if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
+        if (dragRafRef.current !== null) cancelAnimationFrame(dragRafRef.current)
+      }
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          restartAutoplay()
+        } else {
+          clearAutoplay()
+        }
+      },
+      { threshold: 0.1 },
+    )
+    observer.observe(el)
 
     return () => {
+      observer.disconnect()
       clearAutoplay()
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
       if (dragRafRef.current !== null) cancelAnimationFrame(dragRafRef.current)
@@ -407,7 +430,7 @@ export function Hero() {
   }, [queueDragTransitionUpdate])
 
   return (
-    <section className="flex flex-col items-center bg-white pt-6 sm:pt-10 pb-12 sm:pb-[67px] overflow-hidden">
+    <section ref={sectionRef} className="flex flex-col items-center bg-white pt-6 sm:pt-10 pb-12 sm:pb-[67px] overflow-hidden">
       <style dangerouslySetInnerHTML={{ __html: `
         .hero-collage-inner {
           transform: scale(0.70);
@@ -444,6 +467,7 @@ export function Hero() {
         }
         .collage-card img {
           content-visibility: auto;
+          contain-intrinsic-size: 340px 420px;
         }
       `}} />
 
@@ -504,7 +528,7 @@ export function Hero() {
               return (
                 <div
                   key={imageIdx}
-                  className="collage-card absolute rounded-[14px] overflow-hidden shadow-sm shadow-black/10"
+                  className="collage-card absolute rounded-[14px] overflow-hidden shadow-sm shadow-black/10 bg-gray-50"
                   style={{
                     left: 0,
                     top: 0,
@@ -522,7 +546,7 @@ export function Hero() {
                     <img
                       src={src}
                       alt=""
-                      className="w-full h-full object-cover pointer-events-none"
+                      className="w-full h-full object-contain pointer-events-none"
                       draggable={false}
                       decoding="async"
                       loading={imageIdx === cardOrder[2] ? "eager" : "lazy"}
