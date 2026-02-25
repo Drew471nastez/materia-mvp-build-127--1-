@@ -461,6 +461,7 @@ export interface GlobalStoreSettings {
   // Basic Info
   storeName: string
   storeTagline?: string
+  storeBio?: string
 
   // SEO
   seoTitle?: string

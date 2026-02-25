@@ -655,16 +655,32 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                     id="store-name"
                     value={globalSettings.storeName || (profile?.display_name || "")}
                     onChange={(e) => updateGlobalSettings({ storeName: e.target.value })}
-                    placeholder={profile?.display_name || "My Store"}
+                    placeholder="My Store"
+                    className={!(globalSettings.storeName || profile?.display_name) ? "border-red-500 focus-visible:ring-red-500" : ""}
                   />
-                  <p className="text-xs text-muted-foreground">
-                    This appears as your store's title
-                    {profile?.display_name && !globalSettings.storeName && (
-                      <span className="block text-purple-600 mt-1">Uses "{profile.display_name}" if left empty</span>
-                    )}
-                  </p>
+                  {!(globalSettings.storeName || profile?.display_name) ? (
+                    <p className="text-xs text-red-500">Store name cannot be empty</p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Updates your creator display name
+                    </p>
+                  )}
                 </div>
 
+                <div className="space-y-2">
+                  <Label htmlFor="store-bio">Bio</Label>
+                  <Textarea
+                    id="store-bio"
+                    value={globalSettings.storeBio ?? (creator?.bio || "")}
+                    onChange={(e) => updateGlobalSettings({ storeBio: e.target.value })}
+                    placeholder="Tell your audience about yourself..."
+                    rows={3}
+                    className="resize-none"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Your bio description shown on your store
+                  </p>
+                </div>
               </>
             )}
 

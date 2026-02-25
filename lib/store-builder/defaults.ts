@@ -1138,6 +1138,7 @@ export const verifiedBadgeLabels: Record<VerifiedBadgeType, string> = {
 export const defaultGlobalStoreSettings: GlobalStoreSettings = {
   storeName: "",
   storeTagline: "",
+  storeBio: "",
   seoTitle: "",
   seoDescription: "",
   socialImageUrl: "",

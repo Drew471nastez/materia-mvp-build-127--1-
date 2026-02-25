@@ -3,9 +3,9 @@
 import { AnimateOnScroll } from "./bento-grid"
 
 const FLOATING_ICONS = [
-  { emoji: "📅", label: "Calendar", pos: "top-[-4px] left-[5%]", delay: "0s", zClass: "z-[2]" },
+  { emoji: "📄", label: "OnePage", pos: "md:top-[-4px] top-[-12px] left-[5%]", delay: "0s", zClass: "z-[2]" },
   { emoji: "📕", label: "Digital Products", pos: "md:top-[34%] md:left-[-4%] bottom-[50px] left-[4%]", delay: "0.5s", zClass: "z-[2]" },
-  { emoji: "🛍️", label: "Marketplace", pos: "top-[-4px] right-[2%]", delay: "1s", zClass: "z-[5]" },
+  { emoji: "🛍️", label: "Marketplace", pos: "md:top-[-4px] top-[-12px] right-[2%]", delay: "1s", zClass: "z-[5]" },
   { emoji: "🎓", label: "Courses", pos: "bottom-[60px] left-0", delay: "1.5s", hideMobile: true, zClass: "z-[2]" },
   { emoji: "🔗", label: "Links", pos: "bottom-10 right-[-70px]", delay: "2s", hideMobile: true, zClass: "z-[5]" },
 ]
@@ -22,7 +22,7 @@ export function ManageSection() {
       `}} />
       <div className="max-w-[1200px] mx-auto px-6">
         <AnimateOnScroll>
-          <h2 className="text-[30px] md:text-[clamp(32px,4.5vw,48px)] font-bold tracking-tight mb-3">
+          <h2 className="text-[27px] md:text-[clamp(32px,4.5vw,48px)] font-bold tracking-tight mb-3">
             Manage your business 🚀
           </h2>
           <p className="text-base text-neutral-500 mb-14 max-w-[520px] mx-auto">
@@ -53,7 +53,7 @@ export function ManageSection() {
               <div className="bg-neutral-900 rounded-t-xl p-2">
                 <div className="rounded-t-md overflow-hidden bg-neutral-100 aspect-[16/9] relative">
                   <img
-                    src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/awa.png"
+                    src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20design%20(20).webp"
                     alt="Storelib Dashboard"
                     className="w-full h-full object-cover pointer-events-none select-none"
                     loading="lazy"
@@ -75,7 +75,7 @@ export function ManageSection() {
               <div className="bg-neutral-900 rounded-[24px] sm:rounded-[28px] p-1.5 sm:p-2 shadow-lg">
                 <div className="rounded-[18px] sm:rounded-[22px] overflow-hidden bg-neutral-100 aspect-[9/19.5] relative">
                   <img
-                    src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20design%20(19).png"
+                    src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20design%20(22).webp"
                     alt="Storelib Mobile"
                     className="w-full h-full object-cover object-center pointer-events-none select-none"
                     loading="lazy"

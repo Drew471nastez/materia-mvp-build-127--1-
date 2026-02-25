@@ -293,6 +293,34 @@ export async function POST(request: Request) {
     }
   }
 
+  // Sync store name → profiles.display_name
+  if (config.globalSettings?.storeName && config.globalSettings.storeName.trim() !== "") {
+    const { error: nameError } = await supabase
+      .from("profiles")
+      .update({ display_name: config.globalSettings.storeName.trim() })
+      .eq("id", user.id)
+
+    if (nameError) {
+      console.error("[v0] Error updating profile display_name:", nameError)
+    } else {
+      console.log("[v0] Profile display_name synced:", config.globalSettings.storeName)
+    }
+  }
+
+  // Sync store bio → creators.bio
+  if (config.globalSettings?.storeBio !== undefined) {
+    const { error: bioError } = await supabase
+      .from("creators")
+      .update({ bio: config.globalSettings.storeBio })
+      .eq("user_id", user.id)
+
+    if (bioError) {
+      console.error("[v0] Error updating creator bio:", bioError)
+    } else {
+      console.log("[v0] Creator bio synced")
+    }
+  }
+
   if (productId && pageType === "product") {
     console.log("[v0] Saving product-specific config", { productId, creatorId: creator.id })
 
@@ -469,6 +497,30 @@ export async function PUT(request: Request) {
       }
     }
 
+    // Sync store name → profiles.display_name on publish
+    if (currentConfig.draft_config?.globalSettings?.storeName && currentConfig.draft_config.globalSettings.storeName.trim() !== "") {
+      const { error: nameError } = await supabase
+        .from("profiles")
+        .update({ display_name: currentConfig.draft_config.globalSettings.storeName.trim() })
+        .eq("id", user.id)
+
+      if (nameError) {
+        console.error("[v0] Error updating profile display_name on publish:", nameError)
+      }
+    }
+
+    // Sync store bio → creators.bio on publish
+    if (currentConfig.draft_config?.globalSettings?.storeBio !== undefined) {
+      const { error: bioError } = await supabase
+        .from("creators")
+        .update({ bio: currentConfig.draft_config.globalSettings.storeBio })
+        .eq("user_id", user.id)
+
+      if (bioError) {
+        console.error("[v0] Error updating creator bio on publish:", bioError)
+      }
+    }
+
     const { data: publishedConfig, error } = await supabase
       .from("product_page_configs")
       .update({
@@ -522,6 +574,30 @@ export async function PUT(request: Request) {
 
     if (profileError) {
       console.error("[v0] Error updating profile avatar on publish:", profileError)
+    }
+  }
+
+  // Sync store name → profiles.display_name on publish
+  if (currentConfig.draft_config?.globalSettings?.storeName && currentConfig.draft_config.globalSettings.storeName.trim() !== "") {
+    const { error: nameError } = await supabase
+      .from("profiles")
+      .update({ display_name: currentConfig.draft_config.globalSettings.storeName.trim() })
+      .eq("id", user.id)
+
+    if (nameError) {
+      console.error("[v0] Error updating profile display_name on publish:", nameError)
+    }
+  }
+
+  // Sync store bio → creators.bio on publish
+  if (currentConfig.draft_config?.globalSettings?.storeBio !== undefined) {
+    const { error: bioError } = await supabase
+      .from("creators")
+      .update({ bio: currentConfig.draft_config.globalSettings.storeBio })
+      .eq("user_id", user.id)
+
+    if (bioError) {
+      console.error("[v0] Error updating creator bio on publish:", bioError)
     }
   }
 
