@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { startTimer, logSlowRequest } from "@/lib/perf"
 
 type DeviceRow = {
   device: string
@@ -36,6 +37,7 @@ function ensureDefaultDevices(map: Map<string, { views: number; orders: number; 
 }
 
 export async function GET(request: NextRequest) {
+  const timer = startTimer()
   try {
     const supabase = await createClient()
 
@@ -172,8 +174,11 @@ export async function GET(request: NextRequest) {
         return (order[a.device as keyof typeof order] ?? 999) - (order[b.device as keyof typeof order] ?? 999)
       })
 
+    logSlowRequest(timer, request)
+
     return NextResponse.json({ deviceData })
   } catch (error) {
+    logSlowRequest(timer, request, { error: "exception" })
     console.error("[v0] Analytics device error:", error)
     return NextResponse.json({ error: "Failed to fetch device data" }, { status: 500 })
   }

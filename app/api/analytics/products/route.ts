@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { startTimer, logSlowRequest } from "@/lib/perf"
 
 type TopProductRow = {
   id: string
@@ -26,6 +27,7 @@ type OrderRow = {
 }
 
 export async function GET(request: NextRequest) {
+  const timer = startTimer()
   try {
     const supabase = await createClient()
 
@@ -207,8 +209,11 @@ export async function GET(request: NextRequest) {
       })
       .slice(0, 3) // Top 3 products
 
+    logSlowRequest(timer, request)
+
     return NextResponse.json({ topProducts })
   } catch (error) {
+    logSlowRequest(timer, request, { error: "exception" })
     console.error("[v0] Analytics products error:", error)
     return NextResponse.json({ error: "Failed to fetch top products data" }, { status: 500 })
   }

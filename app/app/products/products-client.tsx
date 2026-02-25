@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useRef, useEffect } from "react"
+import React, { useState, useRef, useEffect, useMemo } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { Plus, MoreHorizontal, Package, Search, X, Archive, Copy, Trash2, AlertTriangle, Pencil, Eye, Share2, RotateCcw, Download, FileText, Table } from "lucide-react"
@@ -234,8 +234,8 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     }).format(cents / 100)
   }
 
-  // Filter products based on tab and search
-  const filteredProducts = products.filter((product) => {
+  // Memoize filtered products to prevent re-computation on every render
+  const filteredProducts = useMemo(() => products.filter((product) => {
     // Tab filter
     // Active: Only published products (not archived)
     if (activeTab === "active") {
@@ -253,7 +253,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
       return product.title.toLowerCase().includes(query)
     }
     return true
-  })
+  }), [products, activeTab, searchQuery])
 
   const handleArchive = async (product: Product) => {
     try {

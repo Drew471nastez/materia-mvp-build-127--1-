@@ -20,7 +20,9 @@ export async function GET() {
       )
     }
 
-    return NextResponse.json({ plans })
+    return NextResponse.json({ plans }, {
+      headers: { "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=7200" },
+    })
   } catch (error) {
     console.error("Error in GET /api/billing/plans:", error)
     return NextResponse.json(

@@ -1,7 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { startTimer, logSlowRequest } from "@/lib/perf"
 
 export async function GET(request: NextRequest) {
+  const timer = startTimer()
   try {
     const supabase = await createClient()
 
@@ -79,6 +81,8 @@ export async function GET(request: NextRequest) {
       conversionRate = (totalOrders / totalViews) * 100
     }
 
+    logSlowRequest(timer, request, { timeframe, productId })
+
     return NextResponse.json({
       totalViews,
       totalOrders,
@@ -86,6 +90,7 @@ export async function GET(request: NextRequest) {
       conversionRate: Number(conversionRate.toFixed(2)),
     })
   } catch (error) {
+    logSlowRequest(timer, request, { error: "exception" })
     console.error("[v0] Analytics summary error:", error)
     return NextResponse.json({ error: "Failed to fetch analytics" }, { status: 500 })
   }

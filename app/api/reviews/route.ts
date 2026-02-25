@@ -53,6 +53,8 @@ export async function GET(request: NextRequest) {
     reviews: reviews || [],
     total: count || 0,
     hasMore: offset + limit < (count || 0),
+  }, {
+    headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=120" },
   })
 }
 

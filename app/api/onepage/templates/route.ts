@@ -15,7 +15,9 @@ export async function GET() {
       return NextResponse.json({ error: "Failed to fetch templates" }, { status: 500 })
     }
 
-    return NextResponse.json({ templates })
+    return NextResponse.json({ templates }, {
+      headers: { "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=7200" },
+    })
   } catch (error) {
     console.error("Templates error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

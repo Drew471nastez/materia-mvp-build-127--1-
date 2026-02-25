@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { startTimer, logSlowRequest } from "@/lib/perf"
 
 type TrafficRow = {
   source: string
@@ -35,6 +36,7 @@ function ensureDefaultSources(map: Map<string, { views: number; orders: number; 
 }
 
 export async function GET(request: NextRequest) {
+  const timer = startTimer()
   try {
     const supabase = await createClient()
 
@@ -173,8 +175,11 @@ export async function GET(request: NextRequest) {
         return b.views - a.views
       })
 
+    logSlowRequest(timer, request)
+
     return NextResponse.json({ trafficSources })
   } catch (error) {
+    logSlowRequest(timer, request, { error: "exception" })
     console.error("[v0] Analytics traffic error:", error)
     return NextResponse.json({ error: "Failed to fetch traffic data" }, { status: 500 })
   }

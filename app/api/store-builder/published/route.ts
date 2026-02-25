@@ -24,5 +24,7 @@ export async function GET(request: Request) {
   return NextResponse.json({
     config: config?.published_config || null,
     publishedAt: config?.published_at || null,
+  }, {
+    headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" },
   })
 }
