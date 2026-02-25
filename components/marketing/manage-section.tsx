@@ -23,10 +23,9 @@ const FLOATING_ICONS = [
 ] as const
 
 // Supabase image transform URLs — serve resized WebP to cut payload 70–80%
-// Laptop: use 'contain' so the full dashboard is visible (cover was cropping it)
-// Higher quality (82/85) to preserve text legibility in the dashboard screenshot
-const LAPTOP_IMG_SM = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Untitled%20design%20(20).webp?width=800&quality=82&resize=contain"
-const LAPTOP_IMG_LG = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Untitled%20design%20(20).webp?width=1400&quality=85&resize=contain"
+// Laptop: use 'cover' + object-cover so the dashboard fills the 16:9 frame with zero white space
+const LAPTOP_IMG_SM = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Untitled%20design%20(20).webp?width=900&quality=90&resize=cover"
+const LAPTOP_IMG_LG = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Untitled%20design%20(20).webp?width=1500&quality=92&resize=cover"
 // Phone: max quality + higher resolution for crisp mobile mockup
 const PHONE_IMG_SM = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Untitled%20design%20(35).webp?width=500&quality=95&resize=contain"
 const PHONE_IMG_LG = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Untitled%20design%20(35).webp?width=700&quality=97&resize=contain"
@@ -64,7 +63,7 @@ function LazyManagedImage({
     <div ref={ref} className="w-full h-full">
       {inView ? (
         <img
-          srcSet={`${srcSmall} 800w, ${srcLarge} 1400w`}
+          srcSet={`${srcSmall} 900w, ${srcLarge} 1500w`}
           sizes={sizes}
           src={srcSmall}
           alt={alt}
@@ -129,7 +128,7 @@ export function ManageSection() {
                     srcSmall={LAPTOP_IMG_SM}
                     srcLarge={LAPTOP_IMG_LG}
                     alt="Storelib Dashboard"
-                    className="w-full h-full object-contain pointer-events-none select-none"
+                    className="w-full h-full object-cover pointer-events-none select-none"
                     sizes="(max-width: 768px) 90vw, 700px"
                   />
                 </div>
