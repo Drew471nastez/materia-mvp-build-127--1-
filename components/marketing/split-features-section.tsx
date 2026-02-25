@@ -4,13 +4,13 @@ import { useEffect } from "react"
 import Image from "next/image"
 import { AnimateOnScroll } from "./bento-grid"
 
-// Supabase render API — served at width=1200 quality=92.
+// Supabase object storage — original full images (no render crop).
 const FEATURES = [
   {
     title: "Build Your One Page",
     description:
       "Create a single page for coaching, digital products, courses, music, links, and more.",
-    src: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Visits%20(1).webp?width=1200&quality=92",
+    src: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Visits%20(1).webp",
     imageLeft: true,
     panelBg: "bg-violet-50",
   },
@@ -18,7 +18,7 @@ const FEATURES = [
     title: "Build Your Online Store",
     description:
       "Customize your store with drag-and-drop sections, products, and branding.",
-    src: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Visits%20(3).webp?width=1200&quality=92",
+    src: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Visits%20(3).webp",
     imageLeft: false,
     panelBg: "bg-stone-50",
   },
@@ -26,7 +26,7 @@ const FEATURES = [
     title: "Know what makes you money",
     description:
       "Track revenue, analytics, payouts, and get paid to your bank account.",
-    src: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Visits%20(2).webp?width=1200&quality=92",
+    src: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Visits%20(2).webp",
     imageLeft: true,
     panelBg: "bg-violet-50",
   },
