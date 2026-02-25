@@ -56,13 +56,14 @@ export function SplitFeaturesSection() {
                 <div
                   className={`w-full md:w-[60%] rounded-3xl ${feature.panelBg} p-3 sm:p-5`}
                 >
-                  <div className="relative aspect-video w-full overflow-hidden rounded-2xl">
+                  <div className="w-full overflow-hidden rounded-2xl">
                     <Image
                       src={feature.src}
                       alt={feature.title}
-                      fill
+                      width={1200}
+                      height={800}
                       sizes="(max-width: 768px) 90vw, 700px"
-                      className="object-contain"
+                      className="w-full h-auto"
                       loading="eager"
                       decoding="async"
                       quality={92}
