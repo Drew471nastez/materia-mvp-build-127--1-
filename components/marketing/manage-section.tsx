@@ -82,9 +82,9 @@ export function ManageSection() {
             </div>
 
             {/* Phone */}
-            <div className="absolute right-[22%] sm:right-[-10px] bottom-[5px] sm:bottom-[-20px] z-[3] w-[155px] sm:w-[224px]">
-              <div className="bg-neutral-900 rounded-[24px] sm:rounded-[28px] p-1.5 sm:p-2 shadow-lg">
-                <div className="rounded-[18px] sm:rounded-[22px] overflow-hidden bg-neutral-100 aspect-[9/19.5] relative">
+            <div className="absolute right-[5px] sm:right-[-10px] bottom-[5px] sm:bottom-[-20px] z-[3] w-[175px] sm:w-[224px]">
+              <div className="bg-neutral-900 rounded-[20px] sm:rounded-[28px] p-1.5 sm:p-2 shadow-lg">
+                <div className="rounded-[15px] sm:rounded-[22px] overflow-hidden bg-neutral-100 aspect-[9/13] sm:aspect-[9/19.5] relative">
                   <img
                     src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20design%20(25).webp"
                     alt="Storelib Mobile"
@@ -92,7 +92,7 @@ export function ManageSection() {
                     loading="lazy"
                     decoding="async"
                     fetchPriority="low"
-                    sizes="(max-width: 640px) 119px, 213px"
+                    sizes="(max-width: 640px) 175px, 224px"
                     draggable={false}
                     onContextMenu={(e) => e.preventDefault()}
                   />
