@@ -67,6 +67,7 @@ export function ManageSection() {
                     src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20design%20(20).webp"
                     alt="Storelib Dashboard"
                     className="w-full h-full object-cover pointer-events-none select-none"
+                    style={{ filter: "contrast(1.1)" }}
                     loading="lazy"
                     decoding="async"
                     fetchPriority="low"
@@ -84,13 +85,13 @@ export function ManageSection() {
             {/* Phone */}
             <div className="absolute right-[5px] sm:right-[-10px] bottom-[5px] sm:bottom-[-20px] z-[3] w-[140px] sm:w-[224px]">
               <img
-                src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20design%20(34).webp"
+                src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20design%20(35).webp"
                 alt="Storelib Mobile"
                 className="w-full h-auto object-contain pointer-events-none select-none"
                 loading="lazy"
                 decoding="async"
                 fetchPriority="low"
-                sizes="(max-width: 640px) 175px, 224px"
+                sizes="(max-width: 640px) 140px, 224px"
                 draggable={false}
                 onContextMenu={(e) => e.preventDefault()}
               />
