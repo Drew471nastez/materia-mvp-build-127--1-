@@ -3,11 +3,11 @@
 import { AnimateOnScroll } from "./bento-grid"
 
 const FLOATING_ICONS = [
-  { emoji: "📅", label: "Calendar", pos: "top-5 left-[5%]", delay: "0s", zClass: "z-[2]" },
-  { emoji: "📕", label: "Digital Products", pos: "md:top-[34%] md:left-[-4%] top-[-10px] left-[45%]", delay: "0.5s", zClass: "z-[2]" },
-  { emoji: "🖥️", label: "Webinars", pos: "top-[10px] right-[2%]", delay: "1s", zClass: "z-[5]" },
+  { emoji: "📅", label: "Calendar", pos: "top-[-4px] left-[5%]", delay: "0s", zClass: "z-[2]" },
+  { emoji: "📕", label: "Digital Products", pos: "md:top-[34%] md:left-[-4%] bottom-[50px] left-[4%]", delay: "0.5s", zClass: "z-[2]" },
+  { emoji: "🛍️", label: "Marketplace", pos: "top-[-4px] right-[2%]", delay: "1s", zClass: "z-[5]" },
   { emoji: "🎓", label: "Courses", pos: "bottom-[60px] left-0", delay: "1.5s", hideMobile: true, zClass: "z-[2]" },
-  { emoji: "🔗", label: "Links", pos: "bottom-10 right-[-50px]", delay: "2s", hideMobile: true, zClass: "z-[5]" },
+  { emoji: "🔗", label: "Links", pos: "bottom-10 right-[-70px]", delay: "2s", hideMobile: true, zClass: "z-[5]" },
 ]
 
 export function ManageSection() {
@@ -22,7 +22,7 @@ export function ManageSection() {
       `}} />
       <div className="max-w-[1200px] mx-auto px-6">
         <AnimateOnScroll>
-          <h2 className="text-[clamp(32px,4.5vw,48px)] font-bold tracking-tight mb-3">
+          <h2 className="text-[30px] md:text-[clamp(32px,4.5vw,48px)] font-bold tracking-tight mb-3">
             Manage your business 🚀
           </h2>
           <p className="text-base text-neutral-500 mb-14 max-w-[520px] mx-auto">
@@ -39,10 +39,10 @@ export function ManageSection() {
                 className={`absolute flex-col items-center gap-2 ${icon.zClass} manage-float-anim ${icon.pos} ${icon.hideMobile ? "hidden md:flex" : "flex"}`}
                 style={{ animationDelay: icon.delay }}
               >
-                <div className="w-16 h-16 rounded-full bg-violet-50 flex items-center justify-center text-[28px] shadow-md">
+                <div className="w-16 h-16 md:w-[74px] md:h-[74px] rounded-full bg-violet-50 flex items-center justify-center text-[28px] md:text-[32px] shadow-md">
                   {icon.emoji}
                 </div>
-                <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-500">
+                <span className="text-[11px] md:text-[12px] font-bold uppercase tracking-wider text-neutral-500">
                   {icon.label}
                 </span>
               </div>
@@ -71,17 +71,17 @@ export function ManageSection() {
             </div>
 
             {/* Phone */}
-            <div className="absolute right-[-20px] sm:right-[-10px] bottom-[-20px] z-[3] w-[140px] sm:w-[200px]">
-              <div className="bg-neutral-900 rounded-[28px] p-2 shadow-lg">
-                <div className="rounded-[22px] overflow-hidden bg-neutral-100 aspect-[9/19.5] relative">
+            <div className="absolute right-[-5px] sm:right-[-10px] bottom-[-5px] sm:bottom-[-20px] z-[3] w-[100px] sm:w-[200px]">
+              <div className="bg-neutral-900 rounded-[24px] sm:rounded-[28px] p-1.5 sm:p-2 shadow-lg">
+                <div className="rounded-[18px] sm:rounded-[22px] overflow-hidden bg-neutral-100 aspect-[9/19.5] relative">
                   <img
                     src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20design%20(19).png"
                     alt="Storelib Mobile"
-                    className="w-full h-full object-cover object-top pointer-events-none select-none"
+                    className="w-full h-full object-cover object-center pointer-events-none select-none"
                     loading="lazy"
                     decoding="async"
                     fetchPriority="low"
-                    sizes="(max-width: 640px) 140px, 200px"
+                    sizes="(max-width: 640px) 100px, 200px"
                     draggable={false}
                     onContextMenu={(e) => e.preventDefault()}
                   />

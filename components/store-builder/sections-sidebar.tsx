@@ -665,21 +665,6 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                   </p>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="store-tagline">Tagline</Label>
-                  <Input
-                    id="store-tagline"
-                    value={globalSettings.storeTagline || (creator?.headline || "")}
-                    onChange={(e) => updateGlobalSettings({ storeTagline: e.target.value })}
-                    placeholder={creator?.headline || "Your store's tagline"}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    A short description of your store
-                    {creator?.headline && !globalSettings.storeTagline && (
-                      <span className="block text-purple-600 mt-1">Uses "{creator.headline}" if left empty</span>
-                    )}
-                  </p>
-                </div>
               </>
             )}
 

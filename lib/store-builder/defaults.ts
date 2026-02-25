@@ -1244,7 +1244,7 @@ export const defaultShopHeaderSettings: ShopHeaderSettings = {
   avatarSizeChoice: "medium",
   mobileAvatarSizeChoice: "medium",
   profileImageBorderColor: undefined, // Controlled by theme preset by default
-  showHeadline: true,
+  showHeadline: false,
   showBio: true,
   showNicheTags: true,
   showStats: true,

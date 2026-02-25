@@ -2882,18 +2882,6 @@ export function UnifiedShopHeader({
             )}
           </h1>
 
-          {settings.showHeadline && creator?.headline && (
-            <p
-              className={cn(
-                "mt-1 break-words max-w-full px-4",
-                isMobile ? "text-xs" : "text-sm sm:text-base",
-                !(settings.textsColor || settings.colors?.textColor) && "text-muted-foreground",
-              )}
-              style={{ color: settings.textsColor ? `${settings.textsColor}99` : (settings.colors?.textColor ? `${settings.colors.textColor}99` : undefined) }}
-            >
-              {creator.headline}
-            </p>
-          )}
 
           {(settings.showCategory ?? settings.showNicheTags) && creator?.niche_tags && creator.niche_tags.length > 0 && (
             <div className={cn("flex flex-wrap justify-center gap-2", isMobile ? "mt-3" : "mt-4")}>
