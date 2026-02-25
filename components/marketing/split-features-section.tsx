@@ -53,22 +53,19 @@ export function SplitFeaturesSection() {
                 }`}
               >
                 {/* Image panel — full width, 16:9, image fills completely */}
-                <div
-                  className={`w-full md:w-[60%] rounded-3xl ${feature.panelBg} p-3 sm:p-5`}
-                >
-                  <div className="relative aspect-video w-full overflow-hidden rounded-2xl">
-                    <Image
-                      src={feature.src}
-                      alt={feature.title}
-                      fill
-                      sizes="(max-width: 768px) 90vw, 700px"
-                      className="object-contain"
-                      loading="eager"
-                      decoding="async"
-                      quality={92}
-                      unoptimized
-                    />
-                  </div>
+                <div className="w-full md:w-[60%]">
+                  <Image
+                    src={feature.src}
+                    alt={feature.title}
+                    width={1200}
+                    height={800}
+                    sizes="(max-width: 768px) 90vw, 700px"
+                    className="w-full h-auto rounded-2xl"
+                    loading="eager"
+                    decoding="async"
+                    quality={92}
+                    unoptimized
+                  />
                 </div>
 
                 {/* Text */}
