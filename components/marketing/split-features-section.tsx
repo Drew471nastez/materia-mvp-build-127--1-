@@ -55,21 +55,24 @@ export function SplitFeaturesSection() {
                   feature.imageLeft ? "" : "md:flex-row-reverse"
                 }`}
               >
-                {/* Image panel — 1200×781 ratio, object-contain shows full image with no cropping */}
+                {/* Image panel — padding keeps the image inset from rounded edges so
+                    nothing is clipped. Inner wrapper holds the 1200×781 aspect ratio. */}
                 <div
-                  className={`w-full md:w-[55%] rounded-3xl overflow-hidden relative aspect-[1200/781] ${feature.panelBg}`}
+                  className={`w-full md:w-[55%] rounded-3xl ${feature.panelBg} p-4 sm:p-6 md:p-8`}
                 >
-                  <Image
-                    src={feature.src}
-                    alt={feature.title}
-                    fill
-                    sizes="(max-width: 768px) 95vw, 660px"
-                    className="object-contain"
-                    loading="eager"
-                    decoding="async"
-                    quality={92}
-                    unoptimized
-                  />
+                  <div className="relative aspect-[1200/781]">
+                    <Image
+                      src={feature.src}
+                      alt={feature.title}
+                      fill
+                      sizes="(max-width: 768px) 85vw, 580px"
+                      className="object-contain"
+                      loading="eager"
+                      decoding="async"
+                      quality={92}
+                      unoptimized
+                    />
+                  </div>
                 </div>
 
                 {/* Text */}
