@@ -27,9 +27,9 @@ const FLOATING_ICONS = [
 // Higher quality (82/85) to preserve text legibility in the dashboard screenshot
 const LAPTOP_IMG_SM = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Untitled%20design%20(20).webp?width=800&quality=82&resize=contain"
 const LAPTOP_IMG_LG = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Untitled%20design%20(20).webp?width=1400&quality=85&resize=contain"
-// Phone: higher resolution + quality for crisp mobile mockup
-const PHONE_IMG_SM = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Untitled%20design%20(35).webp?width=400&quality=82&resize=contain"
-const PHONE_IMG_LG = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Untitled%20design%20(35).webp?width=560&quality=85&resize=contain"
+// Phone: max quality + higher resolution for crisp mobile mockup
+const PHONE_IMG_SM = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Untitled%20design%20(35).webp?width=500&quality=95&resize=contain"
+const PHONE_IMG_LG = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Untitled%20design%20(35).webp?width=700&quality=97&resize=contain"
 
 /** Lazy-loaded image that only fetches when near the viewport */
 function LazyManagedImage({
