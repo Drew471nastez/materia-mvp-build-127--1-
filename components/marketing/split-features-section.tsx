@@ -58,9 +58,9 @@ export function SplitFeaturesSection() {
                     src={feature.src}
                     alt={feature.title}
                     width={1200}
-                    height={800}
+                    height={900}
                     sizes="(max-width: 768px) 90vw, 700px"
-                    className="w-full h-auto rounded-2xl"
+                    className="w-full aspect-[16/12] object-cover rounded-2xl"
                     loading="eager"
                     decoding="async"
                     quality={92}
