@@ -6,35 +6,45 @@ import { LocaleProvider } from "@/components/locale-provider"
 import { BodyScrollRestorer } from "@/components/body-scroll-restorer"
 import { CookieConsentBanner } from "@/components/cookie-consent-banner"
 
-const inter = Inter({ 
+// Primary font — loaded eagerly with display swap for fast text rendering
+const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
+  display: "swap",
+  preload: true,
 })
 
-const plusJakartaSans = Plus_Jakarta_Sans({ 
+// Secondary fonts — display swap prevents FOIT (flash of invisible text)
+const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
   variable: "--font-plus-jakarta-sans",
+  display: "swap",
 })
 
-const spaceGrotesk = Space_Grotesk({ 
+const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
   variable: "--font-space-grotesk",
+  display: "swap",
 })
 
-const dmSans = DM_Sans({ 
+const dmSans = DM_Sans({
   subsets: ["latin"],
   variable: "--font-dm-sans",
+  display: "swap",
 })
 
-const poppins = Poppins({ 
+// Poppins — only load weights actually used
+const poppins = Poppins({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
   variable: "--font-poppins",
+  display: "swap",
 })
 
-const montserrat = Montserrat({ 
+const montserrat = Montserrat({
   subsets: ["latin"],
   variable: "--font-montserrat",
+  display: "swap",
 })
 
 export const metadata: Metadata = {

@@ -20,9 +20,10 @@ export default async function AppDashboard() {
 
   if (!user) redirect("/login")
 
+  // Fetch creator first (needed for redirect decisions)
   const { data: creator } = await adminSupabase
     .from("creators")
-    .select("*")
+    .select("id, user_id, slug, username, display_name, avatar_url, bio, onboarding_completed, payouts_enabled, stripe_onboarding_status, stripe_account_id, store_published, subscription_plan_id")
     .eq("user_id", user.id)
     .single()
 
@@ -30,27 +31,37 @@ export default async function AppDashboard() {
 
   if (!creator.onboarding_completed) redirect("/onboarding")
 
-  const { data: profile } = await adminSupabase
-    .from("profiles")
-    .select("username, display_name, avatar_url")
-    .eq("id", user.id)
-    .single()
-
-  // Fetch products using admin client
-  const { data: products } = await adminSupabase
-    .from("products")
-    .select("id, status")
-    .eq("creator_id", creator.id)
+  // Fire all independent queries in parallel — cuts total DB round-trips from ~6 sequential to 1 parallel batch
+  const [
+    { data: profile },
+    { data: products },
+    { data: onepage },
+    { data: activeDomain },
+  ] = await Promise.all([
+    adminSupabase
+      .from("profiles")
+      .select("username, display_name, avatar_url")
+      .eq("id", user.id)
+      .single(),
+    adminSupabase
+      .from("products")
+      .select("id, status")
+      .eq("creator_id", creator.id),
+    adminSupabase
+      .from("onepages")
+      .select("id, status, draft_blocks, bio, avatar_url, title")
+      .eq("owner_id", user.id)
+      .maybeSingle(),
+    adminSupabase
+      .from("custom_domains")
+      .select("domain")
+      .eq("creator_id", creator.id)
+      .eq("status", "active")
+      .maybeSingle(),
+  ])
 
   const productIds = products?.map((p: any) => p.id) || []
   const hasProducts = (products?.length || 0) > 0
-
-  // Check for OnePage
-  const { data: onepage } = await adminSupabase
-    .from("onepages")
-    .select("id, status, draft_blocks, bio, avatar_url, title")
-    .eq("owner_id", user.id)
-    .maybeSingle()
 
   const hasOnePage = !!onepage
   const hasOnePageBlock = onepage?.draft_blocks && onepage.draft_blocks.length > 1
@@ -58,7 +69,7 @@ export default async function AppDashboard() {
   // Check for Stripe connection — read from creators table (source of truth)
   const hasPayoutsSetup = creator.payouts_enabled === true || creator.stripe_onboarding_status === "connected"
 
-  // Fetch ALL orders for this creator's products (same source as Sales page)
+  // Fetch orders (depends on productIds from above)
   let allOrders: any[] = []
   if (productIds.length > 0) {
     const { data: ordersData } = await adminSupabase
@@ -137,14 +148,6 @@ export default async function AppDashboard() {
   ]
 
   const displayName = profile?.display_name || creator.display_name || "there"
-
-  // Check for connected custom domain
-  const { data: activeDomain } = await adminSupabase
-    .from("custom_domains")
-    .select("domain")
-    .eq("creator_id", creator.id)
-    .eq("status", "active")
-    .maybeSingle()
 
   return (
     <DashboardClient

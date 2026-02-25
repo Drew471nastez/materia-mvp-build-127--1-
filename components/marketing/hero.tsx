@@ -55,15 +55,25 @@ const PARTNER_LOGOS = [
   "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/eyJidWNrZXQiOiJwYXJ0bmVycGFnZS5wcm9kIiwia2V5IjoibWVkaWEvY29udGFjdF9pbWFnZXMvOWQ0MDVmYmMtNGJkMS00NzEz.svg",
 ]
 
-// Supabase image transform: width=600&height=750 gives exact 4:5 ratio (matches originals
-// which are 1080×1350). resize=cover ensures Supabase preserves aspect ratio. quality=85.
-const IMAGES = [
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(5)%20(2).webp?width=600&height=750&resize=cover&quality=75",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(6)%20(1).webp?width=600&height=750&resize=cover&quality=75",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(7)%20(1).webp?width=600&height=750&resize=cover&quality=75",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(21).webp?width=600&height=750&resize=cover&quality=75",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Monetize%20(9).webp?width=600&height=750&resize=cover&quality=75",
+// Supabase image transforms — mobile-first sizing.
+// Desktop center card is ~280px wide → serve 400px (2x retina cushion).
+// Side cards are ~200–240px → 320px suffices. We use a single set at 400px
+// (the browser picks from srcset via sizes) to keep the code simple.
+// quality=65 is a sweet spot for WebP (visually lossless at card size).
+const IMG_BASE = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags"
+const IMG_NAMES = [
+  "Monetize%20(5)%20(2).webp",
+  "Monetize%20(6)%20(1).webp",
+  "Monetize%20(7)%20(1).webp",
+  "Monetize%20(21).webp",
+  "Monetize%20(9).webp",
 ]
+// Small (mobile / side cards): 320px wide
+const IMAGES_SM = IMG_NAMES.map(n => `${IMG_BASE}/${n}?width=320&height=400&resize=cover&quality=60`)
+// Large (desktop center): 560px wide
+const IMAGES_LG = IMG_NAMES.map(n => `${IMG_BASE}/${n}?width=560&height=700&resize=cover&quality=68`)
+// Default src uses the small variant
+const IMAGES = IMAGES_SM
 
 interface CardDef {
   left: number
@@ -484,6 +494,8 @@ export function Hero() {
                     <Skeleton className="w-full h-full" />
                   ) : (
                     <img
+                      srcSet={`${IMAGES_SM[imageIdx]} 320w, ${IMAGES_LG[imageIdx]} 560w`}
+                      sizes="(max-width: 640px) 260px, 280px"
                       src={src}
                       alt=""
                       className="w-full h-full object-cover pointer-events-none"
@@ -508,8 +520,10 @@ export function Hero() {
               <>
                 <div className="absolute left-1/2 -translate-x-1/2 -top-3.5 sm:-top-4">
                   <div className="flex items-center gap-2 bg-gray-100/95 backdrop-blur-sm text-gray-700 text-[10px] sm:text-[11px] font-medium px-3 sm:px-3.5 py-1.5 rounded-full whitespace-nowrap shadow-sm border border-gray-200/50">
-                    <span className="w-4 h-4 sm:w-[18px] sm:h-[18px] rounded-full bg-gray-900 inline-flex items-center justify-center overflow-hidden">
-                      <img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/image2vector.svg" alt="" width={12} height={12} className="w-[10px] h-[10px] sm:w-3 sm:h-3" loading="eager" decoding="async" />
+                    <span className="w-4 h-4 sm:w-[18px] sm:h-[18px] rounded-full bg-gray-200 inline-flex items-center justify-center">
+                      <svg viewBox="0 0 16 16" fill="none" className="w-[10px] h-[10px] sm:w-3 sm:h-3">
+                        <path d="M8.5 1L3 9.5h4.5L7 15l6-8.5H8.5L9 1h-.5z" fill="#7c3aed" />
+                      </svg>
                     </span>
                     All-in-one
                   </div>

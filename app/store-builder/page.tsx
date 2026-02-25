@@ -25,15 +25,15 @@ export default async function StoreBuilderPage({
     redirect("/login")
   }
 
-  // Get creator
-  const { data: creator } = await supabase.from("creators").select("*").eq("user_id", user.id).single()
+  // Get creator + profile in parallel
+  const [{ data: creator }, { data: profile }] = await Promise.all([
+    supabase.from("creators").select("id, slug, cover_url, headline, bio, niche_tags, show_total_sales_badge, avatar_url").eq("user_id", user.id).single(),
+    supabase.from("profiles").select("display_name, avatar_url, username").eq("id", user.id).single(),
+  ])
 
   if (!creator) {
     redirect("/onboarding")
   }
-
-  // Get profile
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
 
 const { data: products, error: productsError } = await supabase
   .from("products")

@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect, useRef } from "react"
 import { AnimateOnScroll } from "./bento-grid"
 
 const OnePageIcon = () => (
@@ -20,6 +21,64 @@ const FLOATING_ICONS = [
   { emoji: "🎓", label: "Courses", pos: "bottom-[60px] left-0", delay: "1.5s", hideMobile: true, zClass: "z-[2]" },
   { emoji: "🔗", label: "Links", pos: "bottom-10 right-[-70px]", delay: "2s", hideMobile: true, zClass: "z-[5]" },
 ] as const
+
+// Supabase image transform URLs — serve resized WebP to cut payload 70–80%
+const LAPTOP_IMG_SM = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Untitled%20design%20(20).webp?width=640&quality=72&resize=cover"
+const LAPTOP_IMG_LG = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Untitled%20design%20(20).webp?width=1050&quality=78&resize=cover"
+const PHONE_IMG_SM = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Untitled%20design%20(35).webp?width=280&quality=72&resize=contain"
+const PHONE_IMG_LG = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Untitled%20design%20(35).webp?width=448&quality=78&resize=contain"
+
+/** Lazy-loaded image that only fetches when near the viewport */
+function LazyManagedImage({
+  srcSmall,
+  srcLarge,
+  alt,
+  className,
+  sizes,
+}: {
+  srcSmall: string
+  srcLarge: string
+  alt: string
+  className: string
+  sizes: string
+}) {
+  const [loaded, setLoaded] = useState(false)
+  const [inView, setInView] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { setInView(true); observer.disconnect() } },
+      { rootMargin: "200px" },
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  return (
+    <div ref={ref} className="w-full h-full">
+      {inView ? (
+        <img
+          srcSet={`${srcSmall} 640w, ${srcLarge} 1050w`}
+          sizes={sizes}
+          src={srcSmall}
+          alt={alt}
+          className={`${className} transition-opacity duration-300 ${loaded ? "opacity-100" : "opacity-0"}`}
+          loading="lazy"
+          decoding="async"
+          fetchPriority="low"
+          draggable={false}
+          onLoad={() => setLoaded(true)}
+          onContextMenu={(e) => e.preventDefault()}
+        />
+      ) : (
+        <div className="w-full h-full bg-neutral-100 animate-pulse rounded" />
+      )}
+    </div>
+  )
+}
 
 export function ManageSection() {
   return (
@@ -59,21 +118,16 @@ export function ManageSection() {
               </div>
             ))}
 
-            {/* Laptop */}
+            {/* Laptop — contrast filter removed, resized via Supabase transforms */}
             <div className="relative z-[1] max-w-[700px] mx-auto">
               <div className="bg-neutral-900 rounded-t-xl p-2">
                 <div className="rounded-t-md overflow-hidden bg-neutral-100 aspect-[16/9] relative">
-                  <img
-                    src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20design%20(20).webp"
+                  <LazyManagedImage
+                    srcSmall={LAPTOP_IMG_SM}
+                    srcLarge={LAPTOP_IMG_LG}
                     alt="Storelib Dashboard"
                     className="w-full h-full object-cover pointer-events-none select-none"
-                    style={{ filter: "contrast(1.1)" }}
-                    loading="lazy"
-                    decoding="async"
-                    fetchPriority="low"
                     sizes="(max-width: 768px) 90vw, 700px"
-                    draggable={false}
-                    onContextMenu={(e) => e.preventDefault()}
                   />
                 </div>
               </div>
@@ -82,18 +136,14 @@ export function ManageSection() {
               </div>
             </div>
 
-            {/* Phone */}
+            {/* Phone — resized via Supabase transforms */}
             <div className="absolute right-[5px] sm:right-[-10px] bottom-[5px] sm:bottom-[-20px] z-[3] w-[140px] sm:w-[224px]">
-              <img
-                src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20design%20(35).webp"
+              <LazyManagedImage
+                srcSmall={PHONE_IMG_SM}
+                srcLarge={PHONE_IMG_LG}
                 alt="Storelib Mobile"
                 className="w-full h-auto object-contain pointer-events-none select-none"
-                loading="lazy"
-                decoding="async"
-                fetchPriority="low"
                 sizes="(max-width: 640px) 140px, 224px"
-                draggable={false}
-                onContextMenu={(e) => e.preventDefault()}
               />
             </div>
           </div>

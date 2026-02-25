@@ -47,6 +47,54 @@ const nextConfig = {
   // Large file uploads bypass the server via direct-to-storage signed URLs
   // (see /api/v2/upload/prepare). Chunked uploads (/api/v2/upload/chunk)
   // use 2MB chunks to stay safely under the platform body size limit.
+
+  // Cache headers for public pages — CDN edge + browser stale-while-revalidate
+  async headers() {
+    return [
+      {
+        // Public product pages
+        source: '/p/:slug*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=600' },
+        ],
+      },
+      {
+        // Explore / marketplace
+        source: '/explore/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, s-maxage=60, stale-while-revalidate=300' },
+        ],
+      },
+      {
+        // Creator store pages
+        source: '/u/:username*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=600' },
+        ],
+      },
+      {
+        // Link-in-bio pages
+        source: '/l/:slug*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=600' },
+        ],
+      },
+      {
+        // Landing page
+        source: '/',
+        headers: [
+          { key: 'Cache-Control', value: 'public, s-maxage=3600, stale-while-revalidate=7200' },
+        ],
+      },
+      {
+        // Static assets in public/ — 1 year immutable
+        source: '/images/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+        ],
+      },
+    ]
+  },
 }
 
 export default nextConfig

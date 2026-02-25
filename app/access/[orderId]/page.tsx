@@ -25,8 +25,8 @@ export default async function GuestAccessPage({ params, searchParams }: GuestAcc
   const { data: order, error: orderError } = await supabase
     .from("orders")
     .select(`
-      *,
-      product:products(*)
+      id, product_id, buyer_id, access_token, status, created_at,
+      product:products(id, title, thumbnail_url, type)
     `)
     .eq("id", orderId)
     .single()
@@ -94,7 +94,7 @@ export default async function GuestAccessPage({ params, searchParams }: GuestAcc
   }
 
   // Fetch digital assets
-  const { data: assets } = await supabase.from("digital_assets").select("*").eq("product_id", order.product_id)
+  const { data: assets } = await supabase.from("digital_assets").select("id, file_name, file_size, file_type, storage_path").eq("product_id", order.product_id)
 
   const product = order.product
 

@@ -41,16 +41,27 @@ interface ConsentPrefs {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+/** Read consent from localStorage first, fall back to cookie (incognito / Safari) */
 function readConsent(): ConsentPrefs | null {
+  // 1. Try localStorage (primary store)
   try {
     const raw = localStorage.getItem(LS_KEY)
-    if (!raw) return null
-    const parsed = JSON.parse(raw)
-    if (typeof parsed?.analytics !== "boolean") return null
-    return parsed as ConsentPrefs
-  } catch {
-    return null
-  }
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (typeof parsed?.analytics === "boolean") return parsed as ConsentPrefs
+    }
+  } catch { /* localStorage blocked — e.g. Safari incognito */ }
+
+  // 2. Fallback: read the document cookie so consent persists when LS is wiped
+  try {
+    const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${COOKIE_NAME}=([01])`))
+    if (match) {
+      const analytics = match[1] === "1"
+      return { essential: true, analytics, version: 1, timestamp: 0 }
+    }
+  } catch { /* cookie access blocked */ }
+
+  return null
 }
 
 function writeConsent(analytics: boolean): ConsentPrefs {
@@ -141,6 +152,24 @@ export function CookieConsentBanner() {
     }
     window.addEventListener(COOKIE_PREFS_EVENT, handler)
     return () => window.removeEventListener(COOKIE_PREFS_EVENT, handler)
+  }, [])
+
+  // Cross-tab sync: if user accepts in another tab, dismiss banner here too
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== LS_KEY || !e.newValue) return
+      try {
+        const updated = JSON.parse(e.newValue) as ConsentPrefs
+        if (typeof updated?.analytics === "boolean") {
+          setConsent(updated)
+          setAnalyticsToggle(updated.analytics)
+          setIsOpen(false)
+          setShowPrefs(false)
+        }
+      } catch { /* ignore malformed */ }
+    }
+    window.addEventListener("storage", onStorage)
+    return () => window.removeEventListener("storage", onStorage)
   }, [])
 
   const applyConsent = useCallback((analytics: boolean) => {

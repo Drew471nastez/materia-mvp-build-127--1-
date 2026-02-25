@@ -20,10 +20,10 @@ export default async function AppLayout({
     redirect("/login")
   }
 
-  // Check for creator record with onboarding completed - database is the source of truth
+  // Fetch creator first (needed for redirect decision and as FK for later queries)
   const { data: creator } = await supabase
     .from("creators")
-    .select("*")
+    .select("id, user_id, slug, username, display_name, avatar_url, bio, onboarding_completed, payouts_enabled, stripe_onboarding_status, stripe_account_id, store_published")
     .eq("user_id", user.id)
     .maybeSingle()
 
@@ -32,24 +32,31 @@ export default async function AppLayout({
     redirect("/signup/success")
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("display_name, avatar_url, username")
-    .eq("id", user.id)
-    .maybeSingle()
-
-  const { data: onepage } = await supabase
-    .from("onepages")
-    .select("id, avatar_url, published, draft_blocks, bio")
-    .eq("owner_id", user.id)
-    .maybeSingle()
-
-  const { data: storeConfig } = await supabase
-    .from("store_builder_configs")
-    .select("published_config")
-    .eq("creator_id", user.id)
-    .eq("page_type", "shop")
-    .maybeSingle()
+  // Fire all independent queries in parallel
+  const [
+    { data: profile },
+    { data: onepage },
+    { data: storeConfig },
+    { data: products },
+  ] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("display_name, avatar_url, username")
+      .eq("id", user.id)
+      .maybeSingle(),
+    supabase
+      .from("onepages")
+      .select("id, avatar_url, published, draft_blocks, bio")
+      .eq("owner_id", user.id)
+      .maybeSingle(),
+    supabase
+      .from("store_builder_configs")
+      .select("published_config")
+      .eq("creator_id", user.id)
+      .eq("page_type", "shop")
+      .maybeSingle(),
+    supabase.from("products").select("id").eq("creator_id", creator.id),
+  ])
 
   const storeBuilderAvatar = (storeConfig?.published_config as Record<string, unknown>)?.headerSettings
     ? ((storeConfig?.published_config as Record<string, unknown>)?.headerSettings as Record<string, unknown>)?.avatarUrl as string | null
@@ -63,8 +70,6 @@ export default async function AppLayout({
 
   const displayName = profile?.display_name || user.user_metadata?.full_name || user.user_metadata?.name || creator.slug
 
-  // Calculate setup steps for the sidebar widget
-  const { data: products } = await supabase.from("products").select("id").eq("creator_id", creator.id)
   const hasProducts = (products?.length || 0) > 0
   const productIds = products?.map((p: any) => p.id) || []
 
@@ -80,7 +85,7 @@ export default async function AppLayout({
                       !!(profile?.display_name || creator.display_name || profile?.username || creator.username || creator.slug) &&
                       !!(creator.bio || onepage?.bio)
 
-  // First sale check
+  // First sale check — single query with limit 1 (very fast with idx_orders_product_status index)
   let hasFirstSale = false
   if (productIds.length > 0) {
     const { data: allOrders } = await supabase
