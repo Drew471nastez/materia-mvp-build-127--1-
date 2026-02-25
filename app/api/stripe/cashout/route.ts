@@ -77,10 +77,64 @@ export async function POST(request: Request) {
     }
 
     if (ledger.available_amount <= 0) {
-      return NextResponse.json(
-        { error: "No funds available for cashout" },
-        { status: 400 },
+      // Ledger shows $0 available — check if Stripe has settled funds that
+      // the hold-release cron hasn't processed yet.  Stripe is the source
+      // of truth for actual settlement.
+      const checkBalance = await stripe.balance.retrieve(
+        {},
+        { stripeAccount: stripeAccountId },
       )
+
+      const availableEntry = checkBalance.available.find((b) => b.amount > 0)
+
+      if (!availableEntry) {
+        // Both ledger and Stripe agree: no funds available
+        return NextResponse.json(
+          { error: "No funds available for cashout" },
+          { status: 400 },
+        )
+      }
+
+      // Stripe has settled funds — sync the ledger so cashout can proceed.
+      // Convert native currency to USD if needed.
+      let syncAmountUsd = availableEntry.amount
+
+      if (availableEntry.currency !== "usd") {
+        const balanceTx = await stripe.balanceTransactions.list(
+          { limit: 10 },
+          { stripeAccount: stripeAccountId },
+        )
+        const exchangeRate = (balanceTx.data as any[]).find(
+          (tx: any) => tx.exchange_rate,
+        )?.exchange_rate
+
+        if (exchangeRate && exchangeRate > 0) {
+          syncAmountUsd = Math.floor(availableEntry.amount / exchangeRate)
+        }
+      }
+
+      // Move settled funds from pending → available in the ledger
+      const pendingReduction = Math.min(ledger.pending_amount, syncAmountUsd)
+      await adminSupabase
+        .from("seller_ledger")
+        .update({
+          available_amount: syncAmountUsd,
+          pending_amount: Math.max(0, ledger.pending_amount - pendingReduction),
+        })
+        .eq("creator_id", creator.id)
+
+      // Release matching pending ledger events so they're not double-released by cron
+      await adminSupabase
+        .from("ledger_events")
+        .update({ released_at: new Date().toISOString() })
+        .eq("creator_id", creator.id)
+        .eq("event_type", "sale")
+        .is("released_at", null)
+        .lte("hold_until", new Date().toISOString())
+
+      // Refresh local ledger values for the rest of the flow
+      ledger.available_amount = syncAmountUsd
+      ledger.pending_amount = Math.max(0, ledger.pending_amount - pendingReduction)
     }
 
     // Validate: min cashout
