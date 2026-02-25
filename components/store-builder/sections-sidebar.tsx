@@ -689,8 +689,8 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                     Select up to 3 tags shown on your profile
                   </p>
                   <div className="flex flex-wrap gap-1.5">
-                    {["Design", "Development", "Marketing", "Business", "Photography", "Writing", "Music", "Fitness", "Finance", "Education"].map((tag) => {
-                      const currentTags: string[] = globalSettings.storeNicheTags ?? (creator as any)?.niche_tags ?? []
+                    {["Design", "Development", "Marketing", "Business", "Photography", "Writing", "Music", "Fitness", "Finance", "Education", "Art", "Productivity"].map((tag) => {
+                      const currentTags: string[] = globalSettings.storeNicheTags ?? creator?.niche_tags ?? []
                       const isSelected = currentTags.includes(tag)
                       return (
                         <button
@@ -703,7 +703,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                               : "bg-white text-neutral-600 border-neutral-300 hover:border-purple-400 hover:text-purple-600"
                           )}
                           onClick={() => {
-                            const prev: string[] = globalSettings.storeNicheTags ?? (creator as any)?.niche_tags ?? []
+                            const prev: string[] = globalSettings.storeNicheTags ?? creator?.niche_tags ?? []
                             const next = prev.includes(tag)
                               ? prev.filter((t) => t !== tag)
                               : prev.length < 3 ? [...prev, tag] : prev
