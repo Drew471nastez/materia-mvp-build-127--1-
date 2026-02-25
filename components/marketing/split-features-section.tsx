@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect } from "react"
-import Image from "next/image"
+
 import { AnimateOnScroll } from "./bento-grid"
 
 // Supabase render API — 1200×781 panel, images served at width=1200 quality=92.
@@ -55,24 +55,20 @@ export function SplitFeaturesSection() {
                   feature.imageLeft ? "" : "md:flex-row-reverse"
                 }`}
               >
-                {/* Image panel — padding keeps the image inset from rounded edges so
-                    nothing is clipped. Inner wrapper holds the 1200×781 aspect ratio. */}
+                {/* Image panel — plain img with w-full h-auto guarantees the image
+                    displays at its EXACT natural aspect ratio. No fill, no forced
+                    aspect ratio, no object-fit = zero cropping possible. */}
                 <div
                   className={`w-full md:w-[55%] rounded-3xl ${feature.panelBg} p-4 sm:p-6 md:p-8`}
                 >
-                  <div className="relative aspect-[1200/781]">
-                    <Image
-                      src={feature.src}
-                      alt={feature.title}
-                      fill
-                      sizes="(max-width: 768px) 85vw, 580px"
-                      className="object-contain"
-                      loading="eager"
-                      decoding="async"
-                      quality={92}
-                      unoptimized
-                    />
-                  </div>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={feature.src}
+                    alt={feature.title}
+                    className="w-full h-auto block rounded-xl"
+                    loading="eager"
+                    decoding="async"
+                  />
                 </div>
 
                 {/* Text */}
