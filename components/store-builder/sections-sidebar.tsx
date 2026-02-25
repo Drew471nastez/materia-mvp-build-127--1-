@@ -124,6 +124,44 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 
+// Niche categories (mirrored from onboarding)
+const NICHE_PRIMARY = [
+  "Templates","Courses","Guides","Software","Assets","Memberships",
+  "Design Kits","Audio","Video","Education","Productivity","Marketing",
+  "Business","Photography","Writing","Finance",
+]
+const NICHE_EXTENDED = [
+  "3D Models","Animations","Apps","Art","Branding","Coaching","Community",
+  "Consulting","Content","Crafts","Data","Developer Tools","E-books",
+  "Fashion","Fitness","Food & Recipes","Gaming","Graphics","Health",
+  "Illustrations","Investing","Legal","Lifestyle","Music","Newsletter",
+  "Notion Templates","Podcast","Print on Demand","Real Estate","SaaS",
+  "Social Media","Spreadsheets","Startup","Stock Photos","Themes","Trading",
+  "UI Kits","Web Design","Wellness","Workshops","Automation","Beauty",
+  "Blogging","Calendars","Checklists","Copywriting","Crypto","Dance",
+  "Digital Art","Email Marketing","Engineering","Entrepreneurship","Events",
+  "Figma Templates","Fonts","Freelancing","Home & Garden","Icons",
+  "Interior Design","Journaling","Language Learning","Meditation","Mindfulness",
+  "Mockups","Parenting","Personal Finance","Planners","Presentation Templates",
+  "Project Management","Remote Work","Resume Templates","Self-Improvement",
+  "SEO","Side Hustle","Spirituality","Sports","Study Notes","Travel",
+  "Video Editing","Yoga","AI Tools","AI Prompts","Amazon KDP","Android Apps",
+  "Arduino","Astrology","Bookkeeping","Brand Strategy","Canva Templates",
+  "Career Coaching","Children's Education","Cinema LUTs","Coding Courses",
+  "Comic Art","Conversion Optimization","Cooking Classes","Customer Support",
+  "Cybersecurity","Data Science","Discord Communities","Dropshipping",
+  "Etsy Printables","Excel Dashboards","Game Assets","Gumroad Templates",
+  "HR & Recruiting","iOS Apps","Illustrator Brushes","Interview Prep",
+  "Kids Activities","Kotlin Development","Lead Magnets","LinkedIn Growth",
+  "Machine Learning","Meal Plans","Micro SaaS","No-Code Tools",
+  "Online Tutoring","Packaging Design","Paid Ads","Pitch Decks",
+  "Podcast Editing","Prayer & Faith","Procreate Brushes","Product Research",
+  "Public Speaking","React Templates","Sales Funnels","Script Writing",
+  "Shopify Apps","Startup Legal","Teaching Resources","UI Animation",
+  "Virtual Assistance","Wedding Templates","WordPress Themes","YouTube Growth",
+]
+const ALL_NICHES = [...NICHE_PRIMARY, ...NICHE_EXTENDED]
+
 // Custom Toggle Component with theme-style design (purple when ON)
 function Toggle({ checked, onCheckedChange }: { checked: boolean; onCheckedChange: (checked: boolean) => void }) {
   return (
@@ -482,6 +520,8 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
   const [showProductSelector, setShowProductSelector] = useState(false)
   const [productSearchQuery, setProductSearchQuery] = useState("")
   const [settingsTab, setSettingsTab] = useState<"basic" | "seo" | "badge" | "theme" | "social" | "domain">("basic")
+  const [showNichePopup, setShowNichePopup] = useState(false)
+  const [nicheSearch, setNicheSearch] = useState("")
 
   // ✅ Safety: if old configs ever saved Reviews as hidden, force it back on.
   useEffect(() => {
@@ -686,35 +726,93 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                 <div className="space-y-2">
                   <Label>Niche</Label>
                   <p className="text-xs text-muted-foreground mb-1">
-                    Select up to 3 tags shown on your profile
+                    Select 1 niche shown on your profile
                   </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {["Design", "Development", "Marketing", "Business", "Photography", "Writing", "Music", "Fitness", "Finance", "Education", "Art", "Productivity"].map((tag) => {
-                      const currentTags: string[] = globalSettings.storeNicheTags ?? creator?.niche_tags ?? []
-                      const isSelected = currentTags.includes(tag)
-                      return (
+                  {(() => {
+                    const currentTag: string = (globalSettings.storeNicheTags ?? creator?.niche_tags ?? [])[0] ?? ""
+                    const filteredNiches = nicheSearch
+                      ? ALL_NICHES.filter(n => n.toLowerCase().includes(nicheSearch.toLowerCase()))
+                      : ALL_NICHES
+                    return (
+                      <>
                         <button
-                          key={tag}
                           type="button"
+                          onClick={() => setShowNichePopup(true)}
                           className={cn(
-                            "px-2.5 py-1 rounded-full text-xs font-medium border transition-colors cursor-pointer",
-                            isSelected
-                              ? "bg-purple-600 text-white border-purple-600 hover:bg-purple-700"
-                              : "bg-white text-neutral-600 border-neutral-300 hover:border-purple-400 hover:text-purple-600"
+                            "w-full flex items-center justify-between px-3 py-2 rounded-lg border text-sm transition-colors",
+                            currentTag
+                              ? "border-purple-400 bg-purple-50 text-purple-700"
+                              : "border-neutral-300 bg-white text-neutral-500 hover:border-purple-400"
                           )}
-                          onClick={() => {
-                            const prev: string[] = globalSettings.storeNicheTags ?? creator?.niche_tags ?? []
-                            const next = prev.includes(tag)
-                              ? prev.filter((t) => t !== tag)
-                              : prev.length < 3 ? [...prev, tag] : prev
-                            updateGlobalSettings({ storeNicheTags: next })
-                          }}
                         >
-                          {tag}
+                          <span>{currentTag || "Select niche..."}</span>
+                          {currentTag ? (
+                            <X
+                              className="w-3.5 h-3.5 shrink-0 text-purple-500 hover:text-purple-800"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                updateGlobalSettings({ storeNicheTags: [] })
+                              }}
+                            />
+                          ) : (
+                            <ChevronDown className="w-3.5 h-3.5 shrink-0" />
+                          )}
                         </button>
-                      )
-                    })}
-                  </div>
+
+                        <Dialog open={showNichePopup} onOpenChange={(open) => {
+                          setShowNichePopup(open)
+                          if (!open) setNicheSearch("")
+                        }}>
+                          <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+                            <div className="p-4 border-b flex flex-row items-center gap-3">
+                              <button
+                                onClick={() => { setShowNichePopup(false); setNicheSearch("") }}
+                                className="hover:bg-gray-100 p-1 rounded-lg transition-colors"
+                              >
+                                <ChevronLeft className="h-5 w-5" />
+                              </button>
+                              <h2 className="text-base font-semibold flex-1 text-center pr-8">Select Niche</h2>
+                            </div>
+                            <div className="p-3 border-b">
+                              <div className="flex items-center gap-2 px-3 h-10 rounded-xl bg-gray-100">
+                                <Search className="w-4 h-4 text-gray-400 shrink-0" />
+                                <input
+                                  type="text"
+                                  value={nicheSearch}
+                                  onChange={(e) => setNicheSearch(e.target.value)}
+                                  placeholder="Search niches..."
+                                  className="flex-1 text-sm outline-none bg-transparent"
+                                />
+                              </div>
+                            </div>
+                            <div className="p-4 max-h-[360px] overflow-y-auto">
+                              <div className="flex flex-wrap gap-2">
+                                {filteredNiches.map((niche) => (
+                                  <button
+                                    key={niche}
+                                    type="button"
+                                    onClick={() => {
+                                      updateGlobalSettings({ storeNicheTags: [niche] })
+                                      setShowNichePopup(false)
+                                      setNicheSearch("")
+                                    }}
+                                    className={cn(
+                                      "px-3.5 py-2 rounded-full text-xs font-medium transition-all border-2",
+                                      currentTag === niche
+                                        ? "bg-gray-100 border-black text-black"
+                                        : "bg-gray-100 border-transparent text-gray-700 hover:bg-gray-200"
+                                    )}
+                                  >
+                                    {niche}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      </>
+                    )
+                  })()}
                 </div>
               </>
             )}
