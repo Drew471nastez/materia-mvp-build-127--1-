@@ -117,9 +117,8 @@ CREATE INDEX IF NOT EXISTS idx_subscribers_creator_email
 CREATE INDEX IF NOT EXISTS idx_store_configs_creator_page
   ON public.store_builder_configs (creator_id, page_type);
 
--- ── wishlist ────────────────────────────────────────────────────────────────
-
--- Wishlist by user, newest first
-CREATE INDEX IF NOT EXISTS idx_wishlist_user_created
-  ON public.wishlist (user_id, created_at DESC)
-  WHERE user_id IS NOT NULL;
+-- ── wishlist (skipped — table does not exist yet) ─────────────────────────
+-- When the wishlist table is created, add:
+-- CREATE INDEX IF NOT EXISTS idx_wishlist_user_created
+--   ON public.wishlist (user_id, created_at DESC)
+--   WHERE user_id IS NOT NULL;
