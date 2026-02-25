@@ -280,7 +280,7 @@ export function BentoGrid() {
                   fetchPriority="low"
                   sizes="(max-width: 640px) 90vw, 600px"
                   width={600}
-                  height={218}
+                  height={300}
                 />
               </div>
             </div>
