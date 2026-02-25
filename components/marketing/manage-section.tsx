@@ -3,9 +3,9 @@
 import { AnimateOnScroll } from "./bento-grid"
 
 const FLOATING_ICONS = [
-  { emoji: "📄", label: "OnePage", pos: "md:top-[-4px] top-[-12px] left-[5%]", delay: "0s", zClass: "z-[2]" },
+  { emoji: "🪪", label: "OnePage", pos: "md:top-[-4px] top-[-16px] left-[5%]", delay: "0s", zClass: "z-[2]" },
   { emoji: "📕", label: "Digital Products", pos: "md:top-[34%] md:left-[-4%] bottom-[50px] left-[4%]", delay: "0.5s", zClass: "z-[2]" },
-  { emoji: "🛍️", label: "Marketplace", pos: "md:top-[-4px] top-[-12px] right-[2%]", delay: "1s", zClass: "z-[5]" },
+  { emoji: "🛍️", label: "Marketplace", pos: "md:top-[-4px] top-[-16px] right-[2%]", delay: "1s", zClass: "z-[5]" },
   { emoji: "🎓", label: "Courses", pos: "bottom-[60px] left-0", delay: "1.5s", hideMobile: true, zClass: "z-[2]" },
   { emoji: "🔗", label: "Links", pos: "bottom-10 right-[-70px]", delay: "2s", hideMobile: true, zClass: "z-[5]" },
 ]
@@ -71,17 +71,17 @@ export function ManageSection() {
             </div>
 
             {/* Phone */}
-            <div className="absolute right-[-5px] sm:right-[-10px] bottom-[-5px] sm:bottom-[-20px] z-[3] w-[100px] sm:w-[200px]">
+            <div className="absolute right-[-1px] sm:right-[-10px] bottom-[-1px] sm:bottom-[-20px] z-[3] w-[108px] sm:w-[203px]">
               <div className="bg-neutral-900 rounded-[24px] sm:rounded-[28px] p-1.5 sm:p-2 shadow-lg">
                 <div className="rounded-[18px] sm:rounded-[22px] overflow-hidden bg-neutral-100 aspect-[9/19.5] relative">
                   <img
-                    src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20design%20(22).webp"
+                    src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20design%20(23).webp"
                     alt="Storelib Mobile"
                     className="w-full h-full object-cover object-center pointer-events-none select-none"
                     loading="lazy"
                     decoding="async"
                     fetchPriority="low"
-                    sizes="(max-width: 640px) 100px, 200px"
+                    sizes="(max-width: 640px) 108px, 203px"
                     draggable={false}
                     onContextMenu={(e) => e.preventDefault()}
                   />
