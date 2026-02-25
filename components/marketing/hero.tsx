@@ -58,7 +58,7 @@ const PARTNER_LOGOS = [
 // Desktop center card is ~280px wide → serve 400px (2x retina cushion).
 // Side cards are ~200–240px → 320px suffices. We use a single set at 400px
 // (the browser picks from srcset via sizes) to keep the code simple.
-// quality=65 is a sweet spot for WebP (visually lossless at card size).
+// quality=78/88 for crisp WebP at card size (30% bump from previous 60/68).
 const IMG_BASE = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags"
 const IMG_NAMES = [
   "Monetize%20(5)%20(2).webp",
@@ -68,9 +68,9 @@ const IMG_NAMES = [
   "Monetize%20(9).webp",
 ]
 // Small (mobile / side cards): 320px wide
-const IMAGES_SM = IMG_NAMES.map(n => `${IMG_BASE}/${n}?width=320&height=400&resize=cover&quality=60`)
+const IMAGES_SM = IMG_NAMES.map(n => `${IMG_BASE}/${n}?width=320&height=400&resize=cover&quality=78`)
 // Large (desktop center): 560px wide
-const IMAGES_LG = IMG_NAMES.map(n => `${IMG_BASE}/${n}?width=560&height=700&resize=cover&quality=68`)
+const IMAGES_LG = IMG_NAMES.map(n => `${IMG_BASE}/${n}?width=560&height=700&resize=cover&quality=88`)
 // Default src uses the small variant
 const IMAGES = IMAGES_SM
 
