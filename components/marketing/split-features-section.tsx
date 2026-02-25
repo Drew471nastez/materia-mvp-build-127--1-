@@ -42,7 +42,7 @@ export function SplitFeaturesSection() {
   }, [])
 
   return (
-    <section className="py-20 sm:py-28 bg-white">
+    <section className="py-20 sm:py-28 bg-white overflow-visible">
       <div className="max-w-[1200px] mx-auto px-3 sm:px-6">
         <div className="flex flex-col gap-20 sm:gap-28">
           {FEATURES.map((feature) => (
@@ -52,8 +52,8 @@ export function SplitFeaturesSection() {
                   feature.imageLeft ? "" : "md:flex-row-reverse"
                 }`}
               >
-                {/* Image panel — full width, 16:9, image fills completely */}
-                <div className="w-full md:w-[65%]">
+                {/* Image panel — full width, 16:9, shifted 15% outward */}
+                <div className={`w-full md:w-[55%] ${feature.imageLeft ? "md:-ml-[15%]" : "md:-mr-[15%]"}`}>
                   <Image
                     src={feature.src}
                     alt={feature.title}
@@ -69,7 +69,7 @@ export function SplitFeaturesSection() {
                 </div>
 
                 {/* Text */}
-                <div className="w-full md:w-[35%] flex flex-col items-start">
+                <div className="w-full md:w-[40%] flex flex-col items-start">
                   <h3 className="text-[30px] sm:text-[38px] md:text-[46px] font-bold tracking-tight leading-[1.1] mb-4 text-neutral-900">
                     {feature.title}
                   </h3>
