@@ -8,6 +8,7 @@ import { StatsBar } from "@/components/marketing/stats-bar"
 // Below-the-fold sections — dynamically imported to reduce initial JS bundle.
 // Hero + BentoGrid + StatsBar load eagerly (above the fold).
 const ManageSection = dynamic(() => import("@/components/marketing/manage-section").then(m => ({ default: m.ManageSection })))
+const SplitFeaturesSection = dynamic(() => import("@/components/marketing/split-features-section").then(m => ({ default: m.SplitFeaturesSection })))
 const FeaturesGrid = dynamic(() => import("@/components/marketing/features-grid").then(m => ({ default: m.FeaturesGrid })))
 const CarouselSection = dynamic(() => import("@/components/marketing/carousel-section").then(m => ({ default: m.CarouselSection })))
 const ComparisonSection = dynamic(() => import("@/components/marketing/comparison-section").then(m => ({ default: m.ComparisonSection })))
@@ -29,6 +30,9 @@ export default function StorelibLanding() {
 
       {/* MANAGE YOUR BUSINESS */}
       <ManageSection />
+
+      {/* SPLIT FEATURE ROWS */}
+      <SplitFeaturesSection />
 
       {/* FEATURES GRID */}
       <FeaturesGrid />
