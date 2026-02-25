@@ -4,14 +4,13 @@ import { useEffect } from "react"
 import Image from "next/image"
 import { AnimateOnScroll } from "./bento-grid"
 
-// Supabase render API — width=1320 at quality=92, no resize/height constraint so
-// the image is served at its TRUE aspect ratio (portrait phone mockups stay portrait).
+// Supabase render API — 1200×781 panel, images served at width=1200 quality=92.
 const FEATURES = [
   {
     title: "Build Your One Page",
     description:
       "Create a single page for coaching, digital products, courses, music, links, and more.",
-    src: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Visits%20(1).webp?width=1320&quality=92",
+    src: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Visits%20(1).webp?width=1200&quality=92",
     imageLeft: true,
     panelBg: "bg-violet-50",
   },
@@ -19,7 +18,7 @@ const FEATURES = [
     title: "Build Your Online Store",
     description:
       "Customize your store with drag-and-drop sections, products, and branding.",
-    src: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Visits%20(3).webp?width=1320&quality=92",
+    src: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Visits%20(3).webp?width=1200&quality=92",
     imageLeft: false,
     panelBg: "bg-stone-50",
   },
@@ -27,7 +26,7 @@ const FEATURES = [
     title: "Know what makes you money",
     description:
       "Track revenue, analytics, payouts, and get paid to your bank account.",
-    src: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Visits%20(2).webp?width=1320&quality=92",
+    src: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Visits%20(2).webp?width=1200&quality=92",
     imageLeft: true,
     panelBg: "bg-violet-50",
   },
@@ -56,17 +55,16 @@ export function SplitFeaturesSection() {
                   feature.imageLeft ? "" : "md:flex-row-reverse"
                 }`}
               >
-                {/* Image panel — no fixed aspect ratio, height driven by image's natural ratio.
-                    width=0/height=0 + style is the Next/Image pattern for responsive
-                    natural-size images (w-full h-auto). No fill, no object-cover = no crop. */}
-                <div className={`w-full md:w-[55%] rounded-3xl overflow-hidden ${feature.panelBg}`}>
+                {/* Image panel — 1200×781 ratio, object-contain shows full image with no cropping */}
+                <div
+                  className={`w-full md:w-[55%] rounded-3xl overflow-hidden relative aspect-[1200/781] ${feature.panelBg}`}
+                >
                   <Image
                     src={feature.src}
                     alt={feature.title}
-                    width={0}
-                    height={0}
+                    fill
                     sizes="(max-width: 768px) 95vw, 660px"
-                    style={{ width: "100%", height: "auto", display: "block" }}
+                    className="object-contain"
                     loading="eager"
                     decoding="async"
                     quality={92}
