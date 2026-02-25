@@ -82,7 +82,7 @@ export function ManageSection() {
             </div>
 
             {/* Phone */}
-            <div className="absolute right-[5px] sm:right-[-10px] bottom-[5px] sm:bottom-[-20px] z-[3] w-[175px] sm:w-[224px]">
+            <div className="absolute right-[5px] sm:right-[-10px] bottom-[5px] sm:bottom-[-20px] z-[3] w-[140px] sm:w-[224px]">
               <img
                 src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20design%20(34).webp"
                 alt="Storelib Mobile"
