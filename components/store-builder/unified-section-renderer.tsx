@@ -2883,15 +2883,18 @@ export function UnifiedShopHeader({
           </h1>
 
 
-          {(settings.showCategory ?? settings.showNicheTags) && creator?.niche_tags && creator.niche_tags.length > 0 && (
-            <div className={cn("flex flex-wrap justify-center gap-2", isMobile ? "mt-3" : "mt-4")}>
-              {creator.niche_tags.map((tag) => (
-                <Badge key={tag} variant="secondary" className={isMobile ? "text-xs" : ""}>
-                  {tag}
-                </Badge>
-              ))}
-            </div>
-          )}
+          {(settings.showCategory ?? settings.showNicheTags) && (() => {
+            const nicheTags = (globalSettings?.storeNicheTags !== undefined ? globalSettings.storeNicheTags : creator?.niche_tags) ?? []
+            return nicheTags.length > 0 ? (
+              <div className={cn("flex flex-wrap justify-center gap-2", isMobile ? "mt-3" : "mt-4")}>
+                {nicheTags.map((tag) => (
+                  <Badge key={tag} variant="secondary" className={isMobile ? "text-xs" : ""}>
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
+            ) : null
+          })()}
 
           {settings.showBio && (settings.bio || creator?.bio) && (
             <div className="relative group/bio inline-flex items-center justify-center">

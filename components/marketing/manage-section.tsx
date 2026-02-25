@@ -16,7 +16,7 @@ const OnePageIcon = () => (
 const FLOATING_ICONS = [
   { label: "OnePage", pos: "md:top-[-4px] top-[-16px] left-[5%]", delay: "0s", zClass: "z-[2]", isOnePage: true },
   { emoji: "📕", label: "Digital Products", pos: "md:top-[34%] md:left-[-4%] bottom-[50px] left-[4%]", delay: "0.5s", zClass: "z-[2]" },
-  { emoji: "🛍️", label: "Marketplace", pos: "md:top-[-4px] top-[-26px] right-[2%]", delay: "1s", zClass: "z-[5]" },
+  { emoji: "🛍️", label: "Marketplace", pos: "md:top-[-4px] top-[-36px] right-[2%]", delay: "1s", zClass: "z-[5]" },
   { emoji: "🎓", label: "Courses", pos: "bottom-[60px] left-0", delay: "1.5s", hideMobile: true, zClass: "z-[2]" },
   { emoji: "🔗", label: "Links", pos: "bottom-10 right-[-70px]", delay: "2s", hideMobile: true, zClass: "z-[5]" },
 ] as const
@@ -82,7 +82,7 @@ export function ManageSection() {
             </div>
 
             {/* Phone */}
-            <div className="absolute right-[5px] sm:right-[-10px] bottom-[5px] sm:bottom-[-20px] z-[3] w-[125px] sm:w-[224px]">
+            <div className="absolute right-[22%] sm:right-[-10px] bottom-[5px] sm:bottom-[-20px] z-[3] w-[155px] sm:w-[224px]">
               <div className="bg-neutral-900 rounded-[24px] sm:rounded-[28px] p-1.5 sm:p-2 shadow-lg">
                 <div className="rounded-[18px] sm:rounded-[22px] overflow-hidden bg-neutral-100 aspect-[9/19.5] relative">
                   <img
