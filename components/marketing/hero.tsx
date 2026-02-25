@@ -542,9 +542,9 @@ export function Hero() {
               <>
                 <div className="absolute left-1/2 -translate-x-1/2 -top-3.5 sm:-top-4">
                   <div className="flex items-center gap-2 bg-gray-100/95 backdrop-blur-sm text-gray-700 text-[10px] sm:text-[11px] font-medium px-3 sm:px-3.5 py-1.5 rounded-full whitespace-nowrap shadow-sm border border-gray-200/50">
-                    <span className="w-4 h-4 sm:w-[18px] sm:h-[18px] rounded-[6px] bg-violet-600 inline-flex items-center justify-center shadow-sm">
+                    <span className="w-4 h-4 sm:w-[18px] sm:h-[18px] rounded-full bg-gray-200 inline-flex items-center justify-center">
                       <svg viewBox="0 0 16 16" fill="none" className="w-[9px] h-[9px] sm:w-[10px] sm:h-[10px]">
-                        <path d="M8.5 1L3 9.5h4.5L7 15l6-8.5H8.5L9 1h-.5z" fill="white" stroke="white" strokeWidth="0.5" strokeLinejoin="round" />
+                        <path d="M8.5 1L3 9.5h4.5L7 15l6-8.5H8.5L9 1h-.5z" fill="#7c3aed" stroke="#7c3aed" strokeWidth="0.5" strokeLinejoin="round" />
                       </svg>
                     </span>
                     All-in-one
