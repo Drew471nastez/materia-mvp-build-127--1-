@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe } from "@/lib/stripe";
 import { PayoutsClient } from "./payouts-client";
 import { AnnouncementBarMobile } from "@/components/app/announcement-bar-mobile";
+import { getMarketExchangeRate } from "@/lib/exchange-rate";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -189,6 +190,15 @@ export default async function PayoutsPage() {
     const nativePending = Math.max(0, stripePendingBalance);
     if (nativePending > 0 && orderPendingUsd > 0) {
       stripeExchangeRate = nativePending / orderPendingUsd;
+    }
+  }
+
+  // Override with real market rate (ECB via Frankfurter — same source as Google).
+  // Stripe's internal rate includes a markup; we display at the actual market rate.
+  if (detectedCurrency !== "usd") {
+    const marketRate = await getMarketExchangeRate(detectedCurrency, stripeExchangeRate);
+    if (marketRate && marketRate > 0) {
+      stripeExchangeRate = marketRate;
     }
   }
 

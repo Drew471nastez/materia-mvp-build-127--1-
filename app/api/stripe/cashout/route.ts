@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
 import { sendPayoutCreatedEmail } from "@/lib/email"
+import { getMarketExchangeRate } from "@/lib/exchange-rate"
 
 /**
  * POST /api/stripe/cashout
@@ -96,17 +97,22 @@ export async function POST(request: Request) {
       }
 
       // Stripe has settled funds — sync the ledger so cashout can proceed.
-      // Convert native currency to USD if needed.
+      // Convert native currency to USD using the real ECB market rate.
       let syncAmountUsd = availableEntry.amount
 
       if (availableEntry.currency !== "usd") {
-        const balanceTx = await stripe.balanceTransactions.list(
-          { limit: 10 },
-          { stripeAccount: stripeAccountId },
-        )
-        const exchangeRate = (balanceTx.data as any[]).find(
-          (tx: any) => tx.exchange_rate,
-        )?.exchange_rate
+        // Try market rate first (ECB/Google rate), fall back to Stripe's rate
+        let exchangeRate: number | null = await getMarketExchangeRate(availableEntry.currency, null)
+
+        if (!exchangeRate || exchangeRate <= 0) {
+          const balanceTx = await stripe.balanceTransactions.list(
+            { limit: 10 },
+            { stripeAccount: stripeAccountId },
+          )
+          exchangeRate = (balanceTx.data as any[]).find(
+            (tx: any) => tx.exchange_rate,
+          )?.exchange_rate ?? null
+        }
 
         if (exchangeRate && exchangeRate > 0) {
           syncAmountUsd = Math.floor(availableEntry.amount / exchangeRate)

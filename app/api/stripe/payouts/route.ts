@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
+import { getMarketExchangeRate } from "@/lib/exchange-rate"
 
 export async function GET() {
   try {
@@ -104,6 +105,20 @@ export async function GET() {
 
       if (selected && selected[0] !== "usd" && selected[1].pending > 0 && orderPendingUsd > 0) {
         exchangeRate = selected[1].pending / orderPendingUsd
+      }
+    }
+
+    // Override Stripe's internal rate with the real ECB market rate (same as Google).
+    // Detect the account's native currency from the balance result.
+    if (accountResult && balanceResult) {
+      const nativeCurrency = (
+        (accountResult as any).default_currency ||
+        creator.default_currency ||
+        "usd"
+      ).toLowerCase()
+      if (nativeCurrency !== "usd") {
+        const marketRate = await getMarketExchangeRate(nativeCurrency, exchangeRate)
+        if (marketRate && marketRate > 0) exchangeRate = marketRate
       }
     }
 
