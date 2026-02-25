@@ -450,6 +450,7 @@ interface SectionsSidebarProps {
   creator?: {
     headline?: string | null
     bio?: string | null
+    niche_tags?: string[] | null
   }
 }
 
@@ -671,15 +672,49 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                   <Label htmlFor="store-bio">Bio</Label>
                   <Textarea
                     id="store-bio"
-                    value={globalSettings.storeBio ?? (creator?.bio || "")}
-                    onChange={(e) => updateGlobalSettings({ storeBio: e.target.value })}
-                    placeholder="Tell your audience about yourself..."
+                    value={(headerSettings as any)?.bio ?? (creator?.bio || "")}
+                    onChange={(e) => updateHeaderSettings({ bio: e.target.value })}
+                    placeholder="Enter your bio description..."
                     rows={3}
                     className="resize-none"
                   />
                   <p className="text-xs text-muted-foreground">
-                    Your bio description shown on your store
+                    Your bio description shown below your profile picture
                   </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Niche</Label>
+                  <p className="text-xs text-muted-foreground mb-1">
+                    Select up to 3 tags shown on your profile
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {["Design", "Development", "Marketing", "Business", "Photography", "Writing", "Music", "Fitness", "Finance", "Education"].map((tag) => {
+                      const currentTags: string[] = globalSettings.storeNicheTags ?? (creator as any)?.niche_tags ?? []
+                      const isSelected = currentTags.includes(tag)
+                      return (
+                        <button
+                          key={tag}
+                          type="button"
+                          className={cn(
+                            "px-2.5 py-1 rounded-full text-xs font-medium border transition-colors cursor-pointer",
+                            isSelected
+                              ? "bg-purple-600 text-white border-purple-600 hover:bg-purple-700"
+                              : "bg-white text-neutral-600 border-neutral-300 hover:border-purple-400 hover:text-purple-600"
+                          )}
+                          onClick={() => {
+                            const prev: string[] = globalSettings.storeNicheTags ?? (creator as any)?.niche_tags ?? []
+                            const next = prev.includes(tag)
+                              ? prev.filter((t) => t !== tag)
+                              : prev.length < 3 ? [...prev, tag] : prev
+                            updateGlobalSettings({ storeNicheTags: next })
+                          }}
+                        >
+                          {tag}
+                        </button>
+                      )
+                    })}
+                  </div>
                 </div>
               </>
             )}

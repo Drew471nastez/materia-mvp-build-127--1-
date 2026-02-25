@@ -1139,6 +1139,7 @@ export const defaultGlobalStoreSettings: GlobalStoreSettings = {
   storeName: "",
   storeTagline: "",
   storeBio: "",
+  storeNicheTags: [],
   seoTitle: "",
   seoDescription: "",
   socialImageUrl: "",

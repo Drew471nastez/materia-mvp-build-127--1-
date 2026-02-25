@@ -307,17 +307,17 @@ export async function POST(request: Request) {
     }
   }
 
-  // Sync store bio → creators.bio
-  if (config.globalSettings?.storeBio !== undefined) {
-    const { error: bioError } = await supabase
+  // Sync store niche tags → creators.niche_tags
+  if (config.globalSettings?.storeNicheTags !== undefined) {
+    const { error: nicheError } = await supabase
       .from("creators")
-      .update({ bio: config.globalSettings.storeBio })
+      .update({ niche_tags: config.globalSettings.storeNicheTags })
       .eq("user_id", user.id)
 
-    if (bioError) {
-      console.error("[v0] Error updating creator bio:", bioError)
+    if (nicheError) {
+      console.error("[v0] Error updating creator niche_tags:", nicheError)
     } else {
-      console.log("[v0] Creator bio synced")
+      console.log("[v0] Creator niche_tags synced")
     }
   }
 
@@ -509,15 +509,15 @@ export async function PUT(request: Request) {
       }
     }
 
-    // Sync store bio → creators.bio on publish
-    if (currentConfig.draft_config?.globalSettings?.storeBio !== undefined) {
-      const { error: bioError } = await supabase
+    // Sync store niche tags → creators.niche_tags on publish
+    if (currentConfig.draft_config?.globalSettings?.storeNicheTags !== undefined) {
+      const { error: nicheError } = await supabase
         .from("creators")
-        .update({ bio: currentConfig.draft_config.globalSettings.storeBio })
+        .update({ niche_tags: currentConfig.draft_config.globalSettings.storeNicheTags })
         .eq("user_id", user.id)
 
-      if (bioError) {
-        console.error("[v0] Error updating creator bio on publish:", bioError)
+      if (nicheError) {
+        console.error("[v0] Error updating creator niche_tags on publish:", nicheError)
       }
     }
 
@@ -589,15 +589,15 @@ export async function PUT(request: Request) {
     }
   }
 
-  // Sync store bio → creators.bio on publish
-  if (currentConfig.draft_config?.globalSettings?.storeBio !== undefined) {
-    const { error: bioError } = await supabase
+  // Sync store niche tags → creators.niche_tags on publish
+  if (currentConfig.draft_config?.globalSettings?.storeNicheTags !== undefined) {
+    const { error: nicheError } = await supabase
       .from("creators")
-      .update({ bio: currentConfig.draft_config.globalSettings.storeBio })
+      .update({ niche_tags: currentConfig.draft_config.globalSettings.storeNicheTags })
       .eq("user_id", user.id)
 
-    if (bioError) {
-      console.error("[v0] Error updating creator bio on publish:", bioError)
+    if (nicheError) {
+      console.error("[v0] Error updating creator niche_tags on publish:", nicheError)
     }
   }
 

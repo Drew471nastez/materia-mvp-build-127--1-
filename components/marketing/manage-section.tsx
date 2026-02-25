@@ -2,13 +2,24 @@
 
 import { AnimateOnScroll } from "./bento-grid"
 
+const OnePageIcon = () => (
+  <svg width="28" height="34" viewBox="0 0 28 34" fill="none" className="md:w-[32px] md:h-[39px]">
+    <rect x="1" y="1" width="26" height="32" rx="4" fill="white" stroke="#a78bfa" strokeWidth="1.5"/>
+    <circle cx="14" cy="10" r="4.5" fill="#c4b5fd"/>
+    <rect x="7" y="18" width="14" height="2" rx="1" fill="#a78bfa"/>
+    <rect x="9" y="22.5" width="10" height="1.5" rx="0.75" fill="#ddd6fe"/>
+    <rect x="9" y="26" width="10" height="1.5" rx="0.75" fill="#ddd6fe"/>
+    <rect x="9" y="29.5" width="10" height="1.5" rx="0.75" fill="#ddd6fe"/>
+  </svg>
+)
+
 const FLOATING_ICONS = [
-  { emoji: "🪪", label: "OnePage", pos: "md:top-[-4px] top-[-16px] left-[5%]", delay: "0s", zClass: "z-[2]" },
+  { label: "OnePage", pos: "md:top-[-4px] top-[-16px] left-[5%]", delay: "0s", zClass: "z-[2]", isOnePage: true },
   { emoji: "📕", label: "Digital Products", pos: "md:top-[34%] md:left-[-4%] bottom-[50px] left-[4%]", delay: "0.5s", zClass: "z-[2]" },
   { emoji: "🛍️", label: "Marketplace", pos: "md:top-[-4px] top-[-16px] right-[2%]", delay: "1s", zClass: "z-[5]" },
   { emoji: "🎓", label: "Courses", pos: "bottom-[60px] left-0", delay: "1.5s", hideMobile: true, zClass: "z-[2]" },
   { emoji: "🔗", label: "Links", pos: "bottom-10 right-[-70px]", delay: "2s", hideMobile: true, zClass: "z-[5]" },
-]
+] as const
 
 export function ManageSection() {
   return (
@@ -36,11 +47,11 @@ export function ManageSection() {
             {FLOATING_ICONS.map((icon) => (
               <div
                 key={icon.label}
-                className={`absolute flex-col items-center gap-2 ${icon.zClass} manage-float-anim ${icon.pos} ${icon.hideMobile ? "hidden md:flex" : "flex"}`}
+                className={`absolute flex-col items-center gap-2 ${icon.zClass} manage-float-anim ${icon.pos} ${"hideMobile" in icon && icon.hideMobile ? "hidden md:flex" : "flex"}`}
                 style={{ animationDelay: icon.delay }}
               >
                 <div className="w-16 h-16 md:w-[74px] md:h-[74px] rounded-full bg-violet-50 flex items-center justify-center text-[28px] md:text-[32px] shadow-md">
-                  {icon.emoji}
+                  {"isOnePage" in icon && icon.isOnePage ? <OnePageIcon /> : ("emoji" in icon ? icon.emoji : null)}
                 </div>
                 <span className="text-[11px] md:text-[12px] font-bold uppercase tracking-wider text-neutral-500">
                   {icon.label}
@@ -71,17 +82,17 @@ export function ManageSection() {
             </div>
 
             {/* Phone */}
-            <div className="absolute right-[-1px] sm:right-[-10px] bottom-[-1px] sm:bottom-[-20px] z-[3] w-[108px] sm:w-[203px]">
+            <div className="absolute right-[5px] sm:right-[-10px] bottom-[5px] sm:bottom-[-20px] z-[3] w-[119px] sm:w-[213px]">
               <div className="bg-neutral-900 rounded-[24px] sm:rounded-[28px] p-1.5 sm:p-2 shadow-lg">
                 <div className="rounded-[18px] sm:rounded-[22px] overflow-hidden bg-neutral-100 aspect-[9/19.5] relative">
                   <img
-                    src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20design%20(23).webp"
+                    src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20design%20(24).webp"
                     alt="Storelib Mobile"
                     className="w-full h-full object-cover object-center pointer-events-none select-none"
                     loading="lazy"
                     decoding="async"
                     fetchPriority="low"
-                    sizes="(max-width: 640px) 108px, 203px"
+                    sizes="(max-width: 640px) 119px, 213px"
                     draggable={false}
                     onContextMenu={(e) => e.preventDefault()}
                   />

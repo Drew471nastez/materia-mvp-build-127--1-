@@ -462,6 +462,7 @@ export interface GlobalStoreSettings {
   storeName: string
   storeTagline?: string
   storeBio?: string
+  storeNicheTags?: string[]
 
   // SEO
   seoTitle?: string
