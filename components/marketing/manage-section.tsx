@@ -23,10 +23,13 @@ const FLOATING_ICONS = [
 ] as const
 
 // Supabase image transform URLs — serve resized WebP to cut payload 70–80%
-const LAPTOP_IMG_SM = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Untitled%20design%20(20).webp?width=640&quality=72&resize=cover"
-const LAPTOP_IMG_LG = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Untitled%20design%20(20).webp?width=1050&quality=78&resize=cover"
-const PHONE_IMG_SM = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Untitled%20design%20(35).webp?width=280&quality=72&resize=contain"
-const PHONE_IMG_LG = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Untitled%20design%20(35).webp?width=448&quality=78&resize=contain"
+// Laptop: use 'contain' so the full dashboard is visible (cover was cropping it)
+// Higher quality (82/85) to preserve text legibility in the dashboard screenshot
+const LAPTOP_IMG_SM = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Untitled%20design%20(20).webp?width=800&quality=82&resize=contain"
+const LAPTOP_IMG_LG = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Untitled%20design%20(20).webp?width=1400&quality=85&resize=contain"
+// Phone: higher resolution + quality for crisp mobile mockup
+const PHONE_IMG_SM = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Untitled%20design%20(35).webp?width=400&quality=82&resize=contain"
+const PHONE_IMG_LG = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Untitled%20design%20(35).webp?width=560&quality=85&resize=contain"
 
 /** Lazy-loaded image that only fetches when near the viewport */
 function LazyManagedImage({
@@ -61,7 +64,7 @@ function LazyManagedImage({
     <div ref={ref} className="w-full h-full">
       {inView ? (
         <img
-          srcSet={`${srcSmall} 640w, ${srcLarge} 1050w`}
+          srcSet={`${srcSmall} 800w, ${srcLarge} 1400w`}
           sizes={sizes}
           src={srcSmall}
           alt={alt}
@@ -126,7 +129,7 @@ export function ManageSection() {
                     srcSmall={LAPTOP_IMG_SM}
                     srcLarge={LAPTOP_IMG_LG}
                     alt="Storelib Dashboard"
-                    className="w-full h-full object-cover pointer-events-none select-none"
+                    className="w-full h-full object-contain pointer-events-none select-none"
                     sizes="(max-width: 768px) 90vw, 700px"
                   />
                 </div>

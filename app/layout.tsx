@@ -14,37 +14,47 @@ const inter = Inter({
   preload: true,
 })
 
-// Secondary fonts — display swap prevents FOIT (flash of invisible text)
+// Secondary fonts — used only in OnePage theme system.
+// preload: false defers network requests until the font is actually referenced
+// in CSS, keeping initial page load fast. display: swap prevents FOIT.
 const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
   variable: "--font-plus-jakarta-sans",
   display: "swap",
+  preload: false,
 })
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
   variable: "--font-space-grotesk",
   display: "swap",
+  preload: false,
 })
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
+  weight: ["400", "500", "700"],
   variable: "--font-dm-sans",
   display: "swap",
+  preload: false,
 })
 
-// Poppins — only load weights actually used
 const poppins = Poppins({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
   variable: "--font-poppins",
   display: "swap",
+  preload: false,
 })
 
 const montserrat = Montserrat({
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
   variable: "--font-montserrat",
   display: "swap",
+  preload: false,
 })
 
 export const metadata: Metadata = {

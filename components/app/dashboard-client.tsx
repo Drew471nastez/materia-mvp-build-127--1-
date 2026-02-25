@@ -34,9 +34,25 @@ import {
   BarChart3,
   Globe,
 } from "lucide-react"
-import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-} from "recharts"
+import dynamic from "next/dynamic"
+
+// Lazy-load recharts — it's ~200KB gzipped and only used in the trend chart.
+// Dynamic import keeps it out of the initial JS bundle for faster dashboard load.
+const LazyAreaChart = dynamic(
+  () => import("recharts").then(m => {
+    const { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } = m
+    // Return a wrapper component that passes all recharts components via render prop
+    return {
+      default: ({ data, children }: { data: any[]; children: (components: {
+        AreaChart: typeof AreaChart; Area: typeof Area; XAxis: typeof XAxis;
+        YAxis: typeof YAxis; CartesianGrid: typeof CartesianGrid;
+        Tooltip: typeof Tooltip; ResponsiveContainer: typeof ResponsiveContainer;
+      }) => ReactNode }) =>
+        <>{children({ AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer })}</>,
+    }
+  }),
+  { ssr: false, loading: () => <div className="w-full h-[200px] bg-neutral-50 animate-pulse rounded-xl" /> },
+)
 import { createClient } from "@/lib/supabase/client"
 import { useLanguage } from "@/lib/i18n"
 import { getLinksUrl, getStoreUrl } from "@/lib/url-helpers"
@@ -1836,63 +1852,67 @@ export function DashboardClient({
                 </div>
               ) : (
                 <div className={`transition-opacity duration-500 ease-out ${isChartLoading ? "opacity-40" : "opacity-100"}`}>
-                  <ResponsiveContainer width="100%" height={200}>
-                    <AreaChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="kpiGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.15} />
-                          <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-                      <XAxis
-                        dataKey="label"
-                        tick={{ fontSize: 11, fill: "#9ca3af" }}
-                        tickLine={false}
-                        axisLine={false}
-                        interval="preserveStartEnd"
-                      />
-                      <YAxis
-                        tick={{ fontSize: 11, fill: "#9ca3af" }}
-                        tickLine={false}
-                        axisLine={false}
-                        domain={[0, "auto"]}
-                        width={40}
-                        tickFormatter={(v: number) => openKPIModal === "revenue" ? `$${v >= 1000 ? `${(v/1000).toFixed(1)}k` : v.toFixed(0)}` : openKPIModal === "conversion" ? `${v}%` : v >= 1000 ? `${(v/1000).toFixed(1)}k` : String(v)}
-                      />
-                      <Tooltip
-                        cursor={{ stroke: "#e5e7eb", strokeWidth: 1 }}
-                        content={({ active, payload, label }) => {
-                          if (!active || !payload?.length) return null
-                          const point = payload[0]?.payload as ChartDataPoint
-                          const val = point?.value ?? 0
-                          const displayVal = openKPIModal === "revenue" ? `$${val.toFixed(2)}` : openKPIModal === "conversion" ? `${val}%` : val.toLocaleString()
-                          const metricLabel = openKPIModal === "views" ? t("dashboard.views") : openKPIModal === "orders" ? t("dashboard.orders") : openKPIModal === "revenue" ? t("dashboard.revenue") : t("dashboard.conversionRate")
-                          return (
-                            <div style={{ background: "#1a1a2e", border: "none", borderRadius: "8px", fontSize: "12px", color: "#fff", padding: "8px 12px" }}>
-                              <p style={{ fontSize: "11px", color: "#9ca3af", marginBottom: "2px" }}>{label}</p>
-                              <p style={{ fontWeight: 500 }}>{metricLabel}: {displayVal}</p>
-                              {openKPIModal === "orders" && point?.refunds != null && point.refunds > 0 && (
-                                <p style={{ fontSize: "10px", color: "#f59e0b", marginTop: "2px" }}>{point.refunds} refunded</p>
-                              )}
-                            </div>
-                          )
-                        }}
-                      />
-                      <Area
-                        type="monotone"
-                        dataKey="value"
-                        stroke="#8b5cf6"
-                        strokeWidth={2}
-                        fill="url(#kpiGrad)"
-                        dot={false}
-                        activeDot={{ r: 4, fill: "#8b5cf6", strokeWidth: 0 }}
-                        animationDuration={800}
-                        animationEasing="ease-in-out"
-                        animationBegin={0}
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
+                  <LazyAreaChart data={chartData}>
+                    {({ AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer }) => (
+                      <ResponsiveContainer width="100%" height={200}>
+                        <AreaChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                          <defs>
+                            <linearGradient id="kpiGrad" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.15} />
+                              <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+                          <XAxis
+                            dataKey="label"
+                            tick={{ fontSize: 11, fill: "#9ca3af" }}
+                            tickLine={false}
+                            axisLine={false}
+                            interval="preserveStartEnd"
+                          />
+                          <YAxis
+                            tick={{ fontSize: 11, fill: "#9ca3af" }}
+                            tickLine={false}
+                            axisLine={false}
+                            domain={[0, "auto"]}
+                            width={40}
+                            tickFormatter={(v: number) => openKPIModal === "revenue" ? `$${v >= 1000 ? `${(v/1000).toFixed(1)}k` : v.toFixed(0)}` : openKPIModal === "conversion" ? `${v}%` : v >= 1000 ? `${(v/1000).toFixed(1)}k` : String(v)}
+                          />
+                          <Tooltip
+                            cursor={{ stroke: "#e5e7eb", strokeWidth: 1 }}
+                            content={({ active, payload, label }) => {
+                              if (!active || !payload?.length) return null
+                              const point = payload[0]?.payload as ChartDataPoint
+                              const val = point?.value ?? 0
+                              const displayVal = openKPIModal === "revenue" ? `$${val.toFixed(2)}` : openKPIModal === "conversion" ? `${val}%` : val.toLocaleString()
+                              const metricLabel = openKPIModal === "views" ? t("dashboard.views") : openKPIModal === "orders" ? t("dashboard.orders") : openKPIModal === "revenue" ? t("dashboard.revenue") : t("dashboard.conversionRate")
+                              return (
+                                <div style={{ background: "#1a1a2e", border: "none", borderRadius: "8px", fontSize: "12px", color: "#fff", padding: "8px 12px" }}>
+                                  <p style={{ fontSize: "11px", color: "#9ca3af", marginBottom: "2px" }}>{label}</p>
+                                  <p style={{ fontWeight: 500 }}>{metricLabel}: {displayVal}</p>
+                                  {openKPIModal === "orders" && point?.refunds != null && point.refunds > 0 && (
+                                    <p style={{ fontSize: "10px", color: "#f59e0b", marginTop: "2px" }}>{point.refunds} refunded</p>
+                                  )}
+                                </div>
+                              )
+                            }}
+                          />
+                          <Area
+                            type="monotone"
+                            dataKey="value"
+                            stroke="#8b5cf6"
+                            strokeWidth={2}
+                            fill="url(#kpiGrad)"
+                            dot={false}
+                            activeDot={{ r: 4, fill: "#8b5cf6", strokeWidth: 0 }}
+                            animationDuration={800}
+                            animationEasing="ease-in-out"
+                            animationBegin={0}
+                          />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    )}
+                  </LazyAreaChart>
                 </div>
               )}
             </div>

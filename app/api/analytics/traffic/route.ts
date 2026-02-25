@@ -64,11 +64,7 @@ export async function GET(request: NextRequest) {
       productIds = [productId]
     }
 
-    /**
-     * Views:
-     * - source_category is authoritative (written in /api/track-view)
-     * - visitor_id is our best identity for unique views
-     */
+    // Fire views + orders queries in parallel — they are independent
     let viewsQuery = supabase
       .from("analytics_events")
       .select("source_category, session_id, visitor_id, product_id, created_at")
@@ -81,15 +77,6 @@ export async function GET(request: NextRequest) {
       viewsQuery = viewsQuery.eq("product_id", productId)
     }
 
-    const { data: viewEventsRaw, error: viewError } = await viewsQuery
-    if (viewError) console.error("[v0] Analytics traffic - views error:", viewError)
-
-    const viewEvents: ViewEvent[] = (viewEventsRaw as any[]) || []
-
-    /**
-     * Orders:
-     * - attribute to latest prior view within 1 hour
-     */
     let ordersQuery = supabase
       .from("orders")
       .select("id, created_at")
@@ -100,9 +87,15 @@ export async function GET(request: NextRequest) {
     if (productIds.length > 0) ordersQuery = ordersQuery.in("product_id", productIds)
     else ordersQuery = ordersQuery.in("product_id", ["__none__"])
 
-    const { data: ordersRaw, error: ordersError } = await ordersQuery
+    const [
+      { data: viewEventsRaw, error: viewError },
+      { data: ordersRaw, error: ordersError },
+    ] = await Promise.all([viewsQuery, ordersQuery])
+
+    if (viewError) console.error("[v0] Analytics traffic - views error:", viewError)
     if (ordersError) console.error("[v0] Analytics traffic - orders error:", ordersError)
 
+    const viewEvents: ViewEvent[] = (viewEventsRaw as any[]) || []
     const orders: OrderRow[] = (ordersRaw as any[]) || []
 
     /**

@@ -1,4 +1,5 @@
 import { Metadata } from "next"
+import { Suspense } from "react"
 import { createClient } from "@/lib/supabase/server"
 import { ExplorePageClient } from "@/components/explore/explore-page-client"
 import { FeaturedCategoriesSection } from "@/components/explore/featured-categories-section"
@@ -70,13 +71,18 @@ export default async function ExplorePage({
   try {
     const supabase = await createClient()
 
-    // Fetch published products with optional category filtering
+    // Fetch published products — apply search filter server-side via ILIKE
+    // to avoid fetching 100 rows when only a few match the query
     let query = supabase
       .from("products")
       .select("id, title, slug, description, price_cents, compare_at_cents, thumbnail_url, type, category, creator_id, created_at, sales_count, reviews_count, reviews_average")
       .eq("status", "published")
       .order("created_at", { ascending: false })
       .limit(100)
+
+    if (searchQuery) {
+      query = query.or(`title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`)
+    }
 
     const { data: products, error: productsError } = await query
 
@@ -127,15 +133,8 @@ export default async function ExplorePage({
     console.error("[ExplorePage] Exception:", error?.message || error)
   }
 
-  // Server-side filtering by search query
-  const filteredProducts = searchQuery
-    ? productsWithCreators.filter((p) => {
-        if (!p) return false
-        const title = (p.title || "").toLowerCase()
-        const desc = (p.description || "").toLowerCase()
-        return title.includes(searchQuery) || desc.includes(searchQuery)
-      })
-    : productsWithCreators
+  // Search filtering is now done server-side via ILIKE in the Supabase query
+  const filteredProducts = productsWithCreators
 
   return (
     <main className="min-h-screen bg-white">
@@ -153,11 +152,14 @@ export default async function ExplorePage({
           searchQuery={searchQuery}
         />
 
-        {/* Featured Categories Section - Etsy-like design */}
-        <FeaturedCategoriesSection products={productsWithCreators} />
+        {/* Below-the-fold sections wrapped in Suspense for streaming SSR */}
+        <Suspense fallback={null}>
+          <FeaturedCategoriesSection products={productsWithCreators} />
+        </Suspense>
 
-        {/* Most Popular Section - 3x3 on desktop, 2 per row on mobile */}
-        <MostPopularSection products={productsWithCreators} />
+        <Suspense fallback={null}>
+          <MostPopularSection products={productsWithCreators} />
+        </Suspense>
       </div>
     </main>
   )

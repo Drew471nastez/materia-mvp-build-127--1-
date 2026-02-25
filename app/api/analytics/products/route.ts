@@ -67,38 +67,33 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ topProducts: [] })
     }
 
-    /**
-     * Views: deduplicate by visitor_id (or session_id) + product_id
-     * Only count "view" event_type for product page opens
-     */
-    const { data: viewEventsRaw, error: viewError } = await supabase
-      .from("analytics_events")
-      .select("product_id, session_id, visitor_id, created_at")
-      .eq("creator_id", creator.id)
-      .eq("event_type", "view")
-      .in("product_id", targetProductIds)
-      .gte("created_at", startDate.toISOString())
-      .lte("created_at", endDate.toISOString())
+    // Fire views + orders queries in parallel — they are independent
+    const [
+      { data: viewEventsRaw, error: viewError },
+      { data: ordersRaw, error: ordersError },
+    ] = await Promise.all([
+      supabase
+        .from("analytics_events")
+        .select("product_id, session_id, visitor_id, created_at")
+        .eq("creator_id", creator.id)
+        .eq("event_type", "view")
+        .in("product_id", targetProductIds)
+        .gte("created_at", startDate.toISOString())
+        .lte("created_at", endDate.toISOString()),
+      supabase
+        .from("orders")
+        .select("id, product_id, amount_cents, created_at")
+        .eq("creator_id", creator.id)
+        .eq("status", "completed")
+        .in("product_id", targetProductIds)
+        .gte("created_at", startDate.toISOString())
+        .lte("created_at", endDate.toISOString()),
+    ])
 
     if (viewError) console.error("[v0] Analytics products - views error:", viewError)
-
-    const viewEvents: ViewEvent[] = (viewEventsRaw as any[]) || []
-
-    /**
-     * Orders: ONLY completed orders with product and amount
-     * Strictly filter by "completed" status only
-     */
-    const { data: ordersRaw, error: ordersError } = await supabase
-      .from("orders")
-      .select("id, product_id, amount_cents, created_at")
-      .eq("creator_id", creator.id)
-      .eq("status", "completed")
-      .in("product_id", targetProductIds)
-      .gte("created_at", startDate.toISOString())
-      .lte("created_at", endDate.toISOString())
-
     if (ordersError) console.error("[v0] Analytics products - orders error:", ordersError)
 
+    const viewEvents: ViewEvent[] = (viewEventsRaw as any[]) || []
     const orders: OrderRow[] = (ordersRaw as any[]) || []
 
     /**

@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Fetch view events
+    // Fire views + orders queries in parallel — they are independent
     let viewsQuery = supabase
       .from("analytics_events")
       .select("created_at")
@@ -57,13 +57,6 @@ export async function GET(request: NextRequest) {
       viewsQuery = viewsQuery.in("product_id", productIds)
     }
 
-    const { data: viewEvents, error: viewError } = await viewsQuery
-
-    if (viewError) {
-      console.error("[v0] Analytics trend - views error:", viewError)
-    }
-
-    // Fetch orders
     let ordersQuery = supabase
       .from("orders")
       .select("created_at, amount_cents")
@@ -77,11 +70,13 @@ export async function GET(request: NextRequest) {
       ordersQuery = ordersQuery.in("product_id", ["__none__"])
     }
 
-    const { data: orders, error: ordersError } = await ordersQuery
+    const [
+      { data: viewEvents, error: viewError },
+      { data: orders, error: ordersError },
+    ] = await Promise.all([viewsQuery, ordersQuery])
 
-    if (ordersError) {
-      console.error("[v0] Analytics trend - orders error:", ordersError)
-    }
+    if (viewError) console.error("[v0] Analytics trend - views error:", viewError)
+    if (ordersError) console.error("[v0] Analytics trend - orders error:", ordersError)
 
     // Bucket data by granularity
     const buckets = generateBuckets(startDate, endDate, granularity)

@@ -44,9 +44,10 @@ export async function GET(request: NextRequest) {
       })
     }
 
+    // Fire views + orders queries in parallel — they are independent
     let viewsQuery = supabase
       .from("analytics_events")
-      .select("id, country_code, country_name, session_id, product_id")
+      .select("country_code, country_name, session_id, product_id")
       .eq("creator_id", creator.id)
       .eq("event_type", "view")
       .gte("created_at", startDate.toISOString())
@@ -57,15 +58,9 @@ export async function GET(request: NextRequest) {
       viewsQuery = viewsQuery.eq("product_id", productId)
     }
 
-    const { data: viewEvents, error: viewError } = await viewsQuery
-
-    if (viewError) {
-      console.error("[v0] Analytics country - views error:", viewError)
-    }
-
     let ordersQuery = supabase
       .from("orders")
-      .select("id, amount_cents, buyer_country")
+      .select("amount_cents, buyer_country")
       .eq("status", "completed")
       .gte("created_at", startDate.toISOString())
       .lte("created_at", endDate.toISOString())
@@ -77,11 +72,13 @@ export async function GET(request: NextRequest) {
       ordersQuery = ordersQuery.in("product_id", ["__none__"])
     }
 
-    const { data: orders, error: ordersError } = await ordersQuery
+    const [
+      { data: viewEvents, error: viewError },
+      { data: orders, error: ordersError },
+    ] = await Promise.all([viewsQuery, ordersQuery])
 
-    if (ordersError) {
-      console.error("[v0] Analytics country - orders error:", ordersError)
-    }
+    if (viewError) console.error("[v0] Analytics country - views error:", viewError)
+    if (ordersError) console.error("[v0] Analytics country - orders error:", ordersError)
 
     const countryMap = new Map<
       string,

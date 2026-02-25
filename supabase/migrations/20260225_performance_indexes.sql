@@ -70,6 +70,22 @@ CREATE INDEX IF NOT EXISTS idx_onepages_slug
   ON public.onepages (slug)
   WHERE slug IS NOT NULL;
 
+-- ── analytics_events ──────────────────────────────────────────────────────
+-- (High-impact) Every analytics route filters by creator_id + event_type + date range.
+-- The composite index covers summary, traffic, device, country, products, and trend endpoints.
+
+CREATE INDEX IF NOT EXISTS idx_analytics_events_creator_type_created
+  ON public.analytics_events (creator_id, event_type, created_at DESC);
+
+-- Product-scoped analytics (per-product breakdowns)
+CREATE INDEX IF NOT EXISTS idx_analytics_events_creator_type_product
+  ON public.analytics_events (creator_id, event_type, product_id, created_at DESC);
+
+-- Orders filtered by status + product + date (used in all analytics routes)
+CREATE INDEX IF NOT EXISTS idx_orders_status_product_created
+  ON public.orders (status, product_id, created_at DESC)
+  WHERE status = 'completed';
+
 -- ── onepage_views ───────────────────────────────────────────────────────────
 
 -- Analytics: views per onepage, sorted by time

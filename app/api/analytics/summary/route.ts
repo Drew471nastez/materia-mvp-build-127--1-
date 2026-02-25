@@ -35,10 +35,10 @@ export async function GET(request: NextRequest) {
       productIds = [productId]
     }
 
-    // Get view events (include visitor_id for accurate dedupe)
+    // Fire views + orders queries in parallel — they are independent
     let viewsQuery = supabase
       .from("analytics_events")
-      .select("id, visitor_id, session_id, product_id, created_at")
+      .select("visitor_id, session_id, product_id")
       .eq("creator_id", creator.id)
       .eq("event_type", "view")
       .gte("created_at", startDate.toISOString())
@@ -48,20 +48,9 @@ export async function GET(request: NextRequest) {
       viewsQuery = viewsQuery.in("product_id", productIds)
     }
 
-    const { data: viewEvents } = await viewsQuery
-
-    // Unique views = (visitor_id or session fallback) + product/store
-    const uniqueViewKeys = new Set(
-      (viewEvents || [])
-        .map((e: any) => `${(e.visitor_id || e.session_id || "unknown")}__${e.product_id || "store"}`)
-        .filter(Boolean),
-    )
-    const totalViews = uniqueViewKeys.size || 0
-
-    // Get orders
     let ordersQuery = supabase
       .from("orders")
-      .select("amount_cents, fee_cents")
+      .select("amount_cents")
       .eq("status", "completed")
       .gte("created_at", startDate.toISOString())
       .lte("created_at", endDate.toISOString())
@@ -72,7 +61,15 @@ export async function GET(request: NextRequest) {
       ordersQuery = ordersQuery.in("product_id", ["__none__"])
     }
 
-    const { data: orders } = await ordersQuery
+    const [{ data: viewEvents }, { data: orders }] = await Promise.all([viewsQuery, ordersQuery])
+
+    // Unique views = (visitor_id or session fallback) + product/store
+    const uniqueViewKeys = new Set(
+      (viewEvents || [])
+        .map((e: any) => `${(e.visitor_id || e.session_id || "unknown")}__${e.product_id || "store"}`)
+        .filter(Boolean),
+    )
+    const totalViews = uniqueViewKeys.size || 0
 
     const totalOrders = orders?.length || 0
     const totalRevenue = orders?.reduce((sum, o) => sum + o.amount_cents, 0) || 0

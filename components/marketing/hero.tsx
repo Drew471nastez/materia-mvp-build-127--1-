@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
 import { ArrowRight } from "lucide-react"
-import { Skeleton } from "@/components/ui/skeleton"
 import { createClient } from "@/lib/supabase/client"
 
 const TYPING_PHRASES = [
@@ -441,6 +440,25 @@ export function Hero() {
           content-visibility: auto;
           contain-intrinsic-size: 280px 350px;
         }
+        @keyframes shimmer-gradient {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+        .collage-shimmer {
+          background: linear-gradient(
+            90deg,
+            #e5e5e5 0%,
+            #f0f0f0 25%,
+            #e8e8e8 50%,
+            #f0f0f0 75%,
+            #e5e5e5 100%
+          );
+          background-size: 200% 100%;
+          animation: shimmer-gradient 1.8s ease-in-out infinite;
+        }
+        .collage-shimmer-overlay {
+          transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
       `}} />
 
       <div className="relative w-full mb-7 sm:mb-[42px] lg:mb-[95px] animate-scale-fade-in">
@@ -490,21 +508,25 @@ export function Hero() {
                     transformOrigin: "0 0",
                   }}
                 >
-                  {!loadedImages.has(imageIdx) ? (
-                    <Skeleton className="w-full h-full" />
-                  ) : (
-                    <img
-                      srcSet={`${IMAGES_SM[imageIdx]} 320w, ${IMAGES_LG[imageIdx]} 560w`}
-                      sizes="(max-width: 640px) 260px, 280px"
-                      src={src}
-                      alt=""
-                      className="w-full h-full object-cover pointer-events-none"
-                      draggable={false}
-                      decoding="async"
-                      loading={imageIdx === cardOrder[2] ? "eager" : "lazy"}
-                      fetchPriority={imageIdx === cardOrder[2] ? "high" : "low"}
-                    />
-                  )}
+                  {/* Gradient shimmer overlay — sits on top of the image and
+                      fades out smoothly once the image finishes loading */}
+                  <div
+                    className="collage-shimmer collage-shimmer-overlay absolute inset-0 z-10 rounded-[14px]"
+                    style={{ opacity: loadedImages.has(imageIdx) ? 0 : 1, pointerEvents: "none" }}
+                  />
+                  <img
+                    srcSet={`${IMAGES_SM[imageIdx]} 320w, ${IMAGES_LG[imageIdx]} 560w`}
+                    sizes="(max-width: 640px) 260px, 280px"
+                    src={src}
+                    alt=""
+                    className="w-full h-full object-cover pointer-events-none transition-opacity duration-700 ease-out"
+                    style={{ opacity: loadedImages.has(imageIdx) ? 1 : 0 }}
+                    draggable={false}
+                    decoding="async"
+                    loading={imageIdx === cardOrder[2] ? "eager" : "lazy"}
+                    fetchPriority={imageIdx === cardOrder[2] ? "high" : "low"}
+                    onLoad={() => markImageLoaded(imageIdx)}
+                  />
                 </div>
               )
             })}
@@ -520,9 +542,9 @@ export function Hero() {
               <>
                 <div className="absolute left-1/2 -translate-x-1/2 -top-3.5 sm:-top-4">
                   <div className="flex items-center gap-2 bg-gray-100/95 backdrop-blur-sm text-gray-700 text-[10px] sm:text-[11px] font-medium px-3 sm:px-3.5 py-1.5 rounded-full whitespace-nowrap shadow-sm border border-gray-200/50">
-                    <span className="w-4 h-4 sm:w-[18px] sm:h-[18px] rounded-full bg-gray-200 inline-flex items-center justify-center">
-                      <svg viewBox="0 0 16 16" fill="none" className="w-[10px] h-[10px] sm:w-3 sm:h-3">
-                        <path d="M8.5 1L3 9.5h4.5L7 15l6-8.5H8.5L9 1h-.5z" fill="#7c3aed" />
+                    <span className="w-5 h-5 sm:w-[22px] sm:h-[22px] rounded-full bg-violet-600 inline-flex items-center justify-center shadow-sm">
+                      <svg viewBox="0 0 16 16" fill="none" className="w-[11px] h-[11px] sm:w-[13px] sm:h-[13px]">
+                        <path d="M8.5 1L3 9.5h4.5L7 15l6-8.5H8.5L9 1h-.5z" fill="white" stroke="white" strokeWidth="0.5" strokeLinejoin="round" />
                       </svg>
                     </span>
                     All-in-one
@@ -567,7 +589,7 @@ export function Hero() {
           {!logosLoaded ? (
             <div className="flex items-center justify-center gap-6 sm:gap-8 md:gap-10 py-2">
               {[...Array(5)].map((_, i) => (
-                <Skeleton key={i} className="h-[20px] sm:h-5 md:h-6 w-[69px] sm:w-[80px] md:w-[100px]" />
+                <div key={i} className="h-[20px] sm:h-5 md:h-6 w-[69px] sm:w-[80px] md:w-[100px] rounded bg-gray-200/60 animate-pulse" />
               ))}
             </div>
           ) : (
