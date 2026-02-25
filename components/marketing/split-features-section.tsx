@@ -60,7 +60,7 @@ export function SplitFeaturesSection() {
                     width={1200}
                     height={675}
                     sizes="(max-width: 768px) 90vw, 700px"
-                    className="w-full aspect-video object-cover rounded-2xl"
+                    className="w-full aspect-video object-contain rounded-2xl"
                     loading="eager"
                     decoding="async"
                     quality={92}
