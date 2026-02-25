@@ -62,7 +62,7 @@ export function SplitFeaturesSection() {
                       alt={feature.title}
                       fill
                       sizes="(max-width: 768px) 90vw, 700px"
-                      className="object-cover"
+                      className="object-contain"
                       loading="eager"
                       decoding="async"
                       quality={92}
