@@ -2744,19 +2744,17 @@ export function UnifiedShopHeader({
           className={cn("relative w-full overflow-hidden bg-gray-200 group", isMobile ? "h-32" : "h-48 sm:h-64")}
           onClick={!isPreviewMode ? onSelect : undefined}
         >
-          <Image
-            src={coverImageUrl || "/placeholder.svg"}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={coverImageUrl}
             alt={`${profile?.display_name || "Creator"} cover`}
-            fill
-            sizes="100vw"
-            className="object-cover"
+            className="absolute inset-0 w-full h-full object-cover"
             style={{
               objectPosition: settings.coverFocalPoint
                 ? `${settings.coverFocalPoint.x}% ${settings.coverFocalPoint.y}%`
                 : undefined,
               filter: `brightness(${settings.coverBrightness ?? 1.0})`,
             }}
-            priority
           />
 
           {settings.showSocialMedia && settings.socialLinks && (!isMobile || settings.showSocialIconsOnMobile) && (
