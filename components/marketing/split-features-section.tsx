@@ -52,24 +52,23 @@ export function SplitFeaturesSection() {
                   feature.imageLeft ? "" : "md:flex-row-reverse"
                 }`}
               >
-                {/* Image panel — 16:9 wide panel, object-contain shows the
-                    WHOLE image without any cropping. Colored bg fills gaps. */}
+                {/* Image panel — w-full + object-contain + h-auto, no fixed
+                    aspect ratio. Image displays at its exact natural ratio. */}
                 <div
                   className={`w-full md:w-[60%] rounded-3xl ${feature.panelBg} p-3 sm:p-5`}
                 >
-                  <div className="relative aspect-video w-full">
-                    <Image
-                      src={feature.src}
-                      alt={feature.title}
-                      fill
-                      sizes="(max-width: 768px) 90vw, 700px"
-                      className="object-contain"
-                      loading="eager"
-                      decoding="async"
-                      quality={92}
-                      unoptimized
-                    />
-                  </div>
+                  <Image
+                    src={feature.src}
+                    alt={feature.title}
+                    width={1200}
+                    height={781}
+                    sizes="(max-width: 768px) 90vw, 700px"
+                    className="w-full h-auto object-contain block"
+                    loading="eager"
+                    decoding="async"
+                    quality={92}
+                    unoptimized
+                  />
                 </div>
 
                 {/* Text */}
