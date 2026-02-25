@@ -217,11 +217,30 @@ export async function POST(request: NextRequest) {
       .replace(/\{\{my_name\}\}/g, senderName)
       .replace(/\{\{my_username\}\}/g, profile.username || "username")
 
+    // Generate plain text version from the body content
+    const plainTextBody = body
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/p>/gi, "\n\n")
+      .replace(/<\/div>/gi, "\n")
+      .replace(/<a[^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/gi, "$2 ($1)")
+      .replace(/<[^>]+>/g, "")
+      .replace(/&nbsp;/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/\n\s*\n\s*\n/g, "\n\n")
+      .trim()
+      .replace(/\{\{name\}\}/g, "Test Subscriber")
+      .replace(/\{\{email\}\}/g, test_email)
+      .replace(/\{\{my_name\}\}/g, senderName)
+      .replace(/\{\{my_username\}\}/g, profile.username || "username")
+
     const result = await sendEmail({
       from: `${senderName} <noreply@storelib.com>`,
       to: test_email,
       subject: `[TEST] ${personalizedSubject}`,
       html: personalizedHtml,
+      text: plainTextBody,
       replyTo: profile.email || undefined,
     })
 

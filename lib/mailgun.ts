@@ -51,6 +51,68 @@ export interface MailgunSendResult {
 }
 
 /**
+ * Strip HTML to plain text (used as fallback when no text version is provided)
+ */
+function htmlToPlainText(html: string): string {
+  return html
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n\n")
+    .replace(/<\/div>/gi, "\n")
+    .replace(/<\/tr>/gi, "\n")
+    .replace(/<\/h[1-6]>/gi, "\n\n")
+    .replace(/<\/li>/gi, "\n")
+    .replace(/<a[^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/gi, "$2 ($1)")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\n\s*\n\s*\n/g, "\n\n")
+    .trim()
+}
+
+/**
+ * Check Mailgun suppression list before sending
+ */
+async function isEmailSuppressed(email: string): Promise<boolean> {
+  if (!MAILGUN_API_KEY || !MAILGUN_DOMAIN) return false
+
+  const authString = Buffer.from(`api:${MAILGUN_API_KEY}`).toString("base64")
+
+  try {
+    // Check bounces
+    const bounceRes = await fetch(
+      `${MAILGUN_BASE_URL}/v3/${MAILGUN_DOMAIN}/bounces/${encodeURIComponent(email)}`,
+      { headers: { Authorization: `Basic ${authString}` } }
+    )
+    if (bounceRes.ok) {
+      console.warn("[mailgun] Email is on bounce suppression list:", email)
+      return true
+    }
+
+    // Check complaints
+    const complaintRes = await fetch(
+      `${MAILGUN_BASE_URL}/v3/${MAILGUN_DOMAIN}/complaints/${encodeURIComponent(email)}`,
+      { headers: { Authorization: `Basic ${authString}` } }
+    )
+    if (complaintRes.ok) {
+      console.warn("[mailgun] Email is on complaint suppression list:", email)
+      return true
+    }
+
+    return false
+  } catch (err) {
+    // Don't block sending on suppression check failure
+    console.warn("[mailgun] Suppression check failed (allowing send):", err)
+    return false
+  }
+}
+
+/**
  * Send an email via Mailgun HTTP API
  */
 export async function sendMailgunEmail(options: MailgunSendOptions): Promise<MailgunSendResult> {
@@ -59,6 +121,15 @@ export async function sendMailgunEmail(options: MailgunSendOptions): Promise<Mai
     return {
       success: false,
       error: "Email service not configured (Mailgun credentials missing)",
+    }
+  }
+
+  // Check suppression list before sending
+  const suppressed = await isEmailSuppressed(options.to)
+  if (suppressed) {
+    return {
+      success: false,
+      error: `Email suppressed: ${options.to} is on the bounce or complaint list`,
     }
   }
 
@@ -72,10 +143,9 @@ export async function sendMailgunEmail(options: MailgunSendOptions): Promise<Mai
   formData.append("subject", options.subject)
   formData.append("html", options.html)
 
-  // Add plain text version if provided
-  if (options.text) {
-    formData.append("text", options.text)
-  }
+  // Always include a plain text version (critical for spam prevention)
+  const textContent = options.text || htmlToPlainText(options.html)
+  formData.append("text", textContent)
 
   // Add Reply-To header
   formData.append("h:Reply-To", replyTo)
@@ -183,6 +253,11 @@ export function buildMailgunFromHeader(displayName?: string): string {
   const email = emailMatch ? emailMatch[1] : EMAIL_FROM
   return `${name} <${email}>`
 }
+
+/**
+ * Public suppression check export
+ */
+export { isEmailSuppressed }
 
 /**
  * Verify Mailgun configuration (basic check)

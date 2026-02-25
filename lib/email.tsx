@@ -156,7 +156,7 @@ export async function logEmailAttempt(admin: any, data: EmailLogData): Promise<s
         status: data.status,
         attempt: data.attempt,
         error_message: data.errorMessage || null,
-        provider: "ses",
+        provider: "mailgun",
       })
       .select("id")
       .single()
