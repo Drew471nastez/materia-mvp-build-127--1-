@@ -4,6 +4,7 @@ import type React from "react"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
+import { invalidateProductCache, invalidateExploreCache } from "@/hooks/use-cached-data"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -183,6 +184,10 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId, cre
       // (title may have changed, so always re-trigger to update zip filename/hash)
       triggerBundleIfNeeded(assets.length)
 
+      // Invalidate SWR caches so explore/product pages show fresh data
+      if (product.slug) invalidateProductCache(product.slug)
+      invalidateExploreCache()
+
       router.refresh()
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred")
@@ -200,6 +205,7 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId, cre
     if (error) {
       setError(error.message)
     } else {
+      invalidateExploreCache()
       router.push("/app/products")
     }
   }
@@ -226,6 +232,10 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId, cre
     if (newStatus === "published") {
       triggerBundleIfNeeded(assets.length)
     }
+
+    // Invalidate SWR caches on publish/unpublish
+    if (product.slug) invalidateProductCache(product.slug)
+    invalidateExploreCache()
 
     router.refresh()
   }

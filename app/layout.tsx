@@ -5,6 +5,8 @@ import "./globals.css"
 import { LocaleProvider } from "@/components/locale-provider"
 import { BodyScrollRestorer } from "@/components/body-scroll-restorer"
 import { CookieConsentBanner } from "@/components/cookie-consent-banner"
+import { SWRProvider } from "@/lib/swr-config"
+import { PrefetchLinks } from "@/components/shared/prefetch-links"
 
 // Primary font — loaded eagerly with display swap for fast text rendering
 const inter = Inter({
@@ -125,7 +127,8 @@ export default function RootLayout({
   return (
     <html lang="en" className="light" style={{ colorScheme: "light" }}>
       <body className={`${inter.variable} ${plusJakartaSans.variable} ${spaceGrotesk.variable} ${dmSans.variable} ${poppins.variable} ${montserrat.variable} font-sans antialiased bg-background text-foreground`}>
-        <LocaleProvider>{children}</LocaleProvider>
+        <SWRProvider><LocaleProvider>{children}</LocaleProvider></SWRProvider>
+        <PrefetchLinks />
         <BodyScrollRestorer />
         <CookieConsentBanner />
       </body>

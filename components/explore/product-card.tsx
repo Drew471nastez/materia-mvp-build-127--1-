@@ -1,5 +1,6 @@
 "use client"
 
+import { memo } from "react"
 import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
 import { getProductUrl, getStoreUrl } from "@/lib/url-helpers"
@@ -41,7 +42,7 @@ interface ProductCardProps {
   priority?: boolean
 }
 
-export function ProductCard({ product, srcParam = "", priority = false }: ProductCardProps) {
+export const ProductCard = memo(function ProductCard({ product, srcParam = "", priority = false }: ProductCardProps) {
   // Safety check - if product is null/undefined, don't render
   if (!product) return null
 
@@ -146,4 +147,4 @@ export function ProductCard({ product, srcParam = "", priority = false }: Produc
       </div>
     </div>
   )
-}
+})

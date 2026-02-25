@@ -23,9 +23,9 @@ const FLOATING_ICONS = [
 ] as const
 
 // Supabase image transform URLs — serve resized WebP to cut payload 70–80%
-// Laptop: use 'cover' + object-cover so the dashboard fills the 16:9 frame with zero white space
-const LAPTOP_IMG_SM = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Untitled%20design%20(20).webp?width=900&quality=90&resize=cover"
-const LAPTOP_IMG_LG = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Untitled%20design%20(20).webp?width=1500&quality=92&resize=cover"
+// Laptop: use 'contain' + object-contain so the full dashboard image is always visible
+const LAPTOP_IMG_SM = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Untitled%20design%20(20).webp?width=900&quality=90&resize=contain"
+const LAPTOP_IMG_LG = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Untitled%20design%20(20).webp?width=1500&quality=92&resize=contain"
 // Phone: max quality + higher resolution for crisp mobile mockup
 const PHONE_IMG_SM = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Untitled%20design%20(35).webp?width=500&quality=95&resize=contain"
 const PHONE_IMG_LG = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Untitled%20design%20(35).webp?width=700&quality=97&resize=contain"
@@ -120,15 +120,15 @@ export function ManageSection() {
               </div>
             ))}
 
-            {/* Laptop — contrast filter removed, resized via Supabase transforms */}
+            {/* Laptop — image displayed in full (object-contain) so no cropping occurs */}
             <div className="relative z-[1] max-w-[700px] mx-auto">
               <div className="bg-neutral-900 rounded-t-xl p-2">
-                <div className="rounded-t-md overflow-hidden bg-neutral-100 aspect-[16/9] relative">
+                <div className="rounded-t-md overflow-hidden bg-white aspect-[16/9] relative flex items-center justify-center">
                   <LazyManagedImage
                     srcSmall={LAPTOP_IMG_SM}
                     srcLarge={LAPTOP_IMG_LG}
                     alt="Storelib Dashboard"
-                    className="w-full h-full object-cover pointer-events-none select-none"
+                    className="w-full h-full object-contain pointer-events-none select-none"
                     sizes="(max-width: 768px) 90vw, 700px"
                   />
                 </div>
