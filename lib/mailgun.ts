@@ -76,6 +76,17 @@ function htmlToPlainText(html: string): string {
 }
 
 /**
+ * Validate email format (RFC 5322 simplified)
+ */
+export function isValidEmail(email: string): boolean {
+  if (!email || typeof email !== "string") return false
+  const trimmed = email.trim()
+  // Basic structural check: local@domain.tld, no spaces, single @
+  const re = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
+  return re.test(trimmed) && trimmed.length <= 254
+}
+
+/**
  * Check Mailgun suppression list before sending
  */
 async function isEmailSuppressed(email: string): Promise<boolean> {
@@ -121,6 +132,15 @@ export async function sendMailgunEmail(options: MailgunSendOptions): Promise<Mai
     return {
       success: false,
       error: "Email service not configured (Mailgun credentials missing)",
+    }
+  }
+
+  // Validate email format before sending
+  if (!isValidEmail(options.to)) {
+    console.warn("[mailgun] Invalid email format, skipping:", options.to)
+    return {
+      success: false,
+      error: `Invalid email format: ${options.to}`,
     }
   }
 
@@ -186,60 +206,79 @@ export async function sendMailgunEmail(options: MailgunSendOptions): Promise<Mai
     domain: MAILGUN_DOMAIN,
   })
 
-  try {
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${authString}`,
-      },
-      body: formData,
-    })
+  // Retry with backoff for 429 rate limit responses
+  const RATE_LIMIT_RETRIES = 3
+  const RATE_LIMIT_DELAYS = [2000, 5000, 10000] // 2s, 5s, 10s
 
-    const responseText = await response.text()
-    let responseData: any = {}
-
+  for (let attempt = 0; attempt <= RATE_LIMIT_RETRIES; attempt++) {
     try {
-      responseData = JSON.parse(responseText)
-    } catch {
-      responseData = { raw: responseText }
-    }
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${authString}`,
+        },
+        body: formData,
+      })
 
-    if (!response.ok) {
-      console.error("[mailgun] API error:", {
-        status: response.status,
-        statusText: response.statusText,
-        body: responseData,
+      const responseText = await response.text()
+      let responseData: any = {}
+
+      try {
+        responseData = JSON.parse(responseText)
+      } catch {
+        responseData = { raw: responseText }
+      }
+
+      // Handle 429 rate limit with retry
+      if (response.status === 429 && attempt < RATE_LIMIT_RETRIES) {
+        const delay = RATE_LIMIT_DELAYS[attempt]
+        console.warn(`[mailgun] Rate limited (429), retrying in ${delay}ms (attempt ${attempt + 1}/${RATE_LIMIT_RETRIES})`)
+        await new Promise((r) => setTimeout(r, delay))
+        continue
+      }
+
+      if (!response.ok) {
+        console.error("[mailgun] API error:", {
+          status: response.status,
+          statusText: response.statusText,
+          body: responseData,
+          to: options.to,
+          subject: options.subject,
+        })
+
+        return {
+          success: false,
+          error: responseData.message || `Mailgun API error: ${response.status} ${response.statusText}`,
+        }
+      }
+
+      console.log("[mailgun] Email sent successfully:", {
+        messageId: responseData.id,
+        to: options.to,
+        message: responseData.message,
+      })
+
+      return {
+        success: true,
+        messageId: responseData.id,
+      }
+    } catch (error: any) {
+      console.error("[mailgun] Request failed:", {
+        error: error.message || error,
         to: options.to,
         subject: options.subject,
       })
 
       return {
         success: false,
-        error: responseData.message || `Mailgun API error: ${response.status} ${response.statusText}`,
+        error: error.message || "Failed to send email via Mailgun",
       }
     }
+  }
 
-    console.log("[mailgun] Email sent successfully:", {
-      messageId: responseData.id,
-      to: options.to,
-      message: responseData.message,
-    })
-
-    return {
-      success: true,
-      messageId: responseData.id,
-    }
-  } catch (error: any) {
-    console.error("[mailgun] Request failed:", {
-      error: error.message || error,
-      to: options.to,
-      subject: options.subject,
-    })
-
-    return {
-      success: false,
-      error: error.message || "Failed to send email via Mailgun",
-    }
+  return {
+    success: false,
+    error: "Mailgun rate limit exceeded after retries",
   }
 }
 
