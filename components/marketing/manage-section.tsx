@@ -83,21 +83,17 @@ export function ManageSection() {
 
             {/* Phone */}
             <div className="absolute right-[5px] sm:right-[-10px] bottom-[5px] sm:bottom-[-20px] z-[3] w-[175px] sm:w-[224px]">
-              <div className="bg-neutral-900 rounded-[20px] sm:rounded-[28px] p-1.5 sm:p-2 shadow-lg">
-                <div className="rounded-[15px] sm:rounded-[22px] overflow-hidden bg-neutral-100 aspect-[9/13] sm:aspect-[9/19.5] relative">
-                  <img
-                    src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20design%20(25).webp"
-                    alt="Storelib Mobile"
-                    className="w-full h-full object-cover object-center pointer-events-none select-none"
-                    loading="lazy"
-                    decoding="async"
-                    fetchPriority="low"
-                    sizes="(max-width: 640px) 175px, 224px"
-                    draggable={false}
-                    onContextMenu={(e) => e.preventDefault()}
-                  />
-                </div>
-              </div>
+              <img
+                src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20design%20(28).png"
+                alt="Storelib Mobile"
+                className="w-full h-auto object-contain pointer-events-none select-none"
+                loading="lazy"
+                decoding="async"
+                fetchPriority="low"
+                sizes="(max-width: 640px) 175px, 224px"
+                draggable={false}
+                onContextMenu={(e) => e.preventDefault()}
+              />
             </div>
           </div>
         </AnimateOnScroll>
