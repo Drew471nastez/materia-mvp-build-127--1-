@@ -1,10 +1,10 @@
 "use client"
 
 import { useEffect } from "react"
-
+import Image from "next/image"
 import { AnimateOnScroll } from "./bento-grid"
 
-// Supabase render API — 1200×781 panel, images served at width=1200 quality=92.
+// Supabase render API — served at width=1200 quality=92.
 const FEATURES = [
   {
     title: "Build Your One Page",
@@ -33,9 +33,6 @@ const FEATURES = [
 ]
 
 export function SplitFeaturesSection() {
-  // Fire all 3 image requests immediately on mount so they're in cache
-  // before the user scrolls to them. Uses the same Supabase render URLs
-  // so the browser recognises the cached response when Next/Image requests them.
   useEffect(() => {
     FEATURES.forEach(({ src }) => {
       const img = new window.Image()
@@ -55,24 +52,28 @@ export function SplitFeaturesSection() {
                   feature.imageLeft ? "" : "md:flex-row-reverse"
                 }`}
               >
-                {/* Image panel — plain img with w-full h-auto guarantees the image
-                    displays at its EXACT natural aspect ratio. No fill, no forced
-                    aspect ratio, no object-fit = zero cropping possible. */}
+                {/* Image panel — 16:9 wide panel, object-contain shows the
+                    WHOLE image without any cropping. Colored bg fills gaps. */}
                 <div
-                  className={`w-full md:w-[55%] rounded-3xl ${feature.panelBg} p-4 sm:p-6 md:p-8`}
+                  className={`w-full md:w-[60%] rounded-3xl ${feature.panelBg} p-3 sm:p-5`}
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={feature.src}
-                    alt={feature.title}
-                    className="w-full h-auto block rounded-xl"
-                    loading="eager"
-                    decoding="async"
-                  />
+                  <div className="relative aspect-video w-full">
+                    <Image
+                      src={feature.src}
+                      alt={feature.title}
+                      fill
+                      sizes="(max-width: 768px) 90vw, 700px"
+                      className="object-contain"
+                      loading="eager"
+                      decoding="async"
+                      quality={92}
+                      unoptimized
+                    />
+                  </div>
                 </div>
 
                 {/* Text */}
-                <div className="w-full md:w-[45%] flex flex-col items-start">
+                <div className="w-full md:w-[40%] flex flex-col items-start">
                   <h3 className="text-[30px] sm:text-[38px] md:text-[46px] font-bold tracking-tight leading-[1.1] mb-4 text-neutral-900">
                     {feature.title}
                   </h3>
