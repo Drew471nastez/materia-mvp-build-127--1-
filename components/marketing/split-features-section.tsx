@@ -63,17 +63,16 @@ export function SplitFeaturesSection() {
                     className="w-full aspect-video object-contain rounded-2xl"
                     loading="eager"
                     decoding="async"
-                    quality={92}
-                    unoptimized
+                    quality={95}
                   />
                 </div>
 
                 {/* Text */}
-                <div className="w-full md:w-[35%] flex flex-col items-start">
+                <div className="w-full md:w-[35%] flex flex-col items-start px-6 md:px-0">
                   <h3 className="text-[30px] sm:text-[38px] md:text-[46px] font-bold tracking-tight leading-[1.1] mb-4 text-neutral-900">
                     {feature.title}
                   </h3>
-                  <p className="text-base sm:text-[17px] text-neutral-500 leading-relaxed max-w-[420px]">
+                  <p className="text-base sm:text-[17px] text-neutral-500 leading-relaxed max-w-[85%] md:max-w-[420px]">
                     {feature.description}
                   </p>
                 </div>
