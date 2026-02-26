@@ -4,13 +4,13 @@ import { useRef, useEffect, useState } from "react"
 import { AnimateOnScroll } from "./bento-grid"
 
 const STATS = [
-  { target: 10, prefix: "", suffix: "K+", label: "Creators signed up" },
-  { target: 2, prefix: "$", suffix: "M+", label: "Processed in sales" },
-  { target: 50, prefix: "", suffix: "K+", label: "Products sold" },
-  { target: 180, prefix: "", suffix: "+", label: "Countries reached" },
+  { target: 137, prefix: "", suffix: "+", label: "Creators signed up" },
+  { target: 4.3, prefix: "$", suffix: "K+", label: "Processed in sales", decimals: 1 },
+  { target: 412, prefix: "", suffix: "+", label: "Products sold" },
+  { target: 38, prefix: "", suffix: "", label: "Countries reached" },
 ]
 
-function CountUpNumber({ target, prefix, suffix }: { target: number; prefix: string; suffix: string }) {
+function CountUpNumber({ target, prefix, suffix, decimals = 0 }: { target: number; prefix: string; suffix: string; decimals?: number }) {
   const ref = useRef<HTMLHeadingElement>(null)
   const [count, setCount] = useState(0)
   const animatedRef = useRef(false)
@@ -43,8 +43,8 @@ function CountUpNumber({ target, prefix, suffix }: { target: number; prefix: str
   }, [target])
 
   const display = count >= target
-    ? `${prefix}${target}${suffix}`
-    : `${prefix}${Math.round(count)}${suffix}`
+    ? `${prefix}${decimals > 0 ? target.toFixed(decimals) : target}${suffix}`
+    : `${prefix}${decimals > 0 ? count.toFixed(decimals) : Math.round(count)}${suffix}`
 
   return (
     <h3
@@ -65,7 +65,7 @@ export function StatsBar() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 text-center">
             {STATS.map((s) => (
               <div key={s.label}>
-                <CountUpNumber target={s.target} prefix={s.prefix} suffix={s.suffix} />
+                <CountUpNumber target={s.target} prefix={s.prefix} suffix={s.suffix} decimals={"decimals" in s ? s.decimals : 0} />
                 <p className="text-sm text-neutral-500">{s.label}</p>
               </div>
             ))}

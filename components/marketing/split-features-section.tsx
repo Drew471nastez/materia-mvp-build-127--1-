@@ -12,7 +12,7 @@ const FEATURES = [
       "Create a single page for coaching, digital products, courses, music, links, and more.",
     src: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Visits%20(4).webp",
     imageLeft: true,
-    sectionBg: "bg-white",
+    sectionBg: "bg-gray-50",
   },
   {
     title: "Build Your Online Store",
@@ -20,7 +20,7 @@ const FEATURES = [
       "Customize your store with drag-and-drop sections, products, and branding.",
     src: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Visits%20(3).webp",
     imageLeft: false,
-    sectionBg: "bg-gray-50",
+    sectionBg: "bg-white",
   },
   {
     title: "Know what makes you money",
