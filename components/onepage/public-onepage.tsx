@@ -20,6 +20,7 @@ import type {
   FoodMenuBlockData,
   CalendlyBlockData,
 } from "@/lib/onepage/types"
+import { normalizeSocialUrl } from "@/lib/onepage/types"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useState, useRef, useEffect, useCallback, createContext, useContext } from "react"
@@ -3775,13 +3776,14 @@ function PublicBlockRenderer({
           {data.platforms.map(({ platform, url }) => {
             const Icon = SocialIconsSVG[platform]
             if (!Icon || !url) return null
+            const normalizedUrl = normalizeSocialUrl(platform, url)
             return (
               <a
                 key={platform} // Added key prop
-                href={url}
+                href={normalizedUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={() => trackClick(block.id, url)}
+                onClick={() => trackClick(block.id, normalizedUrl)}
                 className={cn(
                   "flex items-center justify-center transition-all",
                   !isInsideCarousel && "hover:scale-110",

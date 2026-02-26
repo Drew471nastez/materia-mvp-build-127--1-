@@ -19,6 +19,7 @@ import type {
   FoodMenuBlockData,
   CalendlyBlockData,
 } from "@/lib/onepage/types"
+import { normalizeSocialUrl } from "@/lib/onepage/types"
 import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Globe, Bell, X, Send, Check, Link2, ExternalLink, Calendar } from "lucide-react"
@@ -5160,7 +5161,7 @@ function BlockRenderer({ block, theme, profile, scale = "small", settings, isIns
             return (
               <a
                 key={`${platform.platform}-${idx}`}
-                href={platform.url}
+                href={normalizeSocialUrl(platform.platform, platform.url)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className={cn(

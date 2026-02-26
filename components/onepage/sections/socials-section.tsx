@@ -1,6 +1,7 @@
 "use client"
 
 import { useOnePage } from "@/lib/onepage/context"
+import { normalizeSocialUrl } from "@/lib/onepage/types"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Instagram, Youtube, Twitter, Globe, Music2, Mail } from "lucide-react"
@@ -41,6 +42,15 @@ export function SocialsSection() {
             <Input
               value={social_links[key] || ""}
               onChange={(e) => updateSocialLinks({ [key]: e.target.value || null })}
+              onBlur={(e) => {
+                const val = e.target.value
+                if (val) {
+                  const normalized = normalizeSocialUrl(key, val)
+                  if (normalized !== val) {
+                    updateSocialLinks({ [key]: normalized })
+                  }
+                }
+              }}
               placeholder={placeholder}
             />
           </div>
