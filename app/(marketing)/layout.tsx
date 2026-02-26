@@ -11,6 +11,10 @@ export default function MarketingLayout({
 }) {
   return (
     <div className="flex min-h-svh flex-col overflow-x-hidden">
+      {/* Preconnect to image CDN — saves ~200-400ms on first image request */}
+      <link rel="preconnect" href="https://skgtqglupjcnfhfscink.supabase.co" />
+      <link rel="dns-prefetch" href="https://skgtqglupjcnfhfscink.supabase.co" />
+      <link rel="preconnect" href="https://cdn.sanity.io" />
       <BodyScrollRestorer />
       <Suspense fallback={null}>
         <ConditionalHeader />

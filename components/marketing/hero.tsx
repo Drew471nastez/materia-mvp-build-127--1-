@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
-import { ArrowRight } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 
 const TYPING_PHRASES = [
@@ -217,35 +216,34 @@ export function Hero() {
     return () => window.removeEventListener("resize", update)
   }, [])
 
+  // Defer auth check — not needed for initial paint (CTA defaults to "Sign Up")
   useEffect(() => {
-    const supabase = createClient()
+    const timer = setTimeout(() => {
+      const supabase = createClient()
 
-    const syncAuthState = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      setIsAuthenticated(Boolean(user))
-      if (user) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("is_creator")
-          .eq("id", user.id)
-          .maybeSingle()
-        setIsCreator(profile?.is_creator ?? false)
+      const syncAuthState = async () => {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
+        setIsAuthenticated(Boolean(user))
+        if (user) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("is_creator")
+            .eq("id", user.id)
+            .maybeSingle()
+          setIsCreator(profile?.is_creator ?? false)
+        }
       }
-    }
 
-    syncAuthState()
+      syncAuthState()
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsAuthenticated(Boolean(session?.user))
-    })
+      supabase.auth.onAuthStateChange((_event, session) => {
+        setIsAuthenticated(Boolean(session?.user))
+      })
+    }, 100) // 100ms delay lets the main thread finish initial paint first
 
-    return () => {
-      subscription.unsubscribe()
-    }
+    return () => clearTimeout(timer)
   }, [])
 
   // Pause autoplay when hero is scrolled out of view to save CPU
@@ -574,7 +572,7 @@ export function Hero() {
           className="inline-flex items-center gap-2 px-6 sm:px-7 py-2.5 sm:py-3 rounded-full text-sm font-semibold bg-violet-600 text-white hover:bg-violet-700 transition-colors"
         >
           {isAuthenticated ? (isCreator ? "Dashboard" : "Library") : "Sign Up"}
-          <ArrowRight className="w-3.5 h-3.5" />
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
         </Link>
       </div>
 
