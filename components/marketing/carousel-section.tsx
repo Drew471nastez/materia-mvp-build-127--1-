@@ -96,7 +96,7 @@ export function CarouselSection() {
     if (autoplayRef.current) clearInterval(autoplayRef.current)
     autoplayRef.current = setInterval(() => {
       setCurrent((prev) => (prev + 1) % SLIDES.length)
-    }, 4000)
+    }, 5000)
   }, [])
 
   useEffect(() => {

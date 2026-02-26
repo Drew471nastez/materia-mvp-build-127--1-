@@ -87,7 +87,7 @@ export async function MarketingHeader() {
   }
 
   return (
-    <div className="relative z-40 w-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 pt-[env(safe-area-inset-top)]">
+    <div className="relative z-40 w-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 pt-[env(safe-area-inset-top)] shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
       {/* Main Header Row */}
       <header className="border-b border-border/40">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">

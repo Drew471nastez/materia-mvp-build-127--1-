@@ -56,7 +56,7 @@ function FaqItem({ faq, isOpen, onToggle }: { faq: typeof FAQS[number]; isOpen: 
             : "bg-white/70 border border-neutral-100 hover:bg-white hover:shadow-[0_1px_6px_rgba(0,0,0,0.04)] hover:border-neutral-200/60"
         }`}
       >
-        <span className={`text-[15px] sm:text-base font-medium pr-4 transition-colors duration-200 ${isOpen ? "text-neutral-900" : "text-neutral-600 group-hover:text-neutral-900"}`}>
+        <span className={`text-[15px] sm:text-base font-medium pr-4 transition-colors duration-200 ${isOpen ? "text-neutral-900" : "text-neutral-900 group-hover:text-neutral-900"}`}>
           {faq.q}
         </span>
         <span className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center transition-all duration-300 ${isOpen ? "bg-violet-100 border-violet-200" : "border border-neutral-200 group-hover:border-violet-200 group-hover:bg-violet-50"}`}>
@@ -76,7 +76,7 @@ function FaqItem({ faq, isOpen, onToggle }: { faq: typeof FAQS[number]; isOpen: 
         style={{ maxHeight: isOpen ? `${height}px` : "0px", opacity: isOpen ? 1 : 0 }}
       >
         <div ref={contentRef}>
-          <p className="px-5 sm:px-6 pt-1 pb-2 text-sm sm:text-[15px] text-neutral-500 leading-relaxed pr-10">
+          <p className="px-5 sm:px-6 pt-4 pb-3 text-sm sm:text-[15px] text-neutral-500 leading-relaxed pr-10">
             {faq.a}
           </p>
         </div>

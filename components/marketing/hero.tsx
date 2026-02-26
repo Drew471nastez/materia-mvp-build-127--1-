@@ -188,12 +188,12 @@ export function Hero() {
 
   // Column configs: alternating up/down, different speeds and offsets for organic feel
   const columnConfigs = [
-    { direction: "up" as const, duration: 25, offset: 30 },
-    { direction: "down" as const, duration: 30, offset: 60 },
-    { direction: "up" as const, duration: 28, offset: 10 },
-    { direction: "down" as const, duration: 26, offset: 50 },
-    { direction: "up" as const, duration: 32, offset: 20 },
-    { direction: "down" as const, duration: 27, offset: 40 },
+    { direction: "up" as const, duration: 30, offset: 30 },
+    { direction: "down" as const, duration: 36, offset: 60 },
+    { direction: "up" as const, duration: 34, offset: 10 },
+    { direction: "down" as const, duration: 31, offset: 50 },
+    { direction: "up" as const, duration: 38, offset: 20 },
+    { direction: "down" as const, duration: 33, offset: 40 },
   ]
 
   return (
@@ -227,7 +227,7 @@ export function Hero() {
       <div className="relative w-full mb-7 sm:mb-[42px] lg:mb-[95px] animate-scale-fade-in">
         <div className="relative w-full h-[330px] sm:h-[280px] md:h-[330px] lg:h-[380px] xl:h-[420px] overflow-hidden">
           {/* Scrolling gallery grid — behind the white modal */}
-          <div className="absolute inset-0 z-0 opacity-[0.55]">
+          <div className="absolute inset-0 z-0 opacity-[0.85]">
             <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2.5 h-[200%] px-2 sm:px-6 md:px-12 lg:px-20" style={{ marginTop: "-20%" }}>
               {COLS.slice(0, 4).map((col, i) => (
                 <GalleryColumn key={i} images={col} {...columnConfigs[i]} />
@@ -245,9 +245,9 @@ export function Hero() {
             {/* Gradient overlays — fade edges so grid blends with white bg */}
             <div className="absolute inset-0 pointer-events-none z-10">
               {/* Top fade */}
-              <div className="absolute top-0 left-0 right-0 h-[35%] bg-gradient-to-b from-white via-white/80 to-transparent" />
+              <div className="absolute top-0 left-0 right-0 h-[18%] bg-gradient-to-b from-white via-white/60 to-transparent" />
               {/* Bottom fade */}
-              <div className="absolute bottom-0 left-0 right-0 h-[35%] bg-gradient-to-t from-white via-white/80 to-transparent" />
+              <div className="absolute bottom-0 left-0 right-0 h-[22%] bg-gradient-to-t from-white via-white/60 to-transparent" />
               {/* Left fade */}
               <div className="absolute top-0 left-0 bottom-0 w-[15%] bg-gradient-to-r from-white to-transparent" />
               {/* Right fade */}

@@ -276,7 +276,7 @@ export function BentoGrid() {
                   src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(2969%20x%201600%20px)%20(2969%20x%201450%20px).webp"
                   alt="Digital products showcase"
                   className="w-[125%] sm:w-[110%] rounded-xl object-cover"
-                  loading="lazy"
+                  loading="eager"
                   decoding="async"
                   width={2969}
                   height={1450}
