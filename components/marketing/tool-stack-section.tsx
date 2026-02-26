@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useRef, useEffect } from "react"
 import { AnimateOnScroll } from "./bento-grid"
 
 /* ── SVG Icon Components ── */
@@ -63,7 +64,9 @@ function MarketplaceIcon() {
 
 /* ── Feature list data ── */
 
-const FEATURES: { icon: React.ReactNode; title: string; instead: string; price: string }[] = [
+type Feature = { icon: React.ReactNode; title: string; instead: string; price: string }
+
+const VISIBLE_FEATURES: Feature[] = [
   {
     icon: <LinktreeIcon />,
     title: "Link-in-bio",
@@ -94,6 +97,9 @@ const FEATURES: { icon: React.ReactNode; title: string; instead: string; price: 
     instead: "ConvertKit — $19/mo",
     price: "$19",
   },
+]
+
+const COLLAPSED_FEATURES: Feature[] = [
   {
     icon: "📊",
     title: "Sales analytics",
@@ -108,7 +114,30 @@ const FEATURES: { icon: React.ReactNode; title: string; instead: string; price: 
   },
 ]
 
+function FeatureRow({ f }: { f: Feature }) {
+  return (
+    <div className="flex items-center gap-3 sm:gap-4 py-4 sm:py-[18px]">
+      <span className="shrink-0 w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center bg-white border border-neutral-200 rounded-lg text-[20px] sm:text-[22px]">{f.icon}</span>
+      <div className="flex-1 min-w-0">
+        <p className="text-[15px] sm:text-base font-semibold text-neutral-900 leading-snug">{f.title}</p>
+        <p className="text-[12px] sm:text-[13px] text-neutral-400 leading-snug mt-0.5">Instead of: {f.instead}</p>
+      </div>
+      <span className="text-[15px] sm:text-base font-bold text-neutral-800 shrink-0 tabular-nums">{f.price}</span>
+    </div>
+  )
+}
+
 export function ToolStackSection() {
+  const [expanded, setExpanded] = useState(false)
+  const collapsibleRef = useRef<HTMLDivElement>(null)
+  const [collapsibleHeight, setCollapsibleHeight] = useState(0)
+
+  useEffect(() => {
+    if (collapsibleRef.current) {
+      setCollapsibleHeight(collapsibleRef.current.scrollHeight)
+    }
+  }, [])
+
   return (
     <section className="py-20 sm:py-28 bg-white">
       <div className="max-w-[1200px] mx-auto px-0 sm:px-6">
@@ -131,36 +160,50 @@ export function ToolStackSection() {
 
             {/* Inner white card with feature list */}
             <div className="max-w-[578px] mx-auto bg-white rounded-[20px] shadow-[0_2px_24px_rgba(0,0,0,0.06)] p-5 sm:p-7">
-              {/* Feature list */}
+              {/* Always-visible features */}
               <div className="flex flex-col">
-                {FEATURES.map((f, i) => (
+                {VISIBLE_FEATURES.map((f, i) => (
                   <div key={f.title}>
-                    <div className="flex items-center gap-3 sm:gap-4 py-4 sm:py-[18px]">
-                      {/* Icon */}
-                      <span className="shrink-0 w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center bg-white border border-neutral-200 rounded-lg text-[20px] sm:text-[22px]">{f.icon}</span>
-
-                      {/* Title + "Instead of" */}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[15px] sm:text-base font-semibold text-neutral-900 leading-snug">
-                          {f.title}
-                        </p>
-                        <p className="text-[12px] sm:text-[13px] text-neutral-400 leading-snug mt-0.5">
-                          Instead of: {f.instead}
-                        </p>
-                      </div>
-
-                      {/* Price */}
-                      <span className="text-[15px] sm:text-base font-bold text-neutral-800 shrink-0 tabular-nums">
-                        {f.price}
-                      </span>
-                    </div>
-
-                    {/* Row divider (except after last) */}
-                    {i < FEATURES.length - 1 && (
+                    <FeatureRow f={f} />
+                    {i < VISIBLE_FEATURES.length - 1 && (
                       <div className="h-px bg-neutral-100 ml-11 sm:ml-12" />
                     )}
                   </div>
                 ))}
+              </div>
+
+              {/* Collapsible features — smooth height animation */}
+              <div
+                className="overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]"
+                style={{ maxHeight: expanded ? `${collapsibleHeight}px` : "0px", opacity: expanded ? 1 : 0 }}
+              >
+                <div ref={collapsibleRef}>
+                  {COLLAPSED_FEATURES.map((f, i) => (
+                    <div key={f.title}>
+                      <div className="h-px bg-neutral-100 ml-11 sm:ml-12" />
+                      <FeatureRow f={f} />
+                      {i < COLLAPSED_FEATURES.length - 1 && (
+                        <div className="h-px bg-neutral-100 ml-11 sm:ml-12" />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Show all / Show less toggle */}
+              <div className="flex justify-center mt-1 mb-2">
+                <button
+                  onClick={() => setExpanded(!expanded)}
+                  className="text-[13px] font-semibold text-violet-600 hover:text-violet-700 transition-colors duration-200 flex items-center gap-1"
+                >
+                  {expanded ? "Show less" : "Show all"}
+                  <svg
+                    width="12" height="12" viewBox="0 0 12 12" fill="none"
+                    className={`transition-transform duration-300 ${expanded ? "rotate-180" : ""}`}
+                  >
+                    <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
               </div>
 
               {/* Full divider before totals */}

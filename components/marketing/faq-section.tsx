@@ -5,8 +5,12 @@ import { AnimateOnScroll } from "./bento-grid"
 
 const FAQS = [
   {
-    q: "Why not just use Gumroad or a marketplace?",
-    a: "Marketplaces take massive cuts — often 10-30% — and own your customer relationship. With Storelib, you get a real storefront, keep more revenue, and build a brand customers remember.",
+    q: "What is Storelib?",
+    a: "Storelib is an all-in-one e-commerce platform for creators & entrepreneurs. It allows you to sell digital products, build your link-in-bio page, set up an online store, create product pages, get featured on the marketplace for increased exposure to other buyers and creators, and grow an audience and boost your brand — without having to worry about technical stuff or using 6 different tools.",
+  },
+  {
+    q: "What can I sell on Storelib?",
+    a: "You can sell digital products (e-books, courses, templates, presets, music, software), offer services, showcase your portfolio, set up your link-in-bio, and more. If you create it, you can sell it on Storelib.",
   },
   {
     q: "What's the difference between Storelib and a link-in-bio tool?",
@@ -25,8 +29,8 @@ const FAQS = [
     a: "Start selling on Storelib alongside your current platform. Upload products, set up your store, redirect links when ready.",
   },
   {
-    q: "Is there a contract?",
-    a: "No. All plans are month-to-month. Upgrade, downgrade, or cancel whenever. No penalties, no lock-in.",
+    q: "Do I need any coding skills to set up my store?",
+    a: "No coding skills needed at all. Storelib uses drag-and-drop builders that make it super easy to set up your store, product pages, and OnePage. It's designed to be beginner-friendly — just pick a layout, add your content, and you're live in minutes.",
   },
 ]
 
