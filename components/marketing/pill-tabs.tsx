@@ -77,7 +77,7 @@ function StoreVisual() {
 
 function MarketplaceVisual() {
   const items = [
-    { title: "UI Kit Pro", by: "Sarah Chen", rating: "4.9", price: "$29", bg: "bg-gradient-to-br from-indigo-100 to-violet-100" },
+    { title: "UI Kit Pro", by: "Satori Studio", rating: "4.9", price: "$29", bg: "bg-gradient-to-br from-indigo-100 to-violet-100" },
     { title: "Photo Presets Pack", by: "Maya Kim", rating: "4.8", price: "$35", bg: "bg-gradient-to-br from-amber-50 to-amber-200" },
     { title: "Beat Kit Vol. 3", by: "Andrew M.", rating: "5.0", price: "$49", bg: "bg-gradient-to-br from-green-50 to-green-200" },
   ]

@@ -26,7 +26,7 @@ const FEATURES = [
     title: "Know what makes you money",
     description:
       "Track revenue, analytics, payouts, and get paid to your bank account.",
-    src: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Visits%20(6).webp",
+    src: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Visits%20(10)%20(1).webp",
     imageLeft: true,
     sectionBg: "bg-gray-50",
     reducedTopPadding: true,
@@ -34,12 +34,17 @@ const FEATURES = [
 ]
 
 export function SplitFeaturesSection() {
+  // Defer preloading to idle time so it doesn't block main thread
   useEffect(() => {
-    FEATURES.forEach(({ src }) => {
-      const img = new window.Image()
-      img.decoding = "async"
-      img.src = src
-    })
+    if ("requestIdleCallback" in window) {
+      (window as unknown as { requestIdleCallback: (cb: () => void) => void }).requestIdleCallback(() => {
+        FEATURES.forEach(({ src }) => {
+          const img = new window.Image()
+          img.decoding = "async"
+          img.src = src
+        })
+      })
+    }
   }, [])
 
   return (
@@ -66,13 +71,13 @@ export function SplitFeaturesSection() {
                   <Image
                     src={feature.src}
                     alt={feature.title}
-                    width={1200}
-                    height={675}
+                    width={800}
+                    height={450}
                     sizes="(max-width: 768px) 90vw, 700px"
                     className="w-full aspect-video object-contain rounded-2xl"
-                    loading="eager"
+                    loading="lazy"
                     decoding="async"
-                    quality={95}
+                    quality={65}
                   />
                 </div>
 

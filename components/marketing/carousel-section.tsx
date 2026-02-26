@@ -17,10 +17,11 @@ const SLIDES = [
     quote: "\"I switched from Gumroad and my conversions doubled in the first week. Having everything on one page — products, links, email capture — just works.\"",
   },
   {
-    name: "Sarah Chen",
+    name: "Satori Studio",
     role: "UX/UI Designer",
     bio: "UX/UI Designer · 42K followers",
     avatar: "linear-gradient(135deg,#7C5CFC,#a78bfa)",
+    phoneImage: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(40).webp",
     links: [
       { icon: "📚", label: "UI Design Masterclass — $49", bg: "bg-violet-50" },
       { icon: "🎨", label: "Icon Pack (200+) — $19", bg: "bg-amber-50" },
@@ -164,29 +165,44 @@ export function CarouselSection() {
                   className="flex-shrink-0 w-[calc(100vw-56px)] sm:w-[714px] grid grid-cols-[120px_1fr] sm:grid-cols-[216px_1fr] gap-3 sm:gap-8 items-center bg-neutral-50/60 border border-neutral-200/70 rounded-2xl sm:rounded-3xl p-4 sm:p-7 transition-all duration-300 hover:shadow-md"
                 >
                   {/* Phone mockup */}
-                  <div className="w-[120px] sm:w-[216px] mx-auto sm:mx-0 bg-neutral-900 rounded-[20px] sm:rounded-[28px] p-1.5 sm:p-2 shadow-lg">
-                    <div className="bg-white rounded-[14px] sm:rounded-[22px] overflow-hidden">
-                      <div className="w-10 sm:w-16 h-0.5 sm:h-1 bg-neutral-900 rounded mx-auto mt-1 sm:mt-1.5" />
-                      <div className="text-center px-2 sm:px-3.5 pt-2.5 sm:pt-4 pb-1.5 sm:pb-2.5 border-b border-neutral-100">
-                        <div className="w-[28px] h-[28px] sm:w-[46px] sm:h-[46px] rounded-full mx-auto mb-1 sm:mb-2" style={{ background: slide.avatar }} />
-                        <div className="text-[9px] sm:text-[13px] font-bold leading-tight">{slide.name}</div>
-                        <div className="text-[7px] sm:text-[10px] text-neutral-400 mt-0.5 hidden sm:block">{slide.bio}</div>
-                      </div>
-                      <div className="p-1.5 sm:p-3 flex flex-col gap-1 sm:gap-1.5">
-                        {slide.links.map((link) => (
-                          <div key={link.label} className="flex items-center gap-1 sm:gap-2 px-1.5 sm:px-2.5 py-1 sm:py-2 bg-neutral-50 rounded sm:rounded-lg text-[8px] sm:text-[11px] font-medium">
-                            <div className={`w-4 h-4 sm:w-6 sm:h-6 rounded sm:rounded-md flex items-center justify-center text-[8px] sm:text-xs shrink-0 ${link.bg}`}>
-                              {link.icon}
+                  {"phoneImage" in slide && slide.phoneImage ? (
+                    <div className="w-[120px] sm:w-[216px] mx-auto sm:mx-0">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={slide.phoneImage + "?width=432&quality=75"}
+                        alt={slide.name}
+                        width={216}
+                        height={432}
+                        className="w-full rounded-[20px] sm:rounded-[28px] shadow-lg object-cover"
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-[120px] sm:w-[216px] mx-auto sm:mx-0 bg-neutral-900 rounded-[20px] sm:rounded-[28px] p-1.5 sm:p-2 shadow-lg">
+                      <div className="bg-white rounded-[14px] sm:rounded-[22px] overflow-hidden">
+                        <div className="w-10 sm:w-16 h-0.5 sm:h-1 bg-neutral-900 rounded mx-auto mt-1 sm:mt-1.5" />
+                        <div className="text-center px-2 sm:px-3.5 pt-2.5 sm:pt-4 pb-1.5 sm:pb-2.5 border-b border-neutral-100">
+                          <div className="w-[28px] h-[28px] sm:w-[46px] sm:h-[46px] rounded-full mx-auto mb-1 sm:mb-2" style={{ background: slide.avatar }} />
+                          <div className="text-[9px] sm:text-[13px] font-bold leading-tight">{slide.name}</div>
+                          <div className="text-[7px] sm:text-[10px] text-neutral-400 mt-0.5 hidden sm:block">{slide.bio}</div>
+                        </div>
+                        <div className="p-1.5 sm:p-3 flex flex-col gap-1 sm:gap-1.5">
+                          {slide.links.map((link) => (
+                            <div key={link.label} className="flex items-center gap-1 sm:gap-2 px-1.5 sm:px-2.5 py-1 sm:py-2 bg-neutral-50 rounded sm:rounded-lg text-[8px] sm:text-[11px] font-medium">
+                              <div className={`w-4 h-4 sm:w-6 sm:h-6 rounded sm:rounded-md flex items-center justify-center text-[8px] sm:text-xs shrink-0 ${link.bg}`}>
+                                {link.icon}
+                              </div>
+                              <span className="truncate">{link.label}</span>
                             </div>
-                            <span className="truncate">{link.label}</span>
+                          ))}
+                          <div className="flex items-center justify-center px-1.5 sm:px-2.5 py-1 sm:py-2 bg-neutral-900 text-white rounded sm:rounded-lg text-[8px] sm:text-[11px] font-semibold">
+                            Visit my store
                           </div>
-                        ))}
-                        <div className="flex items-center justify-center px-1.5 sm:px-2.5 py-1 sm:py-2 bg-neutral-900 text-white rounded sm:rounded-lg text-[8px] sm:text-[11px] font-semibold">
-                          Visit my store
                         </div>
                       </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Info */}
                   <div className="py-0 sm:py-2 min-w-0 overflow-hidden">
