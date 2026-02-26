@@ -23,7 +23,7 @@ export function CtaSection() {
       const x = e.clientX - rect.left
       const y = e.clientY - rect.top
       glow.style.opacity = "1"
-      glow.style.background = `radial-gradient(600px circle at ${x}px ${y}px, rgba(124,58,237,0.12), transparent 60%)`
+      glow.style.background = `radial-gradient(600px circle at ${x}px ${y}px, rgba(162,112,255,0.25), transparent 60%)`
     }
 
     const handleLeave = () => {
@@ -55,8 +55,8 @@ export function CtaSection() {
           {/* Pulsing wave rings — smooth continuous loop around logo */}
           <style dangerouslySetInnerHTML={{ __html: `
             @keyframes cta-pulse {
-              0% { transform: translate(-50%,-50%) scale(0.7); opacity: 0.35; }
-              70% { opacity: 0.08; }
+              0% { transform: translate(-50%,-50%) scale(0.7); opacity: 0.42; }
+              70% { opacity: 0.12; }
               100% { transform: translate(-50%,-50%) scale(3); opacity: 0; }
             }
           `}} />
@@ -64,7 +64,7 @@ export function CtaSection() {
             {[0, 1, 2, 3].map((i) => (
               <div
                 key={i}
-                className="absolute top-1/2 left-1/2 w-full h-full rounded-full border border-white/[0.10]"
+                className="absolute top-1/2 left-1/2 w-full h-full rounded-full border border-white/[0.14]"
                 style={{
                   animation: `cta-pulse 5s cubic-bezier(0.4, 0, 0.2, 1) infinite`,
                   animationDelay: `${i * 1.25}s`,

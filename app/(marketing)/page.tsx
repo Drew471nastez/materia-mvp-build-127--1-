@@ -14,6 +14,7 @@ const ToolStackSection = dynamic(() => import("@/components/marketing/tool-stack
 const PricingSection = dynamic(() => import("@/components/marketing/pricing-section").then(m => ({ default: m.PricingSection })))
 const FaqSection = dynamic(() => import("@/components/marketing/faq-section").then(m => ({ default: m.FaqSection })))
 const CtaSection = dynamic(() => import("@/components/marketing/cta-section").then(m => ({ default: m.CtaSection })))
+const ProductMarquee = dynamic(() => import("@/components/marketing/product-marquee").then(m => ({ default: m.ProductMarquee })))
 
 export default function StorelibLanding() {
   return (
@@ -23,6 +24,9 @@ export default function StorelibLanding() {
 
       {/* BENTO GRID */}
       <BentoGrid />
+
+      {/* PRODUCT CATEGORIES MARQUEE */}
+      <ProductMarquee />
 
       {/* STATS BAR */}
       <StatsBar />

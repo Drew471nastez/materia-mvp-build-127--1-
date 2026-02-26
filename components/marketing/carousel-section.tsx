@@ -116,13 +116,13 @@ export function CarouselSection() {
               Your link in bio — upgraded
             </h2>
             <p className="text-[15px] text-neutral-500 max-w-[460px] mx-auto">
-              A simple page for your products, links and audience.
+              The link in bio creators love
             </p>
           </div>
         </AnimateOnScroll>
 
         <AnimateOnScroll>
-          <div className="relative overflow-hidden mx-[-24px] px-6">
+          <div className="relative overflow-hidden mx-[-24px] px-6 pl-8 sm:pl-10">
             <div
               ref={trackRef}
               className="flex gap-6 py-4 transition-transform duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]"

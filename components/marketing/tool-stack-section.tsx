@@ -57,7 +57,8 @@ export function ToolStackSection() {
             {/* Headline */}
             <div className="text-center max-w-[640px] mx-auto mb-10 sm:mb-14">
               <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-wider text-violet-600 bg-violet-50 px-4 py-1.5 rounded-full mb-5">
-                ↔ Compare
+                <svg fill="#a270ff" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" stroke="#a270ff" strokeWidth="0.192"><path d="M1,8A1,1,0,0,1,2,7H9.586L7.293,4.707A1,1,0,1,1,8.707,3.293l4,4a1,1,0,0,1,0,1.414l-4,4a1,1,0,1,1-1.414-1.414L9.586,9H2A1,1,0,0,1,1,8Zm21,7H14.414l2.293-2.293a1,1,0,0,0-1.414-1.414l-4,4a1,1,0,0,0,0,1.414l4,4a1,1,0,0,0,1.414-1.414L14.414,17H22a1,1,0,0,0,0-2Z"></path></svg>
+                Compare
               </span>
               <h2 className="text-[clamp(28px,4vw,44px)] font-bold leading-[1.15] tracking-tight mb-3.5">
                 Replace your entire tool stack
@@ -146,7 +147,7 @@ export function ToolStackSection() {
             <div className="text-center mt-10 sm:mt-12">
               <a
                 href="/signup"
-                className="inline-flex items-center justify-center gap-2 bg-[#6D28D9] hover:bg-[#5B21B6] text-white text-base font-semibold rounded-lg h-[52px] sm:h-[56px] px-10 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-violet-500/20"
+                className="inline-flex items-center justify-center gap-2 bg-[#7C3AED] hover:bg-[#6D28D9] text-white text-base font-semibold rounded-lg h-[52px] sm:h-[56px] px-10 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-violet-500/20"
               >
                 Start for free <span aria-hidden="true">→</span>
               </a>

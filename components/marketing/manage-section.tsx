@@ -19,7 +19,7 @@ const FLOATING_ICONS = [
   { emoji: "📕", label: "Digital Products", pos: "md:top-[34%] md:left-[-11%] bottom-[50px] left-[4%]", delay: "0.5s", zClass: "z-[2]" },
   { emoji: "🛍️", label: "Marketplace", pos: "md:top-[-16px] top-[-36px] right-[2%]", delay: "1s", zClass: "z-[5]" },
   { emoji: "🎓", label: "Courses", pos: "bottom-[60px] left-0 md:left-[-7%]", delay: "1.5s", hideMobile: true, zClass: "z-[2]" },
-  { emoji: "🔗", label: "Links", pos: "bottom-10 md:right-[-116px] right-[-70px]", delay: "2s", hideMobile: true, zClass: "z-[5]" },
+  { emoji: "🔗", label: "Links", pos: "bottom-10 md:right-[-46px] right-[0px]", delay: "2s", hideMobile: true, zClass: "z-[5]" },
 ] as const
 
 const MANAGE_IMG = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(36).webp"
@@ -34,10 +34,20 @@ function LazyManagedImage() {
     if (!el) return
     const observer = new IntersectionObserver(
       ([entry]) => { if (entry.isIntersecting) { setInView(true); observer.disconnect() } },
-      { rootMargin: "200px" },
+      { rootMargin: "600px" },
     )
     observer.observe(el)
     return () => observer.disconnect()
+  }, [])
+
+  // Preload image as soon as component mounts
+  useEffect(() => {
+    const link = document.createElement("link")
+    link.rel = "preload"
+    link.as = "image"
+    link.href = MANAGE_IMG
+    document.head.appendChild(link)
+    return () => { document.head.removeChild(link) }
   }, [])
 
   return (
@@ -49,9 +59,9 @@ function LazyManagedImage() {
           width={1200}
           height={675}
           className={`w-full rounded-xl sm:rounded-2xl object-cover transition-opacity duration-500 ${loaded ? "opacity-100" : "opacity-0"}`}
-          loading="lazy"
+          loading="eager"
           decoding="async"
-          fetchPriority="low"
+          fetchPriority="high"
           sizes="(max-width: 768px) 90vw, 900px"
           draggable={false}
           onLoad={() => setLoaded(true)}
@@ -66,7 +76,7 @@ function LazyManagedImage() {
 
 export function ManageSection() {
   return (
-    <section className="py-20 sm:py-24 text-center relative overflow-hidden bg-white">
+    <section className="pt-20 pb-[68px] sm:py-24 text-center relative overflow-hidden bg-white">
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes manage-float {
           0%, 100% { transform: translateY(0); }
