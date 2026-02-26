@@ -44,8 +44,16 @@ export function SplitFeaturesSection() {
 
   return (
     <div>
-      {FEATURES.map((feature) => (
-        <section key={feature.title} className={`py-20 ${"reducedTopPadding" in feature && feature.reducedTopPadding ? "sm:pt-10 sm:pb-28" : "sm:py-28"} ${feature.sectionBg}`}>
+      {FEATURES.map((feature, idx) => (
+        <section key={feature.title} className={`relative py-20 ${"reducedTopPadding" in feature && feature.reducedTopPadding ? "sm:pt-10 sm:pb-28" : "sm:py-28"} ${feature.sectionBg}`}>
+          {/* Curved divider at the top of sections transitioning from white to gray */}
+          {idx === 0 && (
+            <div className="absolute top-0 left-0 w-full overflow-hidden leading-[0] -translate-y-[1px]">
+              <svg viewBox="0 0 1440 48" fill="none" preserveAspectRatio="none" className="w-full h-[32px] sm:h-[48px]">
+                <path d="M0 0h1440v8c-240 26-480 40-720 40S240 34 0 8V0z" fill="white" />
+              </svg>
+            </div>
+          )}
           <div className="max-w-[1200px] mx-auto px-3 sm:px-6">
             <AnimateOnScroll>
               <div

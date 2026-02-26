@@ -12,6 +12,7 @@ const FLOATING_ICONS = [
 ] as const
 
 const MANAGE_IMG = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(36).webp"
+const MANAGE_IMG_SMALL = MANAGE_IMG + "?width=900&quality=75"
 
 function LazyManagedImage() {
   const [loaded, setLoaded] = useState(false)
@@ -43,15 +44,15 @@ function LazyManagedImage() {
     <div ref={ref} className="w-full">
       {inView ? (
         <img
-          src={MANAGE_IMG}
+          src={MANAGE_IMG_SMALL}
           alt="Storelib Dashboard"
-          width={1200}
-          height={675}
+          width={900}
+          height={506}
           className={`w-full rounded-xl sm:rounded-2xl object-cover transition-opacity duration-500 ${loaded ? "opacity-100" : "opacity-0"}`}
           loading="eager"
           decoding="async"
           fetchPriority="high"
-          sizes="(max-width: 768px) 90vw, 900px"
+          sizes="(max-width: 768px) 90vw, 800px"
           draggable={false}
           onLoad={() => setLoaded(true)}
           onContextMenu={(e) => e.preventDefault()}
@@ -109,7 +110,7 @@ export function ManageSection() {
                     <img
                       src={icon.imgSrc}
                       alt={icon.label}
-                      className={`object-cover rounded-full ${icon.label === "Digital Products" ? "w-[80%] h-[80%]" : "w-full h-full"}`}
+                      className={`object-cover rounded-full ${icon.label === "Digital Products" ? "w-[80%] h-[80%]" : icon.label === "Marketplace" ? "w-[130%] h-[130%]" : "w-full h-full"}`}
                       width={74}
                       height={74}
                       loading="eager"
