@@ -272,7 +272,7 @@ export function BentoGrid() {
               </p>
               <div className="mt-5 flex-1 flex items-center justify-center overflow-hidden">
                 <img
-                  src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Visits%20(5).webp"
+                  src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20(2969%20x%201600%20px).webp"
                   alt="Digital products showcase"
                   className="w-[158%] sm:w-full rounded-xl"
                   loading="lazy"

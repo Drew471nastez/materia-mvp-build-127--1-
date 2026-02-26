@@ -86,7 +86,7 @@ export function CarouselSection() {
   }, [current, getSlideWidth])
 
   return (
-    <section className="py-20 sm:py-24 bg-neutral-50/80">
+    <section className="py-20 sm:py-24 bg-white">
       <div className="max-w-[1400px] mx-auto">
         <AnimateOnScroll className="px-6">
           <div className="text-center mb-12">
@@ -117,7 +117,7 @@ export function CarouselSection() {
                 <div
                   key={slide.name}
                   data-slide
-                  className="flex-shrink-0 w-[calc(100vw-72px)] sm:w-[680px] grid grid-cols-1 sm:grid-cols-[240px_1fr] gap-6 sm:gap-9 items-center bg-white border border-neutral-100 rounded-3xl p-6 sm:p-8 transition-all duration-300 hover:shadow-md"
+                  className="flex-shrink-0 w-[calc(100vw-72px)] sm:w-[680px] grid grid-cols-1 sm:grid-cols-[240px_1fr] gap-6 sm:gap-9 items-center bg-neutral-50/60 border border-neutral-200/70 rounded-3xl p-6 sm:p-8 transition-all duration-300 hover:shadow-md"
                 >
                   {/* Phone mockup */}
                   <div className="w-[200px] sm:w-[240px] mx-auto sm:mx-0 bg-neutral-900 rounded-[32px] p-2.5 shadow-lg">

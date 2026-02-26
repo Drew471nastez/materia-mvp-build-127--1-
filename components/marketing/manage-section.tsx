@@ -17,9 +17,9 @@ const OnePageIcon = () => (
 const FLOATING_ICONS = [
   { label: "OnePage", pos: "md:top-[-4px] top-[-16px] left-[5%]", delay: "0s", zClass: "z-[2]", isOnePage: true },
   { emoji: "📕", label: "Digital Products", pos: "md:top-[34%] md:left-[-4%] bottom-[50px] left-[4%]", delay: "0.5s", zClass: "z-[2]" },
-  { emoji: "🛍️", label: "Marketplace", pos: "md:top-[-4px] top-[-36px] right-[2%]", delay: "1s", zClass: "z-[5]" },
+  { emoji: "🛍️", label: "Marketplace", pos: "md:top-[-16px] top-[-36px] right-[2%]", delay: "1s", zClass: "z-[5]" },
   { emoji: "🎓", label: "Courses", pos: "bottom-[60px] left-0", delay: "1.5s", hideMobile: true, zClass: "z-[2]" },
-  { emoji: "🔗", label: "Links", pos: "bottom-10 right-[-70px]", delay: "2s", hideMobile: true, zClass: "z-[5]" },
+  { emoji: "🔗", label: "Links", pos: "bottom-10 left-[15%]", delay: "2s", hideMobile: true, zClass: "z-[5]" },
 ] as const
 
 // Supabase image transform URLs — serve resized WebP to cut payload 70–80%

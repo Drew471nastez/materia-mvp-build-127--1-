@@ -9,9 +9,7 @@ import { StatsBar } from "@/components/marketing/stats-bar"
 // Hero + BentoGrid + StatsBar load eagerly (above the fold).
 const ManageSection = dynamic(() => import("@/components/marketing/manage-section").then(m => ({ default: m.ManageSection })))
 const SplitFeaturesSection = dynamic(() => import("@/components/marketing/split-features-section").then(m => ({ default: m.SplitFeaturesSection })))
-const FeaturesGrid = dynamic(() => import("@/components/marketing/features-grid").then(m => ({ default: m.FeaturesGrid })))
 const CarouselSection = dynamic(() => import("@/components/marketing/carousel-section").then(m => ({ default: m.CarouselSection })))
-const ComparisonSection = dynamic(() => import("@/components/marketing/comparison-section").then(m => ({ default: m.ComparisonSection })))
 const ToolStackSection = dynamic(() => import("@/components/marketing/tool-stack-section").then(m => ({ default: m.ToolStackSection })))
 const PricingSection = dynamic(() => import("@/components/marketing/pricing-section").then(m => ({ default: m.PricingSection })))
 const FaqSection = dynamic(() => import("@/components/marketing/faq-section").then(m => ({ default: m.FaqSection })))
@@ -35,15 +33,8 @@ export default function StorelibLanding() {
       {/* SPLIT FEATURE ROWS */}
       <SplitFeaturesSection />
 
-      {/* FEATURES GRID */}
-      <FeaturesGrid />
-
       {/* CAROUSEL / ONEPAGE TESTIMONIALS */}
       <CarouselSection />
-
-
-      {/* COMPARISON */}
-      <ComparisonSection />
 
       {/* TOOL STACK COMPARISON */}
       <ToolStackSection />
