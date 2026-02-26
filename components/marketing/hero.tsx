@@ -54,64 +54,58 @@ const PARTNER_LOGOS = [
   "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/eyJidWNrZXQiOiJwYXJ0bmVycGFnZS5wcm9kIiwia2V5IjoibWVkaWEvY29udGFjdF9pbWFnZXMvOWQ0MDVmYmMtNGJkMS00NzEz.svg",
 ]
 
-// Gallery grid images — use the existing collage images + a few extra for variety
+// Gallery grid images — square thumbnails for horizontal scrolling rows
 const IMG_BASE = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags"
 const GALLERY_IMAGES = [
-  `${IMG_BASE}/Monetize%20(5)%20(2).webp?width=200&height=200&resize=cover&quality=65`,
-  `${IMG_BASE}/Monetize%20(6)%20(1).webp?width=200&height=200&resize=cover&quality=65`,
-  `${IMG_BASE}/Monetize%20(7)%20(1).webp?width=200&height=200&resize=cover&quality=65`,
-  `${IMG_BASE}/Monetize%20(21).webp?width=200&height=200&resize=cover&quality=65`,
-  `${IMG_BASE}/Monetize%20(9).webp?width=200&height=200&resize=cover&quality=65`,
-  `${IMG_BASE}/Monetize%20(5)%20(2).webp?width=200&height=200&resize=cover&quality=65`,
-  `${IMG_BASE}/Monetize%20(6)%20(1).webp?width=200&height=200&resize=cover&quality=65`,
-  `${IMG_BASE}/Monetize%20(7)%20(1).webp?width=200&height=200&resize=cover&quality=65`,
+  `${IMG_BASE}/Monetize%20(5)%20(2).webp?width=260&height=260&resize=cover&quality=70`,
+  `${IMG_BASE}/Monetize%20(6)%20(1).webp?width=260&height=260&resize=cover&quality=70`,
+  `${IMG_BASE}/Monetize%20(7)%20(1).webp?width=260&height=260&resize=cover&quality=70`,
+  `${IMG_BASE}/Monetize%20(21).webp?width=260&height=260&resize=cover&quality=70`,
+  `${IMG_BASE}/Monetize%20(9).webp?width=260&height=260&resize=cover&quality=70`,
 ]
 
-// Split images into columns for the grid — each column scrolls independently
-const COL_COUNT = 6
-const COLS: string[][] = Array.from({ length: COL_COUNT }, (_, colIdx) => {
-  const col: string[] = []
-  for (let i = 0; i < 4; i++) {
-    col.push(GALLERY_IMAGES[(colIdx + i) % GALLERY_IMAGES.length])
-  }
-  return col
-})
+// Build rows with shuffled images for visual variety
+const ROW_CONFIGS = [
+  { images: [0, 2, 4, 1, 3, 0, 2, 4], direction: "left" as const, duration: 35, offset: -40 },
+  { images: [3, 1, 4, 0, 2, 3, 1, 4], direction: "right" as const, duration: 40, offset: -20 },
+  { images: [2, 0, 3, 4, 1, 2, 0, 3], direction: "left" as const, duration: 38, offset: -60 },
+  { images: [4, 3, 1, 2, 0, 4, 3, 1], direction: "right" as const, duration: 42, offset: -10 },
+]
 
-function GalleryColumn({ images, direction, duration, offset }: {
-  images: string[]
-  direction: "up" | "down"
+function GalleryRow({ imageIndices, direction, duration, offsetX }: {
+  imageIndices: number[]
+  direction: "left" | "right"
   duration: number
-  offset: number
+  offsetX: number
 }) {
-  // Triple the images for seamless looping
-  const tripled = [...images, ...images, ...images]
-  const animName = direction === "up" ? "gallery-scroll-up" : "gallery-scroll-down"
+  const tripled = [...imageIndices, ...imageIndices, ...imageIndices]
+  const animName = direction === "left" ? "gallery-scroll-left" : "gallery-scroll-right"
 
   return (
-    <div className="flex flex-col gap-2.5 overflow-hidden" style={{ marginTop: `-${offset}px` }}>
+    <div className="overflow-hidden" style={{ marginLeft: `${offsetX}px` }}>
       <div
-        className="flex flex-col gap-2.5"
+        className="flex gap-3"
         style={{
           animation: `${animName} ${duration}s linear infinite`,
           willChange: "transform",
           backfaceVisibility: "hidden",
         }}
       >
-        {tripled.map((src, i) => (
+        {tripled.map((imgIdx, i) => (
           <div
             key={i}
-            className="w-full aspect-square rounded-xl overflow-hidden bg-neutral-100 shrink-0"
+            className="w-[130px] h-[130px] sm:w-[150px] sm:h-[150px] md:w-[170px] md:h-[170px] rounded-2xl overflow-hidden bg-neutral-100 shrink-0"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={src}
+              src={GALLERY_IMAGES[imgIdx]}
               alt=""
               className="w-full h-full object-cover"
               loading="lazy"
               decoding="async"
               draggable={false}
-              width={200}
-              height={200}
+              width={260}
+              height={260}
             />
           </div>
         ))}
@@ -186,25 +180,15 @@ export function Hero() {
     Promise.all(PARTNER_LOGOS.map(loadLogo))
   }, [])
 
-  // Column configs: alternating up/down, different speeds and offsets for organic feel
-  const columnConfigs = [
-    { direction: "up" as const, duration: 30, offset: 30 },
-    { direction: "down" as const, duration: 36, offset: 60 },
-    { direction: "up" as const, duration: 34, offset: 10 },
-    { direction: "down" as const, duration: 31, offset: 50 },
-    { direction: "up" as const, duration: 38, offset: 20 },
-    { direction: "down" as const, duration: 33, offset: 40 },
-  ]
-
   return (
     <section ref={sectionRef} className="flex flex-col items-center bg-white pt-7 sm:pt-10 pb-8 sm:pb-[67px] overflow-hidden">
       <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes gallery-scroll-up {
+        @keyframes gallery-scroll-left {
           0% { transform: translate3d(0, 0, 0); }
-          100% { transform: translate3d(0, -33.333%, 0); }
+          100% { transform: translate3d(-33.333%, 0, 0); }
         }
-        @keyframes gallery-scroll-down {
-          0% { transform: translate3d(0, -33.333%, 0); }
+        @keyframes gallery-scroll-right {
+          0% { transform: translate3d(-33.333%, 0, 0); }
           100% { transform: translate3d(0, 0, 0); }
         }
         @keyframes logo-scroll {
@@ -217,7 +201,7 @@ export function Hero() {
           backface-visibility: hidden;
         }
         @media (prefers-reduced-motion: reduce) {
-          .gallery-grid-col, .logo-marquee {
+          .gallery-row-anim, .logo-marquee {
             animation: none !important;
           }
         }
@@ -226,32 +210,30 @@ export function Hero() {
       {/* Gallery grid background + white modal overlay */}
       <div className="relative w-full mb-7 sm:mb-[42px] lg:mb-[95px] animate-scale-fade-in">
         <div className="relative w-full h-[330px] sm:h-[280px] md:h-[330px] lg:h-[380px] xl:h-[420px] overflow-hidden">
-          {/* Scrolling gallery grid — behind the white modal */}
-          <div className="absolute inset-0 z-0 opacity-[0.85]">
-            <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2.5 h-[200%] px-2 sm:px-6 md:px-12 lg:px-20" style={{ marginTop: "-20%" }}>
-              {COLS.slice(0, 4).map((col, i) => (
-                <GalleryColumn key={i} images={col} {...columnConfigs[i]} />
+          {/* Horizontal scrolling gallery rows — behind the white modal */}
+          <div className="absolute inset-0 z-0 opacity-[0.95]">
+            <div className="flex flex-col gap-3 justify-center h-full" style={{ marginTop: "-10px" }}>
+              {ROW_CONFIGS.map((row, i) => (
+                <GalleryRow
+                  key={i}
+                  imageIndices={row.images}
+                  direction={row.direction}
+                  duration={row.duration}
+                  offsetX={row.offset}
+                />
               ))}
-              {/* Extra columns visible on sm+ */}
-              <div className="hidden sm:block">
-                <GalleryColumn images={COLS[4]} {...columnConfigs[4]} />
-              </div>
-              {/* Extra column visible on md+ */}
-              <div className="hidden md:block">
-                <GalleryColumn images={COLS[5]} {...columnConfigs[5]} />
-              </div>
             </div>
 
             {/* Gradient overlays — fade edges so grid blends with white bg */}
             <div className="absolute inset-0 pointer-events-none z-10">
-              {/* Top fade */}
-              <div className="absolute top-0 left-0 right-0 h-[18%] bg-gradient-to-b from-white via-white/60 to-transparent" />
-              {/* Bottom fade */}
-              <div className="absolute bottom-0 left-0 right-0 h-[22%] bg-gradient-to-t from-white via-white/60 to-transparent" />
+              {/* Top fade — subtle */}
+              <div className="absolute top-0 left-0 right-0 h-[10%] bg-gradient-to-b from-white/80 to-transparent" />
+              {/* Bottom fade — subtle */}
+              <div className="absolute bottom-0 left-0 right-0 h-[12%] bg-gradient-to-t from-white/80 to-transparent" />
               {/* Left fade */}
-              <div className="absolute top-0 left-0 bottom-0 w-[15%] bg-gradient-to-r from-white to-transparent" />
+              <div className="absolute top-0 left-0 bottom-0 w-[12%] bg-gradient-to-r from-white to-transparent" />
               {/* Right fade */}
-              <div className="absolute top-0 right-0 bottom-0 w-[15%] bg-gradient-to-l from-white to-transparent" />
+              <div className="absolute top-0 right-0 bottom-0 w-[12%] bg-gradient-to-l from-white to-transparent" />
             </div>
           </div>
 
