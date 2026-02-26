@@ -5,65 +5,30 @@ import { AnimateOnScroll } from "./bento-grid"
 
 const SLIDES = [
   {
-    name: "Andrew M.",
-    role: "Artist & Musician",
-    bio: "Artist & Musician · 12K followers",
+    name: "Negru W.",
+    role: "DJ & Music Producer",
+    bio: "DJ & Music Producer · 12K followers",
     avatar: "linear-gradient(135deg,#FF6B35,#FFa040)",
+    phoneImage: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(43).webp",
     links: [
       { icon: "🎵", label: "Sample Pack Vol. 3 — $24", bg: "bg-violet-50" },
       { icon: "🎹", label: "Beat Kit (50 beats) — $49", bg: "bg-orange-50" },
       { icon: "📄", label: "Free: Mix Template", bg: "bg-green-50" },
     ],
-    quote: "\"I switched from Gumroad and my conversions doubled in the first week. Having everything on one page — products, links, email capture — just works.\"",
+    quote: "\"I sell my mixes and sample packs on Storelib. Everything is in one place, the page looks professional. I don't have to think about the tech stuff anymore, I just upload and it's live. Honestly wish I found this earlier.\"",
   },
   {
     name: "Satori Studio",
-    role: "UX/UI Designer",
-    bio: "UX/UI Designer · 42K followers",
+    role: "Creative Studio",
+    bio: "Creative Studio · 42K followers",
     avatar: "linear-gradient(135deg,#7C5CFC,#a78bfa)",
-    phoneImage: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(40).webp",
+    phoneImage: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(41).png",
     links: [
       { icon: "📚", label: "UI Design Masterclass — $49", bg: "bg-violet-50" },
       { icon: "🎨", label: "Icon Pack (200+) — $19", bg: "bg-amber-50" },
       { icon: "📋", label: "Free: Design System Checklist", bg: "bg-green-50" },
     ],
-    quote: "\"I replaced three tools with one Storelib OnePage — my link-in-bio, landing page, and checkout. Revenue went up 40% in the first month.\"",
-  },
-  {
-    name: "James Ortiz",
-    role: "Business Coach",
-    bio: "Business Coach · 89K followers",
-    avatar: "linear-gradient(135deg,#22C55E,#4ade80)",
-    links: [
-      { icon: "🚀", label: "Scale to $10K Course — $149", bg: "bg-orange-50" },
-      { icon: "📋", label: "Business Plan Template — $29", bg: "bg-violet-50" },
-      { icon: "🎙️", label: "Free: Weekly Newsletter", bg: "bg-green-50" },
-    ],
-    quote: "\"Finally, a platform that looks premium. My customers tell me my store looks like I hired a designer. That credibility matters when you charge $149.\"",
-  },
-  {
-    name: "Maya Kim",
-    role: "Photographer",
-    bio: "Photographer · 28K followers",
-    avatar: "linear-gradient(135deg,#F97316,#fb923c)",
-    links: [
-      { icon: "📸", label: "Lightroom Preset Pack — $35", bg: "bg-amber-50" },
-      { icon: "🎓", label: "Photography 101 — $79", bg: "bg-violet-50" },
-      { icon: "📄", label: "Free: Editing Cheat Sheet", bg: "bg-green-50" },
-    ],
-    quote: "\"Sold $6K in presets last month alone. The OnePage makes it so easy for followers to find what they need and buy right there.\"",
-  },
-  {
-    name: "Liam Torres",
-    role: "Fitness Creator",
-    bio: "Fitness Creator · 56K followers",
-    avatar: "linear-gradient(135deg,#06B6D4,#22d3ee)",
-    links: [
-      { icon: "🏋️", label: "12-Week Program — $59", bg: "bg-cyan-50" },
-      { icon: "📋", label: "Meal Plan Bundle — $29", bg: "bg-orange-50" },
-      { icon: "🎥", label: "Free: Daily Workout Video", bg: "bg-green-50" },
-    ],
-    quote: "\"Moving to Storelib was the best decision I made. My fitness programs sell themselves now — the OnePage checkout flow is seamless and my customers love it.\"",
+    quote: "\"We switched to Storelib a few months ago and it's been great honestly. We use it to showcase our photography portfolio, sell presets to other creatives, and manage all our links in one page. Clients can find everything in one place which saves us so much back and forth.\"",
   },
 ]
 
@@ -97,7 +62,7 @@ export function CarouselSection() {
     if (autoplayRef.current) clearInterval(autoplayRef.current)
     autoplayRef.current = setInterval(() => {
       setCurrent((prev) => (prev + 1) % SLIDES.length)
-    }, 5000)
+    }, 6000)
   }, [])
 
   useEffect(() => {
@@ -223,9 +188,10 @@ export function CarouselSection() {
         <div className="flex items-center justify-center gap-3 mt-7 px-6">
           <button
             onClick={() => handleGoTo(current - 1)}
-            className="w-11 h-11 rounded-full bg-white border-[1.5px] border-neutral-200 flex items-center justify-center text-base text-neutral-900 transition-all duration-300 hover:border-violet-500 hover:text-violet-600 hover:bg-violet-50"
+            aria-label="Previous slide"
+            className="w-11 h-11 rounded-full bg-white border-[1.5px] border-neutral-200 flex items-center justify-center text-neutral-900 transition-all duration-300 hover:border-violet-500 hover:text-violet-600 hover:bg-violet-50"
           >
-            ←
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
           </button>
           <div className="flex gap-2">
             {SLIDES.map((_, i) => (
@@ -238,9 +204,10 @@ export function CarouselSection() {
           </div>
           <button
             onClick={() => handleGoTo(current + 1)}
-            className="w-11 h-11 rounded-full bg-white border-[1.5px] border-neutral-200 flex items-center justify-center text-base text-neutral-900 transition-all duration-300 hover:border-violet-500 hover:text-violet-600 hover:bg-violet-50"
+            aria-label="Next slide"
+            className="w-11 h-11 rounded-full bg-white border-[1.5px] border-neutral-200 flex items-center justify-center text-neutral-900 transition-all duration-300 hover:border-violet-500 hover:text-violet-600 hover:bg-violet-50"
           >
-            →
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
           </button>
         </div>
       </div>
