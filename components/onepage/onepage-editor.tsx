@@ -902,7 +902,7 @@ function EditorLayout() {
               {onepage.avatar_video_url ? (
                 <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full mx-auto mb-2 overflow-hidden relative bg-white/20">
                   {onepage.avatar_url ? (
-                    <img src={onepage.avatar_url} alt={onepage.title} className="absolute inset-0 w-full h-full object-cover scale-105 blur-[2px]" />
+                    <img src={onepage.avatar_url} alt={onepage.title} className="absolute inset-0 w-full h-full object-cover scale-105 blur-[2px]" onError={(e) => { e.currentTarget.style.display = 'none' }} />
                   ) : (
                     <div className="absolute inset-0 bg-white/20 animate-pulse" />
                   )}
@@ -923,6 +923,7 @@ function EditorLayout() {
                   src={onepage.avatar_url}
                   alt={onepage.title}
                   className="w-12 h-12 sm:w-14 sm:h-14 rounded-full mx-auto mb-2 object-cover"
+                  onError={(e) => { e.currentTarget.style.display = 'none' }}
                 />
               ) : (
                 <div

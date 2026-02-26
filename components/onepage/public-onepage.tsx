@@ -793,7 +793,10 @@ function ShareButton({
                   alt={pageTitle}
                 />
               ) : avatarUrl ? (
-                <img src={avatarUrl} alt={pageTitle} className="w-full h-full object-cover" />
+                <>
+                  <img src={avatarUrl} alt={pageTitle} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none' }} />
+                  <span className="text-3xl font-bold text-white absolute inset-0 flex items-center justify-center">{pageTitle.charAt(0).toUpperCase()}</span>
+                </>
               ) : (
                 <span className="text-3xl font-bold text-white">{pageTitle.charAt(0).toUpperCase()}</span>
               )}
@@ -3452,6 +3455,7 @@ function PublicBlockRenderer({
                   ref={(el) => {
                     if (el && el.complete) { el.style.filter = 'none'; el.style.animation = 'none'; }
                   }}
+                  onError={(e) => { e.currentTarget.style.display = 'none' }}
                   style={{
                     imageRendering: "auto",
                     objectPosition: `50% ${(theme as any).hero_position_y ?? 50}%`,

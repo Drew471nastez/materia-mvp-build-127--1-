@@ -88,6 +88,7 @@ function SmoothAvatarVideo({
             imageClassName,
           )}
           style={imageStyle}
+          onError={(e) => { e.currentTarget.style.display = 'none' }}
         />
       ) : (
         <div className={cn("absolute inset-0 bg-white/20 animate-pulse transition-opacity duration-500", isReady ? "opacity-0" : "opacity-100")} />

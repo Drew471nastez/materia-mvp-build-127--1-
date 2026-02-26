@@ -1,10 +1,38 @@
 "use client"
 
-import { memo } from "react"
+import { memo, useState } from "react"
 import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
 import { getProductUrl, getStoreUrl } from "@/lib/url-helpers"
 import { Star } from "lucide-react"
+
+function CreatorAvatar({ url, name, size = 20 }: { url?: string | null; name: string; size?: number }) {
+  const [failed, setFailed] = useState(false)
+  const initial = name.charAt(0).toUpperCase()
+
+  if (!url || failed) {
+    return (
+      <div
+        className="rounded-full bg-muted flex items-center justify-center font-medium text-muted-foreground shrink-0 aspect-square"
+        style={{ width: size, height: size, fontSize: size * 0.5 }}
+      >
+        {initial}
+      </div>
+    )
+  }
+
+  return (
+    <Image
+      src={url}
+      alt={name}
+      width={size}
+      height={size}
+      className="rounded-full object-cover shrink-0 aspect-square"
+      loading="lazy"
+      onError={() => setFailed(true)}
+    />
+  )
+}
 
 interface ProductCardProps {
   product: {
@@ -97,20 +125,7 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
             className="group/seller flex items-center gap-1.5"
             onClick={(e) => e.stopPropagation()}
           >
-            {creatorAvatarUrl ? (
-              <Image
-                src={creatorAvatarUrl}
-                alt={creatorName}
-                width={20}
-                height={20}
-                className="rounded-full object-cover shrink-0 aspect-square"
-                loading="lazy"
-              />
-            ) : (
-              <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center text-[10px] font-medium text-muted-foreground shrink-0 aspect-square">
-                {creatorName.charAt(0).toUpperCase()}
-              </div>
-            )}
+            <CreatorAvatar url={creatorAvatarUrl} name={creatorName} size={20} />
             <span className="text-[13px] text-muted-foreground truncate max-w-[120px] group-hover/seller:underline">
               {creatorName}
             </span>

@@ -296,6 +296,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               loading="eager"
               decoding="async"
               style={{ backfaceVisibility: 'hidden' }}
+              onError={(e) => { e.currentTarget.style.display = 'none' }}
             />
           )}
         </div>
@@ -690,6 +691,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                     loading="eager"
                     decoding="async"
                     style={{ backfaceVisibility: 'hidden' }}
+                    onError={(e) => { e.currentTarget.style.display = 'none' }}
                   />
                 )}
               </div>
@@ -1016,6 +1018,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                     loading="eager"
                     decoding="async"
                     style={{ backfaceVisibility: 'hidden' }}
+                    onError={(e) => { e.currentTarget.style.display = 'none' }}
                   />
                 )}
               </div>

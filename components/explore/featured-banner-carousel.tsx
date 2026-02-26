@@ -27,6 +27,30 @@ interface FeaturedBannerCarouselProps {
   overlay?: React.ReactNode  // Custom overlay replaces default product info
 }
 
+function BannerCreatorAvatar({ url, name }: { url?: string | null; name: string }) {
+  const [failed, setFailed] = useState(false)
+  const initial = name.charAt(0).toUpperCase()
+
+  if (!url || failed) {
+    return (
+      <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-[10px] font-medium text-white shrink-0">
+        {initial}
+      </div>
+    )
+  }
+
+  return (
+    <Image
+      src={url}
+      alt={name}
+      width={24}
+      height={24}
+      className="rounded-full object-cover shrink-0"
+      onError={() => setFailed(true)}
+    />
+  )
+}
+
 const AUTOPLAY_INTERVAL = 5000 // 5 seconds
 
 export function FeaturedBannerCarousel({ products, overlay }: FeaturedBannerCarouselProps) {
@@ -233,19 +257,7 @@ export function FeaturedBannerCarousel({ products, overlay }: FeaturedBannerCaro
               href={creatorStoreUrl}
               className="inline-flex items-center gap-2.5 mb-4 group"
             >
-              {creatorAvatar ? (
-                <Image
-                  src={creatorAvatar}
-                  alt={creatorName}
-                  width={24}
-                  height={24}
-                  className="rounded-full object-cover shrink-0"
-                />
-              ) : (
-                <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-[10px] font-medium text-white shrink-0">
-                  {creatorName.charAt(0).toUpperCase()}
-                </div>
-              )}
+              <BannerCreatorAvatar url={creatorAvatar} name={creatorName} />
               <span className="text-sm text-white/80 group-hover:text-white transition-colors">
                 {creatorName}
               </span>
