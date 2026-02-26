@@ -12,8 +12,8 @@ const FLOATING_ICONS = [
 ] as const
 
 const MANAGE_IMG = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(36).webp"
-const MANAGE_IMG_SMALL = MANAGE_IMG + "?width=800&quality=70"
-const MANAGE_IMG_MOBILE = MANAGE_IMG + "?width=500&quality=65"
+const MANAGE_IMG_SMALL = MANAGE_IMG + "?width=800&quality=40"
+const MANAGE_IMG_MOBILE = MANAGE_IMG + "?width=500&quality=40"
 
 function LazyManagedImage() {
   const [loaded, setLoaded] = useState(false)

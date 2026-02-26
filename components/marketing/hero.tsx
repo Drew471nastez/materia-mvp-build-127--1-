@@ -67,10 +67,10 @@ const IMG_NAMES = [
   "Monetize%20(21).webp",
   "Monetize%20(9).webp",
 ]
-// Small (mobile / side cards): 320px wide
-const IMAGES_SM = IMG_NAMES.map(n => `${IMG_BASE}/${n}?width=320&height=400&resize=cover&quality=78`)
-// Large (desktop center): 560px wide
-const IMAGES_LG = IMG_NAMES.map(n => `${IMG_BASE}/${n}?width=560&height=700&resize=cover&quality=88`)
+// Small (mobile / side cards): 280px wide, lower quality for fast mobile loading
+const IMAGES_SM = IMG_NAMES.map(n => `${IMG_BASE}/${n}?width=280&height=350&resize=cover&quality=55`)
+// Large (desktop center): 480px wide, moderate quality
+const IMAGES_LG = IMG_NAMES.map(n => `${IMG_BASE}/${n}?width=480&height=600&resize=cover&quality=70`)
 // Default src uses the small variant
 const IMAGES = IMAGES_SM
 
@@ -618,6 +618,8 @@ export function Hero() {
                     alt="Partner logo"
                     className={`w-auto mx-6 sm:mx-8 md:mx-10 opacity-95 grayscale select-none ${heightClass}`}
                     draggable={false}
+                    loading="lazy"
+                    decoding="async"
                   />
                 )
               })}
