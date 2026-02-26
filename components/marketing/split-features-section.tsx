@@ -10,9 +10,9 @@ const FEATURES = [
     title: "Build Your One Page",
     description:
       "Create a single page for coaching, digital products, courses, music, links, and more.",
-    src: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Visits%20(1).webp",
+    src: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Visits%20(4).webp",
     imageLeft: true,
-    panelBg: "bg-violet-50",
+    sectionBg: "bg-white",
   },
   {
     title: "Build Your Online Store",
@@ -20,15 +20,15 @@ const FEATURES = [
       "Customize your store with drag-and-drop sections, products, and branding.",
     src: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Visits%20(3).webp",
     imageLeft: false,
-    panelBg: "bg-stone-50",
+    sectionBg: "bg-gray-50",
   },
   {
     title: "Know what makes you money",
     description:
       "Track revenue, analytics, payouts, and get paid to your bank account.",
-    src: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Visits%20(2).webp",
+    src: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Visits%20(6).webp",
     imageLeft: true,
-    panelBg: "bg-violet-50",
+    sectionBg: "bg-white",
   },
 ]
 
@@ -42,11 +42,11 @@ export function SplitFeaturesSection() {
   }, [])
 
   return (
-    <section className="py-20 sm:py-28 bg-white">
-      <div className="max-w-[1200px] mx-auto px-3 sm:px-6">
-        <div className="flex flex-col gap-20 sm:gap-28">
-          {FEATURES.map((feature) => (
-            <AnimateOnScroll key={feature.title}>
+    <div>
+      {FEATURES.map((feature) => (
+        <section key={feature.title} className={`py-20 sm:py-28 ${feature.sectionBg}`}>
+          <div className="max-w-[1200px] mx-auto px-3 sm:px-6">
+            <AnimateOnScroll>
               <div
                 className={`flex flex-col md:flex-row items-center gap-8 md:gap-14 ${
                   feature.imageLeft ? "" : "md:flex-row-reverse"
@@ -78,9 +78,9 @@ export function SplitFeaturesSection() {
                 </div>
               </div>
             </AnimateOnScroll>
-          ))}
-        </div>
-      </div>
-    </section>
+          </div>
+        </section>
+      ))}
+    </div>
   )
 }

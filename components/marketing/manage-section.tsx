@@ -26,9 +26,6 @@ const FLOATING_ICONS = [
 // Laptop: use 'contain' + object-contain so the full dashboard image is always visible
 const LAPTOP_IMG_SM = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Untitled%20design%20(20).webp?width=900&quality=90&resize=contain"
 const LAPTOP_IMG_LG = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Untitled%20design%20(20).webp?width=1500&quality=92&resize=contain"
-// Phone: max quality + higher resolution for crisp mobile mockup
-const PHONE_IMG_SM = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Untitled%20design%20(35).webp?width=500&quality=95&resize=contain"
-const PHONE_IMG_LG = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags/Untitled%20design%20(35).webp?width=700&quality=97&resize=contain"
 
 /** Lazy-loaded image that only fetches when near the viewport */
 function LazyManagedImage({
@@ -138,16 +135,7 @@ export function ManageSection() {
               </div>
             </div>
 
-            {/* Phone — resized via Supabase transforms */}
-            <div className="absolute right-[5px] sm:right-[-10px] bottom-[5px] sm:bottom-[-20px] z-[3] w-[140px] sm:w-[224px]">
-              <LazyManagedImage
-                srcSmall={PHONE_IMG_SM}
-                srcLarge={PHONE_IMG_LG}
-                alt="Storelib Mobile"
-                className="w-full h-auto object-contain pointer-events-none select-none"
-                sizes="(max-width: 640px) 140px, 224px"
-              />
-            </div>
+
           </div>
         </AnimateOnScroll>
       </div>
