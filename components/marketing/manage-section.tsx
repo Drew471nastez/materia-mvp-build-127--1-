@@ -3,21 +3,10 @@
 import { useState, useEffect, useRef } from "react"
 import { AnimateOnScroll } from "./bento-grid"
 
-const OnePageIcon = () => (
-  <svg width="25" height="31" viewBox="0 0 28 34" fill="none" className="md:w-[32px] md:h-[39px]">
-    <rect x="1" y="1" width="26" height="32" rx="4" fill="white" stroke="#a78bfa" strokeWidth="1.5"/>
-    <circle cx="14" cy="10" r="4.5" fill="#c4b5fd"/>
-    <rect x="7" y="18" width="14" height="2" rx="1" fill="#a78bfa"/>
-    <rect x="9" y="22.5" width="10" height="1.5" rx="0.75" fill="#ddd6fe"/>
-    <rect x="9" y="26" width="10" height="1.5" rx="0.75" fill="#ddd6fe"/>
-    <rect x="9" y="29.5" width="10" height="1.5" rx="0.75" fill="#ddd6fe"/>
-  </svg>
-)
-
 const FLOATING_ICONS = [
-  { label: "OnePage", pos: "md:top-[-4px] top-[-16px] left-[5%] md:left-[-2%]", delay: "0s", zClass: "z-[2]", isOnePage: true },
-  { emoji: "📕", label: "Digital Products", pos: "md:top-[34%] md:left-[-11%] bottom-[50px] left-[4%]", delay: "0.5s", zClass: "z-[2]", customIcon: true },
-  { emoji: "🛍️", label: "Marketplace", pos: "md:top-[-16px] top-[-36px] right-[2%]", delay: "1s", zClass: "z-[5]" },
+  { label: "OnePage", pos: "md:top-[-4px] top-[-16px] left-[5%] md:left-[-2%]", delay: "0s", zClass: "z-[2]", imgSrc: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(38).webp" },
+  { label: "Digital Products", pos: "md:top-[34%] md:left-[-11%] bottom-[50px] left-[4%]", delay: "0.5s", zClass: "z-[2]", imgSrc: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(37).webp" },
+  { label: "Marketplace", pos: "md:top-[-16px] top-[-36px] right-[2%]", delay: "1s", zClass: "z-[5]", imgSrc: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(39).webp" },
   { emoji: "🎓", label: "Courses", pos: "bottom-[60px] left-0 md:left-[-7%]", delay: "1.5s", hideMobile: true, zClass: "z-[2]" },
   { emoji: "🔗", label: "Links", pos: "bottom-10 md:right-[-46px] right-[0px]", delay: "2s", hideMobile: true, zClass: "z-[5]" },
 ] as const
@@ -75,6 +64,17 @@ function LazyManagedImage() {
 }
 
 export function ManageSection() {
+  // Preload floating icon images
+  useEffect(() => {
+    FLOATING_ICONS.forEach((icon) => {
+      if ("imgSrc" in icon && icon.imgSrc) {
+        const img = new window.Image()
+        img.decoding = "async"
+        img.src = icon.imgSrc
+      }
+    })
+  }, [])
+
   return (
     <section className="pt-20 pb-[68px] sm:py-24 text-center relative overflow-hidden bg-white">
       <style dangerouslySetInnerHTML={{ __html: `
@@ -104,16 +104,18 @@ export function ManageSection() {
                 style={{ animationDelay: icon.delay }}
               >
                 <div className="w-[58px] h-[58px] md:w-[74px] md:h-[74px] rounded-full bg-violet-50 flex items-center justify-center text-[25px] md:text-[32px] shadow-md overflow-hidden">
-                  {"isOnePage" in icon && icon.isOnePage ? <OnePageIcon /> : ("customIcon" in icon && icon.customIcon ? (
-                    // eslint-disable-next-line @next/next/no-img-element
+                  {"imgSrc" in icon && icon.imgSrc ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
                     <img
-                      src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(37).webp"
-                      alt="Digital Products"
-                      className="w-[80%] h-[80%] object-cover rounded-full"
-                      loading="lazy"
+                      src={icon.imgSrc}
+                      alt={icon.label}
+                      className={`object-cover rounded-full ${icon.label === "Digital Products" ? "w-[80%] h-[80%]" : "w-full h-full"}`}
+                      width={74}
+                      height={74}
+                      loading="eager"
                       decoding="async"
                     />
-                  ) : ("emoji" in icon ? icon.emoji : null))}
+                  ) : ("emoji" in icon ? icon.emoji : null)}
                 </div>
                 <span className="text-[10px] md:text-[12px] font-bold uppercase tracking-wider text-neutral-500">
                   {icon.label}

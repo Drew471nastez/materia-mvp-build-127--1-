@@ -45,7 +45,7 @@ function MarqueeRow({ items, direction = "left", duration = 30 }: { items: typeo
         {tripled.map((item, i) => (
           <div
             key={i}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-white border-[1.5px] border-neutral-200 shadow-sm whitespace-nowrap hover:border-violet-300 hover:shadow-md transition-all duration-200"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-white border-[1.5px] border-neutral-200 shadow-sm whitespace-nowrap transition-[border-color,box-shadow,transform,background-color] duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] hover:border-violet-300 hover:shadow-md hover:bg-violet-50/30 hover:scale-[1.03]"
           >
             <span className="text-base">{item.emoji}</span>
             <span className="text-sm font-medium text-neutral-700">{item.label}</span>

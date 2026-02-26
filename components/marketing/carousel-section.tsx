@@ -189,10 +189,10 @@ export function CarouselSection() {
                   </div>
 
                   {/* Info */}
-                  <div className="py-0 sm:py-2">
+                  <div className="py-0 sm:py-2 min-w-0 overflow-hidden">
                     <div className="text-[15px] sm:text-[20px] font-bold mb-0.5">{slide.name}</div>
                     <div className="text-[11px] sm:text-[13px] text-violet-600 font-semibold mb-2 sm:mb-5">{slide.role}</div>
-                    <div className="text-[12px] sm:text-[15px] italic leading-relaxed text-neutral-500 pl-3 sm:pl-4 border-l-2 sm:border-l-[3px] border-violet-300 line-clamp-4 sm:line-clamp-none">
+                    <div className="text-[11px] sm:text-[15px] italic leading-relaxed text-neutral-500 pl-3 sm:pl-4 border-l-2 sm:border-l-[3px] border-violet-300 line-clamp-3 sm:line-clamp-none">
                       {slide.quote}
                     </div>
                     <div className="mt-2 sm:mt-4 text-amber-400 text-[13px] sm:text-[15px] tracking-widest">★★★★★</div>
