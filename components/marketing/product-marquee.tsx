@@ -1,5 +1,7 @@
 "use client"
 
+import { AnimateOnScroll } from "./bento-grid"
+
 const PRODUCTS_ROW1 = [
   { emoji: "📚", label: "E-books" },
   { emoji: "🎵", label: "Music" },
@@ -70,19 +72,23 @@ export function ProductMarquee() {
         }
       `}} />
 
-      <div className="max-w-[1200px] mx-auto px-6 mb-10 text-center">
-        <h2 className="text-[clamp(26px,3.5vw,40px)] font-semibold tracking-tight leading-[1.15] mb-3">
-          Unlimited possibilities
-        </h2>
-        <p className="text-[15px] text-neutral-500 max-w-[460px] mx-auto">
-          Whatever you create, there&apos;s a place for it on Storelib.
-        </p>
-      </div>
+      <AnimateOnScroll variant="blur-in">
+        <div className="max-w-[1200px] mx-auto px-6 mb-10 text-center">
+          <h2 className="text-[clamp(26px,3.5vw,40px)] font-semibold tracking-tight leading-[1.15] mb-3">
+            Unlimited possibilities
+          </h2>
+          <p className="text-[15px] text-neutral-500 max-w-[460px] mx-auto">
+            Whatever you create, there&apos;s a place for it on Storelib.
+          </p>
+        </div>
+      </AnimateOnScroll>
 
-      <div className="flex flex-col gap-1">
-        <MarqueeRow items={PRODUCTS_ROW1} direction="left" duration={54} />
-        <MarqueeRow items={PRODUCTS_ROW2} direction="right" duration={62} />
-      </div>
+      <AnimateOnScroll variant="fade-up-scale" delay={100}>
+        <div className="flex flex-col gap-1">
+          <MarqueeRow items={PRODUCTS_ROW1} direction="left" duration={54} />
+          <MarqueeRow items={PRODUCTS_ROW2} direction="right" duration={62} />
+        </div>
+      </AnimateOnScroll>
     </section>
   )
 }

@@ -91,7 +91,7 @@ export function FaqSection() {
   return (
     <section className="py-20 sm:py-28 bg-[#fafafa]" id="faq">
       <div className="max-w-[1200px] mx-auto px-6">
-        <AnimateOnScroll>
+        <AnimateOnScroll variant="slide-right">
           <div className="flex flex-col md:flex-row md:gap-16 lg:gap-24">
             {/* Left — title */}
             <div className="md:w-[280px] lg:w-[320px] shrink-0 mb-10 md:mb-0 md:sticky md:top-32 md:self-start">

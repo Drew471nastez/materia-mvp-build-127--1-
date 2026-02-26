@@ -172,7 +172,7 @@ export function PillTabs() {
   return (
     <section className="py-20 sm:py-24 bg-white">
       <div className="max-w-[1200px] mx-auto px-6">
-        <AnimateOnScroll>
+        <AnimateOnScroll variant="blur-in">
           <div className="text-center mb-10">
             <h2 className="text-[clamp(30px,4vw,44px)] font-semibold leading-[1.15] tracking-tight mb-3.5">
               One platform. Every tool you need.
@@ -183,7 +183,7 @@ export function PillTabs() {
           </div>
         </AnimateOnScroll>
 
-        <AnimateOnScroll>
+        <AnimateOnScroll variant="fade-up-scale" delay={100}>
           <div className="flex items-center justify-center gap-1.5 mb-12 bg-neutral-50 border border-neutral-200 rounded-full p-1.5 w-fit mx-auto flex-wrap">
             {TABS.map((t) => (
               <button
@@ -199,7 +199,7 @@ export function PillTabs() {
           </div>
         </AnimateOnScroll>
 
-        <AnimateOnScroll>
+        <AnimateOnScroll variant="slide-left" delay={200}>
           <div key={activeTab} className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center animate-in fade-in-0 slide-in-from-bottom-2 duration-400">
             <div>
               <h3 className="text-[26px] font-semibold tracking-tight mb-3.5">{tab.title}</h3>

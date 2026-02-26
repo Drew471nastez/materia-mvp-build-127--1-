@@ -70,7 +70,7 @@ export function PricingSection() {
   return (
     <section className="py-20 sm:py-24 bg-white" id="pricing">
       <div className="max-w-[1200px] mx-auto px-6">
-        <AnimateOnScroll>
+        <AnimateOnScroll variant="blur-in">
           <div className="text-center max-w-[640px] mx-auto mb-14">
             <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-wider text-violet-600 bg-violet-50 px-4 py-1.5 rounded-full mb-4">
               💰 Pricing
@@ -84,7 +84,7 @@ export function PricingSection() {
           </div>
         </AnimateOnScroll>
 
-        <AnimateOnScroll>
+        <AnimateOnScroll variant="fade-up-scale" delay={120}>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-[960px] mx-auto">
             {PLANS.map((plan) => (
               <div
@@ -144,7 +144,7 @@ export function PricingSection() {
           </div>
         </AnimateOnScroll>
 
-        <AnimateOnScroll className="text-center mt-8">
+        <AnimateOnScroll variant="fade-up" delay={250} className="text-center mt-8">
           <Link
             href="/pricing"
             className="inline-flex items-center gap-2 text-[15px] font-semibold py-3.5 px-8 rounded-full bg-white text-neutral-900 border-[1.5px] border-neutral-200 hover:border-neutral-400 transition-all duration-300 hover:-translate-y-0.5"

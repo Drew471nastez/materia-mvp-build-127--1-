@@ -54,73 +54,168 @@ const PARTNER_LOGOS = [
   "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/eyJidWNrZXQiOiJwYXJ0bmVycGFnZS5wcm9kIiwia2V5IjoibWVkaWEvY29udGFjdF9pbWFnZXMvOWQ0MDVmYmMtNGJkMS00NzEz.svg",
 ]
 
-// Gallery grid images — square thumbnails for horizontal scrolling rows
+// Supabase image transforms — mobile-first sizing.
+// Desktop center card is ~280px wide → serve 400px (2x retina cushion).
+// Side cards are ~200–240px → 320px suffices. We use a single set at 400px
+// (the browser picks from srcset via sizes) to keep the code simple.
+// quality=78/88 for crisp WebP at card size (30% bump from previous 60/68).
 const IMG_BASE = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/collage%20imags"
-const GALLERY_IMAGES = [
-  `${IMG_BASE}/Monetize%20(5)%20(2).webp?width=260&height=260&resize=cover&quality=70`,
-  `${IMG_BASE}/Monetize%20(6)%20(1).webp?width=260&height=260&resize=cover&quality=70`,
-  `${IMG_BASE}/Monetize%20(7)%20(1).webp?width=260&height=260&resize=cover&quality=70`,
-  `${IMG_BASE}/Monetize%20(21).webp?width=260&height=260&resize=cover&quality=70`,
-  `${IMG_BASE}/Monetize%20(9).webp?width=260&height=260&resize=cover&quality=70`,
+const IMG_NAMES = [
+  "Monetize%20(5)%20(2).webp",
+  "Monetize%20(6)%20(1).webp",
+  "Monetize%20(7)%20(1).webp",
+  "Monetize%20(21).webp",
+  "Monetize%20(9).webp",
 ]
+// Small (mobile / side cards): 320px wide
+const IMAGES_SM = IMG_NAMES.map(n => `${IMG_BASE}/${n}?width=320&height=400&resize=cover&quality=78`)
+// Large (desktop center): 560px wide
+const IMAGES_LG = IMG_NAMES.map(n => `${IMG_BASE}/${n}?width=560&height=700&resize=cover&quality=88`)
+// Default src uses the small variant
+const IMAGES = IMAGES_SM
 
-// Build rows with shuffled images for visual variety
-const ROW_CONFIGS = [
-  { images: [0, 2, 4, 1, 3, 0, 2, 4], direction: "left" as const, duration: 35, offset: -40 },
-  { images: [3, 1, 4, 0, 2, 3, 1, 4], direction: "right" as const, duration: 40, offset: -20 },
-  { images: [2, 0, 3, 4, 1, 2, 0, 3], direction: "left" as const, duration: 38, offset: -60 },
-  { images: [4, 3, 1, 2, 0, 4, 3, 1], direction: "right" as const, duration: 42, offset: -10 },
-]
-
-function GalleryRow({ imageIndices, direction, duration, offsetX }: {
-  imageIndices: number[]
-  direction: "left" | "right"
-  duration: number
-  offsetX: number
-}) {
-  const tripled = [...imageIndices, ...imageIndices, ...imageIndices]
-  const animName = direction === "left" ? "gallery-scroll-left" : "gallery-scroll-right"
-
-  return (
-    <div className="overflow-hidden" style={{ marginLeft: `${offsetX}px` }}>
-      <div
-        className="flex gap-3"
-        style={{
-          animation: `${animName} ${duration}s linear infinite`,
-          willChange: "transform",
-          backfaceVisibility: "hidden",
-        }}
-      >
-        {tripled.map((imgIdx, i) => (
-          <div
-            key={i}
-            className="w-[130px] h-[130px] sm:w-[150px] sm:h-[150px] md:w-[170px] md:h-[170px] rounded-2xl overflow-hidden bg-neutral-100 shrink-0"
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={GALLERY_IMAGES[imgIdx]}
-              alt=""
-              className="w-full h-full object-cover"
-              loading="lazy"
-              decoding="async"
-              draggable={false}
-              width={260}
-              height={260}
-            />
-          </div>
-        ))}
-      </div>
-    </div>
-  )
+interface CardDef {
+  left: number
+  top: number
+  width: number
+  height: number
+  zIndex: number
+  opacity?: number
+  scale?: number
 }
+
+interface CardTransition {
+  from: number[]
+  to: number[]
+  progress: number
+}
+
+// Card aspect ratio = 4:5 (1080×1350). Cards slightly overlapping. Depth scale restored.
+// Positions derived by working outward from center (canvas center = 550).
+// tx = left + width*(1−scale)/2  →  rendered_left/right verified below.
+//
+// Desktop — rendered edges (~2px overlap between cards):
+const DESKTOP_CARDS: CardDef[] = [
+  { left: -18,  top: 50, width: 200, height: 250, zIndex: 1, opacity: 0.82, scale: 0.95 },
+  { left: 172,  top: 25, width: 240, height: 300, zIndex: 2, opacity: 0.92, scale: 0.98 },
+  { left: 407,  top: 0,  width: 280, height: 350, zIndex: 3, opacity: 1,    scale: 1    },
+  { left: 682,  top: 25, width: 240, height: 300, zIndex: 2, opacity: 0.92, scale: 0.98 },
+  { left: 912,  top: 50, width: 200, height: 250, zIndex: 1, opacity: 0.82, scale: 0.95 },
+]
+
+// Mobile — rendered edges (~2px overlap between cards):
+const MOBILE_CARDS: CardDef[] = [
+  { left: 38,   top: 50, width: 180, height: 225, zIndex: 1, opacity: 0,    scale: 0.95 },
+  { left: 205,  top: 25, width: 220, height: 275, zIndex: 2, opacity: 0.85, scale: 0.98 },
+  { left: 415,  top: 0,  width: 260, height: 325, zIndex: 3, opacity: 1,    scale: 1    },
+  { left: 665,  top: 25, width: 220, height: 275, zIndex: 2, opacity: 0.85, scale: 0.98 },
+  { left: 872,  top: 50, width: 180, height: 225, zIndex: 1, opacity: 0,    scale: 0.95 },
+]
+
+const CANVAS_W = 1100
+const CANVAS_H = 375
+const AUTOPLAY_INTERVAL = 3800
+const CARD_TRANSITION_MS = 1500
+
+const rotateOrder = (order: number[], direction: 1 | -1) => {
+  const next = [...order]
+  if (direction === 1) {
+    const first = next.shift()!
+    next.push(first)
+  } else {
+    const last = next.pop()!
+    next.unshift(last)
+  }
+  return next
+}
+
+const lerp = (from: number, to: number, t: number) => from + (to - from) * t
+// Smooth ease-in-out quartic — gentle start AND gentle end for silky autoplay
+const ease = (t: number) => t < 0.5 ? 8 * t * t * t * t : 1 - Math.pow(-2 * t + 2, 4) / 2
 
 export function Hero() {
   const typedText = useTypingEffect(TYPING_PHRASES)
+  const [cardOrder, setCardOrder] = useState([0, 1, 2, 3, 4])
+  const [transition, setTransition] = useState<CardTransition | null>(null)
+  const [isMobile, setIsMobile] = useState(false)
+  const [loadedImages, setLoadedImages] = useState<Set<number>>(new Set())
+  // imagesLoaded (all-5 flag) removed — text is now shown immediately without waiting
+  // for all images. Per-card skeleton uses loadedImages.has(idx) instead.
   const [logosLoaded, setLogosLoaded] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isCreator, setIsCreator] = useState(false)
   const loadedLogosCount = useRef(0)
-  const sectionRef = useRef<HTMLElement>(null)
+
+  const autoplayRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const orderRef = useRef(cardOrder)
+  const animatingRef = useRef(false)
+  const rafRef = useRef<number | null>(null)
+  const loadedImageSetRef = useRef(new Set<number>())
+
+  const clearAutoplay = useCallback(() => {
+    if (autoplayRef.current) {
+      clearInterval(autoplayRef.current)
+      autoplayRef.current = null
+    }
+  }, [])
+
+  // Cancel any in-progress RAF animation and reset the animating lock.
+  const cancelAnimation = useCallback(() => {
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = null
+    }
+    animatingRef.current = false
+    setTransition(null)
+  }, [])
+
+  const startRotation = useCallback((direction: 1 | -1 = 1) => {
+    if (animatingRef.current) return
+
+    const from = orderRef.current
+    const to = rotateOrder(from, direction)
+
+    // Skip animation for prefers-reduced-motion or hidden tabs (instant swap)
+    const prefersReduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    if (prefersReduced || document.hidden) {
+      orderRef.current = to
+      setCardOrder(to)
+      return
+    }
+
+    const start = performance.now()
+    animatingRef.current = true
+
+    const tick = (now: number) => {
+      const raw = Math.min(1, (now - start) / CARD_TRANSITION_MS)
+      setTransition({ from, to, progress: ease(raw) })
+
+      if (raw < 1) {
+        rafRef.current = requestAnimationFrame(tick)
+        return
+      }
+
+      orderRef.current = to
+      setCardOrder(to)
+      setTransition(null)
+      animatingRef.current = false
+      rafRef.current = null
+    }
+
+    rafRef.current = requestAnimationFrame(tick)
+  }, [])
+
+  const restartAutoplay = useCallback(() => {
+    clearAutoplay()
+    autoplayRef.current = setInterval(() => startRotation(1), AUTOPLAY_INTERVAL)
+  }, [clearAutoplay, startRotation])
+
+  useEffect(() => {
+    const update = () => setIsMobile(window.innerWidth < 640)
+    update()
+    window.addEventListener("resize", update)
+    return () => window.removeEventListener("resize", update)
+  }, [])
 
   useEffect(() => {
     const supabase = createClient()
@@ -153,6 +248,123 @@ export function Hero() {
     }
   }, [])
 
+  // Pause autoplay when hero is scrolled out of view to save CPU
+  const sectionRef = useRef<HTMLElement>(null)
+  useEffect(() => {
+    const el = sectionRef.current
+    if (!el) {
+      restartAutoplay()
+      return () => {
+        clearAutoplay()
+        if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
+      }
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !document.hidden) {
+          restartAutoplay()
+        } else {
+          clearAutoplay()
+        }
+      },
+      { threshold: 0.1 },
+    )
+    observer.observe(el)
+
+    // Pause animation when tab goes to background — saves CPU/GPU on slow devices
+    const onVisibility = () => {
+      if (document.hidden) {
+        clearAutoplay()
+        cancelAnimation()
+      } else {
+        restartAutoplay()
+      }
+    }
+    document.addEventListener("visibilitychange", onVisibility)
+
+    return () => {
+      observer.disconnect()
+      document.removeEventListener("visibilitychange", onVisibility)
+      clearAutoplay()
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
+    }
+  }, [clearAutoplay, restartAutoplay])
+
+  const markImageLoaded = useCallback((idx: number) => {
+    if (loadedImageSetRef.current.has(idx)) return
+    loadedImageSetRef.current.add(idx)
+    setLoadedImages(new Set(loadedImageSetRef.current))
+  }, [])
+
+  const loadImageByIndex = useCallback((idx: number) => {
+    if (loadedImageSetRef.current.has(idx)) return Promise.resolve()
+
+    return new Promise<void>((resolve) => {
+      const img = new Image()
+      img.decoding = "async"
+      img.onload = () => {
+        markImageLoaded(idx)
+        resolve()
+      }
+      img.onerror = () => {
+        markImageLoaded(idx)
+        resolve()
+      }
+      img.src = IMAGES[idx]
+    })
+  }, [markImageLoaded])
+
+
+  // Progressive image loading for collage:
+  // Center + adjacent cards load IN PARALLEL for fast initial display.
+  // Sequential queue was too slow on poor connections (5 images × wait-time each).
+  // Edge cards (0, 4) are deferred until the browser is idle.
+  useEffect(() => {
+    const CENTER = 2
+    // Fire all three requests simultaneously — browser HTTP/2 handles concurrency
+    loadImageByIndex(CENTER)
+    loadImageByIndex(CENTER - 1)
+    loadImageByIndex(CENTER + 1)
+
+    const connection = (navigator as Navigator & {
+      connection?: { saveData?: boolean; effectiveType?: string }
+    }).connection
+    const isConstrained = Boolean(
+      connection?.saveData ||
+      connection?.effectiveType?.includes("2g") ||
+      connection?.effectiveType === "slow-2g",
+    )
+
+    if (isConstrained) return
+
+    const scheduleBackgroundLoad = () => {
+      loadImageByIndex(0)
+      loadImageByIndex(4)
+    }
+
+    if (typeof window.requestIdleCallback === "function") {
+      const idleHandle = window.requestIdleCallback(scheduleBackgroundLoad, { timeout: 1400 })
+      return () => window.cancelIdleCallback(idleHandle)
+    }
+
+    const timeout = window.setTimeout(scheduleBackgroundLoad, 700)
+    return () => window.clearTimeout(timeout)
+  }, [loadImageByIndex])
+
+  // Ensure currently visible cards are always loaded — load directly, no queue overhead
+  useEffect(() => {
+    const fromOrder = transition?.from ?? cardOrder
+    const toOrder = transition?.to ?? cardOrder
+    const prioritized = new Set<number>([
+      fromOrder[1], fromOrder[2], fromOrder[3],
+      toOrder[1],   toOrder[2],   toOrder[3],
+    ])
+    for (const idx of prioritized) {
+      if (typeof idx === "number") loadImageByIndex(idx)
+    }
+  }, [cardOrder, loadImageByIndex, transition])
+
   // Preload partner logos
   useEffect(() => {
     loadedLogosCount.current = 0
@@ -180,16 +392,31 @@ export function Hero() {
     Promise.all(PARTNER_LOGOS.map(loadLogo))
   }, [])
 
+  const activeCards = isMobile ? MOBILE_CARDS : DESKTOP_CARDS
+
   return (
     <section ref={sectionRef} className="flex flex-col items-center bg-white pt-7 sm:pt-10 pb-8 sm:pb-[67px] overflow-hidden">
       <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes gallery-scroll-left {
-          0% { transform: translate3d(0, 0, 0); }
-          100% { transform: translate3d(-33.333%, 0, 0); }
+        .hero-collage-inner {
+          transform: scale(0.96);
         }
-        @keyframes gallery-scroll-right {
-          0% { transform: translate3d(-33.333%, 0, 0); }
-          100% { transform: translate3d(0, 0, 0); }
+        @media (min-width: 640px) {
+          .hero-collage-inner { transform: scale(0.77); }
+        }
+        @media (min-width: 768px) {
+          .hero-collage-inner { transform: scale(0.92); }
+        }
+        @media (min-width: 1024px) {
+          .hero-collage-inner { transform: scale(1.09); }
+        }
+        @media (min-width: 1280px) {
+          .hero-collage-inner { transform: scale(1.24); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .hero-collage-inner, .collage-card {
+            transition: none !important;
+            animation: none !important;
+          }
         }
         @keyframes logo-scroll {
           0% { transform: translateX(0); }
@@ -200,46 +427,118 @@ export function Hero() {
           will-change: transform;
           backface-visibility: hidden;
         }
-        @media (prefers-reduced-motion: reduce) {
-          .gallery-row-anim, .logo-marquee {
-            animation: none !important;
-          }
+        .collage-card {
+          /* Only list GPU-compositable properties — left/top/width/height/filter
+             are layout/paint ops that cannot be composited and hurt perf in will-change */
+          will-change: transform, opacity;
+          backface-visibility: hidden;
+          contain: layout style paint;
+          /* transform-style: preserve-3d removed — creates an expensive 3D stacking
+             context on every card with no visual benefit for this 2D collage */
+        }
+        .collage-card img {
+          content-visibility: auto;
+          contain-intrinsic-size: 280px 350px;
+        }
+        @keyframes shimmer-gradient {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+        .collage-shimmer {
+          background: linear-gradient(
+            90deg,
+            #e5e5e5 0%,
+            #f0f0f0 25%,
+            #e8e8e8 50%,
+            #f0f0f0 75%,
+            #e5e5e5 100%
+          );
+          background-size: 200% 100%;
+          animation: shimmer-gradient 1.8s ease-in-out infinite;
+        }
+        .collage-shimmer-overlay {
+          transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1);
         }
       `}} />
 
-      {/* Gallery grid background + white modal overlay */}
       <div className="relative w-full mb-7 sm:mb-[42px] lg:mb-[95px] animate-scale-fade-in">
-        <div className="relative w-full h-[330px] sm:h-[280px] md:h-[330px] lg:h-[380px] xl:h-[420px] overflow-hidden">
-          {/* Horizontal scrolling gallery rows — behind the white modal */}
-          <div className="absolute inset-0 z-0 opacity-[0.95]">
-            <div className="flex flex-col gap-3 justify-center h-full" style={{ marginTop: "-10px" }}>
-              {ROW_CONFIGS.map((row, i) => (
-                <GalleryRow
-                  key={i}
-                  imageIndices={row.images}
-                  direction={row.direction}
-                  duration={row.duration}
-                  offsetX={row.offset}
-                />
-              ))}
-            </div>
+        <div className="relative w-full h-[330px] sm:h-[251px] md:h-[300px] lg:h-[360px] xl:h-[409px]">
+          <div
+            className="hero-collage-inner absolute left-1/2 -translate-x-1/2 origin-top select-none"
+            style={{ width: CANVAS_W, height: CANVAS_H }}
+          >
+            {IMAGES.map((src, imageIdx) => {
+              const fromPos = transition ? transition.from.indexOf(imageIdx) : cardOrder.indexOf(imageIdx)
+              const toPos = transition ? transition.to.indexOf(imageIdx) : fromPos
+              const fromCard = activeCards[fromPos]
+              const toCard = activeCards[toPos]
+              const t = transition?.progress ?? 1
 
-            {/* Gradient overlays — fade edges so grid blends with white bg */}
-            <div className="absolute inset-0 pointer-events-none z-10">
-              {/* Top fade — subtle */}
-              <div className="absolute top-0 left-0 right-0 h-[10%] bg-gradient-to-b from-white/80 to-transparent" />
-              {/* Bottom fade — subtle */}
-              <div className="absolute bottom-0 left-0 right-0 h-[12%] bg-gradient-to-t from-white/80 to-transparent" />
-              {/* Left fade */}
-              <div className="absolute top-0 left-0 bottom-0 w-[12%] bg-gradient-to-r from-white to-transparent" />
-              {/* Right fade */}
-              <div className="absolute top-0 right-0 bottom-0 w-[12%] bg-gradient-to-l from-white to-transparent" />
-            </div>
+              const left = lerp(fromCard.left, toCard.left, t)
+              const top = lerp(fromCard.top, toCard.top, t)
+              const width = lerp(fromCard.width, toCard.width, t)
+              const height = lerp(fromCard.height, toCard.height, t)
+              const scale = lerp(fromCard.scale ?? 1, toCard.scale ?? 1, t)
+              const opacity = lerp(fromCard.opacity ?? 1, toCard.opacity ?? 1, t)
+              const zIndex = Math.round(lerp(fromCard.zIndex, toCard.zIndex, t))
+              // saturation removed — was lerped from 0.96→1, imperceptible difference
+              // but caused a CSS filter repaint on every RAF tick (60fps × 5 cards)
+
+              // Move position into transform so layout is never triggered during animation.
+              // translate3d(x, y, 0) is handled entirely by the GPU compositor —
+              // equivalent visual to `left/top` but skips layout + paint each RAF tick.
+              // Adjustment matches the original scale-from-center (50% 50%) behaviour:
+              //   tx = left + width*(1-scale)/2
+              //   ty = top  + height*(1-scale)/2
+              const tx = left + width * (1 - scale) / 2
+              const ty = top + height * (1 - scale) / 2
+
+              return (
+                <div
+                  key={imageIdx}
+                  className="collage-card absolute rounded-[14px] overflow-hidden shadow-sm shadow-black/10"
+                  style={{
+                    left: 0,
+                    top: 0,
+                    width,
+                    height,
+                    zIndex,
+                    opacity,
+                    transform: `translate3d(${tx}px, ${ty}px, 0) scale(${scale})`,
+                    transformOrigin: "0 0",
+                  }}
+                >
+                  {/* Gradient shimmer overlay — sits on top of the image and
+                      fades out smoothly once the image finishes loading */}
+                  <div
+                    className="collage-shimmer collage-shimmer-overlay absolute inset-0 z-10 rounded-[14px]"
+                    style={{ opacity: loadedImages.has(imageIdx) ? 0 : 1, pointerEvents: "none" }}
+                  />
+                  <img
+                    srcSet={`${IMAGES_SM[imageIdx]} 320w, ${IMAGES_LG[imageIdx]} 560w`}
+                    sizes="(max-width: 640px) 260px, 280px"
+                    src={src}
+                    alt=""
+                    className="w-full h-full object-cover pointer-events-none transition-opacity duration-700 ease-out"
+                    style={{ opacity: loadedImages.has(imageIdx) ? 1 : 0 }}
+                    draggable={false}
+                    decoding="async"
+                    loading={imageIdx === cardOrder[2] ? "eager" : "lazy"}
+                    fetchPriority={imageIdx === cardOrder[2] ? "high" : "low"}
+                    onLoad={() => markImageLoaded(imageIdx)}
+                  />
+                </div>
+              )
+            })}
           </div>
 
-          {/* White modal with typing effect — centered on top */}
           <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none -translate-y-[7%] sm:translate-y-0">
             <div className="relative bg-white rounded-[24px] sm:rounded-[28px] shadow-lg shadow-neutral-200/50 border border-neutral-100/80 px-5 sm:px-10 md:px-14 md:pt-14 md:pb-12 w-[82%] max-w-[480px] text-center pointer-events-auto scale-y-[0.99] sm:scale-y-100 origin-top pt-9 pb-9 sm:pt-12 sm:pb-10">
+              {/* Text shown immediately — no dependency on image loading state.
+                  Previously gated on imagesLoaded which meant ALL 5 collage images
+                  had to finish before the headline or CTA text would appear. On slow
+                  connections this could take 10–30 s. Now the text appears instantly
+                  and the typing cursor starts right away. */}
               <>
                 <div className="absolute left-1/2 -translate-x-1/2 -top-3.5 sm:-top-4">
                   <div className="flex items-center gap-2 bg-gray-100/95 backdrop-blur-sm text-gray-700 text-[10px] sm:text-[11px] font-medium px-3 sm:px-3.5 py-1.5 rounded-full whitespace-nowrap shadow-sm border border-gray-200/50">

@@ -86,7 +86,7 @@ export function ManageSection() {
         .manage-float-anim { animation: manage-float 4s ease-in-out infinite; }
       `}} />
       <div className="max-w-[1200px] mx-auto px-6">
-        <AnimateOnScroll>
+        <AnimateOnScroll variant="blur-in">
           <h2 className="text-[27px] md:text-[clamp(32px,4.5vw,48px)] font-bold tracking-tight mb-3">
             Manage your business 🚀
           </h2>
@@ -95,7 +95,7 @@ export function ManageSection() {
           </p>
         </AnimateOnScroll>
 
-        <AnimateOnScroll>
+        <AnimateOnScroll variant="zoom-in" delay={100}>
           <div className="relative max-w-[1000px] mx-auto min-h-[300px] sm:min-h-[400px]">
             {/* Floating icons */}
             {FLOATING_ICONS.map((icon) => (

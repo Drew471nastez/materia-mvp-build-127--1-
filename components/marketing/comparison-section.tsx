@@ -15,7 +15,7 @@ export function ComparisonSection() {
   return (
     <section className="py-20 sm:py-24 bg-neutral-50/80">
       <div className="max-w-[1200px] mx-auto px-6">
-        <AnimateOnScroll>
+        <AnimateOnScroll variant="blur-in">
           <div className="text-center max-w-[640px] mx-auto mb-14">
             <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-wider text-violet-600 bg-violet-50 px-4 py-1.5 rounded-full mb-4">
               ↔ Compare
@@ -29,7 +29,7 @@ export function ComparisonSection() {
           </div>
         </AnimateOnScroll>
 
-        <AnimateOnScroll>
+        <AnimateOnScroll variant="fade-up-scale" delay={150}>
           <div className="max-w-[860px] mx-auto rounded-3xl overflow-hidden bg-white border border-neutral-200">
             {/* Header */}
             <div className="grid grid-cols-[130px_1fr_1fr] sm:grid-cols-[200px_1fr_1fr]">

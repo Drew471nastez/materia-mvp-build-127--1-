@@ -132,7 +132,7 @@ export function CarouselSection() {
   return (
     <section className="py-16 sm:py-22 bg-white">
       <div className="max-w-[1260px] mx-auto">
-        <AnimateOnScroll className="px-6">
+        <AnimateOnScroll variant="blur-in" className="px-6">
           <div className="text-center mb-10 sm:mb-12">
             <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-wider text-violet-600 bg-violet-50 px-4 py-1.5 rounded-full mb-4">
               🔗 OnePage
@@ -146,7 +146,7 @@ export function CarouselSection() {
           </div>
         </AnimateOnScroll>
 
-        <AnimateOnScroll>
+        <AnimateOnScroll variant="fade-up-scale" delay={150}>
           <div ref={containerRef} className="relative overflow-hidden mx-[-24px] px-6 pl-8 sm:pl-10">
             <div
               ref={trackRef}

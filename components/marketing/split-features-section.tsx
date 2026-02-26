@@ -55,7 +55,7 @@ export function SplitFeaturesSection() {
             </div>
           )}
           <div className="max-w-[1200px] mx-auto px-3 sm:px-6">
-            <AnimateOnScroll>
+            <AnimateOnScroll variant={idx % 2 === 0 ? "slide-left" : "slide-right"}>
               <div
                 className={`flex flex-col md:flex-row items-center gap-6 md:gap-14 ${
                   feature.imageLeft ? "" : "md:flex-row-reverse"

@@ -173,7 +173,7 @@ export function FeaturesGrid() {
   return (
     <section className="py-20 sm:py-24 bg-neutral-50/80" id="features">
       <div className="max-w-[1200px] mx-auto px-6">
-        <AnimateOnScroll>
+        <AnimateOnScroll variant="blur-in">
           <div className="text-center max-w-[640px] mx-auto mb-14">
             <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-wider text-violet-600 bg-violet-50 px-4 py-1.5 rounded-full mb-4">
               ✦ Features
@@ -187,7 +187,7 @@ export function FeaturesGrid() {
           </div>
         </AnimateOnScroll>
 
-        <AnimateOnScroll>
+        <AnimateOnScroll variant="fade-up-scale" delay={120}>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {FEATURES.map((f) => {
               const Mock = f.mock

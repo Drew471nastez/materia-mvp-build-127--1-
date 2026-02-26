@@ -61,7 +61,7 @@ export function StatsBar() {
   return (
     <section className="py-14 sm:py-16 border-t border-b border-neutral-100">
       <div className="max-w-[1200px] mx-auto px-6">
-        <AnimateOnScroll>
+        <AnimateOnScroll variant="fade-up-scale">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 text-center">
             {STATS.map((s) => (
               <div key={s.label}>

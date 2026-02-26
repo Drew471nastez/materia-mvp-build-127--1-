@@ -40,7 +40,42 @@ const TAG_POSITIONS = [
   "bottom-[18%] right-[-2%] sm:right-[4%]",
 ]
 
-function AnimateOnScroll({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+type ScrollAnimVariant =
+  | "fade-up"
+  | "fade-up-scale"
+  | "slide-left"
+  | "slide-right"
+  | "blur-in"
+  | "zoom-in"
+
+const HIDDEN: Record<ScrollAnimVariant, React.CSSProperties> = {
+  "fade-up":       { opacity: 0, transform: "translate3d(0, 32px, 0)" },
+  "fade-up-scale": { opacity: 0, transform: "translate3d(0, 28px, 0) scale(0.96)" },
+  "slide-left":    { opacity: 0, transform: "translate3d(-60px, 0, 0)", filter: "blur(6px)" },
+  "slide-right":   { opacity: 0, transform: "translate3d(60px, 0, 0)", filter: "blur(6px)" },
+  "blur-in":       { opacity: 0, transform: "scale(0.94)", filter: "blur(12px)" },
+  "zoom-in":       { opacity: 0, transform: "scale(0.88)" },
+}
+const VISIBLE: Record<ScrollAnimVariant, React.CSSProperties> = {
+  "fade-up":       { opacity: 1, transform: "translate3d(0, 0, 0)" },
+  "fade-up-scale": { opacity: 1, transform: "translate3d(0, 0, 0) scale(1)" },
+  "slide-left":    { opacity: 1, transform: "translate3d(0, 0, 0)", filter: "blur(0px)" },
+  "slide-right":   { opacity: 1, transform: "translate3d(0, 0, 0)", filter: "blur(0px)" },
+  "blur-in":       { opacity: 1, transform: "scale(1)", filter: "blur(0px)" },
+  "zoom-in":       { opacity: 1, transform: "scale(1)" },
+}
+
+function AnimateOnScroll({
+  children,
+  className = "",
+  variant = "fade-up",
+  delay = 0,
+}: {
+  children: React.ReactNode
+  className?: string
+  variant?: ScrollAnimVariant
+  delay?: number
+}) {
   const ref = useRef<HTMLDivElement>(null)
   const [visible, setVisible] = useState(false)
 
@@ -49,16 +84,28 @@ function AnimateOnScroll({ children, className = "" }: { children: React.ReactNo
     if (!el) return
     const obs = new IntersectionObserver(
       ([entry]) => { if (entry.isIntersecting) setVisible(true) },
-      { threshold: 0.05, rootMargin: "0px 0px 100px 0px" },
+      { threshold: 0.05, rootMargin: "0px 0px 60px 0px" },
     )
     obs.observe(el)
     return () => obs.disconnect()
   }, [])
 
+  const needsFilter = variant === "slide-left" || variant === "slide-right" || variant === "blur-in"
+  const props = ["opacity", "transform"]
+  if (needsFilter) props.push("filter")
+  const transitionValue = props
+    .map(p => `${p} 950ms cubic-bezier(0.16, 1, 0.3, 1) ${delay}ms`)
+    .join(", ")
+
   return (
     <div
       ref={ref}
-      className={`transition-[opacity,transform] duration-700 ease-out ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"} ${className}`}
+      className={className}
+      style={{
+        ...(visible ? VISIBLE[variant] : HIDDEN[variant]),
+        transition: transitionValue,
+        willChange: visible ? "auto" : props.join(", "),
+      }}
     >
       {children}
     </div>
@@ -246,7 +293,7 @@ export function BentoGrid() {
   return (
     <section className="py-20 sm:py-24 bg-white">
       <div className="max-w-[1200px] mx-auto px-6">
-        <AnimateOnScroll>
+        <AnimateOnScroll variant="blur-in">
           <div className="text-center max-w-[640px] mx-auto mb-14">
             <h2 className="text-[clamp(30px,4vw,44px)] font-semibold leading-[1.15] tracking-tight mb-3.5">
               Everything in one place
@@ -262,7 +309,7 @@ export function BentoGrid() {
           </div>
         </AnimateOnScroll>
 
-        <AnimateOnScroll>
+        <AnimateOnScroll variant="fade-up-scale" delay={120}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Sell anything — light gray */}
             <div className="rounded-3xl p-7 pb-2 sm:p-9 md:pb-4 bg-neutral-100 min-h-[320px] flex flex-col">
