@@ -113,7 +113,7 @@ export function CarouselSection() {
         </AnimateOnScroll>
 
         <AnimateOnScroll variant="fade-up-scale" delay={150}>
-          <div ref={containerRef} className="relative overflow-hidden mx-[-24px] px-6 pl-8 sm:pl-10">
+          <div ref={containerRef} className="relative overflow-hidden px-4 sm:px-6 sm:pl-10">
             <div
               ref={trackRef}
               className="flex gap-6 py-4 transition-transform duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]"
@@ -127,14 +127,14 @@ export function CarouselSection() {
                 <div
                   key={slide.name}
                   data-slide
-                  className="flex-shrink-0 w-[calc(100vw-56px)] sm:w-[714px] grid grid-cols-[120px_1fr] sm:grid-cols-[216px_1fr] gap-3 sm:gap-8 items-center bg-neutral-50/60 border border-neutral-200/70 rounded-2xl sm:rounded-3xl p-4 sm:p-7 transition-all duration-300 hover:shadow-md"
+                  className="flex-shrink-0 w-[calc(100vw-48px)] sm:w-[714px] grid grid-cols-[140px_1fr] sm:grid-cols-[216px_1fr] gap-3 sm:gap-8 items-center bg-neutral-50/60 border border-neutral-200/70 rounded-2xl sm:rounded-3xl p-4 sm:p-7 transition-all duration-300 hover:shadow-md"
                 >
                   {/* Phone mockup */}
                   {"phoneImage" in slide && slide.phoneImage ? (
-                    <div className="w-[120px] sm:w-[216px] mx-auto sm:mx-0">
+                    <div className="w-[140px] sm:w-[216px] mx-auto sm:mx-0">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={slide.phoneImage + "?width=432&quality=75"}
+                        src={slide.phoneImage + "?width=432&quality=70"}
                         alt={slide.name}
                         width={216}
                         height={432}
@@ -144,7 +144,7 @@ export function CarouselSection() {
                       />
                     </div>
                   ) : (
-                    <div className="w-[120px] sm:w-[216px] mx-auto sm:mx-0 bg-neutral-900 rounded-[20px] sm:rounded-[28px] p-1.5 sm:p-2 shadow-lg">
+                    <div className="w-[140px] sm:w-[216px] mx-auto sm:mx-0 bg-neutral-900 rounded-[20px] sm:rounded-[28px] p-1.5 sm:p-2 shadow-lg">
                       <div className="bg-white rounded-[14px] sm:rounded-[22px] overflow-hidden">
                         <div className="w-10 sm:w-16 h-0.5 sm:h-1 bg-neutral-900 rounded mx-auto mt-1 sm:mt-1.5" />
                         <div className="text-center px-2 sm:px-3.5 pt-2.5 sm:pt-4 pb-1.5 sm:pb-2.5 border-b border-neutral-100">
@@ -170,13 +170,13 @@ export function CarouselSection() {
                   )}
 
                   {/* Info */}
-                  <div className="py-0 sm:py-2 min-w-0 overflow-hidden">
-                    <div className="text-[15px] sm:text-[20px] font-bold mb-0.5">{slide.name}</div>
-                    <div className="text-[11px] sm:text-[13px] text-violet-600 font-semibold mb-2 sm:mb-5">{slide.role}</div>
-                    <div className="text-[11px] sm:text-[15px] italic leading-relaxed text-neutral-500 pl-3 sm:pl-4 border-l-2 sm:border-l-[3px] border-violet-300 line-clamp-3 sm:line-clamp-none">
+                  <div className="py-0 sm:py-2 min-w-0 overflow-hidden pr-1 sm:pr-2">
+                    <div className="text-[13px] sm:text-[20px] font-bold mb-0.5">{slide.name}</div>
+                    <div className="text-[10px] sm:text-[13px] text-violet-600 font-semibold mb-2 sm:mb-5">{slide.role}</div>
+                    <div className="text-[10px] sm:text-[15px] italic leading-relaxed text-neutral-500 pl-2.5 sm:pl-4 pr-1 border-l-2 sm:border-l-[3px] border-violet-300 line-clamp-4 sm:line-clamp-none break-words">
                       {slide.quote}
                     </div>
-                    <div className="mt-2 sm:mt-4 text-amber-400 text-[13px] sm:text-[15px] tracking-widest">★★★★★</div>
+                    <div className="mt-2 sm:mt-4 text-amber-400 text-[12px] sm:text-[15px] tracking-widest">★★★★★</div>
                   </div>
                 </div>
               ))}

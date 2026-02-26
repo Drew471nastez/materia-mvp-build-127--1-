@@ -161,7 +161,7 @@ export function ToolStackSection() {
             {/* Inner white card with feature list */}
             <div className="max-w-[578px] mx-auto bg-white rounded-[20px] shadow-[0_2px_24px_rgba(0,0,0,0.06)] p-5 sm:p-7">
               {/* Always-visible features */}
-              <div className="flex flex-col">
+              <div className="relative flex flex-col">
                 {VISIBLE_FEATURES.map((f, i) => (
                   <div key={f.title}>
                     <FeatureRow f={f} />
@@ -170,6 +170,14 @@ export function ToolStackSection() {
                     )}
                   </div>
                 ))}
+                {/* White bottom fade when collapsed — fades into the toggle button */}
+                <div
+                  className="absolute bottom-0 left-0 right-0 h-12 pointer-events-none transition-opacity duration-500"
+                  style={{
+                    background: "linear-gradient(to bottom, transparent, white)",
+                    opacity: expanded ? 0 : 1,
+                  }}
+                />
               </div>
 
               {/* Collapsible features — smooth height animation */}

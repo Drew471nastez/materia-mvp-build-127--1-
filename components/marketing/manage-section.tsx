@@ -11,8 +11,8 @@ const FLOATING_ICONS = [
   { emoji: "🔗", label: "Links", pos: "bottom-10 md:right-[-46px] right-[0px]", delay: "2s", hideMobile: true, zClass: "z-[5]" },
 ] as const
 
-const MANAGE_IMG = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(36).webp"
-const MANAGE_IMG_SMALL = MANAGE_IMG + "?width=800&quality=40"
+const MANAGE_IMG = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Macbook-Air-storelib.com.webp"
+const MANAGE_IMG_SMALL = MANAGE_IMG + "?width=800&quality=45"
 const MANAGE_IMG_MOBILE = MANAGE_IMG + "?width=500&quality=40"
 
 function LazyManagedImage() {
