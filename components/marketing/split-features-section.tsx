@@ -45,11 +45,11 @@ export function SplitFeaturesSection() {
   return (
     <div>
       {FEATURES.map((feature) => (
-        <section key={feature.title} className={`py-20 ${"reducedTopPadding" in feature && feature.reducedTopPadding ? "sm:pt-16 sm:pb-28" : "sm:py-28"} ${feature.sectionBg}`}>
+        <section key={feature.title} className={`py-20 ${"reducedTopPadding" in feature && feature.reducedTopPadding ? "sm:pt-10 sm:pb-28" : "sm:py-28"} ${feature.sectionBg}`}>
           <div className="max-w-[1200px] mx-auto px-3 sm:px-6">
             <AnimateOnScroll>
               <div
-                className={`flex flex-col md:flex-row items-center gap-8 md:gap-14 ${
+                className={`flex flex-col md:flex-row items-center gap-6 md:gap-14 ${
                   feature.imageLeft ? "" : "md:flex-row-reverse"
                 }`}
               >

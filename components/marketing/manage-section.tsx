@@ -109,7 +109,7 @@ export function ManageSection() {
                     <img
                       src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(37).webp"
                       alt="Digital Products"
-                      className="w-full h-full object-cover rounded-full"
+                      className="w-[80%] h-[80%] object-cover rounded-full"
                       loading="lazy"
                       decoding="async"
                     />

@@ -24,6 +24,7 @@ const PRODUCTS_ROW2 = [
   { emoji: "🎮", label: "Game Assets" },
   { emoji: "✏️", label: "Fonts" },
   { emoji: "🧩", label: "Plugins" },
+  { emoji: "🤝", label: "1:1 Coaching" },
 ]
 
 function MarqueeRow({ items, direction = "left", duration = 30 }: { items: typeof PRODUCTS_ROW1; direction?: "left" | "right"; duration?: number }) {
@@ -31,7 +32,7 @@ function MarqueeRow({ items, direction = "left", duration = 30 }: { items: typeo
   const animName = direction === "left" ? "marquee-left" : "marquee-right"
 
   return (
-    <div className="overflow-hidden">
+    <div className="overflow-hidden py-2">
       <div
         className="flex gap-3 w-max"
         style={{
@@ -78,9 +79,9 @@ export function ProductMarquee() {
         </p>
       </div>
 
-      <div className="flex flex-col gap-3">
-        <MarqueeRow items={PRODUCTS_ROW1} direction="left" duration={45} />
-        <MarqueeRow items={PRODUCTS_ROW2} direction="right" duration={52} />
+      <div className="flex flex-col gap-1">
+        <MarqueeRow items={PRODUCTS_ROW1} direction="left" duration={54} />
+        <MarqueeRow items={PRODUCTS_ROW2} direction="right" duration={62} />
       </div>
     </section>
   )

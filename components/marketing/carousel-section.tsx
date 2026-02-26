@@ -68,19 +68,27 @@ const SLIDES = [
 
 export function CarouselSection() {
   const [current, setCurrent] = useState(0)
+  const containerRef = useRef<HTMLDivElement>(null)
   const trackRef = useRef<HTMLDivElement>(null)
   const touchStartX = useRef(0)
   const autoplayRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const getSlideWidth = useCallback(() => {
-    if (!trackRef.current) return 704
+    if (!trackRef.current) return 738
     const slide = trackRef.current.querySelector<HTMLElement>("[data-slide]")
-    return slide ? slide.offsetWidth + 24 : 704
+    return slide ? slide.offsetWidth + 24 : 738
+  }, [])
+
+  // Compute max offset so last slide aligns to right edge (no empty gap)
+  const getMaxOffset = useCallback(() => {
+    if (!trackRef.current || !containerRef.current) return Infinity
+    const containerWidth = containerRef.current.offsetWidth
+    const totalWidth = trackRef.current.scrollWidth
+    return Math.max(0, totalWidth - containerWidth)
   }, [])
 
   const goTo = useCallback((n: number) => {
-    const clamped = Math.max(0, Math.min(n, SLIDES.length - 1))
-    setCurrent(clamped)
+    setCurrent(((n % SLIDES.length) + SLIDES.length) % SLIDES.length)
   }, [])
 
   // Reset autoplay timer whenever current changes
@@ -98,18 +106,23 @@ export function CarouselSection() {
 
   useEffect(() => {
     if (!trackRef.current) return
-    trackRef.current.style.transform = `translateX(-${current * getSlideWidth()}px)`
-  }, [current, getSlideWidth])
+    const idealOffset = current * getSlideWidth()
+    const maxOffset = getMaxOffset()
+    const offset = Math.min(idealOffset, maxOffset)
+    trackRef.current.style.transform = `translateX(-${offset}px)`
+  }, [current, getSlideWidth, getMaxOffset])
 
   useEffect(() => {
     const onResize = () => {
-      if (trackRef.current) {
-        trackRef.current.style.transform = `translateX(-${current * getSlideWidth()}px)`
-      }
+      if (!trackRef.current) return
+      const idealOffset = current * getSlideWidth()
+      const maxOffset = getMaxOffset()
+      const offset = Math.min(idealOffset, maxOffset)
+      trackRef.current.style.transform = `translateX(-${offset}px)`
     }
     window.addEventListener("resize", onResize)
     return () => window.removeEventListener("resize", onResize)
-  }, [current, getSlideWidth])
+  }, [current, getSlideWidth, getMaxOffset])
 
   const handleGoTo = useCallback((n: number) => {
     goTo(n)
@@ -134,7 +147,7 @@ export function CarouselSection() {
         </AnimateOnScroll>
 
         <AnimateOnScroll>
-          <div className="relative overflow-hidden mx-[-24px] px-6 pl-8 sm:pl-10">
+          <div ref={containerRef} className="relative overflow-hidden mx-[-24px] px-6 pl-8 sm:pl-10">
             <div
               ref={trackRef}
               className="flex gap-6 py-4 transition-transform duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]"
