@@ -40,28 +40,31 @@ const TAG_POSITIONS = [
   "bottom-[18%] right-[-2%] sm:right-[4%]",
 ]
 
+// Lightweight scroll-reveal animations — GPU-only (opacity + translate3d).
+// No blur or filter (causes paint lag on low-end devices).
+// All transforms use translate3d for GPU compositor, never layout properties.
 type ScrollAnimVariant =
   | "fade-up"
   | "fade-up-scale"
   | "slide-left"
   | "slide-right"
-  | "blur-in"
+  | "blur-in"   // kept for API compat — just does fade-up now
   | "zoom-in"
 
 const HIDDEN: Record<ScrollAnimVariant, React.CSSProperties> = {
-  "fade-up":       { opacity: 0, transform: "translate3d(0, 32px, 0)" },
-  "fade-up-scale": { opacity: 0, transform: "translate3d(0, 28px, 0) scale(0.96)" },
-  "slide-left":    { opacity: 0, transform: "translate3d(-60px, 0, 0)", filter: "blur(6px)" },
-  "slide-right":   { opacity: 0, transform: "translate3d(60px, 0, 0)", filter: "blur(6px)" },
-  "blur-in":       { opacity: 0, transform: "scale(0.94)", filter: "blur(12px)" },
-  "zoom-in":       { opacity: 0, transform: "scale(0.88)" },
+  "fade-up":       { opacity: 0, transform: "translate3d(0, 24px, 0)" },
+  "fade-up-scale": { opacity: 0, transform: "translate3d(0, 20px, 0) scale(0.98)" },
+  "slide-left":    { opacity: 0, transform: "translate3d(-30px, 0, 0)" },
+  "slide-right":   { opacity: 0, transform: "translate3d(30px, 0, 0)" },
+  "blur-in":       { opacity: 0, transform: "translate3d(0, 16px, 0)" },
+  "zoom-in":       { opacity: 0, transform: "scale(0.96)" },
 }
 const VISIBLE: Record<ScrollAnimVariant, React.CSSProperties> = {
   "fade-up":       { opacity: 1, transform: "translate3d(0, 0, 0)" },
   "fade-up-scale": { opacity: 1, transform: "translate3d(0, 0, 0) scale(1)" },
-  "slide-left":    { opacity: 1, transform: "translate3d(0, 0, 0)", filter: "blur(0px)" },
-  "slide-right":   { opacity: 1, transform: "translate3d(0, 0, 0)", filter: "blur(0px)" },
-  "blur-in":       { opacity: 1, transform: "scale(1)", filter: "blur(0px)" },
+  "slide-left":    { opacity: 1, transform: "translate3d(0, 0, 0)" },
+  "slide-right":   { opacity: 1, transform: "translate3d(0, 0, 0)" },
+  "blur-in":       { opacity: 1, transform: "translate3d(0, 0, 0)" },
   "zoom-in":       { opacity: 1, transform: "scale(1)" },
 }
 
@@ -84,18 +87,11 @@ function AnimateOnScroll({
     if (!el) return
     const obs = new IntersectionObserver(
       ([entry]) => { if (entry.isIntersecting) setVisible(true) },
-      { threshold: 0.05, rootMargin: "0px 0px 60px 0px" },
+      { threshold: 0.05, rootMargin: "0px 0px 80px 0px" },
     )
     obs.observe(el)
     return () => obs.disconnect()
   }, [])
-
-  const needsFilter = variant === "slide-left" || variant === "slide-right" || variant === "blur-in"
-  const props = ["opacity", "transform"]
-  if (needsFilter) props.push("filter")
-  const transitionValue = props
-    .map(p => `${p} 950ms cubic-bezier(0.16, 1, 0.3, 1) ${delay}ms`)
-    .join(", ")
 
   return (
     <div
@@ -103,8 +99,8 @@ function AnimateOnScroll({
       className={className}
       style={{
         ...(visible ? VISIBLE[variant] : HIDDEN[variant]),
-        transition: transitionValue,
-        willChange: visible ? "auto" : props.join(", "),
+        transition: `opacity 700ms cubic-bezier(0.25, 0.46, 0.45, 0.94) ${delay}ms, transform 700ms cubic-bezier(0.25, 0.46, 0.45, 0.94) ${delay}ms`,
+        willChange: visible ? "auto" : "opacity, transform",
       }}
     >
       {children}

@@ -1,6 +1,39 @@
 "use client"
 
+import { useState, useEffect, useCallback } from "react"
 import { AnimateOnScroll } from "./bento-grid"
+
+const CYCLING_WORDS = ["possibilities", "sales", "products", "freedom"]
+
+function CyclingWord() {
+  const [index, setIndex] = useState(0)
+  const [fade, setFade] = useState(true)
+
+  const cycle = useCallback(() => {
+    setFade(false)
+    setTimeout(() => {
+      setIndex((prev) => (prev + 1) % CYCLING_WORDS.length)
+      setFade(true)
+    }, 350)
+  }, [])
+
+  useEffect(() => {
+    const interval = setInterval(cycle, 3000)
+    return () => clearInterval(interval)
+  }, [cycle])
+
+  return (
+    <span
+      className="inline-block transition-all duration-[450ms] ease-[cubic-bezier(0.16,1,0.3,1)]"
+      style={{
+        opacity: fade ? 1 : 0,
+        transform: fade ? "translate3d(0,0,0)" : "translate3d(0,8px,0)",
+      }}
+    >
+      {CYCLING_WORDS[index]}
+    </span>
+  )
+}
 
 const PRODUCTS_ROW1 = [
   { emoji: "📚", label: "E-books" },
@@ -75,7 +108,7 @@ export function ProductMarquee() {
       <AnimateOnScroll variant="blur-in">
         <div className="max-w-[1200px] mx-auto px-6 mb-10 text-center">
           <h2 className="text-[clamp(26px,3.5vw,40px)] font-semibold tracking-tight leading-[1.15] mb-3">
-            Unlimited possibilities
+            Unlimited <CyclingWord />
           </h2>
           <p className="text-[15px] text-neutral-500 max-w-[460px] mx-auto">
             Whatever you create, there&apos;s a place for it on Storelib.

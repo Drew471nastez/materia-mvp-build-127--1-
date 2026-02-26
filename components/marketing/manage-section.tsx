@@ -30,12 +30,12 @@ function LazyManagedImage() {
     return () => observer.disconnect()
   }, [])
 
-  // Preload image as soon as component mounts
+  // Preload the optimized image (not the full-size original)
   useEffect(() => {
     const link = document.createElement("link")
     link.rel = "preload"
     link.as = "image"
-    link.href = MANAGE_IMG
+    link.href = MANAGE_IMG_SMALL
     document.head.appendChild(link)
     return () => { document.head.removeChild(link) }
   }, [])
@@ -65,13 +65,13 @@ function LazyManagedImage() {
 }
 
 export function ManageSection() {
-  // Preload floating icon images
+  // Preload floating icon images at optimized size (74px icons don't need full-res)
   useEffect(() => {
     FLOATING_ICONS.forEach((icon) => {
       if ("imgSrc" in icon && icon.imgSrc) {
         const img = new window.Image()
         img.decoding = "async"
-        img.src = icon.imgSrc
+        img.src = icon.imgSrc + "?width=150&quality=70"
       }
     })
   }, [])
@@ -108,7 +108,7 @@ export function ManageSection() {
                   {"imgSrc" in icon && icon.imgSrc ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
                     <img
-                      src={icon.imgSrc}
+                      src={icon.imgSrc + "?width=150&quality=70"}
                       alt={icon.label}
                       className={`object-cover rounded-full ${icon.label === "Digital Products" ? "w-[80%] h-[80%]" : icon.label === "Marketplace" ? "w-[130%] h-[130%]" : "w-full h-full"}`}
                       width={74}
