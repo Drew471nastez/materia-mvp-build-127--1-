@@ -12,6 +12,7 @@ const SplitFeaturesSection = dynamic(() => import("@/components/marketing/split-
 const FeaturesGrid = dynamic(() => import("@/components/marketing/features-grid").then(m => ({ default: m.FeaturesGrid })))
 const CarouselSection = dynamic(() => import("@/components/marketing/carousel-section").then(m => ({ default: m.CarouselSection })))
 const ComparisonSection = dynamic(() => import("@/components/marketing/comparison-section").then(m => ({ default: m.ComparisonSection })))
+const ToolStackSection = dynamic(() => import("@/components/marketing/tool-stack-section").then(m => ({ default: m.ToolStackSection })))
 const PricingSection = dynamic(() => import("@/components/marketing/pricing-section").then(m => ({ default: m.PricingSection })))
 const FaqSection = dynamic(() => import("@/components/marketing/faq-section").then(m => ({ default: m.FaqSection })))
 const CtaSection = dynamic(() => import("@/components/marketing/cta-section").then(m => ({ default: m.CtaSection })))
@@ -43,6 +44,9 @@ export default function StorelibLanding() {
 
       {/* COMPARISON */}
       <ComparisonSection />
+
+      {/* TOOL STACK COMPARISON */}
+      <ToolStackSection />
 
       {/* PRICING */}
       <PricingSection />
