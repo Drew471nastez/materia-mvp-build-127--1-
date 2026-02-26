@@ -12,7 +12,8 @@ const FLOATING_ICONS = [
 ] as const
 
 const MANAGE_IMG = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(36).webp"
-const MANAGE_IMG_SMALL = MANAGE_IMG + "?width=900&quality=75"
+const MANAGE_IMG_SMALL = MANAGE_IMG + "?width=800&quality=70"
+const MANAGE_IMG_MOBILE = MANAGE_IMG + "?width=500&quality=65"
 
 function LazyManagedImage() {
   const [loaded, setLoaded] = useState(false)
@@ -45,14 +46,15 @@ function LazyManagedImage() {
       {inView ? (
         <img
           src={MANAGE_IMG_SMALL}
+          srcSet={`${MANAGE_IMG_MOBILE} 500w, ${MANAGE_IMG_SMALL} 800w`}
           alt="Storelib Dashboard"
-          width={900}
-          height={506}
+          width={800}
+          height={450}
           className={`w-full rounded-xl sm:rounded-2xl object-cover transition-opacity duration-500 ${loaded ? "opacity-100" : "opacity-0"}`}
           loading="eager"
           decoding="async"
           fetchPriority="high"
-          sizes="(max-width: 768px) 90vw, 800px"
+          sizes="(max-width: 640px) 90vw, 800px"
           draggable={false}
           onLoad={() => setLoaded(true)}
           onContextMenu={(e) => e.preventDefault()}

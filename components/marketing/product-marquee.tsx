@@ -14,7 +14,7 @@ function CyclingWord() {
     setTimeout(() => {
       setIndex((prev) => (prev + 1) % CYCLING_WORDS.length)
       setFade(true)
-    }, 350)
+    }, 300)
   }, [])
 
   useEffect(() => {
@@ -23,14 +23,15 @@ function CyclingWord() {
   }, [cycle])
 
   return (
-    <span
-      className="inline-block transition-all duration-[450ms] ease-[cubic-bezier(0.16,1,0.3,1)]"
-      style={{
-        opacity: fade ? 1 : 0,
-        transform: fade ? "translate3d(0,0,0)" : "translate3d(0,8px,0)",
-      }}
-    >
-      {CYCLING_WORDS[index]}
+    <span className="relative inline-block align-bottom">
+      {/* Invisible anchor — keeps container width stable on the widest word */}
+      <span className="invisible">possibilities</span>
+      <span
+        className="absolute inset-0 inline-flex items-center justify-center transition-opacity duration-500 ease-out"
+        style={{ opacity: fade ? 1 : 0 }}
+      >
+        {CYCLING_WORDS[index]}
+      </span>
     </span>
   )
 }

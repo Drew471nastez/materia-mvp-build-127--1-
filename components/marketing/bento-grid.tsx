@@ -316,13 +316,15 @@ export function BentoGrid() {
               <div className="mt-1 sm:mt-2.5 flex-1 flex items-end justify-center overflow-hidden relative min-h-[170px] sm:min-h-[180px]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(2969%20x%201600%20px)%20(2969%20x%201450%20px).webp"
+                  src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(2969%20x%201600%20px)%20(2969%20x%201450%20px).webp?width=800&quality=75"
+                  srcSet="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(2969%20x%201600%20px)%20(2969%20x%201450%20px).webp?width=500&quality=70 500w, https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(2969%20x%201600%20px)%20(2969%20x%201450%20px).webp?width=800&quality=75 800w"
                   alt="Digital products showcase"
                   className="w-[125%] sm:w-[110%] rounded-xl object-cover"
                   loading="eager"
                   decoding="async"
-                  width={2969}
-                  height={1450}
+                  sizes="(max-width: 640px) 90vw, 800px"
+                  width={800}
+                  height={390}
                 />
               </div>
             </div>
