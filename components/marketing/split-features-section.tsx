@@ -29,6 +29,7 @@ const FEATURES = [
     src: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Visits%20(6).webp",
     imageLeft: true,
     sectionBg: "bg-gray-50",
+    reducedTopPadding: true,
   },
 ]
 
@@ -44,7 +45,7 @@ export function SplitFeaturesSection() {
   return (
     <div>
       {FEATURES.map((feature) => (
-        <section key={feature.title} className={`py-20 sm:py-28 ${feature.sectionBg}`}>
+        <section key={feature.title} className={`py-20 ${"reducedTopPadding" in feature && feature.reducedTopPadding ? "sm:pt-16 sm:pb-28" : "sm:py-28"} ${feature.sectionBg}`}>
           <div className="max-w-[1200px] mx-auto px-3 sm:px-6">
             <AnimateOnScroll>
               <div

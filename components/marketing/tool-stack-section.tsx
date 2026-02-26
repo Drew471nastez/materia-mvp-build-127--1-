@@ -126,9 +126,9 @@ export function ToolStackSection() {
                   <img
                     src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
                     alt="Storelib"
-                    width={22}
-                    height={22}
-                    className="w-[22px] h-[22px]"
+                    width={31}
+                    height={31}
+                    className="w-[31px] h-[31px]"
                   />
                 </span>
                 <div className="flex-1 min-w-0">

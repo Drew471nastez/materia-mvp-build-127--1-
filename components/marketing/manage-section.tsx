@@ -16,7 +16,7 @@ const OnePageIcon = () => (
 
 const FLOATING_ICONS = [
   { label: "OnePage", pos: "md:top-[-4px] top-[-16px] left-[5%] md:left-[-2%]", delay: "0s", zClass: "z-[2]", isOnePage: true },
-  { emoji: "📕", label: "Digital Products", pos: "md:top-[34%] md:left-[-11%] bottom-[50px] left-[4%]", delay: "0.5s", zClass: "z-[2]" },
+  { emoji: "📕", label: "Digital Products", pos: "md:top-[34%] md:left-[-11%] bottom-[50px] left-[4%]", delay: "0.5s", zClass: "z-[2]", customIcon: true },
   { emoji: "🛍️", label: "Marketplace", pos: "md:top-[-16px] top-[-36px] right-[2%]", delay: "1s", zClass: "z-[5]" },
   { emoji: "🎓", label: "Courses", pos: "bottom-[60px] left-0 md:left-[-7%]", delay: "1.5s", hideMobile: true, zClass: "z-[2]" },
   { emoji: "🔗", label: "Links", pos: "bottom-10 md:right-[-46px] right-[0px]", delay: "2s", hideMobile: true, zClass: "z-[5]" },
@@ -103,8 +103,17 @@ export function ManageSection() {
                 className={`absolute flex-col items-center gap-2 ${icon.zClass} manage-float-anim ${icon.pos} ${"hideMobile" in icon && icon.hideMobile ? "hidden md:flex" : "flex"}`}
                 style={{ animationDelay: icon.delay }}
               >
-                <div className="w-[58px] h-[58px] md:w-[74px] md:h-[74px] rounded-full bg-violet-50 flex items-center justify-center text-[25px] md:text-[32px] shadow-md">
-                  {"isOnePage" in icon && icon.isOnePage ? <OnePageIcon /> : ("emoji" in icon ? icon.emoji : null)}
+                <div className="w-[58px] h-[58px] md:w-[74px] md:h-[74px] rounded-full bg-violet-50 flex items-center justify-center text-[25px] md:text-[32px] shadow-md overflow-hidden">
+                  {"isOnePage" in icon && icon.isOnePage ? <OnePageIcon /> : ("customIcon" in icon && icon.customIcon ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(37).webp"
+                      alt="Digital Products"
+                      className="w-full h-full object-cover rounded-full"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  ) : ("emoji" in icon ? icon.emoji : null))}
                 </div>
                 <span className="text-[10px] md:text-[12px] font-bold uppercase tracking-wider text-neutral-500">
                   {icon.label}

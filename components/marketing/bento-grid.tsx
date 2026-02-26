@@ -265,12 +265,12 @@ export function BentoGrid() {
         <AnimateOnScroll>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Sell anything — light purple + illustration image */}
-            <div className="rounded-3xl p-9 bg-violet-50/80 min-h-[320px] flex flex-col">
+            <div className="rounded-3xl p-9 md:pb-7 bg-violet-50/80 min-h-[320px] flex flex-col">
               <h3 className="text-2xl font-semibold tracking-tight leading-snug mb-2.5">Sell anything</h3>
               <p className="text-sm leading-relaxed text-neutral-500 max-w-[320px]">
                 Courses, digital products, memberships, bookings — if you made it, you can sell it here on Storelib.
               </p>
-              <div className="mt-5 flex-1 flex items-end justify-center overflow-hidden relative min-h-[140px] sm:min-h-[180px]">
+              <div className="mt-3.5 flex-1 flex items-end justify-center overflow-hidden relative min-h-[140px] sm:min-h-[180px]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(2969%20x%201600%20px)%20(2969%20x%201450%20px).webp"

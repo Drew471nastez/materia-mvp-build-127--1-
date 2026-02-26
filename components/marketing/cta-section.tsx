@@ -18,15 +18,32 @@ export function CtaSection() {
     const glow = glowRef.current
     if (!card || !glow) return
 
+    let targetX = 0, targetY = 0, currentX = 0, currentY = 0
+    let rafId: number | null = null
+    let isHovering = false
+
+    const animate = () => {
+      currentX += (targetX - currentX) * 0.06
+      currentY += (targetY - currentY) * 0.06
+      glow.style.background = `radial-gradient(600px circle at ${currentX}px ${currentY}px, rgba(162,112,255,0.18), transparent 60%)`
+      if (isHovering || Math.abs(targetX - currentX) > 0.5 || Math.abs(targetY - currentY) > 0.5) {
+        rafId = requestAnimationFrame(animate)
+      } else {
+        rafId = null
+      }
+    }
+
     const handleMove = (e: MouseEvent) => {
       const rect = card.getBoundingClientRect()
-      const x = e.clientX - rect.left
-      const y = e.clientY - rect.top
+      targetX = e.clientX - rect.left
+      targetY = e.clientY - rect.top
+      isHovering = true
       glow.style.opacity = "1"
-      glow.style.background = `radial-gradient(600px circle at ${x}px ${y}px, rgba(162,112,255,0.25), transparent 60%)`
+      if (!rafId) rafId = requestAnimationFrame(animate)
     }
 
     const handleLeave = () => {
+      isHovering = false
       glow.style.opacity = "0"
     }
 
@@ -35,6 +52,7 @@ export function CtaSection() {
     return () => {
       card.removeEventListener("mousemove", handleMove)
       card.removeEventListener("mouseleave", handleLeave)
+      if (rafId) cancelAnimationFrame(rafId)
     }
   }, [mounted])
 
@@ -55,8 +73,8 @@ export function CtaSection() {
           {/* Pulsing wave rings — smooth continuous loop around logo */}
           <style dangerouslySetInnerHTML={{ __html: `
             @keyframes cta-pulse {
-              0% { transform: translate(-50%,-50%) scale(0.7); opacity: 0.42; }
-              70% { opacity: 0.12; }
+              0% { transform: translate(-50%,-50%) scale(0.7); opacity: 0.25; }
+              70% { opacity: 0.08; }
               100% { transform: translate(-50%,-50%) scale(3); opacity: 0; }
             }
           `}} />
@@ -64,7 +82,7 @@ export function CtaSection() {
             {[0, 1, 2, 3].map((i) => (
               <div
                 key={i}
-                className="absolute top-1/2 left-1/2 w-full h-full rounded-full border border-white/[0.14]"
+                className="absolute top-1/2 left-1/2 w-full h-full rounded-full border border-white/[0.08]"
                 style={{
                   animation: `cta-pulse 5s cubic-bezier(0.4, 0, 0.2, 1) infinite`,
                   animationDelay: `${i * 1.25}s`,
@@ -80,9 +98,9 @@ export function CtaSection() {
               <img
                 src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
                 alt="Storelib"
-                width={40}
-                height={40}
-                className="w-10 h-10"
+                width={46}
+                height={46}
+                className="w-[46px] h-[46px]"
               />
             </div>
 

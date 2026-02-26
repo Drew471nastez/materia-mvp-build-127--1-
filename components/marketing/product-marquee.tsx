@@ -37,12 +37,14 @@ function MarqueeRow({ items, direction = "left", duration = 30 }: { items: typeo
         style={{
           animation: `${animName} ${duration}s linear infinite`,
           willChange: "transform",
+          backfaceVisibility: "hidden",
+          WebkitBackfaceVisibility: "hidden",
         }}
       >
         {tripled.map((item, i) => (
           <div
             key={i}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-white border border-neutral-200/80 shadow-sm whitespace-nowrap hover:border-violet-300 hover:shadow-md transition-all duration-200"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-white border-[1.5px] border-neutral-200 shadow-sm whitespace-nowrap hover:border-violet-300 hover:shadow-md transition-all duration-200"
           >
             <span className="text-base">{item.emoji}</span>
             <span className="text-sm font-medium text-neutral-700">{item.label}</span>
@@ -58,12 +60,12 @@ export function ProductMarquee() {
     <section className="py-14 sm:py-18 bg-white overflow-hidden">
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes marquee-left {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(-33.333%); }
+          0% { transform: translate3d(0, 0, 0); }
+          100% { transform: translate3d(-33.333%, 0, 0); }
         }
         @keyframes marquee-right {
-          0% { transform: translateX(-33.333%); }
-          100% { transform: translateX(0); }
+          0% { transform: translate3d(-33.333%, 0, 0); }
+          100% { transform: translate3d(0, 0, 0); }
         }
       `}} />
 
@@ -77,8 +79,8 @@ export function ProductMarquee() {
       </div>
 
       <div className="flex flex-col gap-3">
-        <MarqueeRow items={PRODUCTS_ROW1} direction="left" duration={35} />
-        <MarqueeRow items={PRODUCTS_ROW2} direction="right" duration={40} />
+        <MarqueeRow items={PRODUCTS_ROW1} direction="left" duration={45} />
+        <MarqueeRow items={PRODUCTS_ROW2} direction="right" duration={52} />
       </div>
     </section>
   )

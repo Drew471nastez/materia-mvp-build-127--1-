@@ -52,6 +52,18 @@ const SLIDES = [
     ],
     quote: "\"Sold $6K in presets last month alone. The OnePage makes it so easy for followers to find what they need and buy right there.\"",
   },
+  {
+    name: "Liam Torres",
+    role: "Fitness Creator",
+    bio: "Fitness Creator · 56K followers",
+    avatar: "linear-gradient(135deg,#06B6D4,#22d3ee)",
+    links: [
+      { icon: "🏋️", label: "12-Week Program — $59", bg: "bg-cyan-50" },
+      { icon: "📋", label: "Meal Plan Bundle — $29", bg: "bg-orange-50" },
+      { icon: "🎥", label: "Free: Daily Workout Video", bg: "bg-green-50" },
+    ],
+    quote: "\"Moving to Storelib was the best decision I made. My fitness programs sell themselves now — the OnePage checkout flow is seamless and my customers love it.\"",
+  },
 ]
 
 export function CarouselSection() {
@@ -113,10 +125,10 @@ export function CarouselSection() {
               🔗 OnePage
             </span>
             <h2 className="text-[clamp(27px,3.6vw,40px)] font-semibold leading-[1.15] tracking-tight mb-3.5">
-              Your link in bio — upgraded
+              The link in bio creators love
             </h2>
             <p className="text-[15px] text-neutral-500 max-w-[460px] mx-auto">
-              The link in bio creators love
+              A simple page for your products, links and audience.
             </p>
           </div>
         </AnimateOnScroll>

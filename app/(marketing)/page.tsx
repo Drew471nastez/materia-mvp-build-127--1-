@@ -25,14 +25,14 @@ export default function StorelibLanding() {
       {/* BENTO GRID */}
       <BentoGrid />
 
-      {/* PRODUCT CATEGORIES MARQUEE */}
-      <ProductMarquee />
-
       {/* STATS BAR */}
       <StatsBar />
 
       {/* MANAGE YOUR BUSINESS */}
       <ManageSection />
+
+      {/* PRODUCT CATEGORIES MARQUEE */}
+      <ProductMarquee />
 
       {/* SPLIT FEATURE ROWS */}
       <SplitFeaturesSection />
