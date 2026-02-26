@@ -272,29 +272,23 @@ export function BentoGrid() {
               </p>
               <div className="mt-5 flex-1 flex items-center justify-center overflow-hidden">
                 {/* Mobile image */}
-                <img
-                  src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20(2969%20x%201600%20px).webp"
-                  alt="Digital products showcase"
-                  className="w-[158%] rounded-xl sm:hidden"
-                  loading="lazy"
-                  decoding="async"
-                  fetchPriority="low"
-                  sizes="90vw"
-                  width={600}
-                  height={218}
-                />
-                {/* Desktop image */}
-                <img
-                  src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20(2969%20x%201600%20px)%20(2969%20x%201450%20px).webp"
-                  alt="Digital products showcase"
-                  className="hidden sm:block w-full rounded-xl"
-                  loading="lazy"
-                  decoding="async"
-                  fetchPriority="low"
-                  sizes="600px"
-                  width={600}
-                  height={294}
-                />
+                <picture>
+                  <source
+                    media="(min-width: 640px)"
+                    srcSet="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20(2969%20x%201600%20px)%20(2969%20x%201450%20px).webp"
+                  />
+                  <img
+                    src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20(2969%20x%201600%20px).webp"
+                    alt="Digital products showcase"
+                    className="w-[158%] sm:w-full rounded-xl"
+                    loading="lazy"
+                    decoding="async"
+                    fetchPriority="low"
+                    sizes="(max-width: 640px) 90vw, 600px"
+                    width={600}
+                    height={218}
+                  />
+                </picture>
               </div>
             </div>
 
@@ -327,7 +321,8 @@ export function BentoGrid() {
               </p>
               <div className="mt-4 flex-1 flex items-center justify-center overflow-hidden">
                 <img
-                  src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20(1250%20x%20500%20px)%20(1250%20x%20400%20px)%20(1100%20x%20400%20px)%20(7).png?width=600&quality=60"
+                  src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20(1250%20x%20500%20px)%20(1250%20x%20400%20px)%20(1100%20x%20400%20px)%20(7).png?width=400&quality=50"
+                  srcSet="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20(1250%20x%20500%20px)%20(1250%20x%20400%20px)%20(1100%20x%20400%20px)%20(7).png?width=400&quality=50 400w, https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20(1250%20x%20500%20px)%20(1250%20x%20400%20px)%20(1100%20x%20400%20px)%20(7).png?width=600&quality=60 600w"
                   alt="Sell anywhere illustration"
                   className="w-[204%] sm:w-[123%] rounded-xl"
                   loading="lazy"

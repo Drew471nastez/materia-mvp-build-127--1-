@@ -52,17 +52,13 @@ export function ToolStackSection() {
     <section className="py-20 sm:py-28 bg-white">
       <div className="max-w-[1200px] mx-auto px-0 sm:px-6">
         <AnimateOnScroll>
-          {/* Badge above the section */}
-          <div className="text-center mb-6 px-6 sm:px-0">
-            <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-wider text-violet-600 bg-violet-50 px-4 py-1.5 rounded-full">
-              ↔ Compare
-            </span>
-          </div>
-
           {/* Outer rounded card wrapper — light gray bg, full width on mobile */}
           <div className="bg-neutral-50 border-y sm:border border-neutral-200/70 rounded-none sm:rounded-[32px] px-5 sm:px-10 md:pl-20 md:pr-16 py-12 sm:py-16">
             {/* Headline */}
             <div className="text-center max-w-[640px] mx-auto mb-10 sm:mb-14">
+              <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-wider text-violet-600 bg-violet-50 px-4 py-1.5 rounded-full mb-5">
+                ↔ Compare
+              </span>
               <h2 className="text-[clamp(28px,4vw,44px)] font-bold leading-[1.15] tracking-tight mb-3.5">
                 Replace your entire tool stack
               </h2>

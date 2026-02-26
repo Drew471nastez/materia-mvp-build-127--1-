@@ -136,27 +136,27 @@ export function CarouselSection() {
                 <div
                   key={slide.name}
                   data-slide
-                  className="flex-shrink-0 w-[calc(100vw-56px)] sm:w-[714px] grid grid-cols-1 sm:grid-cols-[216px_1fr] gap-5 sm:gap-8 items-center bg-neutral-50/60 border border-neutral-200/70 rounded-2xl sm:rounded-3xl p-5 sm:p-7 transition-all duration-300 hover:shadow-md"
+                  className="flex-shrink-0 w-[calc(100vw-56px)] sm:w-[714px] grid grid-cols-[120px_1fr] sm:grid-cols-[216px_1fr] gap-3 sm:gap-8 items-center bg-neutral-50/60 border border-neutral-200/70 rounded-2xl sm:rounded-3xl p-4 sm:p-7 transition-all duration-300 hover:shadow-md"
                 >
-                  {/* Phone mockup — scaled down -10% */}
-                  <div className="w-[180px] sm:w-[216px] mx-auto sm:mx-0 bg-neutral-900 rounded-[28px] p-2 shadow-lg">
-                    <div className="bg-white rounded-[22px] overflow-hidden">
-                      <div className="w-16 h-1 bg-neutral-900 rounded mx-auto mt-1.5" />
-                      <div className="text-center px-3.5 pt-4 pb-2.5 border-b border-neutral-100">
-                        <div className="w-[46px] h-[46px] rounded-full mx-auto mb-2" style={{ background: slide.avatar }} />
-                        <div className="text-[13px] font-bold">{slide.name}</div>
-                        <div className="text-[10px] text-neutral-400 mt-0.5">{slide.bio}</div>
+                  {/* Phone mockup */}
+                  <div className="w-[120px] sm:w-[216px] mx-auto sm:mx-0 bg-neutral-900 rounded-[20px] sm:rounded-[28px] p-1.5 sm:p-2 shadow-lg">
+                    <div className="bg-white rounded-[14px] sm:rounded-[22px] overflow-hidden">
+                      <div className="w-10 sm:w-16 h-0.5 sm:h-1 bg-neutral-900 rounded mx-auto mt-1 sm:mt-1.5" />
+                      <div className="text-center px-2 sm:px-3.5 pt-2.5 sm:pt-4 pb-1.5 sm:pb-2.5 border-b border-neutral-100">
+                        <div className="w-[28px] h-[28px] sm:w-[46px] sm:h-[46px] rounded-full mx-auto mb-1 sm:mb-2" style={{ background: slide.avatar }} />
+                        <div className="text-[9px] sm:text-[13px] font-bold leading-tight">{slide.name}</div>
+                        <div className="text-[7px] sm:text-[10px] text-neutral-400 mt-0.5 hidden sm:block">{slide.bio}</div>
                       </div>
-                      <div className="p-3 flex flex-col gap-1.5">
+                      <div className="p-1.5 sm:p-3 flex flex-col gap-1 sm:gap-1.5">
                         {slide.links.map((link) => (
-                          <div key={link.label} className="flex items-center gap-2 px-2.5 py-2 bg-neutral-50 rounded-lg text-[11px] font-medium">
-                            <div className={`w-6 h-6 rounded-md flex items-center justify-center text-xs shrink-0 ${link.bg}`}>
+                          <div key={link.label} className="flex items-center gap-1 sm:gap-2 px-1.5 sm:px-2.5 py-1 sm:py-2 bg-neutral-50 rounded sm:rounded-lg text-[8px] sm:text-[11px] font-medium">
+                            <div className={`w-4 h-4 sm:w-6 sm:h-6 rounded sm:rounded-md flex items-center justify-center text-[8px] sm:text-xs shrink-0 ${link.bg}`}>
                               {link.icon}
                             </div>
                             <span className="truncate">{link.label}</span>
                           </div>
                         ))}
-                        <div className="flex items-center justify-center px-2.5 py-2 bg-neutral-900 text-white rounded-lg text-[11px] font-semibold">
+                        <div className="flex items-center justify-center px-1.5 sm:px-2.5 py-1 sm:py-2 bg-neutral-900 text-white rounded sm:rounded-lg text-[8px] sm:text-[11px] font-semibold">
                           Visit my store
                         </div>
                       </div>
@@ -164,13 +164,13 @@ export function CarouselSection() {
                   </div>
 
                   {/* Info */}
-                  <div className="py-1 sm:py-2">
-                    <div className="text-[20px] font-bold mb-0.5">{slide.name}</div>
-                    <div className="text-[13px] text-violet-600 font-semibold mb-5">{slide.role}</div>
-                    <div className="text-[15px] italic leading-relaxed text-neutral-500 pl-4 border-l-[3px] border-violet-300">
+                  <div className="py-0 sm:py-2">
+                    <div className="text-[15px] sm:text-[20px] font-bold mb-0.5">{slide.name}</div>
+                    <div className="text-[11px] sm:text-[13px] text-violet-600 font-semibold mb-2 sm:mb-5">{slide.role}</div>
+                    <div className="text-[12px] sm:text-[15px] italic leading-relaxed text-neutral-500 pl-3 sm:pl-4 border-l-2 sm:border-l-[3px] border-violet-300 line-clamp-4 sm:line-clamp-none">
                       {slide.quote}
                     </div>
-                    <div className="mt-4 text-amber-400 text-[15px] tracking-widest">★★★★★</div>
+                    <div className="mt-2 sm:mt-4 text-amber-400 text-[13px] sm:text-[15px] tracking-widest">★★★★★</div>
                   </div>
                 </div>
               ))}

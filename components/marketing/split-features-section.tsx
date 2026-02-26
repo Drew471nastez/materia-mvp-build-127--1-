@@ -10,7 +10,7 @@ const FEATURES = [
     title: "Build Your One Page",
     description:
       "Create a single page for coaching, digital products, courses, music, links, and more.",
-    src: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Visits%20(4).webp",
+    src: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Visits%20(7).webp",
     imageLeft: true,
     sectionBg: "bg-gray-50",
   },
@@ -28,7 +28,7 @@ const FEATURES = [
       "Track revenue, analytics, payouts, and get paid to your bank account.",
     src: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Visits%20(6).webp",
     imageLeft: true,
-    sectionBg: "bg-white",
+    sectionBg: "bg-gray-50",
   },
 ]
 
