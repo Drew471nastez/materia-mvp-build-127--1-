@@ -4404,6 +4404,7 @@ export function PayoutsClient({
   const [payoutCount, setPayoutCount] = useState(0);
   const [selectedOrder, setSelectedOrder] = useState<OrderPayment | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [balanceReady, setBalanceReady] = useState(false);
   const [availableBalance, setAvailableBalance] = useState(
     initialData.availableBalance,
   );
@@ -4555,8 +4556,10 @@ export function PayoutsClient({
       if (json.taxData) {
         setTaxData(json.taxData);
       }
+      setBalanceReady(true);
     } catch {
-      /* non-fatal */
+      // On error, still show values so user isn't stuck on skeleton forever
+      setBalanceReady(true);
     }
   }, [initialOrders, sourceCurrency]);
 
@@ -4612,7 +4615,7 @@ export function PayoutsClient({
   }, []);
 
   useEffect(() => {
-    if (!hasStripe) return;
+    if (!hasStripe) { setBalanceReady(true); return; }
     let lastRefresh = 0;
     const tick = () => {
       if (document.visibilityState !== "visible") return;
@@ -4860,7 +4863,7 @@ export function PayoutsClient({
               pendingBalance={toUsd(pendingBalance)}
               currency={currency}
               payoutsEnabled={payoutsEnabled}
-              balanceReady={true}
+              balanceReady={balanceReady}
               negativeBalance={negativeBalance}
               onSuccess={() => {
                 refreshBalances();

@@ -270,25 +270,29 @@ export function BentoGrid() {
               <p className="text-sm leading-relaxed text-neutral-500 max-w-[320px]">
                 Courses, digital products, memberships, bookings — if you made it, you can sell it here on Storelib.
               </p>
-              <div className="mt-5 flex-1 flex items-center justify-center overflow-hidden">
+              <div className="mt-5 flex-1 flex items-center justify-center overflow-hidden relative min-h-[140px] sm:min-h-[180px]">
+                {/* Desktop image */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20(2969%20x%201600%20px)%20(2969%20x%201450%20px).webp"
+                  alt="Digital products showcase"
+                  className="hidden sm:block w-full rounded-xl object-cover"
+                  loading="lazy"
+                  decoding="async"
+                  width={600}
+                  height={218}
+                />
                 {/* Mobile image */}
-                <picture>
-                  <source
-                    media="(min-width: 640px)"
-                    srcSet="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20(2969%20x%201600%20px)%20(2969%20x%201450%20px).webp"
-                  />
-                  <img
-                    src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20(2969%20x%201600%20px).webp"
-                    alt="Digital products showcase"
-                    className="w-[158%] sm:w-full rounded-xl"
-                    loading="lazy"
-                    decoding="async"
-                    fetchPriority="low"
-                    sizes="(max-width: 640px) 90vw, 600px"
-                    width={600}
-                    height={218}
-                  />
-                </picture>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20(2969%20x%201600%20px)%20(2969%20x%201450%20px).webp"
+                  alt="Digital products showcase"
+                  className="sm:hidden w-[158%] max-w-none rounded-xl object-cover"
+                  loading="lazy"
+                  decoding="async"
+                  width={600}
+                  height={218}
+                />
               </div>
             </div>
 

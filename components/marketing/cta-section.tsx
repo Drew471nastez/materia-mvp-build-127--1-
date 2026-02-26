@@ -52,21 +52,22 @@ export function CtaSection() {
             style={{ opacity: 0 }}
           />
 
-          {/* Pulsing wave rings */}
+          {/* Pulsing wave rings — smooth continuous loop around logo */}
           <style dangerouslySetInnerHTML={{ __html: `
             @keyframes cta-pulse {
-              0% { transform: translate(-50%,-50%) scale(0.8); opacity: 0.18; }
-              100% { transform: translate(-50%,-50%) scale(2.5); opacity: 0; }
+              0% { transform: translate(-50%,-50%) scale(0.7); opacity: 0.35; }
+              70% { opacity: 0.08; }
+              100% { transform: translate(-50%,-50%) scale(3); opacity: 0; }
             }
           `}} />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] pointer-events-none z-0">
-            {[0, 1, 2].map((i) => (
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[240px] h-[240px] pointer-events-none z-0">
+            {[0, 1, 2, 3].map((i) => (
               <div
                 key={i}
-                className="absolute top-1/2 left-1/2 w-full h-full rounded-full border border-white/[0.04]"
+                className="absolute top-1/2 left-1/2 w-full h-full rounded-full border border-white/[0.10]"
                 style={{
-                  animation: `cta-pulse 4s ease-out infinite`,
-                  animationDelay: `${i * 1.3}s`,
+                  animation: `cta-pulse 5s cubic-bezier(0.4, 0, 0.2, 1) infinite`,
+                  animationDelay: `${i * 1.25}s`,
                 }}
               />
             ))}
@@ -90,7 +91,7 @@ export function CtaSection() {
               <h2 className="text-[clamp(30px,5vw,48px)] font-bold tracking-tight mb-3.5 text-white leading-[1.1]">
                 Turn your ideas into income
               </h2>
-              <p className="text-base sm:text-lg text-neutral-400 mb-8">
+              <p className="text-base sm:text-lg text-neutral-300 mb-8 font-medium tracking-wide">
                 Set up in 5 minutes. No credit card. No commitment.
               </p>
               <div className="flex items-center justify-center gap-3 flex-col sm:flex-row">

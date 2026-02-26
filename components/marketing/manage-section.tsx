@@ -15,11 +15,11 @@ const OnePageIcon = () => (
 )
 
 const FLOATING_ICONS = [
-  { label: "OnePage", pos: "md:top-[-4px] top-[-16px] left-[5%]", delay: "0s", zClass: "z-[2]", isOnePage: true },
-  { emoji: "📕", label: "Digital Products", pos: "md:top-[34%] md:left-[-4%] bottom-[50px] left-[4%]", delay: "0.5s", zClass: "z-[2]" },
+  { label: "OnePage", pos: "md:top-[-4px] top-[-16px] left-[5%] md:left-[-2%]", delay: "0s", zClass: "z-[2]", isOnePage: true },
+  { emoji: "📕", label: "Digital Products", pos: "md:top-[34%] md:left-[-11%] bottom-[50px] left-[4%]", delay: "0.5s", zClass: "z-[2]" },
   { emoji: "🛍️", label: "Marketplace", pos: "md:top-[-16px] top-[-36px] right-[2%]", delay: "1s", zClass: "z-[5]" },
-  { emoji: "🎓", label: "Courses", pos: "bottom-[60px] left-0", delay: "1.5s", hideMobile: true, zClass: "z-[2]" },
-  { emoji: "🔗", label: "Links", pos: "bottom-10 md:right-[-66px] right-[-70px]", delay: "2s", hideMobile: true, zClass: "z-[5]" },
+  { emoji: "🎓", label: "Courses", pos: "bottom-[60px] left-0 md:left-[-7%]", delay: "1.5s", hideMobile: true, zClass: "z-[2]" },
+  { emoji: "🔗", label: "Links", pos: "bottom-10 md:right-[-116px] right-[-70px]", delay: "2s", hideMobile: true, zClass: "z-[5]" },
 ] as const
 
 const MANAGE_IMG = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(36).webp"

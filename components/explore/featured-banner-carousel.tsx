@@ -40,12 +40,13 @@ function BannerCreatorAvatar({ url, name }: { url?: string | null; name: string 
   }
 
   return (
-    <Image
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
       src={url}
       alt={name}
       width={24}
       height={24}
-      className="rounded-full object-cover shrink-0"
+      className="w-6 h-6 rounded-full object-cover shrink-0"
       onError={() => setFailed(true)}
     />
   )

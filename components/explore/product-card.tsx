@@ -22,7 +22,8 @@ function CreatorAvatar({ url, name, size = 20 }: { url?: string | null; name: st
   }
 
   return (
-    <Image
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
       src={url}
       alt={name}
       width={size}
@@ -30,6 +31,7 @@ function CreatorAvatar({ url, name, size = 20 }: { url?: string | null; name: st
       className="rounded-full object-cover shrink-0 aspect-square"
       loading="lazy"
       onError={() => setFailed(true)}
+      style={{ width: size, height: size }}
     />
   )
 }
