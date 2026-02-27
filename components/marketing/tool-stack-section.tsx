@@ -70,8 +70,8 @@ const VISIBLE_FEATURES: Feature[] = [
   {
     icon: <LinktreeIcon />,
     title: "Link-in-bio",
-    instead: "Linktree Pro — $9/mo",
-    price: "$9",
+    instead: "Linktree Pro — $15/mo",
+    price: "$15",
   },
   {
     icon: <ShopifyIcon />,
@@ -237,7 +237,7 @@ export function ToolStackSection() {
                 <p className="flex-1 text-[15px] sm:text-base font-semibold text-neutral-900">
                   What you&apos;d pay otherwise
                 </p>
-                <span className="text-[17px] sm:text-lg font-bold text-red-500 shrink-0">$85+/mo</span>
+                <span className="text-[17px] sm:text-lg font-bold text-red-500 shrink-0">$91+/mo</span>
               </div>
 
               {/* Storelib row */}
