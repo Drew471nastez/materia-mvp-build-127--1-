@@ -9,7 +9,7 @@ const SLIDES = [
     role: "DJ & Music Producer",
     bio: "DJ & Music Producer · 12K followers",
     avatar: "linear-gradient(135deg,#FF6B35,#FFa040)",
-    phoneImage: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(43).webp",
+    phoneImage: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/iPhone-14-(iOS-16)-www.negruw.online.webp",
     links: [
       { icon: "🎵", label: "Sample Pack Vol. 3 — $24", bg: "bg-violet-50" },
       { icon: "🎹", label: "Beat Kit (50 beats) — $49", bg: "bg-orange-50" },
@@ -37,15 +37,53 @@ export function CarouselSection() {
   const containerRef = useRef<HTMLDivElement>(null)
   const trackRef = useRef<HTMLDivElement>(null)
   const touchStartX = useRef(0)
+  const touchStartY = useRef(0)
+  const dragOffset = useRef(0)
+  const isDragging = useRef(false)
+  const isHorizontalSwipe = useRef<boolean | null>(null)
   const autoplayRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const rafRef = useRef<number>(0)
 
-  // No longer needed — slides are 100% wide, translate by percentage
+  const isMobile = useCallback(() => {
+    return typeof window !== "undefined" && window.matchMedia("(max-width: 639px)").matches
+  }, [])
+
+  const getDesktopOffset = useCallback((idx: number) => {
+    if (!trackRef.current || !containerRef.current) return idx * 738
+    const slide = trackRef.current.querySelector<HTMLElement>("[data-slide]")
+    const slideWidth = slide ? slide.offsetWidth + 24 : 738
+    const containerWidth = containerRef.current.offsetWidth
+    const totalWidth = trackRef.current.scrollWidth
+    const maxOffset = Math.max(0, totalWidth - containerWidth)
+    return Math.min(idx * slideWidth, maxOffset)
+  }, [])
+
+  const applyTransform = useCallback((extraPx = 0) => {
+    if (!trackRef.current) return
+    if (isMobile()) {
+      const containerWidth = containerRef.current?.offsetWidth ?? window.innerWidth
+      const basePx = current * containerWidth
+      trackRef.current.style.transform = `translate3d(${-(basePx - extraPx)}px, 0, 0)`
+    } else {
+      const offset = getDesktopOffset(current)
+      trackRef.current.style.transform = `translate3d(${-(offset - extraPx)}px, 0, 0)`
+    }
+  }, [current, isMobile, getDesktopOffset])
+
+  const snapToSlide = useCallback(() => {
+    if (!trackRef.current) return
+    if (isMobile()) {
+      trackRef.current.style.transform = `translate3d(-${current * 100}%, 0, 0)`
+    } else {
+      const offset = getDesktopOffset(current)
+      trackRef.current.style.transform = `translate3d(-${offset}px, 0, 0)`
+    }
+  }, [current, isMobile, getDesktopOffset])
 
   const goTo = useCallback((n: number) => {
     setCurrent(((n % SLIDES.length) + SLIDES.length) % SLIDES.length)
   }, [])
 
-  // Reset autoplay timer whenever current changes
   const resetAutoplay = useCallback(() => {
     if (autoplayRef.current) clearInterval(autoplayRef.current)
     autoplayRef.current = setInterval(() => {
@@ -60,13 +98,82 @@ export function CarouselSection() {
 
   useEffect(() => {
     if (!trackRef.current) return
-    trackRef.current.style.transform = `translateX(-${current * 100}%)`
-  }, [current])
+    trackRef.current.style.transition = "transform 600ms cubic-bezier(0.25, 0.1, 0.25, 1)"
+    snapToSlide()
+  }, [current, snapToSlide])
+
+  useEffect(() => {
+    const onResize = () => {
+      if (!trackRef.current) return
+      trackRef.current.style.transition = "none"
+      snapToSlide()
+      requestAnimationFrame(() => {
+        if (trackRef.current) {
+          trackRef.current.style.transition = "transform 600ms cubic-bezier(0.25, 0.1, 0.25, 1)"
+        }
+      })
+    }
+    window.addEventListener("resize", onResize)
+    return () => window.removeEventListener("resize", onResize)
+  }, [snapToSlide])
 
   const handleGoTo = useCallback((n: number) => {
     goTo(n)
     resetAutoplay()
   }, [goTo, resetAutoplay])
+
+  /* ── Touch handlers for smooth finger-follow drag ── */
+
+  const onTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX
+    touchStartY.current = e.touches[0].clientY
+    dragOffset.current = 0
+    isDragging.current = true
+    isHorizontalSwipe.current = null
+    if (trackRef.current) {
+      trackRef.current.style.transition = "none"
+    }
+  }, [])
+
+  const onTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!isDragging.current) return
+    const dx = e.touches[0].clientX - touchStartX.current
+    const dy = e.touches[0].clientY - touchStartY.current
+
+    // Determine swipe direction on first significant move
+    if (isHorizontalSwipe.current === null) {
+      if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+        isHorizontalSwipe.current = Math.abs(dx) > Math.abs(dy)
+      }
+      return
+    }
+
+    // If vertical scroll, bail out
+    if (!isHorizontalSwipe.current) return
+
+    dragOffset.current = dx
+    cancelAnimationFrame(rafRef.current)
+    rafRef.current = requestAnimationFrame(() => {
+      applyTransform(dx)
+    })
+  }, [applyTransform])
+
+  const onTouchEnd = useCallback(() => {
+    isDragging.current = false
+    const diff = dragOffset.current
+    dragOffset.current = 0
+
+    if (trackRef.current) {
+      trackRef.current.style.transition = "transform 600ms cubic-bezier(0.25, 0.1, 0.25, 1)"
+    }
+
+    if (isHorizontalSwipe.current && Math.abs(diff) > 50) {
+      handleGoTo(diff < 0 ? current + 1 : current - 1)
+    } else {
+      snapToSlide()
+    }
+    isHorizontalSwipe.current = null
+  }, [current, handleGoTo, snapToSlide])
 
   return (
     <section className="py-16 sm:py-22 bg-white">
@@ -86,71 +193,72 @@ export function CarouselSection() {
         </AnimateOnScroll>
 
         <AnimateOnScroll variant="fade-up-scale" delay={150}>
-          <div ref={containerRef} className="relative overflow-hidden">
+          <div ref={containerRef} className="relative overflow-hidden sm:px-6 sm:pl-10">
             <div
               ref={trackRef}
-              className="flex py-4 transition-transform duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]"
-              onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX }}
-              onTouchEnd={(e) => {
-                const diff = touchStartX.current - e.changedTouches[0].clientX
-                if (Math.abs(diff) > 50) handleGoTo(diff > 0 ? current + 1 : current - 1)
-              }}
+              className="flex gap-0 sm:gap-6 py-4"
+              style={{ willChange: "transform", backfaceVisibility: "hidden" }}
+              onTouchStart={onTouchStart}
+              onTouchMove={onTouchMove}
+              onTouchEnd={onTouchEnd}
             >
               {SLIDES.map((slide) => (
-                <div key={slide.name} data-slide className="min-w-full px-4 sm:px-10">
                 <div
-                  className="grid grid-cols-[140px_1fr] sm:grid-cols-[216px_1fr] gap-3 sm:gap-8 items-center bg-neutral-50/60 border border-neutral-200/70 rounded-2xl sm:rounded-3xl p-4 sm:p-7 transition-all duration-300 hover:shadow-md"
+                  key={slide.name}
+                  data-slide
+                  className="min-w-full sm:min-w-0 sm:flex-shrink-0 sm:w-[714px] px-4 sm:px-0"
                 >
-                  {/* Phone mockup */}
-                  {"phoneImage" in slide && slide.phoneImage ? (
-                    <div className="w-[140px] sm:w-[216px] mx-auto sm:mx-0">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={slide.phoneImage + "?width=432&quality=70"}
-                        alt={slide.name}
-                        width={216}
-                        height={432}
-                        className="w-full rounded-[20px] sm:rounded-[28px] shadow-lg object-cover"
-                        loading="lazy"
-                        decoding="async"
-                      />
-                    </div>
-                  ) : (
-                    <div className="w-[140px] sm:w-[216px] mx-auto sm:mx-0 bg-neutral-900 rounded-[20px] sm:rounded-[28px] p-1.5 sm:p-2 shadow-lg">
-                      <div className="bg-white rounded-[14px] sm:rounded-[22px] overflow-hidden">
-                        <div className="w-10 sm:w-16 h-0.5 sm:h-1 bg-neutral-900 rounded mx-auto mt-1 sm:mt-1.5" />
-                        <div className="text-center px-2 sm:px-3.5 pt-2.5 sm:pt-4 pb-1.5 sm:pb-2.5 border-b border-neutral-100">
-                          <div className="w-[28px] h-[28px] sm:w-[46px] sm:h-[46px] rounded-full mx-auto mb-1 sm:mb-2" style={{ background: slide.avatar }} />
-                          <div className="text-[9px] sm:text-[13px] font-bold leading-tight">{slide.name}</div>
-                          <div className="text-[7px] sm:text-[10px] text-neutral-400 mt-0.5 hidden sm:block">{slide.bio}</div>
-                        </div>
-                        <div className="p-1.5 sm:p-3 flex flex-col gap-1 sm:gap-1.5">
-                          {slide.links.map((link) => (
-                            <div key={link.label} className="flex items-center gap-1 sm:gap-2 px-1.5 sm:px-2.5 py-1 sm:py-2 bg-neutral-50 rounded sm:rounded-lg text-[8px] sm:text-[11px] font-medium">
-                              <div className={`w-4 h-4 sm:w-6 sm:h-6 rounded sm:rounded-md flex items-center justify-center text-[8px] sm:text-xs shrink-0 ${link.bg}`}>
-                                {link.icon}
+                  <div className="grid grid-cols-[140px_1fr] sm:grid-cols-[216px_1fr] gap-3 sm:gap-8 items-center bg-neutral-50/60 border border-neutral-200/70 rounded-2xl sm:rounded-3xl p-4 sm:p-7 transition-shadow duration-300 hover:shadow-md">
+                    {/* Phone mockup */}
+                    {"phoneImage" in slide && slide.phoneImage ? (
+                      <div className="w-[140px] sm:w-[216px] mx-auto sm:mx-0">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={slide.phoneImage + "?width=432&quality=70"}
+                          alt={slide.name}
+                          width={216}
+                          height={432}
+                          className="w-full rounded-[20px] sm:rounded-[28px] shadow-lg object-cover"
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-[140px] sm:w-[216px] mx-auto sm:mx-0 bg-neutral-900 rounded-[20px] sm:rounded-[28px] p-1.5 sm:p-2 shadow-lg">
+                        <div className="bg-white rounded-[14px] sm:rounded-[22px] overflow-hidden">
+                          <div className="w-10 sm:w-16 h-0.5 sm:h-1 bg-neutral-900 rounded mx-auto mt-1 sm:mt-1.5" />
+                          <div className="text-center px-2 sm:px-3.5 pt-2.5 sm:pt-4 pb-1.5 sm:pb-2.5 border-b border-neutral-100">
+                            <div className="w-[28px] h-[28px] sm:w-[46px] sm:h-[46px] rounded-full mx-auto mb-1 sm:mb-2" style={{ background: slide.avatar }} />
+                            <div className="text-[9px] sm:text-[13px] font-bold leading-tight">{slide.name}</div>
+                            <div className="text-[7px] sm:text-[10px] text-neutral-400 mt-0.5 hidden sm:block">{slide.bio}</div>
+                          </div>
+                          <div className="p-1.5 sm:p-3 flex flex-col gap-1 sm:gap-1.5">
+                            {slide.links.map((link) => (
+                              <div key={link.label} className="flex items-center gap-1 sm:gap-2 px-1.5 sm:px-2.5 py-1 sm:py-2 bg-neutral-50 rounded sm:rounded-lg text-[8px] sm:text-[11px] font-medium">
+                                <div className={`w-4 h-4 sm:w-6 sm:h-6 rounded sm:rounded-md flex items-center justify-center text-[8px] sm:text-xs shrink-0 ${link.bg}`}>
+                                  {link.icon}
+                                </div>
+                                <span className="truncate">{link.label}</span>
                               </div>
-                              <span className="truncate">{link.label}</span>
+                            ))}
+                            <div className="flex items-center justify-center px-1.5 sm:px-2.5 py-1 sm:py-2 bg-neutral-900 text-white rounded sm:rounded-lg text-[8px] sm:text-[11px] font-semibold">
+                              Visit my store
                             </div>
-                          ))}
-                          <div className="flex items-center justify-center px-1.5 sm:px-2.5 py-1 sm:py-2 bg-neutral-900 text-white rounded sm:rounded-lg text-[8px] sm:text-[11px] font-semibold">
-                            Visit my store
                           </div>
                         </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {/* Info */}
-                  <div className="py-0 sm:py-2 min-w-0 overflow-hidden pr-1 sm:pr-2">
-                    <div className="text-[13px] sm:text-[20px] font-bold mb-0.5">{slide.name}</div>
-                    <div className="text-[10px] sm:text-[13px] text-violet-600 font-semibold mb-2 sm:mb-5">{slide.role}</div>
-                    <div className="text-[10px] sm:text-[15px] italic leading-relaxed text-neutral-500 pl-2.5 sm:pl-4 pr-1 border-l-2 sm:border-l-[3px] border-violet-300 line-clamp-4 sm:line-clamp-none break-words">
-                      {slide.quote}
+                    {/* Info */}
+                    <div className="py-0 sm:py-2 min-w-0 overflow-hidden pr-1 sm:pr-2">
+                      <div className="text-[13px] sm:text-[20px] font-bold mb-0.5">{slide.name}</div>
+                      <div className="text-[10px] sm:text-[13px] text-violet-600 font-semibold mb-2 sm:mb-5">{slide.role}</div>
+                      <div className="text-[10px] sm:text-[15px] italic leading-relaxed text-neutral-500 pl-2.5 sm:pl-4 pr-1 border-l-2 sm:border-l-[3px] border-violet-300 line-clamp-4 sm:line-clamp-none break-words">
+                        {slide.quote}
+                      </div>
+                      <div className="mt-2 sm:mt-4 text-amber-400 text-[12px] sm:text-[15px] tracking-widest">★★★★★</div>
                     </div>
-                    <div className="mt-2 sm:mt-4 text-amber-400 text-[12px] sm:text-[15px] tracking-widest">★★★★★</div>
                   </div>
-                </div>
                 </div>
               ))}
             </div>
