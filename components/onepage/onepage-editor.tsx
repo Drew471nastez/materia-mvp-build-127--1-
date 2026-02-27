@@ -277,7 +277,7 @@ function ProUpgradeDialog({
           "p-0 gap-0 overflow-hidden",
           isMobileSheet
             ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0"
-            : "w-[calc(100%-32px)] max-w-sm md:max-w-[391px] rounded-2xl mx-auto"
+            : "w-[calc(100%-32px)] max-w-sm md:max-w-[450px] rounded-2xl mx-auto"
         )}
         style={isMobileSheet ? {
           position: 'fixed',
@@ -303,8 +303,13 @@ function ProUpgradeDialog({
         <div className="px-6 pb-6 space-y-3">
           <button
             onClick={onUpgrade}
-            className="w-full py-3 px-4 bg-gray-900 text-white font-semibold rounded-xl hover:bg-gray-800 transition-all shadow-md"
+            className="w-full py-3 px-5 bg-violet-600 text-white font-semibold rounded-xl hover:bg-violet-700 transition-all shadow-md flex items-center justify-center gap-3"
           >
+            <span className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+              <svg className="w-4 h-4 text-violet-600" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+              </svg>
+            </span>
             Upgrade Now
           </button>
 
@@ -468,11 +473,11 @@ function EditorLayout() {
     setSaveToastSequence((prev) => prev + 1)
   }, [hasProFeaturesEnabled, save])
 
-  // Handle upgrading to Pro
+  // Handle upgrading to Pro — sends user to pricing page with return path
   const handleUpgradeToPro = useCallback(() => {
     setShowProUpgradeDialog(false)
-    // Redirect to upgrade page
-    window.open('/pricing', '_blank')
+    const returnTo = encodeURIComponent(window.location.pathname)
+    window.location.href = `/pricing?source=upgrade&returnTo=${returnTo}`
   }, [])
 
   // Handle discarding Pro changes
@@ -780,9 +785,9 @@ function EditorLayout() {
 
         {/* Right side actions */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0 pr-3 sm:pr-4 md:w-[410px] md:border-l md:justify-end md:pr-6 md:pl-3">
-          {/* Unsaved changes indicator */}
+          {/* Unsaved changes — mr-auto pushes it to the far left of the panel, away from the divider */}
           {isDirty && saveState !== "saving" && (
-            <span className="hidden lg:inline text-xs text-amber-600 font-medium whitespace-nowrap shrink-0">
+            <span className="hidden lg:inline text-xs text-amber-600 font-medium whitespace-nowrap shrink-0 mr-auto">
               Unsaved changes
             </span>
           )}
@@ -821,7 +826,7 @@ function EditorLayout() {
               onClick={() => setShowLinkModal(true)}
               className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg shadow-sm border text-sm font-medium hover:shadow-md hover:bg-gray-50 transition-all cursor-pointer"
             >
-              <span className="text-muted-foreground truncate max-w-[80px] xl:max-w-[160px]">
+              <span className="text-muted-foreground truncate max-w-[90px]">
                 {pageUrl.replace('https://', '').replace('http://', '')}
               </span>
               <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0" />

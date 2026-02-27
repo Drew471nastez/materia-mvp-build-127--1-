@@ -77,11 +77,21 @@ export function PricingSection({
   hideDetailsLink,
   compact,
   onboardingCallbacks,
+  headingOverride,
+  subtitleOverride,
+  upgradeCallbacks,
 }: {
   hideDetailsLink?: boolean
   /** Compact mode: removes section padding and scroll animations — used inside the onboarding modal */
   compact?: boolean
   onboardingCallbacks?: PricingOnboardingCallbacks
+  headingOverride?: string
+  subtitleOverride?: string
+  /** When provided, Growth/Pro buttons trigger Stripe checkout directly instead of linking to /signup */
+  upgradeCallbacks?: {
+    onPlanSelect: (planId: "growth" | "pro") => void
+    loadingPlan: "growth" | "pro" | null
+  }
 } = {}) {
   const isAnyLoading = !!(onboardingCallbacks?.loadingPlan)
 
@@ -91,10 +101,10 @@ export function PricingSection({
         💰 Pricing
       </span>
       <h2 className="text-[clamp(30px,4vw,44px)] font-semibold leading-[1.15] tracking-tight mb-3.5">
-        Start free, upgrade when you&apos;re ready
+        {headingOverride || "Start free, upgrade when you\u2019re ready"}
       </h2>
       <p className="text-base text-neutral-500 leading-relaxed">
-        Simple, transparent pricing that grows with you. No hidden fees, no surprises.
+        {subtitleOverride || "Simple, transparent pricing that grows with you. No hidden fees, no surprises."}
       </p>
     </div>
   )
@@ -153,6 +163,29 @@ export function PricingSection({
                   <ArrowRight className="h-4 w-4" />
                 </span>
               )}
+            </button>
+          ) : upgradeCallbacks && plan.id !== "free" ? (
+            // Upgrade mode: paid plans go straight to Stripe checkout
+            <button
+              type="button"
+              onClick={() => !upgradeCallbacks.loadingPlan && upgradeCallbacks.onPlanSelect(plan.id as "growth" | "pro")}
+              disabled={!!upgradeCallbacks.loadingPlan}
+              className={`relative w-full inline-flex items-center justify-center gap-2 text-[15px] font-semibold py-3.5 px-8 rounded-lg transition-all duration-300 overflow-hidden mb-7 ${
+                plan.popular
+                  ? "bg-violet-600 text-white hover:bg-violet-700"
+                  : "bg-white text-neutral-900 border-[1.5px] border-neutral-200 hover:border-neutral-400"
+              } disabled:opacity-70 disabled:cursor-not-allowed ${
+                !upgradeCallbacks.loadingPlan ? "hover:-translate-y-0.5" : ""
+              }`}
+            >
+              {plan.popular && <span className="btn-shine-effect" aria-hidden="true" />}
+              <span className="relative z-10 flex items-center gap-2">
+                {upgradeCallbacks.loadingPlan === plan.id ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" />Processing...</>
+                ) : (
+                  <>{plan.cta}<ArrowRight className="h-4 w-4" /></>
+                )}
+              </span>
             </button>
           ) : (
             <Link
