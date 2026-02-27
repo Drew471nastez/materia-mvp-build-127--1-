@@ -1013,7 +1013,7 @@ export function PlatformHeaderClient() {
                     <>
                       {/* Log In */}
                       <Link href="/login">
-                        <Button variant="outline" className="h-11 px-5 rounded-lg text-[15px] font-medium text-white border-white/30 hover:bg-white/10 cursor-pointer">
+                        <Button variant="ghost" className="h-11 px-5 rounded-lg text-[15px] font-medium text-white border border-white/70 hover:bg-white/10 hover:text-white cursor-pointer">
                           Log In
                         </Button>
                       </Link>
@@ -2112,7 +2112,7 @@ export function PlatformHeaderClient() {
             {showCategories && (
               <nav className="hidden md:block">
                 <div className="overflow-x-auto scrollbar-hide">
-                  <div className="flex h-12 items-center justify-start gap-7 whitespace-nowrap text-[15px]">
+                  <div className="flex h-9 items-center justify-start gap-7 whitespace-nowrap text-[15px]">
                     {DEFAULT_CATEGORIES.map((cat) => {
                       const Icon = cat.icon
                       const isAll = cat.id === "all"
@@ -2125,7 +2125,7 @@ export function PlatformHeaderClient() {
                           className={`inline-flex items-center gap-1.5 transition-colors cursor-pointer font-medium ${
                             isActive
                               ? "text-neutral-900"
-                              : "text-neutral-400 hover:text-neutral-900"
+                              : "text-neutral-500 hover:text-neutral-900"
                           }`}
                         >
                           {isAll && <Icon className="w-[18px] h-[18px]" />}
