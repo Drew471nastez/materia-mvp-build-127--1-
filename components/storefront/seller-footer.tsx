@@ -31,14 +31,15 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
         <span className="text-[11px] text-gray-400 whitespace-nowrap">Powered by</span>
         <a
           href="https://storelib.com/explore"
-          className="inline-flex items-center shrink-0"
+          className="inline-flex items-center gap-1 shrink-0"
           aria-label="Explore Storelib"
         >
           <img
-            src="/images/design-mode/storelib.png"
+            src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
             alt="Storelib"
-            className="h-[25px] w-auto"
+            className="h-[15px] w-auto brightness-0"
           />
+          <span className="text-[12px] font-semibold text-gray-700 tracking-tight leading-none">Storelib</span>
         </a>
       </div>
       {/* Privacy and Terms centered below with separator */}
@@ -68,14 +69,15 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
         <span className="text-sm text-gray-500 whitespace-nowrap">Powered by</span>
         <a
           href="https://storelib.com/explore"
-          className="inline-flex items-center shrink-0"
+          className="inline-flex items-center gap-1.5 shrink-0"
           aria-label="Explore Storelib"
         >
           <img
-            src="/images/design-mode/storelib.png"
+            src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
             alt="Storelib"
-            className="h-[36px] w-auto translate-y-[1px]"
+            className="h-[18px] w-auto brightness-0"
           />
+          <span className="text-sm font-semibold text-gray-700 tracking-tight leading-none">Storelib</span>
         </a>
       </div>
       {/* Links on right */}
@@ -107,14 +109,15 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
         <span className="text-[11px] sm:text-sm text-gray-400 sm:text-gray-500 whitespace-nowrap">Powered by</span>
         <a
           href="https://storelib.com/explore"
-          className="inline-flex items-center shrink-0"
+          className="inline-flex items-center gap-1 sm:gap-1.5 shrink-0"
           aria-label="Explore Storelib"
         >
           <img
-            src="/images/design-mode/storelib.png"
+            src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
             alt="Storelib"
-            className="h-[25px] sm:h-[36px] w-auto sm:translate-y-[1px]"
+            className="h-[15px] sm:h-[18px] w-auto brightness-0"
           />
+          <span className="text-[12px] sm:text-sm font-semibold text-gray-700 tracking-tight leading-none">Storelib</span>
         </a>
       </div>
       {/* Links - bottom on mobile (centered with separator), right on desktop */}

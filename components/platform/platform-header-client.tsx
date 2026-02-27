@@ -2097,7 +2097,7 @@ export function PlatformHeaderClient() {
                         <Icon className="w-3.5 h-3.5" />
                         {cat.label}
                         {cat.badge && (
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold leading-none ${isActive ? "bg-white text-neutral-900" : "bg-gradient-to-r from-violet-500 to-violet-600 text-white"} shadow-sm`}>
+                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold leading-none ${isActive ? "bg-white text-neutral-900" : "bg-gradient-to-r from-violet-500 to-violet-600 text-white"} shadow-sm`}>
                             {cat.badge}
                           </span>
                         )}
@@ -2131,7 +2131,7 @@ export function PlatformHeaderClient() {
                           {isAll && <Icon className="w-[18px] h-[18px]" />}
                           {cat.label}
                           {cat.badge && (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-gradient-to-r from-violet-500 to-violet-600 text-white leading-none shadow-sm">
+                            <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-gradient-to-r from-violet-500 to-violet-600 text-white leading-none shadow-sm">
                               {cat.badge}
                             </span>
                           )}

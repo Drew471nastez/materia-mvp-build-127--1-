@@ -115,9 +115,12 @@ export function VariantSelector({
                 variants.length === 1 ? "cursor-default" : "cursor-pointer"
               )}
               style={{
-                border: isSelected
-                  ? `3px solid ${themeColors?.accentColor || "#000000"}B3` // ~70% opacity with thicker border
-                  : `2px solid ${themeColors?.cardBorderColor || "#e5e7eb"}`,
+                border: `2px solid ${isSelected
+                  ? `${themeColors?.accentColor || "#000000"}`
+                  : themeColors?.cardBorderColor || "#e5e7eb"}`,
+                boxShadow: isSelected
+                  ? `0 0 0 1px ${themeColors?.accentColor || "#000000"}80`
+                  : "none",
                 backgroundColor: isSelected
                   ? `${themeColors?.accentColor || "#000000"}08`
                   : themeColors?.cardBackground || undefined,
