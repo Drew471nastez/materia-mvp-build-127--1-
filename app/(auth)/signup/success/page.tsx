@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils"
 import { Loader2 } from "lucide-react"
 import { CreatorOnboardingModal } from "@/components/app/creator-onboarding-modal"
 import { createClient } from "@/lib/supabase/client"
-import { CountdownBanner } from "@/components/auth/countdown-banner"
+import Image from "next/image"
 
 // Store/Creator icon - matches UserIcon style
 const StoreIcon = () => (
@@ -190,9 +190,9 @@ export default function SignupSuccessPage() {
 
   return (
     <>
-      <div className="flex min-h-svh w-full">
+      <div className="flex min-h-svh w-full lg:h-[100dvh] lg:max-h-[100dvh] lg:overflow-hidden">
         {/* Left side - Welcome Selection */}
-        <div className="flex w-full flex-col justify-center px-6 py-12 lg:w-1/2 lg:px-16 xl:px-24">
+        <div className="flex w-full flex-col justify-center px-6 py-12 lg:w-1/2 lg:h-[100dvh] lg:overflow-y-auto lg:px-16 xl:px-24">
           <div className="mx-auto w-full max-w-[480px]">
             {/* Logo with smooth vibrating animation */}
             <div className="flex justify-center mb-6">
@@ -328,11 +328,18 @@ export default function SignupSuccessPage() {
           </div>
         </div>
 
-        {/* Right side - Blurred image with countdown */}
-        <CountdownBanner
-          imageSrc="/images/design-mode/banner-signup-desktop-Dq7usIXX.webp"
-          imageAlt="Signup banner"
-        />
+        {/* Right side — same full-bleed image panel as login/signup */}
+        <div className="relative hidden lg:block lg:w-1/2 lg:h-[100dvh] shrink-0 overflow-hidden bg-neutral-900">
+          <Image
+            src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/eemo.png"
+            alt="Welcome banner"
+            fill
+            className="object-cover object-center"
+            sizes="(min-width: 1024px) 50vw, 0px"
+            quality={75}
+            priority
+          />
+        </div>
       </div>
 
       {/* Creator Onboarding Modal */}
