@@ -218,12 +218,12 @@ export function FaqPageClient() {
   return (
     <div className="bg-[#fafafa] min-h-screen">
       {/* Hero Section */}
-      <section className="bg-black text-white pt-20 pb-16 sm:pt-28 sm:pb-20">
+      <section className="bg-gray-50 pt-20 pb-16 sm:pt-28 sm:pb-20">
         <div className="max-w-[1200px] mx-auto px-6 text-center">
-          <h1 className="text-[clamp(36px,5vw,56px)] font-bold tracking-tight leading-[1.1] mb-4">
+          <h1 className="text-[clamp(36px,5vw,56px)] font-bold tracking-tight leading-[1.1] mb-4 text-neutral-900">
             Faq
           </h1>
-          <p className="text-lg sm:text-xl text-white/60 max-w-[560px] mx-auto leading-relaxed">
+          <p className="text-lg sm:text-xl text-neutral-500 max-w-[560px] mx-auto leading-relaxed">
             Everything you need to know about Storelib. Can't find what you're looking for? Reach out to our support team.
           </p>
         </div>

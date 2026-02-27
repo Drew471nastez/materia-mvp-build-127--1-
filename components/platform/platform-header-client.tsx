@@ -2064,7 +2064,7 @@ export function PlatformHeaderClient() {
           <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
             {/* Mobile Search Bar Trigger */}
             {pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute && (
-              <div className="md:hidden pt-1 pb-1.5">
+              <div className="md:hidden pt-0.5 pb-1.5">
                 <button
                   type="button"
                   onClick={() => setSearchModalOpen(true)}
@@ -2112,7 +2112,7 @@ export function PlatformHeaderClient() {
             {showCategories && (
               <nav className="hidden md:block">
                 <div className="overflow-x-auto scrollbar-hide">
-                  <div className="flex h-9 items-center justify-start gap-7 whitespace-nowrap text-[15px]">
+                  <div className="flex items-center justify-start gap-7 whitespace-nowrap text-[15px] pt-1 pb-3">
                     {DEFAULT_CATEGORIES.map((cat) => {
                       const Icon = cat.icon
                       const isAll = cat.id === "all"

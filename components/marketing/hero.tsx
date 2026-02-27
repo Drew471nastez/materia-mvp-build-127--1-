@@ -393,7 +393,7 @@ export function Hero() {
   const activeCards = isMobile ? MOBILE_CARDS : DESKTOP_CARDS
 
   return (
-    <section ref={sectionRef} className="flex flex-col items-center bg-gray-50 pt-7 sm:pt-10 pb-8 sm:pb-[67px] overflow-hidden">
+    <section ref={sectionRef} className="flex flex-col items-center bg-white pt-7 sm:pt-10 pb-8 sm:pb-[67px] overflow-hidden">
       <style dangerouslySetInnerHTML={{ __html: `
         .hero-collage-inner {
           transform: scale(0.96);
@@ -581,8 +581,8 @@ export function Hero() {
       </p>
 
       <div className="relative w-full animate-fade-in delay-500">
-        <div className="absolute left-0 top-0 bottom-0 w-20 sm:w-32 bg-gradient-to-r from-gray-50 to-transparent z-10 pointer-events-none" />
-        <div className="absolute right-0 top-0 bottom-0 w-20 sm:w-32 bg-gradient-to-l from-gray-50 to-transparent z-10 pointer-events-none" />
+        <div className="absolute left-0 top-0 bottom-0 w-20 sm:w-32 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none" />
+        <div className="absolute right-0 top-0 bottom-0 w-20 sm:w-32 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none" />
         <div className="overflow-hidden">
           {!logosLoaded ? (
             <div className="flex items-center justify-center gap-6 sm:gap-8 md:gap-10 py-2">
