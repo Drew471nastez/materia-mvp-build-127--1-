@@ -960,6 +960,7 @@ export function PlatformHeaderClient() {
                 {/* Center - Nav Links (show for all users) */}
                 <nav className="flex items-center gap-2">
                   {[
+                    { href: "/", label: "Home", active: pathname === '/' },
                     { href: "/explore", label: "Discover", active: pathname.startsWith('/explore') },
                     { href: "/blog", label: "Blog", active: isBlogRoute },
                     { href: "/pricing", label: "Pricing", active: pathname === '/pricing' },
@@ -1767,6 +1768,14 @@ export function PlatformHeaderClient() {
             <div className="mb-4 pb-4 border-b border-gray-200 mt-4">
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2 pt-2">Menu</h3>
               <div className="space-y-0.5">
+                <Link
+                  href="/"
+                  onClick={(e) => { e.preventDefault(); window.location.href = "/"; setMobileMenuOpen(false) }}
+                  className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
+                >
+                  <span>Home</span>
+                  <ChevronRight className="h-5 w-5 text-gray-400" />
+                </Link>
                 <Link
                   href="/explore"
                   onClick={(e) => { onCanonicalNav(e, "/explore"); setMobileMenuOpen(false) }}
