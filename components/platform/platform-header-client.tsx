@@ -873,7 +873,7 @@ export function PlatformHeaderClient() {
     router.push(url)
   }
 
-  const showCategories = pathname === "/explore" || pathname.startsWith("/explore")
+  const showCategories = pathname === "/explore" || pathname.startsWith("/explore") || pathname === "/wishlist"
   const isDiscoverProductContext = pathname.startsWith("/p/") && searchParams.get("layout") === "discover" && searchParams.get("recommended") === "1"
   const isBlogRoute = pathname === "/blog" || pathname.startsWith('/blog/')
   const isFaqRoute = pathname === "/faq"

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { Heart, Loader2, ChevronRight, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { extractUsernameFromHost, getCanonicalSiteUrl } from "@/lib/url-helpers"
 
 interface WishlistButtonProps {
   productId: string
@@ -107,7 +108,16 @@ export function WishlistButton({
     }
   }
 
-  const wishlistHref = userLoggedIn ? "/library/wishlist" : "/wishlist"
+  // When on a seller subdomain (e.g. anisia.storelib.com) always redirect to the
+  // canonical platform domain so the user lands on storelib.com/wishlist, not the
+  // seller's subdomain /wishlist which doesn't exist there.
+  const wishlistHref = (() => {
+    const basePath = userLoggedIn ? "/library/wishlist" : "/wishlist"
+    if (typeof window !== "undefined" && extractUsernameFromHost(window.location.host)) {
+      return `${getCanonicalSiteUrl()}${basePath}`
+    }
+    return basePath
+  })()
 
   // Common button styles
   const buttonStyle = {
