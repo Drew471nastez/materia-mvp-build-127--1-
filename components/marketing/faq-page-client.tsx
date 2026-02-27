@@ -216,7 +216,7 @@ export function FaqPageClient() {
   }
 
   return (
-    <div className="bg-[#fafafa] min-h-screen">
+    <div className="bg-white min-h-screen">
       {/* Hero Section */}
       <section className="bg-gray-50 pt-20 pb-16 sm:pt-28 sm:pb-20">
         <div className="max-w-[1200px] mx-auto px-6 text-center">

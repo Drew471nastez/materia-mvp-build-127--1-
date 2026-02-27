@@ -2064,7 +2064,7 @@ export function PlatformHeaderClient() {
           <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
             {/* Mobile Search Bar Trigger */}
             {pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute && (
-              <div className="md:hidden pt-0.5 pb-1.5">
+              <div className="md:hidden pt-0 pb-1.5">
                 <button
                   type="button"
                   onClick={() => setSearchModalOpen(true)}
@@ -2112,7 +2112,7 @@ export function PlatformHeaderClient() {
             {showCategories && (
               <nav className="hidden md:block">
                 <div className="overflow-x-auto scrollbar-hide">
-                  <div className="flex items-center justify-start gap-7 whitespace-nowrap text-[15px] pt-1 pb-3">
+                  <div className="flex items-center justify-start gap-7 whitespace-nowrap text-[15px] pt-1 pb-6">
                     {DEFAULT_CATEGORIES.map((cat) => {
                       const Icon = cat.icon
                       const isAll = cat.id === "all"
@@ -2147,8 +2147,9 @@ export function PlatformHeaderClient() {
       )}
 
       {/* Concave bottom edge — black background with rounded white overlay creates concave corners */}
-      {/* Skip on FAQ page since its hero is also black, and on explore pages which have the white category bar */}
-      {!showCategories && !isFaqRoute && (
+      {/* Skip on FAQ page since its hero is also black, on explore pages which have the white category bar,
+          and on any non-marketing page that already renders the white section above (to avoid double black bars) */}
+      {!showCategories && !isFaqRoute && (pathname === "/" || pathname.startsWith("/features") || pathname.startsWith("/blog") || pathname.startsWith("/pricing")) && (
         <div className="relative z-30 bg-black h-[20px] -mb-px">
           <div className="absolute inset-0 bg-white rounded-t-[20px]" />
         </div>
