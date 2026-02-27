@@ -156,15 +156,15 @@ export function MarketingHeaderClient() {
   }, [categoriesOpen])
 
   return (
-    <div className="relative z-40 w-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 pt-[env(safe-area-inset-top)]">
+    <div className="relative z-40 w-full bg-black backdrop-blur supports-[backdrop-filter]:bg-black pt-[env(safe-area-inset-top)]">
       {/* Main Header Row */}
-      <header className="border-b border-border/40">
+      <header className="border-b border-white/10">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 gap-4">
           {/* Left side - Logo and Categories Button */}
           <div className="flex items-center gap-4 shrink-0">
             {/* Logo - 30% bigger (~2.6rem from 2rem) */}
             <Link href={logoLink} className="flex items-center gap-2 shrink-0">
-              <span className="text-[2.6rem] font-bold tracking-tight leading-none">Storelib</span>
+              <span className="text-[2.6rem] font-bold tracking-tight leading-none text-white">Storelib</span>
             </Link>
 
             {/* Categories Dropdown Button */}
@@ -173,8 +173,8 @@ export function MarketingHeaderClient() {
                 onClick={() => setCategoriesOpen(!categoriesOpen)}
                 className={`hidden sm:flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 cursor-pointer ${
                   categoriesOpen
-                    ? "bg-neutral-100 text-neutral-900"
-                    : "text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900"
+                    ? "bg-white/15 text-white"
+                    : "text-white/80 hover:bg-white/10 hover:text-white"
                 }`}
               >
                 <Menu className="w-4 h-4" />
@@ -287,7 +287,7 @@ export function MarketingHeaderClient() {
                     <TooltipTrigger asChild>
                       <Link
                         href="/library"
-                        className="w-10 h-10 rounded-full flex items-center justify-center text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 transition-all duration-150 cursor-pointer"
+                        className="w-10 h-10 rounded-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 transition-all duration-150 cursor-pointer"
                       >
                         <Heart className="w-5 h-5" />
                       </Link>
@@ -302,7 +302,7 @@ export function MarketingHeaderClient() {
                 {user && (
                   <Link
                     href="/library"
-                    className="hidden sm:flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-neutral-700 hover:text-neutral-900 transition-colors cursor-pointer"
+                    className="hidden sm:flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white/70 hover:text-white transition-colors cursor-pointer"
                   >
                     <BookOpen className="w-4 h-4" />
                     <span>Library</span>
@@ -324,7 +324,7 @@ export function MarketingHeaderClient() {
                   <UserNavClient user={user} profile={{...profile, avatar_url: resolvedAvatarUrl || profile?.avatar_url}} isCreator={isCreator} creatorSlug={creatorSlug} />
                 ) : (
                   <>
-                    <Button variant="ghost" size="sm" asChild>
+                    <Button variant="ghost" size="sm" asChild className="text-white/80 hover:text-white hover:bg-white/10">
                       <Link href="/login">Sign in</Link>
                     </Button>
                     <Button size="sm" asChild>
@@ -342,7 +342,7 @@ export function MarketingHeaderClient() {
       </header>
 
       {/* Secondary Navigation Row - Category Links (left-aligned with logo/content) */}
-      <nav className="border-b border-border/40 bg-white">
+      <nav className="border-b border-white/10 bg-black">
         <div className="mx-auto max-w-6xl px-4">
           <div className="flex items-center justify-start gap-6 py-2.5 overflow-x-auto scrollbar-hide">
             {SECONDARY_NAV_CATEGORIES.map((category, index) => {
@@ -351,10 +351,10 @@ export function MarketingHeaderClient() {
                 <Link
                   key={category.label}
                   href={category.href}
-                  className="flex items-center gap-1.5 text-sm text-neutral-600 hover:text-neutral-900 whitespace-nowrap transition-colors cursor-pointer"
+                  className="flex items-center gap-1.5 text-sm text-white/60 hover:text-white whitespace-nowrap transition-colors cursor-pointer"
                 >
                   {/* Show icon only on first category (Fonts) */}
-                  {index === 0 && <Icon className="w-4 h-4 text-neutral-500" />}
+                  {index === 0 && <Icon className="w-4 h-4 text-white/50" />}
                   <span>{category.label}</span>
                 </Link>
               )

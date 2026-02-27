@@ -934,8 +934,8 @@ export function PlatformHeaderClient() {
 
   return (
     <>
-      <div className="relative z-40 w-full bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/90 pt-[env(safe-area-inset-top)]">
-    <header className="w-full bg-white border-b border-gray-200">
+      <div className="relative z-40 w-full bg-black backdrop-blur supports-[backdrop-filter]:bg-black pt-[env(safe-area-inset-top)]">
+    <header className="w-full bg-black border-b border-white/10">
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
         <div className="flex h-[68px] md:h-[81px] items-center justify-between gap-4 md:py-[3px]">
           {/* Desktop Homepage Layout - same style for /, /features, /pricing, /blog */}
@@ -953,7 +953,7 @@ export function PlatformHeaderClient() {
                     className="h-[46px] w-auto"
                     priority
                   />
-                  <span className="text-[22px] font-bold text-gray-900 tracking-tight">Storelib</span>
+                  <span className="text-[22px] font-bold text-white tracking-tight">Storelib</span>
                 </Link>
 
                 {/* Center - Nav Links (show for all users) */}
@@ -970,8 +970,8 @@ export function PlatformHeaderClient() {
                       className={cn(
                         "px-4 py-2 text-[15px] font-medium rounded-full border transition-[background-color,border-color,color,transform] duration-180 ease-out",
                         item.active
-                          ? "border-gray-300 bg-gray-50 text-black shadow-[inset_0_0_0_1px_rgba(0,0,0,0.02)]"
-                          : "border-transparent text-gray-700 hover:text-black hover:bg-gray-50/80 hover:border-gray-200/70 active:scale-[0.98]",
+                          ? "border-white/20 bg-white/10 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)]"
+                          : "border-transparent text-white/70 hover:text-white hover:bg-white/10 hover:border-white/15 active:scale-[0.98]",
                       )}
                     >
                       {item.label}
@@ -990,7 +990,7 @@ export function PlatformHeaderClient() {
                         <TooltipTrigger asChild>
                           <Link
                             href="/explore" onClick={(e) => onCanonicalNav(e, "/explore")}
-                            className="flex h-11 w-11 items-center justify-center rounded-full text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition cursor-pointer"
+                            className="flex h-11 w-11 items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
                             aria-label="Discover"
                           >
                             <Compass className="h-[22px] w-[22px]" />
@@ -1011,7 +1011,7 @@ export function PlatformHeaderClient() {
                     <>
                       {/* Log In */}
                       <Link href="/login">
-                        <Button variant="outline" className="h-11 px-5 rounded-lg text-[15px] font-medium text-gray-900 border-gray-900 hover:bg-gray-100 cursor-pointer">
+                        <Button variant="outline" className="h-11 px-5 rounded-lg text-[15px] font-medium text-white border-white/30 hover:bg-white/10 cursor-pointer">
                           Log In
                         </Button>
                       </Link>
@@ -1039,7 +1039,7 @@ export function PlatformHeaderClient() {
                       className="h-[42px] w-auto"
                       priority
                     />
-                    <span className="text-[20px] font-bold text-gray-900 tracking-tight">Storelib</span>
+                    <span className="text-[20px] font-bold text-white tracking-tight">Storelib</span>
                   </Link>
                 </div>
 
@@ -1047,7 +1047,7 @@ export function PlatformHeaderClient() {
                 <button
                   type="button"
                   onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100/60 backdrop-blur-sm border border-gray-200/50 text-gray-700 hover:bg-gray-100 transition cursor-pointer"
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 backdrop-blur-sm border border-white/15 text-white hover:bg-white/15 transition cursor-pointer"
                   aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
                 >
                   <AnimatedHamburger isOpen={mobileMenuOpen} />
@@ -1069,7 +1069,7 @@ export function PlatformHeaderClient() {
                     className="h-[46px] w-auto"
                     priority
                   />
-                  <span className="text-[22px] font-bold text-gray-900 tracking-tight">Storelib</span>
+                  <span className="text-[22px] font-bold text-white tracking-tight">Storelib</span>
                 </Link>
 
                 {/* Categories Dropdown Button with Tooltip */}
@@ -1084,8 +1084,8 @@ export function PlatformHeaderClient() {
                     }}
                     className={`flex items-center gap-2 px-3.5 py-2.5 rounded-lg text-[15px] font-medium transition-all duration-150 cursor-pointer ${
                       categoriesDropdownOpen
-                        ? "bg-gray-100 text-gray-900"
-                        : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                        ? "bg-white/15 text-white"
+                        : "text-white/80 hover:bg-white/10 hover:text-white"
                     }`}
                   >
                     <Menu className="w-[18px] h-[18px]" />
@@ -1192,14 +1192,14 @@ export function PlatformHeaderClient() {
           {/* Desktop Search - Centered with Modal (10% larger) */}
           <div className="hidden md:flex flex-1 max-w-xl mx-4 relative">
             <div className="relative w-full">
-              <Search className="absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-gray-400 pointer-events-none z-10" />
+              <Search className="absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-white/40 pointer-events-none z-10" />
               <Input
                 ref={searchInputRef}
                 value={query}
                 onChange={(e) => handleSearchChange(e.target.value)}
                 onFocus={() => setSearchModalOpen(true)}
                 placeholder={t("search_placeholder")}
-                className={`h-11 w-full pl-11 pr-4 bg-gray-100 border-gray-200 text-gray-900 text-[15px] placeholder:text-gray-500 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-0 focus-visible:border-blue-500 ${isDiscoverProductContext ? "rounded-[8px]" : "rounded-full"}`}
+                className={`h-11 w-full pl-11 pr-4 bg-white/10 border-white/15 text-white text-[15px] placeholder:text-white/50 focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-0 focus-visible:border-violet-500 ${isDiscoverProductContext ? "rounded-[8px]" : "rounded-full"}`}
               />
               {query && (
                 <button
@@ -1209,7 +1209,7 @@ export function PlatformHeaderClient() {
                     setSearchResults([])
                     searchInputRef.current?.focus()
                   }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -1324,7 +1324,7 @@ export function PlatformHeaderClient() {
               <button
                 type="button"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="flex h-9 w-9 items-center justify-center text-gray-700 transition cursor-pointer"
+                className="flex h-9 w-9 items-center justify-center text-white transition cursor-pointer"
                 aria-label={mobileMenuOpen ? "Close categories" : "Open categories"}
               >
                 <AnimatedHamburger isOpen={mobileMenuOpen} />
@@ -1340,7 +1340,7 @@ export function PlatformHeaderClient() {
                   className="h-[38px] w-auto"
                   priority
                 />
-                <span className="text-[19px] font-bold text-gray-900 tracking-tight">Storelib</span>
+                <span className="text-[19px] font-bold text-white tracking-tight">Storelib</span>
               </Link>
             </div>
 
@@ -1350,7 +1350,7 @@ export function PlatformHeaderClient() {
               {user && (
                 <Link
                   href={getCanonicalOrRelativePath("/library")} onClick={(e) => onCanonicalNav(e, "/library")}
-                  className="flex h-9 w-9 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 transition cursor-pointer"
+                  className="flex h-9 w-9 items-center justify-center rounded-full text-white/80 hover:bg-white/10 transition cursor-pointer"
                   aria-label="Library"
                 >
                   <Library className="h-5 w-5" />
@@ -1360,7 +1360,7 @@ export function PlatformHeaderClient() {
               {/* Wishlist */}
               <Link
                 href={getCanonicalOrRelativePath(wishlistHref)} onClick={(e) => onCanonicalNav(e, wishlistHref)}
-                className="relative flex h-9 w-9 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 transition cursor-pointer"
+                className="relative flex h-9 w-9 items-center justify-center rounded-full text-white/80 hover:bg-white/10 transition cursor-pointer"
                 aria-label="Wishlist"
               >
                 <Heart className="h-5 w-5" />
@@ -1386,7 +1386,7 @@ export function PlatformHeaderClient() {
                 </button>
               ) : (
                 <Link href="/login">
-                  <Button className="ml-2 h-9 px-5 rounded-lg text-sm font-semibold bg-violet-500 text-white hover:bg-violet-600 gap-2">
+                  <Button className="ml-2 h-9 px-5 rounded-lg text-sm font-semibold bg-white text-black hover:bg-white/90 gap-2">
                     <UserIcon className="h-4 w-4" />
                     Sign in
                   </Button>
@@ -1406,7 +1406,7 @@ export function PlatformHeaderClient() {
                   <TooltipTrigger asChild>
                     <Link
                       href={getCanonicalOrRelativePath(wishlistHref)} onClick={(e) => onCanonicalNav(e, wishlistHref)}
-                      className="relative flex h-11 w-11 items-center justify-center rounded-full text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition cursor-pointer"
+                      className="relative flex h-11 w-11 items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
                       aria-label={t("wishlist")}
                     >
                       <Heart className="h-[22px] w-[22px]" />
@@ -1427,7 +1427,7 @@ export function PlatformHeaderClient() {
                   <TooltipTrigger asChild>
                     <Link
                       href={getCanonicalOrRelativePath("/library")} onClick={(e) => onCanonicalNav(e, "/library")}
-                      className="hidden sm:flex h-11 w-11 items-center justify-center rounded-full text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition cursor-pointer"
+                      className="hidden sm:flex h-11 w-11 items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
                       aria-label={t("library")}
                     >
                       <Library className="h-[22px] w-[22px]" />
@@ -1453,7 +1453,7 @@ export function PlatformHeaderClient() {
                         <button
                           type="button"
                           onClick={() => setDesktopProfileOpen(!desktopProfileOpen)}
-                          className="rounded-full cursor-pointer outline-none ring-offset-white transition-all duration-150 ease-out hover:ring-2 hover:ring-violet-200 hover:ring-offset-2 hover:scale-105 active:scale-95 focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-2"
+                          className="rounded-full cursor-pointer outline-none ring-offset-black transition-all duration-150 ease-out hover:ring-2 hover:ring-violet-400 hover:ring-offset-2 hover:scale-105 active:scale-95 focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2"
                           aria-label="Open profile menu"
                         >
                           <Avatar className="h-11 w-11 border border-gray-200 transition-opacity duration-150">
@@ -1559,13 +1559,13 @@ export function PlatformHeaderClient() {
 
         {/* Mobile Search Bar Trigger - hidden on homepage, features, blog, pricing pages */}
         {pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && (
-          <div className="md:hidden pt-2 pb-1.5 border-t border-gray-100">
+          <div className="md:hidden pt-2 pb-1.5 border-t border-white/10">
             <button
               type="button"
               onClick={() => setSearchModalOpen(true)}
-              className={`w-full h-10 flex items-center gap-2 px-4 bg-gray-100 border border-gray-200 text-gray-500 text-sm cursor-pointer overflow-hidden ${isDiscoverProductContext ? "rounded-[8px]" : "rounded-full"}`}
+              className={`w-full h-10 flex items-center gap-2 px-4 bg-white/10 border border-white/15 text-white/50 text-sm cursor-pointer overflow-hidden ${isDiscoverProductContext ? "rounded-[8px]" : "rounded-full"}`}
             >
-              <Search className="h-4 w-4 text-gray-400 shrink-0" />
+              <Search className="h-4 w-4 text-white/40 shrink-0" />
               <span className="truncate">{t("search_placeholder")}</span>
             </button>
           </div>
@@ -1714,8 +1714,8 @@ export function PlatformHeaderClient() {
                     onClick={() => onCategoryClick(cat.id)}
                     className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-colors cursor-pointer border ${
                       isActive
-                        ? "bg-gray-900 text-white border-gray-900"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 border-gray-200"
+                        ? "bg-white text-black border-white"
+                        : "bg-white/10 text-white/70 hover:bg-white/15 hover:text-white border-white/15"
                     }`}
                   >
                     <Icon className="w-3.5 h-3.5" />
@@ -1734,7 +1734,7 @@ export function PlatformHeaderClient() {
 
         {/* Desktop Categories - only on /explore page */}
         {showCategories && (
-          <nav className="border-t border-gray-200 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 hidden md:block">
+          <nav className="border-t border-white/10 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 hidden md:block">
             <div className="overflow-x-auto scrollbar-hide">
               <div className="flex h-12 items-center justify-start gap-7 whitespace-nowrap text-[15px]">
                 {DEFAULT_CATEGORIES.map((cat) => {
@@ -1748,14 +1748,14 @@ export function PlatformHeaderClient() {
                       onClick={() => onCategoryClick(cat.id)}
                       className={`inline-flex items-center gap-1.5 transition-colors cursor-pointer font-medium ${
                         isActive
-                          ? "text-gray-900"
-                          : "text-gray-500 hover:text-gray-900"
+                          ? "text-white"
+                          : "text-white/50 hover:text-white"
                       }`}
                     >
                       {isAll && <Icon className="w-[18px] h-[18px]" />}
                       {cat.label}
                       {cat.badge && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-gradient-to-r from-gray-900 to-black text-white leading-none shadow-sm">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-gradient-to-r from-violet-500 to-violet-600 text-white leading-none shadow-sm">
                           {cat.badge}
                         </span>
                       )}
@@ -2124,10 +2124,10 @@ export function PlatformHeaderClient() {
 function HeaderActionsSkeleton() {
   return (
     <div className="flex items-center gap-2.5">
-      <Skeleton className="h-11 w-11 rounded-full bg-gray-200" />
-      <Skeleton className="h-11 w-11 rounded-full bg-gray-200" />
-      <Skeleton className="h-11 w-24 rounded-full hidden sm:block bg-gray-200" />
-      <Skeleton className="h-11 w-28 rounded-full bg-gray-200" />
+      <Skeleton className="h-11 w-11 rounded-full bg-white/10" />
+      <Skeleton className="h-11 w-11 rounded-full bg-white/10" />
+      <Skeleton className="h-11 w-24 rounded-full hidden sm:block bg-white/10" />
+      <Skeleton className="h-11 w-28 rounded-full bg-white/10" />
     </div>
   )
 }

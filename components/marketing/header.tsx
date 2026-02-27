@@ -18,27 +18,27 @@ const SECONDARY_NAV_CATEGORIES = [
 
 export function MarketingHeaderSkeleton() {
   return (
-    <div className="relative z-40 w-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 pt-[env(safe-area-inset-top)]">
+    <div className="relative z-40 w-full bg-black backdrop-blur supports-[backdrop-filter]:bg-black pt-[env(safe-area-inset-top)]">
       {/* Main Header Row */}
-      <header className="border-b border-border/40">
+      <header className="border-b border-white/10">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-          <Skeleton className="h-8 w-32" />
+          <Skeleton className="h-8 w-32 bg-white/10" />
           <nav className="hidden items-center gap-6 sm:flex">
-            <Skeleton className="h-4 w-16" />
+            <Skeleton className="h-4 w-16 bg-white/10" />
           </nav>
           <div className="flex items-center gap-2 shrink-0">
-            <Skeleton className="h-9 w-20" />
-            <Skeleton className="h-9 w-24" />
+            <Skeleton className="h-9 w-20 bg-white/10" />
+            <Skeleton className="h-9 w-24 bg-white/10" />
           </div>
         </div>
       </header>
 
       {/* Secondary Navigation Row */}
-      <nav className="border-b border-border/40 bg-white">
+      <nav className="border-b border-white/10 bg-black">
         <div className="mx-auto max-w-6xl px-4">
           <div className="flex items-center gap-6 py-2.5 overflow-x-auto scrollbar-hide">
             {[...Array(6)].map((_, i) => (
-              <Skeleton key={i} className="h-4 w-20" />
+              <Skeleton key={i} className="h-4 w-20 bg-white/10" />
             ))}
           </div>
         </div>
@@ -87,17 +87,17 @@ export async function MarketingHeader() {
   }
 
   return (
-    <div className="relative z-40 w-full bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 pt-[env(safe-area-inset-top)] shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+    <div className="relative z-40 w-full bg-black backdrop-blur supports-[backdrop-filter]:bg-black pt-[env(safe-area-inset-top)]">
       {/* Main Header Row */}
-      <header className="border-b border-border/40">
+      <header className="border-b border-white/10">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
           <Link href="/explore" className="flex items-center gap-2 shrink-0">
-            <span className="text-[2rem] font-bold tracking-tight leading-none">Storelib</span>
+            <span className="text-[2rem] font-bold tracking-tight leading-none text-white">Storelib</span>
           </Link>
           <nav className="hidden items-center gap-6 sm:flex">
             <Link
               href="/explore?src=platform"
-              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+              className="text-sm text-white/70 transition-colors hover:text-white"
             >
               Explore
             </Link>
@@ -107,7 +107,7 @@ export async function MarketingHeader() {
               <UserNav user={user} profile={profile} isCreator={isCreator} creatorSlug={creatorSlug} />
             ) : (
               <>
-                <Button variant="ghost" size="sm" asChild>
+                <Button variant="ghost" size="sm" asChild className="text-white/80 hover:text-white hover:bg-white/10">
                   <Link href="/login">Sign in</Link>
                 </Button>
                 <Button size="sm" asChild>
@@ -123,14 +123,14 @@ export async function MarketingHeader() {
       </header>
 
       {/* Secondary Navigation Row - Category Links */}
-      <nav className="border-b border-border/40 bg-white">
+      <nav className="border-b border-white/10 bg-black">
         <div className="mx-auto max-w-6xl px-4">
           <div className="flex items-center gap-6 py-2.5 overflow-x-auto scrollbar-hide">
             {SECONDARY_NAV_CATEGORIES.map((category, index) => (
               <Link
                 key={category.label}
                 href={category.href}
-                className="flex items-center gap-1.5 text-sm text-neutral-600 hover:text-neutral-900 whitespace-nowrap transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 text-sm text-white/60 hover:text-white whitespace-nowrap transition-colors cursor-pointer"
               >
                 {/* Show icon only on first category */}
                 {index === 0 && <Type className="w-4 h-4" />}
