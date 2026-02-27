@@ -4351,9 +4351,9 @@ function FooterSection({ userPlan }: { userPlan?: "free" | "growth" | "pro" | nu
                       "relative flex items-center justify-center overflow-hidden bg-black text-white cursor-pointer select-none",
                       "transition-all duration-300 ease-in-out",
                       "w-5 h-5 rounded-full",
-                      // row hover or direct badge hover: expand into badge
-                      "group-hover/row:w-9 group-hover/row:rounded-[5px]",
-                      "group-hover/badge:w-9 group-hover/badge:rounded-[5px]",
+                      // row hover or badge hover: expand into a full pill shape
+                      "group-hover/row:w-9 group-hover/row:rounded-full",
+                      "group-hover/badge:w-9 group-hover/badge:rounded-full",
                       // paid users: less faded; free users: more faded
                       userHasPaidPlan ? "opacity-50" : "opacity-30",
                       // on hover: fully opaque

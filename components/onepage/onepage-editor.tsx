@@ -277,7 +277,7 @@ function ProUpgradeDialog({
           "p-0 gap-0 overflow-hidden",
           isMobileSheet
             ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0"
-            : "w-[calc(100%-32px)] max-w-sm md:max-w-[340px] rounded-2xl mx-auto"
+            : "w-[calc(100%-32px)] max-w-sm md:max-w-[391px] rounded-2xl mx-auto"
         )}
         style={isMobileSheet ? {
           position: 'fixed',
@@ -294,10 +294,6 @@ function ProUpgradeDialog({
         )}
 
         <div className="p-6 text-center">
-          {/* Thunder icon */}
-          <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-gray-900 flex items-center justify-center shadow-lg">
-            <Zap className="w-7 h-7 text-white" strokeWidth={2.5} />
-          </div>
           <h2 className="text-lg font-semibold mb-2">Upgrade to Growth?</h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
             Some of the customizations you're previewing are exclusive to Storelib paid plans. Let's get you upgraded so you can save them!
@@ -307,9 +303,8 @@ function ProUpgradeDialog({
         <div className="px-6 pb-6 space-y-3">
           <button
             onClick={onUpgrade}
-            className="w-full py-3 px-4 bg-gray-900 text-white font-semibold rounded-xl hover:bg-gray-800 transition-all shadow-md flex items-center justify-center gap-2"
+            className="w-full py-3 px-4 bg-gray-900 text-white font-semibold rounded-xl hover:bg-gray-800 transition-all shadow-md"
           >
-            <Zap className="w-4 h-4" strokeWidth={2.5} />
             Upgrade Now
           </button>
 
@@ -379,7 +374,8 @@ function EditorLayout() {
     fetch("/api/billing/subscription")
       .then((res) => res.json())
       .then((data) => {
-        const plan = data.plan_id as "free" | "growth" | "pro" | undefined
+        // API returns { subscription: { plan_id }, currentPlan: { id } }
+        const plan = (data.subscription?.plan_id || data.currentPlan?.id) as "free" | "growth" | "pro" | undefined
         setUserPlan(plan || "free")
       })
       .catch(() => setUserPlan("free"))
@@ -779,18 +775,18 @@ function EditorLayout() {
             >
               <SettingsFilterIcon className="h-4 w-4" />
             </button>
-
-            {/* Unsaved changes indicator — lives in the left panel so it never crowds the right panel */}
-            {isDirty && saveState !== "saving" && (
-              <span className="hidden lg:inline text-xs text-amber-600 font-medium whitespace-nowrap shrink-0 ml-auto">
-                Unsaved changes
-              </span>
-            )}
           </div>
         </div>
 
         {/* Right side actions */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0 pr-3 sm:pr-4 md:w-[410px] md:border-l md:justify-end md:pr-6 md:pl-4">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0 pr-3 sm:pr-4 md:w-[410px] md:border-l md:justify-end md:pr-6 md:pl-3">
+          {/* Unsaved changes indicator */}
+          {isDirty && saveState !== "saving" && (
+            <span className="hidden lg:inline text-xs text-amber-600 font-medium whitespace-nowrap shrink-0">
+              Unsaved changes
+            </span>
+          )}
+
           {/* Mobile: URL button in header (only shows in preview mode) */}
           {showMobilePreview && (
             <Button
@@ -825,7 +821,7 @@ function EditorLayout() {
               onClick={() => setShowLinkModal(true)}
               className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg shadow-sm border text-sm font-medium hover:shadow-md hover:bg-gray-50 transition-all cursor-pointer"
             >
-              <span className="text-muted-foreground truncate max-w-[160px]">
+              <span className="text-muted-foreground truncate max-w-[80px] xl:max-w-[160px]">
                 {pageUrl.replace('https://', '').replace('http://', '')}
               </span>
               <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0" />
