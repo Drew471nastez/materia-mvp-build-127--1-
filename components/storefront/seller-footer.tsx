@@ -37,7 +37,7 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
           <img
             src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
             alt="Storelib"
-            className="h-[15px] w-auto brightness-0"
+            className="h-[15px] w-auto"
           />
           <span className="text-[12px] font-semibold text-gray-700 tracking-tight leading-none">Storelib</span>
         </a>
@@ -75,7 +75,7 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
           <img
             src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
             alt="Storelib"
-            className="h-[18px] w-auto brightness-0"
+            className="h-[18px] w-auto"
           />
           <span className="text-sm font-semibold text-gray-700 tracking-tight leading-none">Storelib</span>
         </a>
@@ -115,7 +115,7 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
           <img
             src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
             alt="Storelib"
-            className="h-[15px] sm:h-[18px] w-auto brightness-0"
+            className="h-[15px] sm:h-[18px] w-auto"
           />
           <span className="text-[12px] sm:text-sm font-semibold text-gray-700 tracking-tight leading-none">Storelib</span>
         </a>
