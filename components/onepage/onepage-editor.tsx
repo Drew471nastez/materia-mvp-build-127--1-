@@ -198,7 +198,7 @@ function UnsavedChangesDialog({
   )
 }
 
-// Pro Upgrade Dialog Component - shown when trying to save with Pro features without Pro plan
+// Pro Upgrade Dialog — mobile bottom sheet on small screens, centered modal on desktop
 function ProUpgradeDialog({
   open,
   onClose,
@@ -212,40 +212,117 @@ function ProUpgradeDialog({
   onDiscard: () => void
   onKeepEditing: () => void
 }) {
+  const [isMobileSheet, setIsMobileSheet] = useState(false)
+  const [isPresented, setIsPresented] = useState(false)
+  const [dragY, setDragY] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+  const dragStartY = useRef(0)
+  const dragCurrentY = useRef(0)
+
+  useEffect(() => {
+    const check = () => setIsMobileSheet(window.innerWidth < 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
+
+  useEffect(() => {
+    if (open && isMobileSheet) {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => setIsPresented(true))
+      })
+    } else {
+      setIsPresented(false)
+      setDragY(0)
+    }
+  }, [open, isMobileSheet])
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    setIsDragging(true)
+    dragStartY.current = e.touches[0].clientY
+    dragCurrentY.current = e.touches[0].clientY
+  }, [])
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    dragCurrentY.current = e.touches[0].clientY
+    const delta = Math.max(0, dragCurrentY.current - dragStartY.current)
+    setDragY(delta)
+  }, [])
+
+  const handleTouchEnd = useCallback(() => {
+    setIsDragging(false)
+    const delta = dragCurrentY.current - dragStartY.current
+    if (delta > 80) {
+      setIsPresented(false)
+      setTimeout(() => { onClose(); setDragY(0) }, 400)
+    } else {
+      setDragY(0)
+    }
+  }, [onClose])
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="w-[calc(100%-32px)] max-w-sm p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
-        <div className="p-6 text-center">
-          {/* Pro Badge */}
-          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg">
-            <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-            </svg>
+      <DialogContent
+        showCloseButton={!isMobileSheet}
+        disableDefaultAnimations={isMobileSheet}
+        disableOverlayDefaultAnimations={isMobileSheet}
+        overlayClassName={isMobileSheet ? cn(
+          "bg-black/40 transition-all duration-400",
+          isPresented ? "opacity-100 backdrop-blur-[2px]" : "opacity-0 backdrop-blur-0"
+        ) : undefined}
+        onTouchStart={isMobileSheet ? handleTouchStart : undefined}
+        onTouchMove={isMobileSheet ? handleTouchMove : undefined}
+        onTouchEnd={isMobileSheet ? handleTouchEnd : undefined}
+        className={cn(
+          "p-0 gap-0 overflow-hidden",
+          isMobileSheet
+            ? "w-full max-w-none rounded-t-[24px] rounded-b-none border-x-0 border-b-0 !top-auto !left-0 !right-0 !bottom-0 !translate-x-0 !translate-y-0"
+            : "w-[calc(100%-32px)] max-w-sm md:max-w-[340px] rounded-2xl mx-auto"
+        )}
+        style={isMobileSheet ? {
+          position: 'fixed',
+          top: 'auto', left: 0, right: 0, bottom: 0,
+          transform: isPresented ? `translate3d(0, ${dragY}px, 0)` : 'translate3d(0, 100%, 0)',
+          transition: isDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
+        } : undefined}
+      >
+        {/* Mobile drag handle */}
+        {isMobileSheet && (
+          <div className="pt-3 pb-1 flex justify-center">
+            <div className="h-1.5 w-10 rounded-full bg-gray-300" />
           </div>
-          <h2 className="text-lg font-semibold mb-2">Upgrade to Pro?</h2>
+        )}
+
+        <div className="p-6 text-center">
+          {/* Thunder icon */}
+          <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-gray-900 flex items-center justify-center shadow-lg">
+            <Zap className="w-7 h-7 text-white" strokeWidth={2.5} />
+          </div>
+          <h2 className="text-lg font-semibold mb-2">Upgrade to Growth?</h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            Some of the customizations you're previewing are exclusive to Storelib Pro. Let's get you upgraded so you can save them!
+            Some of the customizations you're previewing are exclusive to Storelib paid plans. Let's get you upgraded so you can save them!
           </p>
         </div>
 
         <div className="px-6 pb-6 space-y-3">
           <button
             onClick={onUpgrade}
-            className="w-full py-3 px-4 bg-gray-900 text-white font-semibold rounded-lg hover:bg-gray-800 transition-all shadow-md"
+            className="w-full py-3 px-4 bg-gray-900 text-white font-semibold rounded-xl hover:bg-gray-800 transition-all shadow-md flex items-center justify-center gap-2"
           >
-            Upgrade To Pro
+            <Zap className="w-4 h-4" strokeWidth={2.5} />
+            Upgrade Now
           </button>
 
           <button
             onClick={onDiscard}
-            className="w-full py-3 px-4 bg-white text-gray-700 font-medium rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+            className="w-full py-3 px-4 bg-white text-gray-700 font-medium rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors"
           >
             Discard changes
           </button>
 
           <button
             onClick={onKeepEditing}
-            className="w-full py-3 px-4 bg-white text-gray-500 font-medium rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+            className="w-full py-3 px-4 bg-white text-gray-500 font-medium rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors"
           >
             Keep editing
           </button>
@@ -383,8 +460,7 @@ function EditorLayout() {
 
   // Handle save with Pro plan check
   const handleSaveWithProCheck = useCallback(async () => {
-    // TODO: Replace this with actual Pro plan check from user's subscription
-    const userHasPro = false // For now, assume user doesn't have Pro
+    const userHasPro = userPlan === "growth" || userPlan === "pro"
 
     if (hasProFeaturesEnabled() && !userHasPro) {
       setShowProUpgradeDialog(true)
@@ -498,8 +574,7 @@ function EditorLayout() {
   }, [])
 
   const handleSaveAndNavigate = useCallback(async () => {
-    // TODO: Replace this with actual Pro plan check from user's subscription
-    const userHasPro = false
+    const userHasPro = userPlan === "growth" || userPlan === "pro"
 
     if (hasProFeaturesEnabled() && !userHasPro) {
       setShowUnsavedDialog(false)
@@ -597,9 +672,12 @@ function EditorLayout() {
         </>
       )
     }
+    // Show lightning bolt when the user has pro features active but no paid plan
+    const userHasPro = userPlan === "growth" || userPlan === "pro"
+    const showZap = hasProFeaturesEnabled() && !userHasPro
     return (
       <>
-        <Save className="h-4 w-4" />
+        {showZap ? <Zap className="h-4 w-4" strokeWidth={2.5} /> : <Save className="h-4 w-4" />}
         <span className="hidden sm:inline ml-2">Save</span>
       </>
     )
@@ -701,18 +779,18 @@ function EditorLayout() {
             >
               <SettingsFilterIcon className="h-4 w-4" />
             </button>
+
+            {/* Unsaved changes indicator — lives in the left panel so it never crowds the right panel */}
+            {isDirty && saveState !== "saving" && (
+              <span className="hidden lg:inline text-xs text-amber-600 font-medium whitespace-nowrap shrink-0 ml-auto">
+                Unsaved changes
+              </span>
+            )}
           </div>
         </div>
 
         {/* Right side actions */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0 pr-3 sm:pr-4 md:w-[410px] md:border-l md:justify-end md:pr-6">
-          {/* Unsaved changes indicator - Only show on larger screens to prevent overlap */}
-          {isDirty && saveState !== "saving" && (
-            <span className="hidden lg:inline text-xs text-amber-600 font-medium whitespace-nowrap shrink-0">
-              Unsaved changes
-            </span>
-          )}
-
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0 pr-3 sm:pr-4 md:w-[410px] md:border-l md:justify-end md:pr-6 md:pl-4">
           {/* Mobile: URL button in header (only shows in preview mode) */}
           {showMobilePreview && (
             <Button
@@ -796,7 +874,7 @@ function EditorLayout() {
     activeTab === "settings" ? "max-w-2xl" : "max-w-xl"
   )}
 >
-            {activeTab === "design" && <DesignTab />}
+            {activeTab === "design" && <DesignTab userPlan={userPlan} />}
             {activeTab === "links" && <LinksTab />}
             {activeTab === "products" && <ProductsTab />}
             {activeTab === "settings" && <SettingsTab />}

@@ -677,7 +677,7 @@ const THEME_TEMPLATES = [
   },
 ]
 
-export function DesignTab() {
+export function DesignTab({ userPlan }: { userPlan?: "free" | "growth" | "pro" | null }) {
   const [activeSection, setActiveSection] = useState<DesignSection>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('onepage-design-section')
@@ -756,7 +756,7 @@ export function DesignTab() {
         {activeSection === "text" && <TextSection />}
         {activeSection === "buttons" && <ButtonsSection />}
         {activeSection === "socials" && <SocialsSection />}
-        {activeSection === "footer" && <FooterSection />}
+        {activeSection === "footer" && <FooterSection userPlan={userPlan} />}
       </div>
     </div>
   )
@@ -4312,19 +4312,15 @@ function SocialsSection() {
   )
 }
 
-function FooterSection() {
+function FooterSection({ userPlan }: { userPlan?: "free" | "growth" | "pro" | null }) {
   const { onepage, updateSettings } = useOnePage()
   if (!onepage) return null
   const { settings } = onepage
 
-  // Hide Storelib Branding is the inverse of show_branding
-  // When toggle is ON (hide branding) → show_branding: false
-  // When toggle is OFF (show branding - default) → show_branding: true
   const hideBrandingEnabled = !settings.show_branding
+  const userHasPaidPlan = userPlan === "growth" || userPlan === "pro"
 
   const handleHideBrandingChange = (hide: boolean) => {
-    // When user wants to hide branding, set show_branding to false
-    // This will be checked against Pro plan at save time
     updateSettings({ show_branding: !hide, hide_branding_pro_enabled: hide })
   }
 
@@ -4332,14 +4328,63 @@ function FooterSection() {
     <div className="space-y-6 md:space-y-8">
       <h2 className="text-lg md:text-xl font-semibold">Footer</h2>
       <div className="space-y-3 md:space-y-4">
-        <div className="flex items-center justify-between p-3 md:p-4 border rounded-xl">
+        {/* Hide Storelib Branding row — hover triggers badge animation */}
+        <div className="group/row flex items-center justify-between p-3 md:p-4 border rounded-xl">
           <div className="flex items-center gap-2">
             <div>
               <div className="flex items-center gap-2">
                 <p className="font-medium text-sm">Hide Storelib Branding</p>
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-gradient-to-r from-violet-500 to-purple-600 text-white">
-                  PRO
-                </span>
+
+                {/* Animated thunder circle → Pro badge */}
+                <div className="group/badge relative flex items-center">
+                  {/* Tooltip */}
+                  <div className="absolute z-20 bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 bg-gray-900 text-white text-[11px] leading-tight rounded-lg whitespace-nowrap opacity-0 group-hover/badge:opacity-100 transition-opacity duration-200 pointer-events-none shadow-lg">
+                    {userHasPaidPlan
+                      ? "You have access to this feature"
+                      : "Click it to preview the feature for free."}
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+                  </div>
+
+                  {/* Badge shape: circle → rounded badge on hover */}
+                  <div
+                    className={cn(
+                      "relative flex items-center justify-center overflow-hidden bg-black text-white cursor-pointer select-none",
+                      "transition-all duration-300 ease-in-out",
+                      "w-5 h-5 rounded-full",
+                      // row hover or direct badge hover: expand into badge
+                      "group-hover/row:w-9 group-hover/row:rounded-[5px]",
+                      "group-hover/badge:w-9 group-hover/badge:rounded-[5px]",
+                      // paid users: less faded; free users: more faded
+                      userHasPaidPlan ? "opacity-50" : "opacity-30",
+                      // on hover: fully opaque
+                      "group-hover/row:opacity-100 group-hover/badge:opacity-100",
+                    )}
+                  >
+                    {/* Lightning bolt — visible in circle state, fades when badge opens */}
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      className={cn(
+                        "absolute w-3 h-3 transition-all duration-200",
+                        "group-hover/row:opacity-0 group-hover/row:scale-50",
+                        "group-hover/badge:opacity-0 group-hover/badge:scale-50",
+                      )}
+                    >
+                      <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                    </svg>
+
+                    {/* "Pro" text — hidden in circle state, fades in on badge hover */}
+                    <span
+                      className={cn(
+                        "absolute text-[10px] font-bold whitespace-nowrap",
+                        "opacity-0 transition-opacity duration-150 delay-100",
+                        "group-hover/row:opacity-100 group-hover/badge:opacity-100",
+                      )}
+                    >
+                      Pro
+                    </span>
+                  </div>
+                </div>
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">Remove the "on Storelib" badge from your page</p>
             </div>
