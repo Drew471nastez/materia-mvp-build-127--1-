@@ -1257,7 +1257,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
                 <div className="flex flex-col">
                   <div className="text-center mb-5 sm:mb-7">
                     <h1 className="text-[22px] sm:text-[34px] font-bold leading-tight">
-                      Choose your plan ✨
+                      Choose your plan
                     </h1>
                     <p className="text-gray-500 text-xs sm:text-base mt-1.5">
                       Start free or unlock more. You can upgrade anytime.
@@ -1274,9 +1274,9 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
                       },
                       loadingPlan: planCheckoutLoading,
                       ctaLabels: {
-                        free: "Continue with Free",
-                        growth: "Continue with Growth",
-                        pro: "Continue with Professional",
+                        free: "Start Free",
+                        growth: "Get Growth",
+                        pro: "Get Professional",
                       },
                     }}
                   />
