@@ -39,14 +39,14 @@ const BADGES = [
 
 export function FeaturesBadgesSection() {
   return (
-    <section className="py-12 sm:py-20 bg-white">
+    <section className="pt-6 pb-12 sm:pt-10 sm:pb-20 bg-white">
       <div className="max-w-[860px] mx-auto px-6">
         <AnimateOnScroll variant="fade-up">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-8">
             {BADGES.map((badge) => (
               <div key={badge.label} className="flex flex-col items-center text-center gap-3">
                 {/* Circle icon */}
-                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-neutral-100 border border-neutral-200 flex items-center justify-center text-neutral-700 shrink-0">
+                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-white border border-neutral-200 flex items-center justify-center text-neutral-700 shrink-0">
                   {badge.icon}
                 </div>
                 <span className="text-[13px] sm:text-[14px] font-semibold text-neutral-800 leading-tight">

@@ -313,7 +313,7 @@ export function BentoGrid() {
               <p className="text-sm leading-relaxed text-neutral-500 max-w-[320px] mb-0">
                 Courses, digital products, memberships, bookings — if you made it, you can sell it here on Storelib.
               </p>
-              <div className="-mt-7 sm:mt-2.5 flex-1 flex items-end justify-center overflow-hidden relative min-h-[100px] sm:min-h-[180px]">
+              <div className="mt-3 sm:mt-2.5 flex-1 flex items-end justify-center overflow-hidden relative min-h-[100px] sm:min-h-[180px]">
                 {/* Mobile image */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
