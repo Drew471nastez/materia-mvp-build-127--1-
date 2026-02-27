@@ -143,7 +143,7 @@ export function ToolStackSection() {
       <div className="max-w-[1200px] mx-auto px-0 sm:px-6">
         <AnimateOnScroll variant="zoom-in">
           {/* Outer rounded card wrapper — light gray bg, full width on mobile */}
-          <div className="bg-neutral-50 border-y sm:border border-neutral-200/70 rounded-none sm:rounded-[32px] px-5 sm:px-10 md:pl-20 md:pr-16 pt-7 pb-12 sm:pt-9 sm:pb-16">
+          <div className="bg-neutral-50 border-y sm:border border-neutral-200/70 rounded-none sm:rounded-[32px] px-5 sm:px-10 md:pl-20 md:pr-16 pt-4 pb-12 sm:pt-6 sm:pb-16">
             {/* Headline */}
             <div className="text-center max-w-[640px] mx-auto mb-9 sm:mb-[50px]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -151,9 +151,9 @@ export function ToolStackSection() {
                 src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Visits%20(12).webp?width=264&quality=45"
                 srcSet="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Visits%20(12).webp?width=204&quality=40 204w, https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Visits%20(12).webp?width=264&quality=45 264w"
                 alt="Compare tools"
-                width={264}
-                height={53}
-                className="mb-4 mx-auto max-w-[250px] sm:max-w-[268px] w-auto h-auto rounded-lg object-contain"
+                width={277}
+                height={56}
+                className="mb-4 mx-auto max-w-[263px] sm:max-w-[281px] w-auto h-auto rounded-lg object-contain"
                 loading="lazy"
                 decoding="async"
                 fetchPriority="low"

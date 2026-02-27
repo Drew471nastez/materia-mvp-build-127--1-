@@ -876,7 +876,8 @@ export function PlatformHeaderClient() {
   const showCategories = pathname === "/explore" || pathname.startsWith("/explore")
   const isDiscoverProductContext = pathname.startsWith("/p/") && searchParams.get("layout") === "discover" && searchParams.get("recommended") === "1"
   const isBlogRoute = pathname === "/blog" || pathname.startsWith('/blog/')
-  const isMarketingNavRoute = pathname === "/" || pathname === "/features" || pathname === "/pricing" || isBlogRoute
+  const isFaqRoute = pathname === "/faq"
+  const isMarketingNavRoute = pathname === "/" || pathname === "/features" || pathname === "/pricing" || isBlogRoute || isFaqRoute
 
   const canonicalBaseUrl = useMemo(() => getCanonicalSiteUrl(), [])
 
@@ -962,6 +963,7 @@ export function PlatformHeaderClient() {
                     { href: "/explore", label: "Discover", active: pathname.startsWith('/explore') },
                     { href: "/blog", label: "Blog", active: isBlogRoute },
                     { href: "/pricing", label: "Pricing", active: pathname === '/pricing' },
+                    { href: "/faq", label: "FAQ", active: isFaqRoute },
                   ].map((item) => (
                     <Link
                       key={item.href}
@@ -982,7 +984,7 @@ export function PlatformHeaderClient() {
                 {/* Right - Actions */}
                 <div className="flex items-center gap-3">
                   {loading ? (
-                    <HeaderActionsSkeleton />
+                    <HeaderActionsSkeleton isMarketingRoute />
                   ) : user ? (
                     <>
                       {/* Discover icon */}
@@ -1557,19 +1559,7 @@ export function PlatformHeaderClient() {
 
         </div>
 
-        {/* Mobile Search Bar Trigger - hidden on homepage, features, blog, pricing pages */}
-        {pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && (
-          <div className="md:hidden pt-2 pb-1.5 border-t border-white/10">
-            <button
-              type="button"
-              onClick={() => setSearchModalOpen(true)}
-              className={`w-full h-10 flex items-center gap-2 px-4 bg-white/10 border border-white/15 text-white/50 text-sm cursor-pointer overflow-hidden ${isDiscoverProductContext ? "rounded-[8px]" : "rounded-full"}`}
-            >
-              <Search className="h-4 w-4 text-white/40 shrink-0" />
-              <span className="truncate">{t("search_placeholder")}</span>
-            </button>
-          </div>
-        )}
+        {/* Mobile Search Bar Trigger is now rendered below in white UI section */}
 
         {/* Mobile Search Top Sheet Modal */}
         <MobileTopSheet
@@ -1700,72 +1690,7 @@ export function PlatformHeaderClient() {
           </div>
         </MobileTopSheet>
 
-        {/* Mobile Category Pills */}
-        {showCategories && (
-          <div className="md:hidden -mx-4 px-4 pt-0.5 pb-1 overflow-x-auto scrollbar-hide">
-            <div className="flex items-center gap-2 whitespace-nowrap">
-              {MOBILE_CATEGORIES.map((cat) => {
-                const Icon = cat.icon
-                const isActive = activeCategoryId === cat.id
-                return (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={() => onCategoryClick(cat.id)}
-                    className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-colors cursor-pointer border ${
-                      isActive
-                        ? "bg-white text-black border-white"
-                        : "bg-white/10 text-white/70 hover:bg-white/15 hover:text-white border-white/15"
-                    }`}
-                  >
-                    <Icon className="w-3.5 h-3.5" />
-                    {cat.label}
-                    {cat.badge && (
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold leading-none bg-gradient-to-r from-gray-900 to-black text-white shadow-sm`}>
-                        {cat.badge}
-                      </span>
-                    )}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Desktop Categories - only on /explore page */}
-        {showCategories && (
-          <nav className="border-t border-white/10 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 hidden md:block">
-            <div className="overflow-x-auto scrollbar-hide">
-              <div className="flex h-12 items-center justify-start gap-7 whitespace-nowrap text-[15px]">
-                {DEFAULT_CATEGORIES.map((cat) => {
-                  const Icon = cat.icon
-                  const isAll = cat.id === "all"
-                  const isActive = activeCategoryId === cat.id
-                  return (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      onClick={() => onCategoryClick(cat.id)}
-                      className={`inline-flex items-center gap-1.5 transition-colors cursor-pointer font-medium ${
-                        isActive
-                          ? "text-white"
-                          : "text-white/50 hover:text-white"
-                      }`}
-                    >
-                      {isAll && <Icon className="w-[18px] h-[18px]" />}
-                      {cat.label}
-                      {cat.badge && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-gradient-to-r from-violet-500 to-violet-600 text-white leading-none shadow-sm">
-                          {cat.badge}
-                        </span>
-                      )}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          </nav>
-        )}
+        {/* Mobile & Desktop Categories are now rendered below in white UI section */}
       </div>
 
       {/* Mobile Categories Bottom Sheet with swipe-to-close */}
@@ -1864,6 +1789,14 @@ export function PlatformHeaderClient() {
                   className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
                 >
                   <span>Pricing</span>
+                  <ChevronRight className="h-5 w-5 text-gray-400" />
+                </Link>
+                <Link
+                  href="/faq"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
+                >
+                  <span>FAQ</span>
                   <ChevronRight className="h-5 w-5 text-gray-400" />
                 </Link>
               </div>
@@ -2117,17 +2050,135 @@ export function PlatformHeaderClient() {
       </MobileBottomSheet>
     </header>
       </div>
+
+      {/* Concave transition from black header to white category bar */}
+      {(showCategories || (pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute)) && (
+        <div className="relative z-[35] bg-black h-[20px]">
+          <div className="absolute inset-0 bg-white rounded-t-[20px]" />
+        </div>
+      )}
+
+      {/* White UI section for search bar and category pills (below the black header) */}
+      {(showCategories || (pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute)) && (
+        <div className="relative z-[35] w-full bg-white border-b border-neutral-200">
+          <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
+            {/* Mobile Search Bar Trigger */}
+            {pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute && (
+              <div className="md:hidden pt-2 pb-1.5">
+                <button
+                  type="button"
+                  onClick={() => setSearchModalOpen(true)}
+                  className={`w-full h-10 flex items-center gap-2 px-4 bg-neutral-100 border border-neutral-200 text-neutral-500 text-sm cursor-pointer overflow-hidden ${isDiscoverProductContext ? "rounded-[8px]" : "rounded-full"}`}
+                >
+                  <Search className="h-4 w-4 text-neutral-400 shrink-0" />
+                  <span className="truncate">{t("search_placeholder")}</span>
+                </button>
+              </div>
+            )}
+
+            {/* Mobile Category Pills - White/Light UI */}
+            {showCategories && (
+              <div className="md:hidden px-0 pt-1 pb-2 overflow-x-auto scrollbar-hide">
+                <div className="flex items-center gap-2 whitespace-nowrap">
+                  {MOBILE_CATEGORIES.map((cat) => {
+                    const Icon = cat.icon
+                    const isActive = activeCategoryId === cat.id
+                    return (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => onCategoryClick(cat.id)}
+                        className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-colors cursor-pointer border ${
+                          isActive
+                            ? "bg-neutral-900 text-white border-neutral-900"
+                            : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200 hover:text-neutral-900 border-neutral-200"
+                        }`}
+                      >
+                        <Icon className="w-3.5 h-3.5" />
+                        {cat.label}
+                        {cat.badge && (
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold leading-none ${isActive ? "bg-white text-neutral-900" : "bg-gradient-to-r from-violet-500 to-violet-600 text-white"} shadow-sm`}>
+                            {cat.badge}
+                          </span>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Desktop Categories - White/Light UI */}
+            {showCategories && (
+              <nav className="hidden md:block">
+                <div className="overflow-x-auto scrollbar-hide">
+                  <div className="flex h-12 items-center justify-start gap-7 whitespace-nowrap text-[15px]">
+                    {DEFAULT_CATEGORIES.map((cat) => {
+                      const Icon = cat.icon
+                      const isAll = cat.id === "all"
+                      const isActive = activeCategoryId === cat.id
+                      return (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          onClick={() => onCategoryClick(cat.id)}
+                          className={`inline-flex items-center gap-1.5 transition-colors cursor-pointer font-medium ${
+                            isActive
+                              ? "text-neutral-900"
+                              : "text-neutral-400 hover:text-neutral-900"
+                          }`}
+                        >
+                          {isAll && <Icon className="w-[18px] h-[18px]" />}
+                          {cat.label}
+                          {cat.badge && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-gradient-to-r from-violet-500 to-violet-600 text-white leading-none shadow-sm">
+                              {cat.badge}
+                            </span>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              </nav>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Concave bottom edge — black background with rounded white overlay creates concave corners */}
+      {/* Skip on FAQ page since its hero is also black, and on explore pages which have the white category bar */}
+      {!showCategories && !isFaqRoute && (
+        <div className="relative z-30 bg-black h-[20px] -mb-px">
+          <div className="absolute inset-0 bg-white rounded-t-[20px]" />
+        </div>
+      )}
     </>
   )
 }
 
-function HeaderActionsSkeleton() {
+function HeaderActionsSkeleton({ isMarketingRoute = false }: { isMarketingRoute?: boolean }) {
+  if (isMarketingRoute) {
+    return (
+      <div className="flex items-center gap-3">
+        {/* Log In button skeleton */}
+        <Skeleton className="h-11 w-[72px] rounded-lg bg-white/10" />
+        {/* Start Selling button skeleton */}
+        <Skeleton className="h-11 w-[110px] rounded-lg bg-white/10" />
+      </div>
+    )
+  }
+
   return (
     <div className="flex items-center gap-2.5">
+      {/* Wishlist circle */}
       <Skeleton className="h-11 w-11 rounded-full bg-white/10" />
-      <Skeleton className="h-11 w-11 rounded-full bg-white/10" />
-      <Skeleton className="h-11 w-24 rounded-full hidden sm:block bg-white/10" />
+      {/* Library circle */}
+      <Skeleton className="h-11 w-11 rounded-full bg-white/10 hidden sm:block" />
+      {/* CTA button */}
       <Skeleton className="h-11 w-28 rounded-full bg-white/10" />
+      {/* Avatar circle */}
+      <Skeleton className="h-11 w-11 rounded-full bg-white/10" />
     </div>
   )
 }

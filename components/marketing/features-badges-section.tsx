@@ -6,7 +6,7 @@ const BADGES = [
   {
     label: "Launch in minutes",
     icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.16" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
         <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
       </svg>
     ),
@@ -14,7 +14,7 @@ const BADGES = [
   {
     label: "Cancel anytime",
     icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.16" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
         <path d="M18 6 6 18M6 6l12 12" />
       </svg>
     ),
@@ -22,7 +22,7 @@ const BADGES = [
   {
     label: "No coding",
     icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.16" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
         <path d="m18 16 4-4-4-4M6 8l-4 4 4 4M14.5 4l-5 16" />
       </svg>
     ),
@@ -30,7 +30,7 @@ const BADGES = [
   {
     label: "Get paid directly",
     icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.16" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
         <path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
       </svg>
     ),

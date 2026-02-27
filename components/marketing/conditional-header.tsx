@@ -54,7 +54,8 @@ export function ConditionalHeader() {
       pathname.startsWith("/app") ||
       pathname.startsWith("/marketplace") ||
       pathname.startsWith("/blog") ||
-      pathname.startsWith("/pricing")
+      pathname.startsWith("/pricing") ||
+      pathname.startsWith("/faq")
 
     setShowPlatformHeader(isPlatformPage)
   }, [pathname, searchParams, isHydrated])
