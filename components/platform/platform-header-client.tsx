@@ -962,7 +962,6 @@ export function PlatformHeaderClient() {
                     { href: "/explore", label: "Discover", active: pathname.startsWith('/explore') },
                     { href: "/blog", label: "Blog", active: isBlogRoute },
                     { href: "/pricing", label: "Pricing", active: pathname === '/pricing' },
-                    { href: "/features", label: "Features", active: pathname === '/features' },
                   ].map((item) => (
                     <Link
                       key={item.href}
@@ -1865,14 +1864,6 @@ export function PlatformHeaderClient() {
                   className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
                 >
                   <span>Pricing</span>
-                  <ChevronRight className="h-5 w-5 text-gray-400" />
-                </Link>
-                <Link
-                  href="/features"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
-                >
-                  <span>Features</span>
                   <ChevronRight className="h-5 w-5 text-gray-400" />
                 </Link>
               </div>

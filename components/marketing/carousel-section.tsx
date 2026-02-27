@@ -184,7 +184,7 @@ export function CarouselSection() {
               🔗 OnePage
             </span>
             <h2 className="text-[clamp(27px,3.6vw,40px)] lg:text-[60px] font-semibold leading-[1.15] tracking-tight mb-3.5">
-              The link in bio creators love
+              The OnePage creators love
             </h2>
             <p className="text-[15px] text-neutral-500 max-w-[460px] mx-auto">
               A simple page for your products, links and audience.

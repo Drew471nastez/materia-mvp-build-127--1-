@@ -18,7 +18,7 @@ const MANAGE_IMAGES = [
 ]
 
 function getOptimized(url: string, width: number, quality: number) {
-  return `${url}?width=${width}&quality=${quality}`
+  return `${url}?width=${width}&quality=${quality}&format=webp`
 }
 
 function ManagedImageCarousel() {
@@ -71,7 +71,7 @@ function ManagedImageCarousel() {
       img.decoding = "async"
       img.onload = () => markLoaded(i)
       img.onerror = () => markLoaded(i)
-      img.src = getOptimized(url, 700, 45)
+      img.src = getOptimized(url, 600, 35)
     })
   }, [markLoaded])
 
@@ -119,11 +119,11 @@ function ManagedImageCarousel() {
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
             key={i}
-            src={getOptimized(url, 700, 45)}
-            srcSet={`${getOptimized(url, 400, 38)} 400w, ${getOptimized(url, 700, 45)} 700w`}
+            src={getOptimized(url, 600, 35)}
+            srcSet={`${getOptimized(url, 360, 30)} 360w, ${getOptimized(url, 600, 35)} 600w`}
             alt={`Storelib Dashboard view ${i + 1}`}
-            width={700}
-            height={394}
+            width={600}
+            height={338}
             className="absolute inset-0 w-full h-full rounded-xl sm:rounded-2xl object-cover object-top"
             style={{
               opacity: i === current && loadedSet.has(i) ? 1 : 0,
@@ -133,7 +133,7 @@ function ManagedImageCarousel() {
             loading="eager"
             decoding="async"
             fetchPriority={i === 0 ? "high" : "low"}
-            sizes="(max-width: 640px) 90vw, 700px"
+            sizes="(max-width: 640px) 90vw, 600px"
             draggable={false}
             onLoad={() => markLoaded(i)}
             onError={() => markLoaded(i)}
@@ -177,7 +177,7 @@ export function ManageSection() {
       if ("imgSrc" in icon && icon.imgSrc) {
         const img = new window.Image()
         img.decoding = "async"
-        img.src = icon.imgSrc + "?width=150&quality=70"
+        img.src = icon.imgSrc + "?width=80&quality=60&format=webp"
       }
     })
   }, [])
@@ -214,7 +214,7 @@ export function ManageSection() {
                   {"imgSrc" in icon && icon.imgSrc ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
                     <img
-                      src={icon.imgSrc + "?width=150&quality=70"}
+                      src={icon.imgSrc + "?width=80&quality=60&format=webp"}
                       alt={icon.label}
                       className={`object-cover rounded-full ${icon.label === "Digital Products" ? "w-[80%] h-[80%]" : icon.label === "Marketplace" ? "w-[130%] h-[130%]" : "w-full h-full"}`}
                       width={74}

@@ -64,7 +64,7 @@ const PLANS = [
   },
 ]
 
-export function PricingSection() {
+export function PricingSection({ hideDetailsLink }: { hideDetailsLink?: boolean } = {}) {
   return (
     <section className="py-20 sm:py-24 bg-white" id="pricing">
       <div className="max-w-[1200px] mx-auto px-6">
@@ -142,14 +142,16 @@ export function PricingSection() {
           </div>
         </AnimateOnScroll>
 
-        <AnimateOnScroll variant="fade-up" delay={250} className="text-center mt-8">
-          <Link
-            href="/pricing"
-            className="inline-flex items-center gap-2 text-[15px] font-semibold py-3.5 px-8 rounded-full bg-white text-neutral-900 border-[1.5px] border-neutral-200 hover:border-neutral-400 transition-all duration-300 hover:-translate-y-0.5"
-          >
-            See full pricing details →
-          </Link>
-        </AnimateOnScroll>
+        {!hideDetailsLink && (
+          <AnimateOnScroll variant="fade-up" delay={250} className="text-center mt-8">
+            <Link
+              href="/pricing"
+              className="inline-flex items-center gap-2 text-[15px] font-semibold py-3.5 px-8 rounded-full bg-white text-neutral-900 border-[1.5px] border-neutral-200 hover:border-neutral-400 transition-all duration-300 hover:-translate-y-0.5"
+            >
+              See full pricing details →
+            </Link>
+          </AnimateOnScroll>
+        )}
       </div>
     </section>
   )
