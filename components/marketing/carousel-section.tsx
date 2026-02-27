@@ -9,7 +9,7 @@ const SLIDES = [
     role: "DJ & Music Producer",
     bio: "DJ & Music Producer · 12K followers",
     avatar: "linear-gradient(135deg,#FF6B35,#FFa040)",
-    phoneImage: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/iPhone-14-(iOS-16)-www.negruw.online.webp",
+    phoneImage: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/iPhone-13-PRO-negruw.storelib.com.webp",
     links: [
       { icon: "🎵", label: "Sample Pack Vol. 3 — $24", bg: "bg-violet-50" },
       { icon: "🎹", label: "Beat Kit (50 beats) — $49", bg: "bg-orange-50" },
@@ -22,7 +22,7 @@ const SLIDES = [
     role: "Creative Studio",
     bio: "Creative Studio · 42K followers",
     avatar: "linear-gradient(135deg,#7C5CFC,#a78bfa)",
-    phoneImage: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(41).png",
+    phoneImage: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/iPhone-13-Mini-satori-studio.storelib.com.webp",
     links: [
       { icon: "📚", label: "UI Design Masterclass — $49", bg: "bg-violet-50" },
       { icon: "🎨", label: "Icon Pack (200+) — $19", bg: "bg-amber-50" },
@@ -177,7 +177,7 @@ export function CarouselSection() {
 
   return (
     <section className="py-16 sm:py-22 bg-white">
-      <div className="max-w-[1260px] mx-auto lg:border lg:border-neutral-200/70 lg:rounded-3xl lg:py-4 pr-3 sm:pr-6">
+      <div className="max-w-[1260px] mx-auto lg:py-4 pr-3 sm:pr-6">
         <AnimateOnScroll variant="blur-in" className="px-6">
           <div className="text-center mb-10 sm:mb-12">
             <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-wider text-violet-600 bg-violet-50 px-4 py-1.5 rounded-full mb-4">

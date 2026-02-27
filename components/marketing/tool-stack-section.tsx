@@ -146,10 +146,19 @@ export function ToolStackSection() {
           <div className="bg-neutral-50 border-y sm:border border-neutral-200/70 rounded-none sm:rounded-[32px] px-5 sm:px-10 md:pl-20 md:pr-16 py-12 sm:py-16">
             {/* Headline */}
             <div className="text-center max-w-[640px] mx-auto mb-10 sm:mb-14">
-              <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-wider text-violet-600 bg-violet-50 px-4 py-1.5 rounded-full mb-5">
-                <svg fill="#a270ff" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" stroke="#a270ff" strokeWidth="0.192"><path d="M1,8A1,1,0,0,1,2,7H9.586L7.293,4.707A1,1,0,1,1,8.707,3.293l4,4a1,1,0,0,1,0,1.414l-4,4a1,1,0,1,1-1.414-1.414L9.586,9H2A1,1,0,0,1,1,8Zm21,7H14.414l2.293-2.293a1,1,0,0,0-1.414-1.414l-4,4a1,1,0,0,0,0,1.414l4,4a1,1,0,0,0,1.414-1.414L14.414,17H22a1,1,0,0,0,0-2Z"></path></svg>
-                Compare
-              </span>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(46).webp?width=400&quality=65"
+                srcSet="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(46).webp?width=280&quality=55 280w, https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(46).webp?width=400&quality=65 400w"
+                alt="Compare tools"
+                width={400}
+                height={80}
+                className="mb-5 mx-auto max-w-[280px] sm:max-w-[360px] w-auto h-auto rounded-xl object-contain"
+                loading="lazy"
+                decoding="async"
+                fetchPriority="low"
+                sizes="(max-width: 640px) 280px, 360px"
+              />
               <h2 className="text-[clamp(28px,4vw,44px)] font-bold leading-[1.15] tracking-tight mb-3.5">
                 Replace your entire tool stack
               </h2>

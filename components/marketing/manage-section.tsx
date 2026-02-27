@@ -12,8 +12,8 @@ const FLOATING_ICONS = [
 ] as const
 
 const MANAGE_IMG = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Macbook-Air-storelib.com.webp"
-const MANAGE_IMG_SMALL = MANAGE_IMG + "?width=800&quality=45"
-const MANAGE_IMG_MOBILE = MANAGE_IMG + "?width=500&quality=40"
+const MANAGE_IMG_SMALL = MANAGE_IMG + "?width=700&quality=40"
+const MANAGE_IMG_MOBILE = MANAGE_IMG + "?width=400&quality=35"
 
 function LazyManagedImage() {
   const [loaded, setLoaded] = useState(false)
@@ -31,30 +31,20 @@ function LazyManagedImage() {
     return () => observer.disconnect()
   }, [])
 
-  // Preload the optimized image (not the full-size original)
-  useEffect(() => {
-    const link = document.createElement("link")
-    link.rel = "preload"
-    link.as = "image"
-    link.href = MANAGE_IMG_SMALL
-    document.head.appendChild(link)
-    return () => { document.head.removeChild(link) }
-  }, [])
-
   return (
     <div ref={ref} className="w-full">
       {inView ? (
         <img
           src={MANAGE_IMG_SMALL}
-          srcSet={`${MANAGE_IMG_MOBILE} 500w, ${MANAGE_IMG_SMALL} 800w`}
+          srcSet={`${MANAGE_IMG_MOBILE} 400w, ${MANAGE_IMG_SMALL} 700w`}
           alt="Storelib Dashboard"
-          width={800}
-          height={450}
+          width={700}
+          height={394}
           className={`w-full rounded-xl sm:rounded-2xl object-cover transition-opacity duration-500 ${loaded ? "opacity-100" : "opacity-0"}`}
-          loading="eager"
+          loading="lazy"
           decoding="async"
-          fetchPriority="high"
-          sizes="(max-width: 640px) 90vw, 800px"
+          fetchPriority="low"
+          sizes="(max-width: 640px) 90vw, 700px"
           draggable={false}
           onLoad={() => setLoaded(true)}
           onContextMenu={(e) => e.preventDefault()}
