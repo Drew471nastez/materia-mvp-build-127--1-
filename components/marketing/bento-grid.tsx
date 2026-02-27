@@ -308,7 +308,7 @@ export function BentoGrid() {
         <AnimateOnScroll variant="fade-up-scale" delay={120}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Sell anything — light gray */}
-            <div className="rounded-3xl p-7 pb-0 sm:p-9 md:pb-4 bg-neutral-100 min-h-[320px] flex flex-col">
+            <div className="rounded-3xl p-7 pb-5 sm:p-9 md:pb-4 bg-neutral-100 min-h-[320px] flex flex-col">
               <h3 className="text-2xl font-semibold tracking-tight leading-snug mb-2.5">Sell anything</h3>
               <p className="text-sm leading-relaxed text-neutral-500 max-w-[320px] mb-0">
                 Courses, digital products, memberships, bookings — if you made it, you can sell it here on Storelib.

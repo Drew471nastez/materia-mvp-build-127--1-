@@ -83,7 +83,7 @@ export function PricingSection() {
         </AnimateOnScroll>
 
         <AnimateOnScroll variant="fade-up-scale" delay={120}>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-[960px] mx-auto md:items-center">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-[18px] md:gap-4 max-w-[960px] mx-auto md:items-center">
             {PLANS.map((plan) => (
               <div
                 key={plan.name}
