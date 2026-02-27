@@ -2064,7 +2064,7 @@ export function PlatformHeaderClient() {
           <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
             {/* Mobile Search Bar Trigger */}
             {pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute && (
-              <div className="md:hidden pt-2 pb-1.5">
+              <div className="md:hidden pt-1 pb-1.5">
                 <button
                   type="button"
                   onClick={() => setSearchModalOpen(true)}
