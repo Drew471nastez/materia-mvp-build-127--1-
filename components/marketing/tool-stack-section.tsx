@@ -139,11 +139,11 @@ export function ToolStackSection() {
   }, [])
 
   return (
-    <section className="py-20 sm:py-28 bg-white">
+    <section className="pt-14 pb-20 sm:pt-20 sm:pb-28 bg-white">
       <div className="max-w-[1200px] mx-auto px-0 sm:px-6">
         <AnimateOnScroll variant="zoom-in">
           {/* Outer rounded card wrapper — light gray bg, full width on mobile */}
-          <div className="bg-neutral-50 border-y sm:border border-neutral-200/70 rounded-none sm:rounded-[32px] px-5 sm:px-10 md:pl-20 md:pr-16 py-12 sm:py-16">
+          <div className="bg-neutral-50 border-y sm:border border-neutral-200/70 rounded-none sm:rounded-[32px] px-5 sm:px-10 md:pl-20 md:pr-16 pt-8 pb-12 sm:pt-10 sm:pb-16">
             {/* Headline */}
             <div className="text-center max-w-[640px] mx-auto mb-10 sm:mb-14">
               {/* eslint-disable-next-line @next/next/no-img-element */}
