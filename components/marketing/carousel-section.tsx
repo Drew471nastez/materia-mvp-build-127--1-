@@ -97,7 +97,7 @@ export function CarouselSection() {
 
   return (
     <section className="py-16 sm:py-22 bg-white">
-      <div className="max-w-[1260px] mx-auto">
+      <div className="max-w-[1260px] mx-auto lg:border lg:border-neutral-200/70 lg:rounded-3xl lg:py-4 pr-3 sm:pr-6">
         <AnimateOnScroll variant="blur-in" className="px-6">
           <div className="text-center mb-10 sm:mb-12">
             <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-wider text-violet-600 bg-violet-50 px-4 py-1.5 rounded-full mb-4">

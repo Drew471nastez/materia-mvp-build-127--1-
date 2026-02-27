@@ -202,7 +202,7 @@ export function ToolStackSection() {
               <div className="flex justify-center mt-1 mb-2">
                 <button
                   onClick={() => setExpanded(!expanded)}
-                  className="text-[13px] font-semibold text-violet-600 hover:text-violet-700 transition-colors duration-200 flex items-center gap-1"
+                  className="text-[13px] font-semibold text-neutral-400 hover:text-neutral-500 transition-colors duration-200 flex items-center gap-1"
                 >
                   {expanded ? "Show less" : "Show all"}
                   <svg
