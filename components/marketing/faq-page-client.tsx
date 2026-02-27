@@ -173,7 +173,7 @@ function FaqItem({ faq, isOpen, onToggle }: { faq: FaqItemType; isOpen: boolean;
         className={`w-full flex items-center justify-between px-5 sm:px-6 py-4 sm:py-5 text-left rounded-2xl transition-all duration-300 group cursor-pointer ${
           isOpen
             ? "bg-white shadow-[0_1px_8px_rgba(0,0,0,0.06)] border border-neutral-200/60"
-            : "bg-white/70 border border-neutral-100 hover:bg-white hover:shadow-[0_1px_6px_rgba(0,0,0,0.04)] hover:border-neutral-200/60"
+            : "bg-gray-50 border border-neutral-200 hover:bg-gray-100 hover:shadow-[0_1px_6px_rgba(0,0,0,0.04)] hover:border-neutral-300"
         }`}
       >
         <span className={`text-[15px] sm:text-base font-medium pr-4 transition-colors duration-200 ${isOpen ? "text-neutral-900" : "text-neutral-900 group-hover:text-neutral-900"}`}>
