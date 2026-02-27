@@ -153,7 +153,7 @@ export function ToolStackSection() {
                 alt="Compare tools"
                 width={264}
                 height={53}
-                className="mt-6 mb-4 mx-auto max-w-[250px] sm:max-w-[268px] w-auto h-auto rounded-lg object-contain"
+                className="mb-4 mx-auto max-w-[250px] sm:max-w-[268px] w-auto h-auto rounded-lg object-contain"
                 loading="lazy"
                 decoding="async"
                 fetchPriority="low"
