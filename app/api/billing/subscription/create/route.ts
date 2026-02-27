@@ -15,7 +15,7 @@ function getStripePriceId(planId: string): string | null {
 export async function POST(request: Request) {
   try {
     const supabase = await createClient()
-    const { planId } = await request.json()
+    const { planId, successUrl: customSuccessUrl, cancelUrl: customCancelUrl } = await request.json()
 
     if (!planId || planId === "free") {
       return NextResponse.json(
@@ -78,6 +78,9 @@ export async function POST(request: Request) {
 
     const appUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "https://storelib.com"
 
+    const successUrl = customSuccessUrl || `${appUrl}/app/settings/billing?success=1`
+    const cancelUrl = customCancelUrl || `${appUrl}/app/settings/billing?canceled=1`
+
     // Create Stripe Checkout Session (redirect mode) with LIVE price
     const checkoutSession = await stripe.checkout.sessions.create({
       customer: stripeCustomerId,
@@ -90,8 +93,8 @@ export async function POST(request: Request) {
           quantity: 1,
         },
       ],
-      success_url: `${appUrl}/app/settings/billing?success=1`,
-      cancel_url: `${appUrl}/app/settings/billing?canceled=1`,
+      success_url: successUrl,
+      cancel_url: cancelUrl,
       metadata: {
         creator_id: creator.id,
         plan_id: planId,

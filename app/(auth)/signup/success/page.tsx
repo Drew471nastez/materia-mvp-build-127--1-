@@ -30,6 +30,8 @@ export default function SignupSuccessPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [selectedChoice, setSelectedChoice] = useState<"creator" | "buyer" | null>(null)
   const [showCreatorOnboarding, setShowCreatorOnboarding] = useState(false)
+  const stripeSuccess = searchParams.get("stripe_success")
+  const stripeTier = searchParams.get("tier") as "growth" | "pro" | null
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
 
   // Check if user already completed onboarding - database is the source of truth
@@ -337,6 +339,11 @@ export default function SignupSuccessPage() {
       <CreatorOnboardingModal
         open={showCreatorOnboarding}
         onClose={handleCreatorOnboardingComplete}
+        resumeFromStripe={
+          stripeSuccess === "1" && stripeTier
+            ? { planId: stripeTier }
+            : null
+        }
       />
     </>
   )

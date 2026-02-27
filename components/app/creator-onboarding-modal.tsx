@@ -17,6 +17,7 @@ import {
   Search
 } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { PricingSection } from "@/components/marketing/pricing-section"
 
 // Storelib logo SVG component - inlined for instant loading
 const StorelibLogo = ({ className }: { className?: string }) => (
@@ -315,9 +316,11 @@ function Confetti({ show }: { show: boolean }) {
 interface CreatorOnboardingModalProps {
   open: boolean
   onClose: () => void
+  /** When the user returns from Stripe Checkout, pass the plan they chose so the modal can auto-resume setup. */
+  resumeFromStripe?: { planId: "growth" | "pro" } | null
 }
 
-export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModalProps) {
+export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: CreatorOnboardingModalProps) {
   const router = useRouter()
   const supabase = createClient()
   const redirectFailureTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -360,7 +363,10 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
   const [dragStartCrop, setDragStartCrop] = useState({ x: 0, y: 0 })
   const [imageSizeCrop, setImageSizeCrop] = useState({ width: 300, height: 300 })
 
-  // Step 4: Setup
+  // Step 4: Plan selection
+  const [planCheckoutLoading, setPlanCheckoutLoading] = useState<"free" | "growth" | "pro" | null>(null)
+
+  // Step 5: Setup
   const [isSettingUp, setIsSettingUp] = useState(false)
   const [setupPhase, setSetupPhase] = useState<"creating" | "applying" | "almost" | null>(null)
   const [setupComplete, setSetupComplete] = useState(false)
@@ -404,6 +410,95 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
       document.body.style.touchAction = previousTouchAction
     }
   }, [isRedirecting])
+
+  // Resume onboarding after a Stripe redirect (user paid for Growth/Pro).
+  // Restore saved form state from localStorage and jump straight to the setup step.
+  useEffect(() => {
+    if (!open || !resumeFromStripe) return
+
+    const savedRaw = localStorage.getItem("storelib_onboarding_state")
+    if (!savedRaw) {
+      // No saved state — just show the plan step so user can re-select
+      setCurrentStep(4)
+      return
+    }
+
+    try {
+      const saved = JSON.parse(savedRaw)
+      localStorage.removeItem("storelib_onboarding_state")
+      // Restore state for display purposes and then auto-start setup with override data
+      if (saved.displayName) setDisplayName(saved.displayName)
+      if (saved.bio) setBio(saved.bio)
+      if (saved.avatarUrl !== undefined) setAvatarUrl(saved.avatarUrl)
+      if (saved.socials) setSocials(saved.socials)
+      if (saved.selectedCategory !== undefined) setSelectedCategory(saved.selectedCategory)
+      // Start setup immediately with the saved data so we don't depend on React
+      // state being updated synchronously.
+      startSetup({
+        displayName: saved.displayName,
+        bio: saved.bio,
+        avatarUrl: saved.avatarUrl,
+        socials: saved.socials,
+        selectedCategory: saved.selectedCategory,
+      })
+    } catch {
+      // Malformed localStorage — fall back to plan step
+      setCurrentStep(4)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, resumeFromStripe])
+
+  // Plan handlers ─────────────────────────────────────────────────────────────
+
+  /** User chose the free plan — proceed straight to setup. */
+  const handleSelectFree = () => {
+    if (planCheckoutLoading) return
+    setPlanCheckoutLoading("free")
+    // Persist form state in case of unexpected page loss (not strictly needed for free)
+    try {
+      localStorage.setItem("storelib_onboarding_state", JSON.stringify({
+        displayName, bio, avatarUrl, socials, selectedCategory, planId: "free",
+      }))
+    } catch {}
+    startSetup()
+  }
+
+  /** User chose a paid plan — create a Stripe checkout session and redirect. */
+  const handleSelectPaid = async (planId: "growth" | "pro") => {
+    if (planCheckoutLoading) return
+    setPlanCheckoutLoading(planId)
+
+    // Persist form state so we can restore it when the user returns from Stripe.
+    try {
+      localStorage.setItem("storelib_onboarding_state", JSON.stringify({
+        displayName, bio, avatarUrl, socials, selectedCategory, planId,
+      }))
+    } catch {}
+
+    try {
+      const origin = window.location.origin
+      const res = await fetch("/api/billing/subscription/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          planId,
+          successUrl: `${origin}/signup/success?action=become-creator&stripe_success=1&tier=${planId}`,
+          cancelUrl: `${origin}/signup/success?action=become-creator`,
+        }),
+      })
+      const data = await res.json()
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl
+        return
+      }
+      // API returned an error
+      console.error("Checkout error:", data.error)
+    } catch (err) {
+      console.error("Failed to create checkout session:", err)
+    }
+
+    setPlanCheckoutLoading(null)
+  }
 
   // Load existing avatar from Google login
   useEffect(() => {
@@ -547,6 +642,7 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
         return true // Category is optional
       case 3:
         return true // Socials are optional
+      // Step 4 (plan) has its own card buttons — Next is not shown there
       default:
         return false
     }
@@ -573,10 +669,9 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
     setSlideDirection("right")
     setIsAnimating(true)
     setTimeout(() => {
-      if (currentStep < 3) {
+      // Steps 1-3 advance normally; step 3 → step 4 (plan selection)
+      if (currentStep < 4) {
         setCurrentStep(currentStep + 1)
-      } else {
-        startSetup()
       }
       setIsAnimating(false)
     }, 200)
@@ -601,8 +696,23 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
   }
 
   // Start setup process
-  const startSetup = async () => {
-    setCurrentStep(4)
+  // Accepts optional override data when resuming after a Stripe redirect (state was lost).
+  const startSetup = async (overrideData?: {
+    displayName?: string
+    bio?: string
+    avatarUrl?: string | null
+    socials?: { instagram: string; tiktok: string; youtube: string }
+    selectedCategory?: string | null
+  }) => {
+    // Resolve effective values — override data wins over React state.
+    const _dn = overrideData?.displayName ?? displayName
+    const _bio = overrideData?.bio ?? bio
+    const _av = overrideData?.avatarUrl !== undefined ? overrideData.avatarUrl : avatarUrl
+    const _soc = overrideData?.socials ?? socials
+    const _cat = overrideData?.selectedCategory !== undefined ? overrideData.selectedCategory : selectedCategory
+    const _slug = _dn.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
+
+    setCurrentStep(5)
     setIsSettingUp(true)
 
     // Phase 1: Creating your profile... (2 seconds)
@@ -630,9 +740,9 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
         .update({
           is_creator: true,
           welcome_completed: true,
-          username: getSlug(),
-          display_name: displayName,
-          avatar_url: avatarUrl,
+          username: _slug,
+          display_name: _dn,
+          avatar_url: _av,
         })
         .eq("id", user.id)
 
@@ -641,9 +751,9 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
         await supabase
           .from("creators")
           .update({
-            slug: getSlug(),
-            bio: bio,
-            niche_tags: selectedCategory ? [selectedCategory] : [],
+            slug: _slug,
+            bio: _bio,
+            niche_tags: _cat ? [_cat] : [],
             onboarding_completed: true,
             store_published: true,
           })
@@ -651,16 +761,16 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
 
         // Build the header settings with social data
         const headerSettings = {
-          title: displayName,
-          subtitle: bio,
-          avatarUrl: avatarUrl,
-          categoryBadge: selectedCategory,
+          title: _dn,
+          subtitle: _bio,
+          avatarUrl: _av,
+          categoryBadge: _cat,
           showSocialMedia: true,
           showSocialIconsOnMobile: true,
           socialLinks: {
-            instagram: { enabled: !!socials.instagram, url: socials.instagram ? `https://instagram.com/${socials.instagram.replace('@', '')}` : "" },
-            tiktok: { enabled: !!socials.tiktok, url: socials.tiktok ? `https://tiktok.com/@${socials.tiktok.replace('@', '')}` : "" },
-            youtube: { enabled: !!socials.youtube, url: socials.youtube || "" },
+            instagram: { enabled: !!_soc.instagram, url: _soc.instagram ? `https://instagram.com/${_soc.instagram.replace('@', '')}` : "" },
+            tiktok: { enabled: !!_soc.tiktok, url: _soc.tiktok ? `https://tiktok.com/@${_soc.tiktok.replace('@', '')}` : "" },
+            youtube: { enabled: !!_soc.youtube, url: _soc.youtube || "" },
             twitter: { enabled: false, url: "" },
             spotify: { enabled: false, url: "" },
           }
@@ -733,19 +843,19 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
 
         // Build social_links JSONB for OnePage (used by OnePage context)
         const onepageSocialLinks = {
-          instagram: socials.instagram ? `https://instagram.com/${socials.instagram.replace('@', '')}` : null,
-          tiktok: socials.tiktok ? `https://tiktok.com/@${socials.tiktok.replace('@', '')}` : null,
-          youtube: socials.youtube || null,
+          instagram: _soc.instagram ? `https://instagram.com/${_soc.instagram.replace('@', '')}` : null,
+          tiktok: _soc.tiktok ? `https://tiktok.com/@${_soc.tiktok.replace('@', '')}` : null,
+          youtube: _soc.youtube || null,
         }
 
         if (onepage) {
           await supabase
             .from("onepages")
             .update({
-              slug: getSlug(),
-              title: displayName,
-              bio: bio,
-              avatar_url: avatarUrl,
+              slug: _slug,
+              title: _dn,
+              bio: _bio,
+              avatar_url: _av,
               // Direct columns (for backward compatibility)
               instagram: onepageSocialLinks.instagram,
               tiktok: onepageSocialLinks.tiktok,
@@ -762,10 +872,10 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
               owner_id: user.id,
               creator_id: creator.id,
               seller_id: user.id,
-              slug: getSlug(),
-              title: displayName,
-              bio: bio,
-              avatar_url: avatarUrl,
+              slug: _slug,
+              title: _dn,
+              bio: _bio,
+              avatar_url: _av,
               // Direct columns (for backward compatibility)
               instagram: onepageSocialLinks.instagram,
               tiktok: onepageSocialLinks.tiktok,
@@ -783,9 +893,9 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
           .from("creators")
           .insert({
             user_id: user.id,
-            slug: getSlug(),
-            bio: bio,
-            niche_tags: selectedCategory ? [selectedCategory] : [],
+            slug: _slug,
+            bio: _bio,
+            niche_tags: _cat ? [_cat] : [],
             onboarding_completed: true,
             store_published: true,
           })
@@ -797,9 +907,9 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
         } else if (newCreator) {
           // Build social_links JSONB for new creator's OnePage
           const newCreatorSocialLinks = {
-            instagram: socials.instagram ? `https://instagram.com/${socials.instagram.replace('@', '')}` : null,
-            tiktok: socials.tiktok ? `https://tiktok.com/@${socials.tiktok.replace('@', '')}` : null,
-            youtube: socials.youtube || null,
+            instagram: _soc.instagram ? `https://instagram.com/${_soc.instagram.replace('@', '')}` : null,
+            tiktok: _soc.tiktok ? `https://tiktok.com/@${_soc.tiktok.replace('@', '')}` : null,
+            youtube: _soc.youtube || null,
           }
 
           // Create onepage record with social data
@@ -809,10 +919,10 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
               owner_id: user.id,
               creator_id: newCreator.id,
               seller_id: user.id,
-              slug: getSlug(),
-              title: displayName,
-              bio: bio,
-              avatar_url: avatarUrl,
+              slug: _slug,
+              title: _dn,
+              bio: _bio,
+              avatar_url: _av,
               // Direct columns (for backward compatibility)
               instagram: newCreatorSocialLinks.instagram,
               tiktok: newCreatorSocialLinks.tiktok,
@@ -828,16 +938,16 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
 
           // Create store builder config with social data in header
           const newCreatorHeaderSettings = {
-            title: displayName,
-            subtitle: bio,
-            avatarUrl: avatarUrl,
-            categoryBadge: selectedCategory,
+            title: _dn,
+            subtitle: _bio,
+            avatarUrl: _av,
+            categoryBadge: _cat,
             showSocialMedia: true,
             showSocialIconsOnMobile: true,
             socialLinks: {
-              instagram: { enabled: !!socials.instagram, url: socials.instagram ? `https://instagram.com/${socials.instagram.replace('@', '')}` : "" },
-              tiktok: { enabled: !!socials.tiktok, url: socials.tiktok ? `https://tiktok.com/@${socials.tiktok.replace('@', '')}` : "" },
-              youtube: { enabled: !!socials.youtube, url: socials.youtube || "" },
+              instagram: { enabled: !!_soc.instagram, url: _soc.instagram ? `https://instagram.com/${_soc.instagram.replace('@', '')}` : "" },
+              tiktok: { enabled: !!_soc.tiktok, url: _soc.tiktok ? `https://tiktok.com/@${_soc.tiktok.replace('@', '')}` : "" },
+              youtube: { enabled: !!_soc.youtube, url: _soc.youtube || "" },
               twitter: { enabled: false, url: "" },
               spotify: { enabled: false, url: "" },
             }
@@ -882,8 +992,8 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
     startDashboardRedirect()
   }
 
-  // Progress bar width
-  const progressWidth = (currentStep / 4) * 100
+  // Progress bar width (5 steps total)
+  const progressWidth = (currentStep / 5) * 100
 
   // Filter categories for search
   const allCategories = [...PRIMARY_CATEGORIES, ...EXTENDED_CATEGORIES]
@@ -925,6 +1035,7 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
               "flex-1 min-h-0 overflow-y-auto transition-all duration-200 px-4 sm:px-12 pt-3 sm:pt-6",
               (currentStep === 1 || currentStep === 3) && "max-sm:pb-4",
               currentStep === 2 && "max-sm:pb-2",
+              currentStep === 4 && "pb-4 sm:pb-6",
               isAnimating && slideDirection === "right" && "opacity-0 translate-x-4",
               isAnimating && slideDirection === "left" && "opacity-0 -translate-x-4"
             )}>
@@ -1141,8 +1252,39 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
                 </div>
               )}
 
-              {/* Step 4: Setup - centered content */}
+              {/* Step 4: Choose a Plan */}
               {currentStep === 4 && (
+                <div className="flex flex-col">
+                  <div className="text-center mb-5 sm:mb-7">
+                    <h1 className="text-[22px] sm:text-[34px] font-bold leading-tight">
+                      Choose your plan ✨
+                    </h1>
+                    <p className="text-gray-500 text-xs sm:text-base mt-1.5">
+                      Start free or unlock more. You can upgrade anytime.
+                    </p>
+                  </div>
+
+                  <PricingSection
+                    compact
+                    hideDetailsLink
+                    onboardingCallbacks={{
+                      onPlanSelect: (planId) => {
+                        if (planId === "free") handleSelectFree()
+                        else handleSelectPaid(planId as "growth" | "pro")
+                      },
+                      loadingPlan: planCheckoutLoading,
+                      ctaLabels: {
+                        free: "Continue with Free",
+                        growth: "Continue with Growth",
+                        pro: "Continue with Professional",
+                      },
+                    }}
+                  />
+                </div>
+              )}
+
+              {/* Step 5: Setup - centered content */}
+              {currentStep === 5 && (
                 <div className="flex flex-col items-center justify-center h-full min-h-[250px] sm:min-h-[350px] px-4 pt-6 sm:pt-0">
                   {/* Logo with pulse effect */}
                   <div className="relative mb-4 sm:mb-6 mt-4 sm:mt-0">
@@ -1208,8 +1350,8 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
               )}
             </div>
 
-            {/* Footer with buttons */}
-            {currentStep < 4 && (
+            {/* Footer with buttons — steps 1-3 */}
+            {currentStep >= 1 && currentStep <= 3 && (
               <div className={cn(
                 "px-4 sm:px-12 pt-2 flex items-center justify-between shrink-0",
                 "pb-5 sm:pb-4",
@@ -1266,8 +1408,21 @@ export function CreatorOnboardingModal({ open, onClose }: CreatorOnboardingModal
               </div>
             )}
 
-            {/* Step 4 footer (no buttons, just padding) */}
+            {/* Step 4 (plan selection) — Back button only; plan cards contain the CTAs */}
             {currentStep === 4 && (
+              <div className="px-4 sm:px-12 pt-2 pb-5 sm:pb-4 flex items-center shrink-0">
+                <button
+                  onClick={handleBack}
+                  disabled={!!planCheckoutLoading}
+                  className="px-5 sm:px-6 py-3 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Back
+                </button>
+              </div>
+            )}
+
+            {/* Step 5 (setup) — no buttons, just bottom spacing */}
+            {currentStep === 5 && (
               <div className="h-16" />
             )}
           </div>
