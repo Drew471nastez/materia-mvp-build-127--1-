@@ -4658,25 +4658,8 @@ export function PayoutsClient({
     );
   }
 
-  const hasNoOrders = initialOrders.length === 0;
-
   return (
     <div className="space-y-6 relative">
-      {/* No-data blurred overlay — shown when seller has no orders yet */}
-      {hasNoOrders && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
-          <div className="absolute inset-0 bg-white/60 backdrop-blur-[6px] rounded-2xl" />
-          <div className="relative z-10 text-center px-6 pointer-events-auto">
-            <div className="w-16 h-16 rounded-full bg-[#f5f3ff] flex items-center justify-center mx-auto mb-4 shadow-sm">
-              <DollarSign className="h-8 w-8 text-[#8b5cf6]" />
-            </div>
-            <p className="text-[18px] font-semibold text-[#1a1a2e] mb-1">No sales yet</p>
-            <p className="text-[14px] text-[#6b7280] max-w-xs mx-auto">
-              Your first sale will appear here. Share your store to get started.
-            </p>
-          </div>
-        </div>
-      )}
       {/* Stan-style state machine banners — ONE primary banner at a time */}
       {(() => {
         // Priority order: active dispute > negative balance > failed payout > finish setup > verify identity > under review > in-transit > first payout setup

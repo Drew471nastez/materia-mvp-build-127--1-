@@ -25,6 +25,13 @@ function ManagedImageCarousel() {
   const [current, setCurrent] = useState(0)
   const [loadedSet, setLoadedSet] = useState<Set<number>>(new Set())
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const loadedSetRef = useRef<Set<number>>(new Set())
+
+  const markLoaded = useCallback((idx: number) => {
+    if (loadedSetRef.current.has(idx)) return
+    loadedSetRef.current.add(idx)
+    setLoadedSet(new Set(loadedSetRef.current))
+  }, [])
 
   const startAutoplay = useCallback(() => {
     if (intervalRef.current) clearInterval(intervalRef.current)
@@ -33,14 +40,16 @@ function ManagedImageCarousel() {
     }, 5000)
   }, [])
 
-  // Preload all images eagerly on mount
+  // Preload all images eagerly on mount and track loading state
   useEffect(() => {
-    MANAGE_IMAGES.forEach((url) => {
+    MANAGE_IMAGES.forEach((url, i) => {
       const img = new window.Image()
       img.decoding = "async"
+      img.onload = () => markLoaded(i)
+      img.onerror = () => markLoaded(i)
       img.src = getOptimized(url, 700, 45)
     })
-  }, [])
+  }, [markLoaded])
 
   useEffect(() => {
     startAutoplay()
@@ -65,18 +74,19 @@ function ManagedImageCarousel() {
             alt={`Storelib Dashboard view ${i + 1}`}
             width={700}
             height={394}
-            className="absolute inset-0 w-full h-full rounded-xl sm:rounded-2xl object-cover"
+            className="absolute inset-0 w-full h-full rounded-xl sm:rounded-2xl object-cover object-top"
             style={{
               opacity: i === current && loadedSet.has(i) ? 1 : 0,
               transition: "opacity 800ms cubic-bezier(0.4, 0, 0.2, 1)",
               willChange: i === current ? "opacity" : "auto",
             }}
-            loading={i === 0 ? "eager" : "lazy"}
+            loading="eager"
             decoding="async"
             fetchPriority={i === 0 ? "high" : "low"}
             sizes="(max-width: 640px) 90vw, 700px"
             draggable={false}
-            onLoad={() => setLoadedSet((prev) => new Set(prev).add(i))}
+            onLoad={() => markLoaded(i)}
+            onError={() => markLoaded(i)}
             onContextMenu={(e) => e.preventDefault()}
           />
         ))}

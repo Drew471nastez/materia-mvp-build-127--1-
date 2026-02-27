@@ -66,10 +66,10 @@ const IMG_NAMES = [
   "Monetize%20(21).webp",
   "Monetize%20(9).webp",
 ]
-// Small (mobile / side cards): 280px wide, low quality for fast mobile loading
-const IMAGES_SM = IMG_NAMES.map(n => `${IMG_BASE}/${n}?width=280&quality=35`)
-// Large (desktop center): 480px wide, moderate-low quality for perf
-const IMAGES_LG = IMG_NAMES.map(n => `${IMG_BASE}/${n}?width=480&quality=45`)
+// Small (mobile / side cards): 280px wide, lower quality for fast mobile loading
+const IMAGES_SM = IMG_NAMES.map(n => `${IMG_BASE}/${n}?width=280&height=350&resize=cover&quality=55`)
+// Large (desktop center): 480px wide, moderate quality
+const IMAGES_LG = IMG_NAMES.map(n => `${IMG_BASE}/${n}?width=480&height=600&resize=cover&quality=70`)
 // Default src uses the small variant
 const IMAGES = IMAGES_SM
 
@@ -517,7 +517,7 @@ export function Hero() {
                     sizes="(max-width: 640px) 260px, 280px"
                     src={src}
                     alt=""
-                    className="w-full h-full object-cover object-top pointer-events-none transition-opacity duration-700 ease-out"
+                    className="w-full h-full object-cover pointer-events-none transition-opacity duration-700 ease-out"
                     style={{ opacity: loadedImages.has(imageIdx) ? 1 : 0 }}
                     draggable={false}
                     decoding="async"
