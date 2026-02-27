@@ -324,6 +324,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
   const router = useRouter()
   const supabase = createClient()
   const redirectFailureTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const hasResumedFromStripeRef = useRef(false)
   void onClose
 
   // Step management
@@ -414,7 +415,8 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
   // Resume onboarding after a Stripe redirect (user paid for Growth/Pro).
   // Restore saved form state from localStorage and jump straight to the setup step.
   useEffect(() => {
-    if (!open || !resumeFromStripe) return
+    if (!open || !resumeFromStripe || hasResumedFromStripeRef.current) return
+    hasResumedFromStripeRef.current = true
 
     const savedRaw = localStorage.getItem("storelib_onboarding_state")
     if (!savedRaw) {
@@ -468,6 +470,8 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
     if (planCheckoutLoading) return
     setPlanCheckoutLoading(planId)
 
+    const _slug = displayName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "creator"
+
     // Persist form state so we can restore it when the user returns from Stripe.
     try {
       localStorage.setItem("storelib_onboarding_state", JSON.stringify({
@@ -476,6 +480,39 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
     } catch {}
 
     try {
+      // The billing API requires a creators record. At this onboarding stage none
+      // exists yet, so we create a minimal placeholder now. startSetup will update
+      // it with the full profile data after Stripe returns.
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        setPlanCheckoutLoading(null)
+        return
+      }
+
+      const { data: existingCreator } = await supabase
+        .from("creators")
+        .select("id")
+        .eq("user_id", user.id)
+        .maybeSingle()
+
+      if (!existingCreator) {
+        const { error: createError } = await supabase
+          .from("creators")
+          .insert({
+            user_id: user.id,
+            slug: _slug,
+            bio: bio || "",
+            niche_tags: selectedCategory ? [selectedCategory] : [],
+            onboarding_completed: false,
+            store_published: false,
+          })
+        if (createError) {
+          console.error("Failed to create creator record for checkout:", createError)
+          setPlanCheckoutLoading(null)
+          return
+        }
+      }
+
       const origin = window.location.origin
       const res = await fetch("/api/billing/subscription/create", {
         method: "POST",
