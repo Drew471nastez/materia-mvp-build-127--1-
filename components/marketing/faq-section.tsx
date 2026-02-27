@@ -6,7 +6,7 @@ import { AnimateOnScroll } from "./bento-grid"
 const FAQS = [
   {
     q: "What is Storelib?",
-    a: "Storelib is an all-in-one e-commerce platform for creators & entrepreneurs. It allows you to sell digital products, build your link-in-bio page, set up an online store, create product pages, get featured on the marketplace for increased exposure to other buyers and creators, and grow an audience and boost your brand — without having to worry about technical stuff or using 6 different tools.",
+    a: "Storelib is an all-in-one e-commerce platform for creators & entrepreneurs. It allows you to sell digital products, build your link-in-bio page, set up an online store, create product pages, get featured on the marketplace for increased exposure to other buyers and creators &  grow an audience and boost your brand, without having to worry about technical stuff or using 6 different tools.",
   },
   {
     q: "What can I sell on Storelib?",

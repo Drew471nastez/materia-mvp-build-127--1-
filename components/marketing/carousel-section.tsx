@@ -39,19 +39,7 @@ export function CarouselSection() {
   const touchStartX = useRef(0)
   const autoplayRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const getSlideWidth = useCallback(() => {
-    if (!trackRef.current) return 738
-    const slide = trackRef.current.querySelector<HTMLElement>("[data-slide]")
-    return slide ? slide.offsetWidth + 24 : 738
-  }, [])
-
-  // Compute max offset so last slide aligns to right edge (no empty gap)
-  const getMaxOffset = useCallback(() => {
-    if (!trackRef.current || !containerRef.current) return Infinity
-    const containerWidth = containerRef.current.offsetWidth
-    const totalWidth = trackRef.current.scrollWidth
-    return Math.max(0, totalWidth - containerWidth)
-  }, [])
+  // No longer needed — slides are 100% wide, translate by percentage
 
   const goTo = useCallback((n: number) => {
     setCurrent(((n % SLIDES.length) + SLIDES.length) % SLIDES.length)
@@ -72,23 +60,8 @@ export function CarouselSection() {
 
   useEffect(() => {
     if (!trackRef.current) return
-    const idealOffset = current * getSlideWidth()
-    const maxOffset = getMaxOffset()
-    const offset = Math.min(idealOffset, maxOffset)
-    trackRef.current.style.transform = `translateX(-${offset}px)`
-  }, [current, getSlideWidth, getMaxOffset])
-
-  useEffect(() => {
-    const onResize = () => {
-      if (!trackRef.current) return
-      const idealOffset = current * getSlideWidth()
-      const maxOffset = getMaxOffset()
-      const offset = Math.min(idealOffset, maxOffset)
-      trackRef.current.style.transform = `translateX(-${offset}px)`
-    }
-    window.addEventListener("resize", onResize)
-    return () => window.removeEventListener("resize", onResize)
-  }, [current, getSlideWidth, getMaxOffset])
+    trackRef.current.style.transform = `translateX(-${current * 100}%)`
+  }, [current])
 
   const handleGoTo = useCallback((n: number) => {
     goTo(n)
@@ -113,10 +86,10 @@ export function CarouselSection() {
         </AnimateOnScroll>
 
         <AnimateOnScroll variant="fade-up-scale" delay={150}>
-          <div ref={containerRef} className="relative overflow-hidden px-4 sm:px-6 sm:pl-10">
+          <div ref={containerRef} className="relative overflow-hidden">
             <div
               ref={trackRef}
-              className="flex gap-6 py-4 transition-transform duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]"
+              className="flex py-4 transition-transform duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]"
               onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX }}
               onTouchEnd={(e) => {
                 const diff = touchStartX.current - e.changedTouches[0].clientX
@@ -124,10 +97,9 @@ export function CarouselSection() {
               }}
             >
               {SLIDES.map((slide) => (
+                <div key={slide.name} data-slide className="min-w-full px-4 sm:px-10">
                 <div
-                  key={slide.name}
-                  data-slide
-                  className="flex-shrink-0 w-[calc(100vw-48px)] sm:w-[714px] grid grid-cols-[140px_1fr] sm:grid-cols-[216px_1fr] gap-3 sm:gap-8 items-center bg-neutral-50/60 border border-neutral-200/70 rounded-2xl sm:rounded-3xl p-4 sm:p-7 transition-all duration-300 hover:shadow-md"
+                  className="grid grid-cols-[140px_1fr] sm:grid-cols-[216px_1fr] gap-3 sm:gap-8 items-center bg-neutral-50/60 border border-neutral-200/70 rounded-2xl sm:rounded-3xl p-4 sm:p-7 transition-all duration-300 hover:shadow-md"
                 >
                   {/* Phone mockup */}
                   {"phoneImage" in slide && slide.phoneImage ? (
@@ -178,6 +150,7 @@ export function CarouselSection() {
                     </div>
                     <div className="mt-2 sm:mt-4 text-amber-400 text-[12px] sm:text-[15px] tracking-widest">★★★★★</div>
                   </div>
+                </div>
                 </div>
               ))}
             </div>
