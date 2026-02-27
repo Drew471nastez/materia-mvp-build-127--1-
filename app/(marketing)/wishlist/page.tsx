@@ -28,7 +28,7 @@ function WishlistSkeleton() {
 
 export default function WishlistPage() {
   return (
-    <main className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white">
       <div className="mx-auto max-w-6xl lg:max-w-[1270px] px-4 sm:px-6 lg:px-8 pt-4 pb-8">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-neutral-900">Wishlist</h1>
@@ -38,6 +38,6 @@ export default function WishlistPage() {
           <WishlistContent showDiscoverMoreCta />
         </Suspense>
       </div>
-    </main>
+    </div>
   )
 }
