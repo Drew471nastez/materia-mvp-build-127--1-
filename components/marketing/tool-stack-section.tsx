@@ -148,16 +148,16 @@ export function ToolStackSection() {
             <div className="text-center max-w-[640px] mx-auto mb-10 sm:mb-14">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(46).webp?width=220&quality=50"
-                srcSet="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(46).webp?width=170&quality=45 170w, https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(46).webp?width=220&quality=50 220w"
+                src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Visits%20(12).webp?width=220&quality=45"
+                srcSet="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Visits%20(12).webp?width=170&quality=40 170w, https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Visits%20(12).webp?width=220&quality=45 220w"
                 alt="Compare tools"
                 width={220}
                 height={44}
-                className="mt-7 mb-4 mx-auto max-w-[157px] sm:max-w-[202px] w-auto h-auto rounded-lg object-contain"
+                className="mt-8 mb-4 mx-auto max-w-[165px] sm:max-w-[212px] w-auto h-auto rounded-lg object-contain"
                 loading="lazy"
                 decoding="async"
                 fetchPriority="low"
-                sizes="(max-width: 640px) 168px, 216px"
+                sizes="(max-width: 640px) 165px, 212px"
               />
               <h2 className="text-[clamp(28px,4vw,44px)] font-bold leading-[1.15] tracking-tight mb-3.5">
                 Replace your entire tool stack

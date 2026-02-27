@@ -12,6 +12,7 @@ const SplitFeaturesSection = dynamic(() => import("@/components/marketing/split-
 const CarouselSection = dynamic(() => import("@/components/marketing/carousel-section").then(m => ({ default: m.CarouselSection })))
 const ToolStackSection = dynamic(() => import("@/components/marketing/tool-stack-section").then(m => ({ default: m.ToolStackSection })))
 const PricingSection = dynamic(() => import("@/components/marketing/pricing-section").then(m => ({ default: m.PricingSection })))
+const FeaturesBadgesSection = dynamic(() => import("@/components/marketing/features-badges-section").then(m => ({ default: m.FeaturesBadgesSection })))
 const FaqSection = dynamic(() => import("@/components/marketing/faq-section").then(m => ({ default: m.FaqSection })))
 const CtaSection = dynamic(() => import("@/components/marketing/cta-section").then(m => ({ default: m.CtaSection })))
 const ProductMarquee = dynamic(() => import("@/components/marketing/product-marquee").then(m => ({ default: m.ProductMarquee })))
@@ -45,6 +46,9 @@ export default function StorelibLanding() {
 
       {/* PRICING */}
       <PricingSection />
+
+      {/* FEATURE BADGES */}
+      <FeaturesBadgesSection />
 
       {/* FAQ */}
       <FaqSection />

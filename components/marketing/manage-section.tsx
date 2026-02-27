@@ -26,6 +26,13 @@ function ManagedImageCarousel() {
   const [loadedSet, setLoadedSet] = useState<Set<number>>(new Set())
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const loadedSetRef = useRef<Set<number>>(new Set())
+  const sectionRef = useRef<HTMLDivElement>(null)
+  const [isVisible, setIsVisible] = useState(false)
+  const [fillProgress, setFillProgress] = useState(0)
+  const fillStartRef = useRef<number>(0)
+  const fillRafRef = useRef<number>(0)
+
+  const AUTOPLAY_MS = 5000
 
   const markLoaded = useCallback((idx: number) => {
     if (loadedSetRef.current.has(idx)) return
@@ -33,12 +40,29 @@ function ManagedImageCarousel() {
     setLoadedSet(new Set(loadedSetRef.current))
   }, [])
 
+  const startFillAnimation = useCallback(() => {
+    fillStartRef.current = performance.now()
+    const tick = (now: number) => {
+      const elapsed = now - fillStartRef.current
+      const progress = Math.min(elapsed / AUTOPLAY_MS, 1)
+      setFillProgress(progress)
+      if (progress < 1) {
+        fillRafRef.current = requestAnimationFrame(tick)
+      }
+    }
+    cancelAnimationFrame(fillRafRef.current)
+    setFillProgress(0)
+    fillRafRef.current = requestAnimationFrame(tick)
+  }, [])
+
   const startAutoplay = useCallback(() => {
     if (intervalRef.current) clearInterval(intervalRef.current)
+    startFillAnimation()
     intervalRef.current = setInterval(() => {
       setCurrent((prev) => (prev + 1) % MANAGE_IMAGES.length)
-    }, 5000)
-  }, [])
+      startFillAnimation()
+    }, AUTOPLAY_MS)
+  }, [startFillAnimation])
 
   // Preload all images eagerly on mount and track loading state
   useEffect(() => {
@@ -51,10 +75,36 @@ function ManagedImageCarousel() {
     })
   }, [markLoaded])
 
+  // Start autoplay only when section is visible
   useEffect(() => {
-    startAutoplay()
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
-  }, [startAutoplay])
+    const el = sectionRef.current
+    if (!el) return
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsVisible(entry.isIntersecting)
+      },
+      { threshold: 0.15 },
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    if (isVisible) {
+      startAutoplay()
+    } else {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
+      cancelAnimationFrame(fillRafRef.current)
+    }
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current)
+      cancelAnimationFrame(fillRafRef.current)
+    }
+  }, [isVisible, startAutoplay])
 
   const goTo = useCallback((idx: number) => {
     setCurrent(idx)
@@ -62,7 +112,7 @@ function ManagedImageCarousel() {
   }, [startAutoplay])
 
   return (
-    <div className="w-full">
+    <div ref={sectionRef} className="w-full">
       {/* Image container with crossfade */}
       <div className="relative w-full aspect-video">
         {MANAGE_IMAGES.map((url, i) => (
@@ -96,19 +146,24 @@ function ManagedImageCarousel() {
         )}
       </div>
 
-      {/* Navigation dots */}
+      {/* Navigation dots with loading fill */}
       <div className="flex items-center justify-center gap-2 mt-4">
         {MANAGE_IMAGES.map((_, i) => (
           <button
             key={i}
             onClick={() => goTo(i)}
             aria-label={`Go to slide ${i + 1}`}
-            className={`h-[6px] rounded-full transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] cursor-pointer ${
-              i === current
-                ? "bg-violet-600 w-6"
-                : "bg-neutral-200 hover:bg-neutral-300 w-[6px]"
+            className={`h-[6px] rounded-full cursor-pointer relative overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${
+              i === current ? "w-6 bg-violet-200" : "bg-neutral-200 hover:bg-neutral-300 w-[6px]"
             }`}
-          />
+          >
+            {i === current && (
+              <div
+                className="absolute inset-0 bg-violet-600 rounded-full origin-left"
+                style={{ transform: `scaleX(${fillProgress})` }}
+              />
+            )}
+          </button>
         ))}
       </div>
     </div>

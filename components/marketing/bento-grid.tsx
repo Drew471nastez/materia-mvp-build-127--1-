@@ -313,16 +313,28 @@ export function BentoGrid() {
               <p className="text-sm leading-relaxed text-neutral-500 max-w-[320px] mb-0">
                 Courses, digital products, memberships, bookings — if you made it, you can sell it here on Storelib.
               </p>
-              <div className="-mt-3 sm:mt-2.5 flex-1 flex items-end justify-center overflow-hidden relative min-h-[120px] sm:min-h-[180px]">
+              <div className="-mt-7 sm:mt-2.5 flex-1 flex items-end justify-center overflow-hidden relative min-h-[100px] sm:min-h-[180px]">
+                {/* Mobile image */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(48).webp?width=500&quality=55"
+                  alt="Digital products showcase"
+                  className="w-[125%] rounded-xl object-cover sm:hidden"
+                  loading="eager"
+                  decoding="async"
+                  width={500}
+                  height={244}
+                />
+                {/* Desktop image */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(2969%20x%201600%20px)%20(2969%20x%201450%20px).webp?width=800&quality=60"
                   srcSet="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(2969%20x%201600%20px)%20(2969%20x%201450%20px).webp?width=500&quality=55 500w, https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(2969%20x%201600%20px)%20(2969%20x%201450%20px).webp?width=800&quality=60 800w"
                   alt="Digital products showcase"
-                  className="w-[125%] sm:w-[110%] rounded-xl object-cover"
+                  className="hidden sm:block w-[110%] rounded-xl object-cover"
                   loading="eager"
                   decoding="async"
-                  sizes="(max-width: 640px) 90vw, 800px"
+                  sizes="800px"
                   width={800}
                   height={390}
                 />

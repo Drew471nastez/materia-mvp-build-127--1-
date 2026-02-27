@@ -28,7 +28,7 @@ const PLANS = [
     price: "$29",
     period: "/mo",
     periodLabel: null as string | null,
-    desc: "For creators ready to scale and pay lower fees.",
+    desc: "For creators ready to scale and get pro features.",
     features: [
       "3% + $0.25 per transaction",
       "Unlimited digital products",
@@ -48,7 +48,7 @@ const PLANS = [
     price: "$99",
     period: "/mo",
     periodLabel: null as string | null,
-    desc: "For serious creators who want the lowest fees and priority support.",
+    desc: "For serious creators who want the lowest fees, pro features and grow the most.",
     features: [
       "1.5% + $0.25 per transaction",
       "Unlimited digital products",
@@ -56,8 +56,6 @@ const PLANS = [
       "Custom domain",
       "Verified badge",
       "5,000 emails / month",
-      "Dedicated priority support",
-      "Advanced analytics & exports",
     ],
     cta: "Go Professional",
     href: "/signup",
@@ -85,14 +83,14 @@ export function PricingSection() {
         </AnimateOnScroll>
 
         <AnimateOnScroll variant="fade-up-scale" delay={120}>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-[960px] mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-[960px] mx-auto md:items-center">
             {PLANS.map((plan) => (
               <div
                 key={plan.name}
-                className={`bg-white rounded-3xl p-9 relative flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-md ${
+                className={`bg-white rounded-3xl relative flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-md ${
                   plan.popular
-                    ? "border-[1.5px] border-violet-600 shadow-[0_0_0_1px_#7c3aed] shadow-md"
-                    : "border-[1.5px] border-neutral-200"
+                    ? "p-9 md:py-12 border-[1.5px] border-violet-600 shadow-[0_0_0_1px_#7c3aed] shadow-md"
+                    : "p-9 border-[1.5px] border-neutral-200"
                 }`}
               >
                 {plan.badge && (
