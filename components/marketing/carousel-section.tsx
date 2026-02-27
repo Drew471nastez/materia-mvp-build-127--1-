@@ -256,7 +256,7 @@ export function CarouselSection() {
                       <div className="text-[10px] sm:text-[15px] italic leading-relaxed text-neutral-500 pl-2.5 sm:pl-4 pr-1 border-l-2 sm:border-l-[3px] border-violet-300 line-clamp-4 sm:line-clamp-none break-words">
                         {slide.quote}
                       </div>
-                      <div className="mt-2 sm:mt-4 text-amber-400 text-[12px] sm:text-[15px] tracking-widest">★★★★★</div>
+                      <div className="mt-2 sm:mt-4 text-amber-400 text-[12px] sm:text-[15px] font-bold tracking-widest" style={{ WebkitTextStroke: "0.5px #f59e0b" }}>★★★★★</div>
                     </div>
                   </div>
                 </div>

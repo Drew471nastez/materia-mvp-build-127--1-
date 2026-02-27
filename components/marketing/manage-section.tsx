@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { AnimateOnScroll } from "./bento-grid"
 
 const FLOATING_ICONS = [
@@ -11,47 +11,96 @@ const FLOATING_ICONS = [
   { emoji: "🔗", label: "Links", pos: "bottom-10 md:right-[-46px] right-[0px]", delay: "2s", hideMobile: true, zClass: "z-[5]" },
 ] as const
 
-const MANAGE_IMG = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Macbook-Air-storelib.com.webp"
-const MANAGE_IMG_SMALL = MANAGE_IMG + "?width=700&quality=40"
-const MANAGE_IMG_MOBILE = MANAGE_IMG + "?width=400&quality=35"
+const MANAGE_IMAGES = [
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Macbook-Air-storelib.com%20(2).webp",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Macbook-Air-storelib.com%20(1).webp",
+  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Macbook-Air-storelib.com%20(3).webp",
+]
 
-function LazyManagedImage() {
-  const [loaded, setLoaded] = useState(false)
-  const [inView, setInView] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
+function getOptimized(url: string, width: number, quality: number) {
+  return `${url}?width=${width}&quality=${quality}`
+}
 
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) { setInView(true); observer.disconnect() } },
-      { rootMargin: "600px" },
-    )
-    observer.observe(el)
-    return () => observer.disconnect()
+function ManagedImageCarousel() {
+  const [current, setCurrent] = useState(0)
+  const [loadedSet, setLoadedSet] = useState<Set<number>>(new Set())
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const startAutoplay = useCallback(() => {
+    if (intervalRef.current) clearInterval(intervalRef.current)
+    intervalRef.current = setInterval(() => {
+      setCurrent((prev) => (prev + 1) % MANAGE_IMAGES.length)
+    }, 5000)
   }, [])
 
+  // Preload all images eagerly on mount
+  useEffect(() => {
+    MANAGE_IMAGES.forEach((url) => {
+      const img = new window.Image()
+      img.decoding = "async"
+      img.src = getOptimized(url, 700, 45)
+    })
+  }, [])
+
+  useEffect(() => {
+    startAutoplay()
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
+  }, [startAutoplay])
+
+  const goTo = useCallback((idx: number) => {
+    setCurrent(idx)
+    startAutoplay()
+  }, [startAutoplay])
+
   return (
-    <div ref={ref} className="w-full">
-      {inView ? (
-        <img
-          src={MANAGE_IMG_SMALL}
-          srcSet={`${MANAGE_IMG_MOBILE} 400w, ${MANAGE_IMG_SMALL} 700w`}
-          alt="Storelib Dashboard"
-          width={700}
-          height={394}
-          className={`w-full rounded-xl sm:rounded-2xl object-cover transition-opacity duration-500 ${loaded ? "opacity-100" : "opacity-0"}`}
-          loading="lazy"
-          decoding="async"
-          fetchPriority="low"
-          sizes="(max-width: 640px) 90vw, 700px"
-          draggable={false}
-          onLoad={() => setLoaded(true)}
-          onContextMenu={(e) => e.preventDefault()}
-        />
-      ) : (
-        <div className="w-full aspect-video rounded-xl sm:rounded-2xl bg-neutral-100 animate-pulse" />
-      )}
+    <div className="w-full">
+      {/* Image container with crossfade */}
+      <div className="relative w-full aspect-video">
+        {MANAGE_IMAGES.map((url, i) => (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            key={i}
+            src={getOptimized(url, 700, 45)}
+            srcSet={`${getOptimized(url, 400, 38)} 400w, ${getOptimized(url, 700, 45)} 700w`}
+            alt={`Storelib Dashboard view ${i + 1}`}
+            width={700}
+            height={394}
+            className="absolute inset-0 w-full h-full rounded-xl sm:rounded-2xl object-cover"
+            style={{
+              opacity: i === current && loadedSet.has(i) ? 1 : 0,
+              transition: "opacity 800ms cubic-bezier(0.4, 0, 0.2, 1)",
+              willChange: i === current ? "opacity" : "auto",
+            }}
+            loading={i === 0 ? "eager" : "lazy"}
+            decoding="async"
+            fetchPriority={i === 0 ? "high" : "low"}
+            sizes="(max-width: 640px) 90vw, 700px"
+            draggable={false}
+            onLoad={() => setLoadedSet((prev) => new Set(prev).add(i))}
+            onContextMenu={(e) => e.preventDefault()}
+          />
+        ))}
+        {/* Placeholder while first image loads */}
+        {!loadedSet.has(0) && (
+          <div className="absolute inset-0 w-full h-full rounded-xl sm:rounded-2xl bg-neutral-100 animate-pulse" />
+        )}
+      </div>
+
+      {/* Navigation dots */}
+      <div className="flex items-center justify-center gap-2 mt-4">
+        {MANAGE_IMAGES.map((_, i) => (
+          <button
+            key={i}
+            onClick={() => goTo(i)}
+            aria-label={`Go to slide ${i + 1}`}
+            className={`h-[6px] rounded-full transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] cursor-pointer ${
+              i === current
+                ? "bg-violet-600 w-6"
+                : "bg-neutral-200 hover:bg-neutral-300 w-[6px]"
+            }`}
+          />
+        ))}
+      </div>
     </div>
   )
 }
@@ -116,9 +165,9 @@ export function ManageSection() {
               </div>
             ))}
 
-            {/* Image replacing laptop mockup */}
+            {/* Image carousel replacing laptop mockup */}
             <div className="relative z-[1] max-w-[800px] mx-auto">
-              <LazyManagedImage />
+              <ManagedImageCarousel />
             </div>
           </div>
         </AnimateOnScroll>
