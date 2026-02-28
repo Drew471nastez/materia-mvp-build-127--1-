@@ -2923,10 +2923,8 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
           {!isTabLoading && activeTab === "domains" && (
             <div className="space-y-4 sm:space-y-6">
 
-              {/* Upgrade banner — skeleton while plan loads, banner if free, nothing if paid */}
-              {planLoading ? (
-                <div className="h-[56px] rounded-2xl bg-[#f3f4f6] animate-pulse" />
-              ) : (userPlan === "free" || userPlan === null) ? (
+              {/* Upgrade banner — only shown for free/null plan, nothing while loading or paid */}
+              {!planLoading && (userPlan === "free" || userPlan === null) ? (
                 <div className="flex items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] px-4 sm:px-6 py-3 sm:py-3.5 shadow-sm">
                   <div className="flex items-center gap-3 min-w-0">
                     <Globe className="h-5 w-5 text-white shrink-0" />
