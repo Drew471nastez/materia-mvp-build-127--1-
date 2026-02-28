@@ -35,64 +35,78 @@ function AppCallbackContent() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   useEffect(() => {
-    const token        = searchParams.get("token")
-    const refreshToken = searchParams.get("refresh_token")
-    const next         = searchParams.get("next") || "/app"
+    try {
+      const token        = searchParams.get("token")
+      const refreshToken = searchParams.get("refresh_token")
+      const next         = searchParams.get("next") || "/app"
+      const isNativeParam = searchParams.get("native") === "true"
 
-    // ── Safety: missing tokens ───────────────────────────────────────────
-    if (!token || !refreshToken) {
-      console.error("[app-callback] Missing token or refresh_token in URL")
+      console.log("[app-callback] Bridge page mounted")
+      console.log("[app-callback]   token:", token ? `"${token.slice(0, 12)}…"` : "MISSING")
+      console.log("[app-callback]   refresh_token:", refreshToken ? `"${refreshToken.slice(0, 8)}…"` : "MISSING")
+      console.log("[app-callback]   native:", isNativeParam)
+      console.log("[app-callback]   next:", next)
+      console.log("[app-callback]   userAgent:", typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 80) : "N/A")
+
+      // ── Safety: missing tokens ─────────────────────────────────────────
+      if (!token || !refreshToken) {
+        console.error("[app-callback] Missing token or refresh_token in URL")
+        setStatus("error")
+        setErrorMsg("Session data missing. Please try signing in again.")
+        return
+      }
+
+      // ── Build the deep link ────────────────────────────────────────────
+      const link =
+        `storelib://auth/callback` +
+        `?token=${encodeURIComponent(token)}` +
+        `&refresh_token=${encodeURIComponent(refreshToken)}` +
+        `&next=${encodeURIComponent(next)}`
+      setDeepLink(link)
+
+      // ── Detect native Capacitor app ────────────────────────────────────
+      // Dual detection: prefer the explicit ?native=true query param
+      // because Chrome Custom Tabs do NOT use the custom WebView
+      // User-Agent ("StorelibApp") — they use the standard Chrome UA.
+      // The server route forwards native=true when it detects a native
+      // request, so this param is always available in the bridge URL.
+      // The UA check is kept as a belt-and-suspenders fallback.
+      const isNativeApp =
+        isNativeParam ||
+        (typeof navigator !== "undefined" &&
+          navigator.userAgent.includes("StorelibApp"))
+
+      console.log("[app-callback] isNativeApp:", isNativeApp)
+
+      if (!isNativeApp) {
+        // Opened in a regular browser — the session is already set
+        // server-side in the cookie jar. Just navigate to the destination.
+        console.log("[app-callback] Not native — redirecting to web destination:", next)
+        window.location.replace(next)
+        return
+      }
+
+      // ── Native app: fire the custom-scheme deep link ───────────────────
+      console.log("[app-callback] Firing storelib:// deep link…")
+
+      // Use replace so pressing Back doesn't loop back here.
+      window.location.replace(link)
+
+      // Show the fallback button after 2.5 s — if the app opened
+      // successfully this page will have been hidden; if the user is
+      // still here, they need the manual button.
+      const fallbackTimer = window.setTimeout(() => {
+        setShowFallback(true)
+        setStatus("fallback")
+      }, 2500)
+
+      return () => window.clearTimeout(fallbackTimer)
+    } catch (err) {
+      console.error("[app-callback] Unexpected error in bridge page:", err)
       setStatus("error")
-      setErrorMsg("Session data missing. Please try signing in again.")
-      return
+      setErrorMsg(err instanceof Error ? err.message : "An unexpected error occurred.")
     }
-
-    // ── Build the deep link ──────────────────────────────────────────────
-    const link =
-      `storelib://auth/callback` +
-      `?token=${encodeURIComponent(token)}` +
-      `&refresh_token=${encodeURIComponent(refreshToken)}` +
-      `&next=${encodeURIComponent(next)}`
-    setDeepLink(link)
-
-    // ── Detect native Capacitor app ──────────────────────────────────────
-    // Dual detection: prefer the explicit ?native=true query param because
-    // Chrome Custom Tabs do NOT use the custom WebView User-Agent
-    // ("StorelibApp") — they use the standard Chrome UA.  The server route
-    // forwards native=true when it detects a native request, so this param
-    // is always available in the bridge URL.  The UA check is kept as a
-    // belt-and-suspenders fallback.
-    const isNativeApp =
-      searchParams.get("native") === "true" ||
-      (typeof navigator !== "undefined" &&
-        navigator.userAgent.includes("StorelibApp"))
-
-    if (!isNativeApp) {
-      // Opened in a regular browser — the session is already set server-side
-      // in the cookie jar (the server route called exchangeCodeForSession).
-      // Just navigate to the destination page.
-      console.log("[app-callback] Not native app (no ?native=true, no StorelibApp UA) — redirecting to web destination:", next)
-      window.location.replace(next)
-      return
-    }
-
-    // ── Native app: fire the custom-scheme deep link ─────────────────────
-    console.log("[app-callback] Native app detected (native=true or StorelibApp UA) — firing deep link")
-    console.log("[app-callback] deep link:", link.slice(0, 80) + "…")
-
-    // Use replace so pressing Back doesn't loop back here.
-    window.location.replace(link)
-
-    // Show the fallback button after 2.5 s — if the app opened successfully
-    // this page will have been hidden; if the user is still here, they need
-    // the manual button.
-    const fallbackTimer = window.setTimeout(() => {
-      setShowFallback(true)
-      setStatus("fallback")
-    }, 2500)
-
-    return () => window.clearTimeout(fallbackTimer)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [searchParams])
 
   // ── Error state ──────────────────────────────────────────────────────────
   if (status === "error") {
