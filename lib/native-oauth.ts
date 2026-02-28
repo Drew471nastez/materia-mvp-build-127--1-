@@ -116,15 +116,21 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
 
     // ── LOG 3: parse URL params ────────────────────────────────────────────
     const u = new URL(rawUrl)
-    const code       = u.searchParams.get("code")
-    const state      = u.searchParams.get("state")
-    const oauthErr   = u.searchParams.get("error")
+    const code         = u.searchParams.get("code")
+    const state        = u.searchParams.get("state")
+    const oauthErr     = u.searchParams.get("error")
     const oauthErrDesc = u.searchParams.get("error_description")
+    // StorelibApp path — tokens embedded by /auth/callback server route
+    const embeddedToken   = u.searchParams.get("token")
+    const embeddedRefresh = u.searchParams.get("refresh_token")
+    const nextParam       = u.searchParams.get("next") || "/app"
 
     console.log(`${TAG} URL params:`)
+    console.log(`${TAG}   token : ${embeddedToken  ? `"${embeddedToken.slice(0, 12)}…"` : "none"}`)
     console.log(`${TAG}   code  : ${code  ? `"${code.slice(0, 12)}…"` : "MISSING"}`)
     console.log(`${TAG}   state : ${state ? `"${state.slice(0, 12)}…"` : "MISSING"}`)
     console.log(`${TAG}   error : ${oauthErr ?? "none"}`)
+    console.log(`${TAG}   next  : ${nextParam}`)
 
     if (oauthErr) {
       const desc = oauthErrDesc ?? (oauthErr === "access_denied" ? "Sign-in was cancelled." : oauthErr)
@@ -134,13 +140,49 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
       return
     }
 
-    if (!code) {
-      console.warn(`${TAG} No "code" param in URL — cannot exchange. Full URL was: "${rawUrl}"`)
+    const supabase = createClient()
+
+    // ── StorelibApp path: tokens are embedded in the deep-link URL ─────────
+    // The server-side /auth/callback route detected our custom UA and
+    // encoded the session tokens directly into the storelib:// URL.
+    // We call setSession() to establish the session in this WebView context.
+    if (embeddedToken && embeddedRefresh) {
+      console.log(`${TAG} ── StorelibApp token path — calling setSession() ──────`)
+      console.log(`${TAG}   access_token  : "${embeddedToken.slice(0, 16)}…"`)
+      console.log(`${TAG}   refresh_token : "${embeddedRefresh.slice(0, 12)}…"`)
+
+      const { data: sessionData, error: sessionErr } = await supabase.auth.setSession({
+        access_token: embeddedToken,
+        refresh_token: embeddedRefresh,
+      })
+
+      console.log(`${TAG} ── setSession returned ──────────────────────────────`)
+      console.log(`${TAG}   error      : ${sessionErr ? sessionErr.message : "null"}`)
+      console.log(`${TAG}   hasSession : ${!!sessionData?.session}`)
+      console.log(`${TAG}   userId     : ${sessionData?.session?.user?.id ?? "null"}`)
+      console.log(`${TAG}   email      : ${sessionData?.session?.user?.email ?? "null"}`)
+
+      if (sessionErr || !sessionData?.session) {
+        const msg = sessionErr?.message ?? "No session returned after setSession."
+        console.error(`${TAG} setSession FAILED:`, sessionErr)
+        showToast(`Error: ${msg}`, "err")
+        window.location.assign(`/login?error=${encodeURIComponent(msg)}`)
+        return
+      }
+
+      const email = sessionData.session.user.email ?? sessionData.session.user.id
+      console.log(`${TAG} ✓ Session confirmed for ${email} → navigating to ${nextParam}`)
+      showToast(`Session OK  ${email}`, "ok")
+      window.location.assign(nextParam)
       return
     }
 
-    // ── LOG 4: before exchangeCodeForSession ───────────────────────────────
-    //
+    // ── PKCE path: exchange the auth code using the full URL ───────────────
+    if (!code) {
+      console.warn(`${TAG} No "code" or "token" param in URL — cannot proceed. Full URL was: "${rawUrl}"`)
+      return
+    }
+
     // IMPORTANT: we pass the FULL URL string, not just the code value.
     //
     // Why? The Supabase GoTrue /token?grant_type=pkce endpoint expects both
@@ -148,9 +190,6 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
     // Passing only `code` causes the exchange to fail on some project configs.
     // Official Supabase Capacitor guide: https://supabase.com/docs/guides/auth/
     //   native-mobile-login/oauth-login?platform=capacitor
-    //
-    const supabase = createClient()
-
     console.log(`${TAG} ── calling exchangeCodeForSession ──────────────────`)
     console.log(`${TAG}   argument type  : ${typeof rawUrl}`)
     console.log(`${TAG}   argument value : "${rawUrl}"`)

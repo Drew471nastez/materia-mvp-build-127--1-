@@ -344,7 +344,11 @@ function LoginFormContent() {
         const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
           provider: "google",
           options: {
-            redirectTo: "storelib://auth/callback",
+            // Redirect to the Vercel server route so it can inspect the
+            // User-Agent for "StorelibApp" and then redirect to the
+            // storelib:// deep-link with tokens embedded.  The deep-link
+            // fires the Android intent-filter → appUrlOpen → native-oauth.ts.
+            redirectTo: `${canonicalUrl}/auth/callback`,
             queryParams: { access_type: "offline", prompt: "consent" },
             skipBrowserRedirect: true,
           },

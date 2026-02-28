@@ -123,7 +123,30 @@ export async function GET(request: Request) {
   // above are already in its jar — no bridge token needed.  Skipping it
   // avoids a DB round-trip and eliminates the "Auth bridge failed" flash
   // that occurred when the oauth_bridge_tokens table was unavailable.
+  //
+  // StorelibApp path: when the native Capacitor app opens the OAuth URL via
+  // Browser.open(), the Chrome Custom Tab sends our custom User-Agent string
+  // "StorelibApp".  In this case we skip the bridge-token DB round-trip and
+  // instead embed the tokens directly in the storelib:// deep-link URL.
+  // Android intercepts the redirect → fires appUrlOpen → native-oauth.ts
+  // calls setSession() with the embedded tokens inside the WebView context.
   const userAgent = request.headers.get("user-agent") ?? ""
+  const isStorelibApp = userAgent.includes("StorelibApp")
+
+  if (isStorelibApp) {
+    console.log("[auth/callback] StorelibApp UA detected — redirecting to storelib:// deep link")
+    const userPayload = encodeURIComponent(
+      JSON.stringify({ id: data.user.id, email: data.user.email })
+    )
+    const deepLink =
+      `storelib://auth/callback` +
+      `?token=${encodeURIComponent(data.session.access_token)}` +
+      `&refresh_token=${encodeURIComponent(data.session.refresh_token)}` +
+      `&user=${userPayload}` +
+      `&next=${encodeURIComponent(nextPath)}`
+    return NextResponse.redirect(deepLink)
+  }
+
   const isAndroid = userAgent.toLowerCase().includes("android")
 
   if (!isAndroid) {
