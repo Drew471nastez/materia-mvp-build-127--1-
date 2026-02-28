@@ -4345,15 +4345,15 @@ function FooterSection({ userPlan }: { userPlan?: "free" | "growth" | "pro" | nu
                     <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
                   </div>
 
-                  {/* Badge shape: circle → rounded badge on hover */}
+                  {/* Badge shape: circle → purple pill on hover */}
                   <div
                     className={cn(
                       "relative flex items-center justify-center overflow-hidden bg-black text-white cursor-pointer select-none",
                       "transition-all duration-300 ease-in-out",
                       "w-5 h-5 rounded-full",
-                      // row hover or badge hover: expand into a full pill shape
-                      "group-hover/row:w-9 group-hover/row:rounded-full",
-                      "group-hover/badge:w-9 group-hover/badge:rounded-full",
+                      // row hover or badge hover: expand into pill + turn purple
+                      "group-hover/row:w-9 group-hover/row:rounded-full group-hover/row:bg-violet-600",
+                      "group-hover/badge:w-9 group-hover/badge:rounded-full group-hover/badge:bg-violet-600",
                       // paid users: less faded; free users: more faded
                       userHasPaidPlan ? "opacity-50" : "opacity-30",
                       // on hover: fully opaque
@@ -4393,10 +4393,6 @@ function FooterSection({ userPlan }: { userPlan?: "free" | "growth" | "pro" | nu
             checked={hideBrandingEnabled}
             onCheckedChange={handleHideBrandingChange}
           />
-        </div>
-        <div className="flex items-center justify-between p-3 md:p-4 border rounded-xl">
-          <div><p className="font-medium text-sm">Analytics</p><p className="text-xs text-muted-foreground mt-0.5">Track page views</p></div>
-          <Toggle checked={settings.analytics_enabled} onCheckedChange={(checked) => updateSettings({ analytics_enabled: checked })} />
         </div>
       </div>
     </div>

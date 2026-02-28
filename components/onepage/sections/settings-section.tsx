@@ -47,18 +47,6 @@ export function SettingsSection() {
           />
         </div>
 
-        <div className="flex items-center justify-between">
-          <div>
-            <Label>Analytics</Label>
-            <p className="text-xs text-muted-foreground">
-              Track page views and engagement
-            </p>
-          </div>
-          <Toggle
-            checked={settings.analytics_enabled}
-            onCheckedChange={(checked) => updateSettings({ analytics_enabled: checked })}
-          />
-        </div>
       </div>
 
       <div className="border-t pt-6">

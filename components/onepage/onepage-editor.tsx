@@ -305,8 +305,8 @@ function ProUpgradeDialog({
             onClick={onUpgrade}
             className="w-full py-3 px-5 bg-violet-600 text-white font-semibold rounded-xl hover:bg-violet-700 transition-all shadow-md flex items-center justify-center gap-3"
           >
-            <span className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-              <svg className="w-4 h-4 text-violet-600" viewBox="0 0 24 24" fill="currentColor">
+            <span className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+              <svg className="w-3.5 h-3.5 text-violet-600" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
               </svg>
             </span>
@@ -1062,27 +1062,66 @@ function EditorLayout() {
 
             {/* Add a custom domain — only shown when no domain is connected */}
             {!connectedDomain && (
-              <Button
-                variant="outline"
-                className="w-full justify-between h-11 rounded-xl text-sm cursor-pointer text-[#374151] hover:text-[#1a1a2e]"
-                onClick={() => { window.location.href = "/app/settings?tab=domains" }}
-              >
-                <span className="flex items-center gap-3">
-                  <Globe className="h-4 w-4 text-[#6b7280] shrink-0" />
-                  Add a custom domain
-                </span>
-                <Zap
-                  className="h-4 w-4 shrink-0"
-                  style={{
-                    color: userPlan === "growth" || userPlan === "pro"
-                      ? "#d1d5db"   /* light gray — feature already included in plan */
-                      : "#7c3aed", /* purple — premium upgrade suggestion */
-                    fill: userPlan === "growth" || userPlan === "pro"
-                      ? "#d1d5db"
-                      : "#7c3aed",
-                  }}
-                />
-              </Button>
+              <div className="group/row relative">
+                <Button
+                  variant="outline"
+                  className="w-full justify-between h-11 rounded-xl text-sm cursor-pointer text-[#374151] hover:text-[#1a1a2e] overflow-visible"
+                  onClick={() => { window.location.href = "/app/settings?tab=domains" }}
+                >
+                  <span className="flex items-center gap-3">
+                    <Globe className="h-4 w-4 text-[#6b7280] shrink-0" />
+                    Add a custom domain
+                  </span>
+
+                  {/* Animated circle → purple Pro badge (same as design tab) */}
+                  <div className="group/badge relative flex items-center shrink-0">
+                    {/* Tooltip */}
+                    <div className="absolute z-30 bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 bg-gray-900 text-white text-[11px] leading-tight rounded-lg whitespace-nowrap opacity-0 group-hover/badge:opacity-100 transition-opacity duration-200 pointer-events-none shadow-lg">
+                      {userPlan === "growth" || userPlan === "pro"
+                        ? "Included in your plan"
+                        : "Upgrade to unlock custom domains"}
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+                    </div>
+
+                    {/* Badge shape: circle → purple pill on hover */}
+                    <div
+                      className={cn(
+                        "relative flex items-center justify-center overflow-hidden bg-black text-white cursor-pointer select-none",
+                        "transition-all duration-300 ease-in-out",
+                        "w-5 h-5 rounded-full",
+                        "group-hover/row:w-9 group-hover/row:rounded-full group-hover/row:bg-violet-600",
+                        "group-hover/badge:w-9 group-hover/badge:rounded-full group-hover/badge:bg-violet-600",
+                        userPlan === "growth" || userPlan === "pro" ? "opacity-50" : "opacity-30",
+                        "group-hover/row:opacity-100 group-hover/badge:opacity-100",
+                      )}
+                    >
+                      {/* Lightning bolt — fades when badge opens */}
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        className={cn(
+                          "absolute w-3 h-3 transition-all duration-200",
+                          "group-hover/row:opacity-0 group-hover/row:scale-50",
+                          "group-hover/badge:opacity-0 group-hover/badge:scale-50",
+                        )}
+                      >
+                        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                      </svg>
+
+                      {/* "Pro" text — fades in on hover */}
+                      <span
+                        className={cn(
+                          "absolute text-[10px] font-bold whitespace-nowrap",
+                          "opacity-0 transition-opacity duration-150 delay-100",
+                          "group-hover/row:opacity-100 group-hover/badge:opacity-100",
+                        )}
+                      >
+                        Pro
+                      </span>
+                    </div>
+                  </div>
+                </Button>
+              </div>
             )}
           </div>
         </DialogContent>
