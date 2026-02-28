@@ -128,6 +128,33 @@ function LoginFormContent() {
     return () => window.clearTimeout(safetyTimer)
   }, [router])
 
+  // On native (Capacitor), listen for auth state changes so that when
+  // CapacitorAuthHandler exchanges the OAuth code and a session appears,
+  // we immediately clear "Connecting…" and let window.location.assign
+  // in the handler take over.  On web this is a no-op because the page
+  // navigates away as part of the OAuth redirect before this fires.
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    // Only attach on native — on web the OAuth redirect unmounts this page
+    const isNative =
+      typeof (window as any).Capacitor?.isNativePlatform === "function" &&
+      (window as any).Capacitor.isNativePlatform()
+    if (!isNative) return
+
+    const supabase = createClient()
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if ((event === "SIGNED_IN" || event === "TOKEN_REFRESHED") && session) {
+          // Session established — clear the Google loading spinner.
+          // CapacitorAuthHandler will call window.location.assign("/app")
+          // right after, so this just prevents a stuck "Connecting…" state.
+          setIsGoogleLoading(false)
+        }
+      }
+    )
+    return () => subscription.unsubscribe()
+  }, [])
+
   useEffect(() => {
     return () => {
       if (redirectTimeoutRef.current && typeof window !== "undefined") {
