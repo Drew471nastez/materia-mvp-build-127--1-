@@ -59,9 +59,10 @@ export async function GET(request: Request) {
           console.error("Profile creation error:", profileError)
         }
 
-        // New users - redirect to client-side complete page which checks localStorage
-        // for any stored redirect (e.g., returning to receipt page after signup)
-        return NextResponse.redirect(`${canonicalUrl}/auth/complete?new=1`)
+        // New users — redirect to /app/auth/callback so the Android App Link
+        // fires and opens the app. On web (no app installed) that route
+        // redirects onward to /app.
+        return NextResponse.redirect(`${canonicalUrl}/app/auth/callback`)
       }
 
       // Update avatar if not set
@@ -72,10 +73,10 @@ export async function GET(request: Request) {
           .eq("id", data.user.id)
       }
 
-      // For existing users, redirect to client-side complete page
-      // This allows the page to check localStorage for any stored redirect URL
-      // (e.g., returning to receipt page after login for review)
-      return NextResponse.redirect(`${canonicalUrl}/auth/complete`)
+      // Redirect to /app/auth/callback — the Android App Link intercepts
+      // this in Chrome Custom Tab and opens MainActivity directly.
+      // On web the route handler at /app/auth/callback redirects to /app.
+      return NextResponse.redirect(`${canonicalUrl}/app/auth/callback`)
     }
   }
 
