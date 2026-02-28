@@ -1343,6 +1343,7 @@ export function DashboardClient({
   const mobileHandleLabel = creatorHandle.length > 14 ? `${creatorHandle.slice(0, 14)}...` : creatorHandle
 
   // Announcement bar state
+  const DURATION = 15000 // 15 seconds — matches the CSS transition below
   const [announcementType, setAnnouncementType] = useState<"upgrade" | "steps" | "payouts">("upgrade")
   const [announcementVisible, setAnnouncementVisible] = useState(true)
   // 0 = bar just reset (no transition), 100 = bar animating to full (CSS 15 s linear transition)
@@ -1371,7 +1372,7 @@ export function DashboardClient({
             return "upgrade"
           }
         })
-        setProgressWidth(0)
+        setProgressTarget(0)
         setAnnouncementVisible(true)
       }, 300)
     }, DURATION)
