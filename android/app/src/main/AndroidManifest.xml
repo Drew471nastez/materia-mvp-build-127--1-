@@ -30,7 +30,24 @@
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
-            android:exported="false">
+            android:exported="true">
+
+            <!--
+                App Link: intercepts https://storelib.com/app/auth/callback
+                after Google OAuth completes in Chrome Custom Tab.
+                android:autoVerify="true" triggers Digital Asset Links verification
+                so the OS opens this app directly without a chooser dialog.
+                Requires /.well-known/assetlinks.json to be served at storelib.com.
+            -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="storelib.com"
+                    android:pathPrefix="/app/auth/callback" />
+            </intent-filter>
         </activity>
 
         <provider
