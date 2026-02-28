@@ -173,6 +173,21 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
       const email = sessionData.session.user.email ?? sessionData.session.user.id
       console.log(`${TAG} ✓ Session confirmed for ${email} → navigating to ${nextParam}`)
       showToast(`Session OK  ${email}`, "ok")
+
+      // Close the Chrome Custom Tab again AFTER setSession succeeds.
+      // The first Browser.close() at the top of the handler fires while
+      // the Custom Tab is still mid-redirect (rendering the bridge page).
+      // On many Android devices it doesn't stick — the tab stays visible
+      // showing the logged-in dashboard.  This second call ensures the
+      // overlay is dismissed so the user sees the app's internal WebView.
+      try {
+        const { Browser } = await import("@capacitor/browser")
+        await Browser.close()
+        console.log(`${TAG}   Browser.close() after setSession ✓`)
+      } catch (e) {
+        console.warn(`${TAG}   Browser.close() after setSession failed:`, e)
+      }
+
       window.location.assign(nextParam)
       return
     }
@@ -228,6 +243,16 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
     const email = data.session.user.email ?? data.session.user.id
     console.log(`${TAG} ✓ Session confirmed for ${email} → navigating to /app`)
     showToast(`Session OK  ${email}`, "ok")
+
+    // Ensure the Chrome Custom Tab overlay is dismissed
+    try {
+      const { Browser } = await import("@capacitor/browser")
+      await Browser.close()
+      console.log(`${TAG}   Browser.close() after PKCE exchange ✓`)
+    } catch (e) {
+      console.warn(`${TAG}   Browser.close() after PKCE exchange failed:`, e)
+    }
+
     window.location.assign("/app")
 
   } catch (err) {
