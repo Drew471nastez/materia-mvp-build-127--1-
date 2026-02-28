@@ -1276,7 +1276,14 @@ export function DashboardClient({
   }, [openKPIModal, timeframe, creatorId])
 
   useEffect(() => {
-    fetchAnalytics(timeframe)
+    // Safety net: if analytics queries hang (slow network, Supabase latency),
+    // stop showing the skeleton after 5s so the page is usable with cached data.
+    const safetyTimer = window.setTimeout(() => {
+      setIsLoading(false)
+      isFirstLoadRef.current = false
+    }, 5000)
+    fetchAnalytics(timeframe).finally(() => window.clearTimeout(safetyTimer))
+    return () => window.clearTimeout(safetyTimer)
   }, [timeframe, creatorId])
 
   // Close dropdown when clicking outside (desktop only)

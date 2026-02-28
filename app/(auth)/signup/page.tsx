@@ -64,9 +64,8 @@ function SignUpFormContent() {
   // Check if user is already authenticated - redirect if so
   // Includes loop detection to prevent infinite redirect cycles
   useEffect(() => {
-    // Safety net: if the network hangs and getUser() never resolves,
-    // show the form after 4 s rather than spinning forever.
-    const safetyTimer = window.setTimeout(() => setIsCheckingAuth(false), 4000)
+    // Safety net: if the session check somehow stalls, show the form after 1.5 s.
+    const safetyTimer = window.setTimeout(() => setIsCheckingAuth(false), 1500)
 
     const checkAuth = async () => {
       try {
@@ -92,8 +91,11 @@ function SignUpFormContent() {
           sessionStorage.setItem("storelib_signup_ts", String(now))
         }
 
+        // getSession() reads from localStorage — no network call for unauthenticated users,
+        // so the check completes in milliseconds instead of waiting for a round-trip.
         const supabase = createClient()
-        const { data: { user } } = await supabase.auth.getUser()
+        const { data: { session } } = await supabase.auth.getSession()
+        const user = session?.user
 
         if (user) {
           router.replace("/explore")
