@@ -931,7 +931,7 @@
   .auth-stack {
     min-height: 100svh !important;
     justify-content: center !important;
-    padding-top: 36px !important;
+    padding-top: 64px !important;
     padding-bottom: max(24px, env(safe-area-inset-bottom)) !important;
   }
 }
