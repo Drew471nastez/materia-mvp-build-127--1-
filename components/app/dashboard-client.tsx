@@ -1053,10 +1053,10 @@ export function DashboardClient({
     }
   }
 
-  // Poll for live visitors every 3 seconds for real-time updates
+  // Poll for live visitors every 30 seconds — "live" means last 5 min so 30 s cadence is plenty
   useEffect(() => {
     fetchLiveVisitors()
-    const interval = setInterval(fetchLiveVisitors, 3000)
+    const interval = setInterval(fetchLiveVisitors, 30000)
     return () => clearInterval(interval)
   }, [creatorId])
 
@@ -1271,7 +1271,10 @@ export function DashboardClient({
   // Fetch chart data when modal opens or timeframe changes
   useEffect(() => {
     if (openKPIModal) {
-      fetchChartData(openKPIModal)
+      // Safety net: if Supabase queries hang, stop the skeleton after 5 s
+      const safetyTimer = window.setTimeout(() => setIsChartLoading(false), 5000)
+      fetchChartData(openKPIModal).finally(() => window.clearTimeout(safetyTimer))
+      return () => window.clearTimeout(safetyTimer)
     }
   }, [openKPIModal, timeframe, creatorId])
 
@@ -1342,23 +1345,15 @@ export function DashboardClient({
   // Announcement bar state
   const [announcementType, setAnnouncementType] = useState<"upgrade" | "steps" | "payouts">("upgrade")
   const [announcementVisible, setAnnouncementVisible] = useState(true)
-  const [progressWidth, setProgressWidth] = useState(0)
+  // 0 = bar just reset (no transition), 100 = bar animating to full (CSS 15 s linear transition)
+  const [progressTarget, setProgressTarget] = useState(100)
 
-  // Rotate announcements every 15 seconds with progress bar
+  // Rotate announcements every 15 s. Progress bar is driven purely by CSS transition —
+  // no setInterval/setState at 50 ms, which was causing 20 re-renders per second.
   useEffect(() => {
-    const DURATION = 15000 // 15 seconds
-    const PROGRESS_INTERVAL = 50 // Update progress every 50ms
-
-    // Reset progress when announcement changes
-    setProgressWidth(0)
-
-    // Progress bar animation
-    const progressTimer = setInterval(() => {
-      setProgressWidth((prev) => {
-        const newWidth = prev + (100 / (DURATION / PROGRESS_INTERVAL))
-        return newWidth >= 100 ? 100 : newWidth
-      })
-    }, PROGRESS_INTERVAL)
+    // Instantly reset bar to 0 (transition: none), then on next frame animate to 100 (15 s linear)
+    setProgressTarget(0)
+    const raf = requestAnimationFrame(() => requestAnimationFrame(() => setProgressTarget(100)))
 
     // Rotate announcements
     const rotateTimer = setTimeout(() => {
@@ -1382,7 +1377,7 @@ export function DashboardClient({
     }, DURATION)
 
     return () => {
-      clearInterval(progressTimer)
+      cancelAnimationFrame(raf)
       clearTimeout(rotateTimer)
     }
   }, [announcementType, allCompleted, hasProducts, hasPayouts])
@@ -1469,11 +1464,14 @@ export function DashboardClient({
             )}
           </div>
         </div>
-        {/* Subtle progress bar */}
+        {/* Subtle progress bar — CSS-driven, no JS per-frame updates */}
         <div className="h-[2px] bg-white/10">
           <div
-            className="h-full bg-white/30 transition-all duration-50 ease-linear"
-            style={{ width: `${progressWidth}%` }}
+            className="h-full bg-white/30"
+            style={{
+              width: `${progressTarget}%`,
+              transition: progressTarget === 0 ? 'none' : 'width 15s linear',
+            }}
           />
         </div>
       </div>
