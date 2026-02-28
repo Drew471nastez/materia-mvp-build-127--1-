@@ -44,6 +44,16 @@ function LoginFormContent() {
   // Get redirect URL from search params (for returning to receipt page after login)
   const redirectUrl = searchParams.get("redirect")
 
+  // Show any OAuth error forwarded by CapacitorAuthHandler via /login?error=...
+  // (e.g. exchangeCodeForSession failure, user cancelled consent)
+  useEffect(() => {
+    const oauthError = searchParams.get("error")
+    if (oauthError) {
+      setError(oauthError)
+      setIsGoogleLoading(false)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Check if user is already authenticated - redirect if so
   // Includes loop detection to prevent infinite redirect cycles
   useEffect(() => {
@@ -268,19 +278,55 @@ function LoginFormContent() {
     }
   }
 
-  const handleGoogleSignIn = () => {
+  const handleGoogleSignIn = async () => {
     if (isGoogleLoading) return
     setIsGoogleLoading(true)
     setError(null)
     setGoogleOnlyEmail(null)
-    // Navigate to /auth/start. StorelibWebViewClient intercepts this URL on
-    // Android and opens it in a Chrome Custom Tab so that:
-    //  • The PKCE code-verifier cookie lands in Chrome's jar (not WebView's).
-    //  • The full OAuth flow (Supabase → Google → /auth/callback) runs inside
-    //    Chrome where the verifier is accessible for code exchange.
-    // On web this just navigates the browser to /auth/start normally.
-    const canonicalUrl = getCanonicalSiteUrl()
-    window.location.href = `${canonicalUrl}/auth/start?provider=google&next=/app`
+
+    try {
+      const canonicalUrl = getCanonicalSiteUrl()
+
+      // Dynamic import — @capacitor/core is already bundled in the native build
+      const { Capacitor } = await import("@capacitor/core")
+
+      if (Capacitor.isNativePlatform()) {
+        // ── Native (Android) ─────────────────────────────────────────
+        // 1. Call signInWithOAuth with skipBrowserRedirect so the Supabase
+        //    client stores the PKCE code-verifier in THIS WebView context
+        //    (not in a server response or a separate browser jar).
+        // 2. Open the returned URL in @capacitor/browser so the system
+        //    browser handles consent — then the App Link fires.
+        // 3. CapacitorAuthHandler (root layout) receives appUrlOpen, calls
+        //    exchangeCodeForSession in this same WebView context where the
+        //    PKCE verifier lives, then navigates on success or redirects to
+        //    /login?error=... on failure.
+        const supabase = createClient()
+        const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: {
+            redirectTo: `${canonicalUrl}/app/auth/callback`,
+            queryParams: { access_type: "offline", prompt: "consent" },
+            skipBrowserRedirect: true,
+          },
+        })
+        if (oauthError || !data.url) throw oauthError ?? new Error("OAuth init failed")
+
+        const { Browser } = await import("@capacitor/browser")
+        await Browser.open({ url: data.url })
+        // isGoogleLoading stays true — CapacitorAuthHandler navigates away on
+        // success or hard-navigates to /login?error=... on failure (which
+        // resets the component). User sees "Connecting…" until one fires.
+      } else {
+        // ── Web ───────────────────────────────────────────────────────
+        // Use the server-side /auth/start route which keeps the PKCE
+        // code-verifier in the same browser that will hit /auth/callback.
+        window.location.href = `${canonicalUrl}/auth/start?provider=google&next=/app`
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to sign in with Google")
+      setIsGoogleLoading(false)
+    }
   }
 
   // Show loading while checking auth status

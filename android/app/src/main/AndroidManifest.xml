@@ -33,11 +33,16 @@
             android:exported="true">
 
             <!--
-                App Link: intercepts https://storelib.com/app/auth/callback
-                after Google OAuth completes in Chrome Custom Tab.
-                android:autoVerify="true" triggers Digital Asset Links verification
-                so the OS opens this app directly without a chooser dialog.
-                Requires /.well-known/assetlinks.json to be served at storelib.com.
+                App Links: intercept https://storelib.com/app/auth/callback and
+                the www. variant after Google OAuth completes.
+                @capacitor/browser opens the OAuth URL in the system browser;
+                when Supabase redirects to this URL the OS fires the App Link,
+                closes the browser, and delivers appUrlOpen to the WebView JS.
+                CapacitorAuthHandler calls exchangeCodeForSession(code) in the
+                same WebView context where signInWithOAuth stored the PKCE
+                code-verifier — no cookie-jar isolation issue.
+                android:autoVerify="true" requires /.well-known/assetlinks.json
+                at both storelib.com and www.storelib.com.
             -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
@@ -46,6 +51,16 @@
                 <data
                     android:scheme="https"
                     android:host="storelib.com"
+                    android:pathPrefix="/app/auth/callback" />
+            </intent-filter>
+
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="www.storelib.com"
                     android:pathPrefix="/app/auth/callback" />
             </intent-filter>
         </activity>
