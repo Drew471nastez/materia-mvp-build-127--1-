@@ -57,6 +57,10 @@ function LoginFormContent() {
   // Check if user is already authenticated - redirect if so
   // Includes loop detection to prevent infinite redirect cycles
   useEffect(() => {
+    // Safety net: if the network hangs and getUser() never resolves,
+    // show the form after 4 s rather than spinning forever.
+    const safetyTimer = window.setTimeout(() => setIsCheckingAuth(false), 4000)
+
     const checkAuth = async () => {
       try {
         // Loop detection: track rapid redirects to /login
@@ -113,11 +117,13 @@ function LoginFormContent() {
         // Ignore errors, just show the login form
         console.error("Auth check error:", error)
       } finally {
+        window.clearTimeout(safetyTimer)
         setIsCheckingAuth(false)
       }
     }
 
     checkAuth()
+    return () => window.clearTimeout(safetyTimer)
   }, [router])
 
   useEffect(() => {
