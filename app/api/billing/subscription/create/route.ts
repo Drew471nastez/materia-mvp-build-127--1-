@@ -53,13 +53,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Creator not found" }, { status: 404 })
     }
 
-    // Check if creator already has an active subscription
-    const { data: existingSubscription } = await supabase
-      .from("subscriptions")
-      .select("id, status")
-      .eq("creator_id", creator.id)
-      .maybeSingle()
-
     // Validate or create Stripe customer (handles test→live key migration)
     const stripeCustomerId = await getOrCreateStripeCustomer({
       creatorId: creator.id,
@@ -74,17 +67,7 @@ export async function POST(request: Request) {
     const successUrl = customSuccessUrl || `${appUrl}/app/settings/billing?success=1`
     const cancelUrl = customCancelUrl || `${appUrl}/app/settings/billing?canceled=1`
 
-    // If user already has an active subscription, redirect to Stripe Customer Portal
-    // so they can manage / change their plan instead of creating a duplicate subscription
-    if (existingSubscription && existingSubscription.status === "active") {
-      const portalSession = await stripe.billingPortal.sessions.create({
-        customer: stripeCustomerId,
-        return_url: cancelUrl,
-      })
-      return NextResponse.json({ checkoutUrl: portalSession.url })
-    }
-
-    // Create Stripe Checkout Session (redirect mode) with LIVE price
+    // Always create a Stripe Checkout Session directly — let Stripe handle plan selection
     const checkoutSession = await stripe.checkout.sessions.create({
       customer: stripeCustomerId,
       mode: "subscription",
@@ -122,3 +105,4 @@ export async function POST(request: Request) {
     )
   }
 }
+
