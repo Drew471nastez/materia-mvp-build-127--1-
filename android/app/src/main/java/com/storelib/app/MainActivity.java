@@ -59,19 +59,15 @@ public class MainActivity extends BridgeActivity {
     //  Intent routing
     // ────────────────────────────────────────────────────────────────
 
-    /** The app destination after a successful OAuth round-trip. */
-    private static final String URL_APP = "https://storelib.com/app";
-
     /**
      * Decides which URL to load based on what triggered this activity:
      *
-     * • App Link (https://storelib.com/app/auth/callback)
-     *   → load https://storelib.com/app directly.
-     *     OAuth completed in the Custom Tab; the server-side session is
-     *     already established via the callback, so hitting /app will
-     *     succeed. We do NOT pass the raw callback URL into the WebView
-     *     because the code/token in the URL is single-use and was
-     *     already consumed by the browser before the App Link fired.
+     * • App Link (https://storelib.com/app/auth/callback?bridge_token=…&next=…)
+     *   → load the FULL incoming URL inside the WebView.
+     *     /app/auth/callback validates the bridge_token server-side, writes
+     *     the Supabase session cookies into the WebView's cookie jar via the
+     *     Set-Cookie response headers, then redirects to /app or /library.
+     *     The bridge_token is single-use and expires in 2 minutes.
      *
      * • Normal launch from WelcomeActivity (EXTRA_TARGET_URL extra)
      *   → load whatever URL WelcomeActivity chose (/app, /library,
@@ -82,8 +78,10 @@ public class MainActivity extends BridgeActivity {
         if (data != null) {
             String path = data.getPath();
             if (path != null && path.startsWith("/app/auth/callback")) {
-                // App Link return from OAuth — go straight to /app.
-                loadInWebView(URL_APP);
+                // App Link return from OAuth.
+                // Load the full URL (including bridge_token + next query params)
+                // so the WebView can exchange the token for session cookies.
+                loadInWebView(data.toString());
                 return;
             }
         }

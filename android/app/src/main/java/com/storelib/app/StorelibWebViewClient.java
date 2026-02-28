@@ -157,10 +157,33 @@ public class StorelibWebViewClient extends BridgeWebViewClient {
 
     /**
      * Returns true if this URL should be opened in a Custom Tab rather
-     * than the WebView — covers both Supabase and Google OAuth hops.
+     * than the WebView — covers the auth/start entry point plus all OAuth hops.
+     *
+     * storelib.com/auth/start  — MUST be first so Chrome (not WebView) receives
+     *   the PKCE code-verifier Set-Cookie, keeping it in Chrome's jar for the
+     *   subsequent /auth/callback code exchange.
+     * *.supabase.co/auth/*     — first OAuth hop from Supabase's authorize URL.
+     * accounts.google.com / oauth2.googleapis.com — Google consent screen.
      */
     private static boolean isOAuthUrl(Uri uri) {
-        return isSupabaseOAuthUrl(uri) || isGoogleOAuthUrl(uri);
+        return isAuthStartUrl(uri) || isSupabaseOAuthUrl(uri) || isGoogleOAuthUrl(uri);
+    }
+
+    /**
+     * Matches https://storelib.com/auth/start?*
+     *
+     * Opening this in a Custom Tab (rather than the WebView) is the key fix for
+     * the PKCE cookie-jar isolation problem: Chrome receives the 302 response
+     * from /auth/start that carries Set-Cookie for the PKCE code verifier, so
+     * the verifier ends up in Chrome's cookie jar. When Chrome later navigates
+     * to /auth/callback the verifier is present and exchangeCodeForSession
+     * succeeds.
+     */
+    private static boolean isAuthStartUrl(Uri uri) {
+        String host = uri.getHost();
+        if (host == null || !host.equals("storelib.com")) return false;
+        String path = uri.getPath();
+        return path != null && path.startsWith("/auth/start");
     }
 
     /**

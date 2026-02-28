@@ -76,8 +76,23 @@ function LoginFormContent() {
         const { data: { user } } = await supabase.auth.getUser()
 
         if (user) {
-          // User is already logged in, redirect to explore
-          router.replace("/explore")
+          // Redirect based on user type: creator/seller → /app, buyer → /library
+          const { data: creatorRow } = await supabase
+            .from("creators")
+            .select("id")
+            .eq("user_id", user.id)
+            .maybeSingle()
+
+          if (creatorRow) {
+            router.replace("/app")
+          } else {
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("is_creator")
+              .eq("id", user.id)
+              .maybeSingle()
+            router.replace(profile?.is_creator ? "/app" : "/library")
+          }
           return
         }
 
@@ -253,60 +268,19 @@ function LoginFormContent() {
     }
   }
 
-  const handleGoogleSignIn = async () => {
-    // Prevent rapid clicks that could cause rate limiting
+  const handleGoogleSignIn = () => {
     if (isGoogleLoading) return
-
-    const supabase = createClient()
     setIsGoogleLoading(true)
     setError(null)
     setGoogleOnlyEmail(null)
-
-    try {
-      // Store redirect URL in both localStorage and cookie for OAuth callback
-      // Cookie is more reliable for cross-subdomain OAuth flows
-      if (redirectUrl) {
-        const redirectData = {
-          url: redirectUrl,
-          pendingReview: pendingReview === "true",
-          autoBuyer: autoBuyer === "1", // Auto-select buyer account type
-        }
-        const redirectDataStr = JSON.stringify(redirectData)
-        localStorage.setItem("storelib_auth_redirect", redirectDataStr)
-
-        // Also store in cookie for reliability (expires in 10 minutes)
-        const mainDomain = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
-        const isLocalhost = mainDomain.includes("localhost")
-        let cookie = `storelib_auth_redirect=${encodeURIComponent(redirectDataStr)}; path=/; max-age=600; samesite=lax`
-        if (!isLocalhost) {
-          cookie += `; domain=.${mainDomain}; secure`
-        }
-        document.cookie = cookie
-      }
-
-      // If autoBuyer flag is set, pre-set user type as buyer
-      if (autoBuyer === "1") {
-        localStorage.setItem("storelib_user_type", "buyer")
-        localStorage.setItem("storelib_welcome_shown", "true")
-      }
-
-      // Use canonical site URL to ensure OAuth redirects to correct domain
-      const canonicalUrl = getCanonicalSiteUrl()
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: `${canonicalUrl}/auth/callback`,
-          queryParams: {
-            access_type: "offline",
-            prompt: "consent",
-          },
-        },
-      })
-      if (error) throw error
-    } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "Failed to sign in with Google")
-      setIsGoogleLoading(false)
-    }
+    // Navigate to /auth/start. StorelibWebViewClient intercepts this URL on
+    // Android and opens it in a Chrome Custom Tab so that:
+    //  • The PKCE code-verifier cookie lands in Chrome's jar (not WebView's).
+    //  • The full OAuth flow (Supabase → Google → /auth/callback) runs inside
+    //    Chrome where the verifier is accessible for code exchange.
+    // On web this just navigates the browser to /auth/start normally.
+    const canonicalUrl = getCanonicalSiteUrl()
+    window.location.href = `${canonicalUrl}/auth/start?provider=google&next=/app`
   }
 
   // Show loading while checking auth status
