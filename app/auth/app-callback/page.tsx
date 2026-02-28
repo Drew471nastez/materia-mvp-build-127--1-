@@ -16,8 +16,10 @@
  *  2. Detects a native Capacitor request via ?native=true query param
  *     (preferred) or StorelibApp User-Agent (fallback).  Chrome Custom Tabs
  *     do NOT forward the custom WebView UA, so the query param is critical.
- *  3. Calls window.location.replace("storelib://auth/callback?token=…")
- *     which Chrome Custom Tab DOES follow because it originates from JS.
+ *  3. On Android, uses the intent:// URL format
+ *     (intent://auth/callback?...#Intent;scheme=storelib;package=com.storelib.app;...)
+ *     because Chrome Custom Tabs silently block redirects to custom schemes.
+ *     On iOS, uses the plain storelib:// scheme.
  *  4. Shows a "Continue to App" button after 2.5 s as a fallback in case
  *     the automatic redirect fails (e.g. app not installed, OS quirk).
  *  5. If neither ?native=true nor StorelibApp UA is present (web browser
@@ -32,6 +34,8 @@ function AppCallbackContent() {
   const [showFallback, setShowFallback] = useState(false)
   const [status, setStatus] = useState<"redirecting" | "fallback" | "error">("redirecting")
   const [deepLink, setDeepLink] = useState<string | null>(null)
+  const [intentDeepLink, setIntentDeepLink] = useState<string | null>(null)
+  const [isAndroidDevice, setIsAndroidDevice] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   useEffect(() => {
@@ -56,13 +60,29 @@ function AppCallbackContent() {
         return
       }
 
-      // ── Build the deep link ────────────────────────────────────────────
-      const link =
+      // ── Build the deep links ───────────────────────────────────────────
+      // Plain custom-scheme link (used by iOS and as a tap-fallback)
+      const storelibLink =
         `storelib://auth/callback` +
         `?token=${encodeURIComponent(token)}` +
         `&refresh_token=${encodeURIComponent(refreshToken)}` +
         `&next=${encodeURIComponent(next)}`
-      setDeepLink(link)
+
+      // Android Intent URL — Chrome Custom Tabs silently block
+      // window.location.replace() to custom schemes like storelib://.
+      // The intent:// format is the official Android mechanism that Chrome
+      // will honour. It tells the OS to open com.storelib.app directly.
+      const dashboardUrl = `${window.location.origin}/app`
+      const intentLink =
+        `intent://auth/callback` +
+        `?token=${encodeURIComponent(token)}` +
+        `&refresh_token=${encodeURIComponent(refreshToken)}` +
+        `&next=${encodeURIComponent(next)}` +
+        `#Intent;scheme=storelib;package=com.storelib.app` +
+        `;S.browser_fallback_url=${encodeURIComponent(dashboardUrl)};end`
+
+      setDeepLink(storelibLink)
+      setIntentDeepLink(intentLink)
 
       // ── Detect native Capacitor app ────────────────────────────────────
       // Dual detection: prefer the explicit ?native=true query param
@@ -86,11 +106,15 @@ function AppCallbackContent() {
         return
       }
 
-      // ── Native app: fire the custom-scheme deep link ───────────────────
-      console.log("[app-callback] Firing storelib:// deep link…")
+      // ── Native app: fire the deep link ──────────────────────────────────
+      const isAndroid = /android/i.test(navigator.userAgent)
+      setIsAndroidDevice(isAndroid)
+      const redirectUrl = isAndroid ? intentLink : storelibLink
+      console.log("[app-callback] Platform:", isAndroid ? "Android" : "iOS/other")
+      console.log("[app-callback] Firing deep link:", redirectUrl.slice(0, 120) + "…")
 
       // Use replace so pressing Back doesn't loop back here.
-      window.location.replace(link)
+      window.location.replace(redirectUrl)
 
       // Show the fallback button after 2.5 s — if the app opened
       // successfully this page will have been hidden; if the user is
@@ -158,7 +182,7 @@ function AppCallbackContent() {
         {/* Fallback button — only shown after 2.5 s */}
         {showFallback && deepLink && (
           <a
-            href={deepLink}
+            href={isAndroidDevice && intentDeepLink ? intentDeepLink : deepLink}
             className="mt-6 inline-block rounded-full bg-neutral-900 px-8 py-3 text-sm font-semibold text-white hover:bg-neutral-800 active:scale-95 transition-transform"
           >
             Continue to App
