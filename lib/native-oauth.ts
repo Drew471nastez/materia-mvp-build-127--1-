@@ -1,67 +1,59 @@
 /**
  * lib/native-oauth.ts
  *
- * Singleton module that owns the entire Android/Capacitor OAuth callback flow.
- * Import setupNativeOAuthListeners() once at app boot (see CapacitorAuthHandler).
+ * Singleton module — owns the entire Android / Capacitor Google OAuth flow.
+ * Called once from app/NativeOAuthBridge.tsx (root layout).
  *
  * Flow:
- *  1. Login page calls signInWithOAuth({ skipBrowserRedirect:true,
- *       redirectTo:"storelib://auth/callback" })          → PKCE verifier stored in localStorage
- *  2. Browser.open(url)                                   → Chrome Custom Tab opens
- *  3. User signs in → Google redirects to storelib://auth/callback?code=…&state=…
- *  4. Android intent-filter intercepts → onNewIntent → Capacitor fires appUrlOpen
- *  5. handleOAuthCallback(fullUrl)                        → exchangeCodeForSession(fullUrl)
- *     NOTE: pass the FULL URL string, not just the code param. The GoTrue server
- *     validates both code + state for PKCE; passing only the code loses the state.
- *  6. Session stored in localStorage → window.location.assign("/app")
- *  7. /app server-side page routes to /library or /onboarding as needed
+ *  1. Login: signInWithOAuth({ skipBrowserRedirect:true,
+ *              redirectTo:"storelib://auth/callback" })
+ *     → PKCE code-verifier written to localStorage by supabase-js
+ *  2. Browser.open(authUrl) → Chrome Custom Tab
+ *  3. Google → storelib://auth/callback?code=…&state=…
+ *  4. Android intent-filter → onNewIntent → Capacitor appUrlOpen event
+ *  5. handleOAuthCallback(fullUrl)
+ *       → exchangeCodeForSession(fullUrl)   ← FULL URL, not just code param
+ *       → session stored in localStorage
+ *       → window.location.assign("/app")
  *
- * Debug toasts:
- *  Set NEXT_PUBLIC_OAUTH_DEBUG=true in .env.local to see on-screen toasts.
- *  They auto-dismiss after 6 s and are only shown on native platform.
+ * Debug toasts: set NEXT_PUBLIC_OAUTH_DEBUG=true in .env.local
  */
 
 import { createClient } from "@/lib/supabase/client"
 
 const TAG = "[NativeOAuth]"
-
-// ── Debug flag ──────────────────────────────────────────────────────────────
-// Set NEXT_PUBLIC_OAUTH_DEBUG=true in .env.local / Vercel env to enable toasts.
 const DEBUG =
   typeof process !== "undefined" &&
   process.env.NEXT_PUBLIC_OAUTH_DEBUG === "true"
 
-// ── Singleton guards ────────────────────────────────────────────────────────
-let isHandling = false     // prevent concurrent duplicate callbacks
-let isSetUp = false        // prevent registering listeners more than once
+// ── Module-level guards (survive React re-renders / Strict Mode double-mount) ─
+let isHandling = false  // prevent concurrent duplicate callbacks
+let isSetUp    = false  // prevent registering listeners more than once
 
-// ── Debug toast (DOM-injected, no React required) ───────────────────────────
+// ── Debug toast (DOM-injected, zero React deps) ──────────────────────────────
 let toastRoot: HTMLDivElement | null = null
 
 function showToast(msg: string, variant: "info" | "ok" | "err") {
   if (!DEBUG || typeof document === "undefined") return
-
   if (!toastRoot) {
     toastRoot = document.createElement("div")
-    toastRoot.setAttribute("id", "oauth-debug-toasts")
+    toastRoot.id = "oauth-debug-toasts"
     Object.assign(toastRoot.style, {
       position: "fixed",
-      top: "env(safe-area-inset-top, 60px)",
+      top: "0",
       left: "12px",
       right: "12px",
+      paddingTop: "calc(env(safe-area-inset-top, 0px) + 56px)",
       zIndex: "999999",
       display: "flex",
       flexDirection: "column",
       gap: "6px",
       pointerEvents: "none",
-      paddingTop: "60px",
     })
     document.body.appendChild(toastRoot)
   }
-
   const bg = { info: "#1d4ed8", ok: "#15803d", err: "#b91c1c" }[variant]
   const icon = { info: "📡", ok: "✅", err: "❌" }[variant]
-
   const el = document.createElement("div")
   Object.assign(el.style, {
     background: bg,
@@ -78,14 +70,13 @@ function showToast(msg: string, variant: "info" | "ok" | "err") {
   })
   el.textContent = `${icon} ${msg}`
   toastRoot.appendChild(el)
-
   setTimeout(() => {
     el.style.opacity = "0"
     setTimeout(() => el.remove(), 450)
   }, 6000)
 }
 
-// ── URL helpers ─────────────────────────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────────────────────────
 function isOAuthCallback(url: string): boolean {
   return (
     url.startsWith("storelib://auth/callback") ||
@@ -93,79 +84,94 @@ function isOAuthCallback(url: string): boolean {
   )
 }
 
-// ── Core callback handler (exported for testing / manual invocation) ─────────
-export async function handleOAuthCallback(url: string): Promise<void> {
-  console.log(`${TAG} appUrlOpen →`, url)
-  showToast(`Got callback\n${url.slice(0, 100)}`, "info")
+// ── Core handler (exported so it can be called manually for testing) ──────────
+export async function handleOAuthCallback(rawUrl: string): Promise<void> {
+  // ── LOG 1: received ──────────────────────────────────────────────────────
+  console.log(`${TAG} ▶ appUrlOpen fired`)
+  console.log(`${TAG}   raw URL : "${rawUrl}"`)
+  console.log(`${TAG}   isOAuthCallback: ${isOAuthCallback(rawUrl)}`)
+  showToast(`Got callback\n${rawUrl.slice(0, 120)}`, "info")
 
-  if (!isOAuthCallback(url)) {
-    console.log(`${TAG} Not an OAuth callback — ignoring.`)
+  if (!isOAuthCallback(rawUrl)) {
+    console.log(`${TAG}   → Not an OAuth callback — ignoring.`)
     return
   }
 
   if (isHandling) {
-    console.warn(`${TAG} Already handling a callback — duplicate ignored.`)
+    console.warn(`${TAG}   → Already handling a callback — duplicate ignored.`)
     return
   }
   isHandling = true
 
   try {
-    // ── 1. Close the Chrome Custom Tab ──────────────────────────────────────
+    // ── LOG 2: closing browser ─────────────────────────────────────────────
+    console.log(`${TAG} Closing Chrome Custom Tab…`)
     try {
       const { Browser } = await import("@capacitor/browser")
       await Browser.close()
-      console.log(`${TAG} Browser.close() done.`)
+      console.log(`${TAG}   Browser.close() ✓`)
     } catch (e) {
-      // Custom Tab may have already closed (e.g. user swiped it away)
-      console.warn(`${TAG} Browser.close() skipped:`, e)
+      console.warn(`${TAG}   Browser.close() failed (already closed?):`, e)
     }
 
-    // ── 2. Parse OAuth error params ─────────────────────────────────────────
-    const u = new URL(url)
-    const oauthErr = u.searchParams.get("error")
+    // ── LOG 3: parse URL params ────────────────────────────────────────────
+    const u = new URL(rawUrl)
+    const code       = u.searchParams.get("code")
+    const state      = u.searchParams.get("state")
+    const oauthErr   = u.searchParams.get("error")
+    const oauthErrDesc = u.searchParams.get("error_description")
+
+    console.log(`${TAG} URL params:`)
+    console.log(`${TAG}   code  : ${code  ? `"${code.slice(0, 12)}…"` : "MISSING"}`)
+    console.log(`${TAG}   state : ${state ? `"${state.slice(0, 12)}…"` : "MISSING"}`)
+    console.log(`${TAG}   error : ${oauthErr ?? "none"}`)
+
     if (oauthErr) {
-      const desc =
-        u.searchParams.get("error_description") ??
-        (oauthErr === "access_denied" ? "Sign-in was cancelled." : oauthErr)
-      console.error(`${TAG} Provider returned error: ${desc}`)
+      const desc = oauthErrDesc ?? (oauthErr === "access_denied" ? "Sign-in was cancelled." : oauthErr)
+      console.error(`${TAG} OAuth provider returned error: "${desc}"`)
       showToast(`Error: ${desc}`, "err")
       window.location.assign(`/login?error=${encodeURIComponent(desc)}`)
       return
     }
 
-    // ── 3. Confirm code is present (guard only — full URL is passed below) ──
-    const code = u.searchParams.get("code")
-    console.log(`${TAG} code param: ${code ? "present" : "MISSING"}`)
     if (!code) {
-      console.warn(`${TAG} No code in URL — ignoring.`)
+      console.warn(`${TAG} No "code" param in URL — cannot exchange. Full URL was: "${rawUrl}"`)
       return
     }
 
-    // ── 4. Exchange PKCE code for session ────────────────────────────────────
-    // IMPORTANT: pass the FULL URL string.
-    // The GoTrue /token?grant_type=pkce endpoint validates both the code AND
-    // the state param for PKCE. Passing only `code` loses the state, causing
-    // the exchange to fail on some Supabase project configurations.
-    // Reference: https://supabase.com/docs/guides/auth/native-mobile-login/oauth-login?platform=capacitor
+    // ── LOG 4: before exchangeCodeForSession ───────────────────────────────
+    //
+    // IMPORTANT: we pass the FULL URL string, not just the code value.
+    //
+    // Why? The Supabase GoTrue /token?grant_type=pkce endpoint expects both
+    // the authorization `code` AND the `state` parameter for PKCE validation.
+    // Passing only `code` causes the exchange to fail on some project configs.
+    // Official Supabase Capacitor guide: https://supabase.com/docs/guides/auth/
+    //   native-mobile-login/oauth-login?platform=capacitor
+    //
     const supabase = createClient()
-    console.log(`${TAG} Calling exchangeCodeForSession(fullUrl)…`)
+
+    console.log(`${TAG} ── calling exchangeCodeForSession ──────────────────`)
+    console.log(`${TAG}   argument type  : ${typeof rawUrl}`)
+    console.log(`${TAG}   argument value : "${rawUrl}"`)
+    console.log(`${TAG}   (this is the FULL URL, not just the code param)`)
 
     const { data, error: exchangeErr } =
-      await supabase.auth.exchangeCodeForSession(url)
+      await supabase.auth.exchangeCodeForSession(rawUrl)
 
-    console.log(`${TAG} exchangeCodeForSession →`, {
-      hasSession: !!data?.session,
-      userId: data?.session?.user?.id ?? null,
-      email: data?.session?.user?.email ?? null,
-      error: exchangeErr?.message ?? null,
-    })
+    // ── LOG 5: after exchangeCodeForSession ────────────────────────────────
+    console.log(`${TAG} ── exchangeCodeForSession returned ──────────────────`)
+    console.log(`${TAG}   error       : ${exchangeErr ? exchangeErr.message : "null"}`)
+    console.log(`${TAG}   hasSession  : ${!!data?.session}`)
+    console.log(`${TAG}   userId      : ${data?.session?.user?.id ?? "null"}`)
+    console.log(`${TAG}   email       : ${data?.session?.user?.email ?? "null"}`)
+    console.log(`${TAG}   accessToken : ${data?.session?.access_token ? data.session.access_token.slice(0, 16) + "…" : "null"}`)
 
-    // ── 5. Handle exchange failure ───────────────────────────────────────────
     if (exchangeErr) {
       const msg = exchangeErr.message.includes("code verifier")
         ? "Session expired — please sign in again."
         : exchangeErr.message
-      console.error(`${TAG} Exchange failed:`, exchangeErr)
+      console.error(`${TAG} Exchange FAILED:`, exchangeErr)
       showToast(`Error: ${msg}`, "err")
       window.location.assign(`/login?error=${encodeURIComponent(msg)}`)
       return
@@ -179,13 +185,14 @@ export async function handleOAuthCallback(url: string): Promise<void> {
       return
     }
 
-    // ── 6. Success → navigate ────────────────────────────────────────────────
+    // ── LOG 6: success ─────────────────────────────────────────────────────
     const email = data.session.user.email ?? data.session.user.id
+    console.log(`${TAG} ✓ Session confirmed for ${email} → navigating to /app`)
     showToast(`Session OK  ${email}`, "ok")
-    console.log(`${TAG} ✓ Session confirmed for ${email} — navigating to /app`)
     window.location.assign("/app")
+
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Unexpected error during sign-in."
+    const msg = err instanceof Error ? err.message : "Unexpected error."
     console.error(`${TAG} Handler threw:`, err)
     showToast(`Error: ${msg}`, "err")
     window.location.assign(`/login?error=${encodeURIComponent(msg)}`)
@@ -194,73 +201,75 @@ export async function handleOAuthCallback(url: string): Promise<void> {
   }
 }
 
-// ── Listener setup (call once at app boot) ───────────────────────────────────
+// ── Listener setup ────────────────────────────────────────────────────────────
 /**
- * Registers two listeners on native platforms:
- *   1. App.addListener("appUrlOpen") — primary OAuth callback path
- *   2. supabase.auth.onAuthStateChange — fallback: if the session lands while
- *      the user is still on /login or /signup, navigate immediately.
- *
- * Returns a cleanup function — call it when the root component unmounts
- * (which in practice never happens for the root layout).
- *
- * The function is idempotent: calling it a second time is a no-op.
+ * Call once at app boot (via NativeOAuthBridge in root layout).
+ * Returns a cleanup function.  Idempotent — safe to call multiple times.
  */
 export async function setupNativeOAuthListeners(): Promise<() => void> {
+  // ── LOG A: entry ──────────────────────────────────────────────────────────
+  console.log(`${TAG} setupNativeOAuthListeners() called  (isSetUp=${isSetUp})`)
+
   if (isSetUp) {
-    console.log(`${TAG} Listeners already set up — skipping.`)
+    console.log(`${TAG}   Already set up — skipping duplicate registration.`)
+    return () => {}
+  }
+  if (typeof window === "undefined") {
+    console.log(`${TAG}   SSR context — skipping.`)
     return () => {}
   }
 
-  if (typeof window === "undefined") return () => {}
-
   try {
     const { Capacitor } = await import("@capacitor/core")
-    if (!Capacitor.isNativePlatform()) {
-      console.log(`${TAG} Not on a native platform — no listeners needed.`)
+    const native = Capacitor.isNativePlatform()
+    console.log(`${TAG}   Capacitor.isNativePlatform() = ${native}`)
+
+    if (!native) {
+      console.log(`${TAG}   Not a native platform — no listeners needed.`)
       return () => {}
     }
 
-    console.log(`${TAG} Native platform confirmed — registering listeners.`)
     isSetUp = true
-
     const { App } = await import("@capacitor/app")
     const supabase = createClient()
 
-    // Listener 1: appUrlOpen (primary path)
+    // ── LOG B: registering appUrlOpen ────────────────────────────────────
+    console.log(`${TAG} Registering App.addListener("appUrlOpen")…`)
     const appHandle = await App.addListener("appUrlOpen", ({ url }) => {
+      console.log(`${TAG} ← appUrlOpen event received, url="${url}"`)
       handleOAuthCallback(url)
     })
-    console.log(`${TAG} appUrlOpen listener registered.`)
+    console.log(`${TAG}   appUrlOpen listener registered ✓`)
 
-    // Listener 2: onAuthStateChange (safety net)
-    // If the session is established via any code path while the user is still
-    // on /login or /signup, force navigation to /app.
+    // ── LOG C: registering onAuthStateChange ─────────────────────────────
+    console.log(`${TAG} Registering supabase.auth.onAuthStateChange…`)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log(`${TAG} ← onAuthStateChange event="${event}"  hasSession=${!!session}  path="${window.location.pathname}"`)
         if ((event === "SIGNED_IN" || event === "TOKEN_REFRESHED") && session) {
           const path = window.location.pathname
           if (path === "/login" || path === "/signup") {
-            console.log(
-              `${TAG} onAuthStateChange(${event}) on ${path} — navigating to /app`
-            )
+            console.log(`${TAG}   SIGNED_IN on ${path} — forcing navigation to /app`)
             showToast(`Session via authStateChange  ${session.user.email ?? ""}`, "ok")
             window.location.assign("/app")
+          } else {
+            console.log(`${TAG}   SIGNED_IN but path is "${path}" — no redirect needed.`)
           }
         }
       }
     )
-    console.log(`${TAG} onAuthStateChange listener registered.`)
+    console.log(`${TAG}   onAuthStateChange listener registered ✓`)
+    console.log(`${TAG} All native OAuth listeners active. 🎯`)
 
     return () => {
       appHandle.remove()
       subscription.unsubscribe()
       isSetUp = false
-      console.log(`${TAG} Listeners removed.`)
+      console.log(`${TAG} Listeners removed (cleanup).`)
     }
   } catch (err) {
     isSetUp = false
-    console.warn(`${TAG} Setup failed (plugin missing or non-native?):`, err)
+    console.warn(`${TAG} Setup failed — plugin missing or non-Capacitor env:`, err)
     return () => {}
   }
 }
