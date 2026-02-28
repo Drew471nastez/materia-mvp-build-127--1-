@@ -44,6 +44,12 @@ export function CapacitorAuthHandler() {
         const handle = await App.addListener("appUrlOpen", async ({ url }) => {
           console.log("APP URL OPEN:", url)
 
+          // Only handle our OAuth callback URLs — ignore unrelated deep links
+          const isOAuthCallback =
+            url.startsWith("storelib://auth/callback") ||
+            url.includes("/app/auth/callback")
+          if (!isOAuthCallback) return
+
           if (handlingRef.current) return
           handlingRef.current = true
 

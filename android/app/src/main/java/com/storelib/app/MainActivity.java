@@ -80,10 +80,17 @@ public class MainActivity extends BridgeActivity {
     private void handleIncomingIntent(Intent intent) {
         Uri data = intent.getData();
         if (data != null) {
+            String scheme = data.getScheme();
+            // Custom-scheme OAuth callback: storelib://auth/callback?code=…
+            if ("storelib".equals(scheme)) {
+                // Let Capacitor's appUrlOpen event handle it.
+                // Do not call loadInWebView — that would race with the JS handler.
+                return;
+            }
+            // HTTPS App Link OAuth callback: https://storelib.com/app/auth/callback?code=…
             String path = data.getPath();
             if (path != null && path.startsWith("/app/auth/callback")) {
-                // OAuth App Link: let Capacitor's appUrlOpen event handle it.
-                // Do not call loadInWebView — that would race with the JS handler.
+                // Same: let Capacitor's appUrlOpen event handle it.
                 return;
             }
         }

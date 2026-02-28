@@ -305,7 +305,7 @@ function LoginFormContent() {
         const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
           provider: "google",
           options: {
-            redirectTo: `${canonicalUrl}/app/auth/callback`,
+            redirectTo: "storelib://auth/callback",
             queryParams: { access_type: "offline", prompt: "consent" },
             skipBrowserRedirect: true,
           },
