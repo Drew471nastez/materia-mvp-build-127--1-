@@ -344,11 +344,13 @@ function LoginFormContent() {
         const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
           provider: "google",
           options: {
-            // Redirect to the Vercel server route so it can inspect the
-            // User-Agent for "StorelibApp" and then redirect to the
-            // storelib:// deep-link with tokens embedded.  The deep-link
-            // fires the Android intent-filter → appUrlOpen → native-oauth.ts.
-            redirectTo: `${canonicalUrl}/auth/callback`,
+            // Redirect to the Vercel server route so it can identify this as
+            // a native Capacitor request and send tokens back via deep link.
+            // ?native=true is the reliable signal — Chrome Custom Tabs do NOT
+            // propagate the custom WebView User-Agent, so UA detection alone
+            // would silently fail. The query param is always preserved through
+            // the Google OAuth redirect back to this URL.
+            redirectTo: `${canonicalUrl}/auth/callback?native=true`,
             queryParams: { access_type: "offline", prompt: "consent" },
             skipBrowserRedirect: true,
           },

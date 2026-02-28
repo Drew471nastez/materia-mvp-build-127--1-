@@ -131,7 +131,14 @@ export async function GET(request: Request) {
   // Android intercepts the redirect → fires appUrlOpen → native-oauth.ts
   // calls setSession() with the embedded tokens inside the WebView context.
   const userAgent = request.headers.get("user-agent") ?? ""
-  const isStorelibApp = userAgent.includes("StorelibApp")
+  // Dual detection: prefer the explicit ?native=true query param because
+  // Chrome Custom Tabs do NOT forward the custom WebView User-Agent
+  // (set in MainActivity.java) — they use the standard Chrome UA.
+  // The UA check is kept as a belt-and-suspenders fallback in case a
+  // future build does inject the custom agent into the Custom Tab.
+  const isStorelibApp =
+    searchParams.get("native") === "true" ||
+    userAgent.includes("StorelibApp")
 
   if (isStorelibApp) {
     // Redirect to the client-side bridge page, NOT directly to storelib://.
