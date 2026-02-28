@@ -473,12 +473,19 @@ function EditorLayout() {
     setSaveToastSequence((prev) => prev + 1)
   }, [hasProFeaturesEnabled, save])
 
-  // Handle upgrading to Pro — sends user to pricing page with return path
-  const handleUpgradeToPro = useCallback(() => {
+  // Handle upgrading to Pro — auto-saves non-pro changes, then sends user to pricing page
+  const handleUpgradeToPro = useCallback(async () => {
     setShowProUpgradeDialog(false)
+    // Auto-save current changes (non-pro changes will be persisted)
+    // This prevents the user from losing work when they navigate away
+    try {
+      await save()
+    } catch {
+      // Ignore save errors — navigate anyway
+    }
     const returnTo = encodeURIComponent(window.location.pathname)
     window.location.href = `/pricing?source=upgrade&returnTo=${returnTo}`
-  }, [])
+  }, [save])
 
   // Handle discarding Pro changes
   const handleDiscardProChanges = useCallback(() => {
@@ -785,10 +792,10 @@ function EditorLayout() {
 
         {/* Right side actions */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0 pr-3 sm:pr-4 md:w-[410px] md:border-l md:justify-end md:pr-6 md:pl-3">
-          {/* Unsaved changes — mr-auto pushes it to the far left of the panel, away from the divider */}
+          {/* Unsaved — mr-auto pushes it to the far left of the panel, away from the divider */}
           {isDirty && saveState !== "saving" && (
             <span className="hidden lg:inline text-xs text-amber-600 font-medium whitespace-nowrap shrink-0 mr-auto">
-              Unsaved changes
+              Unsaved
             </span>
           )}
 
@@ -820,16 +827,14 @@ function EditorLayout() {
             {getSaveButtonContent()}
           </Button>
 
-          {/* URL Button - Desktop */}
+          {/* Share your OnePage Button - Desktop */}
           <div className="hidden md:block">
             <button
               onClick={() => setShowLinkModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg shadow-sm border text-sm font-medium hover:shadow-md hover:bg-gray-50 transition-all cursor-pointer"
+              className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg shadow-sm border text-sm font-medium hover:shadow-md hover:bg-gray-50 transition-all cursor-pointer whitespace-nowrap"
             >
-              <span className="text-muted-foreground truncate max-w-[90px]">
-                {pageUrl.replace('https://', '').replace('http://', '')}
-              </span>
-              <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0" />
+              <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
+              <span>Share your OnePage</span>
             </button>
           </div>
 

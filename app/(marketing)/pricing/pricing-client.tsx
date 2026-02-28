@@ -18,9 +18,11 @@ export function PricingPageClient({
 }) {
   const isUpgradeMode = source === "upgrade"
   const [loadingPlan, setLoadingPlan] = useState<"growth" | "pro" | null>(null)
+  const [checkoutError, setCheckoutError] = useState<string | null>(null)
 
   const handleUpgradePlanSelect = async (planId: "growth" | "pro") => {
     if (loadingPlan) return
+    setCheckoutError(null)
     setLoadingPlan(planId)
     try {
       const origin = window.location.origin
@@ -39,15 +41,23 @@ export function PricingPageClient({
         window.location.href = data.checkoutUrl
         return
       }
-      console.error("Checkout error:", data.error)
+      setCheckoutError(data.error || "Something went wrong. Please try again.")
     } catch (err) {
-      console.error("Failed to start checkout:", err)
+      setCheckoutError("Failed to connect. Please check your connection and try again.")
     }
     setLoadingPlan(null)
   }
 
   return (
     <div className="bg-white overflow-x-hidden">
+      {/* Checkout error banner */}
+      {checkoutError && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 text-sm font-medium px-5 py-3 rounded-xl shadow-lg max-w-[90vw]">
+          <span>{checkoutError}</span>
+          <button onClick={() => setCheckoutError(null)} className="ml-2 text-red-400 hover:text-red-600 shrink-0">✕</button>
+        </div>
+      )}
+
       {/* PRICING */}
       <PricingSection
         hideDetailsLink

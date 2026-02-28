@@ -60,13 +60,6 @@ export async function POST(request: Request) {
       .eq("creator_id", creator.id)
       .maybeSingle()
 
-    if (existingSubscription && existingSubscription.status === "active") {
-      return NextResponse.json(
-        { error: "You already have an active subscription. Please cancel or change your current plan instead." },
-        { status: 400 }
-      )
-    }
-
     // Validate or create Stripe customer (handles test→live key migration)
     const stripeCustomerId = await getOrCreateStripeCustomer({
       creatorId: creator.id,
@@ -80,6 +73,16 @@ export async function POST(request: Request) {
 
     const successUrl = customSuccessUrl || `${appUrl}/app/settings/billing?success=1`
     const cancelUrl = customCancelUrl || `${appUrl}/app/settings/billing?canceled=1`
+
+    // If user already has an active subscription, redirect to Stripe Customer Portal
+    // so they can manage / change their plan instead of creating a duplicate subscription
+    if (existingSubscription && existingSubscription.status === "active") {
+      const portalSession = await stripe.billingPortal.sessions.create({
+        customer: stripeCustomerId,
+        return_url: cancelUrl,
+      })
+      return NextResponse.json({ checkoutUrl: portalSession.url })
+    }
 
     // Create Stripe Checkout Session (redirect mode) with LIVE price
     const checkoutSession = await stripe.checkout.sessions.create({
