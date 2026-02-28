@@ -15,17 +15,13 @@ import { NextResponse } from "next/server"
  *  3. Determine the post-login destination based on user type:
  *       creator / seller (has creators row or is_creator=true)  → /app
  *       buyer  (is_creator=false)                               → /library
- *  4. Generate a short-lived bridge_token (UUID stored in oauth_bridge_tokens).
- *  5. Redirect to /app/auth/callback?bridge_token=<uuid>&next=<path>.
- *
- * On Android the App Link registered for /app/auth/callback fires at step 5,
- * closing the Custom Tab and opening MainActivity with the full URL.
- * MainActivity loads that full URL inside the WebView.
- * /app/auth/callback then validates the bridge_token, writes the session
- * cookies into the WebView's jar, and redirects to the final destination.
- *
- * On web (no App Link), the browser navigates to /app/auth/callback directly,
- * which performs the same session-cookie dance and redirects the user.
+ *  4a. Web/iOS: session is already in the browser's cookie jar from step 1
+ *      → redirect straight to the destination.  No bridge token needed.
+ *  4b. Android: generate a short-lived bridge_token (UUID stored in
+ *      oauth_bridge_tokens) and redirect to /app/auth/callback?bridge_token=.
+ *      The Android App Link fires, MainActivity loads that URL in the WebView,
+ *      and /app/auth/callback exchanges the bridge token for session cookies
+ *      in the WebView's jar, then redirects to the final destination.
  */
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
@@ -114,7 +110,29 @@ export async function GET(request: Request) {
     // else: has creators row, or is_creator is true/null → keep /app
   }
 
-  // ── 4. Generate bridge token ────────────────────────────────────────────
+  // ── 4. Web vs Android path ──────────────────────────────────────────────
+  // The bridge-token dance is only needed on Android.  Chrome Custom Tab
+  // (Android) and WebView have separate cookie jars: once the Custom Tab
+  // completes OAuth, /auth/callback sets session cookies in Chrome's jar,
+  // but the WebView can't read them.  The bridge token transfers the tokens
+  // through the DB so /app/auth/callback can call setSession() inside the
+  // WebView's jar (triggered via the Android App Link on that URL).
+  //
+  // On web the browser making this request IS the browser the user will
+  // continue using, so the Set-Cookie headers from exchangeCodeForSession
+  // above are already in its jar — no bridge token needed.  Skipping it
+  // avoids a DB round-trip and eliminates the "Auth bridge failed" flash
+  // that occurred when the oauth_bridge_tokens table was unavailable.
+  const userAgent = request.headers.get("user-agent") ?? ""
+  const isAndroid = userAgent.toLowerCase().includes("android")
+
+  if (!isAndroid) {
+    // Web / iOS: session already live in this browser — go straight to dest.
+    return NextResponse.redirect(`${canonicalUrl}${nextPath}`)
+  }
+
+  // Android: create a short-lived bridge token so /app/auth/callback can
+  // call setSession() inside the WebView's cookie jar.
   const { data: bridgeRow, error: bridgeError } = await adminSupabase
     .from("oauth_bridge_tokens")
     .insert({
@@ -127,14 +145,15 @@ export async function GET(request: Request) {
 
   if (bridgeError || !bridgeRow) {
     console.error("Bridge token creation error:", bridgeError)
-    return NextResponse.redirect(
-      `${canonicalUrl}/login?error=${encodeURIComponent("Auth bridge failed. Please try again.")}`
-    )
+    // Fall back to direct redirect — on Android this means the WebView
+    // won't have the session, but it's still better than an error loop.
+    return NextResponse.redirect(`${canonicalUrl}${nextPath}`)
   }
 
   // ── 5. Redirect to App Link target ─────────────────────────────────────
-  // On Android this URL triggers the App Link → MainActivity opens and loads
-  // this URL in the WebView. On web the browser navigates here directly.
+  // This URL triggers the Android App Link → MainActivity opens and loads
+  // it in the WebView, which then validates the bridge token and finalises
+  // the session.
   return NextResponse.redirect(
     `${canonicalUrl}/app/auth/callback?bridge_token=${bridgeRow.id}&next=${encodeURIComponent(nextPath)}`
   )
