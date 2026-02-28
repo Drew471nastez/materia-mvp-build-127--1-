@@ -84,30 +84,50 @@ function LoginFormContent() {
           sessionStorage.setItem("storelib_login_ts", String(now))
         }
 
-        // getSession() reads from localStorage — no network call for unauthenticated users,
-        // so the check completes in milliseconds instead of waiting for a round-trip.
+        // getSession() reads from Capacitor Preferences (native) or localStorage
+        // (web) — no network call for unauthenticated users.
         const supabase = createClient()
         const { data: { session } } = await supabase.auth.getSession()
         const user = session?.user
 
         if (user) {
-          // Redirect based on user type: creator/seller → /app, buyer → /library
+          // Determine destination: creator/seller → /app, buyer → /library
           const { data: creatorRow } = await supabase
             .from("creators")
             .select("id")
             .eq("user_id", user.id)
             .maybeSingle()
 
-          if (creatorRow) {
-            router.replace("/app")
-          } else {
+          let nextPath = "/app"
+          if (!creatorRow) {
             const { data: profile } = await supabase
               .from("profiles")
               .select("is_creator")
               .eq("id", user.id)
               .maybeSingle()
-            router.replace(profile?.is_creator ? "/app" : "/library")
+            nextPath = profile?.is_creator ? "/app" : "/library"
           }
+
+          // On native Capacitor, the session lives in Capacitor Preferences
+          // (SharedPreferences) but Next.js server layouts check HTTP cookies.
+          // Without syncing, the app layout redirects back to /login → loop.
+          // Route through /auth/sync-session to write Set-Cookie headers first.
+          const isNative =
+            typeof (window as any).Capacitor?.isNativePlatform === "function" &&
+            (window as any).Capacitor.isNativePlatform()
+
+          if (isNative && session) {
+            window.location.assign(
+              `/auth/sync-session` +
+              `?access_token=${encodeURIComponent(session.access_token)}` +
+              `&refresh_token=${encodeURIComponent(session.refresh_token)}` +
+              `&next=${encodeURIComponent(nextPath)}`
+            )
+            return
+          }
+
+          // Web: session is already in cookies from the server-side PKCE flow.
+          router.replace(nextPath)
           return
         }
 

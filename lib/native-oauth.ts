@@ -206,7 +206,7 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
     }
 
     // ── LOG 7: success — close browser again and navigate ────────────────────
-    console.log(`${TAG} ✓ Session confirmed for ${email} → navigating to /app`)
+    console.log(`${TAG} ✓ Session confirmed for ${email} → syncing cookies → /app`)
     showToast(`Session OK — ${email}`, "ok")
 
     // Close Chrome Custom Tab again (belt-and-suspenders — some Android
@@ -219,7 +219,19 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
       console.warn(`${TAG}   Browser.close() after session failed:`, e)
     }
 
-    window.location.assign("/app")
+    // The native Capacitor client stores the session in Capacitor Preferences
+    // (Android SharedPreferences), but Next.js server components read cookies.
+    // Route through /auth/sync-session which calls setSession() server-side,
+    // writing Set-Cookie headers so the WebView's cookie jar is populated.
+    // Without this the app layout's auth check finds no cookies → redirect loop.
+    const { access_token, refresh_token } = data.session
+    const syncUrl =
+      `/auth/sync-session` +
+      `?access_token=${encodeURIComponent(access_token)}` +
+      `&refresh_token=${encodeURIComponent(refresh_token)}` +
+      `&next=${encodeURIComponent("/app")}`
+    console.log(`${TAG}   Navigating to sync-session route to establish cookies`)
+    window.location.assign(syncUrl)
 
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unexpected error."

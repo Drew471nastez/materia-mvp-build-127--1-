@@ -23,7 +23,7 @@ function SignUpFormContent() {
   const [isContinueLoading, setIsContinueLoading] = useState(false)
   const [isRedirecting, setIsRedirecting] = useState(false)
   const [showPasswordField, setShowPasswordField] = useState(false)
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true)
+  const [isCheckingAuth, setIsCheckingAuth] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [googleOnlyEmail, setGoogleOnlyEmail] = useState<string | null>(null)
   const redirectTimeoutRef = useRef<number | null>(null)
@@ -318,8 +318,8 @@ function SignUpFormContent() {
     }
   }
 
-  // Show loading while checking auth status
-  if (isCheckingAuth || isRedirecting) {
+  // Show loading while redirecting to destination after auth
+  if (isRedirecting) {
     return (
       <div className="flex min-h-svh w-full items-center justify-center">
         <div className="text-center">
