@@ -2931,13 +2931,13 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                   <div className="flex items-center gap-3 min-w-0">
                     <Globe className="h-5 w-5 text-white shrink-0" />
                     <p className="text-[13px] sm:text-[14px] font-medium text-white truncate">
-                      <span className="sm:hidden">Custom domains — upgrade to connect</span>
-                      <span className="hidden sm:inline">Custom domains are available on Growth & Pro plans.</span>
+                      <span className="sm:hidden">Upgrade for custom domains</span>
+                      <span className="hidden sm:inline">Custom domains are available on Growth &amp; Pro plans.</span>
                     </p>
                   </div>
                   <a
                     href={`/pricing?source=upgrade&returnTo=${encodeURIComponent("/app/settings?tab=domains")}`}
-                    className="shrink-0 h-9 px-5 text-[13px] font-semibold text-[#7c3aed] bg-white rounded-lg hover:bg-[#f5f3ff] active:bg-[#ede9fe] transition-colors shadow-sm cursor-pointer no-underline"
+                    className="shrink-0 inline-flex items-center justify-center h-9 px-5 text-[13px] font-semibold text-[#7c3aed] bg-white rounded-xl hover:bg-[#f5f3ff] active:bg-[#ede9fe] transition-colors shadow-sm cursor-pointer no-underline whitespace-nowrap"
                   >
                     Upgrade
                   </a>
