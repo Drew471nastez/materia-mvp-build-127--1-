@@ -8,7 +8,6 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useEffect, Suspense, useRef } from "react"
 import { Eye, EyeOff } from "lucide-react"
-import { getCanonicalSiteUrl } from "@/lib/url-helpers"
 import Image from "next/image"
 import { AuthLogo } from "@/components/auth/auth-logo"
 
@@ -320,7 +319,11 @@ function LoginFormContent() {
     setGoogleOnlyEmail(null)
 
     try {
-      const canonicalUrl = getCanonicalSiteUrl()
+      // Use the current browser origin so /auth/start runs on the same host.
+      // This is critical on Vercel preview deployments where the host differs
+      // from NEXT_PUBLIC_SITE_URL — the PKCE cookie must be set and read on
+      // the same origin.
+      const canonicalUrl = window.location.origin
 
       // Dynamic import — @capacitor/core is already bundled in the native build
       const { Capacitor } = await import("@capacitor/core")

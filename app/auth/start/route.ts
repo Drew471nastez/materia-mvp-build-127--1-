@@ -36,6 +36,13 @@ export async function GET(request: Request) {
 
   const supabase = await createClient()
 
+  // CRITICAL: redirectTo MUST use `origin` (the actual request host), NOT
+  // `canonicalUrl`.  The PKCE code-verifier cookie is scoped to the host that
+  // serves /auth/start.  If we redirect back to a different host (e.g.
+  // NEXT_PUBLIC_SITE_URL = storelib.com but we're on a Vercel preview deploy),
+  // the callback won't find the cookie → "invalid flow state" error.
+  const callbackOrigin = origin
+
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
@@ -43,7 +50,7 @@ export async function GET(request: Request) {
       // ?next=... value, which caused Google to return 400 "malformed request".
       // /auth/callback already determines the correct destination (/app vs
       // /library) from the database, so the `next` hint is not needed.
-      redirectTo: `${canonicalUrl}/auth/callback`,
+      redirectTo: `${callbackOrigin}/auth/callback`,
       queryParams: {
         access_type: "offline",
         prompt: "consent",

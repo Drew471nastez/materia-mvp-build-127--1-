@@ -31,7 +31,12 @@ export async function GET(request: Request) {
   // next hint forwarded from /auth/start; overridden server-side by user type
   const nextHint = searchParams.get("next") || "/app"
 
-  const canonicalUrl = process.env.NEXT_PUBLIC_SITE_URL || origin
+  // Use the actual request origin, not NEXT_PUBLIC_SITE_URL.  The PKCE
+  // code-verifier cookie is scoped to the host that served /auth/start, so the
+  // callback must run on the same host.  On Vercel preview deployments the
+  // origin differs from NEXT_PUBLIC_SITE_URL; using the env var here caused
+  // "invalid flow state" because the cookie domain didn't match.
+  const canonicalUrl = origin
 
   if (error) {
     console.error("OAuth error:", error, errorDescription)
