@@ -15,13 +15,13 @@ import com.getcapacitor.BridgeActivity;
  *    on /app and buyers on /library).
  *
  * 2. Installs {@link StorelibWebViewClient} which blocks any
- *    navigation to the public homepage and opens Google OAuth URLs
- *    in a Chrome Custom Tab instead of the WebView.
+ *    navigation to the public homepage and opens Google/Supabase OAuth
+ *    URLs in a Chrome Custom Tab instead of the WebView.
  *
  * 3. Handles HTTPS App Links from https://storelib.com/app/auth/callback
- *    — the URL Android intercepts after Google OAuth completes in the
- *    Custom Tab. The full callback URL (with ?code=…) is loaded into
- *    the WebView so Next.js can exchange the code and set the session.
+ *    — the URL Android intercepts after OAuth completes in the Custom Tab.
+ *    On return we navigate directly to /app; the session was established
+ *    in the Custom Tab and the server validates it on the /app request.
  */
 public class MainActivity extends BridgeActivity {
 
@@ -59,13 +59,19 @@ public class MainActivity extends BridgeActivity {
     //  Intent routing
     // ────────────────────────────────────────────────────────────────
 
+    /** The app destination after a successful OAuth round-trip. */
+    private static final String URL_APP = "https://storelib.com/app";
+
     /**
      * Decides which URL to load based on what triggered this activity:
      *
-     * • App Link (https://storelib.com/app/auth/callback?code=…)
-     *   → load the full callback URL so Next.js can exchange the code
-     *     and set the Supabase session cookie inside the WebView.
-     *     The callback page then redirects to /app or /library itself.
+     * • App Link (https://storelib.com/app/auth/callback)
+     *   → load https://storelib.com/app directly.
+     *     OAuth completed in the Custom Tab; the server-side session is
+     *     already established via the callback, so hitting /app will
+     *     succeed. We do NOT pass the raw callback URL into the WebView
+     *     because the code/token in the URL is single-use and was
+     *     already consumed by the browser before the App Link fired.
      *
      * • Normal launch from WelcomeActivity (EXTRA_TARGET_URL extra)
      *   → load whatever URL WelcomeActivity chose (/app, /library,
@@ -76,10 +82,8 @@ public class MainActivity extends BridgeActivity {
         if (data != null) {
             String path = data.getPath();
             if (path != null && path.startsWith("/app/auth/callback")) {
-                // App Link from OAuth callback — pass the full URL
-                // (including ?code= or #access_token= fragment) to the
-                // WebView so the Next.js callback route can process it.
-                loadInWebView(data.toString());
+                // App Link return from OAuth — go straight to /app.
+                loadInWebView(URL_APP);
                 return;
             }
         }

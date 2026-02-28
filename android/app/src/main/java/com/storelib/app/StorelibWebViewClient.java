@@ -16,13 +16,23 @@ import com.getcapacitor.BridgeWebViewClient;
  * so all Capacitor functionality (local server, JS injection, plugins) is
  * preserved — we add three behaviours on top:
  *
- * 1. Intercept Google OAuth navigations and open them in a Chrome Custom
- *    Tab instead. This is required because Google blocks OAuth flows inside
- *    embedded WebViews. The Custom Tab shares the system browser's cookie
- *    jar with Chrome, so the user is often already signed into Google.
- *    After auth, the backend redirects to
- *    https://storelib.com/app/auth/callback which the App Link defined in
- *    AndroidManifest.xml intercepts and hands back to MainActivity.
+ * 1. Intercept OAuth navigations and open them in a Chrome Custom Tab.
+ *    Two interception points cover the full redirect chain:
+ *
+ *    a) Supabase auth URLs (*.supabase.co/auth/*) — this is the FIRST
+ *       hop: when the user taps "Continue with Google" the Next.js login
+ *       page navigates the WebView to Supabase's OAuth endpoint, which
+ *       then redirects onward to Google. We catch it here before Google
+ *       even sees the request.
+ *
+ *    b) Google sign-in URLs (accounts.google.com, oauth2.googleapis.com)
+ *       — safety net for any flow that bypasses Supabase or arrives via
+ *       a direct link. Google's policy forbids OAuth in embedded WebViews.
+ *
+ *    The Custom Tab shares Chrome's cookie jar, so signed-in users often
+ *    get one-tap consent. After auth the backend redirects to
+ *    https://storelib.com/app/auth/callback, which the App Link in
+ *    AndroidManifest.xml intercepts and routes to MainActivity.
  *
  * 2. Block any top-level navigation to the public homepage ("/").
  *    The app must never show storelib.com's marketing page.
@@ -33,9 +43,9 @@ import com.getcapacitor.BridgeWebViewClient;
 public class StorelibWebViewClient extends BridgeWebViewClient {
 
     // ── Google OAuth host patterns ──────────────────────────────────
-    // accounts.google.com  — interactive sign-in / consent screen
+    // accounts.google.com   — interactive sign-in / consent screen
     // oauth2.googleapis.com — token endpoints (rarely navigated, but safe)
-    private static final String[] OAUTH_HOSTS = {
+    private static final String[] GOOGLE_OAUTH_HOSTS = {
             "accounts.google.com",
             "oauth2.googleapis.com",
     };
@@ -86,15 +96,14 @@ public class StorelibWebViewClient extends BridgeWebViewClient {
     public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
         Uri uri = request.getUrl();
 
-        // 1. Google OAuth → Chrome Custom Tab
-        //    Catches the navigation triggered when the user taps
-        //    "Continue with Google" on /login or /signup.
-        //    Google's policy forbids OAuth inside embedded WebViews, so we
-        //    redirect to the system browser. After the user consents, the
-        //    backend redirects to https://storelib.com/app/auth/callback,
-        //    which the App Link in AndroidManifest.xml intercepts and routes
-        //    back to MainActivity.onNewIntent (or onCreate if cold-start).
-        if (isGoogleOAuthUrl(uri)) {
+        // 1. OAuth URL → Chrome Custom Tab
+        //    Two-layer catch covering the full redirect chain:
+        //    • Supabase auth (first hop from the login page)
+        //    • Google sign-in (second hop, and safety net for direct links)
+        //    After consent, the backend redirects to
+        //    https://storelib.com/app/auth/callback which the App Link
+        //    intercepts and routes back to MainActivity.
+        if (isOAuthUrl(uri)) {
             openInCustomTab(view.getContext(), uri);
             return true;   // cancel the WebView navigation
         }
@@ -147,13 +156,36 @@ public class StorelibWebViewClient extends BridgeWebViewClient {
     // ────────────────────────────────────────────────────────────────
 
     /**
-     * Returns true for any Google sign-in or OAuth host.
+     * Returns true if this URL should be opened in a Custom Tab rather
+     * than the WebView — covers both Supabase and Google OAuth hops.
+     */
+    private static boolean isOAuthUrl(Uri uri) {
+        return isSupabaseOAuthUrl(uri) || isGoogleOAuthUrl(uri);
+    }
+
+    /**
+     * Matches any Supabase auth endpoint: *.supabase.co/auth/*
+     *
+     * This catches the navigation triggered when the login page calls
+     * supabase.auth.signInWithOAuth({ provider: 'google' }), which
+     * sends the WebView to https://PROJECT.supabase.co/auth/v1/authorize.
+     * Intercepting here means Google never sees the request inside a WebView.
+     */
+    private static boolean isSupabaseOAuthUrl(Uri uri) {
+        String host = uri.getHost();
+        if (host == null || !host.endsWith(".supabase.co")) return false;
+        String path = uri.getPath();
+        return path != null && path.startsWith("/auth/");
+    }
+
+    /**
+     * Matches Google sign-in and token hosts.
      * Also catches subdomains (e.g. sso.accounts.google.com) via endsWith.
      */
     private static boolean isGoogleOAuthUrl(Uri uri) {
         String host = uri.getHost();
         if (host == null) return false;
-        for (String oauthHost : OAUTH_HOSTS) {
+        for (String oauthHost : GOOGLE_OAUTH_HOSTS) {
             if (host.equals(oauthHost) || host.endsWith("." + oauthHost)) {
                 return true;
             }
