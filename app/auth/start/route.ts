@@ -39,8 +39,11 @@ export async function GET(request: Request) {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      // Pass `next` through to /auth/callback so it survives the OAuth round-trip.
-      redirectTo: `${canonicalUrl}/auth/callback?next=${encodeURIComponent(next)}`,
+      // Clean URL with no query params — avoids double-encoding the nested
+      // ?next=... value, which caused Google to return 400 "malformed request".
+      // /auth/callback already determines the correct destination (/app vs
+      // /library) from the database, so the `next` hint is not needed.
+      redirectTo: `${canonicalUrl}/auth/callback`,
       queryParams: {
         access_type: "offline",
         prompt: "consent",
