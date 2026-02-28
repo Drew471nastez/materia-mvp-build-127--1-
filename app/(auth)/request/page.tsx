@@ -4,6 +4,7 @@ import { useState } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
+import { AuthLogo } from "@/components/auth/auth-logo"
 
 function maskEmail(email: string): string {
   const [localPart, domain] = email.split("@")
@@ -64,14 +65,7 @@ export default function RequestPasswordResetPage() {
     return (
       <div className="flex min-h-svh w-full items-center justify-center px-6 py-12">
         <div className="w-full max-w-[440px] text-center">
-          <Link href="/" className="mb-12 inline-flex items-center gap-2">
-            <img
-              src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
-              alt="Storelib"
-              className="h-8 w-8"
-            />
-            <span className="text-xl font-bold tracking-tight text-neutral-900">Storelib</span>
-          </Link>
+          <AuthLogo />
           <h1 className="mb-4 text-[32px] font-bold tracking-tight text-neutral-900">
             Check your email
           </h1>
@@ -96,14 +90,7 @@ export default function RequestPasswordResetPage() {
   return (
     <div className="flex min-h-svh w-full items-center justify-center px-6 py-12">
       <div className="w-full max-w-[440px] text-center">
-        <Link href="/" className="mb-12 inline-flex items-center gap-2">
-          <img
-            src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
-            alt="Storelib"
-            className="h-8 w-8"
-          />
-          <span className="text-xl font-bold tracking-tight text-neutral-900">Storelib</span>
-        </Link>
+        <AuthLogo />
         <h1 className="mb-4 text-[32px] font-bold tracking-tight text-neutral-900">
           Forgot password?
         </h1>
