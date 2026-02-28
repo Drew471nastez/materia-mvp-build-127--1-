@@ -66,10 +66,15 @@ export function UpgradePageClient({
         router.push("/app/settings/billing?success=1")
       } else {
         // Create new subscription - redirect to Stripe Checkout
+        const origin = window.location.origin
         const response = await fetch("/api/billing/subscription/create", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ planId }),
+          body: JSON.stringify({
+            planId,
+            successUrl: `${origin}/app/settings/billing?success=1`,
+            cancelUrl: `${origin}/app/settings/billing/upgrade`,
+          }),
         })
         if (!response.ok) {
           const err = await response.json()

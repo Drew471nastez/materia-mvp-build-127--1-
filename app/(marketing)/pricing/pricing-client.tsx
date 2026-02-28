@@ -12,28 +12,30 @@ import { CtaSection } from "@/components/marketing/cta-section"
 export function PricingPageClient({
   source,
   returnTo,
+  isLoggedIn,
 }: {
   source?: string
   returnTo?: string
+  isLoggedIn?: boolean
 }) {
   const isUpgradeMode = source === "upgrade"
   const [loadingPlan, setLoadingPlan] = useState<"growth" | "pro" | null>(null)
   const [checkoutError, setCheckoutError] = useState<string | null>(null)
 
-  const handleUpgradePlanSelect = async (planId: "growth" | "pro") => {
+  // Shared checkout handler — destination varies by mode
+  const handleCheckout = async (planId: "growth" | "pro", destination: string, cancelDestination: string) => {
     if (loadingPlan) return
     setCheckoutError(null)
     setLoadingPlan(planId)
     try {
       const origin = window.location.origin
-      const destination = returnTo || "/app"
       const res = await fetch("/api/billing/subscription/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           planId,
-          successUrl: `${origin}${destination}?plan_activated=1`,
-          cancelUrl: `${origin}/pricing?source=upgrade&returnTo=${encodeURIComponent(destination)}`,
+          successUrl: `${origin}${destination}`,
+          cancelUrl: `${origin}${cancelDestination}`,
         }),
       })
       const data = await res.json()
@@ -47,6 +49,28 @@ export function PricingPageClient({
     }
     setLoadingPlan(null)
   }
+
+  // Upgrade mode (coming from /app/onepage editor): return to the original page after checkout
+  const handleUpgradePlanSelect = (planId: "growth" | "pro") => {
+    const destination = returnTo || "/app"
+    handleCheckout(
+      planId,
+      `${destination}?plan_activated=1`,
+      `/pricing?source=upgrade&returnTo=${encodeURIComponent(destination)}`,
+    )
+  }
+
+  // Logged-in user on normal pricing page: go to /app after checkout
+  const handleLoggedInPlanSelect = (planId: "growth" | "pro") => {
+    handleCheckout(planId, "/app?plan_activated=1", "/pricing")
+  }
+
+  // Determine which upgrade callbacks to pass to PricingSection
+  const upgradeCallbacks = isUpgradeMode
+    ? { onPlanSelect: handleUpgradePlanSelect, loadingPlan }
+    : isLoggedIn
+      ? { onPlanSelect: handleLoggedInPlanSelect, loadingPlan }
+      : undefined
 
   return (
     <div className="bg-white overflow-x-hidden">
@@ -63,7 +87,7 @@ export function PricingPageClient({
         hideDetailsLink
         headingOverride={isUpgradeMode ? "Find the plan for you" : undefined}
         subtitleOverride={isUpgradeMode ? "Simple, transparent pricing. You can cancel at any time." : undefined}
-        upgradeCallbacks={isUpgradeMode ? { onPlanSelect: handleUpgradePlanSelect, loadingPlan } : undefined}
+        upgradeCallbacks={upgradeCallbacks}
       />
 
       {/* FEATURE BADGES - Launch in minutes, Cancel anytime, No coding, Get paid directly */}
