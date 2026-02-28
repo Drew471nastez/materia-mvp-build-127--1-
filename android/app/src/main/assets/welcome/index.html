@@ -66,32 +66,52 @@ html,body{width:100%;height:100%;overflow:hidden;background:#050505;
 .shimmer{background:linear-gradient(90deg,#1a1a1a 0%,#262626 25%,#1f1f1f 50%,#262626 75%,#1a1a1a 100%);
   background-size:200% 100%;animation:shimmer 1.8s ease-in-out infinite}
 
-/* ── Typing bubble overlay (centered over the collage) ─────────── */
-.bubble-overlay{position:absolute;z-index:10;
-  left:50%;top:50%;transform:translate(-50%,-55%);
-  display:flex;flex-direction:column;align-items:center;
-  pointer-events:none;
-  opacity:0;animation:fadeInDown .7s cubic-bezier(.22,1,.36,1) .5s forwards}
+/* ── Typing bubble overlay — matches hero.tsx mobile exactly ───── */
+/* inset:0 fills the collage zone; flex centers the card;
+   translateY(-7%) matches hero.tsx's -translate-y-[7%] on mobile  */
+.bubble-overlay{position:absolute;inset:0;z-index:10;
+  display:flex;align-items:center;justify-content:center;
+  transform:translateY(-7%);
+  pointer-events:none}
 
-/* Badge pill */
-.typing-badge{display:inline-flex;align-items:center;gap:5px;
-  background:rgba(243,244,246,.95);color:#555;
-  font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;
-  padding:5px 12px;border-radius:999px;margin-bottom:8px;
-  box-shadow:0 1px 4px rgba(0,0,0,.08)}
-.typing-badge svg{opacity:.6}
+/* White bubble card — matches hero.tsx:
+   rounded-[24px] px-5 pt-9 pb-9 w-[82%] max-w-[480px]
+   shadow-lg shadow-neutral-200/50 border border-neutral-100/80  */
+.typing-card{position:relative;background:#fff;border-radius:24px;
+  padding:36px 20px;width:82%;max-width:480px;
+  text-align:center;pointer-events:auto;
+  box-shadow:0 10px 15px -3px rgba(229,231,235,.5),0 4px 6px -4px rgba(229,231,235,.5);
+  border:1px solid rgba(243,244,246,.8)}
 
-/* White bubble card */
-.typing-card{background:#fff;border-radius:24px;
-  padding:20px 24px;min-width:260px;max-width:88vw;
-  text-align:center;
-  box-shadow:0 8px 40px rgba(0,0,0,.18),0 1px 3px rgba(0,0,0,.08)}
-.typing-text{font-size:22px;font-weight:700;color:#0a0a0a;line-height:1.35;
-  min-height:1.35em;letter-spacing:-.02em}
+/* Badge pill — absolute at -top-3.5 (14px) matching hero.tsx
+   bg-gray-100/95 backdrop-blur-sm text-gray-700 font-medium
+   px-3 py-1.5 rounded-full shadow-sm border border-gray-200/50  */
+.typing-badge{position:absolute;left:50%;top:-14px;transform:translateX(-50%);
+  display:inline-flex;align-items:center;gap:8px;
+  background:rgba(243,244,246,.95);color:#374151;
+  font-size:10px;font-weight:500;
+  padding:6px 12px;border-radius:999px;white-space:nowrap;
+  box-shadow:0 1px 2px rgba(0,0,0,.05);
+  border:1px solid rgba(209,213,219,.5);
+  -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+
+/* Gray circle wrapping the bolt icon — matches hero.tsx
+   w-4 h-4 rounded-full bg-gray-200 inline-flex items-center justify-content  */
+.badge-icon{width:16px;height:16px;border-radius:50%;background:#e5e7eb;
+  display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+
+/* Typing text — matches hero.tsx:
+   text-[22px] font-bold text-neutral-900 leading-tight
+   min-h-[2.5em] flex items-center justify-center            */
+.typing-text{font-size:22px;font-weight:700;color:#171717;line-height:1.25;
+  min-height:2.5em;letter-spacing:-.02em;
+  display:flex;align-items:center;justify-content:center}
+
+/* Cursor — matches hero.tsx animate-pulse (opacity 1→0.5, 2s) */
 .cursor{display:inline-block;width:3px;height:.85em;background:#8b5cf6;
   margin-left:2px;border-radius:2px;vertical-align:middle;
-  animation:cursorPulse 1s ease-in-out infinite}
-@keyframes cursorPulse{0%,100%{opacity:1}50%{opacity:0}}
+  animation:cursorPulse 2s cubic-bezier(.4,0,.6,1) infinite}
+@keyframes cursorPulse{0%,100%{opacity:1}50%{opacity:.5}}
 
 /* ── Buttons ───────────────────────────────────────────────────── */
 .btn-row{display:flex;flex-direction:column;gap:10px;
@@ -120,9 +140,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:#050505;
 
   .collage-zone{margin-bottom:8px}
 
-  .bubble-overlay{transform:translate(-50%,-52%)}
-  .typing-badge{font-size:9px;padding:4px 10px;margin-bottom:6px}
-  .typing-card{padding:16px 20px;border-radius:20px;min-width:220px}
+  .typing-badge{font-size:9px;padding:4px 10px;top:-12px;gap:6px}
+  .badge-icon{width:14px;height:14px}
+  .typing-card{padding:30px 14px;border-radius:20px}
   .typing-text{font-size:19px}
 
   .btn-row{max-width:100%;gap:9px;padding-bottom:3vh}
@@ -138,7 +158,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#050505;
 @media(max-height:600px){
   .container{padding-top:calc(env(safe-area-inset-top,0px) + 20px)}
   .logo-row{margin-bottom:8px}
-  .typing-card{padding:14px 18px}
+  .typing-card{padding:26px 16px}
   .typing-text{font-size:17px}
   .btn{padding:13px 0;font-size:14px}
   .btn-row{gap:7px;padding-bottom:2vh}
@@ -168,17 +188,23 @@ html,body{width:100%;height:100%;overflow:hidden;background:#050505;
   <div class="collage-zone">
     <div class="collage-inner" id="collageInner"></div>
 
-    <!-- Typing bubble overlaid on collage (matches website hero) -->
+    <!-- Typing bubble — structure matches hero.tsx exactly:
+         outer div fills collage area + centers + shifts up 7%;
+         inner card holds the absolutely-positioned badge above it  -->
     <div class="bubble-overlay">
-      <div class="typing-badge">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-             stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-        </svg>
-        All-in-one
-      </div>
       <div class="typing-card">
-        <div class="typing-text"><span id="typingTarget"></span><span class="cursor"></span></div>
+        <div class="typing-badge">
+          <span class="badge-icon">
+            <svg width="9" height="9" viewBox="0 0 16 16" fill="none">
+              <path d="M8.5 1L3 9.5h4.5L7 15l6-8.5H8.5L9 1h-.5z"
+                    fill="#7c3aed" stroke="#7c3aed" stroke-width="0.5" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          All-in-one
+        </div>
+        <div class="typing-text">
+          <span><span id="typingTarget"></span><span class="cursor"></span></span>
+        </div>
       </div>
     </div>
   </div>
