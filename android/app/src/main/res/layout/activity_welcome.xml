@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Welcome screen layout.
+  A single full-screen WebView on top of a dark background.
+  The WebView loads local HTML (file:///android_asset/welcome/index.html)
+  which contains the animated gradient, hero collage, and auth buttons.
+-->
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#050505">
+
+    <WebView
+        android:id="@+id/heroWebView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="invisible" />
+
+</FrameLayout>

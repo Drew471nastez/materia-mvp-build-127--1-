@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Storelib</string>
+    <string name="title_activity_main">Storelib</string>
+    <string name="package_name">com.storelib.app</string>
+    <string name="custom_url_scheme">com.storelib.app</string>
+</resources>
