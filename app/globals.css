@@ -930,8 +930,8 @@
 @media (max-width: 640px) {
   .auth-stack {
     min-height: 100svh !important;
-    justify-content: center !important;
-    padding-top: 64px !important;
+    justify-content: flex-start !important;
+    padding-top: calc(env(safe-area-inset-top) + 56px) !important;
     padding-bottom: max(24px, env(safe-area-inset-bottom)) !important;
   }
 }
