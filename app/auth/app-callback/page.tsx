@@ -12,13 +12,15 @@
  * to custom schemes.
  *
  * This page renders immediately and:
- *  1. Reads token / refresh_token / next from the URL search params.
- *  2. Detects the StorelibApp User-Agent (client-side confirmation).
+ *  1. Reads token / refresh_token / next / native from the URL search params.
+ *  2. Detects a native Capacitor request via ?native=true query param
+ *     (preferred) or StorelibApp User-Agent (fallback).  Chrome Custom Tabs
+ *     do NOT forward the custom WebView UA, so the query param is critical.
  *  3. Calls window.location.replace("storelib://auth/callback?token=…")
  *     which Chrome Custom Tab DOES follow because it originates from JS.
  *  4. Shows a "Continue to App" button after 2.5 s as a fallback in case
  *     the automatic redirect fails (e.g. app not installed, OS quirk).
- *  5. If navigator.userAgent does NOT contain "StorelibApp" (web browser
+ *  5. If neither ?native=true nor StorelibApp UA is present (web browser
  *     hit the page directly), falls through to the normal web destination.
  */
 
@@ -53,22 +55,29 @@ function AppCallbackContent() {
       `&next=${encodeURIComponent(next)}`
     setDeepLink(link)
 
-    // ── Detect StorelibApp User-Agent ────────────────────────────────────
-    const isStorelibApp =
-      typeof navigator !== "undefined" &&
-      navigator.userAgent.includes("StorelibApp")
+    // ── Detect native Capacitor app ──────────────────────────────────────
+    // Dual detection: prefer the explicit ?native=true query param because
+    // Chrome Custom Tabs do NOT use the custom WebView User-Agent
+    // ("StorelibApp") — they use the standard Chrome UA.  The server route
+    // forwards native=true when it detects a native request, so this param
+    // is always available in the bridge URL.  The UA check is kept as a
+    // belt-and-suspenders fallback.
+    const isNativeApp =
+      searchParams.get("native") === "true" ||
+      (typeof navigator !== "undefined" &&
+        navigator.userAgent.includes("StorelibApp"))
 
-    if (!isStorelibApp) {
+    if (!isNativeApp) {
       // Opened in a regular browser — the session is already set server-side
       // in the cookie jar (the server route called exchangeCodeForSession).
       // Just navigate to the destination page.
-      console.log("[app-callback] Not StorelibApp UA — redirecting to web destination:", next)
+      console.log("[app-callback] Not native app (no ?native=true, no StorelibApp UA) — redirecting to web destination:", next)
       window.location.replace(next)
       return
     }
 
-    // ── StorelibApp: fire the custom-scheme deep link ────────────────────
-    console.log("[app-callback] StorelibApp UA detected — firing deep link")
+    // ── Native app: fire the custom-scheme deep link ─────────────────────
+    console.log("[app-callback] Native app detected (native=true or StorelibApp UA) — firing deep link")
     console.log("[app-callback] deep link:", link.slice(0, 80) + "…")
 
     // Use replace so pressing Back doesn't loop back here.

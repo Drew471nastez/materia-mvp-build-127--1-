@@ -147,12 +147,13 @@ export async function GET(request: Request) {
     // window.location.replace().  The bridge page renders instantly, detects
     // the StorelibApp UA client-side, and fires the deep link from JS.
     // It also shows a "Continue to App" fallback button after 2.5 s.
-    console.log("[auth/callback] StorelibApp UA — redirecting to /auth/app-callback bridge")
+    console.log("[auth/callback] Native app detected (native=true or StorelibApp UA) — redirecting to /auth/app-callback bridge")
     const bridgeUrl =
       `${canonicalUrl}/auth/app-callback` +
       `?token=${encodeURIComponent(data.session.access_token)}` +
       `&refresh_token=${encodeURIComponent(data.session.refresh_token)}` +
-      `&next=${encodeURIComponent(nextPath)}`
+      `&next=${encodeURIComponent(nextPath)}` +
+      `&native=true`
     return NextResponse.redirect(bridgeUrl)
   }
 
