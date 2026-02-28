@@ -41,6 +41,35 @@ function isNativePlatform(): boolean {
   )
 }
 
+/**
+ * Capacitor Preferences storage adapter for Supabase auth.
+ *
+ * On native Android the WebView's localStorage can be unreliable:
+ * it lives in a different process from Chrome Custom Tabs, and the
+ * PKCE code-verifier stored by signInWithOAuth() must survive across
+ * the Custom Tab OAuth round-trip.  Capacitor Preferences is backed
+ * by Android SharedPreferences which is process-safe and persists
+ * across app restarts.
+ *
+ * supabase-js accepts async getItem/setItem/removeItem — the dynamic
+ * import of @capacitor/preferences is cached after the first call.
+ */
+const capacitorStorage = {
+  async getItem(key: string): Promise<string | null> {
+    const { Preferences } = await import("@capacitor/preferences")
+    const { value } = await Preferences.get({ key })
+    return value
+  },
+  async setItem(key: string, value: string): Promise<void> {
+    const { Preferences } = await import("@capacitor/preferences")
+    await Preferences.set({ key, value })
+  },
+  async removeItem(key: string): Promise<void> {
+    const { Preferences } = await import("@capacitor/preferences")
+    await Preferences.remove({ key })
+  },
+}
+
 export function createClient() {
   // Return existing client if already created (singleton pattern)
   if (browserClient) {
@@ -51,10 +80,14 @@ export function createClient() {
     // ── Capacitor native path ─────────────────────────────────────────
     // Use the bare supabase-js client so we can set:
     //   • detectSessionInUrl: false  — we handle the callback via appUrlOpen
-    //   • flowType: "pkce"           — explicit, matches server
-    //   • storage: localStorage      — reliable in native WebView, no
-    //                                  cross-origin cookie domain issues
-    // No server-side middleware exists, so localStorage session is safe.
+    //   • flowType: "pkce"           — PKCE code exchange happens client-side
+    //   • persistSession: true       — session survives app restarts
+    //   • autoRefreshToken: true     — automatically refresh expired tokens
+    //   • storage: Capacitor Preferences — backed by Android SharedPreferences,
+    //     process-safe and survives Chrome Custom Tab ↔ WebView switches.
+    //     This is critical: the PKCE code-verifier stored by signInWithOAuth()
+    //     must be readable by exchangeCodeForSession() after the OAuth
+    //     round-trip through Chrome Custom Tab.
     browserClient = createSupabaseClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -64,7 +97,7 @@ export function createClient() {
           persistSession: true,
           autoRefreshToken: true,
           detectSessionInUrl: false,
-          storage: window.localStorage,
+          storage: capacitorStorage,
         },
       }
     ) as ReturnType<typeof createBrowserClient>

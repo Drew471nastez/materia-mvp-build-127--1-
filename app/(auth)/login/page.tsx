@@ -326,31 +326,31 @@ function LoginFormContent() {
       const { Capacitor } = await import("@capacitor/core")
 
       if (Capacitor.isNativePlatform()) {
-        // ── Native (Android) ─────────────────────────────────────────
+        // ── Native (Android) — client-side PKCE flow ─────────────────
         // 1. signInWithOAuth with skipBrowserRedirect stores the PKCE
-        //    code-verifier in localStorage in this WebView context.
-        // 2. Browser.open() opens the OAuth URL in the system browser
-        //    (Chrome Custom Tab). windowName "_self" ensures it renders
-        //    inside the app's task and doesn't open a new window.
-        // 3. After OAuth, Google redirects to storelib://auth/callback.
-        //    Android intercepts → onNewIntent → AppPlugin.handleOnNewIntent
-        //    fires appUrlOpen → CapacitorAuthHandler calls
-        //    exchangeCodeForSession(code) using the PKCE verifier in
-        //    localStorage, then navigates to /app or /library.
-        // 4. Safety nets below ensure loading state always clears:
+        //    code-verifier in Capacitor Preferences (SharedPreferences).
+        // 2. Browser.open() opens the OAuth URL in Chrome Custom Tab.
+        // 3. After OAuth, Supabase redirects to storelib://auth/callback?code=…
+        //    Android intent-filter intercepts → onNewIntent → appUrlOpen.
+        // 4. native-oauth.ts handler calls exchangeCodeForSession(url)
+        //    which reads the code-verifier from Preferences and exchanges
+        //    code + verifier for a session. Session stored in Preferences.
+        // 5. Safety nets ensure loading state always clears:
         //    - browserFinished fires if the user dismisses the browser early.
         //    - A 20 s timeout clears loading if nothing else fires first.
+        //
+        // IMPORTANT: storelib://auth/callback must be added as a redirect
+        // URL in the Supabase dashboard:
+        //   Auth → URL Configuration → Redirect URLs
         const supabase = createClient()
         const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
           provider: "google",
           options: {
-            // Redirect to the Vercel server route so it can identify this as
-            // a native Capacitor request and send tokens back via deep link.
-            // ?native=true is the reliable signal — Chrome Custom Tabs do NOT
-            // propagate the custom WebView User-Agent, so UA detection alone
-            // would silently fail. The query param is always preserved through
-            // the Google OAuth redirect back to this URL.
-            redirectTo: `${canonicalUrl}/auth/callback?native=true`,
+            // Redirect directly to the deep link. Supabase will 302 to
+            // storelib://auth/callback?code=… after Google OAuth completes.
+            // No server bridge page needed — the PKCE code-verifier is in
+            // Capacitor Preferences which survives the Custom Tab round-trip.
+            redirectTo: "storelib://auth/callback",
             queryParams: { access_type: "offline", prompt: "consent" },
             skipBrowserRedirect: true,
           },

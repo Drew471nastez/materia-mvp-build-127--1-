@@ -4,19 +4,29 @@
  * Singleton module — owns the entire Android / Capacitor Google OAuth flow.
  * Called once from app/NativeOAuthBridge.tsx (root layout).
  *
- * Flow:
- *  1. Login: signInWithOAuth({ skipBrowserRedirect:true,
+ * Flow (client-side PKCE — no server bridge needed):
+ *  1. Login page: signInWithOAuth({ skipBrowserRedirect:true,
  *              redirectTo:"storelib://auth/callback" })
- *     → PKCE code-verifier written to localStorage by supabase-js
+ *     → PKCE code-verifier written to Capacitor Preferences (SharedPreferences)
  *  2. Browser.open(authUrl) → Chrome Custom Tab
- *  3. Google → storelib://auth/callback?code=…&state=…
- *  4. Android intent-filter → onNewIntent → Capacitor appUrlOpen event
- *  5. handleOAuthCallback(fullUrl)
- *       → exchangeCodeForSession(fullUrl)   ← FULL URL, not just code param
- *       → session stored in localStorage
+ *  3. User completes Google OAuth
+ *  4. Supabase redirects → storelib://auth/callback?code=…
+ *  5. Android intent-filter → onNewIntent → Capacitor appUrlOpen event
+ *  6. handleOAuthCallback(fullUrl):
+ *       → Browser.close()           ← dismiss Chrome Custom Tab
+ *       → exchangeCodeForSession(fullUrl) ← uses stored PKCE verifier
+ *       → getSession()              ← verify session exists
  *       → window.location.assign("/app")
  *
+ * Session storage: Capacitor Preferences (Android SharedPreferences).
+ * This survives across Chrome Custom Tab ↔ WebView process switches
+ * and across app restarts.
+ *
  * Debug toasts: set NEXT_PUBLIC_OAUTH_DEBUG=true in .env.local
+ *
+ * IMPORTANT — Supabase dashboard config:
+ *   Auth → URL Configuration → Redirect URLs must include:
+ *     storelib://auth/callback
  */
 
 import { createClient } from "@/lib/supabase/client"
@@ -78,19 +88,16 @@ function showToast(msg: string, variant: "info" | "ok" | "err") {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function isOAuthCallback(url: string): boolean {
-  return (
-    url.startsWith("storelib://auth/callback") ||
-    url.includes("/app/auth/callback")
-  )
+  return url.startsWith("storelib://auth/callback")
 }
 
 // ── Core handler (exported so it can be called manually for testing) ──────────
 export async function handleOAuthCallback(rawUrl: string): Promise<void> {
-  // ── LOG 1: received ──────────────────────────────────────────────────────
+  // ── LOG 1: appUrlOpen fired ────────────────────────────────────────────────
   console.log(`${TAG} ▶ appUrlOpen fired`)
   console.log(`${TAG}   raw URL : "${rawUrl}"`)
   console.log(`${TAG}   isOAuthCallback: ${isOAuthCallback(rawUrl)}`)
-  showToast(`Got callback\n${rawUrl.slice(0, 120)}`, "info")
+  showToast(`appUrlOpen fired\n${rawUrl.slice(0, 120)}`, "info")
 
   if (!isOAuthCallback(rawUrl)) {
     console.log(`${TAG}   → Not an OAuth callback — ignoring.`)
@@ -104,7 +111,7 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
   isHandling = true
 
   try {
-    // ── LOG 2: closing browser ─────────────────────────────────────────────
+    // ── LOG 2: close browser ─────────────────────────────────────────────────
     console.log(`${TAG} Closing Chrome Custom Tab…`)
     try {
       const { Browser } = await import("@capacitor/browser")
@@ -114,24 +121,17 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
       console.warn(`${TAG}   Browser.close() failed (already closed?):`, e)
     }
 
-    // ── LOG 3: parse URL params ────────────────────────────────────────────
+    // ── LOG 3: parse URL for diagnostics ─────────────────────────────────────
     const u = new URL(rawUrl)
-    const code         = u.searchParams.get("code")
-    const state        = u.searchParams.get("state")
-    const oauthErr     = u.searchParams.get("error")
+    const code     = u.searchParams.get("code")
+    const oauthErr = u.searchParams.get("error")
     const oauthErrDesc = u.searchParams.get("error_description")
-    // StorelibApp path — tokens embedded by /auth/callback server route
-    const embeddedToken   = u.searchParams.get("token")
-    const embeddedRefresh = u.searchParams.get("refresh_token")
-    const nextParam       = u.searchParams.get("next") || "/app"
 
     console.log(`${TAG} URL params:`)
-    console.log(`${TAG}   token : ${embeddedToken  ? `"${embeddedToken.slice(0, 12)}…"` : "none"}`)
-    console.log(`${TAG}   code  : ${code  ? `"${code.slice(0, 12)}…"` : "MISSING"}`)
-    console.log(`${TAG}   state : ${state ? `"${state.slice(0, 12)}…"` : "MISSING"}`)
+    console.log(`${TAG}   code  : ${code ? `"${code.slice(0, 12)}…"` : "MISSING"}`)
     console.log(`${TAG}   error : ${oauthErr ?? "none"}`)
-    console.log(`${TAG}   next  : ${nextParam}`)
 
+    // ── Handle OAuth errors (user cancelled, etc.) ───────────────────────────
     if (oauthErr) {
       const desc = oauthErrDesc ?? (oauthErr === "access_denied" ? "Sign-in was cancelled." : oauthErr)
       console.error(`${TAG} OAuth provider returned error: "${desc}"`)
@@ -140,94 +140,38 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
       return
     }
 
-    const supabase = createClient()
-
-    // ── StorelibApp path: tokens are embedded in the deep-link URL ─────────
-    // The server-side /auth/callback route detected our custom UA and
-    // encoded the session tokens directly into the storelib:// URL.
-    // We call setSession() to establish the session in this WebView context.
-    if (embeddedToken && embeddedRefresh) {
-      console.log(`${TAG} ── StorelibApp token path — calling setSession() ──────`)
-      console.log(`${TAG}   access_token  : "${embeddedToken.slice(0, 16)}…"`)
-      console.log(`${TAG}   refresh_token : "${embeddedRefresh.slice(0, 12)}…"`)
-
-      const { data: sessionData, error: sessionErr } = await supabase.auth.setSession({
-        access_token: embeddedToken,
-        refresh_token: embeddedRefresh,
-      })
-
-      console.log(`${TAG} ── setSession returned ──────────────────────────────`)
-      console.log(`${TAG}   error      : ${sessionErr ? sessionErr.message : "null"}`)
-      console.log(`${TAG}   hasSession : ${!!sessionData?.session}`)
-      console.log(`${TAG}   userId     : ${sessionData?.session?.user?.id ?? "null"}`)
-      console.log(`${TAG}   email      : ${sessionData?.session?.user?.email ?? "null"}`)
-
-      if (sessionErr || !sessionData?.session) {
-        const msg = sessionErr?.message ?? "No session returned after setSession."
-        console.error(`${TAG} setSession FAILED:`, sessionErr)
-        showToast(`Error: ${msg}`, "err")
-        window.location.assign(`/login?error=${encodeURIComponent(msg)}`)
-        return
-      }
-
-      const email = sessionData.session.user.email ?? sessionData.session.user.id
-      console.log(`${TAG} ✓ Session confirmed for ${email} → navigating to ${nextParam}`)
-      showToast(`Session OK  ${email}`, "ok")
-
-      // Close the Chrome Custom Tab again AFTER setSession succeeds.
-      // The first Browser.close() at the top of the handler fires while
-      // the Custom Tab is still mid-redirect (rendering the bridge page).
-      // On many Android devices it doesn't stick — the tab stays visible
-      // showing the logged-in dashboard.  This second call ensures the
-      // overlay is dismissed so the user sees the app's internal WebView.
-      try {
-        const { Browser } = await import("@capacitor/browser")
-        await Browser.close()
-        console.log(`${TAG}   Browser.close() after setSession ✓`)
-      } catch (e) {
-        console.warn(`${TAG}   Browser.close() after setSession failed:`, e)
-      }
-
-      window.location.assign(nextParam)
-      return
-    }
-
-    // ── PKCE path: exchange the auth code using the full URL ───────────────
     if (!code) {
-      console.warn(`${TAG} No "code" or "token" param in URL — cannot proceed. Full URL was: "${rawUrl}"`)
+      const msg = "No authorization code in callback URL."
+      console.error(`${TAG} ${msg} Full URL: "${rawUrl}"`)
+      showToast(`Error: ${msg}`, "err")
+      window.location.assign(`/login?error=${encodeURIComponent(msg)}`)
       return
     }
 
-    // IMPORTANT: we pass the FULL URL string, not just the code value.
-    //
-    // Why? The Supabase GoTrue /token?grant_type=pkce endpoint expects both
-    // the authorization `code` AND the `state` parameter for PKCE validation.
-    // Passing only `code` causes the exchange to fail on some project configs.
-    // Official Supabase Capacitor guide: https://supabase.com/docs/guides/auth/
-    //   native-mobile-login/oauth-login?platform=capacitor
-    console.log(`${TAG} ── calling exchangeCodeForSession ──────────────────`)
-    console.log(`${TAG}   argument type  : ${typeof rawUrl}`)
-    console.log(`${TAG}   argument value : "${rawUrl}"`)
-    console.log(`${TAG}   (this is the FULL URL, not just the code param)`)
+    // ── LOG 4: exchange code for session (client-side PKCE) ──────────────────
+    // The PKCE code-verifier was stored in Capacitor Preferences by
+    // signInWithOAuth() on the login page.  exchangeCodeForSession() reads
+    // it from the same Preferences storage and sends both code + verifier
+    // to Supabase's token endpoint.
+    console.log(`${TAG} ── exchanging code for session (PKCE) ──────────────────`)
+    console.log(`${TAG}   passing FULL URL to exchangeCodeForSession()`)
+    showToast("Exchanging code…", "info")
 
+    const supabase = createClient()
     const { data, error: exchangeErr } =
       await supabase.auth.exchangeCodeForSession(rawUrl)
 
-    // ── LOG 5: after exchangeCodeForSession ────────────────────────────────
-    console.log(`${TAG} ── exchangeCodeForSession returned ──────────────────`)
-    console.log(`${TAG}   error       : ${exchangeErr ? exchangeErr.message : "null"}`)
-    console.log(`${TAG}   hasSession  : ${!!data?.session}`)
-    console.log(`${TAG}   userId      : ${data?.session?.user?.id ?? "null"}`)
-    console.log(`${TAG}   email       : ${data?.session?.user?.email ?? "null"}`)
-    console.log(`${TAG}   accessToken : ${data?.session?.access_token ? data.session.access_token.slice(0, 16) + "…" : "null"}`)
+    // ── LOG 5: exchange result ───────────────────────────────────────────────
+    console.log(`${TAG} ── exchangeCodeForSession returned ──────────────────────`)
+    console.log(`${TAG}   error      : ${exchangeErr ? exchangeErr.message : "null"}`)
+    console.log(`${TAG}   hasSession : ${!!data?.session}`)
+    console.log(`${TAG}   userId     : ${data?.session?.user?.id ?? "null"}`)
+    console.log(`${TAG}   email      : ${data?.session?.user?.email ?? "null"}`)
 
     if (exchangeErr) {
-      const msg = exchangeErr.message.includes("code verifier")
-        ? "Session expired — please sign in again."
-        : exchangeErr.message
       console.error(`${TAG} Exchange FAILED:`, exchangeErr)
-      showToast(`Error: ${msg}`, "err")
-      window.location.assign(`/login?error=${encodeURIComponent(msg)}`)
+      showToast(`Exchange error: ${exchangeErr.message}`, "err")
+      window.location.assign(`/login?error=${encodeURIComponent(exchangeErr.message)}`)
       return
     }
 
@@ -239,18 +183,34 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
       return
     }
 
-    // ── LOG 6: success ─────────────────────────────────────────────────────
-    const email = data.session.user.email ?? data.session.user.id
-    console.log(`${TAG} ✓ Session confirmed for ${email} → navigating to /app`)
-    showToast(`Session OK  ${email}`, "ok")
+    // ── LOG 6: verify session persisted ──────────────────────────────────────
+    const { data: { session: verifiedSession } } = await supabase.auth.getSession()
+    const email = verifiedSession?.user?.email ?? data.session.user.email ?? data.session.user.id
+    console.log(`${TAG} ── getSession() verification ──────────────────────────`)
+    console.log(`${TAG}   session exists : ${!!verifiedSession}`)
+    console.log(`${TAG}   user email     : ${email}`)
+    showToast(`Session verified: ${email}`, "ok")
 
-    // Ensure the Chrome Custom Tab overlay is dismissed
+    if (!verifiedSession) {
+      const msg = "Session was not persisted. Please try again."
+      console.error(`${TAG} ${msg}`)
+      showToast(`Error: ${msg}`, "err")
+      window.location.assign(`/login?error=${encodeURIComponent(msg)}`)
+      return
+    }
+
+    // ── LOG 7: success — close browser again and navigate ────────────────────
+    console.log(`${TAG} ✓ Session confirmed for ${email} → navigating to /app`)
+    showToast(`Session OK — ${email}`, "ok")
+
+    // Close Chrome Custom Tab again (belt-and-suspenders — some Android
+    // versions keep it visible even after the deep link fires).
     try {
       const { Browser } = await import("@capacitor/browser")
       await Browser.close()
-      console.log(`${TAG}   Browser.close() after PKCE exchange ✓`)
+      console.log(`${TAG}   Browser.close() after session ✓`)
     } catch (e) {
-      console.warn(`${TAG}   Browser.close() after PKCE exchange failed:`, e)
+      console.warn(`${TAG}   Browser.close() after session failed:`, e)
     }
 
     window.location.assign("/app")
@@ -271,7 +231,6 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
  * Returns a cleanup function.  Idempotent — safe to call multiple times.
  */
 export async function setupNativeOAuthListeners(): Promise<() => void> {
-  // ── LOG A: entry ──────────────────────────────────────────────────────────
   console.log(`${TAG} setupNativeOAuthListeners() called  (isSetUp=${isSetUp})`)
 
   if (isSetUp) {
@@ -297,7 +256,7 @@ export async function setupNativeOAuthListeners(): Promise<() => void> {
     const { App } = await import("@capacitor/app")
     const supabase = createClient()
 
-    // ── LOG B: registering appUrlOpen ────────────────────────────────────
+    // ── Register appUrlOpen listener ────────────────────────────────────
     console.log(`${TAG} Registering App.addListener("appUrlOpen")…`)
     const appHandle = await App.addListener("appUrlOpen", ({ url }) => {
       console.log(`${TAG} ← appUrlOpen event received, url="${url}"`)
@@ -305,7 +264,7 @@ export async function setupNativeOAuthListeners(): Promise<() => void> {
     })
     console.log(`${TAG}   appUrlOpen listener registered ✓`)
 
-    // ── LOG C: registering onAuthStateChange ─────────────────────────────
+    // ── Register onAuthStateChange listener ─────────────────────────────
     console.log(`${TAG} Registering supabase.auth.onAuthStateChange…`)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
@@ -323,7 +282,7 @@ export async function setupNativeOAuthListeners(): Promise<() => void> {
       }
     )
     console.log(`${TAG}   onAuthStateChange listener registered ✓`)
-    console.log(`${TAG} All native OAuth listeners active. 🎯`)
+    console.log(`${TAG} All native OAuth listeners active.`)
 
     return () => {
       appHandle.remove()
