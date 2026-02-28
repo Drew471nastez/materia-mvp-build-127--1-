@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { X, ArrowLeft, Check, Loader2, Star } from "lucide-react"
+import { X, ArrowLeft, Check, Loader2, ArrowRight } from "lucide-react"
 
 const STORELIB_LOGO_URL =
   "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
@@ -157,110 +157,88 @@ export function UpgradePageClient({
           </div>
         )}
 
-        {/* Plan Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
+        {/* Plan Cards — same visual style as /pricing page */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-[18px] md:gap-4 max-w-[960px] mx-auto md:items-center">
           {plans.map((plan: any) => {
             const isCurrentPlan = plan.id === currentPlanId
             const isPendingPlan = plan.id === pendingPlanId
             const isFree = plan.id === "free"
-            const isPro = plan.id === "pro"
             const isGrowth = plan.id === "growth"
             const currentPlan = plans.find((p: any) => p.id === currentPlanId)
             const isDowngrade = currentPlan ? plan.price_cents < currentPlan.price_cents : false
             const isUpgrade = currentPlan ? plan.price_cents > currentPlan.price_cents : false
             const monthlyPrice = plan.price_cents / 100
-            const displayPrice = monthlyPrice
             const isDisabled = isCurrentPlan || (cancelAtPeriodEnd && isFree) || (isPendingPlan && !isUpgrade) || loading !== null
+
+            const badge = isGrowth ? "Most Popular" : plan.id === "pro" ? "Recommended" : null
+
+            let buttonLabel: string
+            if (loading === plan.id) buttonLabel = "Processing..."
+            else if (isCurrentPlan) buttonLabel = "Current Plan"
+            else if (isPendingPlan) buttonLabel = "Downgrade Scheduled"
+            else if (cancelAtPeriodEnd && isFree) buttonLabel = "Cancel Scheduled"
+            else if (cancelAtPeriodEnd) buttonLabel = "Upgrade Again"
+            else if (isDowngrade) buttonLabel = `Downgrade to ${plan.name}`
+            else if (hasActiveSubscription) buttonLabel = `Upgrade to ${plan.name}`
+            else buttonLabel = `Get started with ${plan.name}`
 
             return (
               <div
                 key={plan.id}
-                className={`relative rounded-2xl p-6 sm:p-7 flex flex-col transition-all duration-200 ${
+                className={`bg-white rounded-3xl relative flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-md ${
                   isGrowth
-                    ? "bg-white border border-[#7c3aed]/25 shadow-[0_0_24px_-6px_rgba(124,58,237,0.12)] hover:shadow-[0_0_32px_-6px_rgba(124,58,237,0.18)] ring-1 ring-[#7c3aed]/5 scale-[1.02]"
-                    : "bg-white border-2 border-[#e5e7eb] hover:border-[#d1d5db] shadow-sm hover:shadow-md"
+                    ? "p-9 md:py-12 border-[1.5px] border-violet-600 shadow-[0_0_0_1px_#7c3aed] shadow-md"
+                    : "p-9 border-[1.5px] border-neutral-200"
                 }`}
               >
-                {isGrowth && (
-                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
-                    <span className="inline-flex items-center gap-1 px-3.5 py-1 bg-[#7c3aed] rounded-full text-[11px] font-bold text-white shadow-lg">
-                      Most Popular
-                    </span>
-                  </div>
-                )}
-                {isPro && (
-                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
-                    <span className="inline-flex items-center gap-1 px-3.5 py-1 bg-[#1a1a2e] rounded-full text-[11px] font-bold text-white shadow-lg">
-                      <Star className="h-3 w-3 fill-white" />
-                      Recommended
-                    </span>
-                  </div>
+                {badge && (
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-violet-600 text-white text-xs font-semibold px-3.5 py-1 rounded-full whitespace-nowrap">
+                    {badge}
+                  </span>
                 )}
 
-                <div className="mb-5">
-                  <h3 className="text-[20px] font-bold mb-1.5 text-[#1a1a2e]">
-                    {plan.name}
-                  </h3>
-                  <p className="text-[13px] leading-relaxed text-[#6b7280]">
-                    {descriptions[plan.id] || ""}
-                  </p>
-                </div>
+                <div className="font-semibold text-lg mb-1.5">{plan.name}</div>
 
-                <div className="mb-6">
-                  {isFree ? (
-                    <>
-                      <div className="text-[40px] font-bold leading-none text-[#1a1a2e]">$0</div>
-                      <p className="text-[13px] mt-1.5 text-[#9ca3af]">Free forever</p>
-                    </>
-                  ) : (
-                    <>
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-[40px] font-bold leading-none text-[#1a1a2e]">
-                          ${displayPrice % 1 === 0 ? displayPrice.toFixed(0) : displayPrice.toFixed(2)}
-                        </span>
-                        <span className="text-[15px] text-[#9ca3af]">/mo</span>
-                      </div>
-                    </>
-                  )}
+                <div className="flex items-baseline gap-1 mb-1">
+                  <span className="text-[42px] font-bold tracking-tight leading-none">
+                    {isFree ? "$0" : `$${monthlyPrice % 1 === 0 ? monthlyPrice.toFixed(0) : monthlyPrice.toFixed(2)}`}
+                  </span>
+                  {!isFree && <span className="text-sm text-neutral-400">/mo</span>}
                 </div>
+                {isFree && <p className="text-[13px] text-neutral-400 mb-1">Free forever</p>}
+
+                <p className="text-[13px] text-neutral-400 mb-5 leading-relaxed">{descriptions[plan.id] || ""}</p>
 
                 <button
                   onClick={() => handleUpgrade(plan.id)}
                   disabled={isDisabled}
-                  className={`w-full h-12 text-[14px] font-semibold rounded-xl transition-all duration-200 flex items-center justify-center gap-2 mb-6 cursor-pointer ${
-                    isCurrentPlan
+                  className={`relative w-full inline-flex items-center justify-center gap-2 text-[15px] font-semibold py-3.5 px-8 rounded-lg transition-all duration-300 overflow-hidden mb-7 ${
+                    isCurrentPlan || (cancelAtPeriodEnd && isFree) || isPendingPlan
                       ? "bg-[#f3f4f6] text-[#9ca3af] cursor-default"
-                      : (cancelAtPeriodEnd && isFree) || isPendingPlan
-                        ? "bg-[#f3f4f6] text-[#6b7280] cursor-default"
-                        : "bg-[#7c3aed] hover:bg-[#6d28d9] text-white active:scale-[0.98]"
-                  }`}
+                      : isGrowth
+                        ? "bg-violet-600 text-white hover:bg-violet-700 hover:-translate-y-0.5"
+                        : "bg-white text-neutral-900 border-[1.5px] border-neutral-200 hover:border-neutral-400 hover:-translate-y-0.5"
+                  } disabled:cursor-not-allowed`}
                 >
-                  {loading === plan.id ? (
-                    <><Loader2 className="h-4 w-4 animate-spin" />Processing...</>
-                  ) : isCurrentPlan ? (
-                    "Current Plan"
-                  ) : isPendingPlan ? (
-                    "Downgrade Scheduled"
-                  ) : cancelAtPeriodEnd && isFree ? (
-                    "Cancel Scheduled"
-                  ) : cancelAtPeriodEnd ? (
-                    "Upgrade Again"
-                  ) : isDowngrade ? (
-                    `Downgrade to ${plan.name}`
-                  ) : hasActiveSubscription ? (
-                    `Upgrade to ${plan.name}`
-                  ) : (
-                    `Get started with ${plan.name}`
+                  {isGrowth && !isCurrentPlan && !isPendingPlan && !(cancelAtPeriodEnd && isFree) && (
+                    <span className="btn-shine-effect" aria-hidden="true" />
                   )}
+                  <span className="relative z-10 flex items-center gap-2">
+                    {loading === plan.id ? (
+                      <><Loader2 className="h-4 w-4 animate-spin" />Processing...</>
+                    ) : (
+                      <>{buttonLabel}{!isCurrentPlan && !isPendingPlan && !(cancelAtPeriodEnd && isFree) && <ArrowRight className="h-4 w-4" />}</>
+                    )}
+                  </span>
                 </button>
 
-                <ul className="space-y-3 flex-1">
+                <ul className="flex flex-col gap-2.5 flex-1">
                   {(featureLists[plan.id] || []).map((feature: string, idx: number) => (
-                    <li key={idx} className="flex items-start gap-2.5 text-[13px] text-[#374151]">
-                      <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${isGrowth ? "bg-[#7c3aed]" : "bg-[#ede9fe]"}`}>
-                        <Check className={`h-3 w-3 ${isGrowth ? "text-white" : "text-[#7c3aed]"}`} strokeWidth={3} />
+                    <li key={idx} className="flex items-start gap-2.5 text-sm text-neutral-500">
+                      <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${isGrowth ? "bg-violet-600" : "bg-violet-50"}`}>
+                        <Check className={`h-3 w-3 ${isGrowth ? "text-white" : "text-violet-600"}`} strokeWidth={3} />
                       </div>
-                      <span>{feature}</span>
+                      {feature}
                     </li>
                   ))}
                 </ul>
