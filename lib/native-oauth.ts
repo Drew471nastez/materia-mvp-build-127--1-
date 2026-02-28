@@ -153,13 +153,19 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
     // signInWithOAuth() on the login page.  exchangeCodeForSession() reads
     // it from the same Preferences storage and sends both code + verifier
     // to Supabase's token endpoint.
+    //
+    // IMPORTANT: pass only the bare `code` value, not the full URL.
+    // supabase-js _exchangeCodeForSession sends auth_code directly as-is to
+    // the server (no URL parsing for custom schemes).  Passing the full
+    // "storelib://auth/callback?code=ABC" string causes the server to look
+    // up a flow state for that entire string → "invalid flow state" error.
     console.log(`${TAG} ── exchanging code for session (PKCE) ──────────────────`)
-    console.log(`${TAG}   passing FULL URL to exchangeCodeForSession()`)
+    console.log(`${TAG}   passing bare code to exchangeCodeForSession()`)
     showToast("Exchanging code…", "info")
 
     const supabase = createClient()
     const { data, error: exchangeErr } =
-      await supabase.auth.exchangeCodeForSession(rawUrl)
+      await supabase.auth.exchangeCodeForSession(code)
 
     // ── LOG 5: exchange result ───────────────────────────────────────────────
     console.log(`${TAG} ── exchangeCodeForSession returned ──────────────────────`)
