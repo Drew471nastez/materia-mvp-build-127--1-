@@ -1043,7 +1043,7 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
   return (
     <div>
       <h2 className="text-[17px] font-bold text-[#1a1a2e] mb-5">Plans & Pricing</h2>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:items-center">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:items-stretch">
         {plans.map((plan: any) => {
           const isCurrentPlan = plan.id === currentPlan.id
           const isPendingPlan = plan.id === pendingPlanId
@@ -1071,7 +1071,7 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
               key={plan.id}
               className={`bg-white rounded-3xl relative flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-md ${
                 isGrowth
-                  ? "p-7 md:py-9 border-[1.5px] border-violet-600 shadow-[0_0_0_1px_#7c3aed] shadow-md scale-[1.02]"
+                  ? "p-7 border-[1.5px] border-violet-600 shadow-[0_0_0_1px_#7c3aed] shadow-md"
                   : "p-7 border-[1.5px] border-neutral-200"
               }`}
             >
