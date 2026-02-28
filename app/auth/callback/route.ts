@@ -134,17 +134,19 @@ export async function GET(request: Request) {
   const isStorelibApp = userAgent.includes("StorelibApp")
 
   if (isStorelibApp) {
-    console.log("[auth/callback] StorelibApp UA detected — redirecting to storelib:// deep link")
-    const userPayload = encodeURIComponent(
-      JSON.stringify({ id: data.user.id, email: data.user.email })
-    )
-    const deepLink =
-      `storelib://auth/callback` +
+    // Redirect to the client-side bridge page, NOT directly to storelib://.
+    // Chrome Custom Tab does not reliably follow server-side HTTP 302 redirects
+    // to custom schemes, but it DOES follow them when JS calls
+    // window.location.replace().  The bridge page renders instantly, detects
+    // the StorelibApp UA client-side, and fires the deep link from JS.
+    // It also shows a "Continue to App" fallback button after 2.5 s.
+    console.log("[auth/callback] StorelibApp UA — redirecting to /auth/app-callback bridge")
+    const bridgeUrl =
+      `${canonicalUrl}/auth/app-callback` +
       `?token=${encodeURIComponent(data.session.access_token)}` +
       `&refresh_token=${encodeURIComponent(data.session.refresh_token)}` +
-      `&user=${userPayload}` +
       `&next=${encodeURIComponent(nextPath)}`
-    return NextResponse.redirect(deepLink)
+    return NextResponse.redirect(bridgeUrl)
   }
 
   const isAndroid = userAgent.toLowerCase().includes("android")
