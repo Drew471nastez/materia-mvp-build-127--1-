@@ -2,27 +2,33 @@
 
 import { useEffect, useRef } from "react"
 import { createClient } from "@/lib/supabase/client"
-import { getCanonicalSiteUrl } from "@/lib/url-helpers"
+
+const LOG = "[CapacitorAuth]"
 
 /**
  * CapacitorAuthHandler — mounted once in the root layout (renders nothing).
  *
- * Listens for App Links that arrive after Google OAuth completes inside
- * @capacitor/browser's system browser. When the OS fires the App Link for
- * https://storelib.com/app/auth/callback?code=... this listener:
+ * Listens for the appUrlOpen event that Capacitor's @capacitor/app plugin
+ * fires whenever the OS delivers a deep-link URL to the running activity.
  *
- *  1. Closes the in-app browser tab (Browser.close).
- *  2. Extracts the `code` query param from the URL.
- *  3. Calls supabase.auth.exchangeCodeForSession(code) IN THE WEBVIEW JS
- *     CONTEXT — which is the same context where signInWithOAuth stored the
- *     PKCE code-verifier. No cookie-jar isolation problem. ✅
- *  4. Determines the post-login route (creator/seller → /app, buyer → /library).
- *  5. Navigates via window.location.assign.
+ * Flow on Android (custom-scheme redirect):
+ *  1. Login page calls signInWithOAuth({ skipBrowserRedirect: true })
+ *     → PKCE code-verifier stored in localStorage in this WebView context.
+ *  2. Browser.open() opens the Supabase/Google OAuth URL in the system browser.
+ *  3. Google redirects to storelib://auth/callback?code=…
+ *  4. Android intercepts the URL → delivers intent to MainActivity.onNewIntent.
+ *  5. Capacitor's AppPlugin.handleOnNewIntent fires the appUrlOpen JS event.
+ *  6. This handler receives the URL, extracts the code, calls
+ *     exchangeCodeForSession(code) — the PKCE verifier is in localStorage
+ *     in this same WebView context, so the exchange succeeds.
+ *  7. Navigates to /app (creator) or /library (buyer) on success, or
+ *     to /login?error=… on failure so the UI never stays stuck.
  *
- * On error or user-cancel (error param / missing code), navigates to
- * /login?error=<message> so the form can display it.
- *
- * The guard ref prevents double-invocation if the OS fires the intent twice.
+ * Requirements for this to work:
+ *  • @capacitor/app and @capacitor/browser must be in capacitor.build.gradle
+ *    (i.e. npx cap sync android must have been run after adding them to
+ *    package.json — without this, appUrlOpen will never fire).
+ *  • storelib://auth/callback must be in Supabase → Auth → Redirect URLs.
  */
 export function CapacitorAuthHandler() {
   const handlingRef = useRef(false)
@@ -34,63 +40,81 @@ export function CapacitorAuthHandler() {
 
     const setup = async () => {
       try {
-        // Dynamic imports — tree-shaken on web builds; only bundle in native
         const { Capacitor } = await import("@capacitor/core")
-        if (!Capacitor.isNativePlatform()) return
+        if (!Capacitor.isNativePlatform()) {
+          console.log(`${LOG} Not on native platform, skipping setup.`)
+          return
+        }
+        console.log(`${LOG} Native platform detected, registering appUrlOpen listener.`)
 
         const { App } = await import("@capacitor/app")
         const { Browser } = await import("@capacitor/browser")
 
         const handle = await App.addListener("appUrlOpen", async ({ url }) => {
-          console.log("APP URL OPEN:", url)
+          console.log(`${LOG} appUrlOpen received: ${url}`)
 
           // Only handle our OAuth callback URLs — ignore unrelated deep links
           const isOAuthCallback =
             url.startsWith("storelib://auth/callback") ||
             url.includes("/app/auth/callback")
-          if (!isOAuthCallback) return
 
-          if (handlingRef.current) return
+          if (!isOAuthCallback) {
+            console.log(`${LOG} URL is not an OAuth callback, ignoring.`)
+            return
+          }
+
+          if (handlingRef.current) {
+            console.log(`${LOG} Already handling a callback, ignoring duplicate.`)
+            return
+          }
           handlingRef.current = true
 
           try {
-            // Close the in-app browser before anything else so the user
-            // sees the app immediately rather than a blank browser tab.
-            await Browser.close().catch(() => {})
+            // Close the in-app browser immediately so the user sees the app.
+            console.log(`${LOG} Closing browser.`)
+            await Browser.close().catch((e: unknown) => {
+              console.warn(`${LOG} Browser.close() failed (already closed?):`, e)
+            })
 
             const u = new URL(url)
             const code = u.searchParams.get("code")
             const oauthError = u.searchParams.get("error")
+            const errorDescription = u.searchParams.get("error_description")
 
-            // User cancelled consent or provider returned an error
+            console.log(`${LOG} code=${code ? "present" : "missing"} error=${oauthError ?? "none"}`)
+
             if (!code) {
               if (oauthError) {
                 const msg =
                   oauthError === "access_denied"
                     ? "Sign in was cancelled."
-                    : oauthError
+                    : errorDescription ?? oauthError
+                console.error(`${LOG} OAuth error from provider: ${msg}`)
                 window.location.assign(
                   `/login?error=${encodeURIComponent(msg)}`
                 )
               }
-              // No code and no error = unrelated URL open; ignore
+              // No code and no error = unrelated URL; handlingRef cleared in finally
               return
             }
 
+            console.log(`${LOG} Calling exchangeCodeForSession...`)
             const supabase = createClient()
-
-            // Exchange the code using the WebView's own Supabase client.
-            // The PKCE code-verifier was stored here by signInWithOAuth
-            // (skipBrowserRedirect: true), so exchangeCodeForSession finds it. ✅
             const { data, error: exchangeError } =
               await supabase.auth.exchangeCodeForSession(code)
 
-            if (exchangeError) throw exchangeError
+            if (exchangeError) {
+              console.error(`${LOG} exchangeCodeForSession error:`, exchangeError)
+              throw exchangeError
+            }
+
+            console.log(`${LOG} Session exchange succeeded. userId=${data.user?.id}`)
 
             const userId = data.user?.id
-            if (!userId) throw new Error("No user in session")
+            if (!userId) throw new Error("No user in session after exchange")
 
             // ── Determine post-login destination ──────────────────────
+            console.log(`${LOG} Looking up user type for routing...`)
             const { data: creatorRow } = await supabase
               .from("creators")
               .select("id")
@@ -98,6 +122,7 @@ export function CapacitorAuthHandler() {
               .maybeSingle()
 
             if (creatorRow) {
+              console.log(`${LOG} Creator found, navigating to /app`)
               window.location.assign("/app")
               return
             }
@@ -108,9 +133,11 @@ export function CapacitorAuthHandler() {
               .eq("id", userId)
               .maybeSingle()
 
-            window.location.assign(profile?.is_creator ? "/app" : "/library")
+            const dest = profile?.is_creator ? "/app" : "/library"
+            console.log(`${LOG} Profile found (is_creator=${profile?.is_creator}), navigating to ${dest}`)
+            window.location.assign(dest)
           } catch (err) {
-            console.error("OAuth callback failed", err)
+            console.error(`${LOG} OAuth callback handler threw:`, err)
             const msg =
               err instanceof Error
                 ? err.message
@@ -123,9 +150,11 @@ export function CapacitorAuthHandler() {
           }
         })
 
+        console.log(`${LOG} appUrlOpen listener registered.`)
         removeListener = () => handle.remove()
-      } catch {
-        // Not running in Capacitor — silently skip
+      } catch (err) {
+        // Not running in Capacitor, or plugin not available — silently skip
+        console.warn(`${LOG} Setup failed (non-native or plugin missing):`, err)
       }
     }
 

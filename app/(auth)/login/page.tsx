@@ -292,15 +292,19 @@ function LoginFormContent() {
 
       if (Capacitor.isNativePlatform()) {
         // ── Native (Android) ─────────────────────────────────────────
-        // 1. Call signInWithOAuth with skipBrowserRedirect so the Supabase
-        //    client stores the PKCE code-verifier in THIS WebView context
-        //    (not in a server response or a separate browser jar).
-        // 2. Open the returned URL in @capacitor/browser so the system
-        //    browser handles consent — then the App Link fires.
-        // 3. CapacitorAuthHandler (root layout) receives appUrlOpen, calls
-        //    exchangeCodeForSession in this same WebView context where the
-        //    PKCE verifier lives, then navigates on success or redirects to
-        //    /login?error=... on failure.
+        // 1. signInWithOAuth with skipBrowserRedirect stores the PKCE
+        //    code-verifier in localStorage in this WebView context.
+        // 2. Browser.open() opens the OAuth URL in the system browser
+        //    (Chrome Custom Tab). windowName "_self" ensures it renders
+        //    inside the app's task and doesn't open a new window.
+        // 3. After OAuth, Google redirects to storelib://auth/callback.
+        //    Android intercepts → onNewIntent → AppPlugin.handleOnNewIntent
+        //    fires appUrlOpen → CapacitorAuthHandler calls
+        //    exchangeCodeForSession(code) using the PKCE verifier in
+        //    localStorage, then navigates to /app or /library.
+        // 4. Safety nets below ensure loading state always clears:
+        //    - browserFinished fires if the user dismisses the browser early.
+        //    - A 20 s timeout clears loading if nothing else fires first.
         const supabase = createClient()
         const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
           provider: "google",
@@ -313,20 +317,54 @@ function LoginFormContent() {
         if (oauthError || !data.url) throw oauthError ?? new Error("OAuth init failed")
 
         const { Browser } = await import("@capacitor/browser")
-        await Browser.open({ url: data.url })
-        // isGoogleLoading stays true — CapacitorAuthHandler navigates away on
-        // success or hard-navigates to /login?error=... on failure (which
-        // resets the component). User sees "Connecting…" until one fires.
+
+        // Listen for user dismissing the browser WITHOUT completing OAuth.
+        // The handle must be removed once we're done (success or error) to
+        // avoid leaking. CapacitorAuthHandler handles the success path and
+        // navigates away; the browserFinished listener covers the cancel path.
+        let browserFinishedHandle: { remove: () => void } | undefined
+        const timeoutId = window.setTimeout(() => {
+          // 20-second hard safety: if neither appUrlOpen nor browserFinished
+          // has fired, give up and let the user try again.
+          browserFinishedHandle?.remove()
+          setIsGoogleLoading(false)
+          setError("Sign in timed out. Please try again.")
+        }, 20_000)
+
+        try {
+          browserFinishedHandle = await Browser.addListener(
+            "browserFinished",
+            () => {
+              // Browser closed. If CapacitorAuthHandler already navigated
+              // away, this won't fire. If it fires, the user cancelled.
+              window.clearTimeout(timeoutId)
+              browserFinishedHandle?.remove()
+              // Small delay: appUrlOpen can arrive just after browserFinished
+              // on some Android versions. Only clear loading if we're still here.
+              window.setTimeout(() => {
+                setIsGoogleLoading(false)
+              }, 400)
+            }
+          )
+        } catch {
+          // addListener may throw if the plugin isn't loaded — ignore
+        }
+
+        await Browser.open({ url: data.url, windowName: "_self" })
+
+        // isGoogleLoading stays true while the browser is open.
+        // It will be cleared by one of: CapacitorAuthHandler navigation,
+        // browserFinished, or the 20 s timeout above.
+        return // avoid the finally setIsGoogleLoading(false) below
       } else {
         // ── Web ───────────────────────────────────────────────────────
-        // Use the server-side /auth/start route which keeps the PKCE
-        // code-verifier in the same browser that will hit /auth/callback.
         window.location.href = `${canonicalUrl}/auth/start?provider=google&next=/app`
+        return
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to sign in with Google")
-      setIsGoogleLoading(false)
     }
+    setIsGoogleLoading(false)
   }
 
   // Show loading while checking auth status
