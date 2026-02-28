@@ -5,28 +5,27 @@
  *
  * Client-side bridge page for the StorelibApp Capacitor OAuth flow.
  *
- * The server-side /auth/callback route detects the "StorelibApp" User-Agent,
- * exchanges the OAuth code, and redirects here with the session tokens in
- * query params instead of redirecting straight to storelib:// — because
- * Chrome Custom Tab does not reliably follow server-side HTTP 302 redirects
- * to custom schemes.
+ * Chrome Custom Tabs silently block both `storelib://` custom scheme URLs AND
+ * `intent://` URLs fired via window.location.  This page uses a multi-strategy
+ * approach to maximise the chance of reaching the native app:
  *
- * This page renders immediately and:
- *  1. Reads token / refresh_token / next / native from the URL search params.
- *  2. Detects a native Capacitor request via ?native=true query param
- *     (preferred) or StorelibApp User-Agent (fallback).  Chrome Custom Tabs
- *     do NOT forward the custom WebView UA, so the query param is critical.
- *  3. On Android, uses the intent:// URL format
- *     (intent://auth/callback?...#Intent;scheme=storelib;package=com.storelib.app;...)
- *     because Chrome Custom Tabs silently block redirects to custom schemes.
- *     On iOS, uses the plain storelib:// scheme.
- *  4. Shows a "Continue to App" button after 2.5 s as a fallback in case
- *     the automatic redirect fails (e.g. app not installed, OS quirk).
- *  5. If neither ?native=true nor StorelibApp UA is present (web browser
- *     hit the page directly), falls through to the normal web destination.
+ *  Strategy 1 — Hidden <iframe> with storelib:// URL (immediate).
+ *               iframes can sometimes bypass Chrome's custom-scheme blocking.
+ *  Strategy 2 — window.location.href with intent:// URL (200 ms).
+ *               The official Android mechanism; works on some Chrome versions.
+ *  Strategy 3 — window.location.href with storelib:// URL (800 ms).
+ *               Direct custom-scheme attempt as a last resort.
+ *  Fallback  — Large "Open Storelib" button shown after 1.5 s.
+ *               User taps are ALWAYS honoured by Chrome for intent:// URLs.
+ *
+ * On iOS, the plain storelib:// scheme is used (strategies 1 + 3).
+ *
+ * If none of the automatic strategies work, the user taps the button.
+ * A real user tap on an <a href="intent://..."> is the ONE thing Chrome
+ * Custom Tabs will ALWAYS process — so the button is the ultimate fallback.
  */
 
-import { useEffect, useState, Suspense } from "react"
+import { useEffect, useState, useRef, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 
 function AppCallbackContent() {
@@ -37,8 +36,11 @@ function AppCallbackContent() {
   const [intentDeepLink, setIntentDeepLink] = useState<string | null>(null)
   const [isAndroidDevice, setIsAndroidDevice] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const iframeRef = useRef<HTMLIFrameElement | null>(null)
 
   useEffect(() => {
+    const timers: ReturnType<typeof setTimeout>[] = []
+
     try {
       const token        = searchParams.get("token")
       const refreshToken = searchParams.get("refresh_token")
@@ -61,36 +63,29 @@ function AppCallbackContent() {
       }
 
       // ── Build the deep links ───────────────────────────────────────────
-      // Plain custom-scheme link (used by iOS and as a tap-fallback)
       const storelibLink =
         `storelib://auth/callback` +
         `?token=${encodeURIComponent(token)}` +
         `&refresh_token=${encodeURIComponent(refreshToken)}` +
         `&next=${encodeURIComponent(next)}`
 
-      // Android Intent URL — Chrome Custom Tabs silently block
-      // window.location.replace() to custom schemes like storelib://.
-      // The intent:// format is the official Android mechanism that Chrome
-      // will honour. It tells the OS to open com.storelib.app directly.
-      const dashboardUrl = `${window.location.origin}/app`
+      // Android Intent URL — the official Android mechanism.
+      // S.browser_fallback_url points to the LOGIN page, NOT the dashboard.
+      // If Chrome can't resolve the intent it should show login, not the
+      // dashboard (which would make the user think they're stuck).
+      const loginFallback = `${window.location.origin}/login?error=${encodeURIComponent("Could not open the app automatically. Please try again.")}`
       const intentLink =
         `intent://auth/callback` +
         `?token=${encodeURIComponent(token)}` +
         `&refresh_token=${encodeURIComponent(refreshToken)}` +
         `&next=${encodeURIComponent(next)}` +
         `#Intent;scheme=storelib;package=com.storelib.app` +
-        `;S.browser_fallback_url=${encodeURIComponent(dashboardUrl)};end`
+        `;S.browser_fallback_url=${encodeURIComponent(loginFallback)};end`
 
       setDeepLink(storelibLink)
       setIntentDeepLink(intentLink)
 
       // ── Detect native Capacitor app ────────────────────────────────────
-      // Dual detection: prefer the explicit ?native=true query param
-      // because Chrome Custom Tabs do NOT use the custom WebView
-      // User-Agent ("StorelibApp") — they use the standard Chrome UA.
-      // The server route forwards native=true when it detects a native
-      // request, so this param is always available in the bridge URL.
-      // The UA check is kept as a belt-and-suspenders fallback.
       const isNativeApp =
         isNativeParam ||
         (typeof navigator !== "undefined" &&
@@ -99,36 +94,79 @@ function AppCallbackContent() {
       console.log("[app-callback] isNativeApp:", isNativeApp)
 
       if (!isNativeApp) {
-        // Opened in a regular browser — the session is already set
-        // server-side in the cookie jar. Just navigate to the destination.
         console.log("[app-callback] Not native — redirecting to web destination:", next)
         window.location.replace(next)
         return
       }
 
-      // ── Native app: fire the deep link ──────────────────────────────────
+      // ── Native app: multi-strategy redirect ────────────────────────────
       const isAndroid = /android/i.test(navigator.userAgent)
       setIsAndroidDevice(isAndroid)
-      const redirectUrl = isAndroid ? intentLink : storelibLink
       console.log("[app-callback] Platform:", isAndroid ? "Android" : "iOS/other")
-      console.log("[app-callback] Firing deep link:", redirectUrl.slice(0, 120) + "…")
 
-      // Use replace so pressing Back doesn't loop back here.
-      window.location.replace(redirectUrl)
+      // ── STRATEGY 1: Hidden iframe with storelib:// (immediate) ─────────
+      // Chrome Custom Tabs sometimes allow custom-scheme navigation from
+      // an iframe even when they block it from window.location.
+      console.log("[app-callback] Strategy 1: iframe with storelib://")
+      try {
+        const iframe = document.createElement("iframe")
+        iframe.style.display = "none"
+        iframe.src = storelibLink
+        document.body.appendChild(iframe)
+        iframeRef.current = iframe
+        // Clean up iframe after 2 s (it's just a trigger, not visible)
+        timers.push(setTimeout(() => {
+          try { iframe.remove() } catch {}
+        }, 2000))
+      } catch (e) {
+        console.warn("[app-callback] iframe strategy failed:", e)
+      }
 
-      // Show the fallback button after 2.5 s — if the app opened
-      // successfully this page will have been hidden; if the user is
-      // still here, they need the manual button.
-      const fallbackTimer = window.setTimeout(() => {
+      if (isAndroid) {
+        // ── STRATEGY 2: intent:// via window.location.href (200 ms) ──────
+        // Give strategy 1 a moment to fire, then try the intent:// URL.
+        // Use .href instead of .replace() — some Custom Tab implementations
+        // handle them differently.
+        timers.push(setTimeout(() => {
+          console.log("[app-callback] Strategy 2: intent:// via location.href")
+          window.location.href = intentLink
+        }, 200))
+
+        // ── STRATEGY 3: storelib:// via window.location.href (800 ms) ────
+        // Last-ditch JS-based attempt with the plain custom scheme.
+        timers.push(setTimeout(() => {
+          console.log("[app-callback] Strategy 3: storelib:// via location.href")
+          window.location.href = storelibLink
+        }, 800))
+      } else {
+        // iOS: just use storelib:// directly
+        timers.push(setTimeout(() => {
+          console.log("[app-callback] iOS: storelib:// via location.href")
+          window.location.href = storelibLink
+        }, 200))
+      }
+
+      // ── FALLBACK: Show button after 1.5 s ──────────────────────────────
+      // If we're still on this page, the automatic redirect didn't work.
+      // Show a big prominent button — a real user tap on <a href="intent://…">
+      // is the ONE thing Chrome Custom Tabs will ALWAYS honour.
+      timers.push(setTimeout(() => {
+        console.log("[app-callback] Showing fallback button")
         setShowFallback(true)
         setStatus("fallback")
-      }, 2500)
+      }, 1500))
 
-      return () => window.clearTimeout(fallbackTimer)
     } catch (err) {
       console.error("[app-callback] Unexpected error in bridge page:", err)
       setStatus("error")
       setErrorMsg(err instanceof Error ? err.message : "An unexpected error occurred.")
+    }
+
+    return () => {
+      timers.forEach(clearTimeout)
+      if (iframeRef.current) {
+        try { iframeRef.current.remove() } catch {}
+      }
     }
   }, [searchParams])
 
@@ -155,6 +193,9 @@ function AppCallbackContent() {
     )
   }
 
+  // ── Redirect link for button (intent:// on Android, storelib:// on iOS) ──
+  const buttonHref = isAndroidDevice && intentDeepLink ? intentDeepLink : deepLink
+
   // ── Redirecting / fallback state ─────────────────────────────────────────
   return (
     <div className="flex min-h-svh w-full items-center justify-center bg-white px-6">
@@ -171,21 +212,21 @@ function AppCallbackContent() {
         </div>
 
         <h1 className="text-lg font-semibold text-neutral-900">
-          {showFallback ? "Tap below to open the app" : "Opening Storelib…"}
+          {showFallback ? "Tap to open Storelib" : "Opening Storelib…"}
         </h1>
         <p className="mt-2 text-sm text-neutral-500">
           {showFallback
-            ? "If the app didn't open automatically, use the button below."
+            ? "You're signed in! Tap the button below to return to the app."
             : "You're being redirected back to the Storelib app."}
         </p>
 
-        {/* Fallback button — only shown after 2.5 s */}
-        {showFallback && deepLink && (
+        {/* Primary button — shown after 1.5 s or immediately if visible */}
+        {showFallback && buttonHref && (
           <a
-            href={isAndroidDevice && intentDeepLink ? intentDeepLink : deepLink}
-            className="mt-6 inline-block rounded-full bg-neutral-900 px-8 py-3 text-sm font-semibold text-white hover:bg-neutral-800 active:scale-95 transition-transform"
+            href={buttonHref}
+            className="mt-6 inline-block w-full rounded-full bg-neutral-900 px-8 py-4 text-base font-semibold text-white hover:bg-neutral-800 active:scale-95 transition-transform"
           >
-            Continue to App
+            Open Storelib
           </a>
         )}
 
