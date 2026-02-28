@@ -2945,7 +2945,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               ) : null}
 
               {/* Connect Your Domain Card */}
-              <div className={`bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb] ${(userPlan === "free" || userPlan === null) && !planLoading ? "blur-[1.5px] opacity-80 pointer-events-none select-none" : ""}`}>
+              <div className={`bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb] transition-[filter,opacity] duration-700 ease-in-out ${(userPlan === "free" || userPlan === null) && !planLoading ? "blur-[1.5px] opacity-80 pointer-events-none select-none" : ""}`}>
                 <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1">Connect your own domain</h3>
                 {/* Desktop: full text, Mobile: shorter text */}
                 <p className="hidden sm:block text-[13px] text-[#6b7280] mb-4">Connect a custom domain to your store and OnePage. Your store will be at <span className="font-medium">yourdomain.com</span> and OnePage at <span className="font-medium">yourdomain.com/links</span>.</p>
@@ -3052,7 +3052,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               </div>
 
               {/* Connected Domains List */}
-              <div className={`bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb] ${(userPlan === "free" || userPlan === null) && !planLoading ? "blur-[1.5px] opacity-80 pointer-events-none select-none" : ""}`}>
+              <div className={`bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb] transition-[filter,opacity] duration-700 ease-in-out ${(userPlan === "free" || userPlan === null) && !planLoading ? "blur-[1.5px] opacity-80 pointer-events-none select-none" : ""}`}>
                 <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">Your Domains</h3>
 
                 {domainsLoading ? (
