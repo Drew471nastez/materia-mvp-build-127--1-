@@ -37,35 +37,25 @@ html,body{width:100%;height:100%;overflow:hidden;background:#050505;
 
 /* ── Main layout ───────────────────────────────────────────────── */
 .container{position:relative;z-index:1;display:flex;flex-direction:column;
-  align-items:center;height:100%;
-  padding:calc(env(safe-area-inset-top,0px) + 44px) 20px
-          calc(env(safe-area-inset-bottom,0px) + 24px);
-  overflow-y:auto}
+  align-items:center;height:100%;overflow:hidden;
+  padding:calc(env(safe-area-inset-top,0px) + 40px) 20px
+          calc(env(safe-area-inset-bottom,0px) + 20px)}
 
 /* ── Logo row ──────────────────────────────────────────────────── */
-.logo-row{display:flex;align-items:center;gap:10px;margin-bottom:24px;
+.logo-row{display:flex;align-items:center;gap:10px;margin-bottom:20px;
+  flex-shrink:0;
   opacity:0;animation:fadeInDown .7s cubic-bezier(.22,1,.36,1) .1s forwards}
-.logo-icon{width:30px;height:30px}
-.logo-text{font-size:21px;font-weight:700;letter-spacing:-.02em;color:#fff}
+.logo-icon{width:28px;height:28px}
+.logo-text{font-size:20px;font-weight:700;letter-spacing:-.02em;color:#fff}
 
-/* ── Typing bubble ─────────────────────────────────────────────── */
-.typing-bubble{background:#111;border:1px solid rgba(255,255,255,.08);
-  border-radius:16px;padding:13px 20px;margin-bottom:24px;max-width:340px;
-  width:100%;opacity:0;animation:fadeInDown .7s cubic-bezier(.22,1,.36,1) .25s forwards}
-.typing-badge{display:inline-flex;align-items:center;gap:5px;
-  font-size:11px;font-weight:600;color:rgba(255,255,255,.5);
-  letter-spacing:.04em;text-transform:uppercase;margin-bottom:7px}
-.typing-text{font-size:15px;font-weight:500;color:#fff;line-height:1.4;min-height:1.4em}
-.cursor{display:inline-block;width:3px;height:.85em;background:#8b5cf6;
-  margin-left:2px;border-radius:2px;vertical-align:middle;
-  animation:cursorPulse 1s ease-in-out infinite}
-@keyframes cursorPulse{0%,100%{opacity:1}50%{opacity:0}}
+/* ── Collage zone: holds cards + overlay bubble ────────────────── */
+.collage-zone{position:relative;flex:1;width:100%;display:flex;
+  align-items:center;justify-content:center;overflow:hidden;
+  opacity:0;animation:fadeInScale .9s cubic-bezier(.22,1,.36,1) .3s forwards}
 
-/* ── Collage ───────────────────────────────────────────────────── */
-.collage-wrap{flex:1;width:100%;display:flex;align-items:center;
-  justify-content:center;overflow:hidden;margin-bottom:20px;
-  opacity:0;animation:fadeInScale .9s cubic-bezier(.22,1,.36,1) .4s forwards}
-.collage-inner{position:relative;width:1100px;height:375px;transform-origin:center center}
+.collage-inner{position:relative;width:1100px;height:375px;
+  transform-origin:center center}
+
 .collage-card{position:absolute;border-radius:14px;overflow:hidden;
   will-change:transform,opacity;backface-visibility:hidden;
   box-shadow:0 8px 32px rgba(0,0,0,.45)}
@@ -76,10 +66,38 @@ html,body{width:100%;height:100%;overflow:hidden;background:#050505;
 .shimmer{background:linear-gradient(90deg,#1a1a1a 0%,#262626 25%,#1f1f1f 50%,#262626 75%,#1a1a1a 100%);
   background-size:200% 100%;animation:shimmer 1.8s ease-in-out infinite}
 
+/* ── Typing bubble overlay (centered over the collage) ─────────── */
+.bubble-overlay{position:absolute;z-index:10;
+  left:50%;top:50%;transform:translate(-50%,-55%);
+  display:flex;flex-direction:column;align-items:center;
+  pointer-events:none;
+  opacity:0;animation:fadeInDown .7s cubic-bezier(.22,1,.36,1) .5s forwards}
+
+/* Badge pill */
+.typing-badge{display:inline-flex;align-items:center;gap:5px;
+  background:rgba(243,244,246,.95);color:#555;
+  font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;
+  padding:5px 12px;border-radius:999px;margin-bottom:8px;
+  box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.typing-badge svg{opacity:.6}
+
+/* White bubble card */
+.typing-card{background:#fff;border-radius:24px;
+  padding:20px 24px;min-width:260px;max-width:88vw;
+  text-align:center;
+  box-shadow:0 8px 40px rgba(0,0,0,.18),0 1px 3px rgba(0,0,0,.08)}
+.typing-text{font-size:22px;font-weight:700;color:#0a0a0a;line-height:1.35;
+  min-height:1.35em;letter-spacing:-.02em}
+.cursor{display:inline-block;width:3px;height:.85em;background:#8b5cf6;
+  margin-left:2px;border-radius:2px;vertical-align:middle;
+  animation:cursorPulse 1s ease-in-out infinite}
+@keyframes cursorPulse{0%,100%{opacity:1}50%{opacity:0}}
+
 /* ── Buttons ───────────────────────────────────────────────────── */
-.btn-row{display:flex;gap:12px;width:100%;max-width:340px;
-  opacity:0;animation:fadeInUp .7s cubic-bezier(.22,1,.36,1) .55s forwards}
-.btn{flex:1;padding:15px 0;border-radius:999px;font-size:16px;font-weight:600;
+.btn-row{display:flex;flex-direction:column;gap:10px;
+  width:100%;max-width:340px;padding-bottom:5vh;flex-shrink:0;
+  opacity:0;animation:fadeInUp .7s cubic-bezier(.22,1,.36,1) .65s forwards}
+.btn{width:100%;padding:16px 0;border-radius:999px;font-size:16px;font-weight:600;
   text-align:center;cursor:pointer;border:none;letter-spacing:-.01em;
   transition:transform .15s ease,opacity .15s ease}
 .btn:active{transform:scale(.97);opacity:.85}
@@ -90,6 +108,41 @@ html,body{width:100%;height:100%;overflow:hidden;background:#050505;
 @keyframes fadeInDown{from{opacity:0;transform:translateY(-16px)}to{opacity:1;transform:translateY(0)}}
 @keyframes fadeInUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
 @keyframes fadeInScale{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+
+/* ── Mobile-specific overrides (≤480px) ────────────────────────── */
+@media(max-width:480px){
+  .container{
+    padding:calc(env(safe-area-inset-top,0px) + 32px) 16px
+            calc(env(safe-area-inset-bottom,0px) + 12px)}
+  .logo-row{margin-bottom:14px}
+  .logo-icon{width:26px;height:26px}
+  .logo-text{font-size:18px}
+
+  .collage-zone{margin-bottom:8px}
+
+  .bubble-overlay{transform:translate(-50%,-52%)}
+  .typing-badge{font-size:9px;padding:4px 10px;margin-bottom:6px}
+  .typing-card{padding:16px 20px;border-radius:20px;min-width:220px}
+  .typing-text{font-size:19px}
+
+  .btn-row{max-width:100%;gap:9px;padding-bottom:3vh}
+  .btn{padding:15px 0;font-size:15px}
+}
+
+/* ── Tall phones (≥700px height) give collage more room ────────── */
+@media(min-height:700px){
+  .collage-zone{margin-bottom:12px}
+}
+
+/* ── Short phones (≤600px height) compress layout ──────────────── */
+@media(max-height:600px){
+  .container{padding-top:calc(env(safe-area-inset-top,0px) + 20px)}
+  .logo-row{margin-bottom:8px}
+  .typing-card{padding:14px 18px}
+  .typing-text{font-size:17px}
+  .btn{padding:13px 0;font-size:14px}
+  .btn-row{gap:7px;padding-bottom:2vh}
+}
 </style>
 </head>
 <body>
@@ -111,24 +164,26 @@ html,body{width:100%;height:100%;overflow:hidden;background:#050505;
     <span class="logo-text">Storelib</span>
   </div>
 
-  <!-- Typing bubble (black bg, white text) -->
-  <div class="typing-bubble">
-    <div class="typing-badge">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-      </svg>
-      All-in-one
-    </div>
-    <div class="typing-text"><span id="typingTarget"></span><span class="cursor"></span></div>
-  </div>
-
-  <!-- Hero collage -->
-  <div class="collage-wrap">
+  <!-- Collage zone: cards + typing bubble overlay -->
+  <div class="collage-zone">
     <div class="collage-inner" id="collageInner"></div>
+
+    <!-- Typing bubble overlaid on collage (matches website hero) -->
+    <div class="bubble-overlay">
+      <div class="typing-badge">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+        </svg>
+        All-in-one
+      </div>
+      <div class="typing-card">
+        <div class="typing-text"><span id="typingTarget"></span><span class="cursor"></span></div>
+      </div>
+    </div>
   </div>
 
-  <!-- Auth buttons -->
+  <!-- Auth buttons: Sign up (top), Log in (bottom), stacked full-width -->
   <div class="btn-row">
     <button class="btn btn-signup" id="btnSignup">Sign up</button>
     <button class="btn btn-login"  id="btnLogin">Log in</button>
@@ -167,7 +222,7 @@ var IMAGES=[
   "Monetize%20(7)%20(1).webp","Monetize%20(21).webp","Monetize%20(9).webp"
 ];
 
-/* Card slot definitions (mobile layout from hero.tsx) */
+/* Mobile card slots from hero.tsx MOBILE_CARDS */
 var SLOTS=[
   {left:38, top:50,width:180,height:225,zIndex:1,opacity:0,   scale:.95},
   {left:205,top:25,width:220,height:275,zIndex:2,opacity:.85, scale:.98},
@@ -180,10 +235,13 @@ var CANVAS_W=1100,CANVAS_H=375,TRANSITION_MS=1500,AUTOPLAY_MS=3800;
 var order=[0,1,2,3,4],animating=false;
 var root=document.getElementById("collageInner"),cardEls=[];
 
-/* Scale collage to viewport */
+/* Scale collage to viewport — matches hero.tsx mobile scale(0.96) */
 function scaleCollage(){
-  var vw=window.innerWidth,vh=window.innerHeight*.38;
-  var s=Math.min((vw-40)/CANVAS_W,vh/CANVAS_H,1.1);
+  var vw=window.innerWidth;
+  var vh=window.innerHeight*0.48;
+  var s=Math.min((vw+60)/CANVAS_W,vh/CANVAS_H,1.1);
+  /* Apply the hero.tsx mobile base scale on top */
+  s=s*0.96;
   root.style.transform="scale("+s+")";
 }
 scaleCollage();
@@ -199,7 +257,7 @@ for(var i=0;i<5;i++){
   d.appendChild(img);root.appendChild(d);cardEls.push(d);
 }
 
-/* Position / interpolate cards */
+/* Position helpers */
 function applySlot(el,s){
   el.style.cssText="position:absolute;border-radius:14px;overflow:hidden;"+
     "left:"+s.left+"px;top:"+s.top+"px;width:"+s.width+"px;height:"+s.height+"px;"+
