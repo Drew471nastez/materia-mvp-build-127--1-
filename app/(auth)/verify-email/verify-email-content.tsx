@@ -7,6 +7,7 @@ import { useState, useEffect } from "react"
 import { Loader2, CheckCircle2, Mail, AlertCircle } from "lucide-react"
 import Image from "next/image"
 import { createClient } from "@/lib/supabase/client"
+import { AuthLogo } from "@/components/auth/auth-logo"
 
 export default function VerifyEmailContent() {
   const [verificationCode, setVerificationCode] = useState("")
@@ -184,16 +185,9 @@ export default function VerifyEmailContent() {
   return (
     <div className="flex min-h-svh w-full lg:h-[100dvh] lg:max-h-[100dvh] lg:overflow-hidden">
       {/* Left side - Form */}
-      <div className="flex w-full flex-col justify-start px-6 py-8 sm:py-10 lg:w-1/2 lg:h-[100dvh] lg:overflow-y-auto page-scroll lg:px-16 lg:py-10 xl:px-24">
+      <div className="flex w-full flex-col justify-start px-6 py-8 sm:py-10 lg:w-1/2 lg:h-[100dvh] lg:overflow-y-auto page-scroll lg:px-16 lg:py-10 xl:px-24 auth-stack">
         <div className="mx-auto w-full max-w-[400px] py-2 sm:py-3 lg:py-4">
-          <Link href="/" className="mb-12 inline-flex items-center gap-2">
-            <img
-              src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
-              alt="Storelib"
-              className="h-[38px] w-[38px] lg:h-[40px] lg:w-[40px]"
-            />
-            <span className="text-[23px] lg:text-[24px] font-bold tracking-tight text-neutral-900">Storelib</span>
-          </Link>
+          <AuthLogo />
 
           {success ? (
             <div className="text-center">
