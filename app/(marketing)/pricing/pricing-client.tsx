@@ -50,12 +50,16 @@ export function PricingPageClient({
     setLoadingPlan(null)
   }
 
+  // Append plan_activated=1 to a destination that may already have query params
+  const withPlanActivated = (dest: string) =>
+    dest.includes("?") ? `${dest}&plan_activated=1` : `${dest}?plan_activated=1`
+
   // Upgrade mode (coming from /app/onepage editor): return to the original page after checkout
   const handleUpgradePlanSelect = (planId: "growth" | "pro") => {
     const destination = returnTo || "/app"
     handleCheckout(
       planId,
-      `${destination}?plan_activated=1`,
+      withPlanActivated(destination),
       `/pricing?source=upgrade&returnTo=${encodeURIComponent(destination)}`,
     )
   }

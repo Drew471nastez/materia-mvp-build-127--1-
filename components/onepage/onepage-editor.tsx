@@ -963,7 +963,7 @@ function EditorLayout() {
             <DialogTitle className="text-base sm:text-lg font-semibold text-center">Share your OnePage</DialogTitle>
           </DialogHeader>
 
-          <div className="p-4 sm:p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+          <div className="p-4 sm:p-5 space-y-4 max-h-[70vh] overflow-y-auto overflow-x-hidden">
             {/* Preview card - adapts to theme background */}
             <div
               className="rounded-xl p-4 sm:p-5 text-center"
@@ -1065,7 +1065,7 @@ function EditorLayout() {
               <div className="group/row relative">
                 <Button
                   variant="outline"
-                  className="w-full justify-between h-11 rounded-xl text-sm cursor-pointer text-[#374151] hover:text-[#1a1a2e] overflow-visible"
+                  className="w-full justify-between h-11 rounded-xl text-sm cursor-pointer text-[#374151] hover:text-[#1a1a2e]"
                   onClick={() => { window.location.href = "/app/settings?tab=domains" }}
                 >
                   <span className="flex items-center gap-3">
@@ -1075,12 +1075,12 @@ function EditorLayout() {
 
                   {/* Animated circle → purple Pro badge (same as design tab) */}
                   <div className="group/badge relative flex items-center shrink-0">
-                    {/* Tooltip */}
-                    <div className="absolute z-30 bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 bg-gray-900 text-white text-[11px] leading-tight rounded-lg whitespace-nowrap opacity-0 group-hover/badge:opacity-100 transition-opacity duration-200 pointer-events-none shadow-lg">
+                    {/* Tooltip — anchored right so it never overflows the modal */}
+                    <div className="absolute z-30 bottom-full right-0 mb-2 px-2.5 py-1.5 bg-gray-900 text-white text-[11px] leading-tight rounded-lg whitespace-nowrap opacity-0 group-hover/badge:opacity-100 transition-opacity duration-200 pointer-events-none shadow-lg">
                       {userPlan === "growth" || userPlan === "pro"
                         ? "Included in your plan"
                         : "Upgrade to unlock custom domains"}
-                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+                      <div className="absolute top-full right-3 border-4 border-transparent border-t-gray-900" />
                     </div>
 
                     {/* Badge shape: circle → purple pill on hover */}

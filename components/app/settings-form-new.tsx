@@ -873,6 +873,10 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   const [connectHelpUrl, setConnectHelpUrl] = useState<string | null>(null)
   const [usernameError, setUsernameError] = useState<string | null>(null)
 
+  // Subscription plan (for feature gating)
+  const [userPlan, setUserPlan] = useState<string | null>(null)
+  const [planLoading, setPlanLoading] = useState(true)
+
   // Domain state
   const [domains, setDomains] = useState<any[]>([])
   const [domainsLoading, setDomainsLoading] = useState(false)
@@ -1029,6 +1033,15 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   useEffect(() => {
     fetchDomains()
   }, [fetchDomains])
+
+  // Fetch subscription plan on mount (for feature gating in Domains tab etc.)
+  useEffect(() => {
+    fetch("/api/billing/subscription")
+      .then((r) => r.json())
+      .then((data) => setUserPlan(data.currentPlan?.id || "free"))
+      .catch(() => setUserPlan("free"))
+      .finally(() => setPlanLoading(false))
+  }, [])
 
   // Auto-poll SSL provisioning domains every 10s until they become active
   useEffect(() => {
@@ -2909,8 +2922,30 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
           {/* Domains Tab */}
           {!isTabLoading && activeTab === "domains" && (
             <div className="space-y-4 sm:space-y-6">
+
+              {/* Upgrade banner — skeleton while plan loads, banner if free, nothing if paid */}
+              {planLoading ? (
+                <div className="h-[56px] rounded-2xl bg-[#f3f4f6] animate-pulse" />
+              ) : (userPlan === "free" || userPlan === null) ? (
+                <div className="flex items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] px-4 sm:px-6 py-3 sm:py-3.5 shadow-sm">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Globe className="h-5 w-5 text-white shrink-0" />
+                    <p className="text-[13px] sm:text-[14px] font-medium text-white truncate">
+                      <span className="sm:hidden">Custom domains — upgrade to connect</span>
+                      <span className="hidden sm:inline">Custom domains are available on Growth & Pro plans.</span>
+                    </p>
+                  </div>
+                  <a
+                    href={`/pricing?source=upgrade&returnTo=${encodeURIComponent("/app/settings?tab=domains")}`}
+                    className="shrink-0 h-9 px-5 text-[13px] font-semibold text-[#7c3aed] bg-white rounded-lg hover:bg-[#f5f3ff] active:bg-[#ede9fe] transition-colors shadow-sm cursor-pointer no-underline"
+                  >
+                    Upgrade
+                  </a>
+                </div>
+              ) : null}
+
               {/* Connect Your Domain Card */}
-              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
+              <div className={`bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb] ${(userPlan === "free" || userPlan === null) && !planLoading ? "opacity-50 pointer-events-none select-none" : ""}`}>
                 <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-1">Connect your own domain</h3>
                 {/* Desktop: full text, Mobile: shorter text */}
                 <p className="hidden sm:block text-[13px] text-[#6b7280] mb-4">Connect a custom domain to your store and OnePage. Your store will be at <span className="font-medium">yourdomain.com</span> and OnePage at <span className="font-medium">yourdomain.com/links</span>.</p>
@@ -2925,13 +2960,14 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                       onChange={(e) => { setDomainInput(e.target.value); setDomainError(null); setDomainInfo(null) }}
                       onKeyDown={(e) => e.key === "Enter" && addDomain()}
                       placeholder="Enter your domain (e.g. mydomain.com)"
-                      className="w-full h-11 pl-10 pr-4 text-[14px] border border-[#e5e7eb] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#8b5cf6] focus:border-[#8b5cf6] transition-colors"
+                      disabled={userPlan === "free" || userPlan === null}
+                      className="w-full h-11 pl-10 pr-4 text-[14px] border border-[#e5e7eb] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#8b5cf6] focus:border-[#8b5cf6] transition-colors disabled:cursor-not-allowed"
                     />
                   </div>
                   <button
                     onClick={addDomain}
-                    disabled={domainAdding || !domainInput.trim()}
-                    className="h-11 px-5 text-[13px] font-semibold text-white bg-[#7c3aed] rounded-xl hover:bg-[#6d28d9] transition-colors disabled:opacity-50 cursor-pointer flex items-center gap-2 shrink-0"
+                    disabled={domainAdding || !domainInput.trim() || userPlan === "free" || userPlan === null}
+                    className="h-11 px-5 text-[13px] font-semibold text-white bg-[#7c3aed] rounded-xl hover:bg-[#6d28d9] transition-colors disabled:opacity-50 cursor-pointer flex items-center gap-2 shrink-0 disabled:cursor-not-allowed"
                   >
                     {domainAdding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                     Connect
@@ -3016,7 +3052,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
               </div>
 
               {/* Connected Domains List */}
-              <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb]">
+              <div className={`bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#e5e7eb] ${(userPlan === "free" || userPlan === null) && !planLoading ? "opacity-50 pointer-events-none select-none" : ""}`}>
                 <h3 className="text-[15px] font-semibold text-[#1a1a2e] mb-4">Your Domains</h3>
 
                 {domainsLoading ? (
