@@ -127,22 +127,10 @@ export default function VerifyEmailContent() {
         return
       }
 
-      // User is already logged in from signup, just redirect to app/onboarding
-      const supabase = createClient()
-
-      // Check if user has a creator record
-      const { data: creator } = await supabase
-        .from("creators")
-        .select("id, onboarding_completed")
-        .eq("user_id", userId)
-        .single()
-
+      // After verification, always go to the role chooser.
+      // /signup/success decides creator → /app or buyer → /library.
       setTimeout(() => {
-        if (creator && creator.onboarding_completed) {
-          router.push("/app")
-        } else {
-          router.push("/onboarding")
-        }
+        router.push("/signup/success")
         router.refresh()
       }, 1500)
     } catch (err) {

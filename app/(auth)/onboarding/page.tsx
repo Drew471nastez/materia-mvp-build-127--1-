@@ -4,15 +4,15 @@ import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
 
-// This page now redirects to /signup/success which handles the welcome selection
-// The old multi-step onboarding is replaced by the new CreatorOnboardingModal
+// This page now redirects to /signup/success which handles the welcome selection.
+// The old multi-step onboarding is replaced by the new CreatorOnboardingModal.
 export default function OnboardingPage() {
   const router = useRouter()
 
   useEffect(() => {
-    // Redirect to signup/success with action=become-creator so the
-    // onboarding modal opens directly (even for existing buyers)
-    router.replace("/signup/success?action=become-creator")
+    // Redirect to /signup/success — the role chooser decides the final
+    // destination (creator → onboarding → /app, buyer → /library).
+    router.replace("/signup/success")
   }, [router])
 
   return (

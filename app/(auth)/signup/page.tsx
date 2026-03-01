@@ -173,50 +173,36 @@ function SignUpFormContent() {
     }
 
     try {
-      // Sign up WITHOUT email confirmation from Supabase
-      // We handle our own verification with 6-digit code
+      // Sign up with Supabase email confirmation.
+      // Supabase sends a 6-digit OTP code to the user's email.
+      // The session is NOT established until the OTP is verified
+      // on /signup/verify.
+      //
+      // NOTE: Requires Supabase dashboard config:
+      //   Auth → Email → "Confirm email" = enabled
+      //   Auth → Email Templates → include {{ .Token }} in the
+      //   confirmation template so the user receives a 6-digit code.
       const { error, data } = await supabase.auth.signUp({
         email: trimmedEmail,
         password: trimmedPassword,
         options: {
-          // Don't require Supabase email confirmation
-          emailRedirectTo: undefined,
-          data: {
-            email_verified: false, // We track this ourselves
-          }
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       })
       if (error) throw error
 
       if (data.user) {
-        // Create profile with email_verified = false
-        const { error: profileError } = await supabase.from("profiles").upsert({
-          id: data.user.id,
-          email: trimmedEmail,
-          is_creator: false,
-          email_verified: false,
-        })
-
-        if (profileError) {
-          console.error("Profile creation error:", profileError)
-        }
-
-        // Send our custom verification code via Resend
-        try {
-          const verifyRes = await fetch("/api/auth/verify-email", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              userId: data.user.id,
-              email: trimmedEmail,
-            }),
-          })
-
-          if (!verifyRes.ok) {
-            console.error("Failed to send verification code")
-          }
-        } catch (verifyError) {
-          console.error("Error sending verification code:", verifyError)
+        // If Supabase returned a session (email confirmation disabled),
+        // create the profile immediately.  Otherwise /signup/verify
+        // handles profile creation after OTP verification.
+        if (data.session) {
+          await supabase.from("profiles").upsert({
+            id: data.user.id,
+            email: trimmedEmail,
+            is_creator: false,
+            email_verified: false,
+            welcome_completed: false,
+          }, { onConflict: "id" })
         }
 
         // Handle purchase claim flow
@@ -235,16 +221,10 @@ function SignUpFormContent() {
           return
         }
 
-        // Redirect to verify email page with sent=1 flag
-        // Include redirect URL if present for post-verification redirect
-        let verifyUrl = `/verify-email?userId=${data.user.id}&email=${encodeURIComponent(trimmedEmail)}&sent=1`
-        if (redirectUrl) {
-          verifyUrl += `&redirect=${encodeURIComponent(redirectUrl)}`
-        }
-        if (pendingReview === "true") {
-          verifyUrl += `&pendingReview=true`
-        }
-        navigateWithFallback(verifyUrl)
+        // Redirect to Supabase OTP verify page
+        navigateWithFallback(
+          `/signup/verify?email=${encodeURIComponent(trimmedEmail)}`
+        )
         router.refresh()
       }
     } catch (error: unknown) {

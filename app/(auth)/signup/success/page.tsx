@@ -30,6 +30,7 @@ export default function SignupSuccessPage() {
   const [hoveredCard, setHoveredCard] = useState<"creator" | "buyer" | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [selectedChoice, setSelectedChoice] = useState<"creator" | "buyer" | null>(null)
+  const [isRouting, setIsRouting] = useState(false)
   const [showCreatorOnboarding, setShowCreatorOnboarding] = useState(false)
   const stripeSuccess = searchParams.get("stripe_success")
   const stripeTier = searchParams.get("tier") as "growth" | "pro" | null
@@ -178,7 +179,8 @@ export default function SignupSuccessPage() {
         })
         .eq("id", user.id)
 
-      // Navigate to library for buyers
+      // Show full-screen loader, then navigate to library
+      setIsRouting(true)
       router.replace("/library")
     }
   }
@@ -189,8 +191,8 @@ export default function SignupSuccessPage() {
     setShowCreatorOnboarding(false)
   }
 
-  // Show loading while checking auth status
-  if (isCheckingAuth) {
+  // Show full-screen loader while auth is checking or route transition
+  if (isCheckingAuth || isRouting) {
     return <AuthResolvingScreen />
   }
 
