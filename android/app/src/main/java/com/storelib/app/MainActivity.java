@@ -124,13 +124,19 @@ public class MainActivity extends BridgeActivity {
                 return;
             }
 
-            // HTTPS App Link: password-reset email link — load directly in WebView.
-            // The reset-password page is a public Next.js page (no auth needed).
+            // HTTPS App Link: password-reset recovery link.
             // Supabase redirects here with #access_token=…&type=recovery in the
-            // hash fragment. The page JS parses the tokens, calls setSession(),
-            // and shows the reset form.
+            // hash fragment, but Android's intent system may strip the fragment.
+            //
+            // Strategy: show loading overlay and let Capacitor fire appUrlOpen.
+            // The JS handler in native-oauth.ts extracts tokens from the URL's
+            // hash fragment (if preserved), stores them in sessionStorage, and
+            // navigates to /reset-password. The page reads from sessionStorage.
+            //
+            // This approach works reliably on both Android and iOS, and avoids
+            // the hash-fragment-stripping problem that loadInWebView() has.
             if (path != null && path.startsWith("/reset-password")) {
-                loadInWebView(data.toString());
+                showAuthLoading();
                 return;
             }
         }

@@ -92,6 +92,24 @@ function isOAuthCallback(url: string): boolean {
 }
 
 /**
+ * Detect if a URL is an HTTPS reset-password App Link / Universal Link.
+ * These arrive when the OS intercepts the Supabase redirect:
+ *   https://storelib.com/reset-password#access_token=...&type=recovery
+ */
+function isHttpsResetPasswordUrl(url: string): boolean {
+  try {
+    const u = new URL(url)
+    return (
+      u.protocol === "https:" &&
+      (u.hostname === "storelib.com" || u.hostname === "www.storelib.com") &&
+      u.pathname.startsWith("/reset-password")
+    )
+  } catch {
+    return false
+  }
+}
+
+/**
  * Tell the native Android shell that auth exchange is starting so it
  * can show (or keep showing) its loading overlay.  No-ops gracefully
  * if authStart is not defined on the native side.
@@ -163,6 +181,62 @@ async function handleRecoveryCallback(rawUrl: string): Promise<void> {
   console.log(`${TAG}   Navigating to /reset-password for recovery flow`)
   showToast("Opening password reset…", "info")
   window.location.assign("/reset-password")
+}
+
+/**
+ * Handle an HTTPS reset-password App Link / Universal Link.
+ *
+ * When the user taps the recovery email link:
+ *   1. Browser opens Supabase verification URL
+ *   2. Supabase verifies → 302 redirect to https://storelib.com/reset-password#access_token=...
+ *   3. OS intercepts the redirect (App Link / Universal Link) → opens the app
+ *   4. Capacitor fires appUrlOpen with the HTTPS URL
+ *
+ * We extract tokens from the hash fragment, store them in sessionStorage,
+ * and navigate to /reset-password so the page can read them.
+ */
+async function handleHttpsResetPasswordLink(rawUrl: string): Promise<void> {
+  console.log(`${TAG} ▶ HTTPS reset-password App Link detected`)
+  console.log(`${TAG}   raw URL : "${rawUrl.slice(0, 150)}"`)
+  showToast(`HTTPS reset link\n${rawUrl.slice(0, 120)}`, "info")
+
+  notifyNativeAuthStart()
+  try { sessionStorage.setItem("nativeAuthInProgress", "1") } catch {}
+
+  // Extract tokens from hash fragment (#access_token=...&refresh_token=...&type=recovery)
+  const hashIndex = rawUrl.indexOf("#")
+  if (hashIndex !== -1) {
+    const hashStr = rawUrl.substring(hashIndex + 1)
+    const hashParams = new URLSearchParams(hashStr)
+    const accessToken = hashParams.get("access_token")
+    const refreshToken = hashParams.get("refresh_token")
+    const type = hashParams.get("type") || "recovery"
+
+    if (accessToken && refreshToken) {
+      // Build a recovery URL for sessionStorage (same format the page expects)
+      const recoveryUrl = `storelib://auth/callback?type=${encodeURIComponent(type)}&access_token=${encodeURIComponent(accessToken)}&refresh_token=${encodeURIComponent(refreshToken)}`
+      try { sessionStorage.setItem("nativeRecoveryUrl", recoveryUrl) } catch {}
+      console.log(`${TAG}   Tokens extracted from hash, stored in sessionStorage`)
+      showToast("Recovery tokens stored", "ok")
+    } else {
+      console.warn(`${TAG}   Hash fragment present but missing access_token/refresh_token`)
+    }
+  } else {
+    console.warn(`${TAG}   No hash fragment in URL — tokens may have been stripped by the OS`)
+  }
+
+  // Always navigate to /reset-password.
+  // If tokens were found → page reads from sessionStorage → shows form.
+  // If tokens were NOT found → page shows "expired" with resend option.
+  if (window.location.pathname === "/reset-password") {
+    // Already on the reset page (e.g. Android loadInWebView already navigated here).
+    // Dispatch a custom event so the page can re-check sessionStorage.
+    console.log(`${TAG}   Already on /reset-password — dispatching nativeRecoveryTokensReady event`)
+    window.dispatchEvent(new CustomEvent("nativeRecoveryTokensReady"))
+  } else {
+    console.log(`${TAG}   Navigating to /reset-password`)
+    window.location.assign("/reset-password")
+  }
 }
 
 // ── Core handler (exported so it can be called manually for testing) ──────────
@@ -397,12 +471,42 @@ export async function setupNativeOAuthListeners(): Promise<() => void> {
     const supabase = createClient()
 
     // ── Register appUrlOpen listener ────────────────────────────────────
+    // Handles BOTH custom-scheme callbacks (storelib://auth/callback)
+    // AND HTTPS App Links / Universal Links (https://storelib.com/reset-password#...)
     console.log(`${TAG} Registering App.addListener("appUrlOpen")…`)
     const appHandle = await App.addListener("appUrlOpen", ({ url }) => {
       console.log(`${TAG} ← appUrlOpen event received, url="${url}"`)
+
+      // HTTPS reset-password links from App Link / Universal Link
+      if (isHttpsResetPasswordUrl(url)) {
+        handleHttpsResetPasswordLink(url)
+        return
+      }
+
+      // Custom scheme callbacks (OAuth + recovery deep links)
       handleOAuthCallback(url)
     })
     console.log(`${TAG}   appUrlOpen listener registered ✓`)
+
+    // ── Cold-start: check if the app was launched via a deep link ─────
+    // On cold-start, appUrlOpen may fire before the listener is registered.
+    // App.getLaunchUrl() returns the URL that launched the app so we can
+    // process it now.
+    try {
+      const launchResult = await App.getLaunchUrl()
+      if (launchResult?.url) {
+        console.log(`${TAG}   Launch URL detected: "${launchResult.url.slice(0, 120)}"`)
+        if (isHttpsResetPasswordUrl(launchResult.url)) {
+          console.log(`${TAG}   Cold-start: processing HTTPS reset-password launch URL`)
+          handleHttpsResetPasswordLink(launchResult.url)
+        } else if (isOAuthCallback(launchResult.url) && isRecoveryCallback(launchResult.url)) {
+          console.log(`${TAG}   Cold-start: processing recovery launch URL`)
+          handleRecoveryCallback(launchResult.url)
+        }
+      }
+    } catch (e) {
+      console.warn(`${TAG}   getLaunchUrl() failed:`, e)
+    }
 
     // ── Register onAuthStateChange listener ─────────────────────────────
     console.log(`${TAG} Registering supabase.auth.onAuthStateChange…`)

@@ -1,9 +1,10 @@
 "use client"
 
-import { useState, useEffect, useRef, Suspense } from "react"
+import { useState, useEffect, useRef, useCallback, Suspense } from "react"
 import { useRouter } from "next/navigation"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { isNativeApp } from "@/lib/platform-utils"
+import { notifyNativeAuthDone } from "@/lib/native-oauth"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Loader2, CheckCircle2, XCircle, Eye, EyeOff } from "lucide-react"
@@ -75,6 +76,15 @@ function parseRecoveryTokens(): {
   return { accessToken: null, refreshToken: null, type: null }
 }
 
+/**
+ * Dismiss native auth loading overlay and clear the nativeAuthInProgress flag.
+ * Called when the reset-password page is ready to display content.
+ */
+function dismissNativeOverlay() {
+  notifyNativeAuthDone()
+  try { sessionStorage.removeItem("nativeAuthInProgress") } catch {}
+}
+
 type Phase = "initializing" | "handoff" | "form" | "success" | "expired"
 
 function ResetPasswordContent() {
@@ -89,6 +99,47 @@ function ResetPasswordContent() {
   const [deepLink, setDeepLink] = useState<string | null>(null)
   const initRef = useRef(false)
 
+  const establishSessionAndShowForm = useCallback(
+    async (accessToken: string, refreshToken: string) => {
+      try {
+        const supabase = createClient()
+
+        // Set the recovery session
+        const { data, error: sessionError } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        })
+
+        if (sessionError) {
+          console.error("[ResetPassword] setSession error:", sessionError.message)
+          setPhase("expired")
+          setError("This reset link has expired or is invalid. Please request a new one.")
+          dismissNativeOverlay()
+          return
+        }
+
+        if (data?.user?.email) {
+          setUserEmail(data.user.email)
+        }
+
+        // Clear the hash from the URL so tokens aren't exposed in browser history
+        if (window.location.hash) {
+          window.history.replaceState(null, "", window.location.pathname)
+        }
+
+        setPhase("form")
+        dismissNativeOverlay()
+      } catch (err) {
+        console.error("[ResetPassword] Unexpected error:", err)
+        setPhase("expired")
+        setError("Something went wrong. Please request a new password reset.")
+        dismissNativeOverlay()
+      }
+    },
+    []
+  )
+
+  // Main initialization — parse tokens and decide on flow
   useEffect(() => {
     // Prevent double-init in React Strict Mode
     if (initRef.current) return
@@ -104,11 +155,34 @@ function ResetPasswordContent() {
         if (searchParams.get("token")) {
           setPhase("expired")
           setError("This reset link uses an older format. Please request a new one.")
+          dismissNativeOverlay()
+          return
+        }
+
+        // On native, tokens may arrive AFTER page mount via appUrlOpen event.
+        // Wait briefly before showing expired — the nativeRecoveryTokensReady
+        // event listener (below) will handle late-arriving tokens.
+        const isInCapacitor = isNativePlatform() || isNativeApp()
+        if (isInCapacitor) {
+          console.log("[ResetPassword] No tokens yet in Capacitor — waiting for appUrlOpen delivery")
+          // Stay in "initializing" phase; the event listener below will handle it.
+          // Safety timeout: if no tokens arrive within 5 seconds, show expired.
+          setTimeout(() => {
+            setPhase((prev) => {
+              if (prev === "initializing") {
+                dismissNativeOverlay()
+                setError("Could not load reset link. Please try again from your email.")
+                return "expired"
+              }
+              return prev
+            })
+          }, 5000)
           return
         }
 
         setPhase("expired")
         setError("Missing or invalid reset link. Please request a new password reset.")
+        dismissNativeOverlay()
         return
       }
 
@@ -154,42 +228,22 @@ function ResetPasswordContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  async function establishSessionAndShowForm(
-    accessToken: string,
-    refreshToken: string
-  ) {
-    try {
-      const supabase = createClient()
-
-      // Set the recovery session
-      const { data, error: sessionError } = await supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken,
-      })
-
-      if (sessionError) {
-        console.error("[ResetPassword] setSession error:", sessionError.message)
-        setPhase("expired")
-        setError("This reset link has expired or is invalid. Please request a new one.")
-        return
+  // ── Listen for late-arriving tokens from native appUrlOpen handler ──
+  // On native, the appUrlOpen event may fire AFTER this page mounts.
+  // The handler in native-oauth.ts dispatches "nativeRecoveryTokensReady"
+  // after storing tokens in sessionStorage. We re-check and proceed.
+  useEffect(() => {
+    const handleTokensReady = async () => {
+      console.log("[ResetPassword] nativeRecoveryTokensReady event received")
+      const tokens = parseRecoveryTokens()
+      if (tokens.accessToken && tokens.refreshToken) {
+        await establishSessionAndShowForm(tokens.accessToken, tokens.refreshToken)
       }
-
-      if (data?.user?.email) {
-        setUserEmail(data.user.email)
-      }
-
-      // Clear the hash from the URL so tokens aren't exposed in browser history
-      if (window.location.hash) {
-        window.history.replaceState(null, "", window.location.pathname)
-      }
-
-      setPhase("form")
-    } catch (err) {
-      console.error("[ResetPassword] Unexpected error:", err)
-      setPhase("expired")
-      setError("Something went wrong. Please request a new password reset.")
     }
-  }
+
+    window.addEventListener("nativeRecoveryTokensReady", handleTokensReady)
+    return () => window.removeEventListener("nativeRecoveryTokensReady", handleTokensReady)
+  }, [establishSessionAndShowForm])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
