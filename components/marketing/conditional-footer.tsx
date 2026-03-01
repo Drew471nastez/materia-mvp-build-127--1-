@@ -32,10 +32,16 @@ export function ConditionalFooter() {
 
     const isSellerPath = pathname.startsWith("/u/") || pathname.startsWith("/p/") || pathname.startsWith("/l/")
 
-    // In Capacitor discover mode: show platform footer on seller/product pages
+    // In Capacitor native apps, hide the black footer on seller pages,
+    // product pages, and /explore for a clean native app experience.
+    if (isNativeApp() && (isSubdomain || isSellerPath || pathname.startsWith("/explore"))) {
+      setShowFooter(false)
+      return
+    }
+
     // On web with query-param discover layout: hide footer (existing behaviour)
     if ((isSubdomain || isSellerPath) && isDiscoverMode(pathname, searchParams, { isSubdomain })) {
-      setShowFooter(isNativeApp())
+      setShowFooter(false)
       return
     }
 

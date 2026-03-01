@@ -396,7 +396,9 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
   const displayText = getDisplayText(settings, settings.creatorName)
   const buttonText = loading ? "..." : getButtonText(settings, subscribed)
 
-  const isSticky = settings.enableStickyBar
+  // In Capacitor native apps, disable sticky/fixed mode so the subscribe bar
+  // sits in normal document flow — avoids overlapping the platform header.
+  const isSticky = settings.enableStickyBar && !isNativeApp()
 
   // Always use solid color for live subscriber bar (no gradients)
   const solidBackgroundColor = extractSolidColor(settings.backgroundColor)
