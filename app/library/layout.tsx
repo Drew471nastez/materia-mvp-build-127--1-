@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { DashboardSidebar } from "@/components/dashboard/sidebar"
 import { PurchaseSyncProvider } from "@/components/checkout/purchase-sync-provider"
+import { NativeAuthGate } from "@/components/native-auth-gate"
 
 export default async function LibraryLayout({
   children,
@@ -20,6 +21,7 @@ export default async function LibraryLayout({
   }
 
   return (
+    <NativeAuthGate>
     <div className="min-h-svh bg-[#fafafa]">
       <PurchaseSyncProvider />
       <DashboardSidebar />
@@ -37,5 +39,6 @@ export default async function LibraryLayout({
         </main>
       </div>
     </div>
+    </NativeAuthGate>
   )
 }

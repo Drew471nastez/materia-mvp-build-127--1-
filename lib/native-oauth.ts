@@ -359,8 +359,11 @@ export async function setupNativeOAuthListeners(): Promise<() => void> {
           // The callback handler owns the full flow (exchange → sync-session
           // → /app).  Navigating here would race it, skip cookie sync, and
           // cause "Auth session missing!" on the server side.
-          if (isHandling) {
-            console.log(`${TAG}   OAuth callback in progress — skipping authStateChange navigation.`)
+          // Check both module-level flag and sessionStorage (belt-and-suspenders).
+          let nativeAuthFlag = false
+          try { nativeAuthFlag = sessionStorage.getItem("nativeAuthInProgress") === "1" } catch {}
+          if (isHandling || nativeAuthFlag) {
+            console.log(`${TAG}   OAuth callback in progress (isHandling=${isHandling}, flag=${nativeAuthFlag}) — skipping authStateChange navigation.`)
             return
           }
           const path = window.location.pathname

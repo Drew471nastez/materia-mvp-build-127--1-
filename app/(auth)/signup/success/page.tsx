@@ -35,8 +35,16 @@ export default function SignupSuccessPage() {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
 
   // Check if user already completed onboarding - database is the source of truth
-  // Uses auth state listener + retry to handle post-OAuth session delays
+  // Uses auth state listener + retry to handle post-OAuth session delays.
+  // Skip entirely while native OAuth callback is in progress — native-oauth.ts
+  // owns the full flow and will navigate when done.
   useEffect(() => {
+    // Guard: if native-oauth.ts is handling a deep-link callback, don't
+    // run any auth checks or redirects — the handler owns navigation.
+    try {
+      if (sessionStorage.getItem("nativeAuthInProgress") === "1") return
+    } catch {}
+
     const supabase = createClient()
     let cancelled = false
     let retryTimer: ReturnType<typeof setTimeout> | null = null
@@ -112,8 +120,12 @@ export default function SignupSuccessPage() {
       setIsCheckingAuth(false)
     }
 
-    // Listen for auth state changes (handles delayed session after OAuth)
+    // Listen for auth state changes (handles delayed session after OAuth).
+    // Skip if native OAuth callback is in progress — the handler owns navigation.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      try {
+        if (sessionStorage.getItem("nativeAuthInProgress") === "1") return
+      } catch {}
       if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
         checkOnboardingStatus()
       }

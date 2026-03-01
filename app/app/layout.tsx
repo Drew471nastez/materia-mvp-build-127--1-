@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 import { AppSidebar } from "@/components/app/sidebar"
 import { AppLayoutWrapper } from "@/components/app/app-layout-wrapper"
 import { Toaster } from "@/components/ui/toaster"
+import { NativeAuthGate } from "@/components/native-auth-gate"
 
 export default async function AppLayout({
   children,
@@ -111,6 +112,7 @@ export default async function AppLayout({
   const totalSteps = setupSteps.length
 
   return (
+    <NativeAuthGate>
     <AppLayoutWrapper>
       <div className="min-h-svh overflow-x-hidden bg-[#111111] md:bg-[#131316] app-no-scrollbar">
         <AppSidebar
@@ -130,5 +132,6 @@ export default async function AppLayout({
         <Toaster />
       </div>
     </AppLayoutWrapper>
+    </NativeAuthGate>
   )
 }

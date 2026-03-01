@@ -12,6 +12,7 @@ import { Eye, EyeOff } from "lucide-react"
 import { getCanonicalSiteUrl } from "@/lib/url-helpers"
 import Image from "next/image"
 import { AuthLogo } from "@/components/auth/auth-logo"
+import { useAuthGate } from "@/lib/use-auth-gate"
 
 function SignUpFormContent() {
   const [email, setEmail] = useState("")
@@ -23,9 +24,9 @@ function SignUpFormContent() {
   const [isContinueLoading, setIsContinueLoading] = useState(false)
   const [isRedirecting, setIsRedirecting] = useState(false)
   const [showPasswordField, setShowPasswordField] = useState(false)
-  const [isCheckingAuth, setIsCheckingAuth] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [googleOnlyEmail, setGoogleOnlyEmail] = useState<string | null>(null)
+  const { loading: authGateLoading, nativeAuthInProgress } = useAuthGate()
   const redirectTimeoutRef = useRef<number | null>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -62,10 +63,10 @@ function SignUpFormContent() {
   }
 
   // Check if user is already authenticated - redirect if so
-  // Includes loop detection to prevent infinite redirect cycles
+  // Includes loop detection to prevent infinite redirect cycles.
+  // Skipped while auth gate is loading or native OAuth callback is in progress.
   useEffect(() => {
-    // Safety net: if the session check somehow stalls, show the form after 1.5 s.
-    const safetyTimer = window.setTimeout(() => setIsCheckingAuth(false), 1500)
+    if (authGateLoading || nativeAuthInProgress) return
 
     const checkAuth = async () => {
       try {
@@ -83,7 +84,6 @@ function SignUpFormContent() {
             console.warn("[signup] Redirect loop detected, showing signup form")
             sessionStorage.removeItem("storelib_signup_hits")
             sessionStorage.removeItem("storelib_signup_ts")
-            setIsCheckingAuth(false)
             return
           }
         } else {
@@ -91,8 +91,6 @@ function SignUpFormContent() {
           sessionStorage.setItem("storelib_signup_ts", String(now))
         }
 
-        // getSession() reads from localStorage — no network call for unauthenticated users,
-        // so the check completes in milliseconds instead of waiting for a round-trip.
         const supabase = createClient()
         const { data: { session } } = await supabase.auth.getSession()
         const user = session?.user
@@ -106,15 +104,11 @@ function SignUpFormContent() {
         sessionStorage.removeItem("storelib_signup_ts")
       } catch (error) {
         console.error("Auth check error:", error)
-      } finally {
-        window.clearTimeout(safetyTimer)
-        setIsCheckingAuth(false)
       }
     }
 
     checkAuth()
-    return () => window.clearTimeout(safetyTimer)
-  }, [router])
+  }, [router, authGateLoading, nativeAuthInProgress])
 
   useEffect(() => {
     return () => {
@@ -316,6 +310,29 @@ function SignUpFormContent() {
       setError(error instanceof Error ? error.message : "Failed to sign in with Google")
       setIsGoogleLoading(false)
     }
+  }
+
+  // Native OAuth callback in progress — show stable loading screen
+  if (nativeAuthInProgress) {
+    return (
+      <div className="flex min-h-svh w-full items-center justify-center bg-white">
+        <div className="text-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900 mx-auto"></div>
+          <p className="mt-4 text-neutral-500">Signing you in...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Boot guard: wait for getSession() before showing the form
+  if (authGateLoading) {
+    return (
+      <div className="flex min-h-svh w-full items-center justify-center bg-white">
+        <div className="text-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900 mx-auto"></div>
+        </div>
+      </div>
+    )
   }
 
   // Show loading while redirecting to destination after auth

@@ -1,6 +1,7 @@
 import type React from "react"
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
+import { NativeAuthGate } from "@/components/native-auth-gate"
 
 export default async function StoreBuilderLayout({
   children,
@@ -24,5 +25,5 @@ export default async function StoreBuilderLayout({
   }
 
   // Full-screen layout without dashboard sidebar
-  return <>{children}</>
+  return <NativeAuthGate>{children}</NativeAuthGate>
 }
