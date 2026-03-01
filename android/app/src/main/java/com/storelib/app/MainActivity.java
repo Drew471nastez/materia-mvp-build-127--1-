@@ -121,6 +121,14 @@ public class MainActivity extends BridgeActivity {
                 showAuthLoading();
                 return;
             }
+
+            // HTTPS App Link: password-reset email link — load directly in WebView.
+            // The reset-password page is a public Next.js page (no auth needed);
+            // it validates the token and lets the user set a new password.
+            if (path != null && path.startsWith("/reset-password")) {
+                loadInWebView(data.toString());
+                return;
+            }
         }
 
         // Normal launch: WelcomeActivity put the target URL in extras.
