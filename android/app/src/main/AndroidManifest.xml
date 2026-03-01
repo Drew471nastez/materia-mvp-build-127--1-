@@ -75,31 +75,6 @@
                     android:pathPrefix="/callback" />
             </intent-filter>
 
-            <!--
-                App Links: intercept password-reset email links so they open
-                inside the Storelib app instead of the system browser.
-                Requires the existing /.well-known/assetlinks.json (already
-                present and covers the whole storelib.com domain).
-            -->
-            <intent-filter android:autoVerify="true">
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data
-                    android:scheme="https"
-                    android:host="storelib.com"
-                    android:pathPrefix="/reset-password" />
-            </intent-filter>
-
-            <intent-filter android:autoVerify="true">
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data
-                    android:scheme="https"
-                    android:host="www.storelib.com"
-                    android:pathPrefix="/reset-password" />
-            </intent-filter>
         </activity>
 
         <provider

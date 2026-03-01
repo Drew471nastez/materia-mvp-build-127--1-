@@ -5,15 +5,14 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { AuthLogo } from "@/components/auth/auth-logo"
+import { createClient } from "@/lib/supabase/client"
 
 function maskEmail(email: string): string {
   const [localPart, domain] = email.split("@")
   if (!localPart || !domain) return email
-
   const firstChar = localPart[0] || ""
   const lastChar = localPart.length > 1 ? localPart[localPart.length - 1] : ""
-  const masked = `${firstChar}***${lastChar}@${domain}`
-  return masked
+  return `${firstChar}***${lastChar}@${domain}`
 }
 
 export default function RequestPasswordResetPage() {
@@ -22,7 +21,6 @@ export default function RequestPasswordResetPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [maskedEmail, setMaskedEmail] = useState("")
-  const [googleOnlyHint, setGoogleOnlyHint] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -34,26 +32,26 @@ export default function RequestPasswordResetPage() {
 
     setIsLoading(true)
     setError(null)
-    setGoogleOnlyHint(false)
 
     try {
-      const response = await fetch("/api/auth/request-password-reset", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim().toLowerCase() }),
-      })
+      const supabase = createClient()
+      // Always redirect to the HTTPS page — the web page then hands off to
+      // the native app via storelib:// custom scheme if the app is installed.
+      const redirectTo = `${typeof window !== "undefined" ? window.location.origin : "https://storelib.com"}/reset-password`
 
-      const data = await response.json()
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+        email.trim().toLowerCase(),
+        { redirectTo }
+      )
 
-      if (response.ok) {
-        setMaskedEmail(maskEmail(email.trim().toLowerCase()))
-        setSuccess(true)
-      } else if (response.status === 409 && data?.accountType === "google_only") {
-        setGoogleOnlyHint(true)
-        setError(data.message || "This account uses Google sign-in.")
-      } else {
-        setError(data.error || "Failed to send reset email")
+      if (resetError) {
+        // Log for debugging but don't expose to user (prevent email enumeration)
+        console.error("resetPasswordForEmail error:", resetError)
       }
+
+      // Always show success to prevent email enumeration
+      setMaskedEmail(maskEmail(email.trim().toLowerCase()))
+      setSuccess(true)
     } catch {
       setError("An error occurred. Please try again.")
     } finally {
@@ -70,10 +68,9 @@ export default function RequestPasswordResetPage() {
             Check your email
           </h1>
           <p className="mb-8 text-[15px] text-neutral-500">
-            We just sent an email to reset your password to{" "}
+            We sent a password reset link to{" "}
             <span className="font-medium text-neutral-700">{maskedEmail}</span>.
           </p>
-
           <Link href="/login">
             <Button
               variant="outline"
@@ -95,13 +92,13 @@ export default function RequestPasswordResetPage() {
           Forgot password?
         </h1>
         <p className="mb-8 text-[15px] text-neutral-500">
-          Enter your email or username and we&apos;ll send you an email to reset your password.
+          Enter your email and we&apos;ll send you a link to reset your password.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
             type="email"
-            placeholder="Email or username"
+            placeholder="Email address"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="h-12 rounded-lg border-neutral-200 bg-neutral-50 px-4 text-[15px] placeholder:text-neutral-400 focus:border-neutral-300 focus:bg-white focus:ring-0"
@@ -109,26 +106,12 @@ export default function RequestPasswordResetPage() {
 
           {error && <p className="text-sm text-red-500">{error}</p>}
 
-          {googleOnlyHint && (
-            <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-left">
-              <p className="text-sm text-blue-900 mb-2">This account was created with Google. Use Google sign-in instead of password reset.</p>
-              <Link href="/login" className="inline-flex">
-                <Button type="button" variant="outline" className="h-9 text-sm border-blue-300 text-blue-700 hover:bg-blue-100 cursor-pointer">
-                  Continue with Google
-                </Button>
-              </Link>
-              <div className="mt-2">
-                <Link href="mailto:support@storelib.com" className="text-xs text-blue-700 underline">Can’t access Google?</Link>
-              </div>
-            </div>
-          )}
-
           <Button
             type="submit"
             disabled={isLoading || !email.trim()}
             className="h-12 w-full rounded-full bg-neutral-200 text-[15px] font-semibold text-black hover:bg-neutral-300 hover:text-black disabled:opacity-50 disabled:cursor-not-allowed disabled:text-neutral-400"
           >
-            {isLoading ? "Sending..." : "Send Email"}
+            {isLoading ? "Sending..." : "Send Reset Link"}
           </Button>
         </form>
 

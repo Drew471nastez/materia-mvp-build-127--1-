@@ -37,8 +37,9 @@ const DEBUG =
   process.env.NEXT_PUBLIC_OAUTH_DEBUG === "true"
 
 // ── Module-level guards (survive React re-renders / Strict Mode double-mount) ─
-let isHandling = false  // prevent concurrent duplicate callbacks
-let isSetUp    = false  // prevent registering listeners more than once
+let isHandling         = false  // prevent concurrent duplicate callbacks
+let isSetUp            = false  // prevent registering listeners more than once
+let isRecoveryNav      = false  // skip finally-cleanup when navigating to /reset-password
 
 // ── Debug toast (DOM-injected, zero React deps) ──────────────────────────────
 let toastRoot: HTMLDivElement | null = null
@@ -187,6 +188,32 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
       return
     }
 
+    // ── Handle PASSWORD_RECOVERY deep links ──────────────────────────────────
+    // The web /reset-password page redirects to storelib://auth/callback with
+    // type=recovery plus either:
+    //   • access_token + refresh_token  (Supabase implicit-flow recovery email)
+    //   • code                          (Supabase PKCE-flow recovery email)
+    //
+    // We don't exchange anything here — just store the raw URL in sessionStorage
+    // and navigate to /reset-password, which handles the session setup and
+    // renders the new-password form.
+    //
+    // We intentionally leave nativeAuthInProgress="1" set so that NativeAuthGate
+    // keeps showing AuthResolvingScreen until /reset-password clears it.
+    const isRecovery =
+      u.searchParams.get("type") === "recovery" ||
+      u.searchParams.has("access_token") ||
+      u.hash.includes("access_token=")
+
+    if (isRecovery) {
+      console.log(`${TAG}   → Recovery URL detected — storing and navigating to /reset-password`)
+      showToast("Recovery URL detected → /reset-password", "info")
+      isRecoveryNav = true
+      try { sessionStorage.setItem("nativeRecoveryUrl", rawUrl) } catch {}
+      window.location.assign("/reset-password")
+      return
+    }
+
     // ── LOG 4: exchange code for session (client-side PKCE) ──────────────────
     // The PKCE code-verifier was stored in Capacitor Preferences by
     // signInWithOAuth() on the login page.  exchangeCodeForSession() reads
@@ -311,12 +338,19 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
     showToast(`Error: ${msg}`, "err")
     window.location.assign(`/login?error=${encodeURIComponent(msg)}`)
   } finally {
-    isHandling = false
-    try { sessionStorage.removeItem('nativeAuthInProgress') } catch {}
-    // Always dismiss native loading overlay — covers success, catch,
-    // AND all early-return error paths inside try (OAuth error, no code,
-    // exchange failure, session not persisted).
-    notifyNativeAuthDone()
+    // For password-recovery navigations the /reset-password page owns the
+    // cleanup (nativeAuthInProgress + authDone overlay).  Skip it here so
+    // NativeAuthGate keeps showing AuthResolvingScreen until the page is ready.
+    const wasRecovery = isRecoveryNav
+    isHandling    = false
+    isRecoveryNav = false
+    if (!wasRecovery) {
+      try { sessionStorage.removeItem('nativeAuthInProgress') } catch {}
+      // Always dismiss native loading overlay — covers success, catch,
+      // AND all early-return error paths inside try (OAuth error, no code,
+      // exchange failure, session not persisted).
+      notifyNativeAuthDone()
+    }
   }
 }
 
