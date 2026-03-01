@@ -107,12 +107,14 @@ public class MainActivity extends BridgeActivity {
         Uri data = intent.getData();
         if (data != null) {
             String scheme = data.getScheme();
-            // Custom-scheme OAuth callback: storelib://auth/callback?code=…
+            // Custom-scheme callback: storelib://auth/callback
+            // Handles both OAuth (code=…) and recovery (type=recovery&access_token=…)
             if ("storelib".equals(scheme)) {
                 // Show loading overlay instantly so the user never sees the
-                // login/signup page while the code exchange runs in JS.
+                // login/signup page while the code exchange / recovery runs in JS.
                 showAuthLoading();
-                // Let Capacitor's appUrlOpen event handle the exchange.
+                // Let Capacitor's appUrlOpen event handle it — native-oauth.ts
+                // detects recovery vs OAuth and routes accordingly.
                 return;
             }
             // HTTPS App Link OAuth callback: https://storelib.com/app/auth/callback?code=…
@@ -123,8 +125,10 @@ public class MainActivity extends BridgeActivity {
             }
 
             // HTTPS App Link: password-reset email link — load directly in WebView.
-            // The reset-password page is a public Next.js page (no auth needed);
-            // it validates the token and lets the user set a new password.
+            // The reset-password page is a public Next.js page (no auth needed).
+            // Supabase redirects here with #access_token=…&type=recovery in the
+            // hash fragment. The page JS parses the tokens, calls setSession(),
+            // and shows the reset form.
             if (path != null && path.startsWith("/reset-password")) {
                 loadInWebView(data.toString());
                 return;

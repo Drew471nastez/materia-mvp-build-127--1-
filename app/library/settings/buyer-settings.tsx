@@ -109,7 +109,7 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
     try {
       const supabase = createClient()
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/callback?next=/library/settings`,
+        redirectTo: "https://storelib.com/reset-password",
       })
       if (error) throw error
       setResetSent(true)

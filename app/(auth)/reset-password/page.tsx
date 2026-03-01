@@ -1,60 +1,195 @@
 "use client"
 
-import { useState, useEffect, Suspense } from "react"
-import { useSearchParams, useRouter } from "next/navigation"
+import { useState, useEffect, useRef, Suspense } from "react"
+import { useRouter } from "next/navigation"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
+import { isNativeApp } from "@/lib/platform-utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Loader2, CheckCircle2, XCircle, Eye, EyeOff } from "lucide-react"
-import Link from "next/link"
+import { AuthLogo } from "@/components/auth/auth-logo"
+
+/**
+ * Detect if running in a mobile browser (NOT inside Capacitor WebView).
+ * Used to decide whether to attempt app handoff via deep link.
+ */
+function isMobileBrowser(): boolean {
+  if (typeof navigator === "undefined") return false
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+}
+
+/**
+ * Parse recovery tokens from multiple sources:
+ * 1. URL hash fragment (#access_token=...&refresh_token=...&type=recovery)
+ * 2. URL query params (fallback)
+ * 3. sessionStorage.nativeRecoveryUrl (set by native deep link handler)
+ */
+function parseRecoveryTokens(): {
+  accessToken: string | null
+  refreshToken: string | null
+  type: string | null
+} {
+  if (typeof window === "undefined") {
+    return { accessToken: null, refreshToken: null, type: null }
+  }
+
+  // Source 1: URL hash fragment (primary — Supabase recovery redirect)
+  const hash = window.location.hash.substring(1)
+  if (hash) {
+    const hashParams = new URLSearchParams(hash)
+    const accessToken = hashParams.get("access_token")
+    const refreshToken = hashParams.get("refresh_token")
+    const type = hashParams.get("type")
+    if (accessToken && refreshToken) {
+      return { accessToken, refreshToken, type }
+    }
+  }
+
+  // Source 2: URL query params (rare fallback)
+  const searchParams = new URLSearchParams(window.location.search)
+  const qAccessToken = searchParams.get("access_token")
+  const qRefreshToken = searchParams.get("refresh_token")
+  const qType = searchParams.get("type")
+  if (qAccessToken && qRefreshToken) {
+    return { accessToken: qAccessToken, refreshToken: qRefreshToken, type: qType }
+  }
+
+  // Source 3: sessionStorage from native deep link handler
+  try {
+    const nativeRecoveryUrl = sessionStorage.getItem("nativeRecoveryUrl")
+    if (nativeRecoveryUrl) {
+      sessionStorage.removeItem("nativeRecoveryUrl")
+      // The URL might use custom scheme or HTTPS — parse params from query string
+      const url = new URL(nativeRecoveryUrl)
+      const accessToken = url.searchParams.get("access_token")
+      const refreshToken = url.searchParams.get("refresh_token")
+      const type = url.searchParams.get("type")
+      if (accessToken && refreshToken) {
+        return { accessToken, refreshToken, type }
+      }
+    }
+  } catch {
+    // sessionStorage not available or invalid URL
+  }
+
+  return { accessToken: null, refreshToken: null, type: null }
+}
+
+type Phase = "initializing" | "handoff" | "form" | "success" | "expired"
 
 function ResetPasswordContent() {
-  const searchParams = useSearchParams()
   const router = useRouter()
-  const token = searchParams.get("token")
-
+  const [phase, setPhase] = useState<Phase>("initializing")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [isValidating, setIsValidating] = useState(true)
-  const [tokenValid, setTokenValid] = useState(false)
-  const [success, setSuccess] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [userEmail, setUserEmail] = useState<string>("")
+  const [deepLink, setDeepLink] = useState<string | null>(null)
+  const initRef = useRef(false)
 
   useEffect(() => {
-    const validateToken = async () => {
-      if (!token) {
-        setIsValidating(false)
-        setError("Missing reset token")
+    // Prevent double-init in React Strict Mode
+    if (initRef.current) return
+    initRef.current = true
+
+    const init = async () => {
+      const tokens = parseRecoveryTokens()
+
+      // No tokens found — check if this is a legacy custom-token link
+      if (!tokens.accessToken || !tokens.refreshToken) {
+        // Check for old ?token= param (legacy flow)
+        const searchParams = new URLSearchParams(window.location.search)
+        if (searchParams.get("token")) {
+          setPhase("expired")
+          setError("This reset link uses an older format. Please request a new one.")
+          return
+        }
+
+        setPhase("expired")
+        setError("Missing or invalid reset link. Please request a new password reset.")
         return
       }
 
-      try {
-        const response = await fetch("/api/auth/validate-reset-token", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token }),
-        })
+      const { accessToken, refreshToken } = tokens
+      const isInCapacitor = isNativePlatform() || isNativeApp()
 
-        const data = await response.json()
+      // ── App handoff logic ────────────────────────────────────────────
+      // If running in a normal mobile browser (NOT inside Capacitor),
+      // try to open the native app via deep link.
+      if (isMobileBrowser() && !isInCapacitor) {
+        const link = `storelib://auth/callback?type=recovery&access_token=${encodeURIComponent(accessToken)}&refresh_token=${encodeURIComponent(refreshToken)}`
+        setDeepLink(link)
+        setPhase("handoff")
 
-        if (response.ok && data.valid) {
-          setTokenValid(true)
-          setUserEmail(data.email || "")
-        } else {
-          setError(data.error || "Invalid or expired reset link")
+        // Attempt to open the app
+        window.location.href = link
+
+        // If the page is still visible after 1200ms, the app isn't installed.
+        // Continue with the web reset flow.
+        const timer = setTimeout(async () => {
+          await establishSessionAndShowForm(accessToken, refreshToken)
+        }, 1200)
+
+        // If the app opens, the page becomes hidden — clear the timer
+        const handleVisibility = () => {
+          if (document.hidden) {
+            clearTimeout(timer)
+          }
         }
-      } catch {
-        setError("Failed to validate reset link")
-      } finally {
-        setIsValidating(false)
+        document.addEventListener("visibilitychange", handleVisibility)
+
+        return () => {
+          clearTimeout(timer)
+          document.removeEventListener("visibilitychange", handleVisibility)
+        }
       }
+
+      // ── Direct flow (web desktop, or already inside Capacitor) ─────
+      await establishSessionAndShowForm(accessToken, refreshToken)
     }
 
-    validateToken()
-  }, [token])
+    init()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  async function establishSessionAndShowForm(
+    accessToken: string,
+    refreshToken: string
+  ) {
+    try {
+      const supabase = createClient()
+
+      // Set the recovery session
+      const { data, error: sessionError } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      })
+
+      if (sessionError) {
+        console.error("[ResetPassword] setSession error:", sessionError.message)
+        setPhase("expired")
+        setError("This reset link has expired or is invalid. Please request a new one.")
+        return
+      }
+
+      if (data?.user?.email) {
+        setUserEmail(data.user.email)
+      }
+
+      // Clear the hash from the URL so tokens aren't exposed in browser history
+      if (window.location.hash) {
+        window.history.replaceState(null, "", window.location.pathname)
+      }
+
+      setPhase("form")
+    } catch (err) {
+      console.error("[ResetPassword] Unexpected error:", err)
+      setPhase("expired")
+      setError("Something went wrong. Please request a new password reset.")
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -70,70 +205,105 @@ function ResetPasswordContent() {
       return
     }
 
-    setIsLoading(true)
+    setIsSubmitting(true)
 
     try {
-      const response = await fetch("/api/auth/complete-reset-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, newPassword: password }),
+      const supabase = createClient()
+      const { error: updateError } = await supabase.auth.updateUser({
+        password,
       })
 
-      const data = await response.json()
-
-      if (response.ok) {
-        setSuccess(true)
-        // Sign out and redirect to login after 3 seconds
-        setTimeout(async () => {
-          const supabase = createClient()
-          await supabase.auth.signOut()
-          if (isNativePlatform()) {
-            window.location.assign("storelib://logout")
-          } else {
-            router.push("/login")
-          }
-        }, 3000)
-      } else {
-        setError(data.error || "Failed to reset password")
+      if (updateError) {
+        console.error("[ResetPassword] updateUser error:", updateError.message)
+        setError(updateError.message)
+        return
       }
+
+      setPhase("success")
+
+      // Sign out and redirect to login after 3 seconds
+      setTimeout(async () => {
+        await supabase.auth.signOut()
+        if (isNativePlatform()) {
+          try {
+            (window as any).StorelibNative?.authDone?.()
+          } catch {}
+          window.location.assign("storelib://logout")
+        } else {
+          router.push("/login")
+        }
+      }, 3000)
     } catch {
       setError("An error occurred. Please try again.")
     } finally {
-      setIsLoading(false)
+      setIsSubmitting(false)
     }
   }
 
-  if (isValidating) {
+  const handleOpenInApp = () => {
+    if (deepLink) {
+      window.location.href = deepLink
+    }
+  }
+
+  // ── Render: Full-screen loader while initializing ────────────────
+  if (phase === "initializing") {
     return (
       <div className="flex min-h-svh w-full items-center justify-center px-6 py-12">
         <div className="w-full max-w-[440px] text-center">
-          <Link href="/" className="mb-12 inline-flex items-center gap-2">
-            <img
-              src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
-              alt="Storelib"
-              className="h-8 w-8"
-            />
-            <span className="text-xl font-bold tracking-tight text-neutral-900">Storelib</span>
-          </Link>
+          <AuthLogo />
           <Loader2 className="h-8 w-8 animate-spin mx-auto text-neutral-400" />
-          <p className="mt-4 text-[15px] text-neutral-500">Validating reset link...</p>
+          <p className="mt-4 text-[15px] text-neutral-500">Loading...</p>
         </div>
       </div>
     )
   }
 
-  if (success) {
+  // ── Render: App handoff (trying to open native app) ──────────────
+  if (phase === "handoff") {
     return (
       <div className="flex min-h-svh w-full items-center justify-center px-6 py-12">
         <div className="w-full max-w-[440px] text-center">
-          <Link href="/" className="mb-12 inline-flex items-center gap-2">
-            <img
-              src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
-              alt="Storelib"
-              className="h-8 w-8"
-            />
-            <span className="text-xl font-bold tracking-tight text-neutral-900">Storelib</span>
-          </Link>
+          <AuthLogo />
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-neutral-400" />
+          <p className="mt-4 text-[15px] text-neutral-500">
+            Opening Storelib app...
+          </p>
+          <div className="mt-6 space-y-3">
+            <Button
+              onClick={handleOpenInApp}
+              className="h-12 w-full rounded-full bg-neutral-900 text-[15px] font-semibold text-white hover:bg-neutral-800"
+            >
+              Open in app
+            </Button>
+            <button
+              onClick={async () => {
+                // Extract tokens from the deep link we built
+                if (deepLink) {
+                  const url = new URL(deepLink)
+                  const at = url.searchParams.get("access_token")
+                  const rt = url.searchParams.get("refresh_token")
+                  if (at && rt) {
+                    await establishSessionAndShowForm(at, rt)
+                  }
+                }
+              }}
+              className="text-[14px] font-medium text-purple-600 hover:text-purple-700"
+            >
+              Continue in browser instead
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Render: Success ──────────────────────────────────────────────
+  if (phase === "success") {
+    return (
+      <div className="flex min-h-svh w-full items-center justify-center px-6 py-12">
+        <div className="w-full max-w-[440px] text-center">
+          <AuthLogo />
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
             <CheckCircle2 className="h-8 w-8 text-green-600" />
           </div>
@@ -149,56 +319,44 @@ function ResetPasswordContent() {
     )
   }
 
-  if (!tokenValid) {
+  // ── Render: Expired / invalid link ───────────────────────────────
+  if (phase === "expired") {
     return (
       <div className="flex min-h-svh w-full items-center justify-center px-6 py-12">
         <div className="w-full max-w-[440px] text-center">
-          <Link href="/" className="mb-12 inline-flex items-center gap-2">
-            <img
-              src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
-              alt="Storelib"
-              className="h-8 w-8"
-            />
-            <span className="text-xl font-bold tracking-tight text-neutral-900">Storelib</span>
-          </Link>
+          <AuthLogo />
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
             <XCircle className="h-8 w-8 text-red-600" />
           </div>
           <h1 className="mb-4 text-[32px] font-bold tracking-tight text-neutral-900">
-            Invalid reset link
+            Link expired
           </h1>
           <p className="mb-8 text-[15px] text-neutral-500">
-            {error || "This password reset link is invalid or has expired."}
+            {error || "This password reset link has expired or is invalid."}
           </p>
-          <Link href="/request">
+          <a href="/request">
             <Button
               variant="outline"
               className="h-12 px-8 rounded-full border-neutral-200 text-[15px] font-medium text-purple-600 hover:bg-purple-50 hover:border-purple-200"
             >
-              Request new link
+              Send new reset email
             </Button>
-          </Link>
+          </a>
           <div className="mt-4">
-            <Link href="/login" className="text-[14px] font-medium text-purple-600 hover:text-purple-700">
+            <a href="/login" className="text-[14px] font-medium text-purple-600 hover:text-purple-700">
               Back to log in
-            </Link>
+            </a>
           </div>
         </div>
       </div>
     )
   }
 
+  // ── Render: Reset form ───────────────────────────────────────────
   return (
     <div className="flex min-h-svh w-full items-center justify-center px-6 py-12">
       <div className="w-full max-w-[440px] text-center">
-        <Link href="/" className="mb-12 inline-flex items-center gap-2">
-          <img
-            src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
-            alt="Storelib"
-            className="h-8 w-8"
-          />
-          <span className="text-xl font-bold tracking-tight text-neutral-900">Storelib</span>
-        </Link>
+        <AuthLogo />
         <h1 className="mb-4 text-[32px] font-bold tracking-tight text-neutral-900">
           Reset your password
         </h1>
@@ -244,17 +402,17 @@ function ResetPasswordContent() {
 
           <Button
             type="submit"
-            disabled={isLoading || !password.trim() || !confirmPassword.trim()}
+            disabled={isSubmitting || !password.trim() || !confirmPassword.trim()}
             className="h-12 w-full rounded-full bg-neutral-200 text-[15px] font-semibold text-black hover:bg-neutral-300 hover:text-black disabled:opacity-50 disabled:cursor-not-allowed disabled:text-neutral-400"
           >
-            {isLoading ? "Resetting..." : "Reset Password"}
+            {isSubmitting ? "Resetting..." : "Reset Password"}
           </Button>
         </form>
 
         <div className="mt-6">
-          <Link href="/login" className="text-[14px] font-medium text-purple-600 hover:text-purple-700">
+          <a href="/login" className="text-[14px] font-medium text-purple-600 hover:text-purple-700">
             Back to log in
-          </Link>
+          </a>
         </div>
       </div>
     </div>

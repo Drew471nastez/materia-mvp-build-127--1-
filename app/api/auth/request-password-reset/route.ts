@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendEmail, isSmtpConfigured } from "@/lib/mail"
-import { nanoid } from "nanoid"
 
 export const runtime = "nodejs"
 
@@ -106,27 +105,31 @@ export async function POST(request: Request) {
       )
     }
 
-    // Generate reset token
-    const resetToken = nanoid(64)
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000) // 1 hour expiry
-
-    // Store reset token
-    const { error: tokenError } = await adminSupabase.from("password_reset_requests").insert({
-      user_id: user.id,
+    // Generate Supabase recovery link with HTTPS redirectTo.
+    // This creates a verification link that, when clicked, redirects to
+    // https://storelib.com/reset-password#access_token=...&refresh_token=...&type=recovery
+    const redirectTo = "https://storelib.com/reset-password"
+    const { data: linkData, error: linkError } = await adminSupabase.auth.admin.generateLink({
+      type: "recovery",
       email: cleanEmail,
-      token: resetToken,
-      expires_at: expiresAt.toISOString(),
-      used: false,
+      options: { redirectTo },
     })
 
-    if (tokenError) {
-      console.error("Error storing reset token:", tokenError)
+    if (linkError || !linkData?.properties?.action_link) {
+      console.error("Error generating recovery link:", linkError)
       return NextResponse.json({ error: "Failed to create reset request" }, { status: 500 })
     }
 
-    // Generate reset URL
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://storelib.com"
-    const resetUrl = `${baseUrl}/reset-password?token=${resetToken}`
+    const resetUrl = linkData.properties.action_link
+
+    // Record the request for rate limiting (no custom token needed — Supabase manages it)
+    await adminSupabase.from("password_reset_requests").insert({
+      user_id: user.id,
+      email: cleanEmail,
+      token: `supabase_recovery_${Date.now()}`,
+      expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      used: false,
+    })
 
     // Send password reset email
     if (isSmtpConfigured()) {

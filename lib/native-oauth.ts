@@ -126,6 +126,45 @@ export function notifyNativeAuthDone(): void {
   }
 }
 
+// ── Recovery deep link handler ────────────────────────────────────────────────
+/**
+ * Detect if a deep link URL is a password recovery callback.
+ * Recovery URLs have type=recovery + access_token + refresh_token (no code).
+ */
+function isRecoveryCallback(url: string): boolean {
+  try {
+    const u = new URL(url)
+    return (
+      u.searchParams.get("type") === "recovery" &&
+      !!u.searchParams.get("access_token") &&
+      !!u.searchParams.get("refresh_token")
+    )
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Handle a recovery deep link inside the native app.
+ * Stores the recovery URL in sessionStorage so the /reset-password page
+ * can pick it up, then navigates to that page.
+ */
+async function handleRecoveryCallback(rawUrl: string): Promise<void> {
+  console.log(`${TAG} ▶ Recovery deep link detected`)
+  console.log(`${TAG}   raw URL : "${rawUrl.slice(0, 120)}"`)
+  showToast(`Recovery deep link\n${rawUrl.slice(0, 120)}`, "info")
+
+  notifyNativeAuthStart()
+
+  try { sessionStorage.setItem("nativeAuthInProgress", "1") } catch {}
+  try { sessionStorage.setItem("nativeRecoveryUrl", rawUrl) } catch {}
+
+  // Navigate to /reset-password — the page reads tokens from sessionStorage
+  console.log(`${TAG}   Navigating to /reset-password for recovery flow`)
+  showToast("Opening password reset…", "info")
+  window.location.assign("/reset-password")
+}
+
 // ── Core handler (exported so it can be called manually for testing) ──────────
 export async function handleOAuthCallback(rawUrl: string): Promise<void> {
   // ── LOG 1: appUrlOpen fired ────────────────────────────────────────────────
@@ -136,6 +175,12 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
 
   if (!isOAuthCallback(rawUrl)) {
     console.log(`${TAG}   → Not an OAuth callback — ignoring.`)
+    return
+  }
+
+  // ── Check for recovery deep link (type=recovery with tokens, no code) ──────
+  if (isRecoveryCallback(rawUrl)) {
+    await handleRecoveryCallback(rawUrl)
     return
   }
 
@@ -377,6 +422,12 @@ export async function setupNativeOAuthListeners(): Promise<() => void> {
             return
           }
           const path = window.location.pathname
+          // Don't redirect away from /reset-password — the recovery
+          // flow sets a session but the user must stay on the form.
+          if (path === "/reset-password") {
+            console.log(`${TAG}   On /reset-password — suppressing SIGNED_IN redirect (recovery flow).`)
+            return
+          }
           if (path === "/login" || path === "/signup") {
             console.log(`${TAG}   SIGNED_IN on ${path} — forcing navigation to /app`)
             showToast(`Session via authStateChange  ${session.user.email ?? ""}`, "ok")
