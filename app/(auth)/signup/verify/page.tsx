@@ -36,6 +36,13 @@ function VerifyContent() {
   const [isResending, setIsResending] = useState(false)
   const [resendCooldown, setResendCooldown] = useState(60) // start with cooldown from initial send
 
+  // Sign out and go back to signup (user wants a different email)
+  const handleBackToSignup = async () => {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    window.location.href = "/signup"
+  }
+
   // Forward-redirect: if email is already verified, skip to next step
   useEffect(() => {
     if (!userId) return
@@ -237,12 +244,13 @@ function VerifyContent() {
             <div className="pt-4 border-t border-neutral-100">
               <p className="text-[13px] text-neutral-400 text-center">
                 Wrong email?{" "}
-                <Link
-                  href="/signup"
+                <button
+                  type="button"
+                  onClick={handleBackToSignup}
                   className="text-neutral-600 hover:text-neutral-700 underline underline-offset-2"
                 >
                   Go back to signup
-                </Link>
+                </button>
               </p>
             </div>
           </div>
