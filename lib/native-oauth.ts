@@ -290,23 +290,20 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
       `&next=${encodeURIComponent(nextPath)}`
     console.log(`${TAG}   Navigating to sync-session route to establish cookies → ${nextPath}`)
 
-    // Notify native Android shell that auth exchange succeeded.
-    // The native overlay will fully dismiss once the final page loads
-    // (onPageFinished in StorelibWebViewClient), but this signal lets
-    // native know the JS side is done with the exchange.
-    notifyNativeAuthDone()
-
     window.location.assign(syncUrl)
 
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unexpected error."
     console.error(`${TAG} Handler threw:`, err)
     showToast(`Error: ${msg}`, "err")
-    notifyNativeAuthDone()
     window.location.assign(`/login?error=${encodeURIComponent(msg)}`)
   } finally {
     isHandling = false
     try { sessionStorage.removeItem('nativeAuthInProgress') } catch {}
+    // Always dismiss native loading overlay — covers success, catch,
+    // AND all early-return error paths inside try (OAuth error, no code,
+    // exchange failure, session not persisted).
+    notifyNativeAuthDone()
   }
 }
 
