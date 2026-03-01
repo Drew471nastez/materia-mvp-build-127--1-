@@ -16,7 +16,8 @@ export function DiscoverStickyWrapper({ children }: { children: React.ReactNode 
 
   useEffect(() => {
     if (isNativeApp()) {
-      setTopOffset("68px")
+      // Account for safe area (notch) + header height (68px on mobile)
+      setTopOffset("calc(env(safe-area-inset-top, 0px) + 68px)")
     }
   }, [])
 

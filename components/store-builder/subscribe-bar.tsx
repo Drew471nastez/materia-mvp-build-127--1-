@@ -496,15 +496,20 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
   )
 
   // STICKY MODE: Use fixed positioning for live pages
-  // In Capacitor apps, offset below the platform header (68px on mobile)
+  // In Capacitor apps, offset below the platform header and use lower z-index
+  // so the subscribe bar sits visually under the header, not on top of it.
   if (isSticky) {
-    const stickyTop = isNativeApp() ? "68px" : "0px"
+    const inNativeApp = isNativeApp()
+    const stickyTop = inNativeApp ? "calc(env(safe-area-inset-top, 0px) + 68px)" : "0px"
+    // z-30 in native app (below header z-40), z-50 on web (above everything)
+    const stickyZ = inNativeApp ? "z-30" : "z-50"
     return (
       <>
         {/* Fixed bar at top of viewport (below header in native apps) */}
         <div
           className={cn(
-            "fixed left-0 right-0 z-50 w-full py-2.5 px-3 sm:py-3 sm:px-4 transition-transform duration-300 ease-out",
+            "fixed left-0 right-0 w-full py-2.5 px-3 sm:py-3 sm:px-4 transition-transform duration-300 ease-out",
+            stickyZ,
             isDarkBackground ? "subscribe-bar-border-dark" : "subscribe-bar-border",
             !isVisible && settings.enableStickyOnScrollUp && "-translate-y-full"
           )}
