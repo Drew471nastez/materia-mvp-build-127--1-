@@ -173,36 +173,43 @@ function SignUpFormContent() {
     }
 
     try {
-      // Sign up with Supabase email confirmation.
-      // Supabase sends a 6-digit OTP code to the user's email.
-      // The session is NOT established until the OTP is verified
-      // on /signup/verify.
-      //
-      // NOTE: Requires Supabase dashboard config:
-      //   Auth → Email → "Confirm email" = enabled
-      //   Auth → Email Templates → include {{ .Token }} in the
-      //   confirmation template so the user receives a 6-digit code.
+      // Sign up WITHOUT Supabase email confirmation.
+      // We send our own branded 6-digit verification code via SMTP
+      // (from "Storelib <noreply@storelib.com>") so the email looks
+      // professional and the code is clearly visible in email previews.
       const { error, data } = await supabase.auth.signUp({
         email: trimmedEmail,
         password: trimmedPassword,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: undefined,
+          data: { email_verified: false },
         },
       })
       if (error) throw error
 
       if (data.user) {
-        // If Supabase returned a session (email confirmation disabled),
-        // create the profile immediately.  Otherwise /signup/verify
-        // handles profile creation after OTP verification.
-        if (data.session) {
-          await supabase.from("profiles").upsert({
-            id: data.user.id,
-            email: trimmedEmail,
-            is_creator: false,
-            email_verified: false,
-            welcome_completed: false,
-          }, { onConflict: "id" })
+        // Create profile immediately (session exists because Supabase
+        // email confirmation is disabled).
+        await supabase.from("profiles").upsert({
+          id: data.user.id,
+          email: trimmedEmail,
+          is_creator: false,
+          email_verified: false,
+          welcome_completed: false,
+        }, { onConflict: "id" })
+
+        // Send branded verification code via SMTP
+        try {
+          await fetch("/api/auth/verify-email", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              userId: data.user.id,
+              email: trimmedEmail,
+            }),
+          })
+        } catch (verifyError) {
+          console.error("Error sending verification code:", verifyError)
         }
 
         // Handle purchase claim flow
@@ -221,9 +228,9 @@ function SignUpFormContent() {
           return
         }
 
-        // Redirect to Supabase OTP verify page
+        // Redirect to verify page
         navigateWithFallback(
-          `/signup/verify?email=${encodeURIComponent(trimmedEmail)}`
+          `/signup/verify?userId=${data.user.id}&email=${encodeURIComponent(trimmedEmail)}`
         )
         router.refresh()
       }

@@ -2,7 +2,6 @@
 
 import { Suspense, useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { createClient } from "@/lib/supabase/client"
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp"
 import { Loader2, Mail } from "lucide-react"
 import Image from "next/image"
@@ -11,25 +10,22 @@ import { AuthLogo } from "@/components/auth/auth-logo"
 import { AuthResolvingScreen } from "@/components/auth/auth-resolving-screen"
 
 /**
- * /signup/verify?email=...
+ * /signup/verify?userId=...&email=...
  *
- * Supabase OTP verification page for email signup.
+ * Custom SMTP verification page for email signup.
  *
  * Flow:
- *  1. User signs up at /signup → Supabase sends a confirmation email with
- *     a 6-digit OTP code (requires Supabase dashboard: Auth → Email → Enable
- *     "Confirm email" and add {{ .Token }} to the template).
- *  2. User is redirected here with ?email=... prefilled.
- *  3. User enters the 6-digit code → verifyOtp() establishes the session.
- *  4. Profile is created (if it doesn't exist yet) and user is sent to
- *     /signup/success (role chooser).
- *
- * This page intentionally does NOT auto-redirect authenticated users because
- * the user may have an unconfirmed session from signUp().
+ *  1. User signs up at /signup → a branded 6-digit code is sent via SMTP
+ *     from "Storelib <noreply@storelib.com>" using /api/auth/verify-email.
+ *  2. User is redirected here with ?userId=...&email=... prefilled.
+ *  3. User enters the 6-digit code → /api/auth/confirm-email verifies it
+ *     and marks the profile email_verified = true.
+ *  4. User is sent to /signup/success (role chooser).
  */
 function VerifyContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const userId = searchParams.get("userId") ?? ""
   const email = searchParams.get("email") ?? ""
 
   const [code, setCode] = useState("")
@@ -59,51 +55,23 @@ function VerifyContent() {
     setError(null)
 
     try {
-      const supabase = createClient()
-      const { error: verifyError } = await supabase.auth.verifyOtp({
-        email,
-        token: otp,
-        type: "signup",
+      const res = await fetch("/api/auth/confirm-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, code: otp }),
       })
 
-      if (verifyError) throw verifyError
+      const data = await res.json()
 
-      // Session is now established.  Create profile if it doesn't exist
-      // (signUp with email confirmation enabled returns no session, so
-      // profile creation is deferred until here).
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (user) {
-        const { data: existingProfile } = await supabase
-          .from("profiles")
-          .select("id")
-          .eq("id", user.id)
-          .maybeSingle()
-
-        if (!existingProfile) {
-          await supabase.from("profiles").insert({
-            id: user.id,
-            email: user.email,
-            is_creator: false,
-            email_verified: true,
-            welcome_completed: false,
-          })
-        } else {
-          // Profile exists (maybe from signUp with confirmation disabled) —
-          // just mark email as verified.
-          await supabase
-            .from("profiles")
-            .update({ email_verified: true })
-            .eq("id", user.id)
-        }
+      if (!res.ok) {
+        throw new Error(data.error || "Verification failed")
       }
 
       setIsRedirecting(true)
       router.replace("/signup/success")
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Verification failed"
-      if (msg.toLowerCase().includes("token has expired") || msg.toLowerCase().includes("otp_expired")) {
+      if (msg.toLowerCase().includes("expired")) {
         setError("Code expired. Please request a new one.")
       } else {
         setError(msg)
@@ -120,12 +88,18 @@ function VerifyContent() {
     setError(null)
 
     try {
-      const supabase = createClient()
-      const { error: resendError } = await supabase.auth.resend({
-        type: "signup",
-        email,
+      const res = await fetch("/api/auth/verify-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, email }),
       })
-      if (resendError) throw resendError
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to resend code")
+      }
+
       setResendCooldown(60)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to resend code")
@@ -138,13 +112,13 @@ function VerifyContent() {
     return <AuthResolvingScreen message="Verified! Redirecting..." />
   }
 
-  if (!email) {
+  if (!userId || !email) {
     return (
       <div className="flex min-h-svh w-full items-center justify-center p-6">
         <div className="text-center">
-          <h1 className="text-xl font-semibold text-neutral-900 mb-2">Missing email</h1>
+          <h1 className="text-xl font-semibold text-neutral-900 mb-2">Missing information</h1>
           <p className="text-neutral-500 mb-4">
-            No email address was provided. Please sign up first.
+            No user information was provided. Please sign up first.
           </p>
           <Link
             href="/signup"
