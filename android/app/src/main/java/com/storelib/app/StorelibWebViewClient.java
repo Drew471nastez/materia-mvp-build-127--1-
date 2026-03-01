@@ -1,7 +1,9 @@
 package com.storelib.app;
 
 import android.content.Context;
+import android.content.Intent;
 import android.net.Uri;
+import android.webkit.CookieManager;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebView;
 
@@ -95,6 +97,23 @@ public class StorelibWebViewClient extends BridgeWebViewClient {
     @Override
     public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
         Uri uri = request.getUrl();
+
+        // 0. Logout deep link → clear cookies and return to WelcomeActivity.
+        //    Called from JS via window.location.assign("storelib://logout")
+        //    after supabase.auth.signOut() completes.
+        if ("storelib".equals(uri.getScheme()) && "logout".equals(uri.getHost())) {
+            // Wipe auth cookies so WelcomeActivity.checkSession() sees no session
+            CookieManager.getInstance().removeAllCookies(null);
+            CookieManager.getInstance().flush();
+
+            // CLEAR_TASK removes MainActivity from the back stack;
+            // WelcomeActivity becomes the new task root.
+            Context ctx = view.getContext();
+            Intent intent = new Intent(ctx, WelcomeActivity.class);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            ctx.startActivity(intent);
+            return true;
+        }
 
         // 1. OAuth URL → Chrome Custom Tab
         //    Two-layer catch covering the full redirect chain:
