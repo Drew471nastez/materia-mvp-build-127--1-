@@ -8,6 +8,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { AuthLogo } from "@/components/auth/auth-logo"
 import { AuthResolvingScreen } from "@/components/auth/auth-resolving-screen"
+import { createClient } from "@/lib/supabase/client"
 
 /**
  * /signup/verify?userId=...&email=...
@@ -15,7 +16,7 @@ import { AuthResolvingScreen } from "@/components/auth/auth-resolving-screen"
  * Custom SMTP verification page for email signup.
  *
  * Flow:
- *  1. User signs up at /signup → a branded 6-digit code is sent via SMTP
+ *  1. User signs up at /signup → a branded 6-digit code is sent via Mailgun
  *     from "Storelib <noreply@storelib.com>" using /api/auth/verify-email.
  *  2. User is redirected here with ?userId=...&email=... prefilled.
  *  3. User enters the 6-digit code → /api/auth/confirm-email verifies it
@@ -34,6 +35,22 @@ function VerifyContent() {
   const [isRedirecting, setIsRedirecting] = useState(false)
   const [isResending, setIsResending] = useState(false)
   const [resendCooldown, setResendCooldown] = useState(60) // start with cooldown from initial send
+
+  // Forward-redirect: if email is already verified, skip to next step
+  useEffect(() => {
+    if (!userId) return
+    const supabase = createClient()
+    supabase
+      .from("profiles")
+      .select("email_verified")
+      .eq("id", userId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.email_verified) {
+          router.replace("/signup/success")
+        }
+      })
+  }, [userId, router])
 
   // Countdown timer for resend button
   useEffect(() => {

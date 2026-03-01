@@ -234,11 +234,10 @@ function LoginFormContent() {
       }
 
       if (data.user) {
-        // Gate: check email_verified BEFORE any routing.
-        // If the user hasn't verified their email, send them to /signup/verify.
+        // ── Gate 1: email must be verified ──────────────────────────────
         const { data: loginProfile } = await supabase
           .from("profiles")
-          .select("email_verified")
+          .select("email_verified, is_creator, welcome_completed")
           .eq("id", data.user.id)
           .maybeSingle()
 
@@ -258,6 +257,18 @@ function LoginFormContent() {
           setIsLoading(false)
           return
         }
+
+        // ── Gate 2: role must be selected ───────────────────────────────
+        const roleSelected =
+          loginProfile?.is_creator === true || loginProfile?.welcome_completed === true
+        if (!roleSelected) {
+          navigateWithFallback("/signup/success")
+          router.refresh()
+          setIsLoading(false)
+          return
+        }
+
+        // ── Both gates passed — route to destination ────────────────────
 
         // PRIORITY: If there's a redirect URL, use it (e.g., returning to receipt page)
         if (redirectUrl) {
@@ -288,24 +299,9 @@ function LoginFormContent() {
             navigateWithFallback("/app")
           }
         } else {
-          // No creator record - check profile for buyer status
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("welcome_completed, is_creator")
-            .eq("id", data.user.id)
-            .maybeSingle()
-
-          if (profile?.welcome_completed) {
-            localStorage.setItem("storelib_welcome_shown", "true")
-            if (profile.is_creator === false) {
-              navigateWithFallback("/library")
-            } else {
-              navigateWithFallback("/app")
-            }
-          } else {
-            // Truly needs welcome selection
-            navigateWithFallback("/signup/success")
-          }
+          // Buyer — welcome_completed is already true (passed gate 2)
+          localStorage.setItem("storelib_welcome_shown", "true")
+          navigateWithFallback("/library")
         }
         router.refresh()
       }
