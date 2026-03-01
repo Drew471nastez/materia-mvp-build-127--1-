@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { Mail, ArrowRight, Check } from "lucide-react"
 import { getStoreUrl } from "@/lib/url-helpers"
+import { isDiscoverMode } from "@/lib/isDiscoverMode"
 
 // Button style presets (same as subscribe bar)
 export const creatorBarButtonPresets: Record<string, { default: string; subscribed: string }> = {
@@ -613,8 +614,8 @@ export function LiveProductCreatorBar({
     if (typeof window === "undefined") return
     const checkDiscoverContext = () => {
       const params = new URLSearchParams(window.location.search)
-      const isDiscoverLayout = params.get("layout") === "discover" && params.get("recommended") === "1"
-      setHideOnMobileDiscover(isDiscoverLayout)
+      const discover = isDiscoverMode(window.location.pathname, params)
+      setHideOnMobileDiscover(discover)
     }
     checkDiscoverContext()
   }, [])

@@ -10,6 +10,7 @@ import { createPortal } from "react-dom"
 import type { User } from "@supabase/supabase-js"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { extractUsernameFromHost, getCanonicalSiteUrl } from "@/lib/url-helpers"
+import { isDiscoverMode } from "@/lib/isDiscoverMode"
 import { cn } from "@/lib/utils"
 
 import { Button } from "@/components/ui/button"
@@ -878,7 +879,7 @@ export function PlatformHeaderClient() {
   }
 
   const showCategories = pathname === "/explore" || pathname.startsWith("/explore") || pathname === "/wishlist"
-  const isDiscoverProductContext = pathname.startsWith("/p/") && searchParams.get("layout") === "discover" && searchParams.get("recommended") === "1"
+  const isDiscoverProductContext = pathname.startsWith("/p/") && isDiscoverMode(pathname, searchParams)
   const isBlogRoute = pathname === "/blog" || pathname.startsWith('/blog/')
   const isFaqRoute = pathname === "/faq"
   const isMarketingNavRoute = pathname === "/" || pathname === "/features" || pathname === "/pricing" || isBlogRoute || isFaqRoute

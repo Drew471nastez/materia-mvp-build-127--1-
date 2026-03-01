@@ -2,10 +2,11 @@
 
 import Link from "next/link"
 import Image from "next/image"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { COOKIE_PREFS_EVENT } from "@/components/cookie-consent-banner"
+import { isNativeApp } from "@/lib/platform-utils"
 
 const LOGO_URL = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
 
@@ -71,6 +72,11 @@ export function MarketingFooter() {
   const [email, setEmail] = useState("")
   const [isSubscribing, setIsSubscribing] = useState(false)
   const [subscribed, setSubscribed] = useState(false)
+  const [logoHref, setLogoHref] = useState("/")
+
+  useEffect(() => {
+    if (isNativeApp()) setLogoHref("/explore")
+  }, [])
 
   const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -91,7 +97,7 @@ export function MarketingFooter() {
           {/* Logo and Info Column */}
           <div className="col-span-2 md:col-span-1 space-y-6">
             {/* Logo with text */}
-            <Link href="/" scroll={true} className="flex items-center gap-3 flex-wrap hover:opacity-80 transition-opacity">
+            <Link href={logoHref} scroll={true} className="flex items-center gap-3 flex-wrap hover:opacity-80 transition-opacity">
               <Image
                 src={LOGO_URL}
                 alt="Storelib"

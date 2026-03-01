@@ -4,6 +4,7 @@ import { usePathname, useSearchParams } from "next/navigation"
 import { useEffect, useState } from "react"
 import { PlatformHeaderClient } from "@/components/platform/platform-header-client"
 import { extractUsernameFromHost, isCustomDomain } from "@/lib/url-helpers"
+import { isDiscoverMode } from "@/lib/isDiscoverMode"
 
 export function ConditionalHeader() {
   const pathname = usePathname()
@@ -28,11 +29,11 @@ export function ConditionalHeader() {
       return
     }
 
-    const discoverLayout = searchParams.get("layout") === "discover" || searchParams.has("recommended")
     const isSellerPath = pathname.startsWith("/u/") || pathname.startsWith("/p/") || pathname.startsWith("/l/")
 
-    // allow platform header on discover-style product page layouts
-    if ((isSubdomain || isSellerPath) && discoverLayout) {
+    // Discover mode: Capacitor app on discover routes OR query-param based
+    // Always show platform header in discover mode (covers seller/product pages in app)
+    if ((isSubdomain || isSellerPath) && isDiscoverMode(pathname, searchParams)) {
       setShowPlatformHeader(true)
       return
     }

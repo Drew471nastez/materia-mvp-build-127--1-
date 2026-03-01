@@ -4,6 +4,8 @@ import { usePathname, useSearchParams } from "next/navigation"
 import { useEffect, useState } from "react"
 import { MarketingFooter } from "@/components/marketing/footer"
 import { extractUsernameFromHost, isCustomDomain } from "@/lib/url-helpers"
+import { isDiscoverMode } from "@/lib/isDiscoverMode"
+import { isNativeApp } from "@/lib/platform-utils"
 
 export function ConditionalFooter() {
   const pathname = usePathname()
@@ -28,11 +30,12 @@ export function ConditionalFooter() {
       return
     }
 
-    const discoverLayout = searchParams.get("layout") === "discover" || searchParams.has("recommended")
     const isSellerPath = pathname.startsWith("/u/") || pathname.startsWith("/p/") || pathname.startsWith("/l/")
 
-    if ((isSubdomain || isSellerPath) && discoverLayout) {
-      setShowFooter(false)
+    // In Capacitor discover mode: show platform footer on seller/product pages
+    // On web with query-param discover layout: hide footer (existing behaviour)
+    if ((isSubdomain || isSellerPath) && isDiscoverMode(pathname, searchParams)) {
+      setShowFooter(isNativeApp())
       return
     }
 
