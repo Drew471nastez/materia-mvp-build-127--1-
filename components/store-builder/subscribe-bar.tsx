@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
+import { isNativeApp } from "@/lib/platform-utils"
 
 // Button style presets
 export type ButtonStylePreset = "style1" | "style2" | "style3" | "style4"
@@ -495,17 +496,20 @@ export function SubscribeBar({ settings, creatorId, onSubmit }: SubscribeBarProp
   )
 
   // STICKY MODE: Use fixed positioning for live pages
+  // In Capacitor apps, offset below the platform header (68px on mobile)
   if (isSticky) {
+    const stickyTop = isNativeApp() ? "68px" : "0px"
     return (
       <>
-        {/* Fixed bar at top of viewport */}
+        {/* Fixed bar at top of viewport (below header in native apps) */}
         <div
           className={cn(
-            "fixed top-0 left-0 right-0 z-50 w-full py-2.5 px-3 sm:py-3 sm:px-4 transition-transform duration-300 ease-out",
+            "fixed left-0 right-0 z-50 w-full py-2.5 px-3 sm:py-3 sm:px-4 transition-transform duration-300 ease-out",
             isDarkBackground ? "subscribe-bar-border-dark" : "subscribe-bar-border",
             !isVisible && settings.enableStickyOnScrollUp && "-translate-y-full"
           )}
           style={{
+            top: stickyTop,
             // Always use solid background color (no gradients) on live published pages
             backgroundColor: solidBackgroundColor,
             color: settings.textColor || "#000000",

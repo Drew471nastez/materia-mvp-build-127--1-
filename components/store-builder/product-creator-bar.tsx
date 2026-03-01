@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils"
 import { Mail, ArrowRight, Check } from "lucide-react"
 import { getStoreUrl } from "@/lib/url-helpers"
 import { isDiscoverMode } from "@/lib/isDiscoverMode"
+import { isNativeApp } from "@/lib/platform-utils"
 
 // Button style presets (same as subscribe bar)
 export const creatorBarButtonPresets: Record<string, { default: string; subscribed: string }> = {
@@ -614,8 +615,11 @@ export function LiveProductCreatorBar({
     if (typeof window === "undefined") return
     const checkDiscoverContext = () => {
       const params = new URLSearchParams(window.location.search)
-      const discover = isDiscoverMode(window.location.pathname, params)
-      setHideOnMobileDiscover(discover)
+      // Only hide on WEB discover mode (query-param based).
+      // In Capacitor native app, always SHOW the creator bar (it sits below the header).
+      const isWebDiscover =
+        (params.get("layout") === "discover" || params.has("recommended")) && !isNativeApp()
+      setHideOnMobileDiscover(isWebDiscover)
     }
     checkDiscoverContext()
   }, [])

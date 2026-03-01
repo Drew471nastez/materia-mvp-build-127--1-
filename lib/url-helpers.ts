@@ -10,7 +10,13 @@
  * - /u/{username}  -> Seller store homepage
  * - /l/{slug}      -> Seller onepage/links page
  * - /p/{slug}      -> Product page
+ *
+ * Capacitor (native app):
+ * - Always returns internal paths to avoid cross-domain navigation
+ *   which would lose the native auth session stored in SharedPreferences.
  */
+
+import { isNativeApp } from "@/lib/platform-utils"
 
 // Main domain from environment or default
 const getMainDomain = () => process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
@@ -46,6 +52,13 @@ export function getStoreUrl(username: string): string {
 
   if (!sanitizedUsername) return getSiteUrl()
 
+  // In Capacitor, use internal paths to avoid cross-domain navigation
+  // which loses the native auth session (SharedPreferences are app-scoped,
+  // but navigating to a subdomain reloads the page under a different origin).
+  if (isNativeApp()) {
+    return `/u/${sanitizedUsername}`
+  }
+
   const mainDomain = getMainDomain()
   const protocol = mainDomain.includes("localhost") ? "http" : "https"
 
@@ -65,6 +78,10 @@ export function getStoreUrl(username: string): string {
  */
 export function getLinksUrl(username: string): string {
   if (!username) return getSiteUrl()
+
+  if (isNativeApp()) {
+    return `/l/${username.toLowerCase()}`
+  }
 
   const mainDomain = getMainDomain()
   const protocol = mainDomain.includes("localhost") ? "http" : "https"
@@ -86,6 +103,10 @@ export function getLinksUrl(username: string): string {
  */
 export function getProductUrl(username: string, productSlug: string): string {
   if (!productSlug) return getStoreUrl(username)
+
+  if (isNativeApp()) {
+    return `/p/${productSlug}`
+  }
 
   const mainDomain = getMainDomain()
   const protocol = mainDomain.includes("localhost") ? "http" : "https"

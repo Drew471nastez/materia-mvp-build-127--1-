@@ -17,6 +17,7 @@ import { SectionRenderer, type ProductData } from "@/components/store-builder/se
 import { ProductAboutSection } from "@/components/store-builder/unified-section-renderer"
 import { DynamicFavicon } from "@/components/store-builder/dynamic-favicon"
 import { LiveProductCreatorBar } from "@/components/store-builder/product-creator-bar"
+import { DiscoverStickyWrapper } from "@/components/store-builder/discover-sticky-wrapper"
 import { LiveStickyAddToCart } from "@/components/store-builder/sticky-add-to-cart"
 import type { Section, ProductHeaderSettings } from "@/lib/store-builder/types"
 import {
@@ -1433,8 +1434,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           faviconUrl={productPageConfig?.headerSettings?.faviconUrl}
         />
 
-        {/* Creator Bar - sticky on scroll */}
-        <div className="sticky top-0 z-30">
+        {/* Creator Bar - sticky on scroll, offset below header in Capacitor apps */}
+        <DiscoverStickyWrapper>
           <LiveProductCreatorBar
             settings={creatorBarSettings}
             creatorName={creatorProfile?.display_name || creator?.name || "Creator"}
@@ -1442,7 +1443,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             creatorUsername={creatorUsername}
             avatarUrl={creatorAvatarUrl}
           />
-        </div>
+        </DiscoverStickyWrapper>
 
         {/* Sticky Add to Cart - appears on scroll - ALWAYS SHOW */}
         {stickyAddToCartSettings.visible && (
@@ -1554,15 +1555,15 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
       <TrackView type="product" creatorId={product.creator_id} productId={product.id} />
       <DynamicFavicon avatarUrl={creatorAvatarUrl} />
 
-      {/* Creator Bar - sticky on scroll */}
-      <div className="sticky top-0 z-30">
+      {/* Creator Bar - sticky on scroll, offset below header in Capacitor apps */}
+      <DiscoverStickyWrapper>
         <LiveProductCreatorBar
           settings={defaultProductCreatorBarSettings}
           creatorName={creatorProfile?.display_name || creator?.name || "Creator"}
           creatorId={product.creator_id}
           avatarUrl={creatorAvatarUrl}
         />
-      </div>
+      </DiscoverStickyWrapper>
 
       {/* Sticky Add to Cart - appears on scroll - ALWAYS SHOW */}
       <LiveStickyAddToCart
