@@ -361,6 +361,11 @@ function LoginFormContent() {
 
   const handleGoogleSignIn = async () => {
     if (isGoogleLoading) return
+    // Single-flight lock: prevent double-tap from calling signInWithOAuth()
+    // twice, which would overwrite the stored PKCE code-verifier and cause
+    // "invalid flow state" on the callback.
+    if ((window as any).__oauthStarting) return
+    ;(window as any).__oauthStarting = true
     setIsGoogleLoading(true)
     setError(null)
     setGoogleOnlyEmail(null)
@@ -418,6 +423,7 @@ function LoginFormContent() {
           // 20-second hard safety: if neither appUrlOpen nor browserFinished
           // has fired, give up and let the user try again.
           browserFinishedHandle?.remove()
+          ;(window as any).__oauthStarting = false
           setIsGoogleLoading(false)
           setError("Sign in timed out. Please try again.")
         }, 20_000)
@@ -433,6 +439,7 @@ function LoginFormContent() {
               // Small delay: appUrlOpen can arrive just after browserFinished
               // on some Android versions. Only clear loading if we're still here.
               window.setTimeout(() => {
+                ;(window as any).__oauthStarting = false
                 setIsGoogleLoading(false)
               }, 400)
             }
@@ -455,6 +462,7 @@ function LoginFormContent() {
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to sign in with Google")
     }
+    ;(window as any).__oauthStarting = false
     setIsGoogleLoading(false)
   }
 

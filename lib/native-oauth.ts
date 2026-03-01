@@ -14,7 +14,7 @@
  *  5. Android intent-filter → onNewIntent → Capacitor appUrlOpen event
  *  6. handleOAuthCallback(fullUrl):
  *       → Browser.close()           ← dismiss Chrome Custom Tab
- *       → exchangeCodeForSession(fullUrl) ← uses stored PKCE verifier
+ *       → exchangeCodeForSession(code) ← bare code string + stored PKCE verifier
  *       → getSession()              ← verify session exists
  *       → window.location.assign("/app")
  *
@@ -193,15 +193,17 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
     // it from the same Preferences storage and sends both code + verifier
     // to Supabase's token endpoint.
     //
-    // Pass the full raw callback URL — supabase-js extracts the code param
-    // internally when given a URL string.
+    // IMPORTANT: Pass ONLY the bare authorization code, NOT the full URL.
+    // Passing the full deep-link URL causes supabase-js to misparse it
+    // (custom scheme URLs like storelib:// aren't valid HTTP URLs) and
+    // lose the PKCE flow state → "invalid flow state" error.
     console.log(`${TAG} ── exchanging code for session (PKCE) ──────────────────`)
-    console.log(`${TAG}   passing full rawUrl to exchangeCodeForSession()`)
+    console.log(`${TAG}   passing bare code to exchangeCodeForSession()`)
     showToast("Exchanging code…", "info")
 
     const supabase = createClient()
     const { data, error: exchangeErr } =
-      await supabase.auth.exchangeCodeForSession(rawUrl)
+      await supabase.auth.exchangeCodeForSession(code)
 
     // ── LOG 5: exchange result ───────────────────────────────────────────────
     console.log(`${TAG} ── exchangeCodeForSession returned ──────────────────────`)

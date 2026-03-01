@@ -259,6 +259,11 @@ function SignUpFormContent() {
   const handleGoogleSignIn = async () => {
     // Prevent rapid clicks that could cause rate limiting
     if (isGoogleLoading) return
+    // Single-flight lock: prevent double-tap from calling signInWithOAuth()
+    // twice, which would overwrite the stored PKCE code-verifier and cause
+    // "invalid flow state" on the callback.
+    if ((window as any).__oauthStarting) return
+    ;(window as any).__oauthStarting = true
 
     const supabase = createClient()
     setIsGoogleLoading(true)
@@ -308,6 +313,7 @@ function SignUpFormContent() {
       if (error) throw error
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "Failed to sign in with Google")
+      ;(window as any).__oauthStarting = false
       setIsGoogleLoading(false)
     }
   }
