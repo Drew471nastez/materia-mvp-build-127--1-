@@ -99,21 +99,30 @@ export async function GET(request: Request) {
   }
 
   // ── 3. Determine post-login destination ────────────────────────────────
-  // creator/seller → /app, buyer → /library, new user → /app (onboarding)
-  let nextPath = "/app"
+  // Only route to /app or /library if onboarding is complete.
+  // New / unboarded users MUST land on /signup/success (role chooser).
+  let nextPath = "/signup/success"
 
   if (existingProfile) {
     const { data: creatorRow } = await adminSupabase
       .from("creators")
-      .select("id")
+      .select("id, onboarding_completed")
       .eq("user_id", data.user.id)
       .maybeSingle()
 
-    if (!creatorRow && existingProfile.is_creator === false) {
+    if (creatorRow?.onboarding_completed) {
+      // Fully onboarded creator
+      nextPath = "/app"
+    } else if (existingProfile.welcome_completed && existingProfile.is_creator === false) {
+      // Returning buyer who already chose their role
       nextPath = "/library"
+    } else if (existingProfile.welcome_completed && existingProfile.is_creator === true) {
+      // Creator who completed welcome but hasn't finished full onboarding
+      nextPath = "/app"
     }
-    // else: has creators row, or is_creator is true/null → keep /app
+    // else: welcome not completed → /signup/success (default)
   }
+  // New user (no existing profile, just inserted) → /signup/success (default)
 
   // ── 4. Web vs Android path ──────────────────────────────────────────────
   // The bridge-token dance is only needed on Android.  Chrome Custom Tab

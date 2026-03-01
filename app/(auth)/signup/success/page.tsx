@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils"
 import { Loader2 } from "lucide-react"
 import { CreatorOnboardingModal } from "@/components/app/creator-onboarding-modal"
 import { createClient } from "@/lib/supabase/client"
+import { AuthResolvingScreen } from "@/components/auth/auth-resolving-screen"
 import Image from "next/image"
 
 // Store/Creator icon - matches UserIcon style
@@ -190,14 +191,7 @@ export default function SignupSuccessPage() {
 
   // Show loading while checking auth status
   if (isCheckingAuth) {
-    return (
-      <div className="flex min-h-svh w-full items-center justify-center bg-white">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-purple-600 mx-auto" />
-          <p className="mt-4 text-neutral-500">Loading...</p>
-        </div>
-      </div>
-    )
+    return <AuthResolvingScreen />
   }
 
   return (

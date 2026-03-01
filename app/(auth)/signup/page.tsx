@@ -12,6 +12,7 @@ import { Eye, EyeOff } from "lucide-react"
 import { getCanonicalSiteUrl } from "@/lib/url-helpers"
 import Image from "next/image"
 import { AuthLogo } from "@/components/auth/auth-logo"
+import { AuthResolvingScreen } from "@/components/auth/auth-resolving-screen"
 import { useAuthGate } from "@/lib/use-auth-gate"
 
 function SignUpFormContent() {
@@ -96,7 +97,9 @@ function SignUpFormContent() {
         const user = session?.user
 
         if (user) {
-          router.replace("/explore")
+          // Let /signup/success decide the final destination (creator → /app,
+          // buyer → /library).  Never redirect to /explore or /library here.
+          router.replace("/signup/success")
           return
         }
 
@@ -318,39 +321,13 @@ function SignUpFormContent() {
     }
   }
 
-  // Native OAuth callback in progress — show stable loading screen
-  if (nativeAuthInProgress) {
-    return (
-      <div className="flex min-h-svh w-full items-center justify-center bg-white">
-        <div className="text-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900 mx-auto"></div>
-          <p className="mt-4 text-neutral-500">Signing you in...</p>
-        </div>
-      </div>
-    )
+  // Block rendering while auth state is resolving or redirect is in progress.
+  if (authGateLoading || nativeAuthInProgress) {
+    return <AuthResolvingScreen message={nativeAuthInProgress ? "Signing you in..." : undefined} />
   }
 
-  // Boot guard: wait for getSession() before showing the form
-  if (authGateLoading) {
-    return (
-      <div className="flex min-h-svh w-full items-center justify-center bg-white">
-        <div className="text-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900 mx-auto"></div>
-        </div>
-      </div>
-    )
-  }
-
-  // Show loading while redirecting to destination after auth
   if (isRedirecting) {
-    return (
-      <div className="flex min-h-svh w-full items-center justify-center">
-        <div className="text-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900 mx-auto"></div>
-          <p className="mt-4 text-neutral-500">Loading...</p>
-        </div>
-      </div>
-    )
+    return <AuthResolvingScreen />
   }
 
   return (
@@ -510,14 +487,7 @@ function SignUpFormContent() {
 }
 
 function SignUpFormFallback() {
-  return (
-    <div className="flex min-h-svh w-full items-center justify-center">
-      <div className="text-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900 mx-auto"></div>
-        <p className="mt-4 text-neutral-500">Loading...</p>
-      </div>
-    </div>
-  )
+  return <AuthResolvingScreen />
 }
 
 export default function SignUpPage() {

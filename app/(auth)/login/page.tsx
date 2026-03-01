@@ -10,6 +10,8 @@ import { useState, useEffect, Suspense, useRef } from "react"
 import { Eye, EyeOff } from "lucide-react"
 import Image from "next/image"
 import { AuthLogo } from "@/components/auth/auth-logo"
+import { AuthResolvingScreen } from "@/components/auth/auth-resolving-screen"
+import { useAuthGate } from "@/lib/use-auth-gate"
 
 function LoginFormContent() {
   const [email, setEmail] = useState("")
@@ -20,28 +22,12 @@ function LoginFormContent() {
   const [isContinueLoading, setIsContinueLoading] = useState(false)
   const [isRedirecting, setIsRedirecting] = useState(false)
   const [showPasswordField, setShowPasswordField] = useState(false)
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true)
   const [showPassword, setShowPassword] = useState(false)
   const [googleOnlyEmail, setGoogleOnlyEmail] = useState<string | null>(null)
-  // Synchronous check: if native OAuth callback is in progress, show loading
-  // instead of the login form to prevent flash / "Auth session missing!" errors.
-  const [nativeAuthPending, setNativeAuthPending] = useState(() => {
-    try { return sessionStorage.getItem('nativeAuthInProgress') === '1' } catch { return false }
-  })
+  const { loading: authGateLoading, session: gateSession, nativeAuthInProgress } = useAuthGate()
   const redirectTimeoutRef = useRef<number | null>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
-
-  // Safety timeout: if nativeAuthInProgress flag is stuck (e.g. crash), clear
-  // it after 12 seconds and show the normal login form.
-  useEffect(() => {
-    if (!nativeAuthPending) return
-    const t = window.setTimeout(() => {
-      try { sessionStorage.removeItem('nativeAuthInProgress') } catch {}
-      setNativeAuthPending(false)
-    }, 12_000)
-    return () => window.clearTimeout(t)
-  }, [nativeAuthPending])
 
   const navigateWithFallback = (url: string) => {
     setIsRedirecting(true)
@@ -62,144 +48,97 @@ function LoginFormContent() {
   // Show any OAuth error forwarded by CapacitorAuthHandler via /login?error=...
   // (e.g. exchangeCodeForSession failure, user cancelled consent)
   useEffect(() => {
-    if (nativeAuthPending) return // Don't show stale errors while callback runs
+    if (authGateLoading || nativeAuthInProgress) return
     const oauthError = searchParams.get("error")
     if (oauthError) {
       setError(oauthError)
       setIsGoogleLoading(false)
     }
-  }, [nativeAuthPending]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [authGateLoading, nativeAuthInProgress]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Check if user is already authenticated - redirect if so
-  // Includes loop detection to prevent infinite redirect cycles
+  // If user is already authenticated, redirect — never show the form.
+  // Uses the session resolved by useAuthGate() instead of a manual getSession().
+  // Includes loop detection to prevent infinite redirect cycles.
   useEffect(() => {
-    // If a native OAuth callback is being handled, skip all auth checks —
-    // handleOAuthCallback in native-oauth.ts owns the flow.
-    if (nativeAuthPending) {
-      setIsCheckingAuth(false)
+    if (authGateLoading || nativeAuthInProgress) return
+
+    if (!gateSession) {
+      // No session — clear loop counter and show form
+      sessionStorage.removeItem("storelib_login_hits")
+      sessionStorage.removeItem("storelib_login_ts")
       return
     }
 
-    // Safety net: if the session check somehow stalls, show the form after 1.5 s.
-    const safetyTimer = window.setTimeout(() => setIsCheckingAuth(false), 1500)
+    // ── Loop detection ──────────────────────────────────────────────────
+    const now = Date.now()
+    const lastTs = parseInt(sessionStorage.getItem("storelib_login_ts") || "0")
+    const hitCount = parseInt(sessionStorage.getItem("storelib_login_hits") || "0")
 
-    const checkAuth = async () => {
-      try {
-        // Loop detection: track rapid redirects to /login
-        const now = Date.now()
-        const lastTs = parseInt(sessionStorage.getItem("storelib_login_ts") || "0")
-        const hitCount = parseInt(sessionStorage.getItem("storelib_login_hits") || "0")
+    if (now - lastTs < 6000) {
+      const newHits = hitCount + 1
+      sessionStorage.setItem("storelib_login_hits", String(newHits))
+      sessionStorage.setItem("storelib_login_ts", String(now))
 
-        if (now - lastTs < 6000) {
-          const newHits = hitCount + 1
-          sessionStorage.setItem("storelib_login_hits", String(newHits))
-          sessionStorage.setItem("storelib_login_ts", String(now))
-
-          // If we've landed on /login 3+ times within 6s, we're in a loop
-          if (newHits >= 3) {
-            console.warn("[login] Redirect loop detected, showing login form")
-            sessionStorage.removeItem("storelib_login_hits")
-            sessionStorage.removeItem("storelib_login_ts")
-            setIsCheckingAuth(false)
-            return
-          }
-        } else {
-          sessionStorage.setItem("storelib_login_hits", "1")
-          sessionStorage.setItem("storelib_login_ts", String(now))
-        }
-
-        // getSession() reads from Capacitor Preferences (native) or localStorage
-        // (web) — no network call for unauthenticated users.
-        const supabase = createClient()
-        const { data: { session } } = await supabase.auth.getSession()
-        const user = session?.user
-
-        if (user) {
-          // Determine destination: creator/seller → /app, buyer → /library
-          const { data: creatorRow } = await supabase
-            .from("creators")
-            .select("id")
-            .eq("user_id", user.id)
-            .maybeSingle()
-
-          let nextPath = "/app"
-          if (!creatorRow) {
-            const { data: profile } = await supabase
-              .from("profiles")
-              .select("is_creator")
-              .eq("id", user.id)
-              .maybeSingle()
-            nextPath = profile?.is_creator ? "/app" : "/library"
-          }
-
-          // On native Capacitor, the session lives in Capacitor Preferences
-          // (SharedPreferences) but Next.js server layouts check HTTP cookies.
-          // Without syncing, the app layout redirects back to /login → loop.
-          // Route through /auth/sync-session to write Set-Cookie headers first.
-          const isNative =
-            typeof (window as any).Capacitor?.isNativePlatform === "function" &&
-            (window as any).Capacitor.isNativePlatform()
-
-          if (isNative && session) {
-            window.location.assign(
-              `/auth/sync-session` +
-              `?access_token=${encodeURIComponent(session.access_token)}` +
-              `&refresh_token=${encodeURIComponent(session.refresh_token)}` +
-              `&next=${encodeURIComponent(nextPath)}`
-            )
-            return
-          }
-
-          // Web: session is already in cookies from the server-side PKCE flow.
-          router.replace(nextPath)
-          return
-        }
-
-        // No active session - clear loop counter
+      if (newHits >= 3) {
+        console.warn("[login] Redirect loop detected, showing login form")
         sessionStorage.removeItem("storelib_login_hits")
         sessionStorage.removeItem("storelib_login_ts")
-      } catch (error) {
-        // Ignore errors, just show the login form
-        console.error("Auth check error:", error)
-      } finally {
-        window.clearTimeout(safetyTimer)
-        setIsCheckingAuth(false)
+        return
+      }
+    } else {
+      sessionStorage.setItem("storelib_login_hits", "1")
+      sessionStorage.setItem("storelib_login_ts", String(now))
+    }
+
+    // ── Session exists — determine destination and redirect ─────────────
+    setIsRedirecting(true)
+    const user = gateSession.user
+    const supabase = createClient()
+
+    const determineAndRedirect = async () => {
+      // Check onboarding status to determine destination
+      const { data: creatorRow } = await supabase
+        .from("creators")
+        .select("id, onboarding_completed")
+        .eq("user_id", user.id)
+        .maybeSingle()
+
+      let nextPath = "/signup/success"
+      if (creatorRow?.onboarding_completed) {
+        nextPath = "/app"
+      } else {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("is_creator, welcome_completed")
+          .eq("id", user.id)
+          .maybeSingle()
+        if (profile?.welcome_completed) {
+          nextPath = profile.is_creator ? "/app" : "/library"
+        }
+      }
+
+      // On native Capacitor, route through /auth/sync-session to establish cookies.
+      const isNative =
+        typeof (window as any).Capacitor?.isNativePlatform === "function" &&
+        (window as any).Capacitor.isNativePlatform()
+
+      if (isNative) {
+        window.location.assign(
+          `/auth/sync-session` +
+          `?access_token=${encodeURIComponent(gateSession.access_token)}` +
+          `&refresh_token=${encodeURIComponent(gateSession.refresh_token)}` +
+          `&next=${encodeURIComponent(nextPath)}`
+        )
+      } else {
+        router.replace(nextPath)
       }
     }
 
-    checkAuth()
-    return () => window.clearTimeout(safetyTimer)
-  }, [router, nativeAuthPending])
-
-  // On native (Capacitor), listen for auth state changes so that when
-  // CapacitorAuthHandler exchanges the OAuth code and a session appears,
-  // we immediately clear "Connecting…" and let window.location.assign
-  // in the handler take over.  On web this is a no-op because the page
-  // navigates away as part of the OAuth redirect before this fires.
-  useEffect(() => {
-    if (typeof window === "undefined") return
-    // If native OAuth callback is in progress, do NOT attach — the
-    // handleOAuthCallback in native-oauth.ts owns the entire flow.
-    if (nativeAuthPending) return
-    // Only attach on native — on web the OAuth redirect unmounts this page
-    const isNative =
-      typeof (window as any).Capacitor?.isNativePlatform === "function" &&
-      (window as any).Capacitor.isNativePlatform()
-    if (!isNative) return
-
-    const supabase = createClient()
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if ((event === "SIGNED_IN" || event === "TOKEN_REFRESHED") && session) {
-          // Session established — clear the Google loading spinner.
-          // CapacitorAuthHandler will call window.location.assign("/app")
-          // right after, so this just prevents a stuck "Connecting…" state.
-          setIsGoogleLoading(false)
-        }
-      }
-    )
-    return () => subscription.unsubscribe()
-  }, [nativeAuthPending])
+    determineAndRedirect().catch((err) => {
+      console.error("Auth check error:", err)
+      setIsRedirecting(false)
+    })
+  }, [router, authGateLoading, nativeAuthInProgress, gateSession])
 
   useEffect(() => {
     return () => {
@@ -466,43 +405,14 @@ function LoginFormContent() {
     setIsGoogleLoading(false)
   }
 
-  // Native OAuth callback in progress — show stable loading screen instead of
-  // the login form.  This prevents the form from flashing and prevents any
-  // auth checks / listeners from racing with handleOAuthCallback.
-  if (nativeAuthPending) {
-    return (
-      <div className="flex min-h-svh w-full items-center justify-center bg-white">
-        <div className="text-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900 mx-auto"></div>
-          <p className="mt-4 text-neutral-500">Signing you in...</p>
-        </div>
-      </div>
-    )
+  // Block rendering while auth state is resolving or redirect is in progress.
+  // This guarantees the login form is never shown after auth succeeds.
+  if (authGateLoading || nativeAuthInProgress) {
+    return <AuthResolvingScreen message={nativeAuthInProgress ? "Signing you in..." : undefined} />
   }
 
-  // Boot guard: wait for getSession() to resolve before showing the login
-  // form.  This prevents blinking "Auth session missing!" errors when the
-  // session is still initializing on first load.
-  if (isCheckingAuth) {
-    return (
-      <div className="flex min-h-svh w-full items-center justify-center bg-white">
-        <div className="text-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900 mx-auto"></div>
-        </div>
-      </div>
-    )
-  }
-
-  // Show loading while redirecting to destination after auth
-  if (isRedirecting) {
-    return (
-      <div className="flex min-h-svh w-full items-center justify-center">
-        <div className="text-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900 mx-auto"></div>
-          <p className="mt-4 text-neutral-500">Loading...</p>
-        </div>
-      </div>
-    )
+  if (isRedirecting || gateSession) {
+    return <AuthResolvingScreen />
   }
 
   return (
@@ -639,14 +549,7 @@ function LoginFormContent() {
 }
 
 function LoginFormFallback() {
-  return (
-    <div className="flex min-h-svh w-full items-center justify-center">
-      <div className="text-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900 mx-auto"></div>
-        <p className="mt-4 text-neutral-500">Loading...</p>
-      </div>
-    </div>
-  )
+  return <AuthResolvingScreen />
 }
 
 export default function LoginPage() {

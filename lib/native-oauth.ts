@@ -257,25 +257,36 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
       console.warn(`${TAG}   Browser.close() after session failed:`, e)
     }
 
-    // Determine destination: creator → /app, buyer → /library
+    // Determine destination.
+    // Only route to /app or /library if the user has completed onboarding.
+    // New / unboarded users MUST go to /signup/success (role chooser) so
+    // they can pick creator vs buyer.  Without this check, new Google-OAuth
+    // signups were sent directly to /library, skipping the role chooser.
     const userId = verifiedSession.user.id
-    let nextPath = "/app"
+    let nextPath = "/signup/success"
     try {
       const { data: creatorRow } = await supabase
         .from("creators")
-        .select("id")
+        .select("id, onboarding_completed")
         .eq("user_id", userId)
         .maybeSingle()
-      if (!creatorRow) {
+      if (creatorRow?.onboarding_completed) {
+        // Fully onboarded creator → /app
+        nextPath = "/app"
+      } else {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("is_creator")
+          .select("is_creator, welcome_completed")
           .eq("id", userId)
           .maybeSingle()
-        nextPath = profile?.is_creator ? "/app" : "/library"
+        if (profile?.welcome_completed) {
+          // Returning user who already chose a role
+          nextPath = profile.is_creator ? "/app" : "/library"
+        }
+        // else: new user or welcome not completed → /signup/success (default)
       }
     } catch (e) {
-      console.warn(`${TAG}   User type check failed, defaulting to /app:`, e)
+      console.warn(`${TAG}   User type check failed, defaulting to /signup/success:`, e)
     }
     console.log(`${TAG}   destination: ${nextPath}`)
 

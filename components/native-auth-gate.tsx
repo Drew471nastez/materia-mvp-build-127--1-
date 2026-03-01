@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, type ReactNode } from "react"
+import { AuthResolvingScreen } from "@/components/auth/auth-resolving-screen"
 
 /**
  * Lightweight client gate for server-rendered layouts.
@@ -50,13 +51,7 @@ export function NativeAuthGate({ children }: { children: ReactNode }) {
   }, [blocked])
 
   if (blocked) {
-    return (
-      <div className="flex min-h-svh w-full items-center justify-center bg-white">
-        <div className="text-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900 mx-auto" />
-        </div>
-      </div>
-    )
+    return <AuthResolvingScreen />
   }
 
   return <>{children}</>
