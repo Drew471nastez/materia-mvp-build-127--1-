@@ -250,12 +250,20 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
       `&refresh_token=${encodeURIComponent(refresh_token)}` +
       `&next=${encodeURIComponent("/app")}`
     console.log(`${TAG}   Navigating to sync-session route to establish cookies`)
+
+    // Notify native Android shell that auth exchange succeeded.
+    // The native overlay will fully dismiss once the final page loads
+    // (onPageFinished in StorelibWebViewClient), but this signal lets
+    // native know the JS side is done with the exchange.
+    notifyNativeAuthDone()
+
     window.location.assign(syncUrl)
 
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unexpected error."
     console.error(`${TAG} Handler threw:`, err)
     showToast(`Error: ${msg}`, "err")
+    notifyNativeAuthDone()
     window.location.assign(`/login?error=${encodeURIComponent(msg)}`)
   } finally {
     isHandling = false
@@ -307,6 +315,14 @@ export async function setupNativeOAuthListeners(): Promise<() => void> {
       (event, session) => {
         console.log(`${TAG} ← onAuthStateChange event="${event}"  hasSession=${!!session}  path="${window.location.pathname}"`)
         if ((event === "SIGNED_IN" || event === "TOKEN_REFRESHED") && session) {
+          // CRITICAL: if handleOAuthCallback is in progress, do NOT navigate.
+          // The callback handler owns the full flow (exchange → sync-session
+          // → /app).  Navigating here would race it, skip cookie sync, and
+          // cause "Auth session missing!" on the server side.
+          if (isHandling) {
+            console.log(`${TAG}   OAuth callback in progress — skipping authStateChange navigation.`)
+            return
+          }
           const path = window.location.pathname
           if (path === "/login" || path === "/signup") {
             console.log(`${TAG}   SIGNED_IN on ${path} — forcing navigation to /app`)
