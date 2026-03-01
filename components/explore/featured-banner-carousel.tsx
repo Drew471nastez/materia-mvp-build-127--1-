@@ -5,6 +5,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { getProductUrl, getStoreUrl } from "@/lib/url-helpers"
+import { SmartLink } from "@/components/smart-link"
 
 interface FeaturedProduct {
   id: string
@@ -254,7 +255,7 @@ export function FeaturedBannerCarousel({ products, overlay }: FeaturedBannerCaro
             </h2>
 
             {/* Creator info with avatar - clickable */}
-            <a
+            <SmartLink
               href={creatorStoreUrl}
               className="inline-flex items-center gap-2.5 mb-4 group"
             >
@@ -262,16 +263,16 @@ export function FeaturedBannerCarousel({ products, overlay }: FeaturedBannerCaro
               <span className="text-sm text-white/80 group-hover:text-white transition-colors">
                 {creatorName}
               </span>
-            </a>
+            </SmartLink>
 
             {/* Price and CTA */}
             <div className="flex items-center gap-4">
-              <Link
+              <SmartLink
                 href={productUrl}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-white text-neutral-900 font-semibold text-sm rounded-lg hover:bg-white/90 transition-colors shadow-lg"
               >
                 View product
-              </Link>
+              </SmartLink>
               <span className="text-lg font-bold text-white drop-shadow-md">
                 {formatPrice(productPrice)}
               </span>

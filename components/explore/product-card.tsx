@@ -4,6 +4,7 @@ import { memo, useState } from "react"
 import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
 import { getProductUrl, getStoreUrl } from "@/lib/url-helpers"
+import { SmartLink } from "@/components/smart-link"
 import { Star } from "lucide-react"
 
 function CreatorAvatar({ url, name, size = 20 }: { url?: string | null; name: string; size?: number }) {
@@ -95,7 +96,7 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
 
   return (
     <div className="group flex flex-col overflow-hidden rounded-lg border border-border/60 bg-card transition-all duration-300 ease-out hover:border-border hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)]">
-      <a href={productUrl} className="relative aspect-video bg-muted overflow-hidden">
+      <SmartLink href={productUrl} className="relative aspect-video bg-muted overflow-hidden">
         {product.thumbnail_url ? (
           <Image
             src={product.thumbnail_url}
@@ -118,11 +119,11 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
             {Math.round((1 - product.price_cents / product.compare_at_cents) * 100)}% OFF
           </Badge>
         )}
-      </a>
+      </SmartLink>
       <div className="flex flex-1 flex-col p-4">
         {/* Seller info row - avatar, name (clickable), divider, rating */}
         <div className="flex items-center gap-2 mb-2">
-          <a
+          <SmartLink
             href={storeUrl}
             className="group/seller flex items-center gap-1.5"
             onClick={(e) => e.stopPropagation()}
@@ -131,7 +132,7 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
             <span className="text-[13px] text-muted-foreground truncate max-w-[120px] group-hover/seller:underline">
               {creatorName}
             </span>
-          </a>
+          </SmartLink>
           {hasReviews && (
             <>
               <span className="h-3.5 w-px bg-border/60 shrink-0" />
@@ -145,7 +146,7 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
           )}
         </div>
 
-        <a href={productUrl} className="flex-1 flex flex-col">
+        <SmartLink href={productUrl} className="flex-1 flex flex-col">
           <div className="flex items-start justify-between gap-2">
             <h3 className="text-[17px] font-medium leading-tight break-words min-w-0">{product.title}</h3>
             <Badge variant="secondary" className="shrink-0 text-xs capitalize">
@@ -160,7 +161,7 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
               </span>
             )}
           </div>
-        </a>
+        </SmartLink>
       </div>
     </div>
   )

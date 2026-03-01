@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { isNativeApp } from "@/lib/platform-utils"
 
 /**
@@ -45,11 +46,16 @@ function toInternalHref(href: string): string {
 }
 
 /**
- * An anchor tag that keeps navigation in-app in Capacitor native apps.
+ * A link component that keeps navigation in-app in Capacitor native apps.
  *
  * In Capacitor:
- *  1. Strips target="_blank" so links don't open the system browser
- *  2. Rewrites subdomain URLs (seller.storelib.com) to internal paths
+ *  1. Uses Next.js <Link> for internal paths to enable client-side navigation
+ *     which preserves React state — including the Supabase singleton client
+ *     with its active auth session. Full page reloads (plain <a>) force the
+ *     session to be re-read from Capacitor Preferences (async), causing a
+ *     brief "logged out" state or auth loss.
+ *  2. Strips target="_blank" so links don't open the system browser
+ *  3. Rewrites subdomain URLs (seller.storelib.com) to internal paths
  *     (/u/seller) to avoid cross-origin navigation that loses the
  *     native auth session stored in SharedPreferences.
  *
@@ -67,6 +73,18 @@ export function SmartLink({
   const inApp = isNativeApp()
 
   const resolvedHref = inApp && href ? toInternalHref(href) : href
+
+  // In Capacitor, use Next.js Link for internal paths to enable client-side
+  // navigation which preserves the Supabase auth session (no full page reload).
+  if (inApp && resolvedHref?.startsWith("/")) {
+    // Strip anchor-only props that Link handles differently
+    const { target, rel, ...linkSafeProps } = props
+    return (
+      <Link href={resolvedHref} {...linkSafeProps}>
+        {children}
+      </Link>
+    )
+  }
 
   return (
     <a

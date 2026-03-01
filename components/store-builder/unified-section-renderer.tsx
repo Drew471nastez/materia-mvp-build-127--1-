@@ -53,6 +53,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { verifiedBadgeLabels } from "@/lib/store-builder/defaults"
 import * as LucideIcons from "lucide-react"
 import { DescriptionEditWrapper, RichDescriptionContent } from "./description-rich-editor"
+import { SmartLink } from "@/components/smart-link"
 import { VariantSelector, type ProductVariant } from "@/components/product/variant-selector"
 
 // Shared product type for consistency
@@ -2614,7 +2615,7 @@ function UnifiedFeaturedProductsSection({
               }
 
               return (
-                <a
+                <SmartLink
                   key={product.id}
                   href={getProductHref(product)}
                   className={cn(
@@ -2630,7 +2631,7 @@ function UnifiedFeaturedProductsSection({
                   }}
                 >
                   {content}
-                </a>
+                </SmartLink>
               )
             })}
           </div>
@@ -4178,13 +4179,13 @@ export function UnifiedProductsGrid({
           }
 
           return (
-            <a
+            <SmartLink
               key={product.id}
               href={`/p/${product.slug || product.id}`}
               className="group overflow-hidden rounded-lg border border-border bg-card transition-all hover:shadow-md"
             >
               {content}
-            </a>
+            </SmartLink>
           )
         })}
       </div>
@@ -4390,7 +4391,7 @@ function UnifiedMoreFromSellerSection({
           }
 
           return (
-            <a
+            <SmartLink
               key={product.id}
               href={`/p/${product.slug || product.id}`}
               className={cn(
@@ -4406,7 +4407,7 @@ function UnifiedMoreFromSellerSection({
               }}
             >
               {content}
-            </a>
+            </SmartLink>
           )
         })}
       </div>
