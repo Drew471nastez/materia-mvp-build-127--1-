@@ -92,6 +92,22 @@ function isOAuthCallback(url: string): boolean {
 }
 
 /**
+ * Tell the native Android shell that auth exchange is starting so it
+ * can show (or keep showing) its loading overlay.  No-ops gracefully
+ * if authStart is not defined on the native side.
+ */
+function notifyNativeAuthStart(): void {
+  try {
+    const w = window as any
+    if (typeof window !== "undefined" && w.StorelibNative?.authStart) {
+      w.StorelibNative.authStart()
+    }
+  } catch {
+    // Ignore — web environment or missing native interface
+  }
+}
+
+/**
  * Notify the native Android shell that auth is complete so it can
  * dismiss its loading overlay.  No-ops gracefully on web.
  *
@@ -122,6 +138,9 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
     console.log(`${TAG}   → Not an OAuth callback — ignoring.`)
     return
   }
+
+  // Notify native immediately — show/keep loading overlay before any async work
+  notifyNativeAuthStart()
 
   if (isHandling) {
     console.warn(`${TAG}   → Already handling a callback — duplicate ignored.`)
@@ -174,18 +193,15 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
     // it from the same Preferences storage and sends both code + verifier
     // to Supabase's token endpoint.
     //
-    // IMPORTANT: pass only the bare `code` value, not the full URL.
-    // supabase-js _exchangeCodeForSession sends auth_code directly as-is to
-    // the server (no URL parsing for custom schemes).  Passing the full
-    // "storelib://auth/callback?code=ABC" string causes the server to look
-    // up a flow state for that entire string → "invalid flow state" error.
+    // Pass the full raw callback URL — supabase-js extracts the code param
+    // internally when given a URL string.
     console.log(`${TAG} ── exchanging code for session (PKCE) ──────────────────`)
-    console.log(`${TAG}   passing bare code to exchangeCodeForSession()`)
+    console.log(`${TAG}   passing full rawUrl to exchangeCodeForSession()`)
     showToast("Exchanging code…", "info")
 
     const supabase = createClient()
     const { data, error: exchangeErr } =
-      await supabase.auth.exchangeCodeForSession(code)
+      await supabase.auth.exchangeCodeForSession(rawUrl)
 
     // ── LOG 5: exchange result ───────────────────────────────────────────────
     console.log(`${TAG} ── exchangeCodeForSession returned ──────────────────────`)
@@ -225,8 +241,8 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
       return
     }
 
-    // ── LOG 7: success — close browser again and navigate ────────────────────
-    console.log(`${TAG} ✓ Session confirmed for ${email} → syncing cookies → /app`)
+    // ── LOG 7: success — determine destination and navigate ───────────────────
+    console.log(`${TAG} ✓ Session confirmed for ${email} — determining destination…`)
     showToast(`Session OK — ${email}`, "ok")
 
     // Close Chrome Custom Tab again (belt-and-suspenders — some Android
@@ -239,6 +255,28 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
       console.warn(`${TAG}   Browser.close() after session failed:`, e)
     }
 
+    // Determine destination: creator → /app, buyer → /library
+    const userId = verifiedSession.user.id
+    let nextPath = "/app"
+    try {
+      const { data: creatorRow } = await supabase
+        .from("creators")
+        .select("id")
+        .eq("user_id", userId)
+        .maybeSingle()
+      if (!creatorRow) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("is_creator")
+          .eq("id", userId)
+          .maybeSingle()
+        nextPath = profile?.is_creator ? "/app" : "/library"
+      }
+    } catch (e) {
+      console.warn(`${TAG}   User type check failed, defaulting to /app:`, e)
+    }
+    console.log(`${TAG}   destination: ${nextPath}`)
+
     // The native Capacitor client stores the session in Capacitor Preferences
     // (Android SharedPreferences), but Next.js server components read cookies.
     // Route through /auth/sync-session which calls setSession() server-side,
@@ -249,8 +287,8 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
       `/auth/sync-session` +
       `?access_token=${encodeURIComponent(access_token)}` +
       `&refresh_token=${encodeURIComponent(refresh_token)}` +
-      `&next=${encodeURIComponent("/app")}`
-    console.log(`${TAG}   Navigating to sync-session route to establish cookies`)
+      `&next=${encodeURIComponent(nextPath)}`
+    console.log(`${TAG}   Navigating to sync-session route to establish cookies → ${nextPath}`)
 
     // Notify native Android shell that auth exchange succeeded.
     // The native overlay will fully dismiss once the final page loads

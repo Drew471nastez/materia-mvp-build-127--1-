@@ -20,7 +20,7 @@ function LoginFormContent() {
   const [isContinueLoading, setIsContinueLoading] = useState(false)
   const [isRedirecting, setIsRedirecting] = useState(false)
   const [showPasswordField, setShowPasswordField] = useState(false)
-  const [isCheckingAuth, setIsCheckingAuth] = useState(false)
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true)
   const [showPassword, setShowPassword] = useState(false)
   const [googleOnlyEmail, setGoogleOnlyEmail] = useState<string | null>(null)
   // Synchronous check: if native OAuth callback is in progress, show loading
@@ -75,7 +75,10 @@ function LoginFormContent() {
   useEffect(() => {
     // If a native OAuth callback is being handled, skip all auth checks —
     // handleOAuthCallback in native-oauth.ts owns the flow.
-    if (nativeAuthPending) return
+    if (nativeAuthPending) {
+      setIsCheckingAuth(false)
+      return
+    }
 
     // Safety net: if the session check somehow stalls, show the form after 1.5 s.
     const safetyTimer = window.setTimeout(() => setIsCheckingAuth(false), 1500)
@@ -464,6 +467,19 @@ function LoginFormContent() {
         <div className="text-center">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900 mx-auto"></div>
           <p className="mt-4 text-neutral-500">Signing you in...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Boot guard: wait for getSession() to resolve before showing the login
+  // form.  This prevents blinking "Auth session missing!" errors when the
+  // session is still initializing on first load.
+  if (isCheckingAuth) {
+    return (
+      <div className="flex min-h-svh w-full items-center justify-center bg-white">
+        <div className="text-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900 mx-auto"></div>
         </div>
       </div>
     )
