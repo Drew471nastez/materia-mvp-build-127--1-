@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { createClient } from "@/lib/supabase/client"
+import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -171,7 +171,11 @@ export function SettingsForm({ profile, creator }: SettingsFormProps) {
   const handleSignOut = async () => {
     const supabase = createClient()
     await supabase.auth.signOut()
-    router.push("/")
+    if (isNativePlatform()) {
+      window.location.assign("storelib://logout")
+    } else {
+      router.push("/")
+    }
   }
 
   // Email change handlers

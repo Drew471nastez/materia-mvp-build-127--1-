@@ -33,7 +33,7 @@ function getCookieDomain(): string | undefined {
  * window.Capacitor is injected by the native bridge before any JS runs,
  * so this is reliable as long as we're in a browser context.
  */
-function isNativePlatform(): boolean {
+export function isNativePlatform(): boolean {
   return (
     typeof window !== "undefined" &&
     typeof (window as any).Capacitor?.isNativePlatform === "function" &&

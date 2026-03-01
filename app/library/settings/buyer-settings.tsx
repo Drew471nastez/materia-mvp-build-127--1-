@@ -7,7 +7,7 @@ import { ArrowLeft, User, Shield, Loader2, CheckCircle, AlertCircle, LogOut, Key
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { createClient } from "@/lib/supabase/client"
+import { createClient, isNativePlatform } from "@/lib/supabase/client"
 
 interface BuyerSettingsProps {
   userId: string
@@ -124,7 +124,11 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
     setSigningOut(true)
     const supabase = createClient()
     await supabase.auth.signOut()
-    router.push("/")
+    if (isNativePlatform()) {
+      window.location.assign("storelib://logout")
+    } else {
+      router.push("/")
+    }
   }, [router])
 
   const joinDate = new Date(createdAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })

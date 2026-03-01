@@ -28,7 +28,7 @@ import {
   Search,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { createClient } from "@/lib/supabase/client"
+import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { useState, useEffect, useRef, useCallback } from "react"
 // Sheet removed — mobile sidebar now uses pure CSS transitions for reliable close animation
@@ -148,7 +148,11 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     await supabase.auth.signOut()
     setMobileMenuOpen(false)
     setProfileDropdownOpen(false)
-    router.push("/")
+    if (isNativePlatform()) {
+      window.location.assign("storelib://logout")
+    } else {
+      router.push("/")
+    }
   }
 
   const mainNavItems = [

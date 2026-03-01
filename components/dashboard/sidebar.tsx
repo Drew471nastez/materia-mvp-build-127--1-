@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { LayoutDashboard, LogOut, Download, Menu, Heart, Compass, Settings, Sparkles, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { createClient } from "@/lib/supabase/client"
+import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { useState, useEffect, useCallback } from "react"
 
@@ -55,7 +55,11 @@ export function DashboardSidebar() {
     const supabase = createClient()
     await supabase.auth.signOut()
     setMobileMenuOpen(false)
-    router.push("/")
+    if (isNativePlatform()) {
+      window.location.assign("storelib://logout")
+    } else {
+      router.push("/")
+    }
   }
 
   const closeSidebar = useCallback(() => setMobileMenuOpen(false), [])

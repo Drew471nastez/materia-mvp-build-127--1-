@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { createClient } from "@/lib/supabase/client"
+import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -45,8 +45,12 @@ export function UserNav({ user, profile, isCreator }: UserNavProps) {
     setIsLoading(true)
     const supabase = createClient()
     await supabase.auth.signOut()
-    router.push("/")
-    router.refresh()
+    if (isNativePlatform()) {
+      window.location.assign("storelib://logout")
+    } else {
+      router.push("/")
+      router.refresh()
+    }
   }
 
   return (

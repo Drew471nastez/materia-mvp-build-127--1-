@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
-import { createClient } from "@/lib/supabase/client"
+import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Loader2, CheckCircle2, XCircle, Eye, EyeOff } from "lucide-react"
@@ -87,7 +87,11 @@ function ResetPasswordContent() {
         setTimeout(async () => {
           const supabase = createClient()
           await supabase.auth.signOut()
-          router.push("/login")
+          if (isNativePlatform()) {
+            window.location.assign("storelib://logout")
+          } else {
+            router.push("/login")
+          }
         }, 3000)
       } else {
         setError(data.error || "Failed to reset password")

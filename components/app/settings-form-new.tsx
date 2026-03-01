@@ -3,7 +3,7 @@
 import type React from "react"
 import { useState, useRef, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { createClient } from "@/lib/supabase/client"
+import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -1592,7 +1592,11 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   const handleSignOut = async () => {
     const supabase = createClient()
     await supabase.auth.signOut()
-    router.push("/")
+    if (isNativePlatform()) {
+      window.location.assign("storelib://logout")
+    } else {
+      router.push("/")
+    }
   }
 
   const handleSignOutAllDevices = async () => {
@@ -1600,7 +1604,11 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     try {
       const supabase = createClient()
       await supabase.auth.signOut({ scope: 'global' })
-      router.push("/")
+      if (isNativePlatform()) {
+        window.location.assign("storelib://logout")
+      } else {
+        router.push("/")
+      }
     } catch {
       setSigningOutAll(false)
     }
@@ -1672,7 +1680,11 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
       if (response.ok) {
         const supabase = createClient()
         await supabase.auth.signOut()
-        router.push("/")
+        if (isNativePlatform()) {
+          window.location.assign("storelib://logout")
+        } else {
+          router.push("/")
+        }
       } else {
         setDeleteError(data.error || "Invalid verification code")
       }

@@ -12,7 +12,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Settings, LogOut, Library, LayoutDashboard, Sparkles } from "lucide-react"
 import Link from "next/link"
-import { createClient } from "@/lib/supabase/client"
+import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import type { User as SupabaseUser } from "@supabase/supabase-js"
 
@@ -34,8 +34,12 @@ export function UserNavClient({ user, profile, isCreator }: UserNavClientProps) 
   const handleSignOut = async () => {
     const supabase = createClient()
     await supabase.auth.signOut()
-    router.push("/login")
-    router.refresh()
+    if (isNativePlatform()) {
+      window.location.assign("storelib://logout")
+    } else {
+      router.push("/login")
+      router.refresh()
+    }
   }
 
   const initials = profile?.display_name

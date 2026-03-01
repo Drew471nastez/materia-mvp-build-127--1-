@@ -8,7 +8,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useMemo, useRef, useState, useCallback } from "react"
 import { createPortal } from "react-dom"
 import type { User } from "@supabase/supabase-js"
-import { createClient } from "@/lib/supabase/client"
+import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { extractUsernameFromHost, getCanonicalSiteUrl } from "@/lib/url-helpers"
 import { cn } from "@/lib/utils"
 
@@ -860,8 +860,12 @@ export function PlatformHeaderClient() {
     await supabase.auth.signOut()
     setMobileProfileOpen(false)
     setDesktopProfileOpen(false)
-    router.push("/")
-    router.refresh()
+    if (isNativePlatform()) {
+      window.location.assign("storelib://logout")
+    } else {
+      router.push("/")
+      router.refresh()
+    }
   }
 
   const onCategoryClick = (cat: string) => {
