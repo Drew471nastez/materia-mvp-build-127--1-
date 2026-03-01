@@ -871,11 +871,7 @@ export function PlatformHeaderClient() {
 
   const onCategoryClick = (cat: string) => {
     const url = `/explore?category=${encodeURIComponent(cat)}&scroll=recommended`
-    if (shouldForceCanonicalNav) {
-      navigateToCanonical(url)
-      return
-    }
-    router.push(url)
+    navigateReliably(url)
   }
 
   const showCategories = pathname === "/explore" || pathname.startsWith("/explore") || pathname === "/wishlist"
@@ -912,8 +908,34 @@ export function PlatformHeaderClient() {
     [toCanonicalUrl],
   )
 
+  // In Capacitor, router.push() can fail when navigating between layout groups
+  // (e.g. from a product page to /app dashboard) because the RSC payload fetch
+  // or the portal-based bottom-sheet context doesn't play well with the app
+  // router.  Use window.location.href for reliable full-page navigation.
+  const navigateReliably = useCallback(
+    (targetPath: string) => {
+      if (typeof window === "undefined") return
+      if (isNativePlatform()) {
+        window.location.href = targetPath
+        return
+      }
+      if (shouldForceCanonicalNav) {
+        navigateToCanonical(targetPath)
+        return
+      }
+      router.push(targetPath)
+    },
+    [shouldForceCanonicalNav, navigateToCanonical, router],
+  )
+
   const onCanonicalNav = useCallback(
     (e: React.MouseEvent<HTMLElement>, targetPath: string) => {
+      // In Capacitor, always use reliable navigation (window.location.href)
+      if (isNativePlatform()) {
+        e.preventDefault()
+        window.location.href = targetPath
+        return
+      }
       if (!shouldForceCanonicalNav) return
       e.preventDefault()
       navigateToCanonical(targetPath)
@@ -1167,7 +1189,7 @@ export function PlatformHeaderClient() {
                                   if (hasSubcats) {
                                     setSelectedCategoryForSubs(cat.label)
                                   } else {
-                                    shouldForceCanonicalNav ? navigateToCanonical(cat.href + '&scroll=recommended') : router.push(cat.href + '&scroll=recommended')
+                                    navigateReliably(cat.href + '&scroll=recommended')
                                     setCategoriesDropdownOpen(false)
                                   }
                                 }}
@@ -1312,7 +1334,7 @@ export function PlatformHeaderClient() {
                       <button
                         type="button"
                         onClick={() => {
-                          shouldForceCanonicalNav ? navigateToCanonical(`/explore?q=${encodeURIComponent(query)}`) : router.push(`/explore?q=${encodeURIComponent(query)}`)
+                          navigateReliably(`/explore?q=${encodeURIComponent(query)}`)
                           setSearchModalOpen(false)
                         }}
                         className="w-full py-2.5 rounded-lg text-sm font-medium text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
@@ -1685,7 +1707,7 @@ export function PlatformHeaderClient() {
                 <button
                   type="button"
                   onClick={() => {
-                    shouldForceCanonicalNav ? navigateToCanonical(`/explore?q=${encodeURIComponent(query)}`) : router.push(`/explore?q=${encodeURIComponent(query)}`)
+                    navigateReliably(`/explore?q=${encodeURIComponent(query)}`)
                     setSearchModalOpen(false)
                   }}
                   className="w-full py-3 rounded-xl text-sm font-medium text-white bg-violet-600 hover:bg-violet-700 transition-colors cursor-pointer"
@@ -1713,7 +1735,7 @@ export function PlatformHeaderClient() {
           {!user && (
             <div className="mb-6">
               {/* Sign in button */}
-              <Link href="/login" onClick={() => setMobileMenuOpen(false)} className="block mb-2">
+              <Link href="/login" onClick={(e) => { onCanonicalNav(e, "/login"); setMobileMenuOpen(false) }} className="block mb-2">
                 <Button className="w-full h-11 rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-700 gap-2">
                   <LogIn className="h-4 w-4" />
                   Sign in
@@ -1863,7 +1885,8 @@ export function PlatformHeaderClient() {
                     </div>
                     <Link
                       href={getCanonicalOrRelativePath(cat.href + '&scroll=recommended')}
-                      onClick={() => {
+                      onClick={(e) => {
+                        onCanonicalNav(e, cat.href + '&scroll=recommended')
                         setExpandedCategory(null)
                         setMobileMenuOpen(false)
                       }}
@@ -1877,7 +1900,8 @@ export function PlatformHeaderClient() {
                         <Link
                           key={sub.label}
                           href={getCanonicalOrRelativePath(sub.href + '&scroll=recommended')}
-                          onClick={() => {
+                          onClick={(e) => {
+                            onCanonicalNav(e, sub.href + '&scroll=recommended')
                             setExpandedCategory(null)
                             setMobileMenuOpen(false)
                           }}
@@ -1905,7 +1929,7 @@ export function PlatformHeaderClient() {
                     if (hasSubcats) {
                       setExpandedCategory(cat.label)
                     } else {
-                      shouldForceCanonicalNav ? navigateToCanonical(cat.href + '&scroll=recommended') : router.push(cat.href + '&scroll=recommended')
+                      navigateReliably(cat.href + '&scroll=recommended')
                       setMobileMenuOpen(false)
                     }
                   }
