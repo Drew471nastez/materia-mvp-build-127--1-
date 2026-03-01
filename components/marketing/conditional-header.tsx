@@ -31,9 +31,9 @@ export function ConditionalHeader() {
 
     const isSellerPath = pathname.startsWith("/u/") || pathname.startsWith("/p/") || pathname.startsWith("/l/")
 
-    // Discover mode: Capacitor app on discover routes OR query-param based
+    // Discover mode: Capacitor app on discover routes / subdomain OR query-param based
     // Always show platform header in discover mode (covers seller/product pages in app)
-    if ((isSubdomain || isSellerPath) && isDiscoverMode(pathname, searchParams)) {
+    if ((isSubdomain || isSellerPath) && isDiscoverMode(pathname, searchParams, { isSubdomain })) {
       setShowPlatformHeader(true)
       return
     }

@@ -36,20 +36,24 @@ function pathnameIsDiscoverRoute(pathname: string): boolean {
 /**
  * Determine whether the current context is "Discover mode".
  *
- * @param pathname  - `usePathname()` value
+ * @param pathname     - `usePathname()` value
  * @param searchParams - `useSearchParams()` value (or URLSearchParams)
+ * @param options.isSubdomain - true when on a seller subdomain (e.g. seller.storelib.com).
+ *        On subdomains the pathname is "/" or "/products/..." etc., not "/u/seller",
+ *        so we need this flag to recognise the page as part of the discover flow.
  */
 export function isDiscoverMode(
   pathname: string,
   searchParams: { get(key: string): string | null; has(key: string): boolean },
+  options?: { isSubdomain?: boolean },
 ): boolean {
   // Backwards compat: query-param based discover layout (works on web & app)
   if (searchParams.get("layout") === "discover" || searchParams.has("recommended")) {
     return true
   }
 
-  // Native app + discover-related route => always discover mode
-  if (isNativeApp() && pathnameIsDiscoverRoute(pathname)) {
+  // Native app + discover-related route OR seller subdomain => always discover mode
+  if (isNativeApp() && (pathnameIsDiscoverRoute(pathname) || options?.isSubdomain)) {
     return true
   }
 

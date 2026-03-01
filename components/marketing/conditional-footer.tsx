@@ -34,7 +34,7 @@ export function ConditionalFooter() {
 
     // In Capacitor discover mode: show platform footer on seller/product pages
     // On web with query-param discover layout: hide footer (existing behaviour)
-    if ((isSubdomain || isSellerPath) && isDiscoverMode(pathname, searchParams)) {
+    if ((isSubdomain || isSellerPath) && isDiscoverMode(pathname, searchParams, { isSubdomain })) {
       setShowFooter(isNativeApp())
       return
     }
