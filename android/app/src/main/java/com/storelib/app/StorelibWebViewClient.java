@@ -143,8 +143,17 @@ public class StorelibWebViewClient extends BridgeWebViewClient {
     public void onPageFinished(WebView view, String url) {
         super.onPageFinished(view, url);
 
-        if (url != null && isAuthPage(url)) {
-            view.evaluateJavascript(BLOCK_HOMEPAGE_LINKS_JS, null);
+        if (url != null) {
+            if (isAuthPage(url)) {
+                view.evaluateJavascript(BLOCK_HOMEPAGE_LINKS_JS, null);
+            }
+
+            // Dismiss the auth loading overlay once any page finishes loading.
+            // The overlay is only visible during OAuth callback processing, so
+            // hideAuthLoading() is a no-op when it's already hidden.
+            if (view.getContext() instanceof MainActivity) {
+                ((MainActivity) view.getContext()).hideAuthLoading();
+            }
         }
     }
 

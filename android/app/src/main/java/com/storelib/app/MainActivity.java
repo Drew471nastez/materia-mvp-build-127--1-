@@ -1,9 +1,19 @@
 package com.storelib.app;
 
 import android.content.Intent;
+import android.graphics.Color;
+import android.graphics.PorterDuff;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.view.Gravity;
+import android.view.View;
+import android.view.ViewGroup;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
+import android.widget.FrameLayout;
+import android.widget.ProgressBar;
 
 import com.getcapacitor.BridgeActivity;
 
@@ -28,6 +38,11 @@ public class MainActivity extends BridgeActivity {
     /** Intent extra key used by {@link WelcomeActivity}. */
     public static final String EXTRA_TARGET_URL = "TARGET_URL";
 
+    /** Full-screen dark overlay shown during OAuth callback processing. */
+    private View authLoadingOverlay;
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private Runnable safetyTimeout;
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -36,6 +51,17 @@ public class MainActivity extends BridgeActivity {
 
         // ── Replace the default WebViewClient with ours ─────────────
         getBridge().setWebViewClient(new StorelibWebViewClient(getBridge()));
+
+        // ── Auth loading overlay (dark screen + spinner over the WebView) ──
+        setupAuthLoadingOverlay();
+
+        // ── JS bridge: window.StorelibNative.authDone() ─────────────
+        getBridge().getWebView().addJavascriptInterface(new Object() {
+            @JavascriptInterface
+            public void authDone() {
+                mainHandler.post(() -> hideAuthLoading());
+            }
+        }, "StorelibNative");
 
         // ── Route to the correct URL ─────────────────────────────────
         handleIncomingIntent(getIntent());
@@ -83,14 +109,16 @@ public class MainActivity extends BridgeActivity {
             String scheme = data.getScheme();
             // Custom-scheme OAuth callback: storelib://auth/callback?code=…
             if ("storelib".equals(scheme)) {
-                // Let Capacitor's appUrlOpen event handle it.
-                // Do not call loadInWebView — that would race with the JS handler.
+                // Show loading overlay instantly so the user never sees the
+                // login/signup page while the code exchange runs in JS.
+                showAuthLoading();
+                // Let Capacitor's appUrlOpen event handle the exchange.
                 return;
             }
             // HTTPS App Link OAuth callback: https://storelib.com/app/auth/callback?code=…
             String path = data.getPath();
             if (path != null && path.startsWith("/app/auth/callback")) {
-                // Same: let Capacitor's appUrlOpen event handle it.
+                showAuthLoading();
                 return;
             }
         }
@@ -101,6 +129,68 @@ public class MainActivity extends BridgeActivity {
             loadInWebView(targetUrl);
         }
     }
+
+    // ────────────────────────────────────────────────────────────────
+    //  Auth loading overlay
+    // ────────────────────────────────────────────────────────────────
+
+    private void setupAuthLoadingOverlay() {
+        FrameLayout overlay = new FrameLayout(this);
+        overlay.setBackgroundColor(Color.parseColor("#050505"));
+        overlay.setVisibility(View.GONE);
+        overlay.setClickable(true);  // absorb touches while loading
+
+        ProgressBar spinner = new ProgressBar(this);
+        spinner.setIndeterminate(true);
+        spinner.getIndeterminateDrawable()
+                .setColorFilter(0xFF7c3aed, PorterDuff.Mode.SRC_IN);
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
+                dpToPx(48), dpToPx(48), Gravity.CENTER);
+        overlay.addView(spinner, lp);
+
+        ViewGroup root = findViewById(android.R.id.content);
+        root.addView(overlay, new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT));
+
+        authLoadingOverlay = overlay;
+    }
+
+    /** Show the dark overlay + spinner instantly. */
+    public void showAuthLoading() {
+        if (authLoadingOverlay == null) return;
+        authLoadingOverlay.setAlpha(1f);
+        authLoadingOverlay.setVisibility(View.VISIBLE);
+
+        // Safety timeout: auto-hide after 15 s in case the flow stalls.
+        if (safetyTimeout != null) mainHandler.removeCallbacks(safetyTimeout);
+        safetyTimeout = this::hideAuthLoading;
+        mainHandler.postDelayed(safetyTimeout, 15_000);
+    }
+
+    /** Fade out the overlay (300 ms). No-op if already hidden. */
+    public void hideAuthLoading() {
+        if (authLoadingOverlay == null
+                || authLoadingOverlay.getVisibility() != View.VISIBLE) return;
+        if (safetyTimeout != null) {
+            mainHandler.removeCallbacks(safetyTimeout);
+            safetyTimeout = null;
+        }
+        authLoadingOverlay.animate()
+                .alpha(0f)
+                .setDuration(300)
+                .withEndAction(() -> {
+                    authLoadingOverlay.setVisibility(View.GONE);
+                    authLoadingOverlay.setAlpha(1f);
+                })
+                .start();
+    }
+
+    private int dpToPx(int dp) {
+        return (int) (dp * getResources().getDisplayMetrics().density + 0.5f);
+    }
+
+    // ────────────────────────────────────────────────────────────────
 
     /**
      * Posts a loadUrl call so it runs AFTER Capacitor's own initial

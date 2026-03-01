@@ -91,6 +91,25 @@ function isOAuthCallback(url: string): boolean {
   return url.startsWith("storelib://auth/callback")
 }
 
+/**
+ * Notify the native Android shell that auth is complete so it can
+ * dismiss its loading overlay.  No-ops gracefully on web.
+ *
+ * The primary dismissal is handled natively (onPageFinished in
+ * StorelibWebViewClient), but this function is available as a
+ * manual trigger from JS if needed.
+ */
+export function notifyNativeAuthDone(): void {
+  try {
+    const w = window as any
+    if (typeof window !== "undefined" && w.StorelibNative?.authDone) {
+      w.StorelibNative.authDone()
+    }
+  } catch {
+    // Ignore — web environment or missing native interface
+  }
+}
+
 // ── Core handler (exported so it can be called manually for testing) ──────────
 export async function handleOAuthCallback(rawUrl: string): Promise<void> {
   // ── LOG 1: appUrlOpen fired ────────────────────────────────────────────────
