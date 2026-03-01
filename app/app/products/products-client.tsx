@@ -7,6 +7,7 @@ import { Plus, MoreHorizontal, Package, Search, X, Archive, Copy, Trash2, AlertT
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { getProductUrl } from "@/lib/url-helpers"
+import { SmartLink } from "@/components/smart-link"
 import { createClient } from "@/lib/supabase/client"
 import { useLanguage } from "@/lib/i18n"
 
@@ -595,14 +596,14 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                         <Pencil className="h-3.5 w-3.5" />
                       </Link>
                       {/* View Button - Light gray with black text */}
-                      <a
+                      <SmartLink
                         href={getProductUrl(creatorUsername, product.slug)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center justify-center h-8 px-2.5 bg-[#f3f4f6] hover:bg-[#e5e7eb] text-[#1f2937] text-[11px] font-medium rounded-lg transition-colors"
                       >
                         <Eye className="h-3.5 w-3.5" />
-                      </a>
+                      </SmartLink>
                       {/* Restore Button - Only for archived products (light gray) */}
                       {(product.archived || product.status === "archived") && (
                         <button
@@ -710,7 +711,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                               {t("products.edit")}
                             </Link>
                             {/* View Button - Light gray with black text */}
-                            <a
+                            <SmartLink
                               href={getProductUrl(creatorUsername, product.slug)}
                               target="_blank"
                               rel="noopener noreferrer"
@@ -718,7 +719,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
                             >
                               <Eye className="h-3.5 w-3.5" />
                               {t("common.view")}
-                            </a>
+                            </SmartLink>
                             {/* Conditional: Share Button for active products, Restore for archived */}
                             {product.archived || product.status === "archived" ? (
                               <button

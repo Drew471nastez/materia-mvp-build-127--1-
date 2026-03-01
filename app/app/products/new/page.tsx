@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useCallback, useRef, useLayoutEffect, memo } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
+import { getProductUrl } from "@/lib/url-helpers"
+import { isNativeApp } from "@/lib/platform-utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -3327,12 +3329,16 @@ export default function NewProductPage() {
     }
   }
 
-  // Handle redirect to live product page on seller's subdomain
+  // Handle redirect to live product page
   const handleRedirectToProduct = () => {
     if (slug && creator) {
       const sellerSubdomain = creator.username || creator.slug || 'store'
-      const productUrl = `https://${sellerSubdomain}.storelib.com/p/${slug}`
-      window.open(productUrl, "_blank")
+      const productUrl = getProductUrl(sellerSubdomain, slug)
+      if (isNativeApp()) {
+        window.location.href = productUrl
+      } else {
+        window.open(productUrl, "_blank")
+      }
     }
   }
 

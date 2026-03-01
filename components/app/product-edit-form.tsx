@@ -42,6 +42,7 @@ import {
 import Link from "next/link"
 import { CategoriesSelector } from "@/components/app/categories-selector"
 import { getProductUrl } from "@/lib/url-helpers"
+import { SmartLink } from "@/components/smart-link"
 import type { Product, DigitalAsset } from "@/lib/types"
 import { FileUpload } from "@/components/app/file-upload"
 import { ImageUpload } from "@/components/app/image-upload"
@@ -299,9 +300,9 @@ export function ProductEditForm({ product, assets: initialAssets, creatorId, cre
                   {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                 </Button>
                 <Button variant="outline" size="icon" asChild title="View product page">
-                  <a href={getProductUrl(creatorUsername, product.slug)} target="_blank" rel="noopener noreferrer">
+                  <SmartLink href={getProductUrl(creatorUsername, product.slug)} target="_blank" rel="noopener noreferrer">
                     <ExternalLink className="h-4 w-4" />
-                  </a>
+                  </SmartLink>
                 </Button>
               </>
             )}

@@ -880,6 +880,7 @@ export function PlatformHeaderClient() {
 
   const showCategories = pathname === "/explore" || pathname.startsWith("/explore") || pathname === "/wishlist"
   const isDiscoverProductContext = pathname.startsWith("/p/") && isDiscoverMode(pathname, searchParams)
+  const isSellerOrProductPage = pathname.startsWith("/u/") || pathname.startsWith("/p/") || pathname.startsWith("/l/") || pathname.startsWith("/s/")
   const isBlogRoute = pathname === "/blog" || pathname.startsWith('/blog/')
   const isFaqRoute = pathname === "/faq"
   const isMarketingNavRoute = pathname === "/" || pathname === "/features" || pathname === "/pricing" || isBlogRoute || isFaqRoute
@@ -2066,14 +2067,14 @@ export function PlatformHeaderClient() {
       </div>
 
       {/* Concave transition from black header to white category bar */}
-      {(showCategories || (pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute)) && (
+      {(showCategories || (pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute && !isSellerOrProductPage)) && (
         <div className="relative z-[35] bg-black h-[20px]">
           <div className="absolute inset-0 bg-white rounded-t-[20px]" />
         </div>
       )}
 
       {/* White UI section for search bar and category pills (below the black header) */}
-      {(showCategories || (pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute)) && (
+      {(showCategories || (pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute && !isSellerOrProductPage)) && (
         <div className={`relative z-[35] w-full bg-white border-b border-neutral-200${!showCategories ? " md:hidden" : ""}`}>
           <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
             {/* Mobile Search Bar Trigger */}

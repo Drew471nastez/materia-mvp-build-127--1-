@@ -3,6 +3,8 @@ import Link from "next/link"
 import Image from "next/image"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { getStoreUrl } from "@/lib/url-helpers"
+import { SmartLink } from "@/components/smart-link"
 import { ArrowLeft, CheckCircle, Calendar, Package } from "lucide-react"
 import { DownloadButton } from "@/components/download-button"
 
@@ -126,8 +128,8 @@ export default async function ProductAccessPage({ params }: ProductAccessPagePro
       })
     : null
 
-  // Build seller page URL (subdomain format: slug.storelib.com)
-  const sellerUrl = creatorSlug ? `https://${creatorSlug}.storelib.com` : null
+  // Build seller page URL (uses internal path in Capacitor to preserve auth)
+  const sellerUrl = creatorSlug ? getStoreUrl(creatorSlug) : null
 
   return (
     <div className="max-w-5xl mx-auto px-2 sm:px-0 animate-in fade-in-0 duration-300">
@@ -178,14 +180,14 @@ export default async function ProductAccessPage({ params }: ProductAccessPagePro
               <span>
                 by{" "}
                 {sellerUrl ? (
-                  <a
+                  <SmartLink
                     href={sellerUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="font-medium text-neutral-700 hover:text-neutral-900 underline-offset-2 hover:underline transition-colors"
                   >
                     {creatorDisplayName}
-                  </a>
+                  </SmartLink>
                 ) : (
                   <span className="font-medium text-neutral-700">{creatorDisplayName}</span>
                 )}

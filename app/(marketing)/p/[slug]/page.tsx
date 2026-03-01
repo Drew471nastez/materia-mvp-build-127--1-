@@ -33,6 +33,7 @@ import { CreatorQuickNav } from "@/components/creator-quick-nav"
 import { WishlistButton } from "@/components/wishlist/wishlist-button"
 import { RefundPolicyDisplay } from "@/components/product/refund-policy-display"
 import { getStoreUrl } from "@/lib/url-helpers"
+import { SmartLink } from "@/components/smart-link"
 import { RichDescriptionContent } from "@/components/store-builder/description-rich-editor"
 
 import { themePresets } from "@/lib/store-builder/defaults"
@@ -934,7 +935,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           {creator && (
             <div className="hidden lg:flex mt-4 items-center justify-between" data-creator-header>
               <div className="flex items-center gap-3 p-2 -ml-2">
-                <a
+                <SmartLink
                   href={getStoreUrl(creatorUsername)}
                   className="inline-flex items-center gap-3 rounded-lg transition-colors hover:bg-muted/50 min-h-[44px]" target="_blank" rel="noopener noreferrer"
                 >
@@ -948,7 +949,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                   >
                     {creatorProfile?.display_name || "Creator"}
                   </p>
-                </a>
+                </SmartLink>
                 {showRatingNextToSeller && reviewsCount > 0 && (
                   <>
                     <span className="h-4 w-px bg-gray-300 shrink-0" />
@@ -1125,7 +1126,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                 }}
               >
                 <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <a href={getStoreUrl(creatorUsername)} className="flex items-center gap-3" target="_blank" rel="noopener noreferrer">
+                  <SmartLink href={getStoreUrl(creatorUsername)} className="flex items-center gap-3" target="_blank" rel="noopener noreferrer">
                     <Avatar className="h-8 w-8 shrink-0">
                       <AvatarImage src={creatorAvatarUrl || undefined} />
                       <AvatarFallback>{creatorInitials || "?"}</AvatarFallback>
@@ -1136,7 +1137,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                     >
                       {creatorProfile?.display_name || "Creator"}
                     </p>
-                  </a>
+                  </SmartLink>
                   {showRatingNextToSeller && reviewsCount > 0 && (
                     <>
                       <span className="h-3.5 w-px bg-gray-300 shrink-0" />
