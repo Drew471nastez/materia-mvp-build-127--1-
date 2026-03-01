@@ -20,6 +20,17 @@ export default async function LibraryLayout({
     redirect("/login")
   }
 
+  // Block access until email is verified (custom Mailgun flow)
+  const { data: emailCheck } = await supabase
+    .from("profiles")
+    .select("email_verified")
+    .eq("id", user.id)
+    .maybeSingle()
+
+  if (!emailCheck?.email_verified) {
+    redirect(`/signup/verify?userId=${user.id}&email=${encodeURIComponent(user.email || "")}`)
+  }
+
   return (
     <NativeAuthGate>
     <div className="min-h-svh bg-[#fafafa]">

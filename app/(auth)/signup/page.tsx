@@ -174,14 +174,14 @@ function SignUpFormContent() {
 
     try {
       // Sign up WITHOUT Supabase email confirmation.
-      // We send our own branded 6-digit verification code via SMTP
-      // (from "Storelib <noreply@storelib.com>") so the email looks
-      // professional and the code is clearly visible in email previews.
+      // "Confirm email" is DISABLED in Supabase dashboard so signUp()
+      // creates a session immediately and Supabase sends ZERO emails.
+      // We send our own branded 6-digit code via Mailgun instead
+      // (from "Storelib <noreply@storelib.com>").
       const { error, data } = await supabase.auth.signUp({
         email: trimmedEmail,
         password: trimmedPassword,
         options: {
-          emailRedirectTo: undefined,
           data: { email_verified: false },
         },
       })

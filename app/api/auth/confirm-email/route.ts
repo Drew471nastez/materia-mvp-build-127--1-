@@ -54,8 +54,20 @@ export async function POST(request: Request) {
       .eq("id", userId)
 
     if (updateError) {
-      console.error("[v0] Error updating profile:", updateError)
+      console.error("[confirm-email] Error updating profile:", updateError)
       return NextResponse.json({ error: "Failed to verify email" }, { status: 500 })
+    }
+
+    // Also mark Supabase auth user as email-confirmed so
+    // signInWithPassword never returns "Email not confirmed".
+    try {
+      await admin.auth.admin.updateUserById(userId, {
+        email_confirm: true,
+        user_metadata: { email_verified: true },
+      })
+    } catch (authUpdateErr) {
+      // Non-fatal — profile is already verified, auth update is belt-and-suspenders
+      console.error("[confirm-email] Failed to update auth user:", authUpdateErr)
     }
 
     return NextResponse.json({

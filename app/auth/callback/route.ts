@@ -77,11 +77,12 @@ export async function GET(request: Request) {
 
   const { data: existingProfile } = await adminSupabase
     .from("profiles")
-    .select("id, is_creator, avatar_url, welcome_completed")
+    .select("id, is_creator, avatar_url, welcome_completed, email_verified")
     .eq("id", data.user.id)
     .single()
 
   if (!existingProfile) {
+    // Google already verified the user's email, so mark email_verified=true
     const { error: profileError } = await adminSupabase.from("profiles").insert({
       id: data.user.id,
       email: data.user.email,
@@ -89,13 +90,27 @@ export async function GET(request: Request) {
       avatar_url: avatarUrl,
       is_creator: false,
       welcome_completed: false,
+      email_verified: true,
+      email_verified_at: new Date().toISOString(),
     })
     if (profileError) console.error("Profile creation error:", profileError)
-  } else if (!existingProfile.avatar_url && avatarUrl) {
-    await adminSupabase
-      .from("profiles")
-      .update({ avatar_url: avatarUrl })
-      .eq("id", data.user.id)
+  } else {
+    // Existing profile — ensure email_verified is true for OAuth users
+    // (Google already verified their email) and update avatar if missing
+    const updates: Record<string, unknown> = {}
+    if (!existingProfile.avatar_url && avatarUrl) {
+      updates.avatar_url = avatarUrl
+    }
+    if (!(existingProfile as any).email_verified) {
+      updates.email_verified = true
+      updates.email_verified_at = new Date().toISOString()
+    }
+    if (Object.keys(updates).length > 0) {
+      await adminSupabase
+        .from("profiles")
+        .update(updates)
+        .eq("id", data.user.id)
+    }
   }
 
   // ── 3. Determine post-login destination ────────────────────────────────

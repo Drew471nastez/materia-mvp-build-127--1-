@@ -81,6 +81,22 @@ export default function SignupSuccessPage() {
 
       if (cancelled) return
 
+      // Gate: redirect to verify page if email not yet verified
+      const { data: verifyProfile } = await supabase
+        .from("profiles")
+        .select("email_verified")
+        .eq("id", user.id)
+        .maybeSingle()
+
+      if (verifyProfile && !verifyProfile.email_verified) {
+        window.location.replace(
+          `/signup/verify?userId=${user.id}&email=${encodeURIComponent(user.email || "")}`
+        )
+        return
+      }
+
+      if (cancelled) return
+
       // Check database for creator record with onboarding completed
       const { data: creator } = await supabase
         .from("creators")

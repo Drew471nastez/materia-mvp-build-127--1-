@@ -215,8 +215,7 @@ function LoginFormContent() {
       if (error) {
         // Handle specific error messages
         if (error.message.includes("Email not confirmed")) {
-          // User hasn't verified email, send them to verify page
-          // First get the user ID
+          // User hasn't verified email — redirect to our custom verify page
           const { data: userData } = await supabase
             .from("profiles")
             .select("id")
@@ -224,7 +223,9 @@ function LoginFormContent() {
             .single()
 
           if (userData) {
-            navigateWithFallback(`/verify-email?userId=${userData.id}&email=${encodeURIComponent(trimmedEmail)}`)
+            navigateWithFallback(
+              `/signup/verify?userId=${userData.id}&email=${encodeURIComponent(trimmedEmail)}`
+            )
             router.refresh()
             return
           }
@@ -233,6 +234,31 @@ function LoginFormContent() {
       }
 
       if (data.user) {
+        // Gate: check email_verified BEFORE any routing.
+        // If the user hasn't verified their email, send them to /signup/verify.
+        const { data: loginProfile } = await supabase
+          .from("profiles")
+          .select("email_verified")
+          .eq("id", data.user.id)
+          .maybeSingle()
+
+        if (loginProfile && !loginProfile.email_verified) {
+          // Send a fresh verification code
+          try {
+            await fetch("/api/auth/verify-email", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ userId: data.user.id, email: trimmedEmail }),
+            })
+          } catch {}
+          navigateWithFallback(
+            `/signup/verify?userId=${data.user.id}&email=${encodeURIComponent(trimmedEmail)}`
+          )
+          router.refresh()
+          setIsLoading(false)
+          return
+        }
+
         // PRIORITY: If there's a redirect URL, use it (e.g., returning to receipt page)
         if (redirectUrl) {
           // Add pendingReview param if it was set

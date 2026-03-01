@@ -21,6 +21,17 @@ export default async function AppLayout({
     redirect("/login")
   }
 
+  // Block access until email is verified (custom Mailgun flow)
+  const { data: emailCheck } = await supabase
+    .from("profiles")
+    .select("email_verified")
+    .eq("id", user.id)
+    .maybeSingle()
+
+  if (!emailCheck?.email_verified) {
+    redirect(`/signup/verify?userId=${user.id}&email=${encodeURIComponent(user.email || "")}`)
+  }
+
   // Fetch creator first (needed for redirect decision and as FK for later queries)
   const { data: creator } = await supabase
     .from("creators")
