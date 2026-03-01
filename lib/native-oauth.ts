@@ -128,6 +128,7 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
     return
   }
   isHandling = true
+  try { sessionStorage.setItem('nativeAuthInProgress', '1') } catch {}
 
   try {
     // ── LOG 2: close browser ─────────────────────────────────────────────────
@@ -267,6 +268,7 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
     window.location.assign(`/login?error=${encodeURIComponent(msg)}`)
   } finally {
     isHandling = false
+    try { sessionStorage.removeItem('nativeAuthInProgress') } catch {}
   }
 }
 

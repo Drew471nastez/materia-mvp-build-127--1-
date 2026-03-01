@@ -23,9 +23,25 @@ function LoginFormContent() {
   const [isCheckingAuth, setIsCheckingAuth] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [googleOnlyEmail, setGoogleOnlyEmail] = useState<string | null>(null)
+  // Synchronous check: if native OAuth callback is in progress, show loading
+  // instead of the login form to prevent flash / "Auth session missing!" errors.
+  const [nativeAuthPending, setNativeAuthPending] = useState(() => {
+    try { return sessionStorage.getItem('nativeAuthInProgress') === '1' } catch { return false }
+  })
   const redirectTimeoutRef = useRef<number | null>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
+
+  // Safety timeout: if nativeAuthInProgress flag is stuck (e.g. crash), clear
+  // it after 12 seconds and show the normal login form.
+  useEffect(() => {
+    if (!nativeAuthPending) return
+    const t = window.setTimeout(() => {
+      try { sessionStorage.removeItem('nativeAuthInProgress') } catch {}
+      setNativeAuthPending(false)
+    }, 12_000)
+    return () => window.clearTimeout(t)
+  }, [nativeAuthPending])
 
   const navigateWithFallback = (url: string) => {
     setIsRedirecting(true)
@@ -46,16 +62,21 @@ function LoginFormContent() {
   // Show any OAuth error forwarded by CapacitorAuthHandler via /login?error=...
   // (e.g. exchangeCodeForSession failure, user cancelled consent)
   useEffect(() => {
+    if (nativeAuthPending) return // Don't show stale errors while callback runs
     const oauthError = searchParams.get("error")
     if (oauthError) {
       setError(oauthError)
       setIsGoogleLoading(false)
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [nativeAuthPending]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Check if user is already authenticated - redirect if so
   // Includes loop detection to prevent infinite redirect cycles
   useEffect(() => {
+    // If a native OAuth callback is being handled, skip all auth checks —
+    // handleOAuthCallback in native-oauth.ts owns the flow.
+    if (nativeAuthPending) return
+
     // Safety net: if the session check somehow stalls, show the form after 1.5 s.
     const safetyTimer = window.setTimeout(() => setIsCheckingAuth(false), 1500)
 
@@ -145,7 +166,7 @@ function LoginFormContent() {
 
     checkAuth()
     return () => window.clearTimeout(safetyTimer)
-  }, [router])
+  }, [router, nativeAuthPending])
 
   // On native (Capacitor), listen for auth state changes so that when
   // CapacitorAuthHandler exchanges the OAuth code and a session appears,
@@ -154,6 +175,9 @@ function LoginFormContent() {
   // navigates away as part of the OAuth redirect before this fires.
   useEffect(() => {
     if (typeof window === "undefined") return
+    // If native OAuth callback is in progress, do NOT attach — the
+    // handleOAuthCallback in native-oauth.ts owns the entire flow.
+    if (nativeAuthPending) return
     // Only attach on native — on web the OAuth redirect unmounts this page
     const isNative =
       typeof (window as any).Capacitor?.isNativePlatform === "function" &&
@@ -172,7 +196,7 @@ function LoginFormContent() {
       }
     )
     return () => subscription.unsubscribe()
-  }, [])
+  }, [nativeAuthPending])
 
   useEffect(() => {
     return () => {
@@ -429,6 +453,20 @@ function LoginFormContent() {
       setError(err instanceof Error ? err.message : "Failed to sign in with Google")
     }
     setIsGoogleLoading(false)
+  }
+
+  // Native OAuth callback in progress — show stable loading screen instead of
+  // the login form.  This prevents the form from flashing and prevents any
+  // auth checks / listeners from racing with handleOAuthCallback.
+  if (nativeAuthPending) {
+    return (
+      <div className="flex min-h-svh w-full items-center justify-center bg-white">
+        <div className="text-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900 mx-auto"></div>
+          <p className="mt-4 text-neutral-500">Signing you in...</p>
+        </div>
+      </div>
+    )
   }
 
   // Show loading while redirecting to destination after auth
