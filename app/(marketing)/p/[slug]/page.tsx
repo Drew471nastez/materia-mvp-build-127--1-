@@ -30,7 +30,7 @@ import { SellerFooter } from "@/components/storefront/seller-footer"
 import { ShareButton } from "@/components/product/share-button"
 import { WishlistButton } from "@/components/wishlist/wishlist-button"
 import { RefundPolicyDisplay } from "@/components/product/refund-policy-display"
-import { getStoreUrl } from "@/lib/url-helpers"
+import { getStoreInternalPath } from "@/lib/url-helpers"
 import { RichDescriptionContent } from "@/components/store-builder/description-rich-editor"
 
 import { themePresets } from "@/lib/store-builder/defaults"
@@ -677,8 +677,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           {creator && (
             <div className="hidden lg:flex mt-4 items-center justify-between">
               <div className="flex items-center gap-3 p-2 -ml-2">
-                <a
-                  href={getStoreUrl(creatorUsername)}
+                <Link
+                  href={getStoreInternalPath(creatorUsername)}
                   className="inline-flex items-center gap-3 rounded-lg transition-colors hover:bg-muted/50 min-h-[44px]"
                 >
                   <Avatar className="h-10 w-10 shrink-0">
@@ -691,7 +691,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                   >
                     {creatorProfile?.display_name || "Creator"}
                   </p>
-                </a>
+                </Link>
                 {showRatingNextToSeller && reviewsCount > 0 && (
                   <div className="flex items-center gap-1 shrink-0">
                     {[1, 2, 3, 4, 5].map((star) => (
@@ -853,7 +853,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                 }}
               >
                 <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <a href={getStoreUrl(creatorUsername)} className="flex items-center gap-3">
+                  <Link href={getStoreInternalPath(creatorUsername)} className="flex items-center gap-3">
                     <Avatar className="h-8 w-8 shrink-0">
                       <AvatarImage src={creatorProfile?.avatar_url || undefined} />
                       <AvatarFallback>{creatorInitials || "?"}</AvatarFallback>
@@ -864,7 +864,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                     >
                       {creatorProfile?.display_name || "Creator"}
                     </p>
-                  </a>
+                  </Link>
                   {showRatingNextToSeller && reviewsCount > 0 && (
                     <div className="flex items-center gap-0.5 shrink-0">
                       {[1, 2, 3, 4, 5].map((star) => (
@@ -1264,6 +1264,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
         settings={defaultProductCreatorBarSettings}
         creatorName={creatorProfile?.display_name || creator?.name || "Creator"}
         creatorId={product.creator_id}
+        creatorUsername={creatorUsername}
         avatarUrl={creatorProfile?.avatar_url}
       />
 

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { Mail, ArrowRight, Check } from "lucide-react"
-import { getStoreUrl } from "@/lib/url-helpers"
+import { getStoreInternalPath } from "@/lib/url-helpers"
 
 // Button style presets (same as subscribe bar)
 export const creatorBarButtonPresets: Record<string, { default: string; subscribed: string }> = {
@@ -170,9 +170,9 @@ function getInputOpacityClass(isSubscribed: boolean, isFocused: boolean) {
 }
 
 function getCreatorHref(creatorUsername?: string, creatorId?: string, creatorName?: string) {
-  const raw = (creatorUsername || creatorId || creatorName || "").toString().trim()
-  if (!raw) return "#"
-  return getStoreUrl(raw)
+  // Only navigate using creatorUsername — UUIDs (creatorId) and display names are not valid slugs
+  if (!creatorUsername) return "#"
+  return getStoreInternalPath(creatorUsername)
 }
 
 /**

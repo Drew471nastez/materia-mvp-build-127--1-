@@ -1,6 +1,6 @@
 import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
-import { getProductUrl } from "@/lib/url-helpers"
+import { getProductInternalPath } from "@/lib/url-helpers"
 
 interface ProductCardProps {
   product: {
@@ -35,8 +35,7 @@ export function ProductCard({ product, srcParam = "" }: ProductCardProps) {
   }
 
   const creatorName = product.creator?.profile?.display_name || "Creator"
-  const creatorUsername = product.creator?.profile?.username || product.creator?.slug || ""
-  const productUrl = getProductUrl(creatorUsername, product.slug)
+  const productUrl = getProductInternalPath(product.slug)
 
   return (
     <a
