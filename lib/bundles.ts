@@ -146,15 +146,19 @@ export async function ensureProductBundle(
   }
 
   // ── 4. Generate ZIP ─────────────────────────────────────────────────────
-  let archiver: typeof import("archiver")
+  let archiver: typeof import("archiver") | null = null
   try {
-    archiver = await import("archiver")
+    // Use runtime require to keep archiver optional at build time.
+    // This avoids Turbopack "module not found" warnings when the package
+    // is not installed in a given deployment environment.
+    const runtimeRequire = (0, eval)("require") as NodeRequire
+    archiver = runtimeRequire("archiver")
   } catch {
     console.error("[bundles] archiver package not available — run: pnpm add archiver")
     return null
   }
 
-  const archive = archiver.default("zip", { zlib: { level: 6 } })
+  const archive = (archiver.default || archiver)("zip", { zlib: { level: 6 } })
   const chunks: Buffer[] = []
 
   archive.on("data", (chunk: Buffer) => chunks.push(chunk))
