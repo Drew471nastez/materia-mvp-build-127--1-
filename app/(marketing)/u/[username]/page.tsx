@@ -436,6 +436,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
                   products={productsData}
                   globalSettings={globalSettings}
                   creatorName={profile.display_name || undefined}
+                  creatorUsername={username}
                 />
               ))}
 
@@ -450,6 +451,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
                   sellerMemberSince={profile.created_at}
                   sellerTotalSales={totalSales}
                   sellerProductsCount={productsCount}
+                  creatorUsername={username}
                 />
               )}
             </>

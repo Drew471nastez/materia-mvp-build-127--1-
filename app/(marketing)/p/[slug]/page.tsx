@@ -62,7 +62,7 @@ export const dynamic = "force-dynamic"
 
 interface ProductPageProps {
   params: Promise<{ slug: string }>
-  searchParams: Promise<{ purchase?: string; already_owned?: string; src?: string }>
+  searchParams: Promise<{ purchase?: string; already_owned?: string; src?: string; creator?: string }>
 }
 
 export async function generateMetadata({ params }: ProductPageProps) {
@@ -70,12 +70,15 @@ export async function generateMetadata({ params }: ProductPageProps) {
   const supabase = await createClient()
 
   // First, try to find product by current slug
-  let { data: product } = await supabase
+  const { data: metadataProducts } = await supabase
     .from("products")
     .select("title, description, creator_id, slug, thumbnail_url, gallery_urls")
     .eq("slug", slug)
     .eq("status", "published")
-    .maybeSingle()
+    .order("created_at", { ascending: false })
+    .limit(1)
+
+  let product = metadataProducts?.[0] ?? null
 
   // If not found, check slug history
   if (!product) {
@@ -173,11 +176,41 @@ export async function generateMetadata({ params }: ProductPageProps) {
 
 export default async function ProductPage({ params, searchParams }: ProductPageProps) {
   const { slug } = await params
-  const { purchase, already_owned, src } = await searchParams
+  const { purchase, already_owned, src, creator: creatorHint } = await searchParams
   const supabase = await createClient()
 
-  // First, try to find product by current slug
-  let { data: product, error: productError } = await supabase
+  // First, try to find product by current slug and optional creator hint.
+  // The creator hint is important for native app flows where we stay on /p/:slug
+  // and need deterministic creator-scoped resolution.
+  const normalizedCreatorHint = creatorHint
+    ?.toLowerCase()
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9-]/g, "")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+
+  let hintedCreatorId: string | null = null
+
+  if (normalizedCreatorHint) {
+    const { data: hintedProfile } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("username", normalizedCreatorHint)
+      .maybeSingle()
+
+    if (hintedProfile?.id) {
+      const { data: hintedCreator } = await supabase
+        .from("creators")
+        .select("id")
+        .eq("user_id", hintedProfile.id)
+        .maybeSingle()
+
+      hintedCreatorId = hintedCreator?.id || null
+    }
+  }
+
+  let productQuery = supabase
     .from("products")
     .select(`
       *,
@@ -193,7 +226,16 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     `)
     .eq("slug", slug)
     .eq("status", "published")
-    .maybeSingle()
+
+  if (hintedCreatorId) {
+    productQuery = productQuery.eq("creator_id", hintedCreatorId)
+  }
+
+  const { data: productCandidates, error: productError } = await productQuery
+    .order("created_at", { ascending: false })
+    .limit(1)
+
+  const product = productCandidates?.[0] ?? null
 
   // If not found by current slug, check slug history for redirects
   if (!product) {
@@ -937,7 +979,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
               <div className="flex items-center gap-3 p-2 -ml-2">
                 <SmartLink
                   href={getStoreUrl(creatorUsername)}
-                  className="inline-flex items-center gap-3 rounded-lg transition-colors hover:bg-muted/50 min-h-[44px]" target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-3 rounded-lg transition-colors hover:bg-muted/50 min-h-[44px]"
                 >
                   <Avatar className="h-10 w-10 shrink-0">
                     <AvatarImage src={creatorAvatarUrl || undefined} />
@@ -1126,7 +1168,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                 }}
               >
                 <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <SmartLink href={getStoreUrl(creatorUsername)} className="flex items-center gap-3" target="_blank" rel="noopener noreferrer">
+                  <SmartLink href={getStoreUrl(creatorUsername)} className="flex items-center gap-3">
                     <Avatar className="h-8 w-8 shrink-0">
                       <AvatarImage src={creatorAvatarUrl || undefined} />
                       <AvatarFallback>{creatorInitials || "?"}</AvatarFallback>
@@ -1486,6 +1528,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
               reviewsCount={reviewsCount}
               reviewsAverage={reviewsAverage}
               globalSettings={productPageConfig?.globalSettings}
+              creatorUsername={creatorUsername}
             />
           ))}
 
@@ -1496,6 +1539,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             products={currentProductData}
             moreFromSellerProducts={moreProductsData}
             creatorName={creatorProfile?.display_name || creator?.name || "this creator"}
+            creatorUsername={creatorUsername}
           />
         )}
 

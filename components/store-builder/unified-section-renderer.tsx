@@ -57,6 +57,7 @@ import { SmartLink } from "@/components/smart-link"
 import { useRouter } from "next/navigation"
 import { isNativeApp } from "@/lib/platform-utils"
 import { VariantSelector, type ProductVariant } from "@/components/product/variant-selector"
+import { getProductInternalPath } from "@/lib/url-helpers"
 
 // Shared product type for consistency
 export interface ProductData {
@@ -124,6 +125,7 @@ export interface UnifiedSectionProps {
   sellerMemberSince?: string // ISO date string
   sellerTotalSales?: number
   sellerProductsCount?: number
+  creatorUsername?: string
   // For inline editing in About section
   onUpdateAboutSettings?: (settings: Partial<AboutSettings>) => void
   // For opening About section in sidebar
@@ -131,8 +133,8 @@ export interface UnifiedSectionProps {
 }
 
 // Helper function to get product href
-const getProductHref = (product: ProductData): string => {
-  return `/p/${product.slug || product.id}`
+const getProductHref = (product: ProductData, creatorUsername?: string): string => {
+  return getProductInternalPath(product.slug || product.id, creatorUsername)
 }
 
 // Icon mapping for what's included items
@@ -1157,6 +1159,7 @@ export function UnifiedSectionRenderer({
   sellerMemberSince,
   sellerTotalSales,
   sellerProductsCount,
+  creatorUsername,
   onUpdateAboutSettings,
   onOpenAboutSidebar,
 }: UnifiedSectionProps) {
@@ -1228,6 +1231,7 @@ export function UnifiedSectionRenderer({
           isPreviewMode={isPreviewMode}
           isEditorCanvas={!!onSelect}
           globalSettings={globalSettings}
+          creatorUsername={creatorUsername}
         />
       )}
       {section.type === "more-from-seller" && (
@@ -1237,6 +1241,7 @@ export function UnifiedSectionRenderer({
           creatorName={creatorName || "this creator"}
           isMobile={isMobile}
           isPreviewMode={isPreviewMode}
+          creatorUsername={creatorUsername}
         />
       )}
       {section.type === "reviews" && (
@@ -2096,6 +2101,7 @@ function UnifiedFeaturedProductsSection({
   isPreviewMode,
   isEditorCanvas = false,
   globalSettings,
+  creatorUsername,
 }: {
   settings: FeaturedProductsSettings
   products?: ProductData[]
@@ -2103,6 +2109,7 @@ function UnifiedFeaturedProductsSection({
   isPreviewMode?: boolean
   isEditorCanvas?: boolean
   globalSettings?: GlobalStoreSettings
+  creatorUsername?: string
 }) {
   const spacing = isMobile && settings.mobileSpacing ? settings.mobileSpacing : settings.spacing
   const horizontalPadding = 8
@@ -2627,7 +2634,7 @@ function UnifiedFeaturedProductsSection({
               return (
                 <SmartLink
                   key={product.id}
-                  href={getProductHref(product)}
+                  href={getProductHref(product, creatorUsername)}
                   className={cn(
                     "group overflow-hidden rounded-lg border transition-all hover:shadow-lg",
                     !cardBgColor && "bg-card border-border",
@@ -4191,7 +4198,7 @@ export function UnifiedProductsGrid({
           return (
             <SmartLink
               key={product.id}
-              href={`/p/${product.slug || product.id}`}
+              href={getProductHref(product, creatorUsername)}
               className="group overflow-hidden rounded-lg border border-border bg-card transition-all hover:shadow-md"
             >
               {content}
@@ -4209,12 +4216,14 @@ function UnifiedMoreFromSellerSection({
   creatorName,
   isMobile = false,
   isPreviewMode = false,
+  creatorUsername,
 }: {
   settings: MoreFromSellerSettings
   products: ProductData[]
   creatorName: string
   isMobile?: boolean
   isPreviewMode?: boolean
+  creatorUsername?: string
 }) {
   // Always use settings.spacing for top/bottom padding (this is what the sliders control)
   const spacing = settings.spacing
@@ -4403,7 +4412,7 @@ function UnifiedMoreFromSellerSection({
           return (
             <SmartLink
               key={product.id}
-              href={`/p/${product.slug || product.id}`}
+              href={getProductHref(product, creatorUsername)}
               className={cn(
                 "group overflow-hidden rounded-lg border transition-all hover:shadow-lg",
                 !cardBgColor && "bg-card border-border",

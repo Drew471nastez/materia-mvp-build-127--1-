@@ -104,7 +104,19 @@ export function getLinksUrl(username: string): string {
 export function getProductUrl(username: string, productSlug: string): string {
   if (!productSlug) return getStoreUrl(username)
 
+  const sanitizedUsername = username
+    ?.toLowerCase()
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+
   if (isNativeApp()) {
+    if (sanitizedUsername) {
+      return `/p/${productSlug}?creator=${encodeURIComponent(sanitizedUsername)}`
+    }
+
     return `/p/${productSlug}`
   }
 
@@ -117,12 +129,12 @@ export function getProductUrl(username: string, productSlug: string): string {
     return `${getSiteUrl()}/p/${productSlug}`
   }
 
-  if (!username) {
+  if (!sanitizedUsername) {
     // If no username, use main domain with path
     return `${protocol}://${mainDomain}/p/${productSlug}`
   }
 
-  return `${protocol}://${username.toLowerCase()}.${mainDomain}/p/${productSlug}`
+  return `${protocol}://${sanitizedUsername}.${mainDomain}/p/${productSlug}`
 }
 
 /**
@@ -194,8 +206,20 @@ export function getLinksInternalPath(slug: string): string {
  * @param productSlug - The product slug
  * @returns Relative path like "/p/product-slug"
  */
-export function getProductInternalPath(productSlug: string): string {
-  return `/p/${productSlug}`
+export function getProductInternalPath(productSlug: string, creatorUsername?: string): string {
+  if (!creatorUsername) return `/p/${productSlug}`
+
+  const sanitizedUsername = creatorUsername
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+
+  if (!sanitizedUsername) return `/p/${productSlug}`
+
+  return `/p/${productSlug}?creator=${encodeURIComponent(sanitizedUsername)}`
 }
 
 /**
