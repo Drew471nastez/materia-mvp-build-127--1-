@@ -810,9 +810,15 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   // Do NOT fall back to creator.slug — it may differ from the profile username
   // or be a UUID, which would build a broken /u/<uuid> URL and get "lost".
   const creatorUsername = creatorProfile?.username || ""
-  // Safe store URL: "#" when username is unknown so clicks are a no-op rather
-  // than navigating to the site root or a wrong/missing creator profile.
-  const creatorStoreUrl = creatorUsername ? getStoreUrl(creatorUsername) : "#"
+  // Use a relative internal path directly — avoids the server-side getStoreUrl()
+  // which returns https://username.storelib.com (isNativeApp()=false on the server).
+  // That subdomain URL, present in the pre-hydration SSR HTML, was being
+  // intercepted by Android's isHomepageUrl() and swallowed silently ("gets lost").
+  // Using /u/<username> directly works before AND after React hydrates SmartLink.
+  // Also avoids the aggressive sanitisation in getStoreUrl() (which strips
+  // underscores etc.) — the raw DB username is the safest key for the ilike lookup
+  // in the creator profile route.
+  const creatorStoreUrl = creatorUsername ? `/u/${creatorUsername}` : "#"
 
   // Check if a URL is a YouTube thumbnail (used for product listings only, not gallery display)
   const isYouTubeThumbnailUrl = (url: string | null) => {

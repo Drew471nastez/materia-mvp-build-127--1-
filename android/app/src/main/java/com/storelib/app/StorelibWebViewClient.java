@@ -134,7 +134,33 @@ public class StorelibWebViewClient extends BridgeWebViewClient {
             return true;   // cancel the WebView navigation
         }
 
-        // 2. Storelib homepage → swallow
+        // 2. Creator subdomain URL → reroute to internal path in-app.
+        //    e.g. https://seller.storelib.com   → /u/seller
+        //         https://seller.storelib.com/p/slug → /p/slug
+        //    This is the safety net for any pre-hydration <a> clicks that still
+        //    carry the old subdomain href.  The SmartLink client component converts
+        //    these after hydration, but a fast tap can reach the raw server HTML first.
+        String host = uri.getHost();
+        if (host != null && host.endsWith(".storelib.com") && !host.equals("storelib.com")) {
+            String pathSeg = uri.getPath();
+            String username = host.replace(".storelib.com", "");
+            String internalPath;
+            if (pathSeg == null || pathSeg.isEmpty() || "/".equals(pathSeg)) {
+                internalPath = "/u/" + username;
+            } else if (pathSeg.startsWith("/p/")) {
+                internalPath = pathSeg;   // product slug path — keep as-is
+            } else if (pathSeg.equals("/links") || pathSeg.startsWith("/links/")) {
+                internalPath = "/l/" + username;
+            } else {
+                internalPath = pathSeg;   // pass other paths through unchanged
+            }
+            view.loadUrl("https://storelib.com" + internalPath);
+            return true;
+        }
+
+        // 3. Storelib marketing homepage → swallow (app must never show it).
+        //    Use equals() not contains() so creator subdomains (handled above)
+        //    are not accidentally caught here.
         if (isHomepageUrl(uri)) {
             return true;
         }
@@ -251,7 +277,9 @@ public class StorelibWebViewClient extends BridgeWebViewClient {
 
     private static boolean isHomepageUrl(Uri uri) {
         String host = uri.getHost();
-        if (host == null || !host.contains("storelib.com")) return false;
+        // Exact match only — creator subdomains like username.storelib.com are
+        // handled by the subdomain rerouting block above, not treated as homepage.
+        if (host == null || !host.equals("storelib.com")) return false;
         String path = uri.getPath();
         return path == null || path.isEmpty() || "/".equals(path);
     }
