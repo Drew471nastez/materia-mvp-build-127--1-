@@ -47,6 +47,11 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        // Keep the splash image visible behind the WebView until the web app
+        // signals it is ready.  Without this the window background is black,
+        // causing a black flash between the splash screen and the first paint.
+        getWindow().setBackgroundDrawableResource(R.drawable.splash);
+
         if (getBridge() == null) return;  // safety (no WebView installed)
 
         // ── Replace the default WebViewClient with ours ─────────────
@@ -55,10 +60,24 @@ public class MainActivity extends BridgeActivity {
         // ── Auth loading overlay (dark screen + spinner over the WebView) ──
         setupAuthLoadingOverlay();
 
-        // ── JS bridge: window.StorelibNative.authDone() ─────────────
+        // Show the overlay immediately so the user never sees an empty screen
+        // between the native splash and the first WebView frame.
+        showAuthLoading();
+
+        // Make the WebView background transparent so the splash / overlay is
+        // visible behind it while the page is loading.
+        getBridge().getWebView().setBackgroundColor(Color.TRANSPARENT);
+
+        // ── JS bridge: window.StorelibNative.authDone() + appReady() ─────────────
         getBridge().getWebView().addJavascriptInterface(new Object() {
             @JavascriptInterface
             public void authDone() {
+                mainHandler.post(() -> hideAuthLoading());
+            }
+
+            /** Called by the web app once the first meaningful UI is visible. */
+            @JavascriptInterface
+            public void appReady() {
                 mainHandler.post(() -> hideAuthLoading());
             }
         }, "StorelibNative");

@@ -90,6 +90,17 @@ export function NativeAuthGate({
     } catch {}
   }, [requireAuth])
 
+  // Signal to the native layer that the first meaningful UI is now visible.
+  // hideAuthLoading() is idempotent, so duplicate calls are harmless.
+  useEffect(() => {
+    if (blocked || !authChecked) return
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const native = (window as any).StorelibNative
+      if (native?.appReady) native.appReady()
+    } catch {}
+  }, [blocked, authChecked])
+
   // Poll for flag removal + safety timeout (mode 1 only)
   useEffect(() => {
     if (requireAuth || !blocked) return
