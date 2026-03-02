@@ -100,6 +100,31 @@
                     android:host="www.storelib.com"
                     android:pathPrefix="/reset-password" />
             </intent-filter>
+
+            <!--
+                App Links: intercept Stripe checkout success/cancel redirect
+                so the user returns to the installed Storelib app instead of
+                staying in the browser.
+            -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="storelib.com"
+                    android:pathPrefix="/app/settings/billing" />
+            </intent-filter>
+
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="www.storelib.com"
+                    android:pathPrefix="/app/settings/billing" />
+            </intent-filter>
         </activity>
 
         <provider

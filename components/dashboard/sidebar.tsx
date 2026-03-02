@@ -164,7 +164,8 @@ export function DashboardSidebar() {
   return (
     <>
       {/* Mobile header */}
-      <header className="fixed top-0 left-0 right-0 z-50 flex h-14 items-center justify-between border-b border-border bg-background px-4 pt-[env(safe-area-inset-top)] md:hidden">
+      <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background md:hidden" style={{ paddingTop: "env(safe-area-inset-top)" }}>
+        <div className="flex h-14 items-center justify-between px-4">
         <Link href="/library" className="flex items-center gap-2">
           <Image
             src={LOGO_URL}
@@ -192,6 +193,7 @@ export function DashboardSidebar() {
           >
             <Menu className="h-6 w-6" />
           </Button>
+        </div>
         </div>
       </header>
 

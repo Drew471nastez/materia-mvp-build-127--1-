@@ -139,6 +139,17 @@ public class MainActivity extends BridgeActivity {
                 showAuthLoading();
                 return;
             }
+
+            // HTTPS App Link: Stripe checkout success/cancel redirect.
+            // After completing payment in the browser, Stripe redirects to
+            // storelib.com/app/settings/billing?success=1 — load it in the
+            // WebView so the user lands back in the app on the billing page.
+            if (path != null && path.startsWith("/app/settings/billing")) {
+                String query = data.getQuery();
+                String inAppUrl = path + (query != null ? "?" + query : "");
+                loadInWebView(inAppUrl);
+                return;
+            }
         }
 
         // Normal launch: WelcomeActivity put the target URL in extras.
