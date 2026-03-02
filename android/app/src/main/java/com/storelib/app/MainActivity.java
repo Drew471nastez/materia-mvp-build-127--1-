@@ -13,6 +13,8 @@ import android.view.ViewGroup;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 
 import com.getcapacitor.BridgeActivity;
@@ -32,14 +34,18 @@ import com.getcapacitor.BridgeActivity;
  *    — the URL Android intercepts after OAuth completes in the Custom Tab.
  *    On return we navigate directly to /app; the session was established
  *    in the Custom Tab and the server validates it on the /app request.
+ *
+ * 4. Shows a white native loading overlay (logo + spinner) from first
+ *    frame until the web app calls StorelibNative.appReady(), eliminating
+ *    any blank or black gap between the splash screen and real content.
  */
 public class MainActivity extends BridgeActivity {
 
     /** Intent extra key used by {@link WelcomeActivity}. */
     public static final String EXTRA_TARGET_URL = "TARGET_URL";
 
-    /** Full-screen dark overlay shown during OAuth callback processing. */
-    private View authLoadingOverlay;
+    /** Full-screen white overlay shown until the web app signals it is ready. */
+    private View loadingOverlay;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private Runnable safetyTimeout;
 
@@ -48,8 +54,8 @@ public class MainActivity extends BridgeActivity {
         super.onCreate(savedInstanceState);
 
         // Keep the splash image visible behind the WebView until the web app
-        // signals it is ready.  Without this the window background is black,
-        // causing a black flash between the splash screen and the first paint.
+        // signals it is ready.  Without this the window background defaults to
+        // the theme colour (white) which could cause a brief blank frame.
         getWindow().setBackgroundDrawableResource(R.drawable.splash);
 
         if (getBridge() == null) return;  // safety (no WebView installed)
@@ -57,28 +63,38 @@ public class MainActivity extends BridgeActivity {
         // ── Replace the default WebViewClient with ours ─────────────
         getBridge().setWebViewClient(new StorelibWebViewClient(getBridge()));
 
-        // ── Auth loading overlay (dark screen + spinner over the WebView) ──
-        setupAuthLoadingOverlay();
+        // ── Loading overlay: white + logo + spinner ───────────────────
+        setupLoadingOverlay();
 
-        // Show the overlay immediately so the user never sees an empty screen
-        // between the native splash and the first WebView frame.
-        showAuthLoading();
+        // Show immediately so there is never an empty frame between the
+        // OS splash and the first WebView paint.
+        showOverlay();
 
         // Make the WebView background transparent so the splash / overlay is
         // visible behind it while the page is loading.
         getBridge().getWebView().setBackgroundColor(Color.TRANSPARENT);
 
-        // ── JS bridge: window.StorelibNative.authDone() + appReady() ─────────────
+        // ── JS bridge: window.StorelibNative ─────────────────────────
         getBridge().getWebView().addJavascriptInterface(new Object() {
+
+            /** Called by OAuth flow start — keep overlay visible. */
+            @JavascriptInterface
+            public void authStart() {
+                mainHandler.post(() -> showOverlay());
+            }
+
+            /** Legacy: called by native-oauth.ts after code exchange completes. */
             @JavascriptInterface
             public void authDone() {
-                mainHandler.post(() -> hideAuthLoading());
+                // Overlay is now dismissed by appReady() once the destination
+                // page renders.  This method is kept for back-compat but is a
+                // no-op so the overlay doesn't vanish before the new page loads.
             }
 
             /** Called by the web app once the first meaningful UI is visible. */
             @JavascriptInterface
             public void appReady() {
-                mainHandler.post(() -> hideAuthLoading());
+                mainHandler.post(() -> hideOverlay());
             }
         }, "StorelibNative");
 
@@ -131,7 +147,7 @@ public class MainActivity extends BridgeActivity {
             if ("storelib".equals(scheme)) {
                 // Show loading overlay instantly so the user never sees the
                 // login/signup page while the code exchange / recovery runs in JS.
-                showAuthLoading();
+                showOverlay();
                 // Let Capacitor's appUrlOpen event handle it — native-oauth.ts
                 // detects recovery vs OAuth and routes accordingly.
                 return;
@@ -139,7 +155,7 @@ public class MainActivity extends BridgeActivity {
             // HTTPS App Link OAuth callback: https://storelib.com/app/auth/callback?code=…
             String path = data.getPath();
             if (path != null && path.startsWith("/app/auth/callback")) {
-                showAuthLoading();
+                showOverlay();
                 return;
             }
 
@@ -155,7 +171,7 @@ public class MainActivity extends BridgeActivity {
             // This approach works reliably on both Android and iOS, and avoids
             // the hash-fragment-stripping problem that loadInWebView() has.
             if (path != null && path.startsWith("/reset-password")) {
-                showAuthLoading();
+                showOverlay();
                 return;
             }
 
@@ -179,60 +195,100 @@ public class MainActivity extends BridgeActivity {
     }
 
     // ────────────────────────────────────────────────────────────────
-    //  Auth loading overlay
+    //  Loading overlay
     // ────────────────────────────────────────────────────────────────
 
-    private void setupAuthLoadingOverlay() {
+    /**
+     * Builds a full-screen white overlay containing the app icon and a
+     * purple spinner, then attaches it to the root content view.
+     *
+     * Layout:
+     *   FrameLayout (white, MATCH_PARENT)
+     *     └─ LinearLayout (vertical, centred)
+     *          ├─ ImageView  — ic_launcher  (72 dp)
+     *          └─ ProgressBar              (32 dp, 20 dp top margin)
+     */
+    private void setupLoadingOverlay() {
         FrameLayout overlay = new FrameLayout(this);
-        overlay.setBackgroundColor(Color.parseColor("#050505"));
+        overlay.setBackgroundColor(Color.WHITE);
         overlay.setVisibility(View.GONE);
         overlay.setClickable(true);  // absorb touches while loading
 
+        // Vertical stack centred on screen
+        LinearLayout stack = new LinearLayout(this);
+        stack.setOrientation(LinearLayout.VERTICAL);
+        stack.setGravity(Gravity.CENTER_HORIZONTAL);
+
+        // App logo
+        ImageView logo = new ImageView(this);
+        logo.setImageResource(R.mipmap.ic_launcher);
+        logo.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+        LinearLayout.LayoutParams logoLp =
+                new LinearLayout.LayoutParams(dpToPx(72), dpToPx(72));
+        stack.addView(logo, logoLp);
+
+        // Spinner
         ProgressBar spinner = new ProgressBar(this);
         spinner.setIndeterminate(true);
         spinner.getIndeterminateDrawable()
                 .setColorFilter(0xFF7c3aed, PorterDuff.Mode.SRC_IN);
-        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
-                dpToPx(48), dpToPx(48), Gravity.CENTER);
-        overlay.addView(spinner, lp);
+        LinearLayout.LayoutParams spinnerLp =
+                new LinearLayout.LayoutParams(dpToPx(32), dpToPx(32));
+        spinnerLp.topMargin = dpToPx(20);
+        stack.addView(spinner, spinnerLp);
+
+        FrameLayout.LayoutParams stackLp = new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.CENTER);
+        overlay.addView(stack, stackLp);
 
         ViewGroup root = findViewById(android.R.id.content);
         root.addView(overlay, new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT));
 
-        authLoadingOverlay = overlay;
+        loadingOverlay = overlay;
     }
 
-    /** Show the dark overlay + spinner instantly. */
-    public void showAuthLoading() {
-        if (authLoadingOverlay == null) return;
-        authLoadingOverlay.setAlpha(1f);
-        authLoadingOverlay.setVisibility(View.VISIBLE);
+    /** Show the white overlay + spinner instantly. */
+    public void showOverlay() {
+        if (loadingOverlay == null) return;
+        // Cancel any in-progress fade-out animation
+        loadingOverlay.animate().cancel();
+        loadingOverlay.setAlpha(1f);
+        loadingOverlay.setVisibility(View.VISIBLE);
 
-        // Safety timeout: auto-hide after 15 s in case the flow stalls.
+        // Safety timeout: auto-hide after 12 s in case the web app never calls
+        // appReady() (e.g., a JavaScript error on first load).
         if (safetyTimeout != null) mainHandler.removeCallbacks(safetyTimeout);
-        safetyTimeout = this::hideAuthLoading;
-        mainHandler.postDelayed(safetyTimeout, 15_000);
+        safetyTimeout = this::hideOverlay;
+        mainHandler.postDelayed(safetyTimeout, 12_000);
     }
 
     /** Fade out the overlay (300 ms). No-op if already hidden. */
-    public void hideAuthLoading() {
-        if (authLoadingOverlay == null
-                || authLoadingOverlay.getVisibility() != View.VISIBLE) return;
+    public void hideOverlay() {
+        if (loadingOverlay == null
+                || loadingOverlay.getVisibility() != View.VISIBLE) return;
         if (safetyTimeout != null) {
             mainHandler.removeCallbacks(safetyTimeout);
             safetyTimeout = null;
         }
-        authLoadingOverlay.animate()
+        loadingOverlay.animate()
                 .alpha(0f)
                 .setDuration(300)
                 .withEndAction(() -> {
-                    authLoadingOverlay.setVisibility(View.GONE);
-                    authLoadingOverlay.setAlpha(1f);
+                    loadingOverlay.setVisibility(View.GONE);
+                    loadingOverlay.setAlpha(1f);
                 })
                 .start();
     }
+
+    // ── Back-compat aliases used by StorelibWebViewClient ────────────
+    /** @deprecated Use {@link #showOverlay()} */
+    public void showAuthLoading() { showOverlay(); }
+    /** @deprecated Use {@link #hideOverlay()} */
+    public void hideAuthLoading() { hideOverlay(); }
 
     private int dpToPx(int dp) {
         return (int) (dp * getResources().getDisplayMetrics().density + 0.5f);

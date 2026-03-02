@@ -123,6 +123,13 @@ public class StorelibWebViewClient extends BridgeWebViewClient {
         //    https://storelib.com/app/auth/callback which the App Link
         //    intercepts and routes back to MainActivity.
         if (isOAuthUrl(uri)) {
+            // Show the loading overlay NOW — before the Custom Tab opens —
+            // so when the user returns from the browser the login/signup page
+            // is never visible between the Custom Tab closing and the overlay
+            // appearing.  Without this there is a brief flash of the login page.
+            if (view.getContext() instanceof MainActivity) {
+                ((MainActivity) view.getContext()).showOverlay();
+            }
             openInCustomTab(view.getContext(), uri);
             return true;   // cancel the WebView navigation
         }
@@ -143,18 +150,16 @@ public class StorelibWebViewClient extends BridgeWebViewClient {
     public void onPageFinished(WebView view, String url) {
         super.onPageFinished(view, url);
 
-        if (url != null) {
-            if (isAuthPage(url)) {
-                view.evaluateJavascript(BLOCK_HOMEPAGE_LINKS_JS, null);
-            }
-
-            // Dismiss the auth loading overlay once any page finishes loading.
-            // The overlay is only visible during OAuth callback processing, so
-            // hideAuthLoading() is a no-op when it's already hidden.
-            if (view.getContext() instanceof MainActivity) {
-                ((MainActivity) view.getContext()).hideAuthLoading();
-            }
+        if (url != null && isAuthPage(url)) {
+            view.evaluateJavascript(BLOCK_HOMEPAGE_LINKS_JS, null);
         }
+
+        // The loading overlay is now dismissed exclusively by the JS bridge
+        // (StorelibNative.appReady()) once the web app signals it is ready.
+        // Dismissing here on every page-finish was premature — it fired as
+        // soon as the HTML was parsed, before React hydrated, causing the
+        // overlay to vanish while the WebView was still in a loading state
+        // (and allowing a flash of the previous page during OAuth return).
     }
 
     // ────────────────────────────────────────────────────────────────

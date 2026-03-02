@@ -126,22 +126,22 @@ function notifyNativeAuthStart(): void {
 }
 
 /**
- * Notify the native Android shell that auth is complete so it can
- * dismiss its loading overlay.  No-ops gracefully on web.
+ * Previously dismissed the native loading overlay by calling authDone().
+ * That call was premature: it fired in the `finally` block right after
+ * window.location.assign(), i.e. BEFORE the destination page loaded,
+ * causing the overlay to fade out while the WebView was still in
+ * transition — producing a brief flash of the login/signup page.
  *
- * The primary dismissal is handled natively (onPageFinished in
- * StorelibWebViewClient), but this function is available as a
- * manual trigger from JS if needed.
+ * The overlay is now dismissed exclusively by StorelibNative.appReady(),
+ * which is called from:
+ *   • NativeOAuthBridge (per-route effect) — for all pages once React renders
+ *   • NativeAuthGate — for /app and /library once auth state resolves
+ *
+ * This function is kept as a no-op so callers (reset-password page, etc.)
+ * continue to compile without changes.
  */
 export function notifyNativeAuthDone(): void {
-  try {
-    const w = window as any
-    if (typeof window !== "undefined" && w.StorelibNative?.authDone) {
-      w.StorelibNative.authDone()
-    }
-  } catch {
-    // Ignore — web environment or missing native interface
-  }
+  // No-op: overlay dismissal is handled by appReady() on the destination page.
 }
 
 // ── Recovery deep link handler ────────────────────────────────────────────────

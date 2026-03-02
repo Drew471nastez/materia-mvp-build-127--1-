@@ -12,14 +12,29 @@
  *   can complete OAuth and return to the app — regardless of which page they
  *   were on when they tapped "Sign in with Google".
  *
- * All logic lives in lib/native-oauth.ts.
- * This file is intentionally thin.
+ * All OAuth logic lives in lib/native-oauth.ts.
+ *
+ * Loading-overlay handshake:
+ *   The native shell shows a white overlay (logo + spinner) on launch.
+ *   It must be dismissed only when the first meaningful UI is actually
+ *   visible — not just when HTML finishes parsing.
+ *
+ *   Strategy (belt-and-suspenders):
+ *   1. NativeAuthGate (on /app and /library layouts) calls appReady() once
+ *      auth resolves and content is about to render — covers the logged-in path.
+ *   2. The pathname-watch effect below fires on every client-side route render
+ *      (including /login, /signup, deep-link targets) and calls appReady() if
+ *      no native auth flow is in progress (nativeAuthInProgress !== "1").
+ *   3. A 12-second safety timeout on the native side auto-dismisses the overlay
+ *      in the unlikely event appReady() is never called.
  */
 
 import { useEffect } from "react"
+import { usePathname } from "next/navigation"
 import { setupNativeOAuthListeners } from "@/lib/native-oauth"
 
 export default function NativeOAuthBridge() {
+  // ── One-time listener registration ────────────────────────────────
   useEffect(() => {
     let cleanup: (() => void) | undefined
 
@@ -31,6 +46,27 @@ export default function NativeOAuthBridge() {
       cleanup?.()
     }
   }, []) // mount once — never re-runs
+
+  // ── Per-route appReady() signal ────────────────────────────────────
+  // Fires on initial mount AND on every SPA navigation.
+  // This covers all routes that don't use NativeAuthGate (e.g. /login,
+  // /signup, /reset-password) so the native overlay is always dismissed
+  // once React has rendered the page.
+  //
+  // Guard: if nativeAuthInProgress === "1" a native OAuth or recovery
+  // flow is running — do NOT dismiss the overlay yet.  NativeAuthGate
+  // (on the destination page) will call appReady() once auth completes.
+  const pathname = usePathname()
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem("nativeAuthInProgress") === "1") return
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const native = (window as any).StorelibNative
+      if (native?.appReady) native.appReady()
+    } catch {
+      // sessionStorage unavailable (SSR) or bridge not present (web) — ignore
+    }
+  }, [pathname])
 
   return null
 }
