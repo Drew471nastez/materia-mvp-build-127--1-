@@ -205,7 +205,13 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         <button
           onClick={() => {
             onClick?.()
-            window.location.href = item.href
+            // In Capacitor, router.push preserves auth session (no full reload)
+            // On web, force full reload for reliable cross-layout navigation
+            if (isNativePlatform()) {
+              router.push(item.href)
+            } else {
+              window.location.href = item.href
+            }
           }}
           className={baseClassName}
         >
@@ -245,7 +251,13 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         <button
           onClick={() => {
             onClick?.()
-            window.location.href = item.href
+            // In Capacitor, router.push preserves auth session (no full reload)
+            // On web, force full reload for reliable cross-layout navigation
+            if (isNativePlatform()) {
+              router.push(item.href)
+            } else {
+              window.location.href = item.href
+            }
           }}
           className={baseClassName}
         >
@@ -874,7 +886,9 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                       key={item.href}
                       onClick={() => {
                         setSearchOpen(false)
-                        if (item.href.startsWith("/store-builder") || item.href.startsWith("/app/onepage")) {
+                        // In Capacitor, always use router.push to preserve auth session
+                        // On web, use window.location.href for cross-layout routes
+                        if (!isNativePlatform() && (item.href.startsWith("/store-builder") || item.href.startsWith("/app/onepage"))) {
                           window.location.href = item.href
                         } else {
                           router.push(item.href)
@@ -912,7 +926,9 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                             key={item.href + item.label}
                             onClick={() => {
                               setSearchOpen(false)
-                              if (item.href.startsWith("/store-builder") || item.href.startsWith("/app/onepage")) {
+                              // In Capacitor, always use router.push to preserve auth session
+                              // On web, use window.location.href for cross-layout routes
+                              if (!isNativePlatform() && (item.href.startsWith("/store-builder") || item.href.startsWith("/app/onepage"))) {
                                 window.location.href = item.href
                               } else {
                                 router.push(item.href)

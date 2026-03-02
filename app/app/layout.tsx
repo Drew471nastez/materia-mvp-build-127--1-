@@ -1,10 +1,23 @@
 import type React from "react"
 import { redirect } from "next/navigation"
+import { headers } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
 import { AppSidebar } from "@/components/app/sidebar"
 import { AppLayoutWrapper } from "@/components/app/app-layout-wrapper"
 import { Toaster } from "@/components/ui/toaster"
 import { NativeAuthGate } from "@/components/native-auth-gate"
+
+/**
+ * Detect Capacitor WebView from the User-Agent header.
+ * In Capacitor, auth is stored in Preferences (not cookies), so
+ * server-side session checks may fail on full-page reloads.
+ * The client-side NativeAuthGate restores the session asynchronously.
+ */
+async function isCapacitorWebView(): Promise<boolean> {
+  const headersList = await headers()
+  const ua = headersList.get("user-agent") || ""
+  return /StorelibApp|Capacitor/.test(ua) || (/wv/.test(ua) && /Android/.test(ua))
+}
 
 export default async function AppLayout({
   children,
@@ -12,12 +25,24 @@ export default async function AppLayout({
   children: React.ReactNode
 }) {
   const supabase = await createClient()
+  const isNative = await isCapacitorWebView()
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
   if (!user) {
+    if (isNative) {
+      // In Capacitor, session lives in Preferences (not cookies).
+      // A full-page reload won't have a server-side session yet —
+      // the client will restore it asynchronously from Preferences.
+      // Skip the redirect and let NativeAuthGate handle it.
+      return (
+        <NativeAuthGate requireAuth>
+          {children}
+        </NativeAuthGate>
+      )
+    }
     redirect("/login")
   }
 

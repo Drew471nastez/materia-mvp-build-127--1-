@@ -54,6 +54,8 @@ import { verifiedBadgeLabels } from "@/lib/store-builder/defaults"
 import * as LucideIcons from "lucide-react"
 import { DescriptionEditWrapper, RichDescriptionContent } from "./description-rich-editor"
 import { SmartLink } from "@/components/smart-link"
+import { useRouter } from "next/navigation"
+import { isNativeApp } from "@/lib/platform-utils"
 import { VariantSelector, type ProductVariant } from "@/components/product/variant-selector"
 
 // Shared product type for consistency
@@ -2031,6 +2033,8 @@ function UnifiedAnnouncementBarSection({
   settings: AnnouncementBarSettings
   isPreviewMode?: boolean
 }) {
+  const router = useRouter()
+
   if (!settings?.visible) return null
 
   const hasLink = settings.linkProductSlug || settings.linkUrl
@@ -2038,7 +2042,13 @@ function UnifiedAnnouncementBarSection({
 
   const handleTextClick = () => {
     if (settings.linkProductSlug) {
-      window.location.href = `/p/${settings.linkProductSlug}`
+      const internalPath = `/p/${settings.linkProductSlug}`
+      // In Capacitor, use client-side navigation to preserve auth session
+      if (isNativeApp()) {
+        router.push(internalPath)
+      } else {
+        window.location.href = internalPath
+      }
     } else if (settings.linkUrl) {
       window.location.href = settings.linkUrl
     }

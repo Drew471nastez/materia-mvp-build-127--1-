@@ -1,7 +1,14 @@
 import type React from "react"
 import { redirect } from "next/navigation"
+import { headers } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
 import { NativeAuthGate } from "@/components/native-auth-gate"
+
+async function isCapacitorWebView(): Promise<boolean> {
+  const headersList = await headers()
+  const ua = headersList.get("user-agent") || ""
+  return /StorelibApp|Capacitor/.test(ua) || (/wv/.test(ua) && /Android/.test(ua))
+}
 
 export default async function StoreBuilderLayout({
   children,
@@ -9,12 +16,20 @@ export default async function StoreBuilderLayout({
   children: React.ReactNode
 }) {
   const supabase = await createClient()
+  const isNative = await isCapacitorWebView()
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
   if (!user) {
+    if (isNative) {
+      return (
+        <NativeAuthGate requireAuth>
+          {children}
+        </NativeAuthGate>
+      )
+    }
     redirect("/login")
   }
 
