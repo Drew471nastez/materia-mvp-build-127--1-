@@ -908,15 +908,23 @@ export function PlatformHeaderClient() {
     [toCanonicalUrl],
   )
 
-  // In Capacitor, router.push() can fail when navigating between layout groups
-  // (e.g. from a product page to /app dashboard) because the RSC payload fetch
-  // or the portal-based bottom-sheet context doesn't play well with the app
-  // router.  Use window.location.href for reliable full-page navigation.
+  // Cross-layout routes require a full page reload even in Capacitor.
+  // Same-layout routes (/explore, /u/, /p/, /l/, /library, /wishlist) use
+  // router.push to keep client-side navigation and preserve the auth session.
+  const isCrossLayoutPath = (path: string) =>
+    path.startsWith("/app") || path.startsWith("/store-builder")
+
   const navigateReliably = useCallback(
     (targetPath: string) => {
       if (typeof window === "undefined") return
       if (isNativePlatform()) {
-        window.location.href = targetPath
+        // Cross-layout: must full-reload (NativeAuthGate handles session restore)
+        // Same-layout: router.push preserves the Supabase singleton — no auth loss
+        if (isCrossLayoutPath(targetPath)) {
+          window.location.href = targetPath
+        } else {
+          router.push(targetPath)
+        }
         return
       }
       if (shouldForceCanonicalNav) {
@@ -930,10 +938,15 @@ export function PlatformHeaderClient() {
 
   const onCanonicalNav = useCallback(
     (e: React.MouseEvent<HTMLElement>, targetPath: string) => {
-      // In Capacitor, always use reliable navigation (window.location.href)
+      // In Capacitor: use router.push for same-layout routes to preserve auth.
+      // Cross-layout routes still need window.location.href.
       if (isNativePlatform()) {
         e.preventDefault()
-        window.location.href = targetPath
+        if (isCrossLayoutPath(targetPath)) {
+          window.location.href = targetPath
+        } else {
+          router.push(targetPath)
+        }
         return
       }
       if (!shouldForceCanonicalNav) return
@@ -973,7 +986,7 @@ export function PlatformHeaderClient() {
               {/* Homepage Desktop Header */}
               <div className="hidden md:flex items-center justify-between w-full">
                 {/* Left - Logo - refreshes main page */}
-                <Link href="/" onClick={(e) => { e.preventDefault(); window.location.href = "/" }} className="shrink-0 flex items-center gap-2">
+                <Link href="/" onClick={(e) => { e.preventDefault(); if (isNativePlatform()) { router.push("/") } else { window.location.href = "/" } }} className="shrink-0 flex items-center gap-2">
                   <Image
                     src={LOGO_URL || "/placeholder.svg"}
                     alt="Storelib"
@@ -1061,7 +1074,7 @@ export function PlatformHeaderClient() {
               <div className="md:hidden flex items-center justify-between w-full">
                 {/* Left - Logo */}
                 <div className="flex items-center gap-0">
-                  <Link href="/" onClick={(e) => { e.preventDefault(); window.location.href = "/" }} className="shrink-0 flex items-center gap-1.5">
+                  <Link href="/" onClick={(e) => { e.preventDefault(); if (isNativePlatform()) { router.push("/") } else { window.location.href = "/" } }} className="shrink-0 flex items-center gap-1.5">
                     <Image
                       src={LOGO_URL || "/placeholder.svg"}
                       alt="Storelib"
@@ -1791,14 +1804,14 @@ export function PlatformHeaderClient() {
             </div>
           )}
 
-          {/* Menu Links - On Homepage and Marketing Pages */}
-          {isMarketingNavRoute && (
+          {/* Menu Links - On Homepage and Marketing Pages (hidden in Capacitor: links go to storelib.com) */}
+          {isMarketingNavRoute && !isNativePlatform() && (
             <div className="mb-4 pb-4 border-b border-gray-200 mt-4">
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2 pt-2">Menu</h3>
               <div className="space-y-0.5">
                 <Link
                   href="/"
-                  onClick={(e) => { e.preventDefault(); window.location.href = "/"; setMobileMenuOpen(false) }}
+                  onClick={(e) => { e.preventDefault(); setMobileMenuOpen(false); if (isNativePlatform()) { router.push("/") } else { window.location.href = "/" } }}
                   className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
                 >
                   <span>Home</span>
