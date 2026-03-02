@@ -186,12 +186,14 @@ export function FeaturedBannerCarousel({ products, overlay }: FeaturedBannerCaro
   }
 
   const currentProduct = featuredProducts[currentIndex]
-  const creatorUsername = currentProduct?.creator?.profile?.username || currentProduct?.creator?.slug || ""
+  // Only use profile.username — it's what /u/[username] routes look up.
+  const creatorUsername = currentProduct?.creator?.profile?.username || ""
   const creatorName = currentProduct?.creator?.profile?.display_name || "Creator"
   const creatorAvatar = currentProduct?.creator?.profile?.avatar_url
   const baseProductUrl = getProductUrl(creatorUsername, currentProduct?.slug || "")
   const productUrl = `${baseProductUrl}${baseProductUrl.includes("?") ? "&" : "?"}layout=discover&recommended=1`
-  const creatorStoreUrl = getStoreUrl(creatorUsername)
+  // "#" when username is unknown so the creator link is a safe no-op.
+  const creatorStoreUrl = creatorUsername ? getStoreUrl(creatorUsername) : "#"
   const productPrice = currentProduct?.price_cents
 
   return (

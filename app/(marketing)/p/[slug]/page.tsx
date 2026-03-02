@@ -806,7 +806,13 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     return items
   }
 
-  const creatorUsername = creatorProfile?.username || creator?.slug || "creator"
+  // Use the profile username (the field that /u/[username] routes look up by).
+  // Do NOT fall back to creator.slug — it may differ from the profile username
+  // or be a UUID, which would build a broken /u/<uuid> URL and get "lost".
+  const creatorUsername = creatorProfile?.username || ""
+  // Safe store URL: "#" when username is unknown so clicks are a no-op rather
+  // than navigating to the site root or a wrong/missing creator profile.
+  const creatorStoreUrl = creatorUsername ? getStoreUrl(creatorUsername) : "#"
 
   // Check if a URL is a YouTube thumbnail (used for product listings only, not gallery display)
   const isYouTubeThumbnailUrl = (url: string | null) => {
@@ -936,7 +942,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             <div className="hidden lg:flex mt-4 items-center justify-between" data-creator-header>
               <div className="flex items-center gap-3 p-2 -ml-2">
                 <SmartLink
-                  href={getStoreUrl(creatorUsername)}
+                  href={creatorStoreUrl}
                   className="inline-flex items-center gap-3 rounded-lg transition-colors hover:bg-muted/50 min-h-[44px]" target="_blank" rel="noopener noreferrer"
                 >
                   <Avatar className="h-10 w-10 shrink-0">
@@ -1126,7 +1132,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                 }}
               >
                 <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <SmartLink href={getStoreUrl(creatorUsername)} className="flex items-center gap-3" target="_blank" rel="noopener noreferrer">
+                  <SmartLink href={creatorStoreUrl} className="flex items-center gap-3" target="_blank" rel="noopener noreferrer">
                     <Avatar className="h-8 w-8 shrink-0">
                       <AvatarImage src={creatorAvatarUrl || undefined} />
                       <AvatarFallback>{creatorInitials || "?"}</AvatarFallback>
@@ -1562,6 +1568,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           settings={defaultProductCreatorBarSettings}
           creatorName={creatorProfile?.display_name || creator?.name || "Creator"}
           creatorId={product.creator_id}
+          creatorUsername={creatorUsername}
           avatarUrl={creatorAvatarUrl}
         />
       </DiscoverStickyWrapper>

@@ -131,8 +131,10 @@ export interface UnifiedSectionProps {
 }
 
 // Helper function to get product href
+// NOTE: Only use product.slug — product.id is a UUID and will never resolve on
+// the /p/[slug] route, causing a 404 "lost" navigation in Capacitor.
 const getProductHref = (product: ProductData): string => {
-  return `/p/${product.slug || product.id}`
+  return product.slug ? `/p/${product.slug}` : "#"
 }
 
 // Icon mapping for what's included items
@@ -4191,7 +4193,7 @@ export function UnifiedProductsGrid({
           return (
             <SmartLink
               key={product.id}
-              href={`/p/${product.slug || product.id}`}
+              href={getProductHref(product)}
               className="group overflow-hidden rounded-lg border border-border bg-card transition-all hover:shadow-md"
             >
               {content}
@@ -4403,7 +4405,7 @@ function UnifiedMoreFromSellerSection({
           return (
             <SmartLink
               key={product.id}
-              href={`/p/${product.slug || product.id}`}
+              href={getProductHref(product)}
               className={cn(
                 "group overflow-hidden rounded-lg border transition-all hover:shadow-lg",
                 !cardBgColor && "bg-card border-border",

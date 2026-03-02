@@ -173,11 +173,12 @@ function getInputOpacityClass(isSubscribed: boolean, isFocused: boolean) {
 }
 
 function getCreatorHref(creatorUsername?: string, creatorId?: string, creatorName?: string) {
-  // IMPORTANT: Never use creatorId (UUID) for URLs - only use username or name
-  // UUIDs create invalid URLs like https://d06724e5-e783-436a-b91f-f8e666d7c56b.storelib.com/
-  const usableIdentifier = creatorUsername || creatorName
-  if (!usableIdentifier) return "#"
-  const raw = usableIdentifier.toString().trim()
+  // IMPORTANT: Only use creatorUsername (the actual DB username, e.g. "johndoe").
+  // Never use creatorId (UUID) — creates URLs like /u/d06724e5-… that always 404.
+  // Never use creatorName (display name, e.g. "John Smith") — sanitisation turns
+  // it into /u/john-smith which may not match the real username and gets "lost".
+  if (!creatorUsername) return "#"
+  const raw = creatorUsername.toString().trim()
   if (!raw) return "#"
   return getStoreUrl(raw)
 }

@@ -85,11 +85,14 @@ export const ProductCard = memo(function ProductCard({ product, srcParam = "", p
   }
 
   const creatorName = product.creator?.profile?.display_name || "Creator"
-  const creatorUsername = product.creator?.profile?.username || product.creator?.slug || ""
+  // Only use the profile username — it's what /u/[username] routes look up.
+  // creator.slug may differ from profile.username or be a UUID → broken URL.
+  const creatorUsername = product.creator?.profile?.username || ""
   const creatorAvatarUrl = product.creator?.profile?.avatar_url
   const baseProductUrl = getProductUrl(creatorUsername, product.slug || "")
   const productUrl = `${baseProductUrl}${baseProductUrl.includes("?") ? "&" : "?"}layout=discover&recommended=1`
-  const storeUrl = getStoreUrl(creatorUsername)
+  // "#" when username is unknown so the creator link is a safe no-op.
+  const storeUrl = creatorUsername ? getStoreUrl(creatorUsername) : "#"
 
   const hasReviews = (product.reviews_count ?? 0) > 0
   const reviewsAverage = product.reviews_average ?? 0
