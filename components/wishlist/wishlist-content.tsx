@@ -5,6 +5,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { Heart, X, Loader2, ShoppingBag, ArrowRight } from "lucide-react"
 import { getStoreUrl, getProductUrl } from "@/lib/url-helpers"
+import { SmartLink } from "@/components/smart-link"
 
 interface WishlistItem {
   id: string
@@ -187,7 +188,7 @@ export function WishlistContent({ isLibrary = false, showDiscoverMoreCta = false
               }`}
             >
               {/* Thumbnail */}
-              <a href={productUrl} className="block">
+              <SmartLink href={productUrl} className="block">
                 <div className="relative aspect-[4/3] bg-neutral-50 overflow-hidden">
                   {product.thumbnail_url ? (
                     <Image
@@ -202,7 +203,7 @@ export function WishlistContent({ isLibrary = false, showDiscoverMoreCta = false
                     </div>
                   )}
                 </div>
-              </a>
+              </SmartLink>
 
               {/* Remove button — top right */}
               <button
@@ -220,19 +221,19 @@ export function WishlistContent({ isLibrary = false, showDiscoverMoreCta = false
 
               {/* Info */}
               <div className="p-3.5">
-                <a href={productUrl}>
+                <SmartLink href={productUrl}>
                   <h3 className="font-medium text-neutral-900 text-sm truncate hover:text-violet-600 transition-colors">
                     {product.title}
                   </h3>
-                </a>
+                </SmartLink>
 
                 {creatorUsername && (
-                  <a
+                  <SmartLink
                     href={getStoreUrl(creatorUsername)}
                     className="text-xs text-neutral-400 hover:text-neutral-600 transition-colors mt-0.5 block truncate"
                   >
                     {creatorName}
-                  </a>
+                  </SmartLink>
                 )}
 
                 <div className="flex items-center justify-between mt-2.5">
@@ -246,12 +247,12 @@ export function WishlistContent({ isLibrary = false, showDiscoverMoreCta = false
                       </span>
                     )}
                   </div>
-                  <a
+                  <SmartLink
                     href={productUrl}
                     className="text-xs font-medium text-violet-600 hover:text-violet-700 transition-colors"
                   >
                     View
-                  </a>
+                  </SmartLink>
                 </div>
               </div>
             </div>

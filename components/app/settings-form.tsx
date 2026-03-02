@@ -15,6 +15,7 @@ import { X, Copy, Check, ExternalLink, Globe, Loader2, AlertCircle, Mail, Lock }
 import type { Profile, Creator } from "@/lib/types"
 import { isValidUsername } from "@/lib/reserved-words"
 import { getStoreUrl, getStoreUrlDisplay } from "@/lib/url-helpers"
+import { SmartLink } from "@/components/smart-link"
 
 const NICHE_OPTIONS = [
   "Design",
@@ -416,9 +417,9 @@ export function SettingsForm({ profile, creator }: SettingsFormProps) {
                 {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
               </Button>
               <Button type="button" variant="outline" size="icon" asChild>
-                <a href={storeUrl} target="_blank" rel="noopener noreferrer">
+                <SmartLink href={storeUrl}>
                   <ExternalLink className="h-4 w-4" />
-                </a>
+                </SmartLink>
               </Button>
             </div>
             <p className="text-sm text-muted-foreground">

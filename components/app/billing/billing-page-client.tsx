@@ -8,6 +8,7 @@ import {
   Check, Loader2, Download, FileText, Clock, CheckCircle, XCircle, AlertCircle,
   Lock, Pencil, ExternalLink, X, ArrowUpRight, ChevronDown, Globe,
 } from "lucide-react"
+import Link from "next/link"
 import { useLanguage } from "@/lib/i18n"
 
 const TABS = [
@@ -377,9 +378,9 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                 <div className="flex flex-wrap gap-3">
                   {/* Free plan -> Upgrade link */}
                   {currentPlan.id === "free" && (
-                    <a href="/app/settings/billing/upgrade" className="h-10 px-5 text-[13px] font-semibold text-white bg-[#7c3aed] rounded-xl hover:bg-[#6d28d9] active:bg-[#5b21b6] transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2 no-underline cursor-pointer">
+                    <Link href="/app/settings/billing/upgrade" className="h-10 px-5 text-[13px] font-semibold text-white bg-[#7c3aed] rounded-xl hover:bg-[#6d28d9] active:bg-[#5b21b6] transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2 no-underline cursor-pointer">
                       Upgrade
-                    </a>
+                    </Link>
                   )}
                   {/* Growth plan -> Upgrade to Pro */}
                   {currentPlan.id === "growth" && nextUpgradePlan && (
@@ -392,9 +393,9 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                   )}
                   {/* If cancel_at_period_end, show upgrade option to reactivate */}
                   {isSubscribed && subscription.cancel_at_period_end && (
-                    <a href="/app/settings/billing/upgrade" className="h-10 px-5 text-[13px] font-semibold text-white bg-[#7c3aed] rounded-xl hover:bg-[#6d28d9] active:bg-[#5b21b6] transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2 no-underline cursor-pointer">
+                    <Link href="/app/settings/billing/upgrade" className="h-10 px-5 text-[13px] font-semibold text-white bg-[#7c3aed] rounded-xl hover:bg-[#6d28d9] active:bg-[#5b21b6] transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2 no-underline cursor-pointer">
                       Upgrade
-                    </a>
+                    </Link>
                   )}
                   {/* Always show Manage Subscription for any active paid plan */}
                   {isSubscribed && (
@@ -428,9 +429,9 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                           : `Your paid plan has been canceled.`}{" "}
                         You are now on the Free plan.
                       </p>
-                      <a href="/app/settings/billing/upgrade" className="inline-flex items-center gap-1 text-[12px] font-semibold text-red-700 hover:text-red-900 underline underline-offset-2 mt-1.5">
+                      <Link href="/app/settings/billing/upgrade" className="inline-flex items-center gap-1 text-[12px] font-semibold text-red-700 hover:text-red-900 underline underline-offset-2 mt-1.5">
                         Reactivate a plan
-                      </a>
+                      </Link>
                     </div>
                   </div>
                 )}
@@ -528,7 +529,7 @@ export function BillingPageClient({ initialData }: BillingPageClientProps) {
                 <XCircle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
                 <p className="text-[13px] text-red-700">
                   Your subscription has been canceled.{" "}
-                  <a href="/app/settings/billing/upgrade" className="font-semibold text-red-700 hover:text-red-900 underline underline-offset-2">Reactivate a plan</a>
+                  <Link href="/app/settings/billing/upgrade" className="font-semibold text-red-700 hover:text-red-900 underline underline-offset-2">Reactivate a plan</Link>
                 </p>
               </div>
             )}
@@ -1135,10 +1136,10 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
         })}
       </div>
       <div className="mt-5 text-center">
-        <a href="/app/settings/billing/upgrade" className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-[#6b7280] hover:text-[#374151] bg-[#f9fafb] hover:bg-[#f3f4f6] border border-[#e5e7eb] rounded-lg transition-colors">
+        <Link href="/app/settings/billing/upgrade" className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-[#6b7280] hover:text-[#374151] bg-[#f9fafb] hover:bg-[#f3f4f6] border border-[#e5e7eb] rounded-lg transition-colors">
           More Pricing
           <ArrowUpRight className="h-3.5 w-3.5" />
-        </a>
+        </Link>
       </div>
     </div>
   )

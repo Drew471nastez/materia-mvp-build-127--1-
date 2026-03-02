@@ -10,6 +10,7 @@ import { Mail, ArrowRight, Check } from "lucide-react"
 import { getStoreUrl } from "@/lib/url-helpers"
 import { isDiscoverMode } from "@/lib/isDiscoverMode"
 import { isNativeApp } from "@/lib/platform-utils"
+import { SmartLink } from "@/components/smart-link"
 
 // Button style presets (same as subscribe bar)
 export const creatorBarButtonPresets: Record<string, { default: string; subscribed: string }> = {
@@ -710,12 +711,12 @@ export function LiveProductCreatorBar({
       {/* Mobile: Responsive layout using CSS */}
       <form onSubmit={handleSubmit} className="sm:hidden w-full px-4 py-2.5">
         <div className="flex items-center gap-2 w-full">
-          <a href={creatorHref} className="shrink-0" aria-label={`Go to ${creatorName}'s shop`}>
+          <SmartLink href={creatorHref} className="shrink-0" aria-label={`Go to ${creatorName}'s shop`}>
             <Avatar className="h-7 w-7 shrink-0">
               {avatarUrl ? <AvatarImage src={avatarUrl} alt={creatorName} /> : null}
               <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
             </Avatar>
-          </a>
+          </SmartLink>
 
           <Input
             type="email"
@@ -763,7 +764,7 @@ export function LiveProductCreatorBar({
       <div className={cn("hidden sm:block py-[calc(0.625rem+5px)] px-4 sm:px-5")}>
         <div className={cn("mx-auto w-full", LIVE_DESKTOP_MAX_W)}>
           <div className="w-full flex items-center justify-between gap-4">
-            <a
+            <SmartLink
               href={creatorHref}
               className="flex items-center gap-2 shrink-0 group"
               aria-label={`Go to ${creatorName}'s shop`}
@@ -775,7 +776,7 @@ export function LiveProductCreatorBar({
               <p className="text-sm md:text-[calc(0.875rem+3px)] font-medium cursor-pointer group-hover:opacity-90">
                 {creatorName}
               </p>
-            </a>
+            </SmartLink>
 
             <form onSubmit={handleSubmit} className="flex gap-2 items-center shrink-0">
               <Input

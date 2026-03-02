@@ -7,6 +7,7 @@ import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { SmartLink } from "@/components/smart-link"
 import {
   Tooltip,
   TooltipContent,
@@ -3097,7 +3098,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                           <div>
                             <p className="text-[14px] font-medium text-[#1a1a2e]">{d.domain}</p>
                             {(d.status === "ssl_provisioning" || d.status === "pending" || d.status === "verifying") && (
-                              <p className="text-[11px] text-[#9ca3af] mt-0.5">Fallback: <a href={`https://${username}.storelib.com`} target="_blank" rel="noopener noreferrer" className="text-[#7c3aed] hover:underline">{username}.storelib.com</a></p>
+                              <p className="text-[11px] text-[#9ca3af] mt-0.5">Fallback: <SmartLink href={`https://${username}.storelib.com`} className="text-[#7c3aed] hover:underline">{username}.storelib.com</SmartLink></p>
                             )}
                           </div>
                           <div className="flex items-center gap-1.5">
@@ -3190,7 +3191,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                           </div>
                           <p className="text-[12px] text-[#9ca3af] mb-1">Added {new Date(d.created_at).toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" })}</p>
                           {(d.status === "ssl_provisioning" || d.status === "pending" || d.status === "verifying") && (
-                            <p className="text-[11px] text-[#9ca3af] mb-2">Fallback: <a href={`https://${username}.storelib.com`} target="_blank" rel="noopener noreferrer" className="text-[#7c3aed] hover:underline">{username}.storelib.com</a></p>
+                            <p className="text-[11px] text-[#9ca3af] mb-2">Fallback: <SmartLink href={`https://${username}.storelib.com`} className="text-[#7c3aed] hover:underline">{username}.storelib.com</SmartLink></p>
                           )}
                           <div className="flex items-center gap-2">
                             {d.status !== "active" && (

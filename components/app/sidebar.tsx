@@ -410,7 +410,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { label: "Explore", href: "/explore", icon: Compass, category: "Other" },
     { label: "Library", href: "/library", icon: Library, category: "Other" },
     { label: "Help", href: "/help", icon: HelpCircle, category: "Other" },
-    { label: "Upgrade to Pro", href: "/upgrade", icon: Zap, category: "Other" },
+    { label: "Upgrade to Pro", href: "/app/settings/billing/upgrade", icon: Zap, category: "Other" },
   ]
 
   // Search handler
@@ -492,7 +492,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 
       <div className="px-3 pb-3 space-y-2">
         <Link
-          href="/upgrade"
+          href="/app/settings/billing/upgrade"
           onClick={onItemClick}
           className="group flex items-center justify-between rounded-xl bg-gradient-to-r from-violet-50/80 to-purple-50/80 border border-violet-100/60 px-3.5 py-3 transition-all duration-150 hover:from-violet-100/80 hover:to-purple-100/80"
         >
@@ -570,7 +570,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 
       <div className="px-3 pb-3">
         <Link
-          href="/upgrade"
+          href="/app/settings/billing/upgrade"
           onClick={onItemClick}
           className="group flex items-center justify-between rounded-xl bg-gradient-to-r from-violet-50/80 to-purple-50/80 border border-violet-100/60 px-3.5 py-3 transition-all duration-150 hover:from-violet-100/80 hover:to-purple-100/80"
         >
