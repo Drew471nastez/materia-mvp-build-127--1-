@@ -936,8 +936,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             <div className="hidden lg:flex mt-4 items-center justify-between" data-creator-header>
               <div className="flex items-center gap-3 p-2 -ml-2">
                 <SmartLink
-                  href={getStoreUrl(creatorUsername)}
-                  className="inline-flex items-center gap-3 rounded-lg transition-colors hover:bg-muted/50 min-h-[44px]" target="_blank" rel="noopener noreferrer"
+                  href={`/u/${creatorUsername}`}
+                  className="inline-flex items-center gap-3 rounded-lg transition-colors hover:bg-muted/50 min-h-[44px]"
                 >
                   <Avatar className="h-10 w-10 shrink-0">
                     <AvatarImage src={creatorAvatarUrl || undefined} />
@@ -1126,7 +1126,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                 }}
               >
                 <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <SmartLink href={getStoreUrl(creatorUsername)} className="flex items-center gap-3" target="_blank" rel="noopener noreferrer">
+                  <SmartLink href={`/u/${creatorUsername}`} className="flex items-center gap-3">
                     <Avatar className="h-8 w-8 shrink-0">
                       <AvatarImage src={creatorAvatarUrl || undefined} />
                       <AvatarFallback>{creatorInitials || "?"}</AvatarFallback>
@@ -1562,6 +1562,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           settings={defaultProductCreatorBarSettings}
           creatorName={creatorProfile?.display_name || creator?.name || "Creator"}
           creatorId={product.creator_id}
+          creatorUsername={creatorUsername}
           avatarUrl={creatorAvatarUrl}
         />
       </DiscoverStickyWrapper>
