@@ -22,7 +22,7 @@ import {
 } from "lucide-react"
 import type { Profile, Creator } from "@/lib/types"
 import { isValidUsername } from "@/lib/reserved-words"
-import { getLinksUrl, getStoreUrl, getStoreUrlDisplay } from "@/lib/url-helpers"
+import { getLinksShareUrl, getStoreShareUrl, getStoreUrl, getStoreUrlDisplay } from "@/lib/url-helpers"
 import { useLanguage, LANGUAGES } from "@/lib/i18n"
 
 function ChainLinkIcon({ className = "w-3 h-3", stroke = "#ffffff" }: { className?: string; stroke?: string }) {
@@ -1824,8 +1824,9 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   const settingsHandleBase = creator?.username || profile?.username || storeUrlDisplay.split(".")[0] || "store"
   const settingsHandleLabel = `@${settingsHandleBase}`
   const connectedDomain = domains.find((d: any) => d.status === "active")?.domain || null
-  const onepageUrl = connectedDomain ? `https://${connectedDomain}/links` : getLinksUrl(settingsHandleBase)
-  const storeUrlWithDomain = connectedDomain ? `https://${connectedDomain}` : storeUrl
+  // Always use canonical subdomain URLs for display so users see sellername.storelib.com
+  const onepageUrl = connectedDomain ? `https://${connectedDomain}/links` : getLinksShareUrl(settingsHandleBase)
+  const storeUrlWithDomain = connectedDomain ? `https://${connectedDomain}` : getStoreShareUrl(settingsHandleBase)
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -2137,7 +2138,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                     />
                   </div>
                   <p className="text-[12px] text-[#6b7280]">
-                    Your OnePage will be available at: <span className="font-medium text-[#8b5cf6]">{getLinksUrl(username || "yourhandle")}</span>
+                    Your OnePage will be available at: <span className="font-medium text-[#8b5cf6]">{getLinksShareUrl(username || "yourhandle")}</span>
                   </p>
                 </div>
               </div>

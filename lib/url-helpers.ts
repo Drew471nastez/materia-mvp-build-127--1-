@@ -126,6 +126,50 @@ export function getProductUrl(username: string, productSlug: string): string {
 }
 
 /**
+ * Get the canonical store URL for sharing/copying/displaying — always returns the
+ * full subdomain URL regardless of whether running inside Capacitor.
+ * Use this for copy-to-clipboard, display text, and any URL shown to the user.
+ * For in-app navigation in Capacitor use getStoreUrl() or getStoreInternalPath().
+ */
+export function getStoreShareUrl(username: string): string {
+  if (!username) return getSiteUrl()
+
+  const sanitizedUsername = username
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+
+  if (!sanitizedUsername) return getSiteUrl()
+
+  const mainDomain = getMainDomain()
+
+  if (mainDomain.includes("localhost")) {
+    return `${getSiteUrl()}/u/${sanitizedUsername}`
+  }
+
+  return `https://${sanitizedUsername}.${mainDomain}`
+}
+
+/**
+ * Get the canonical links/onepage URL for sharing/copying/displaying — always
+ * returns the full subdomain URL regardless of whether running inside Capacitor.
+ */
+export function getLinksShareUrl(username: string): string {
+  if (!username) return getSiteUrl()
+
+  const mainDomain = getMainDomain()
+
+  if (mainDomain.includes("localhost")) {
+    return `${getSiteUrl()}/l/${username.toLowerCase()}`
+  }
+
+  return `https://${username.toLowerCase()}.${mainDomain}/links`
+}
+
+/**
  * Get relative path for internal navigation (used in Next.js Link components)
  * This is for navigating within the app (not for sharing external links)
  *

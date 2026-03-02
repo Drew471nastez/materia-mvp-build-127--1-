@@ -55,7 +55,7 @@ const LazyAreaChart = dynamic(
 )
 import { createClient } from "@/lib/supabase/client"
 import { useLanguage } from "@/lib/i18n"
-import { getLinksUrl, getStoreUrl } from "@/lib/url-helpers"
+import { getLinksShareUrl, getStoreShareUrl } from "@/lib/url-helpers"
 import { useToast } from "@/hooks/use-toast"
 
 interface SetupStep {
@@ -820,8 +820,10 @@ export function DashboardClient({
     localStorage.setItem("dashboard_timeframe", timeframe)
   }, [timeframe])
 
-  const publicStoreUrl = connectedDomain ? `https://${connectedDomain}` : (creatorHandle ? getStoreUrl(creatorHandle) : "")
-  const publicOnePageUrl = connectedDomain ? `https://${connectedDomain}/links` : (creatorHandle ? getLinksUrl(creatorHandle) : "")
+  // Always use canonical subdomain URLs so display, copy, and open all show/use
+  // the proper format (username.storelib.com) even inside Capacitor.
+  const publicStoreUrl = connectedDomain ? `https://${connectedDomain}` : (creatorHandle ? getStoreShareUrl(creatorHandle) : "")
+  const publicOnePageUrl = connectedDomain ? `https://${connectedDomain}/links` : (creatorHandle ? getLinksShareUrl(creatorHandle) : "")
   const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
