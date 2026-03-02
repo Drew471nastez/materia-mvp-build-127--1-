@@ -52,24 +52,39 @@ export function SmartBuyButton({
   const [receiptToken, setReceiptToken] = useState<string | null>(null)
   const [isChecking, setIsChecking] = useState(!serverHasPurchased)
 
-  // Check localStorage and API for purchase status on mount
+  // Check localStorage and API for purchase status on mount + resume (Safari bfcache)
   useEffect(() => {
-    // If server already confirmed purchase, no need to check
-    if (serverHasPurchased && serverAssetId) {
-      setIsChecking(false)
-      return
-    }
+    let cancelled = false
 
     const checkPurchaseStatus = async () => {
+      if (cancelled) return
+
       try {
-        // First check localStorage
+        let urlToken: string | null = null
+        try {
+          urlToken = new URLSearchParams(window.location.search).get("purchaseToken")
+        } catch {
+          // no-op
+        }
+
+        // If server already confirmed purchase, no need to check API.
+        if (serverHasPurchased && serverAssetId) {
+          setHasPurchased(true)
+          setAssetId(serverAssetId)
+          if (urlToken) {
+            setReceiptToken(urlToken)
+          }
+          setIsChecking(false)
+          return
+        }
+
         const stored = localStorage.getItem(PURCHASED_PRODUCTS_KEY)
         if (stored) {
           const purchases: Record<string, PurchaseInfo> = JSON.parse(stored)
           const purchaseInfo = purchases[productId]
           if (purchaseInfo) {
             setHasPurchased(true)
-            setReceiptToken(purchaseInfo.receiptToken)
+            setReceiptToken(urlToken || purchaseInfo.receiptToken)
             if (purchaseInfo.assets && purchaseInfo.assets.length > 0) {
               setAssetId(purchaseInfo.assets[0].id)
             }
@@ -78,31 +93,44 @@ export function SmartBuyButton({
           }
         }
 
-        // If not in localStorage, check API (for logged-in users)
+        if (urlToken) {
+          setHasPurchased(true)
+          setReceiptToken(urlToken)
+          setIsChecking(false)
+          return
+        }
+
         const res = await fetch(`/api/purchases/check?productId=${productId}`, {
           credentials: "include",
         })
 
-        if (res.ok) {
+        if (!cancelled && res.ok) {
           const data = await res.json()
           if (data.hasPurchased) {
             setHasPurchased(true)
-            if (data.assetId) {
-              setAssetId(data.assetId)
-            }
-            if (data.receiptToken) {
-              setReceiptToken(data.receiptToken)
-            }
+            if (data.assetId) setAssetId(data.assetId)
+            if (data.receiptToken) setReceiptToken(data.receiptToken)
           }
         }
       } catch (e) {
         console.error("[SmartBuyButton] Error checking purchase status:", e)
       } finally {
-        setIsChecking(false)
+        if (!cancelled) setIsChecking(false)
       }
     }
 
     checkPurchaseStatus()
+
+    const onPageShow = () => checkPurchaseStatus()
+    const onFocus = () => checkPurchaseStatus()
+    window.addEventListener("pageshow", onPageShow)
+    window.addEventListener("focus", onFocus)
+
+    return () => {
+      cancelled = true
+      window.removeEventListener("pageshow", onPageShow)
+      window.removeEventListener("focus", onFocus)
+    }
   }, [productId, serverHasPurchased, serverAssetId])
 
   const formatPrice = (cents: number) => {

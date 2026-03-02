@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { DownloadButton } from "@/components/download-button"
+import { downloadEntitledFile } from "@/components/download-button"
 import {
   CheckCircle,
   Package,
@@ -26,6 +26,9 @@ import {
   LogIn,
   FileDown,
   Sparkles,
+  Download,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react"
 import { ReviewForm } from "@/components/reviews/review-form"
 import { getStoreUrl } from "@/lib/url-helpers"
@@ -172,6 +175,8 @@ export default function ReceiptContent({
     existingReview: any | null
   } | null>(null)
   const [isLoadingReviewStatus, setIsLoadingReviewStatus] = useState(true)
+  const [showAllDownloads, setShowAllDownloads] = useState(false)
+  const [downloadingAssetId, setDownloadingAssetId] = useState<string | null>(null)
 
   const handleCloseToast = useCallback(() => {
     setShowSuccessToast(false)
@@ -183,6 +188,25 @@ export default function ReceiptContent({
 
   const orderId = order?.id
   const orderShortId = orderId?.slice(0, 8) || ""
+  const INITIAL_VISIBLE_DOWNLOADS = 4
+  const visibleAssets = showAllDownloads ? assets : (assets || []).slice(0, INITIAL_VISIBLE_DOWNLOADS)
+  const hasMoreDownloads = (assets?.length || 0) > INITIAL_VISIBLE_DOWNLOADS
+
+  const handleReceiptDownload = useCallback(async (assetId: string) => {
+    if (!receiptToken || downloadingAssetId === assetId) return
+
+    setDownloadingAssetId(assetId)
+    try {
+      const result = await downloadEntitledFile(assetId, { receiptToken })
+      if (!result.success) {
+        console.error("[receipt] Download failed:", result.error)
+      }
+    } catch (downloadError) {
+      console.error("[receipt] Download failed:", downloadError)
+    } finally {
+      setDownloadingAssetId(null)
+    }
+  }, [downloadingAssetId, receiptToken])
 
   const purchaseDate = useMemo(() => {
     try {
@@ -708,18 +732,57 @@ export default function ReceiptContent({
                 </p>
               </div>
             ) : (
-              <div className="space-y-2.5">
-                {assets.map((asset, index) => (
-                  <DownloadButton
-                    key={asset.id}
-                    assetId={asset.id}
-                    receiptToken={receiptToken}
-                    size="lg"
-                    className="w-full h-12 rounded-xl font-medium bg-[#7c3aed] hover:bg-[#6d28d9] text-white shadow-sm"
-                  >
-                    Download {product?.title}
-                  </DownloadButton>
-                ))}
+              <div className="relative">
+                <div className="space-y-2.5">
+                  {visibleAssets.map((asset) => {
+                    const fileName = asset.file_name || "Download file"
+                    const isDownloading = downloadingAssetId === asset.id
+
+                    return (
+                      <button
+                        key={asset.id}
+                        type="button"
+                        onClick={() => handleReceiptDownload(asset.id)}
+                        disabled={isDownloading}
+                        className="w-full h-16 rounded-2xl border border-gray-200 bg-white px-4 flex items-center justify-between text-left transition-all hover:border-gray-300 hover:shadow-sm disabled:opacity-60 disabled:cursor-default"
+                      >
+                        <span className="text-base font-medium text-gray-900 truncate pr-3">{fileName}</span>
+                        <span className="h-10 w-10 shrink-0 rounded-full bg-[#171923] text-white inline-flex items-center justify-center">
+                          {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {!showAllDownloads && hasMoreDownloads && (
+                  <>
+                    <div className="pointer-events-none absolute bottom-11 left-0 right-0 h-16 bg-gradient-to-t from-white via-white/90 to-transparent" />
+                    <div className="pt-3 text-center">
+                      <button
+                        type="button"
+                        onClick={() => setShowAllDownloads(true)}
+                        className="text-sm font-semibold text-gray-600 hover:text-gray-900 inline-flex items-center gap-1"
+                      >
+                        Show all downloads ({assets.length})
+                        <ChevronDown className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </>
+                )}
+
+                {showAllDownloads && hasMoreDownloads && (
+                  <div className="pt-3 text-center">
+                    <button
+                      type="button"
+                      onClick={() => setShowAllDownloads(false)}
+                      className="text-sm font-semibold text-gray-600 hover:text-gray-900 inline-flex items-center gap-1"
+                    >
+                      Show less
+                      <ChevronUp className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>

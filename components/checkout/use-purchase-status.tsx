@@ -43,98 +43,116 @@ export function usePurchaseStatus(
   const [isChecking, setIsChecking] = useState(!serverHasPurchased)
 
   useEffect(() => {
-    // ── 1. URL-token path (Safari/WhatsApp/in-app-browser proof) ────────────────
-    // When the user completes checkout and clicks "Back to product", the receipt
-    // page appends ?purchaseToken=<token>&purchaseVariantId=<vid> to the product URL.
-    // Reading from the URL is immune to:
-    //   • Safari ITP localStorage clearing (cross-site tracking prevention)
-    //   • Safari/Chrome private/incognito mode (storage quota = 0)
-    //   • In-app browsers (WhatsApp, Instagram) that don't share cookies/storage
-    //     with the main Safari session
-    let urlToken: string | null = null
-    let urlVariantId: string | null = null
-    try {
-      const params = new URLSearchParams(window.location.search)
-      urlToken = params.get("purchaseToken")
-      urlVariantId = params.get("purchaseVariantId")
-    } catch { /* ignore */ }
+    const syncPurchaseState = () => {
+      let resolvedHasPurchased = serverHasPurchased
+      let resolvedReceiptToken: string | null = null
+      let resolvedAssetId = serverAssetId
+      let resolvedVariantIds = [...serverPurchasedVariantIds]
 
-    if (urlToken) {
-      // Trust the URL token immediately. It is only placed there by our own
-      // receipt page after a confirmed purchase. The actual download API
-      // independently verifies the token server-side, so there's no security risk.
-      const variantIds = urlVariantId
-        ? [urlVariantId]
-        : serverPurchasedVariantIds.length > 0
-          ? [...serverPurchasedVariantIds]
-          : [""] // empty-string = no-variant product
-
-      setHasPurchased(true)
-      setReceiptToken(urlToken)
-      setPurchasedVariantIds(variantIds)
-
-      // Remove the token from the visible URL (keeps it clean in history)
+      // 1) URL token path (works even when storage is isolated in Safari/in-app browsers)
+      let urlToken: string | null = null
+      let urlVariantId: string | null = null
       try {
-        const cleanUrl = new URL(window.location.href)
-        cleanUrl.searchParams.delete("purchaseToken")
-        cleanUrl.searchParams.delete("purchaseVariantId")
-        window.history.replaceState({}, "", cleanUrl.toString())
-      } catch { /* ignore */ }
+        const params = new URLSearchParams(window.location.search)
+        urlToken = params.get("purchaseToken")
+        urlVariantId = params.get("purchaseVariantId")
+      } catch {
+        // no-op
+      }
 
-      // Best-effort: persist to localStorage for future visits on this device
+      if (urlToken) {
+        resolvedHasPurchased = true
+        resolvedReceiptToken = urlToken
+        resolvedVariantIds = urlVariantId
+          ? [urlVariantId]
+          : resolvedVariantIds.length > 0
+            ? resolvedVariantIds
+            : [""]
+
+        // Keep URL clean after we've consumed the purchase token
+        try {
+          const cleanUrl = new URL(window.location.href)
+          cleanUrl.searchParams.delete("purchaseToken")
+          cleanUrl.searchParams.delete("purchaseVariantId")
+          window.history.replaceState({}, "", cleanUrl.toString())
+        } catch {
+          // no-op
+        }
+      }
+
+      // 2) Merge localStorage (best effort, may be unavailable in private mode)
       try {
         const stored = localStorage.getItem(PURCHASED_PRODUCTS_KEY)
         const purchases: Record<string, PurchaseInfo> = stored ? JSON.parse(stored) : {}
-        if (!purchases[productId]?.receiptToken) {
-          purchases[productId] = { receiptToken: urlToken, assets: [], variantIds }
-          localStorage.setItem(PURCHASED_PRODUCTS_KEY, JSON.stringify(purchases))
-        }
-      } catch { /* localStorage may be unavailable in private mode — that's fine */ }
-
-      setIsChecking(false)
-      return
-    }
-
-    // ── 2. localStorage path (normal browsers, non-private mode) ────────────────
-    // If server already confirmed purchase, merge with localStorage for complete picture
-    try {
-      const stored = localStorage.getItem(PURCHASED_PRODUCTS_KEY)
-      if (stored) {
-        const purchases: Record<string, PurchaseInfo> = JSON.parse(stored)
         const purchaseInfo = purchases[productId]
+
         if (purchaseInfo) {
-          // Merge localStorage variants with server variants
           const localVariantIds: string[] = []
 
-          // Handle new array format
           if (purchaseInfo.variantIds && Array.isArray(purchaseInfo.variantIds)) {
             localVariantIds.push(...purchaseInfo.variantIds)
-          }
-          // Handle legacy single variantId format
-          else if (purchaseInfo.variantId) {
+          } else if (purchaseInfo.variantId) {
             localVariantIds.push(purchaseInfo.variantId)
           }
 
-          // Merge with server variants (deduplicate)
-          const allVariantIds = [...new Set([...serverPurchasedVariantIds, ...localVariantIds])]
+          resolvedVariantIds = [...new Set([...resolvedVariantIds, ...localVariantIds])]
 
-          if (allVariantIds.length > 0 || purchaseInfo.receiptToken) {
-            setHasPurchased(true)
-            setPurchasedVariantIds(allVariantIds)
-            setReceiptToken(purchaseInfo.receiptToken)
+          if (purchaseInfo.receiptToken) {
+            resolvedHasPurchased = true
+            resolvedReceiptToken = resolvedReceiptToken || purchaseInfo.receiptToken
+          }
 
-            if (purchaseInfo.assets && purchaseInfo.assets.length > 0) {
-              setAssetId(purchaseInfo.assets[0].id)
-            }
+          if (purchaseInfo.assets && purchaseInfo.assets.length > 0) {
+            resolvedAssetId = purchaseInfo.assets[0].id
           }
         }
+
+        // Persist URL-derived token so reload/back-forward cache restores still work
+        if (urlToken) {
+          const current = purchases[productId]
+          purchases[productId] = {
+            receiptToken: urlToken,
+            assets: current?.assets || [],
+            variantIds: resolvedVariantIds,
+          }
+          localStorage.setItem(PURCHASED_PRODUCTS_KEY, JSON.stringify(purchases))
+        }
+      } catch (e) {
+        console.error("[usePurchaseStatus] Error syncing purchase state:", e)
       }
-    } catch (e) {
-      console.error("[usePurchaseStatus] Error checking localStorage:", e)
-    } finally {
+
+      setHasPurchased(resolvedHasPurchased)
+      setReceiptToken(resolvedReceiptToken)
+      setPurchasedVariantIds(resolvedVariantIds)
+      setAssetId(resolvedAssetId)
       setIsChecking(false)
     }
-  }, [productId, serverHasPurchased, serverPurchasedVariantIds])
+
+    syncPurchaseState()
+
+    // Safari + iOS webviews can restore pages from bfcache (Back button)
+    // without rerunning React mount. Re-sync on resume/focus-related events.
+    const onPageShow = () => syncPurchaseState()
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") syncPurchaseState()
+    }
+    const onFocus = () => syncPurchaseState()
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === PURCHASED_PRODUCTS_KEY) syncPurchaseState()
+    }
+
+    window.addEventListener("pageshow", onPageShow)
+    window.addEventListener("focus", onFocus)
+    window.addEventListener("storage", onStorage)
+    document.addEventListener("visibilitychange", onVisibilityChange)
+
+    return () => {
+      window.removeEventListener("pageshow", onPageShow)
+      window.removeEventListener("focus", onFocus)
+      window.removeEventListener("storage", onStorage)
+      document.removeEventListener("visibilitychange", onVisibilityChange)
+    }
+  }, [productId, serverAssetId, serverHasPurchased, serverPurchasedVariantIds])
 
   // Helper to check if a specific variant was purchased
   const hasVariantAccess = useCallback((variantId: string | null): boolean => {
