@@ -1,5 +1,6 @@
 import type React from "react"
 import type { Metadata } from "next"
+import { NativeAuthScrollLock } from "@/components/native-auth-scroll-lock"
 
 export const metadata: Metadata = {
   openGraph: {
@@ -31,5 +32,10 @@ export default function AuthLayout({
 }: {
   children: React.ReactNode
 }) {
-  return <>{children}</>
+  return (
+    <>
+      <NativeAuthScrollLock />
+      {children}
+    </>
+  )
 }

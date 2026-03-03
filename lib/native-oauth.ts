@@ -30,6 +30,12 @@
  */
 
 import { createClient } from "@/lib/supabase/client"
+import {
+  clearNativeAuthInProgress,
+  isNativeAuthInProgress,
+  markNativeAuthInProgress,
+  nativeAuthStart,
+} from "@/lib/native-bridge"
 
 const TAG = "[NativeOAuth]"
 const DEBUG =
@@ -115,14 +121,7 @@ function isHttpsResetPasswordUrl(url: string): boolean {
  * if authStart is not defined on the native side.
  */
 function notifyNativeAuthStart(): void {
-  try {
-    const w = window as any
-    if (typeof window !== "undefined" && w.StorelibNative?.authStart) {
-      w.StorelibNative.authStart()
-    }
-  } catch {
-    // Ignore — web environment or missing native interface
-  }
+  nativeAuthStart()
 }
 
 /**
@@ -174,7 +173,7 @@ async function handleRecoveryCallback(rawUrl: string): Promise<void> {
 
   notifyNativeAuthStart()
 
-  try { sessionStorage.setItem("nativeAuthInProgress", "1") } catch {}
+  markNativeAuthInProgress()
   try { sessionStorage.setItem("nativeRecoveryUrl", rawUrl) } catch {}
 
   // Navigate to /reset-password — the page reads tokens from sessionStorage
@@ -201,7 +200,7 @@ async function handleHttpsResetPasswordLink(rawUrl: string): Promise<void> {
   showToast(`HTTPS reset link\n${rawUrl.slice(0, 120)}`, "info")
 
   notifyNativeAuthStart()
-  try { sessionStorage.setItem("nativeAuthInProgress", "1") } catch {}
+  markNativeAuthInProgress()
 
   // Extract tokens from hash fragment (#access_token=...&refresh_token=...&type=recovery)
   const hashIndex = rawUrl.indexOf("#")
@@ -266,7 +265,8 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
     return
   }
   isHandling = true
-  try { sessionStorage.setItem('nativeAuthInProgress', '1') } catch {}
+  markNativeAuthInProgress()
+  let keepNativeOverlayUntilRendered = false
 
   try {
     // ── LOG 2: close browser ─────────────────────────────────────────────────
@@ -422,6 +422,7 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
       `&next=${encodeURIComponent(nextPath)}`
     console.log(`${TAG}   Navigating to sync-session route to establish cookies → ${nextPath}`)
 
+    keepNativeOverlayUntilRendered = true
     window.location.assign(syncUrl)
 
   } catch (err) {
@@ -431,7 +432,11 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
     window.location.assign(`/login?error=${encodeURIComponent(msg)}`)
   } finally {
     isHandling = false
-    try { sessionStorage.removeItem('nativeAuthInProgress') } catch {}
+    // Keep the native auth lock through successful route transitions.
+    // It is cleared by nativeAppReady() after the first real screen renders.
+    if (!keepNativeOverlayUntilRendered) {
+      clearNativeAuthInProgress()
+    }
     // Always dismiss native loading overlay — covers success, catch,
     // AND all early-return error paths inside try (OAuth error, no code,
     // exchange failure, session not persisted).
@@ -519,8 +524,7 @@ export async function setupNativeOAuthListeners(): Promise<() => void> {
           // → /app).  Navigating here would race it, skip cookie sync, and
           // cause "Auth session missing!" on the server side.
           // Check both module-level flag and sessionStorage (belt-and-suspenders).
-          let nativeAuthFlag = false
-          try { nativeAuthFlag = sessionStorage.getItem("nativeAuthInProgress") === "1" } catch {}
+          const nativeAuthFlag = isNativeAuthInProgress()
           if (isHandling || nativeAuthFlag) {
             console.log(`${TAG}   OAuth callback in progress (isHandling=${isHandling}, flag=${nativeAuthFlag}) — skipping authStateChange navigation.`)
             return
