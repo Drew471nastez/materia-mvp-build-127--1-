@@ -49,8 +49,15 @@ export default function NativeOAuthBridge() {
   // Fires on initial mount AND on every SPA navigation.
   // nativeAppReady() internally checks nativeAuthInProgress before calling
   // the bridge, so no explicit guard is needed here.
+  //
+  // IMPORTANT: skip /app and /library — those routes mount NativeAuthGate
+  // which calls nativeAppReadyForce() via requestAnimationFrame AFTER the
+  // session is verified and content is painted.  Firing here would dismiss
+  // the native overlay before NativeAuthGate has confirmed the session,
+  // causing the blank/white AuthResolvingScreen to flash briefly.
   const pathname = usePathname()
   useEffect(() => {
+    if (pathname.startsWith("/app") || pathname.startsWith("/library")) return
     nativeAppReady()
   }, [pathname])
 

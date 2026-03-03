@@ -3,6 +3,7 @@
 import { useState, useEffect, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
 import { AuthResolvingScreen } from "@/components/auth/auth-resolving-screen"
+import { nativeAppReadyForce } from "@/lib/native-bridge"
 
 /**
  * Lightweight client gate for server-rendered layouts.
@@ -91,14 +92,15 @@ export function NativeAuthGate({
   }, [requireAuth])
 
   // Signal to the native layer that the first meaningful UI is now visible.
-  // hideAuthLoading() is idempotent, so duplicate calls are harmless.
+  // Wrapped in requestAnimationFrame so it fires AFTER the browser has
+  // painted the content — not just after React scheduled the render.
+  // nativeAppReadyForce() bypasses the nativeAuthInProgress guard because
+  // at this point the session is confirmed and content is ready to show.
   useEffect(() => {
     if (blocked || !authChecked) return
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const native = (window as any).StorelibNative
-      if (native?.appReady) native.appReady()
-    } catch {}
+    requestAnimationFrame(() => {
+      nativeAppReadyForce()
+    })
   }, [blocked, authChecked])
 
   // Poll for flag removal + safety timeout (mode 1 only)
