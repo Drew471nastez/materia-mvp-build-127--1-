@@ -1,12 +1,76 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
+<!--
+    Root layout for MainActivity.
+
+    NOTE: Capacitor's BridgeActivity sets up its WebView programmatically and
+    does NOT inflate this file at runtime.  The actual loading overlay is built
+    in MainActivity.setupLoadingOverlay() and attached to android.R.id.content.
+
+    This XML is kept as:
+      1. Documentation of the intended layout / visual structure.
+      2. A preview target for Android Studio's Layout Editor.
+      3. A fallback for any future migration to an inflated layout.
+
+    Background colour #F3F4F6 matches windowSplashScreenBackground so the
+    activity window never shows a different colour at any point during launch.
+-->
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="#F3F4F6"
     tools:context=".MainActivity">
 
+    <!-- Capacitor WebView — background matches splash so no colour flash. -->
     <WebView
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
-</androidx.coordinatorlayout.widget.CoordinatorLayout>
+        android:layout_height="match_parent"
+        android:background="#F3F4F6" />
+
+    <!--
+        Loading overlay — visible by default.
+        Hidden programmatically (with a 300 ms fade) when the web app calls
+        window.StorelibNative.appReady() via the JavascriptInterface bridge.
+
+        Background #F3F4F6 = exact match to windowSplashScreenBackground.
+        The seamless colour chain is:
+            system splash (#F3F4F6)
+              → this overlay (#F3F4F6)
+                → web UI (first meaningful paint)
+    -->
+    <FrameLayout
+        android:id="@+id/loadingOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#F3F4F6"
+        android:visibility="visible"
+        android:clickable="true"
+        android:focusable="true">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:orientation="vertical"
+            android:gravity="center_horizontal">
+
+            <!-- App icon — 72 dp to match the SplashScreen icon size -->
+            <ImageView
+                android:layout_width="72dp"
+                android:layout_height="72dp"
+                android:src="@mipmap/ic_launcher"
+                android:scaleType="centerInside"
+                android:contentDescription="@string/app_name" />
+
+            <!-- Indeterminate spinner — tinted purple in code (0xFF7c3aed) -->
+            <ProgressBar
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_marginTop="20dp"
+                android:indeterminate="true" />
+
+        </LinearLayout>
+    </FrameLayout>
+
+</FrameLayout>

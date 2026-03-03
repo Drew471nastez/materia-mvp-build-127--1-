@@ -3,6 +3,7 @@ package com.storelib.app;
 import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.PorterDuff;
+import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
@@ -16,6 +17,8 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
+
+import androidx.core.splashscreen.SplashScreen;
 
 import com.getcapacitor.BridgeActivity;
 
@@ -35,44 +38,75 @@ import com.getcapacitor.BridgeActivity;
  *    On return we navigate directly to /app; the session was established
  *    in the Custom Tab and the server validates it on the /app request.
  *
- * 4. Shows a white native loading overlay (logo + spinner) from first
- *    frame until the web app calls StorelibNative.appReady(), eliminating
- *    any blank or black gap between the splash screen and real content.
+ * 4. Zero-black-frame launch sequence:
+ *      a) AndroidX SplashScreen API keeps the SYSTEM splash (light gray,
+ *         #F3F4F6 background + ic_launcher_foreground icon) on screen
+ *         until the web app calls StorelibNative.appReady().
+ *      b) A native FrameLayout overlay (same #F3F4F6 colour + spinner)
+ *         covers the WebView from first frame so there is never a gap
+ *         even on pre-12 devices or OEMs that dismiss the system splash early.
+ *      c) Both the system splash and the native overlay share the same
+ *         #F3F4F6 colour, so the transition is visually seamless.
+ *      d) WebView background is set to the SAME #F3F4F6 (NOT transparent)
+ *         because some OEM WebView implementations show a black rectangle
+ *         behind a transparent WebView surface.
  */
 public class MainActivity extends BridgeActivity {
 
     /** Intent extra key used by {@link WelcomeActivity}. */
     public static final String EXTRA_TARGET_URL = "TARGET_URL";
 
-    /** Full-screen white overlay shown until the web app signals it is ready. */
+    /** Light gray — matches windowSplashScreenBackground in styles.xml. */
+    private static final int SPLASH_COLOR = 0xFFF3F4F6;
+
+    /**
+     * Set to true when the web app calls StorelibNative.appReady().
+     * Volatile so the SplashScreen condition lambda (called from the UI thread)
+     * always sees the latest value written from the JavascriptInterface thread.
+     */
+    private volatile boolean appReady = false;
+
+    /** Full-screen overlay shown until the web app signals it is ready. */
     private View loadingOverlay;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private Runnable safetyTimeout;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        // ── AndroidX SplashScreen ─────────────────────────────────────
+        // MUST be called before super.onCreate() so the system splash
+        // is correctly installed before the activity window is shown.
+        SplashScreen splashScreen = SplashScreen.installSplashScreen(this);
+
         super.onCreate(savedInstanceState);
 
-        // Keep the splash image visible behind the WebView until the web app
-        // signals it is ready.  Without this the window background defaults to
-        // the theme colour (white) which could cause a brief blank frame.
-        getWindow().setBackgroundDrawableResource(R.drawable.splash);
+        // Keep the system splash on screen until the web app calls appReady().
+        // This covers Android 12+ natively; on older devices the condition is
+        // evaluated but the splash exits after the first frame regardless
+        // (the native overlay then takes over seamlessly).
+        splashScreen.setKeepOnScreenCondition(() -> !appReady);
+
+        // Set window background to the same light gray as the splash so there
+        // is never a colour mismatch behind the overlay or between activity
+        // transitions.
+        getWindow().setBackgroundDrawable(new ColorDrawable(SPLASH_COLOR));
 
         if (getBridge() == null) return;  // safety (no WebView installed)
 
         // ── Replace the default WebViewClient with ours ─────────────
         getBridge().setWebViewClient(new StorelibWebViewClient(getBridge()));
 
-        // ── Loading overlay: white + logo + spinner ───────────────────
+        // ── Loading overlay: light gray + logo + spinner ─────────────
         setupLoadingOverlay();
 
-        // Show immediately so there is never an empty frame between the
-        // OS splash and the first WebView paint.
+        // Show immediately — covers the WebView surface from frame zero.
         showOverlay();
 
-        // Make the WebView background transparent so the splash / overlay is
-        // visible behind it while the page is loading.
-        getBridge().getWebView().setBackgroundColor(Color.TRANSPARENT);
+        // Set WebView background to the same light gray (NOT transparent).
+        // Some OEM WebView implementations render a black surface behind
+        // a transparent WebView; using the same colour as the overlay means
+        // any revealed edge is the same shade and invisible to the user.
+        getBridge().getWebView().setBackgroundColor(SPLASH_COLOR);
 
         // ── JS bridge: window.StorelibNative ─────────────────────────
         getBridge().getWebView().addJavascriptInterface(new Object() {
@@ -86,14 +120,23 @@ public class MainActivity extends BridgeActivity {
             /** Legacy: called by native-oauth.ts after code exchange completes. */
             @JavascriptInterface
             public void authDone() {
-                // Overlay is now dismissed by appReady() once the destination
-                // page renders.  This method is kept for back-compat but is a
-                // no-op so the overlay doesn't vanish before the new page loads.
+                // Overlay is dismissed by appReady() once the destination
+                // page renders.  Kept for back-compat but is a no-op.
             }
 
-            /** Called by the web app once the first meaningful UI is visible. */
+            /**
+             * Called by the web app once the first meaningful UI is visible.
+             *
+             * Sets appReady = true so the SplashScreen condition returns false
+             * on the next frame check, allowing the system splash to exit.
+             * Then fades out the native overlay on the main thread.
+             */
             @JavascriptInterface
             public void appReady() {
+                // Signal the SplashScreen to exit (condition check is synchronous
+                // on the UI thread; volatile ensures immediate visibility).
+                appReady = true;
+                // Fade out the native overlay — runs on the UI thread.
                 mainHandler.post(() -> hideOverlay());
             }
         }, "StorelibNative");
@@ -199,18 +242,21 @@ public class MainActivity extends BridgeActivity {
     // ────────────────────────────────────────────────────────────────
 
     /**
-     * Builds a full-screen white overlay containing the app icon and a
+     * Builds a full-screen light-gray overlay containing the app icon and a
      * purple spinner, then attaches it to the root content view.
      *
+     * Background colour (#F3F4F6) matches windowSplashScreenBackground so the
+     * transition from system splash → native overlay → web content is seamless.
+     *
      * Layout:
-     *   FrameLayout (white, MATCH_PARENT)
+     *   FrameLayout (#F3F4F6, MATCH_PARENT)
      *     └─ LinearLayout (vertical, centred)
      *          ├─ ImageView  — ic_launcher  (72 dp)
      *          └─ ProgressBar              (32 dp, 20 dp top margin)
      */
     private void setupLoadingOverlay() {
         FrameLayout overlay = new FrameLayout(this);
-        overlay.setBackgroundColor(Color.WHITE);
+        overlay.setBackgroundColor(SPLASH_COLOR);
         overlay.setVisibility(View.GONE);
         overlay.setClickable(true);  // absorb touches while loading
 
@@ -227,7 +273,7 @@ public class MainActivity extends BridgeActivity {
                 new LinearLayout.LayoutParams(dpToPx(72), dpToPx(72));
         stack.addView(logo, logoLp);
 
-        // Spinner
+        // Spinner — purple brand colour
         ProgressBar spinner = new ProgressBar(this);
         spinner.setIndeterminate(true);
         spinner.getIndeterminateDrawable()
@@ -251,7 +297,7 @@ public class MainActivity extends BridgeActivity {
         loadingOverlay = overlay;
     }
 
-    /** Show the white overlay + spinner instantly. */
+    /** Show the light-gray overlay + spinner instantly. */
     public void showOverlay() {
         if (loadingOverlay == null) return;
         // Cancel any in-progress fade-out animation
@@ -262,7 +308,10 @@ public class MainActivity extends BridgeActivity {
         // Safety timeout: auto-hide after 12 s in case the web app never calls
         // appReady() (e.g., a JavaScript error on first load).
         if (safetyTimeout != null) mainHandler.removeCallbacks(safetyTimeout);
-        safetyTimeout = this::hideOverlay;
+        safetyTimeout = () -> {
+            appReady = true;   // also release SplashScreen condition
+            hideOverlay();
+        };
         mainHandler.postDelayed(safetyTimeout, 12_000);
     }
 
