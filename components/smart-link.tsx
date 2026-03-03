@@ -61,6 +61,17 @@ function toInternalHref(href: string): string {
  * startNavigationLoading() — that was causing a double-fire that required
  * users to tap twice.
  */
+// Touch styles applied to every SmartLink to fix iOS single-tap behaviour:
+// - touchAction:manipulation removes the 300ms tap delay and prevents double-tap zoom
+// - userSelect:none prevents the first tap from selecting text (which requires a
+//   second tap to actually fire the click on iOS)
+// - WebkitTapHighlightColor:transparent removes the grey flash on iOS tap
+const TOUCH_STYLES: React.CSSProperties = {
+  touchAction: "manipulation",
+  userSelect: "none",
+  WebkitTapHighlightColor: "transparent",
+}
+
 export function SmartLink({
   href,
   children,
@@ -79,6 +90,7 @@ export function SmartLink({
         href={resolvedHref}
         onClick={onClick as any}
         {...linkSafeProps}
+        style={{ ...TOUCH_STYLES, ...(linkSafeProps.style as React.CSSProperties) }}
       >
         {children}
       </Link>
@@ -91,6 +103,7 @@ export function SmartLink({
       {...props}
       target={inApp ? undefined : props.target}
       rel={inApp ? undefined : props.rel}
+      style={{ ...TOUCH_STYLES, ...(props.style as React.CSSProperties) }}
     >
       {children}
     </a>

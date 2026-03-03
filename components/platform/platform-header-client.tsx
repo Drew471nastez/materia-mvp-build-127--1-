@@ -9,7 +9,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from "react"
 import { createPortal } from "react-dom"
 import type { User } from "@supabase/supabase-js"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
-import { extractUsernameFromHost, getCanonicalSiteUrl } from "@/lib/url-helpers"
+import { extractUsernameFromHost, getCanonicalSiteUrl, isCustomDomain } from "@/lib/url-helpers"
 import { isDiscoverMode } from "@/lib/isDiscoverMode"
 import { cn } from "@/lib/utils"
 
@@ -265,32 +265,26 @@ function MobileTopSheet({
     }, 400)
   }
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const touch = e.touches[0]
-    const sheetElement = sheetRef.current
-    if (!sheetElement) return
-
-    const sheetRect = sheetElement.getBoundingClientRect()
-    const touchYInSheet = touch.clientY - sheetRect.top
-    const sheetHeight = sheetRect.height
-
-    // Only start dragging if touch is in the handle area (bottom 60px of the sheet)
-    if (touchYInSheet >= sheetHeight - 60) {
-      startY.current = touch.clientY
-      setIsDragging(true)
-    }
+  // ── Handle-bar-only drag handlers (MobileTopSheet) ─────────────────────
+  // Touch handlers are ONLY on the handle bar at the bottom, NOT on the full
+  // sheet. This guarantees that touches on search inputs, category pills, and
+  // product result links inside the sheet are NEVER intercepted by drag logic.
+  const handleHandleTouchStart = (e: React.TouchEvent) => {
+    startY.current = e.touches[0].clientY
+    setIsDragging(true)
   }
 
-  const handleTouchMove = (e: React.TouchEvent) => {
+  const handleHandleTouchMove = (e: React.TouchEvent) => {
     if (!isDragging) return
     const currentY = e.touches[0].clientY
-    const diff = startY.current - currentY
+    const diff = startY.current - currentY // positive = dragging up (towards close)
     if (diff > 0) {
-      setDragY(-diff * 0.8)
+      e.preventDefault()
+      setDragY(-diff * 0.8) // negative = sheet moves up
     }
   }
 
-  const handleTouchEnd = () => {
+  const handleHandleTouchEnd = () => {
     if (!isDragging) return
     setIsDragging(false)
     if (dragY < -80) {
@@ -315,9 +309,6 @@ function MobileTopSheet({
       {/* Top Sheet */}
       <div
         ref={sheetRef}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
         className="absolute top-0 left-0 right-0 bg-white rounded-b-[24px] shadow-2xl"
         style={{
           transform: isAnimating ? `translateY(${dragY}px)` : "translateY(-100%)",
@@ -328,11 +319,16 @@ function MobileTopSheet({
         <div className="overflow-y-auto overscroll-contain" style={{ maxHeight: 'calc(75vh - 40px)' }}>
           {children}
         </div>
-        {/* Handle bar at bottom */}
-        <div className="pb-3 pt-2">
+        {/* Handle bar at bottom — the ONLY drag target */}
+        <div
+          className="pb-3 pt-2 touch-none"
+          onTouchStart={handleHandleTouchStart}
+          onTouchMove={handleHandleTouchMove}
+          onTouchEnd={handleHandleTouchEnd}
+        >
           <button
             onClick={handleClose}
-            className="w-full flex justify-center py-2 cursor-pointer touch-none"
+            className="w-full flex justify-center py-2 cursor-pointer"
           >
             <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
           </button>
@@ -349,11 +345,13 @@ function MobileBottomSheet({
   onClose,
   children,
   title,
+  contentKey,
 }: {
   isOpen: boolean
   onClose: () => void
   children: React.ReactNode
   title?: string
+  contentKey?: string | null
 }) {
   const [isVisible, setIsVisible] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
@@ -475,7 +473,14 @@ function MobileBottomSheet({
             <h3 className="text-[16px] font-semibold text-gray-900">{title}</h3>
           </div>
         )}
-        <div className="overflow-y-auto overscroll-contain" style={{ maxHeight: 'calc(74vh - 80px)' }}>
+        {/* key resets scroll to top when switching between main list and subcategory view.
+            Without this, expanding a category while scrolled down makes the subcategory
+            view appear blank because the scroll position is past the shorter content. */}
+        <div
+          key={contentKey ?? 'default'}
+          className="overflow-y-auto overscroll-contain"
+          style={{ maxHeight: 'calc(74vh - 80px)' }}
+        >
           {children}
         </div>
       </div>
@@ -899,7 +904,11 @@ export function PlatformHeaderClient() {
 
   const shouldForceCanonicalNav = useMemo(() => {
     if (typeof window === "undefined") return false
-    return Boolean(extractUsernameFromHost(window.location.host))
+    const host = window.location.host
+    // Force canonical storelib.com URLs on seller subdomains (seller.storelib.com)
+    // AND on seller custom domains (e.g. materiabuilder.store). Both lack /explore,
+    // /library, /app routes so all navigation must go to the canonical domain.
+    return Boolean(extractUsernameFromHost(host)) || isCustomDomain(host)
   }, [pathname])
 
   const navigateToCanonical = useCallback(
@@ -1773,6 +1782,7 @@ export function PlatformHeaderClient() {
           setMobileMenuOpen(false)
           setExpandedCategory(null)
         }}
+        contentKey={expandedCategory}
       >
         <div className="px-4 pb-6">
           {/* Guest User - Simple Sign in and Discover buttons only */}
