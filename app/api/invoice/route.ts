@@ -77,7 +77,11 @@ export async function GET(request: Request) {
       const logoResponse = await fetch(logoUrl)
       if (logoResponse.ok) {
         const svgBuffer = Buffer.from(await logoResponse.arrayBuffer())
-        const sharpMod = await import("sharp")
+        // Use runtime require so sharp remains optional at build time.
+        // This prevents Turbopack from failing module resolution when sharp
+        // is not installed in the deploy image.
+        const runtimeRequire = (0, eval)("require") as NodeRequire
+        const sharpMod = runtimeRequire("sharp")
         const sharpFn = sharpMod.default || sharpMod
         logoPngBuffer = await (sharpFn as any)(svgBuffer).resize(80, 80, { fit: "inside" }).png().toBuffer()
       }

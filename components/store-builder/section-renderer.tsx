@@ -36,6 +36,7 @@ export function SectionRenderer({
   sellerMemberSince,
   sellerTotalSales,
   sellerProductsCount,
+  creatorUsername,
 }: {
   section: Section
   products?: ProductData[]
@@ -50,6 +51,7 @@ export function SectionRenderer({
   sellerMemberSince?: string
   sellerTotalSales?: number
   sellerProductsCount?: number
+  creatorUsername?: string
 }) {
   // Defensive check - don't render if section or settings are invalid
   if (!section || !section.settings) {
@@ -74,6 +76,7 @@ export function SectionRenderer({
       sellerMemberSince={sellerMemberSince}
       sellerTotalSales={sellerTotalSales}
       sellerProductsCount={sellerProductsCount}
+      creatorUsername={creatorUsername}
     />
   )
 }
