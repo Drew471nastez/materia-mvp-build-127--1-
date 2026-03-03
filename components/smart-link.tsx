@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { isNativeApp } from "@/lib/platform-utils"
+import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 
 /**
  * Convert a full subdomain URL to an internal path for in-app navigation.
@@ -78,9 +79,16 @@ export function SmartLink({
   // navigation which preserves the Supabase auth session (no full page reload).
   if (inApp && resolvedHref?.startsWith("/")) {
     // Strip anchor-only props that Link handles differently
-    const { target, rel, ...linkSafeProps } = props
+    const { target, rel, onClick, ...linkSafeProps } = props
     return (
-      <Link href={resolvedHref} {...linkSafeProps}>
+      <Link
+        href={resolvedHref}
+        onClick={(e) => {
+          startNavigationLoading()
+          onClick?.(e)
+        }}
+        {...linkSafeProps}
+      >
         {children}
       </Link>
     )
