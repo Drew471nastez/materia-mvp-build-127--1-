@@ -72,8 +72,13 @@ export default async function LibraryLayout({
       {/* Main content column — sits next to sidebar on desktop */}
       <div className="flex min-h-svh flex-col md:ml-64">
         {/* Content area — body scrolls naturally (no internal scroll container) */}
+        {/* Mobile: 3.5 rem header height + status-bar safe area.
+            Desktop: no fixed header above content, but the sidebar starts at
+            top-0 with its own pt-[env(safe-area-inset-top)]. The main content
+            must also clear the status bar, so we add env(safe-area-inset-top)
+            as desktop top-padding. In a browser env() = 0 → md:pt-0. */}
         <main
-          className="flex-1 pt-[calc(3.5rem+env(safe-area-inset-top))] md:pt-0"
+          className="flex-1 pt-[calc(3.5rem+env(safe-area-inset-top))] md:pt-[env(safe-area-inset-top,_0px)]"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
           <div className="px-4 py-6 sm:px-6 md:px-8 pb-[max(2rem,env(safe-area-inset-bottom))]">

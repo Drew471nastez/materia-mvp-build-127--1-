@@ -673,8 +673,11 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         }
       `}</style>
 
-      {/* Desktop Header Bar — dark bar with concave bottom corners */}
-      <header className="fixed top-0 left-0 right-0 z-50 hidden md:block">
+      {/* Desktop Header Bar — dark bar with concave bottom corners.
+          pt-[env(safe-area-inset-top)] pushes the 58 px content row below
+          the iOS/iPadOS status bar in Capacitor. In a browser env() = 0
+          so the header stays exactly 58 px — no visual change. */}
+      <header className="fixed top-0 left-0 right-0 z-50 hidden md:block pt-[env(safe-area-inset-top,_0px)]">
         <div className="relative h-[58px] bg-[#131316] flex items-center px-5">
           {/* Left side: Profile dropdown */}
           <div ref={headerProfileRef} className="relative shrink-0">
@@ -1161,7 +1164,16 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         <MobileSidebarContent onItemClick={() => setMobileMenuOpen(false)} />
       </div>
 
-      <aside className="fixed left-0 top-[58px] z-40 hidden w-[220px] flex-col border-r border-neutral-200/50 md:flex" style={{ height: 'calc(100svh - 58px)' }}>
+      {/* top and height mirror the desktop header: 58 px content row +
+          env(safe-area-inset-top) padding. In a browser env() = 0 so
+          this is identical to the previous top-[58px] / calc(100svh-58px). */}
+      <aside
+        className="fixed left-0 z-40 hidden w-[220px] flex-col border-r border-neutral-200/50 md:flex"
+        style={{
+          top: 'calc(58px + env(safe-area-inset-top, 0px))',
+          height: 'calc(100svh - 58px - env(safe-area-inset-top, 0px))',
+        }}
+      >
         <SidebarContent />
       </aside>
 
@@ -1185,7 +1197,9 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             }
           }}
           className={cn(
-            "fixed bottom-6 right-4 md:right-6 z-40 hidden md:flex items-center gap-2 bg-white rounded-full pl-2 pr-3 py-2 md:pl-2.5 md:pr-4 md:py-2.5 shadow-lg border border-neutral-200/70 transition-all duration-200 hover:shadow-xl hover:scale-105 active:scale-95",
+            // bottom-[calc(...)] keeps the button above the home-indicator on iPad.
+          // In a browser env(safe-area-inset-bottom) = 0, so this equals bottom-6.
+          "fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom,_0px))] right-4 md:right-6 z-40 hidden md:flex items-center gap-2 bg-white rounded-full pl-2 pr-3 py-2 md:pl-2.5 md:pr-4 md:py-2.5 shadow-lg border border-neutral-200/70 transition-all duration-200 hover:shadow-xl hover:scale-105 active:scale-95",
             (pathname.startsWith("/app/settings") || pathname.startsWith("/app/emails") || pathname.startsWith("/app/payouts") || pathname.startsWith("/app/analytics")) && "!hidden"
           )}
         >

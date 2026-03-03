@@ -169,8 +169,11 @@ export default async function AppLayout({
           onePagePublished={!!onepage}
           setupProgress={{ completed: completedSteps, total: totalSteps }}
         />
-        <main className="h-svh pt-[calc(68px_+_env(safe-area-inset-top,_0px))] md:pt-[58px] md:pl-[220px] bg-white rounded-t-[20px] md:rounded-none overflow-hidden app-main-content">
-          <div className="h-[calc(100svh_-_68px_-_env(safe-area-inset-top,_0px))] md:h-[calc(100svh-58px)] overflow-y-auto app-content-scroll">{children}</div>
+        {/* md:pt accounts for the desktop header height (58 px) plus the
+            safe-area-inset-top padding the header adds in Capacitor.
+            In a browser env() = 0, so md:pt stays exactly 58 px. */}
+        <main className="h-svh pt-[calc(68px_+_env(safe-area-inset-top,_0px))] md:pt-[calc(58px+env(safe-area-inset-top,_0px))] md:pl-[220px] bg-white rounded-t-[20px] md:rounded-none overflow-hidden app-main-content">
+          <div className="h-[calc(100svh_-_68px_-_env(safe-area-inset-top,_0px))] md:h-[calc(100svh-58px-env(safe-area-inset-top,_0px))] overflow-y-auto app-content-scroll">{children}</div>
         </main>
         <Toaster />
       </div>

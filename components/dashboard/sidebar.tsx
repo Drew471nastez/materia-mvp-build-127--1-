@@ -231,8 +231,10 @@ export function DashboardSidebar() {
         </div>
       </div>
 
-      {/* Desktop sidebar */}
-      <aside className="fixed left-0 top-0 z-40 hidden h-svh w-64 flex-col border-r border-border bg-background md:flex">
+      {/* Desktop sidebar — pt-[env(safe-area-inset-top)] pushes the logo
+          row below the iOS/iPadOS status bar in Capacitor.
+          In a browser env() = 0 so layout is unchanged. */}
+      <aside className="fixed left-0 top-0 z-40 hidden h-svh w-64 flex-col border-r border-border bg-background md:flex pt-[env(safe-area-inset-top,_0px)]">
         <SidebarContent />
       </aside>
     </>

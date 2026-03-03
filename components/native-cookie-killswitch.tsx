@@ -71,6 +71,13 @@ export function NativeCookieKillSwitch(): null {
   useEffect(() => {
     if (!isNativeApp()) return
 
+    // ── 0. Mark <html> as a native Capacitor session ─────────────────────
+    // Adds the "capacitor" class so CSS rules can be scoped to native only:
+    //   html.capacitor .some-element { ... }
+    // Also supports JS detection:
+    //   document.documentElement.classList.contains("capacitor")
+    document.documentElement.classList.add("capacitor")
+
     // ── 1. Inject CSS kill-switch ─────────────────────────────────────────
     // Runs before any async vendor scripts finish loading.
     const style = document.createElement("style")
@@ -89,6 +96,7 @@ export function NativeCookieKillSwitch(): null {
     observer.observe(document.body, { childList: true, subtree: true })
 
     return () => {
+      document.documentElement.classList.remove("capacitor")
       observer.disconnect()
       // Leave the <style> in place intentionally — removing it on unmount
       // could briefly expose a vendor banner before the component remounts.
