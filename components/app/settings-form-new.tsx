@@ -1896,8 +1896,13 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 <button
                   type="button"
                   onClick={() => {
-                    openExternal(onepageUrl || navOnepageUrl)
                     setIsQuickAccessOpen(false)
+                    // In Capacitor navigate within the WebView; on web open a new tab
+                    if (isNativeApp()) {
+                      window.location.href = navOnepageUrl || onepageUrl
+                    } else {
+                      window.open(onepageUrl || navOnepageUrl, "_blank", "noopener,noreferrer")
+                    }
                   }}
                   className="w-full text-left rounded-xl p-3 hover:bg-[#f9fafb] transition-colors cursor-pointer"
                 >
@@ -1907,8 +1912,12 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
                 <button
                   type="button"
                   onClick={() => {
-                    openExternal(storeUrlWithDomain || navStoreUrlWithDomain)
                     setIsQuickAccessOpen(false)
+                    if (isNativeApp()) {
+                      window.location.href = navStoreUrlWithDomain || storeUrlWithDomain
+                    } else {
+                      window.open(storeUrlWithDomain || navStoreUrlWithDomain, "_blank", "noopener,noreferrer")
+                    }
                   }}
                   className="w-full text-left rounded-xl p-3 hover:bg-[#f9fafb] transition-colors cursor-pointer"
                 >
@@ -1922,11 +1931,25 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
 
         <MobileBottomSheet isOpen={isMobileViewport && isQuickAccessOpen} onClose={() => setIsQuickAccessOpen(false)} title="Quick access">
           <div className="space-y-2">
-            <button type="button" onClick={() => { openExternal(onepageUrl || navOnepageUrl); setIsQuickAccessOpen(false) }} className="w-full text-left rounded-xl border border-[#ececf1] p-3">
+            <button type="button" onClick={() => {
+              setIsQuickAccessOpen(false)
+              if (isNativeApp()) {
+                window.location.href = navOnepageUrl || onepageUrl
+              } else {
+                window.open(onepageUrl || navOnepageUrl, "_blank", "noopener,noreferrer")
+              }
+            }} className="w-full text-left rounded-xl border border-[#ececf1] p-3">
               <p className="text-[14px] font-semibold text-[#111827] flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-[#8b5cf6] flex items-center justify-center"><ChainLinkIcon className="w-3 h-3" stroke="#ffffff" /></span>OnePage</p>
               <p className="text-[12px] text-[#6b7280] truncate mt-1">{onepageUrl}</p>
             </button>
-            <button type="button" onClick={() => { openExternal(storeUrlWithDomain || navStoreUrlWithDomain); setIsQuickAccessOpen(false) }} className="w-full text-left rounded-xl border border-[#ececf1] p-3">
+            <button type="button" onClick={() => {
+              setIsQuickAccessOpen(false)
+              if (isNativeApp()) {
+                window.location.href = navStoreUrlWithDomain || storeUrlWithDomain
+              } else {
+                window.open(storeUrlWithDomain || navStoreUrlWithDomain, "_blank", "noopener,noreferrer")
+              }
+            }} className="w-full text-left rounded-xl border border-[#ececf1] p-3">
               <p className="text-[14px] font-semibold text-[#111827] flex items-center gap-2"><span className="w-6 h-6 rounded-full bg-black flex items-center justify-center overflow-hidden"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/image2vector%20(2).webp" alt="" className="w-4 h-4" loading="eager" decoding="async" /></span>Store</p>
               <p className="text-[12px] text-[#6b7280] truncate mt-1">{storeUrlWithDomain}</p>
             </button>

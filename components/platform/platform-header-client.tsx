@@ -587,6 +587,11 @@ export function PlatformHeaderClient() {
   const [loading, setLoading] = useState(true)
   const [initialLoadDone, setInitialLoadDone] = useState(false)
   const [wishlistCount, setWishlistCount] = useState(0)
+  // Persist avatar URL so it shows immediately on re-renders/navigations (no placeholder flash)
+  const [cachedAvatarUrl, setCachedAvatarUrl] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null
+    try { return localStorage.getItem("_sl_avatar") } catch { return null }
+  })
 
   const mountedRef = useRef(true)
 
@@ -797,7 +802,14 @@ export function PlatformHeaderClient() {
           setIsCreator(false)
           setHasCompletedSellerOnboarding(false)
         } else {
-          setProfile((profileData as Profile) ?? null)
+          const pd = (profileData as Profile) ?? null
+          setProfile(pd)
+          // Persist avatar so the next render (or next page load) shows it immediately
+          const freshAvatar = pd?.avatar_url || null
+          if (freshAvatar) {
+            setCachedAvatarUrl(freshAvatar)
+            try { localStorage.setItem("_sl_avatar", freshAvatar) } catch {}
+          }
           const isSellerByState = !!creatorData?.onboarding_completed
           setIsCreator(isSellerByState)
           setHasCompletedSellerOnboarding(isSellerByState)
@@ -848,7 +860,9 @@ export function PlatformHeaderClient() {
   // Both /app/settings and Store Builder sync to it. No cache-busting params needed.
   const googleAvatarUrl = (user?.user_metadata as any)?.avatar_url || (user?.user_metadata as any)?.picture || null
 
-  const avatarUrl = profile?.avatar_url || googleAvatarUrl || undefined
+  // cachedAvatarUrl seeds from localStorage so the correct avatar shows on the FIRST render
+  // (before the async profile fetch resolves), preventing the placeholder flash.
+  const avatarUrl = profile?.avatar_url || googleAvatarUrl || cachedAvatarUrl || undefined
 
   const displayName =
     profile?.display_name ||
@@ -861,6 +875,8 @@ export function PlatformHeaderClient() {
     await supabase.auth.signOut()
     setMobileProfileOpen(false)
     setDesktopProfileOpen(false)
+    setCachedAvatarUrl(null)
+    try { localStorage.removeItem("_sl_avatar") } catch {}
     if (isNativePlatform()) {
       window.location.assign("storelib://logout")
     } else {
@@ -1399,21 +1415,21 @@ export function PlatformHeaderClient() {
 
             {/* Right - Mobile Icons */}
             <div className="flex items-center gap-1">
-              {/* Library - only show when logged in */}
+              {/* Library - only show when logged in; h-11 w-11 = 44px tap target */}
               {user && (
                 <Link
-                  href={getCanonicalOrRelativePath("/library")} onClick={(e) => onCanonicalNav(e, "/library")}
-                  className="flex h-9 w-9 items-center justify-center rounded-full text-white/80 hover:bg-white/10 transition cursor-pointer"
+                  href={getCanonicalOrRelativePath("/library")} onClick={(e) => { e.preventDefault(); setMobileProfileOpen(false); onCanonicalNav(e, "/library") }}
+                  className="flex h-11 w-11 items-center justify-center rounded-full text-white/80 hover:bg-white/10 transition cursor-pointer"
                   aria-label="Library"
                 >
                   <Library className="h-5 w-5" />
                 </Link>
               )}
 
-              {/* Wishlist */}
+              {/* Wishlist — h-11 w-11 = 44px tap target */}
               <Link
                 href={getCanonicalOrRelativePath(wishlistHref)} onClick={(e) => onCanonicalNav(e, wishlistHref)}
-                className="relative flex h-9 w-9 items-center justify-center rounded-full text-white/80 hover:bg-white/10 transition cursor-pointer"
+                className="relative flex h-11 w-11 items-center justify-center rounded-full text-white/80 hover:bg-white/10 transition cursor-pointer"
                 aria-label="Wishlist"
               >
                 <Heart className="h-5 w-5" />
@@ -1424,12 +1440,12 @@ export function PlatformHeaderClient() {
                 )}
               </Link>
 
-              {/* Mobile Avatar or Sign In button */}
+              {/* Mobile Avatar or Sign In button — use h-11 w-11 wrapper for 44px tap target */}
               {user ? (
                 <button
                   type="button"
                   onClick={() => setMobileProfileOpen(true)}
-                  className="rounded-full cursor-pointer ml-2"
+                  className="flex h-11 w-11 items-center justify-center rounded-full cursor-pointer"
                   aria-label="Open profile menu"
                 >
                   <Avatar className="h-8 w-8 border border-gray-200">

@@ -1028,18 +1028,22 @@ html.capacitor {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Per-element touch-action so nested elements can't override the root setting */
 html.capacitor button,
 html.capacitor a,
 html.capacitor [role="button"],
 html.capacitor [tabindex="0"] {
+  touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
-  transition: opacity 80ms ease-out, transform 80ms ease-out;
+  /* opacity-only feedback — NO transform scale which can delay touch dispatch */
+  transition: opacity 80ms ease-out;
 }
 
 html.capacitor button:active,
 html.capacitor a:active,
 html.capacitor [role="button"]:active,
 html.capacitor [tabindex="0"]:active {
-  opacity: 0.7;
-  transform: scale(0.97);
+  opacity: 0.65;
+  /* scale(0.97) removed: transform on :active can trigger a relayout that delays
+     the subsequent click event by one frame in some Android WebViews */
 }
