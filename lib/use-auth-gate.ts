@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
+import { clearNativeAuthInProgress, isNativeAuthInProgress } from "@/lib/native-bridge"
 import type { Session } from "@supabase/supabase-js"
 
 /**
@@ -28,7 +29,7 @@ export function useAuthGate() {
   const [session, setSession] = useState<Session | null>(null)
   const [nativeAuthInProgress, setNativeAuthInProgress] = useState(() => {
     try {
-      return sessionStorage.getItem("nativeAuthInProgress") === "1"
+      return isNativeAuthInProgress()
     } catch {
       return false
     }
@@ -40,7 +41,7 @@ export function useAuthGate() {
     if (!nativeAuthInProgress) return
     const poll = window.setInterval(() => {
       try {
-        if (sessionStorage.getItem("nativeAuthInProgress") !== "1") {
+        if (!isNativeAuthInProgress()) {
           setNativeAuthInProgress(false)
         }
       } catch {
@@ -49,7 +50,7 @@ export function useAuthGate() {
     }, 300)
     const safety = window.setTimeout(() => {
       try {
-        sessionStorage.removeItem("nativeAuthInProgress")
+        clearNativeAuthInProgress()
       } catch {}
       setNativeAuthInProgress(false)
     }, 15_000)

@@ -32,6 +32,7 @@
 import { useEffect } from "react"
 import { usePathname } from "next/navigation"
 import { setupNativeOAuthListeners } from "@/lib/native-oauth"
+import { isNativeApp, isNativeAuthInProgress, nativeAppReady, nativeAuthStart } from "@/lib/native-bridge"
 
 export default function NativeOAuthBridge() {
   // ── One-time listener registration ────────────────────────────────
@@ -58,11 +59,59 @@ export default function NativeOAuthBridge() {
   // (on the destination page) will call appReady() once auth completes.
   const pathname = usePathname()
   useEffect(() => {
+    if (!isNativeApp()) return
+
+    const shouldKeepOverlay = () => {
+      if (isNativeAuthInProgress()) return true
+      if (pathname === "/login" || pathname === "/signup") {
+        return Boolean((window as any).__oauthStarting)
+      }
+      return false
+    }
+
+    const onForeground = () => {
+      if (shouldKeepOverlay()) {
+        nativeAuthStart()
+      }
+    }
+
+    onForeground()
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") onForeground()
+    }
+
+    window.addEventListener("focus", onForeground)
+    window.addEventListener("pageshow", onForeground)
+    document.addEventListener("visibilitychange", onVisibility)
+
+    let appHandle: { remove: () => void } | undefined
+    import("@capacitor/app")
+      .then(({ App }) => App.addListener("resume", onForeground))
+      .then((handle) => {
+        appHandle = handle
+      })
+      .catch(() => {
+        // Fallback listeners above are enough when the plugin is unavailable.
+      })
+
+    return () => {
+      window.removeEventListener("focus", onForeground)
+      window.removeEventListener("pageshow", onForeground)
+      document.removeEventListener("visibilitychange", onVisibility)
+      appHandle?.remove()
+    }
+  }, [pathname])
+
+  useEffect(() => {
     try {
-      if (sessionStorage.getItem("nativeAuthInProgress") === "1") return
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const native = (window as any).StorelibNative
-      if (native?.appReady) native.appReady()
+      if (!isNativeApp()) return
+      if (isNativeAuthInProgress()) return
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          nativeAppReady()
+        })
+      })
     } catch {
       // sessionStorage unavailable (SSR) or bridge not present (web) — ignore
     }
