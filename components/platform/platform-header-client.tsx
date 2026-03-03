@@ -297,7 +297,7 @@ function MobileTopSheet({
   if (!isVisible || !isMounted) return null
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] md:hidden">
+    <div data-mobile-top-sheet="true" className="fixed inset-0 z-[100] md:hidden">
       {/* Backdrop */}
       <div
         className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity ease-out ${
@@ -435,7 +435,7 @@ function MobileBottomSheet({
   if (!isVisible || !isMounted) return null
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] md:hidden">
+    <div data-mobile-bottom-sheet="true" className="fixed inset-0 z-[100] md:hidden">
       {/* Backdrop */}
       <div
         className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity ease-out ${
@@ -619,6 +619,17 @@ export function PlatformHeaderClient() {
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement
+      // Never interfere with mobile sheet portals. These render to document.body
+      // outside the header DOM tree, so they always appear "outside" the header.
+      // Without this guard, every tap inside the bottom sheet fires mousedown on
+      // document → setExpandedCategory(null) is scheduled 100ms later → the
+      // subcategory view opens for 100ms and immediately collapses back.
+      if (
+        target.closest('[data-mobile-bottom-sheet]') ||
+        target.closest('[data-mobile-top-sheet]')
+      ) {
+        return
+      }
       // Only close if clicking completely outside the dropdown
       if (!target.closest('[data-categories-dropdown]')) {
         setCategoriesDropdownOpen(false)
