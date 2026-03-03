@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { useState, useEffect, useCallback } from "react"
+import { isNativeApp, openExternal } from "@/lib/native-bridge"
 
 const LOGO_URL = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
 
@@ -110,7 +111,10 @@ export function DashboardSidebar() {
       <div className="border-t border-border p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         <Link
           href="/explore"
-          onClick={onItemClick}
+          onClick={(e) => {
+            if (isNativeApp()) { e.preventDefault(); openExternal(window.location.origin + "/explore") }
+            onItemClick?.()
+          }}
           className="mb-2 flex items-center justify-center gap-2 rounded-lg px-3 py-3 min-h-[44px] text-sm font-medium border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50 hover:text-neutral-900 active:scale-[0.98] transition-colors cursor-pointer"
         >
           <Compass className="h-4 w-4 shrink-0" />
@@ -179,6 +183,9 @@ export function DashboardSidebar() {
         <div className="flex items-center gap-1">
           <Link
             href="/explore"
+            onClick={(e) => {
+              if (isNativeApp()) { e.preventDefault(); openExternal(window.location.origin + "/explore") }
+            }}
             className="h-10 w-10 shrink-0 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
             aria-label="Discover"
           >

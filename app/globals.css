@@ -1012,3 +1012,34 @@ html.capacitor .app-content-scroll {
 html.capacitor [data-safe-bottom] {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
+
+/* ── Capacitor instant tap feedback ──────────────────────────────────────────
+ *
+ * Remove the 300 ms tap delay in mobile WebViews so interactions feel
+ * instant. Also add visible :active/:pressed states to all tappable elements
+ * so the user gets sub-100 ms visual confirmation that their tap registered.
+ *
+ * -webkit-tap-highlight-color is set to transparent to avoid the grey flash
+ * on Android — our :active styles replace it.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+html.capacitor {
+  touch-action: manipulation; /* removes 300 ms delay on double-tap-to-zoom */
+  -webkit-tap-highlight-color: transparent;
+}
+
+html.capacitor button,
+html.capacitor a,
+html.capacitor [role="button"],
+html.capacitor [tabindex="0"] {
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 80ms ease-out, transform 80ms ease-out;
+}
+
+html.capacitor button:active,
+html.capacitor a:active,
+html.capacitor [role="button"]:active,
+html.capacitor [tabindex="0"]:active {
+  opacity: 0.7;
+  transform: scale(0.97);
+}

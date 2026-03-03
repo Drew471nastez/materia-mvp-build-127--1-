@@ -30,7 +30,8 @@ import {
 import type { PageType } from "@/lib/store-builder/types"
 import { cn } from "@/lib/utils"
 import { UnsavedChangesDialog } from "./unsaved-changes-dialog"
-import { getStoreUrl, getProductUrl, getStoreUrlWithCustomDomain, getProductUrlWithCustomDomain } from "@/lib/url-helpers"
+import { getStoreUrl, getStoreShareUrl, getProductUrl, getProductShareUrl, getStoreUrlWithCustomDomain, getProductUrlWithCustomDomain } from "@/lib/url-helpers"
+import { openExternal } from "@/lib/native-bridge"
 
 interface EditorTopbarProps {
   creatorSlug: string
@@ -86,16 +87,22 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
     }
   }, [isNavigating])
 
-  // Get the live store URL based on current page type (uses subdomain or custom domain)
+  // Get the live store URL based on current page type.
+  // Always returns a full https:// URL (never an internal path) so it can
+  // be opened in an external browser when running inside Capacitor.
   const getLiveStoreUrl = () => {
     if (currentPageType === "product" && selectedProductId) {
       const product = products.find((p) => p.id === selectedProductId)
       if (product) {
         const productSlug = (product as any).slug || selectedProductId
-        return connectedDomain ? getProductUrlWithCustomDomain(creatorSlug, productSlug, connectedDomain) : getProductUrl(creatorSlug, productSlug)
+        return connectedDomain
+          ? getProductUrlWithCustomDomain(creatorSlug, productSlug, connectedDomain)
+          : getProductShareUrl(creatorSlug, productSlug)
       }
     }
-    return connectedDomain ? getStoreUrlWithCustomDomain(creatorSlug, connectedDomain) : getStoreUrl(creatorSlug)
+    return connectedDomain
+      ? getStoreUrlWithCustomDomain(creatorSlug, connectedDomain)
+      : getStoreShareUrl(creatorSlug)
   }
 
   // Handle browser back button with popstate
@@ -130,7 +137,7 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
   }
 
   const handleViewLiveStore = () => {
-    window.open(getLiveStoreUrl(), "_blank")
+    openExternal(getLiveStoreUrl())
   }
 
   const handleSaveFromDialog = async () => {

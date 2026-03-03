@@ -57,6 +57,7 @@ import { createClient } from "@/lib/supabase/client"
 import { useLanguage } from "@/lib/i18n"
 import { getLinksShareUrl, getLinksUrl, getStoreShareUrl, getStoreUrl } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
+import { openExternal } from "@/lib/native-bridge"
 import { useToast } from "@/hooks/use-toast"
 
 interface SetupStep {
@@ -764,11 +765,7 @@ function QuickAccessBottomSheet({
               }}
               onOpen={() => {
                 if (isOnePageReady) {
-                  if (isNativeApp() && navOnePageUrl) {
-                    window.location.href = navOnePageUrl
-                  } else {
-                    window.open(onePageUrl, "_blank", "noopener,noreferrer")
-                  }
+                  openExternal(onePageUrl || navOnePageUrl)
                 } else {
                   onSetupOnePage()
                 }
@@ -784,11 +781,7 @@ function QuickAccessBottomSheet({
               isCopied={isStoreCopied}
               onAction={onCopyStore}
               onOpen={() => {
-                if (isNativeApp() && navStoreUrl) {
-                  window.location.href = navStoreUrl
-                } else {
-                  window.open(storeUrl, "_blank", "noopener,noreferrer")
-                }
+                openExternal(storeUrl || navStoreUrl)
                 handleClose()
               }}
               icon={<div className="w-8 h-8 rounded-full bg-black flex items-center justify-center overflow-hidden"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/image2vector%20(2).webp" alt="" width={20} height={20} className="w-5 h-5" loading="eager" decoding="async" /></div>}
@@ -1633,11 +1626,7 @@ export function DashboardClient({
                         tabIndex={0}
                         onClick={() => {
                           if (hasOnePageSetup) {
-                            if (isNativeApp()) {
-                              window.location.href = navOnePageUrl
-                            } else {
-                              window.open(publicOnePageUrl, "_blank", "noopener,noreferrer")
-                            }
+                            openExternal(publicOnePageUrl || navOnePageUrl)
                           } else {
                             router.push("/app/onepage")
                           }
@@ -1646,11 +1635,7 @@ export function DashboardClient({
                         onKeyDown={(e) => {
                           if (e.key === "Enter" || e.key === " ") {
                             if (hasOnePageSetup) {
-                              if (isNativeApp()) {
-                                window.location.href = navOnePageUrl
-                              } else {
-                                window.open(publicOnePageUrl, "_blank", "noopener,noreferrer")
-                              }
+                              openExternal(publicOnePageUrl || navOnePageUrl)
                             } else {
                               router.push("/app/onepage")
                             }
@@ -1666,14 +1651,10 @@ export function DashboardClient({
                         role="button"
                         tabIndex={0}
                         onClick={() => {
-                          if (isNativeApp()) {
-                            window.location.href = navStoreUrl
-                          } else {
-                            window.open(publicStoreUrl, "_blank", "noopener,noreferrer")
-                          }
+                          openExternal(publicStoreUrl || navStoreUrl)
                           setIsProfileAccessOpen(false)
                         }}
-                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { if (isNativeApp()) { window.location.href = navStoreUrl } else { window.open(publicStoreUrl, "_blank", "noopener,noreferrer") }; setIsProfileAccessOpen(false) } }}
+                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { openExternal(publicStoreUrl || navStoreUrl); setIsProfileAccessOpen(false) } }}
                         className="w-full text-left rounded-xl p-3 hover:bg-[#f9fafb] transition-colors cursor-pointer group"
                       >
                         <div className="flex items-center gap-2 text-[13px] font-semibold text-[#111827]"><span className="w-5 h-5 rounded-full bg-black flex items-center justify-center overflow-hidden"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/image2vector%20(2).webp" alt="Storelib" width={14} height={14} className="w-3.5 h-3.5 object-contain" loading="eager" decoding="async" /></span>Store</div>

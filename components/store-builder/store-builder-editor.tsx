@@ -208,7 +208,7 @@ function EditorLayout({
 
   if (previewMode) {
     return (
-      <div className="fixed inset-0 z-50 flex flex-col bg-background">
+      <div className="fixed inset-0 z-50 flex flex-col bg-background pt-[env(safe-area-inset-top,_0px)] pb-[env(safe-area-inset-bottom,_0px)]">
         <div className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-background px-4">
           <span className="text-sm font-medium">Preview Mode</span>
           <button
@@ -227,7 +227,7 @@ function EditorLayout({
 
   if (isMobileView) {
     return (
-      <div className="fixed inset-0 flex flex-col bg-muted/30">
+      <div className="fixed inset-0 flex flex-col bg-muted/30 pt-[env(safe-area-inset-top,_0px)] pb-[env(safe-area-inset-bottom,_0px)]">
         {/* Top Bar */}
         <EditorTopbar
           creatorSlug={creatorSlug}
@@ -279,7 +279,7 @@ function EditorLayout({
   }
 
   return (
-    <div className="fixed inset-0 flex flex-col bg-muted/30 overflow-hidden">
+    <div className="fixed inset-0 flex flex-col bg-muted/30 overflow-hidden pt-[env(safe-area-inset-top,_0px)] pb-[env(safe-area-inset-bottom,_0px)]">
       {/* Top Bar - fixed height */}
       <EditorTopbar creatorSlug={creatorSlug} onPreview={() => setPreviewMode(true)} />
 

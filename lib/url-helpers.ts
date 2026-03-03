@@ -170,6 +170,26 @@ export function getLinksShareUrl(username: string): string {
 }
 
 /**
+ * Get the canonical product URL for sharing/copying/opening in external browser —
+ * always returns the full subdomain URL regardless of Capacitor.
+ */
+export function getProductShareUrl(username: string, productSlug: string): string {
+  if (!productSlug) return getStoreShareUrl(username)
+
+  const mainDomain = getMainDomain()
+
+  if (mainDomain.includes("localhost")) {
+    return `${getSiteUrl()}/p/${productSlug}`
+  }
+
+  if (!username) {
+    return `https://${mainDomain}/p/${productSlug}`
+  }
+
+  return `https://${username.toLowerCase()}.${mainDomain}/p/${productSlug}`
+}
+
+/**
  * Get relative path for internal navigation (used in Next.js Link components)
  * This is for navigating within the app (not for sharing external links)
  *

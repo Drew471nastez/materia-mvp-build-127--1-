@@ -35,6 +35,7 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { NotificationsModal, NotificationBadge } from "./notifications-modal"
 import { useLanguage } from "@/lib/i18n"
+import { isNativeApp, openExternal } from "@/lib/native-bridge"
 
 // Progress circle component for setup widget
 function SetupProgressCircle({ progress, size = 32 }: { progress: number; size?: number }) {
@@ -607,7 +608,10 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             href="/explore"
             target="_blank"
             rel="noopener noreferrer"
-            onClick={onItemClick}
+            onClick={(e) => {
+              if (isNativeApp()) { e.preventDefault(); openExternal(window.location.origin + "/explore") }
+              onItemClick?.()
+            }}
             className="flex items-center gap-2 hover:opacity-80 transition-opacity"
           >
             <img
@@ -622,7 +626,10 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               href="/explore"
               target="_blank"
               rel="noopener noreferrer"
-              onClick={onItemClick}
+              onClick={(e) => {
+                if (isNativeApp()) { e.preventDefault(); openExternal(window.location.origin + "/explore") }
+                onItemClick?.()
+              }}
               className="flex h-7 w-7 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 transition-colors cursor-pointer"
             >
               <Compass className="h-[19px] w-[19px]" strokeWidth={1.5} />
@@ -794,6 +801,9 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
                 href="/explore"
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={(e) => {
+                  if (isNativeApp()) { e.preventDefault(); openExternal(window.location.origin + "/explore") }
+                }}
                 className="flex h-[34px] w-[34px] items-center justify-center rounded-lg text-white/75 hover:text-white hover:bg-white/10 transition-all"
                 title="Discover"
               >

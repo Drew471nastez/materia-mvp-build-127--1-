@@ -82,3 +82,25 @@ export function isNativeApp(): boolean {
   const ua = navigator.userAgent || ""
   return /StorelibApp|Capacitor/.test(ua) || (/wv/.test(ua) && /Android/.test(ua))
 }
+
+// ── External link handling ──────────────────────────────────────────────────
+
+/**
+ * Open a URL in the system browser when running inside Capacitor, or in a
+ * new tab when on the regular web.
+ *
+ * Inside the native app, routes like /explore, /store/*, /product/* should
+ * open in the device's default browser rather than the in-app WebView so
+ * the user gets the full browser experience (address bar, sharing, etc).
+ *
+ * The native shell interprets the `storelib://external?url=…` deep-link
+ * and launches an Intent / SFSafariViewController accordingly.
+ */
+export function openExternal(url: string): void {
+  if (typeof window === "undefined") return
+  if (isNativeApp()) {
+    window.location.href = "storelib://external?url=" + encodeURIComponent(url)
+  } else {
+    window.open(url, "_blank", "noopener,noreferrer")
+  }
+}
