@@ -502,7 +502,7 @@ export default function PrivacyPolicyPage() {
                 <Ul items={[
                   "Right of Access: You can request a copy of the personal data we hold about you.",
                   "Right to Rectification: You can request that we correct inaccurate or incomplete personal data.",
-                  "Right to Erasure ("Right to Be Forgotten"): You can request that we delete your personal data, subject to certain legal exceptions.",
+                  "Right to Erasure (\u201cRight to Be Forgotten\u201d): You can request that we delete your personal data, subject to certain legal exceptions.",
                   "Right to Restriction of Processing: You can request that we restrict the processing of your personal data in certain circumstances.",
                   "Right to Data Portability: You can request to receive your personal data in a structured, commonly used, and machine-readable format.",
                   "Right to Object: You can object to the processing of your personal data based on our legitimate interests.",
