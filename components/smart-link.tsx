@@ -1,6 +1,5 @@
 "use client"
 
-import Link from "next/link"
 import { isNativeApp } from "@/lib/platform-utils"
 
 /**
@@ -45,22 +44,6 @@ function toInternalHref(href: string): string {
   }
 }
 
-/**
- * A link component that keeps navigation in-app in Capacitor native apps.
- *
- * In Capacitor:
- *  - Uses Next.js <Link> for internal paths (/u/, /p/, /l/) so client-side
- *    navigation preserves the Supabase auth session (no full page reload).
- *  - Rewrites subdomain URLs to internal paths.
- *  - Strips target="_blank" to stay in-app.
- *
- * On desktop web, behaves exactly like a normal <a> tag.
- *
- * Navigation loading bar: handled by NavigationLoadingBar's document click
- * listener (catches all <a> clicks), so SmartLink does NOT need to call
- * startNavigationLoading() — that was causing a double-fire that required
- * users to tap twice.
- */
 // Touch styles applied to every SmartLink to fix iOS single-tap behaviour:
 // - touchAction:manipulation removes the 300ms tap delay and prevents double-tap zoom
 // - userSelect:none prevents the first tap from selecting text (which requires a
@@ -80,20 +63,27 @@ export function SmartLink({
   const inApp = isNativeApp()
   const resolvedHref = inApp && href ? toInternalHref(href) : href
 
-  // In Capacitor, use Next.js Link for internal paths to enable client-side
-  // navigation which preserves the Supabase auth session (no full page reload).
+  // In Capacitor, ALWAYS use window.location.href for root-relative paths to
+  // prevent URL mixing. Next.js <Link> / router.push can resolve paths relative
+  // to the current route in some Capacitor WebView contexts — e.g. clicking a
+  // seller link on /p/slug would produce /p/slug/u/seller instead of /u/seller.
+  // window.location.href with a leading "/" is always root-relative.
+  // NativeAuthGate handles session restore on reload.
   if (inApp && resolvedHref?.startsWith("/")) {
-    // Strip anchor-only props that Link handles differently
     const { target, rel, onClick, ...linkSafeProps } = props
     return (
-      <Link
-        href={resolvedHref}
-        onClick={onClick as any}
+      <a
         {...linkSafeProps}
+        href={resolvedHref}
+        onClick={(e) => {
+          e.preventDefault()
+          if (typeof onClick === "function") onClick(e as any)
+          window.location.href = resolvedHref
+        }}
         style={{ ...TOUCH_STYLES, ...(linkSafeProps.style as React.CSSProperties) }}
       >
         {children}
-      </Link>
+      </a>
     )
   }
 
