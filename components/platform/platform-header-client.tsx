@@ -1684,17 +1684,17 @@ export function PlatformHeaderClient() {
                 <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Categories</h3>
                 <div className="flex flex-wrap gap-2">
                   {SEARCH_CATEGORIES.map((cat) => (
-                    <Link
+                    <button
                       key={cat.label}
-                      href={getCanonicalOrRelativePath(cat.href + '&scroll=recommended')}
-                      onClick={(e) => {
-                        onCanonicalNav(e, cat.href + '&scroll=recommended')
+                      type="button"
+                      onClick={() => {
+                        navigateReliably(cat.href + '&scroll=recommended')
                         setSearchModalOpen(false)
                       }}
-                      className="px-3 py-2 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 transition-colors cursor-pointer"
+                      className="px-3 py-2 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 transition-colors cursor-pointer touch-manipulation"
                     >
                       {cat.label}
-                    </Link>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -1714,14 +1714,14 @@ export function PlatformHeaderClient() {
                 <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-2">Products</h3>
                 <div className="space-y-0.5">
                   {searchResults.map((product) => (
-                    <Link
+                    <button
                       key={product.id}
-                      href={getCanonicalOrRelativePath(`/p/${product.slug}`)}
-                      onClick={(e) => {
-                        onCanonicalNav(e, `/p/${product.slug}`)
+                      type="button"
+                      onClick={() => {
+                        navigateReliably(`/p/${product.slug}`)
                         setSearchModalOpen(false)
                       }}
-                      className="flex items-center gap-3 px-2 py-2.5 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer"
+                      className="flex w-full items-center gap-3 px-2 py-2.5 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer touch-manipulation text-left"
                     >
                       {product.thumbnail_url ? (
                         <Image
@@ -1745,7 +1745,7 @@ export function PlatformHeaderClient() {
                       <div className="text-sm font-semibold text-gray-900">
                         {product.price_cents === 0 ? "Free" : `$${(product.price_cents / 100).toFixed(0)}+`}
                       </div>
-                    </Link>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -1948,33 +1948,33 @@ export function PlatformHeaderClient() {
                         </span>
                       )}
                     </div>
-                    <Link
-                      href={getCanonicalOrRelativePath(cat.href + '&scroll=recommended')}
-                      onClick={(e) => {
-                        onCanonicalNav(e, cat.href + '&scroll=recommended')
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigateReliably(cat.href + '&scroll=recommended')
                         setExpandedCategory(null)
                         setMobileMenuOpen(false)
                       }}
-                      className="flex items-center justify-between px-4 py-3 mb-2 rounded-xl text-sm font-medium text-gray-800 bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
+                      className="flex w-full items-center justify-between px-4 py-3 mb-2 rounded-xl text-sm font-medium text-gray-800 bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer touch-manipulation"
                     >
                       <span>View All {cat.label}</span>
                       <ArrowRight className="h-4 w-4" />
-                    </Link>
+                    </button>
                     <div className="space-y-0.5">
                       {cat.subcategories.map((sub, index) => (
-                        <Link
+                        <button
                           key={sub.label}
-                          href={getCanonicalOrRelativePath(sub.href + '&scroll=recommended')}
-                          onClick={(e) => {
-                            onCanonicalNav(e, sub.href + '&scroll=recommended')
+                          type="button"
+                          onClick={() => {
+                            navigateReliably(sub.href + '&scroll=recommended')
                             setExpandedCategory(null)
                             setMobileMenuOpen(false)
                           }}
-                          className="block px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer animate-in fade-in slide-in-from-right-2"
+                          className="block w-full text-left px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer touch-manipulation animate-in fade-in slide-in-from-right-2"
                           style={{ animationDelay: `${index * 30}ms`, animationFillMode: 'both' }}
                         >
                           {sub.label}
-                        </Link>
+                        </button>
                       ))}
                     </div>
                   </>
