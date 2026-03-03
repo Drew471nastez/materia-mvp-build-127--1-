@@ -938,8 +938,20 @@ export function PlatformHeaderClient() {
 
   const onCanonicalNav = useCallback(
     (e: React.MouseEvent<HTMLElement>, targetPath: string) => {
-      // In Capacitor: use router.push for same-layout routes to preserve auth.
-      // Cross-layout routes still need window.location.href.
+      // When on a seller subdomain (e.g. sellername.storelib.com), ALL navigation
+      // to non-seller routes (/library, /app, /explore, /signup, etc.) MUST use
+      // the canonical storelib.com URL. Relative paths would land on
+      // sellername.storelib.com/library which doesn't exist and blocks the UI.
+      // This check runs first — before the Capacitor branch — so native apps on
+      // a seller subdomain also get canonical routing.
+      if (shouldForceCanonicalNav) {
+        e.preventDefault()
+        navigateToCanonical(targetPath) // window.location.assign("https://storelib.com/path")
+        return
+      }
+      // In Capacitor on the main storelib.com domain: use router.push for
+      // same-layout routes to preserve the Supabase auth singleton; full-reload
+      // for cross-layout routes so NativeAuthGate can restore the session.
       if (isNativePlatform()) {
         e.preventDefault()
         if (isCrossLayoutPath(targetPath)) {
@@ -949,9 +961,6 @@ export function PlatformHeaderClient() {
         }
         return
       }
-      if (!shouldForceCanonicalNav) return
-      e.preventDefault()
-      navigateToCanonical(targetPath)
     },
     [navigateToCanonical, shouldForceCanonicalNav],
   )

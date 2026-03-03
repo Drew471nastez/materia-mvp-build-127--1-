@@ -36,6 +36,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { NotificationsModal, NotificationBadge } from "./notifications-modal"
 import { useLanguage } from "@/lib/i18n"
 import { isNativeApp, openExternal } from "@/lib/native-bridge"
+import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 
 // Progress circle component for setup widget
 function SetupProgressCircle({ progress, size = 32 }: { progress: number; size?: number }) {
@@ -205,6 +206,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
       return (
         <button
           onClick={() => {
+            startNavigationLoading() // instant bar before route resolves
             onClick?.()
             // In Capacitor, router.push preserves auth session (no full reload)
             // On web, force full reload for reliable cross-layout navigation
@@ -225,7 +227,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     return (
       <Link
         href={item.href}
-        onClick={() => onClick?.()}
+        onClick={() => { startNavigationLoading(); onClick?.() }}
         className={baseClassName}
       >
         <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />
@@ -251,6 +253,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
       return (
         <button
           onClick={() => {
+            startNavigationLoading() // instant bar before route resolves
             onClick?.()
             // In Capacitor, router.push preserves auth session (no full reload)
             // On web, force full reload for reliable cross-layout navigation
@@ -271,7 +274,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     return (
       <Link
         href={item.href}
-        onClick={() => onClick?.()}
+        onClick={() => { startNavigationLoading(); onClick?.() }}
         className={baseClassName}
       >
         <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />
@@ -606,12 +609,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         <div className="flex items-center justify-between">
           <Link
             href="/explore"
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => {
-              if (isNativeApp()) { e.preventDefault(); openExternal(window.location.origin + "/explore") }
-              onItemClick?.()
-            }}
+            onClick={onItemClick}
             className="flex items-center gap-2 hover:opacity-80 transition-opacity"
           >
             <img
@@ -624,12 +622,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           <div className="flex items-center gap-1.5">
             <Link
               href="/explore"
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => {
-                if (isNativeApp()) { e.preventDefault(); openExternal(window.location.origin + "/explore") }
-                onItemClick?.()
-              }}
+              onClick={onItemClick}
               className="flex h-7 w-7 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 transition-colors cursor-pointer"
             >
               <Compass className="h-[19px] w-[19px]" strokeWidth={1.5} />
@@ -799,11 +792,6 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             <div className="flex items-center gap-1.5">
               <Link
                 href="/explore"
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => {
-                  if (isNativeApp()) { e.preventDefault(); openExternal(window.location.origin + "/explore") }
-                }}
                 className="flex h-[34px] w-[34px] items-center justify-center rounded-lg text-white/75 hover:text-white hover:bg-white/10 transition-all"
                 title="Discover"
               >

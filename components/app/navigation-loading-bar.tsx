@@ -3,6 +3,19 @@
 import { useEffect, useState, useRef } from "react"
 import { usePathname, useSearchParams } from "next/navigation"
 
+/**
+ * Fire this immediately inside any onClick that calls router.push() so the
+ * loading bar appears at tap-time rather than waiting for the pathname to
+ * change (~1–2 s later on slow connections).
+ *
+ * Usage:
+ *   onClick={() => { startNavigationLoading(); router.push("/target") }}
+ */
+export function startNavigationLoading() {
+  if (typeof window === "undefined") return
+  window.dispatchEvent(new CustomEvent("nav-loading-start"))
+}
+
 export function NavigationLoadingBar() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -32,7 +45,33 @@ export function NavigationLoadingBar() {
     }, 500)
   }
 
-  // Detect navigation start
+  // Start the animated loading bar immediately (called from outside via event or click)
+  const startLoading = () => {
+    clearAllTimers()
+    setIsLoading(true)
+    setIsComplete(false)
+    setProgress(0)
+
+    let currentProgress = 0
+    const animate = () => {
+      const increment = Math.random() * 3 + 1
+      currentProgress += increment
+      if (currentProgress >= 80) {
+        currentProgress = 80 + (Math.random() * 2)
+      }
+      if (currentProgress < 85) {
+        setProgress(currentProgress)
+        progressRef.current = setTimeout(animate, 200 + Math.random() * 100)
+      }
+    }
+    progressRef.current = setTimeout(animate, 20) // start within 20 ms
+
+    // Safety timeout: auto-dismiss after 8 seconds to prevent stuck bar
+    safetyRef.current = setTimeout(() => { completeLoading() }, 8000)
+  }
+
+  // Detect navigation start — both <a> clicks and programmatic router.push()
+  // calls (the latter dispatch 'nav-loading-start' via startNavigationLoading())
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement
@@ -40,35 +79,19 @@ export function NavigationLoadingBar() {
       if (anchor && anchor.href && anchor.href.startsWith(window.location.origin)) {
         const url = new URL(anchor.href)
         if (url.pathname !== pathname || url.search !== searchParams.toString()) {
-          clearAllTimers()
-          setIsLoading(true)
-          setIsComplete(false)
-          setProgress(0)
-
-          let currentProgress = 0
-          const animate = () => {
-            const increment = Math.random() * 3 + 1
-            currentProgress += increment
-            if (currentProgress >= 80) {
-              currentProgress = 80 + (Math.random() * 2)
-            }
-            if (currentProgress < 85) {
-              setProgress(currentProgress)
-              progressRef.current = setTimeout(animate, 200 + Math.random() * 100)
-            }
-          }
-          progressRef.current = setTimeout(animate, 50)
-
-          // Safety timeout: auto-dismiss after 8 seconds to prevent stuck bar
-          safetyRef.current = setTimeout(() => {
-            completeLoading()
-          }, 8000)
+          startLoading()
         }
       }
     }
 
+    const handleProgrammatic = () => startLoading()
+
     document.addEventListener('click', handleClick)
-    return () => document.removeEventListener('click', handleClick)
+    window.addEventListener('nav-loading-start', handleProgrammatic)
+    return () => {
+      document.removeEventListener('click', handleClick)
+      window.removeEventListener('nav-loading-start', handleProgrammatic)
+    }
   }, [pathname, searchParams])
 
   // Detect navigation end (pathname or search params change)
