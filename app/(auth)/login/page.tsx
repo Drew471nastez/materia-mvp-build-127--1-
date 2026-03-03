@@ -12,6 +12,8 @@ import Image from "next/image"
 import { AuthLogo } from "@/components/auth/auth-logo"
 import { AuthResolvingScreen } from "@/components/auth/auth-resolving-screen"
 import { useAuthGate } from "@/lib/use-auth-gate"
+import { nativeAuthStart, nativeAppReady } from "@/lib/native-bridge"
+import { useNativeScrollLock } from "@/lib/use-native-scroll-lock"
 
 function LoginFormContent() {
   const [email, setEmail] = useState("")
@@ -26,6 +28,9 @@ function LoginFormContent() {
   const [googleOnlyEmail, setGoogleOnlyEmail] = useState<string | null>(null)
   const { loading: authGateLoading, session: gateSession, nativeAuthInProgress } = useAuthGate()
   const redirectTimeoutRef = useRef<number | null>(null)
+  // Prevent elastic / rubber-band body scroll in the native WebView.
+  // No-op in a regular browser — does not affect desktop behaviour.
+  useNativeScrollLock()
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -402,12 +407,21 @@ function LoginFormContent() {
               window.setTimeout(() => {
                 ;(window as any).__oauthStarting = false
                 setIsGoogleLoading(false)
+                // User cancelled — dismiss the native overlay so the form is
+                // interactive again (overlay was shown before Browser.open()).
+                nativeAppReady()
               }, 400)
             }
           )
         } catch {
           // addListener may throw if the plugin isn't loaded — ignore
         }
+
+        // Show the native loading overlay NOW, before the browser opens.
+        // When the Chrome Custom Tab closes and the WebView Activity resumes,
+        // the overlay will already be visible — preventing the brief flash of
+        // the login form between browser close and appUrlOpen handler start.
+        nativeAuthStart()
 
         await Browser.open({ url: data.url, windowName: "_self" })
 

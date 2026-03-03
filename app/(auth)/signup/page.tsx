@@ -14,6 +14,8 @@ import Image from "next/image"
 import { AuthLogo } from "@/components/auth/auth-logo"
 import { AuthResolvingScreen } from "@/components/auth/auth-resolving-screen"
 import { useAuthGate } from "@/lib/use-auth-gate"
+import { nativeAuthStart, nativeAppReady } from "@/lib/native-bridge"
+import { useNativeScrollLock } from "@/lib/use-native-scroll-lock"
 
 function SignUpFormContent() {
   const [email, setEmail] = useState("")
@@ -29,6 +31,9 @@ function SignUpFormContent() {
   const [googleOnlyEmail, setGoogleOnlyEmail] = useState<string | null>(null)
   const { loading: authGateLoading, nativeAuthInProgress } = useAuthGate()
   const redirectTimeoutRef = useRef<number | null>(null)
+  // Prevent elastic / rubber-band body scroll in the native WebView.
+  // No-op in a regular browser — does not affect desktop behaviour.
+  useNativeScrollLock()
   const router = useRouter()
   const searchParams = useSearchParams()
   const claim = searchParams.get("claim")
@@ -255,6 +260,14 @@ function SignUpFormContent() {
     if ((window as any).__oauthStarting) return
     ;(window as any).__oauthStarting = true
 
+    // Show the native loading overlay immediately — before any async work.
+    // The signup page uses the web PKCE / bridge-token flow (StorelibWebViewClient
+    // opens OAuth in a Chrome Custom Tab; the App Link /app/auth/callback brings
+    // the user back into the WebView). Showing the overlay here ensures the native
+    // shell covers the WebView for the entire OAuth journey.
+    // In a regular browser this is a no-op.
+    nativeAuthStart()
+
     const supabase = createClient()
     setIsGoogleLoading(true)
     setError(null)
@@ -305,6 +318,8 @@ function SignUpFormContent() {
       setError(error instanceof Error ? error.message : "Failed to sign in with Google")
       ;(window as any).__oauthStarting = false
       setIsGoogleLoading(false)
+      // OAuth init failed — dismiss overlay so the form is interactive again.
+      nativeAppReady()
     }
   }
 

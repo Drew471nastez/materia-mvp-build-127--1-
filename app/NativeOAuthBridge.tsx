@@ -4,69 +4,95 @@
  * app/NativeOAuthBridge.tsx
  *
  * Global singleton component — rendered once in app/layout.tsx <body>.
- * Wires up the native OAuth deep-link listener for Android / Capacitor.
  *
- * Why here (app/) rather than components/?
- *   Next.js guarantees this module is loaded as part of the root layout on
- *   every route, so the appUrlOpen listener is registered before the user
- *   can complete OAuth and return to the app — regardless of which page they
- *   were on when they tapped "Sign in with Google".
+ * Responsibilities:
  *
- * All OAuth logic lives in lib/native-oauth.ts.
+ * 1. OAuth listener: registers the Capacitor appUrlOpen listener for
+ *    deep-link callbacks (storelib://auth/callback, recovery links).
  *
- * Loading-overlay handshake:
- *   The native shell shows a white overlay (logo + spinner) on launch.
- *   It must be dismissed only when the first meaningful UI is actually
- *   visible — not just when HTML finishes parsing.
+ * 2. Per-route appReady(): calls nativeAppReady() on every client-side
+ *    route render so the native overlay is dismissed once React has
+ *    painted the first real UI.  Guards against firing mid-exchange via
+ *    the nativeAuthInProgress sessionStorage flag.
  *
- *   Strategy (belt-and-suspenders):
- *   1. NativeAuthGate (on /app and /library layouts) calls appReady() once
- *      auth resolves and content is about to render — covers the logged-in path.
- *   2. The pathname-watch effect below fires on every client-side route render
- *      (including /login, /signup, deep-link targets) and calls appReady() if
- *      no native auth flow is in progress (nativeAuthInProgress !== "1").
- *   3. A 12-second safety timeout on the native side auto-dismisses the overlay
- *      in the unlikely event appReady() is never called.
+ * 3. App-resume reinforcement: listens for the app becoming active after
+ *    being backgrounded (user returning from the Chrome Custom Tab after
+ *    Google OAuth).  If an OAuth flow is in progress (__oauthStarting or
+ *    nativeAuthInProgress), calls nativeAuthStart() to ensure the native
+ *    overlay is (re)shown before the WebView renders a visible frame.
+ *    This eliminates the brief flash of the login / signup form between
+ *    the browser closing and the appUrlOpen handler taking over.
+ *
+ *    Strategy (belt-and-suspenders):
+ *    a) Try Capacitor App.addListener("appStateChange") first.
+ *    b) Fall back to document "visibilitychange" if Capacitor is absent.
  */
 
-import { useEffect } from "react"
+import { useEffect, useCallback } from "react"
 import { usePathname } from "next/navigation"
 import { setupNativeOAuthListeners } from "@/lib/native-oauth"
+import {
+  nativeAppReady,
+  nativeAuthStart,
+  isNativeAuthInProgress,
+} from "@/lib/native-bridge"
 
 export default function NativeOAuthBridge() {
-  // ── One-time listener registration ────────────────────────────────
+  // ── 1. One-time OAuth listener registration ──────────────────────────────
   useEffect(() => {
     let cleanup: (() => void) | undefined
+    setupNativeOAuthListeners().then((fn) => { cleanup = fn })
+    return () => { cleanup?.() }
+  }, [])
 
-    setupNativeOAuthListeners().then((fn) => {
-      cleanup = fn
-    })
-
-    return () => {
-      cleanup?.()
-    }
-  }, []) // mount once — never re-runs
-
-  // ── Per-route appReady() signal ────────────────────────────────────
+  // ── 2. Per-route appReady() signal ───────────────────────────────────────
   // Fires on initial mount AND on every SPA navigation.
-  // This covers all routes that don't use NativeAuthGate (e.g. /login,
-  // /signup, /reset-password) so the native overlay is always dismissed
-  // once React has rendered the page.
-  //
-  // Guard: if nativeAuthInProgress === "1" a native OAuth or recovery
-  // flow is running — do NOT dismiss the overlay yet.  NativeAuthGate
-  // (on the destination page) will call appReady() once auth completes.
+  // nativeAppReady() internally checks nativeAuthInProgress before calling
+  // the bridge, so no explicit guard is needed here.
   const pathname = usePathname()
   useEffect(() => {
-    try {
-      if (sessionStorage.getItem("nativeAuthInProgress") === "1") return
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const native = (window as any).StorelibNative
-      if (native?.appReady) native.appReady()
-    } catch {
-      // sessionStorage unavailable (SSR) or bridge not present (web) — ignore
-    }
+    nativeAppReady()
   }, [pathname])
+
+  // ── 3. App-resume overlay reinforcement ─────────────────────────────────
+  // The Chrome Custom Tab is a separate Android Activity.  When it closes,
+  // the WebView Activity resumes.  Because handleGoogleSignIn() calls
+  // nativeAuthStart() just before Browser.open(), the overlay is already
+  // visible when the Activity resumes.  This listener is a belt-and-suspenders
+  // fallback — it calls nativeAuthStart() again on resume so even OEM devices
+  // that dismiss the overlay unexpectedly are covered.
+  const onResume = useCallback(() => {
+    if (isNativeAuthInProgress() || (window as any).__oauthStarting) {
+      nativeAuthStart()
+    }
+  }, [])
+
+  useEffect(() => {
+    let removeHandle: (() => void) | undefined
+
+    async function setupResumeListener() {
+      try {
+        const { Capacitor } = await import("@capacitor/core")
+        if (!Capacitor.isNativePlatform()) return
+
+        const { App } = await import("@capacitor/app")
+        const handle = await App.addListener("appStateChange", ({ isActive }) => {
+          if (isActive) onResume()
+        })
+        removeHandle = () => handle.remove()
+      } catch {
+        // Capacitor plugin unavailable — fall back to visibilitychange
+        const fn = () => {
+          if (document.visibilityState === "visible") onResume()
+        }
+        document.addEventListener("visibilitychange", fn)
+        removeHandle = () => document.removeEventListener("visibilitychange", fn)
+      }
+    }
+
+    setupResumeListener()
+    return () => { removeHandle?.() }
+  }, [onResume])
 
   return null
 }
