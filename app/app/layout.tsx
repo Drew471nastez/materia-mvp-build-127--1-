@@ -173,7 +173,9 @@ export default async function AppLayout({
             safe-area-inset-top padding the header adds in Capacitor.
             In a browser env() = 0, so md:pt stays exactly 58 px. */}
         <main className="h-svh pt-[calc(68px_+_env(safe-area-inset-top,_0px))] md:pt-[calc(58px+env(safe-area-inset-top,_0px))] md:pl-[220px] bg-white rounded-t-[20px] md:rounded-none overflow-hidden app-main-content">
-          <div className="h-[calc(100svh_-_68px_-_env(safe-area-inset-top,_0px))] md:h-[calc(100svh-58px-env(safe-area-inset-top,_0px))] overflow-y-auto app-content-scroll">{children}</div>
+          {/* pb ensures content at scroll-bottom is never hidden under the iOS home indicator
+              or Android gesture-nav bar. env() = 0 in browsers so this is a no-op there. */}
+          <div className="h-[calc(100svh_-_68px_-_env(safe-area-inset-top,_0px))] md:h-[calc(100svh-58px-env(safe-area-inset-top,_0px))] overflow-y-auto app-content-scroll pb-[env(safe-area-inset-bottom,_0px)]">{children}</div>
         </main>
         <Toaster />
       </div>

@@ -502,7 +502,9 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         )}
       </nav>
 
-      <div className="px-3 pb-3 space-y-2">
+      {/* pb accounts for iOS home indicator / Android gesture-nav bar in Capacitor.
+          env() = 0px in browsers — no layout change there. */}
+      <div className="px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,_0px))] space-y-2">
         <Link
           href="/app/settings/billing/upgrade"
           onClick={onItemClick}
@@ -596,7 +598,10 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         </Link>
       </div>
 
-      <div className="border-t border-neutral-200/50 px-4 py-[15px]">
+      {/* pt keeps existing 15px spacing; pb adds safe-area bottom so the branding
+          bar clears the iOS home indicator / Android gesture nav in Capacitor.
+          env() = 0px in browsers — no visual change there. */}
+      <div className="border-t border-neutral-200/50 px-4 pt-[15px] pb-[calc(15px+env(safe-area-inset-bottom,_0px))]">
         <div className="flex items-center justify-between">
           <Link
             href="/explore"

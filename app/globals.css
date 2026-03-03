@@ -989,3 +989,26 @@ html.native-auth-lock .auth-card {
   overscroll-behavior: contain;      /* bounce stays inside the card, not the page */
   touch-action: pan-y;               /* re-enable vertical touch scroll within card */
 }
+
+/* ── Universal Capacitor safe-area guard ─────────────────────────────────────
+ *
+ * viewport-fit=cover (set in layout.tsx Viewport export) makes the WebView
+ * render edge-to-edge under the iOS status bar, home indicator, and Android
+ * system nav bar. Every fixed/sticky element must opt in to
+ * env(safe-area-inset-*) to avoid being obscured by system UI.
+ *
+ * Individual components set env() values via Tailwind arbitrary-value classes.
+ * This block is a belt-and-suspenders catch-all.
+ * In a normal browser env() = 0px → zero layout change.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/* Main content scroll container in /app — ensures last content item is visible
+   above the iOS home indicator / Android gesture-nav bar. */
+html.capacitor .app-content-scroll {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Any element explicitly marked as needing bottom clearance */
+html.capacitor [data-safe-bottom] {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
