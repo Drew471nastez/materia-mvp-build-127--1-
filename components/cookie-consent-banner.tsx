@@ -22,6 +22,7 @@
 import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { Analytics } from "@vercel/analytics/next"
+import { isNativeApp } from "@/lib/native-bridge"
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -185,6 +186,9 @@ export function CookieConsentBanner() {
   }, [])
 
   if (!initialized) return null
+  // Never show the banner (or load analytics) inside Capacitor iOS/Android.
+  // Auth/session cookies are unaffected — they are not gated on consent.
+  if (isNativeApp()) return null
 
   return (
     <>

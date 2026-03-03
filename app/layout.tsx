@@ -5,6 +5,7 @@ import "./globals.css"
 import { LocaleProvider } from "@/components/locale-provider"
 import { BodyScrollRestorer } from "@/components/body-scroll-restorer"
 import { CookieConsentBanner } from "@/components/cookie-consent-banner"
+import { NativeCookieKillSwitch } from "@/components/native-cookie-killswitch"
 import { SWRProvider } from "@/lib/swr-config"
 import { PrefetchLinks } from "@/components/shared/prefetch-links"
 import NativeOAuthBridge from "@/app/NativeOAuthBridge"
@@ -131,6 +132,7 @@ export default function RootLayout({
         <SWRProvider><LocaleProvider>{children}</LocaleProvider></SWRProvider>
         <PrefetchLinks />
         <BodyScrollRestorer />
+        <NativeCookieKillSwitch />
         <CookieConsentBanner />
         <NativeOAuthBridge />
       </body>
