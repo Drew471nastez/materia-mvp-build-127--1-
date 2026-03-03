@@ -404,25 +404,17 @@ function MobileBottomSheet({
     }, 400)
   }
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const touch = e.touches[0]
-    const sheetElement = sheetRef.current
-    if (!sheetElement) return
-
-    const sheetRect = sheetElement.getBoundingClientRect()
-    const touchYInSheet = touch.clientY - sheetRect.top
-
-    // Only start dragging from the handle bar (~56 px) or the backdrop.
-    // Keeping this tight prevents touches on category/subcategory buttons
-    // (which sit at ~60–120 px from the top) from having their click events
-    // cancelled by handleTouchMove's e.preventDefault() call.
-    if (touchYInSheet <= 0 || touchYInSheet <= 56) {
-      startY.current = touch.clientY
-      setIsDragging(true)
-    }
+  // ── Handle-bar-only drag handlers ──────────────────────────────────────
+  // Touch handlers are ONLY on the handle bar, NOT on the full overlay.
+  // This guarantees that touches on category buttons, subcategory links,
+  // search results, and any other interactive content inside the sheet
+  // are NEVER intercepted by the drag logic.
+  const handleHandleTouchStart = (e: React.TouchEvent) => {
+    startY.current = e.touches[0].clientY
+    setIsDragging(true)
   }
 
-  const handleTouchMove = (e: React.TouchEvent) => {
+  const handleHandleTouchMove = (e: React.TouchEvent) => {
     if (!isDragging) return
     const currentY = e.touches[0].clientY
     const diff = currentY - startY.current
@@ -432,7 +424,7 @@ function MobileBottomSheet({
     }
   }
 
-  const handleTouchEnd = () => {
+  const handleHandleTouchEnd = () => {
     if (!isDragging) return
     setIsDragging(false)
     if (dragY > 80) {
@@ -445,7 +437,7 @@ function MobileBottomSheet({
   if (!isVisible || !isMounted) return null
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] md:hidden" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+    <div className="fixed inset-0 z-[100] md:hidden">
       {/* Backdrop */}
       <div
         className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity ease-out ${
@@ -464,11 +456,16 @@ function MobileBottomSheet({
           maxHeight: '74vh',
         }}
       >
-        {/* Handle bar */}
-        <div className="pt-3 pb-2">
+        {/* Handle bar — the ONLY drag target */}
+        <div
+          className="pt-3 pb-2 touch-none"
+          onTouchStart={handleHandleTouchStart}
+          onTouchMove={handleHandleTouchMove}
+          onTouchEnd={handleHandleTouchEnd}
+        >
           <button
             onClick={handleClose}
-            className="w-full flex justify-center py-2 cursor-pointer touch-none"
+            className="w-full flex justify-center py-2 cursor-pointer"
           >
             <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
           </button>

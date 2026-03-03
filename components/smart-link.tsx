@@ -2,7 +2,6 @@
 
 import Link from "next/link"
 import { isNativeApp } from "@/lib/platform-utils"
-import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 
 /**
  * Convert a full subdomain URL to an internal path for in-app navigation.
@@ -50,41 +49,37 @@ function toInternalHref(href: string): string {
  * A link component that keeps navigation in-app in Capacitor native apps.
  *
  * In Capacitor:
- *  1. Uses Next.js <Link> for internal paths to enable client-side navigation
- *     which preserves React state — including the Supabase singleton client
- *     with its active auth session. Full page reloads (plain <a>) force the
- *     session to be re-read from Capacitor Preferences (async), causing a
- *     brief "logged out" state or auth loss.
- *  2. Strips target="_blank" so links don't open the system browser
- *  3. Rewrites subdomain URLs (seller.storelib.com) to internal paths
- *     (/u/seller) to avoid cross-origin navigation that loses the
- *     native auth session stored in SharedPreferences.
+ *  - Uses Next.js <Link> for internal paths (/u/, /p/, /l/) so client-side
+ *    navigation preserves the Supabase auth session (no full page reload).
+ *  - Rewrites subdomain URLs to internal paths.
+ *  - Strips target="_blank" to stay in-app.
  *
  * On desktop web, behaves exactly like a normal <a> tag.
+ *
+ * Navigation loading bar: handled by NavigationLoadingBar's document click
+ * listener (catches all <a> clicks), so SmartLink does NOT need to call
+ * startNavigationLoading() — that was causing a double-fire that required
+ * users to tap twice.
  */
 export function SmartLink({
   href,
   children,
-  onClick,
   ...props
 }: React.AnchorHTMLAttributes<HTMLAnchorElement>) {
   const inApp = isNativeApp()
   const resolvedHref = inApp && href ? toInternalHref(href) : href
 
-  // Fire the loading bar immediately on every tap/click (native AND browser)
-  // so product cards, seller profiles, and "more from" links show the bar
-  // within <100 ms — before the route actually changes.
-  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    startNavigationLoading()
-    onClick?.(e)
-  }
-
   // In Capacitor, use Next.js Link for internal paths to enable client-side
   // navigation which preserves the Supabase auth session (no full page reload).
   if (inApp && resolvedHref?.startsWith("/")) {
-    const { target, rel, ...linkSafeProps } = props
+    // Strip anchor-only props that Link handles differently
+    const { target, rel, onClick, ...linkSafeProps } = props
     return (
-      <Link href={resolvedHref} onClick={handleClick} {...linkSafeProps}>
+      <Link
+        href={resolvedHref}
+        onClick={onClick as any}
+        {...linkSafeProps}
+      >
         {children}
       </Link>
     )
@@ -93,7 +88,6 @@ export function SmartLink({
   return (
     <a
       href={resolvedHref}
-      onClick={handleClick}
       {...props}
       target={inApp ? undefined : props.target}
       rel={inApp ? undefined : props.rel}
