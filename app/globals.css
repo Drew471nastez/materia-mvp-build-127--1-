@@ -42,6 +42,16 @@
   --sidebar-accent-foreground: oklch(0.15 0 0);
   --sidebar-border: oklch(0.9 0 0);
   --sidebar-ring: oklch(0.55 0.2 250);
+  /* Safe-area custom properties — 0px defaults for browser; overridden to
+     env() values in html.capacitor (set by NativeCookieKillSwitch on native) */
+  --sat: 0px;
+  --sab: 0px;
+}
+
+/* Native Capacitor: activate real safe-area env() values */
+html.capacitor {
+  --sat: env(safe-area-inset-top);
+  --sab: env(safe-area-inset-bottom);
 }
 
 .dark {

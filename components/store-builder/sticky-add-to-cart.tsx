@@ -452,6 +452,7 @@ export function LiveStickyAddToCart({
         backgroundColor: settings.backgroundColor || "#ffffff",
         backdropFilter: "none",
         borderColor: settings.borderColor || undefined,
+        paddingBottom: "var(--sab, 0px)",
       }}
     >
       {/* Mobile version - NO STARS */}

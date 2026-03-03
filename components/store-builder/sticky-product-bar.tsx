@@ -77,6 +77,7 @@ export function StickyProductBar({ settings, product, onAddToCart, onBuyNow, chi
       style={{
         backgroundColor: settings.backgroundColor || "hsl(var(--background) / 0.95)",
         padding: settings.spacing || "0.75rem",
+        paddingBottom: `calc(${settings.spacing || "0.75rem"} + var(--sab, 0px))`,
       }}
     >
       <div className="mx-auto max-w-6xl flex items-center gap-3">
