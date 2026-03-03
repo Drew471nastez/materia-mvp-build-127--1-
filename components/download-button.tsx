@@ -4,6 +4,7 @@ import type React from "react"
 import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Download, Loader2, AlertCircle } from "lucide-react"
+import { isNativeApp } from "@/lib/platform-utils"
 
 interface DownloadButtonProps {
   assetId: string
@@ -67,9 +68,17 @@ export async function downloadEntitledFile(
 
     const filename = data.fileName || "download"
 
-    // Trigger download via <a> link — the signed Supabase URL already has
-    // Content-Disposition: attachment set (from { download: true }),
-    // so the browser will download the file natively without loading it into memory.
+    // In Capacitor: open the signed URL in the in-app browser (SFSafariViewController
+    // on iOS, Custom Chrome Tab on Android) so the file downloads inside the app
+    // without jumping to system Safari or Chrome.
+    if (isNativeApp()) {
+      const { Browser } = await import("@capacitor/browser")
+      await Browser.open({ url: data.downloadUrl })
+      return { success: true }
+    }
+
+    // Web browser: use <a download> — the signed Supabase URL has
+    // Content-Disposition: attachment so the browser downloads the file natively.
     const link = document.createElement("a")
     link.href = data.downloadUrl
     link.download = filename

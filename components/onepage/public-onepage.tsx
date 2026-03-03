@@ -26,6 +26,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useState, useRef, useEffect, useCallback, createContext, useContext } from "react"
 import { Bell, X, Check, Send, Link2, ChevronLeft, ChevronRight, ExternalLink, Loader2, Download, ShoppingBag, Calendar } from "lucide-react"
 import { getLinksUrl } from "@/lib/url-helpers"
+import { isNativeApp } from "@/lib/platform-utils"
 
 const stripHtmlToPlainText = (value?: string | null) => {
   if (!value) return ""
@@ -1404,7 +1405,12 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
       const result = await response.json()
 
       if (result.downloadUrl) {
-        window.open(result.downloadUrl, '_blank')
+        if (isNativeApp()) {
+          const { Browser } = await import("@capacitor/browser")
+          await Browser.open({ url: result.downloadUrl })
+        } else {
+          window.open(result.downloadUrl, '_blank')
+        }
       }
     } catch (error) {
       console.error('Download failed:', error)
@@ -1422,7 +1428,12 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
       const response = await fetch(`/api/download/${asset.id}?receipt=${purchase.receiptToken}`)
       const result = await response.json()
       if (result.downloadUrl) {
-        window.open(result.downloadUrl, '_blank')
+        if (isNativeApp()) {
+          const { Browser } = await import("@capacitor/browser")
+          await Browser.open({ url: result.downloadUrl })
+        } else {
+          window.open(result.downloadUrl, '_blank')
+        }
       }
     } catch (error) {
       console.error('Download failed:', error)
@@ -4899,11 +4910,18 @@ function PublicBlockRenderer({
             downloadUrl = `${downloadUrl}${separator}download=${encodeURIComponent(data.digital_product_title || 'download')}`
           }
 
-          // Create a temporary link and trigger the download
+          // In Capacitor: open in the in-app browser (SFSafariViewController / Custom Chrome Tab)
+          // so the file downloads inside the app without jumping to system Safari/Chrome.
+          if (isNativeApp()) {
+            const { Browser } = await import("@capacitor/browser")
+            await Browser.open({ url: downloadUrl })
+            return
+          }
+
+          // Web browser: use <a download> to trigger native download
           const link = document.createElement('a')
           link.href = downloadUrl
           link.download = data.digital_product_title || 'download'
-          link.target = '_blank'
           link.rel = 'noopener noreferrer'
           document.body.appendChild(link)
           link.click()

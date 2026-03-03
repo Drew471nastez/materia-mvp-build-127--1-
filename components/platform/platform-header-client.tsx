@@ -933,6 +933,15 @@ export function PlatformHeaderClient() {
   const navigateReliably = useCallback(
     (targetPath: string) => {
       if (typeof window === "undefined") return
+      // Seller subdomain: ALWAYS navigate to canonical storelib.com URL.
+      // This check MUST come before isNativePlatform() — a Capacitor app on
+      // sellername.storelib.com must also use canonical URLs, otherwise
+      // router.push() would land on sellername.storelib.com/explore which
+      // doesn't exist and freezes the page.
+      if (shouldForceCanonicalNav) {
+        navigateToCanonical(targetPath)
+        return
+      }
       if (isNativePlatform()) {
         // Cross-layout: must full-reload (NativeAuthGate handles session restore)
         // Same-layout: router.push preserves the Supabase singleton — no auth loss
@@ -941,10 +950,6 @@ export function PlatformHeaderClient() {
         } else {
           router.push(targetPath)
         }
-        return
-      }
-      if (shouldForceCanonicalNav) {
-        navigateToCanonical(targetPath)
         return
       }
       router.push(targetPath)
@@ -1301,7 +1306,10 @@ export function PlatformHeaderClient() {
                           <Link
                             key={cat.label}
                             href={getCanonicalOrRelativePath(cat.href + '&scroll=recommended')}
-                            onClick={() => setSearchModalOpen(false)}
+                            onClick={(e) => {
+                              onCanonicalNav(e, cat.href + '&scroll=recommended')
+                              setSearchModalOpen(false)
+                            }}
                             className="px-3 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 transition-colors cursor-pointer"
                           >
                             {cat.label}
@@ -1325,7 +1333,10 @@ export function PlatformHeaderClient() {
                         <Link
                           key={product.id}
                           href={getCanonicalOrRelativePath(`/p/${product.slug}`)}
-                          onClick={() => setSearchModalOpen(false)}
+                          onClick={(e) => {
+                            onCanonicalNav(e, `/p/${product.slug}`)
+                            setSearchModalOpen(false)
+                          }}
                           className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer group"
                         >
                           {product.thumbnail_url ? (
@@ -1668,7 +1679,10 @@ export function PlatformHeaderClient() {
                     <Link
                       key={cat.label}
                       href={getCanonicalOrRelativePath(cat.href + '&scroll=recommended')}
-                      onClick={() => setSearchModalOpen(false)}
+                      onClick={(e) => {
+                        onCanonicalNav(e, cat.href + '&scroll=recommended')
+                        setSearchModalOpen(false)
+                      }}
                       className="px-3 py-2 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 transition-colors cursor-pointer"
                     >
                       {cat.label}
@@ -1695,7 +1709,10 @@ export function PlatformHeaderClient() {
                     <Link
                       key={product.id}
                       href={getCanonicalOrRelativePath(`/p/${product.slug}`)}
-                      onClick={() => setSearchModalOpen(false)}
+                      onClick={(e) => {
+                        onCanonicalNav(e, `/p/${product.slug}`)
+                        setSearchModalOpen(false)
+                      }}
                       className="flex items-center gap-3 px-2 py-2.5 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer"
                     >
                       {product.thumbnail_url ? (
@@ -1978,8 +1995,6 @@ export function PlatformHeaderClient() {
                       key={cat.label}
                       type="button"
                       onClick={handleCategoryClick}
-                      onTouchStart={handleTapStart}
-                      onTouchEnd={makeTapEnd(handleCategoryClick)}
                       className="flex items-center justify-between w-full px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer active:bg-gray-200 touch-manipulation select-none"
                     >
                       <div className="flex items-center gap-3 pointer-events-none">
