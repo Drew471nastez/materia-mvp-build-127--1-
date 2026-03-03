@@ -64,21 +64,19 @@ export function NavigationLoadingBar() {
     startTimeRef.current = Date.now()
     setIsLoading(true)
     setIsComplete(false)
-    setProgress(0)
+    // Jump to 8% instantly so the bar is visible <16 ms after the tap
+    setProgress(8)
 
-    let currentProgress = 0
+    let currentProgress = 8
     const animate = () => {
       const increment = Math.random() * 3 + 1
-      currentProgress += increment
-      if (currentProgress >= 80) {
-        currentProgress = 80 + (Math.random() * 2)
-      }
-      if (currentProgress < 85) {
-        setProgress(currentProgress)
-        progressRef.current = setTimeout(animate, 200 + Math.random() * 100)
+      currentProgress = Math.min(currentProgress + increment, 82)
+      setProgress(currentProgress)
+      if (currentProgress < 82) {
+        progressRef.current = setTimeout(animate, 150 + Math.random() * 100)
       }
     }
-    progressRef.current = setTimeout(animate, 20) // start within 20 ms
+    progressRef.current = setTimeout(animate, 80) // continue animating after 80 ms
 
     // Safety timeout: auto-dismiss after 8 seconds to prevent stuck bar
     safetyRef.current = setTimeout(() => { completeLoading() }, 8000)

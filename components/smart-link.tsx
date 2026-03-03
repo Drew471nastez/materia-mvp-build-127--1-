@@ -65,30 +65,26 @@ function toInternalHref(href: string): string {
 export function SmartLink({
   href,
   children,
+  onClick,
   ...props
 }: React.AnchorHTMLAttributes<HTMLAnchorElement>) {
-  // Synchronous check — isNativeApp() returns false during SSR, so the
-  // server renders the original href. On the client the very first render
-  // already applies the rewrite, leaving no window where a stale
-  // subdomain link could be clicked.
   const inApp = isNativeApp()
-
   const resolvedHref = inApp && href ? toInternalHref(href) : href
+
+  // Fire the loading bar immediately on every tap/click (native AND browser)
+  // so product cards, seller profiles, and "more from" links show the bar
+  // within <100 ms — before the route actually changes.
+  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    startNavigationLoading()
+    onClick?.(e)
+  }
 
   // In Capacitor, use Next.js Link for internal paths to enable client-side
   // navigation which preserves the Supabase auth session (no full page reload).
   if (inApp && resolvedHref?.startsWith("/")) {
-    // Strip anchor-only props that Link handles differently
-    const { target, rel, onClick, ...linkSafeProps } = props
+    const { target, rel, ...linkSafeProps } = props
     return (
-      <Link
-        href={resolvedHref}
-        onClick={(e) => {
-          startNavigationLoading()
-          onClick?.(e)
-        }}
-        {...linkSafeProps}
-      >
+      <Link href={resolvedHref} onClick={handleClick} {...linkSafeProps}>
         {children}
       </Link>
     )
@@ -97,6 +93,7 @@ export function SmartLink({
   return (
     <a
       href={resolvedHref}
+      onClick={handleClick}
       {...props}
       target={inApp ? undefined : props.target}
       rel={inApp ? undefined : props.rel}

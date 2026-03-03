@@ -21,6 +21,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 
 import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, LogIn, Menu, X, Loader2, ChevronRight, ChevronLeft, ChevronDown, Sparkles, Code, Megaphone, Briefcase, Music, Camera, Video, LayoutGrid, Gift, MoreHorizontal, Bot, Share2, Flame, Zap, ShoppingBag, Lightbulb, ArrowRight, User as UserIcon, Compass } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
+import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 
 const LOGO_URL =
   "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
@@ -411,8 +412,11 @@ function MobileBottomSheet({
     const sheetRect = sheetElement.getBoundingClientRect()
     const touchYInSheet = touch.clientY - sheetRect.top
 
-    // Only start dragging if touch is in the backdrop or handle/header area
-    if (touchYInSheet <= 0 || touchYInSheet <= 100) {
+    // Only start dragging from the handle bar (~56 px) or the backdrop.
+    // Keeping this tight prevents touches on category/subcategory buttons
+    // (which sit at ~60–120 px from the top) from having their click events
+    // cancelled by handleTouchMove's e.preventDefault() call.
+    if (touchYInSheet <= 0 || touchYInSheet <= 56) {
       startY.current = touch.clientY
       setIsDragging(true)
     }
@@ -483,24 +487,9 @@ function MobileBottomSheet({
   )
 }
 
-// Shared ref for tap detection across category buttons inside scrollable modals
-// Tracks touch start position; onTouchEnd only fires callback if touch moved < 10px (tap, not scroll)
-const tapStartPos = { x: 0, y: 0 }
-function handleTapStart(e: React.TouchEvent) {
-  tapStartPos.x = e.touches[0].clientX
-  tapStartPos.y = e.touches[0].clientY
-}
-function makeTapEnd(callback: () => void) {
-  return (e: React.TouchEvent) => {
-    const touch = e.changedTouches[0]
-    const dx = Math.abs(touch.clientX - tapStartPos.x)
-    const dy = Math.abs(touch.clientY - tapStartPos.y)
-    if (dx < 10 && dy < 10) {
-      e.preventDefault()
-      callback()
-    }
-  }
-}
+// tapStartPos / handleTapStart / makeTapEnd removed — the MobileBottomSheet
+// drag threshold is now ≤56 px so category buttons below that zone never
+// have their click events suppressed. Plain onClick is sufficient.
 
 // Animated Hamburger Icon Component - subtle animation only
 function AnimatedHamburger({ isOpen }: { isOpen: boolean }) {
@@ -933,6 +922,7 @@ export function PlatformHeaderClient() {
   const navigateReliably = useCallback(
     (targetPath: string) => {
       if (typeof window === "undefined") return
+      startNavigationLoading()
       // Seller subdomain: ALWAYS navigate to canonical storelib.com URL.
       // This check MUST come before isNativePlatform() — a Capacitor app on
       // sellername.storelib.com must also use canonical URLs, otherwise
@@ -959,6 +949,7 @@ export function PlatformHeaderClient() {
 
   const onCanonicalNav = useCallback(
     (e: React.MouseEvent<HTMLElement>, targetPath: string) => {
+      startNavigationLoading()
       // When on a seller subdomain (e.g. sellername.storelib.com), ALL navigation
       // to non-seller routes (/library, /app, /explore, /signup, etc.) MUST use
       // the canonical storelib.com URL. Relative paths would land on
