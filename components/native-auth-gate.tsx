@@ -30,9 +30,12 @@ import { nativeAppReadyForce } from "@/lib/native-bridge"
 export function NativeAuthGate({
   children,
   requireAuth = false,
+  loadingFallback,
 }: {
   children: ReactNode
   requireAuth?: boolean
+  /** Custom loading UI shown while auth resolves (requireAuth mode). Defaults to AuthResolvingScreen. */
+  loadingFallback?: ReactNode
 }) {
   const router = useRouter()
   // Start as true (blocked) when requireAuth is set — we must verify before rendering.
@@ -123,7 +126,7 @@ export function NativeAuthGate({
   }, [blocked, requireAuth])
 
   if (blocked || !authChecked) {
-    return <AuthResolvingScreen />
+    return <>{loadingFallback ?? <AuthResolvingScreen />}</>
   }
 
   return <>{children}</>

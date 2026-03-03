@@ -1,74 +1,40 @@
-export const metadata = {
-  title: "Privacy Policy",
-  description: "Privacy Policy for Storelib",
-}
+"use client"
 
-export default function PrivacyPage() {
+import { ArrowLeft, Shield } from "lucide-react"
+
+export default function LegalPrivacyPage() {
   return (
-    <div className="mx-auto max-w-3xl px-4 py-12">
-      <h1 className="text-3xl font-semibold tracking-tight">Privacy Policy</h1>
-      <p className="mt-2 text-muted-foreground">Last updated: {new Date().toLocaleDateString()}</p>
-
-      <div className="mt-8 space-y-8 text-muted-foreground">
-        <section>
-          <h2 className="mb-3 text-lg font-medium text-foreground">1. Information We Collect</h2>
-          <p>
-            We collect information you provide directly to us, such as when you create an account, make a purchase, or
-            contact us for support. This includes your name, email address, and payment information.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="mb-3 text-lg font-medium text-foreground">2. How We Use Your Information</h2>
-          <p>
-            We use the information we collect to provide, maintain, and improve our services, process transactions, send
-            you technical notices and support messages, and respond to your comments and questions.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="mb-3 text-lg font-medium text-foreground">3. Information Sharing</h2>
-          <p>
-            We do not share your personal information with third parties except as described in this policy. We may
-            share information with vendors and service providers who need access to such information to carry out work
-            on our behalf.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="mb-3 text-lg font-medium text-foreground">4. Data Security</h2>
-          <p>
-            We take reasonable measures to help protect information about you from loss, theft, misuse, unauthorized
-            access, disclosure, alteration, and destruction.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="mb-3 text-lg font-medium text-foreground">5. Cookies</h2>
-          <p>
-            We use cookies and similar technologies to collect information about your browsing activities and to
-            personalize your experience on our platform.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="mb-3 text-lg font-medium text-foreground">6. Your Rights</h2>
-          <p>
-            You have the right to access, correct, or delete your personal information. You can manage your account
-            settings or contact us to exercise these rights.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="mb-3 text-lg font-medium text-foreground">7. Contact</h2>
-          <p>
-            For any questions about this Privacy Policy, please contact us at{" "}
-            <a href="mailto:privacy@materia.io" className="text-foreground underline underline-offset-4">
-              privacy@materia.io
-            </a>
-            .
-          </p>
-        </section>
+    <div className="min-h-screen bg-white">
+      {/* Redirect notice */}
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+        <button
+          type="button"
+          onClick={() => window.history.back()}
+          className="inline-flex items-center gap-2 text-[14px] text-[#6b7280] hover:text-[#1a1a2e] transition-colors mb-6"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </button>
+        <div className="flex items-center gap-4 mb-8">
+          <div className="w-12 h-12 rounded-xl bg-[#8b5cf6]/10 flex items-center justify-center">
+            <Shield className="h-6 w-6 text-[#8b5cf6]" />
+          </div>
+          <div>
+            <h1 className="text-[32px] font-bold text-[#1a1a2e]">Privacy Policy</h1>
+            <p className="text-[14px] text-[#6b7280] mt-1">Redirecting to our full Privacy Policy…</p>
+          </div>
+        </div>
+        <p className="text-[15px] text-[#4b5563]">
+          Our Privacy Policy has moved.{" "}
+          <a href="/privacy" className="text-[#8b5cf6] hover:underline font-medium">
+            Click here to view the full Privacy Policy →
+          </a>
+        </p>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window.location.replace("/privacy")`,
+          }}
+        />
       </div>
     </div>
   )

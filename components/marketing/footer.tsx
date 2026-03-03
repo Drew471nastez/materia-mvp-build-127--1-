@@ -212,7 +212,7 @@ export function MarketingFooter() {
               <Link href="/legal/terms" className="block text-sm text-gray-400 hover:text-white transition-colors">
                 Terms of Service
               </Link>
-              <Link href="/legal/privacy" className="block text-sm text-gray-400 hover:text-white transition-colors">
+              <Link href="/privacy" className="block text-sm text-gray-400 hover:text-white transition-colors">
                 Privacy Policy
               </Link>
               <button

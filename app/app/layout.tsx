@@ -6,6 +6,7 @@ import { AppSidebar } from "@/components/app/sidebar"
 import { AppLayoutWrapper } from "@/components/app/app-layout-wrapper"
 import { Toaster } from "@/components/ui/toaster"
 import { NativeAuthGate } from "@/components/native-auth-gate"
+import AppDashboardLoading from "./loading"
 
 /**
  * Detect Capacitor WebView from the User-Agent header.
@@ -37,8 +38,10 @@ export default async function AppLayout({
       // A full-page reload won't have a server-side session yet —
       // the client will restore it asynchronously from Preferences.
       // Skip the redirect and let NativeAuthGate handle it.
+      // Show the dashboard skeleton instead of a blank white screen while
+      // NativeAuthGate restores the Supabase session from Capacitor Preferences.
       return (
-        <NativeAuthGate requireAuth>
+        <NativeAuthGate requireAuth loadingFallback={<AppDashboardLoading />}>
           {children}
         </NativeAuthGate>
       )
