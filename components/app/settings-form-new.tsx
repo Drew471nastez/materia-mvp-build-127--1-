@@ -289,14 +289,8 @@ function MobileBottomSheet({
 
   const handleTouchStart = (e: React.TouchEvent) => {
     const touch = e.touches[0]
-    const sheetElement = sheetRef.current
-    if (!sheetElement) return
-    const sheetRect = sheetElement.getBoundingClientRect()
-    const touchYInSheet = touch.clientY - sheetRect.top
-    if (touchYInSheet <= 0 || touchYInSheet <= 100) {
-      startY.current = touch.clientY
-      setIsDragging(true)
-    }
+    startY.current = touch.clientY
+    setIsDragging(true)
   }
 
   const handleTouchMove = (e: React.TouchEvent) => {
@@ -322,7 +316,7 @@ function MobileBottomSheet({
   if (!isVisible) return null
 
   return (
-    <div className="fixed inset-0 z-[100]" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+    <div className="fixed inset-0 z-[100]">
       <div
         className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity duration-400 ${
           isAnimating ? "opacity-100" : "opacity-0"
@@ -358,7 +352,13 @@ function MobileBottomSheet({
           transition: isDragging ? "none" : "transform 400ms cubic-bezier(0.32, 0.72, 0, 1)",
         }}
       >
-        <div className="pt-3 pb-2">
+        {/* Handle bar — drag target only, touch events restricted here so content buttons work */}
+        <div
+          className="pt-3 pb-2"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
           <button
             onClick={handleClose}
             className="w-full flex justify-center py-2 cursor-pointer touch-none"

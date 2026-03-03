@@ -950,13 +950,11 @@ export function PlatformHeaderClient() {
         return
       }
       if (isNativePlatform()) {
-        // Cross-layout: must full-reload (NativeAuthGate handles session restore)
-        // Same-layout: router.push preserves the Supabase singleton — no auth loss
-        if (isCrossLayoutPath(targetPath)) {
-          window.location.href = targetPath
-        } else {
-          router.push(targetPath)
-        }
+        // Always use window.location.href in Capacitor so paths starting with "/"
+        // are always resolved against the root, never against the current pathname.
+        // router.push() can produce URL mixing (e.g. /u/seller/explore?category=…)
+        // in some Capacitor WebView contexts. NativeAuthGate handles session restore.
+        window.location.href = targetPath
         return
       }
       router.push(targetPath)
@@ -979,15 +977,10 @@ export function PlatformHeaderClient() {
         return
       }
       // In Capacitor on the main storelib.com domain: use router.push for
-      // same-layout routes to preserve the Supabase auth singleton; full-reload
-      // for cross-layout routes so NativeAuthGate can restore the session.
+      // In Capacitor always use window.location.href to prevent URL mixing.
       if (isNativePlatform()) {
         e.preventDefault()
-        if (isCrossLayoutPath(targetPath)) {
-          window.location.href = targetPath
-        } else {
-          router.push(targetPath)
-        }
+        window.location.href = targetPath
         return
       }
     },

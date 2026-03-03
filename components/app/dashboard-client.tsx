@@ -672,18 +672,11 @@ function QuickAccessBottomSheet({
 
   const handleTouchStart = (e: React.TouchEvent) => {
     const touch = e.touches[0]
-    const sheetElement = sheetRef.current
-    if (!sheetElement) return
-    const sheetRect = sheetElement.getBoundingClientRect()
-    const touchYInSheet = touch.clientY - sheetRect.top
-    // Allow drag from backdrop (above sheet) or handle/header area
-    if (touchYInSheet <= 0 || touchYInSheet <= 100) {
-      startYRef.current = touch.clientY
-      lastYRef.current = touch.clientY
-      lastTimeRef.current = Date.now()
-      velocityRef.current = 0
-      setIsDragging(true)
-    }
+    startYRef.current = touch.clientY
+    lastYRef.current = touch.clientY
+    lastTimeRef.current = Date.now()
+    velocityRef.current = 0
+    setIsDragging(true)
   }
 
   const handleTouchMove = (e: React.TouchEvent) => {
@@ -715,12 +708,7 @@ function QuickAccessBottomSheet({
   if (!isVisible) return null
 
   return (
-    <div
-      className="fixed inset-0 z-[110] md:hidden"
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    >
+    <div className="fixed inset-0 z-[110] md:hidden">
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
         style={{
@@ -741,8 +729,19 @@ function QuickAccessBottomSheet({
         }}
       >
         {/* Invisible extended touch zone above sheet for easier grab */}
-        <div className="absolute left-0 right-0 h-6 -top-6" />
-        <div className="pt-3 pb-2">
+        <div
+          className="absolute left-0 right-0 h-6 -top-6"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        />
+        {/* Handle bar — drag target only, touch events restricted here */}
+        <div
+          className="pt-3 pb-2"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
           <div className="w-full flex justify-center py-2 cursor-grab active:cursor-grabbing touch-none">
             <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
           </div>
@@ -765,7 +764,12 @@ function QuickAccessBottomSheet({
               }}
               onOpen={() => {
                 if (isOnePageReady) {
-                  openExternal(onePageUrl || navOnePageUrl)
+                  const url = navOnePageUrl || onePageUrl
+                  if (isNativeApp()) {
+                    window.location.href = url
+                  } else {
+                    window.open(onePageUrl || url, "_blank", "noopener,noreferrer")
+                  }
                 } else {
                   onSetupOnePage()
                 }
@@ -781,7 +785,12 @@ function QuickAccessBottomSheet({
               isCopied={isStoreCopied}
               onAction={onCopyStore}
               onOpen={() => {
-                openExternal(storeUrl || navStoreUrl)
+                const url = navStoreUrl || storeUrl
+                if (isNativeApp()) {
+                  window.location.href = url
+                } else {
+                  window.open(storeUrl || url, "_blank", "noopener,noreferrer")
+                }
                 handleClose()
               }}
               icon={<div className="w-8 h-8 rounded-full bg-black flex items-center justify-center overflow-hidden"><img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/image2vector%20(2).webp" alt="" width={20} height={20} className="w-5 h-5" loading="eager" decoding="async" /></div>}
