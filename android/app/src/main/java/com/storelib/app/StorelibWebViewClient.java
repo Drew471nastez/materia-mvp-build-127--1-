@@ -154,7 +154,8 @@ public class StorelibWebViewClient extends BridgeWebViewClient {
             } else {
                 internalPath = pathSeg;   // pass other paths through unchanged
             }
-            view.loadUrl("https://storelib.com" + internalPath);
+            final String urlToLoad = "https://storelib.com" + internalPath;
+            view.post(() -> view.loadUrl(urlToLoad));
             return true;
         }
 
