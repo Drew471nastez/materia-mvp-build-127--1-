@@ -912,7 +912,7 @@ export function PlatformHeaderClient() {
   // Same-layout routes (/explore, /u/, /p/, /l/, /library, /wishlist) use
   // router.push to keep client-side navigation and preserve the auth session.
   const isCrossLayoutPath = (path: string) =>
-    path.startsWith("/app") || path.startsWith("/store-builder")
+    path.startsWith("/app") || path.startsWith("/store-builder") || path.startsWith("/library")
 
   const navigateReliably = useCallback(
     (targetPath: string) => {
@@ -1572,8 +1572,9 @@ export function PlatformHeaderClient() {
                         <Link
                           href={getCanonicalOrRelativePath("/library")}
                           onClick={(e) => {
-                            onCanonicalNav(e, "/library")
+                            e.preventDefault()
                             setDesktopProfileOpen(false)
+                            onCanonicalNav(e, "/library")
                           }}
                           className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900 cursor-pointer"
                         >
@@ -1985,7 +1986,7 @@ export function PlatformHeaderClient() {
               <div className="mt-4 pt-4 border-t border-gray-200">
                 <Link
                   href={getCanonicalOrRelativePath("/library")}
-                  onClick={(e) => { onCanonicalNav(e, "/library"); setMobileMenuOpen(false) }}
+                  onClick={(e) => { e.preventDefault(); setMobileMenuOpen(false); onCanonicalNav(e, "/library") }}
                   className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
                 >
                   <div className="flex items-center gap-3">
@@ -2073,7 +2074,7 @@ export function PlatformHeaderClient() {
             )}
             <Link
               href={getCanonicalOrRelativePath("/library")}
-              onClick={(e) => { onCanonicalNav(e, "/library"); setMobileProfileOpen(false) }}
+              onClick={(e) => { e.preventDefault(); setMobileProfileOpen(false); onCanonicalNav(e, "/library") }}
               className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-3">
