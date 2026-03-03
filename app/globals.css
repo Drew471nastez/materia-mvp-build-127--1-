@@ -935,3 +935,47 @@
     padding-bottom: max(24px, env(safe-area-inset-bottom)) !important;
   }
 }
+
+/* ── Native auth pages: document scroll lock + responsive card ────────────────
+ *
+ * Activated ONLY inside Capacitor iOS/Android apps. The useNativeScrollLock()
+ * hook adds "native-auth-lock" to <html> and <body> on /login and /signup and
+ * removes it on unmount. No-op in storelib.com browser sessions.
+ *
+ * auth-shell  — the form panel container (co-located with .auth-stack).
+ *               In native: constrains height to dvh so the card is contained.
+ *
+ * auth-card   — the inner form content div (logo + form + buttons).
+ *               In native: bounded to the visible viewport and independently
+ *               scrollable so every input is reachable on short screens
+ *               (iPhone SE, landscape mode, keyboard-open states) without
+ *               letting the entire document scroll or bounce.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+html.native-auth-lock,
+body.native-auth-lock {
+  height: 100%;
+  overflow: hidden;             /* block document-level scroll */
+  overscroll-behavior: none;    /* disable pull-to-refresh / edge-glow bounce */
+  touch-action: pan-x;          /* prevent vertical drag on the background layer */
+}
+
+/* In native: ensure the shell anchors to the true viewport height.
+ * dvh shrinks when the software keyboard appears, keeping the form visible. */
+html.native-auth-lock .auth-shell {
+  min-height: 100dvh;
+  align-items: center;  /* centre the card horizontally inside the column */
+}
+
+/* In native: constrain the card and make it the sole scroll region.
+ * touch-action: pan-y re-enables vertical touch scroll so inputs are
+ * reachable even though the outer document scroll is locked. */
+html.native-auth-lock .auth-card {
+  width: 100%;
+  max-width: 420px;
+  max-height: calc(100dvh - 48px); /* viewport minus safe-area buffer */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch; /* native momentum scroll on iOS WKWebView */
+  overscroll-behavior: contain;      /* bounce stays inside the card, not the page */
+  touch-action: pan-y;               /* re-enable vertical touch scroll within card */
+}

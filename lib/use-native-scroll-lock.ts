@@ -4,19 +4,23 @@ import { useEffect } from "react"
 import { isNativeApp } from "@/lib/native-bridge"
 
 /**
- * Prevents elastic / rubber-band body scroll in the Capacitor native WebView.
+ * Prevents elastic / rubber-band body scroll on /login and /signup when
+ * running inside a Capacitor iOS/Android app.
  *
- * On /login and /signup the form fits entirely within the viewport — there
- * should be no scrolling and no bounce effect when the user swipes past the
- * edge of the content.  In a regular browser this hook is a no-op so the
- * existing scroll behaviour is preserved.
+ * In a regular browser this hook is a complete no-op — no classes are added
+ * and no styles are changed, so storelib.com is unaffected.
  *
  * What it does (native only):
- *   • Sets overflowY: hidden on <html> to stop the document from scrolling.
- *   • Sets overscrollBehavior: none on <html> and <body> to disable the
- *     Android WebView rubber-band / edge-glow effect.
+ *   • Adds the "native-auth-lock" class to <html> and <body>.
+ *   • The class is defined in globals.css and applies:
+ *       height: 100%             — anchors the document height to the viewport
+ *       overflow: hidden         — blocks document-level vertical scroll
+ *       overscroll-behavior: none — disables pull-to-refresh / edge-glow bounce
+ *       touch-action: pan-x      — prevents vertical drag on the background layer
+ *   • The companion .auth-card CSS rule re-enables vertical touch scrolling
+ *     inside the form card so inputs remain reachable on short screens.
  *
- * Everything is restored on unmount so other routes are not affected.
+ * Everything is cleaned up on unmount so other routes are unaffected.
  */
 export function useNativeScrollLock(): void {
   useEffect(() => {
@@ -25,24 +29,12 @@ export function useNativeScrollLock(): void {
     const html = document.documentElement
     const body = document.body
 
-    const saved = {
-      htmlOverflowY: html.style.overflowY,
-      htmlOverscroll: html.style.overscrollBehavior,
-      bodyOverscroll: body.style.overscrollBehavior,
-    }
-
-    // Prevent document-level scroll and elastic bounce.
-    // NOTE: we set overscrollBehavior on body here because we are in an
-    // Android WebView (not iOS Safari), so the "overflow-x on body breaks
-    // touch-scroll" bug does not apply.
-    html.style.overflowY = "hidden"
-    html.style.overscrollBehavior = "none"
-    body.style.overscrollBehavior = "none"
+    html.classList.add("native-auth-lock")
+    body.classList.add("native-auth-lock")
 
     return () => {
-      html.style.overflowY = saved.htmlOverflowY
-      html.style.overscrollBehavior = saved.htmlOverscroll
-      body.style.overscrollBehavior = saved.bodyOverscroll
+      html.classList.remove("native-auth-lock")
+      body.classList.remove("native-auth-lock")
     }
   }, [])
 }
