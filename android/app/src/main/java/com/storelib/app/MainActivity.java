@@ -86,6 +86,18 @@ public class MainActivity extends BridgeActivity {
         // (the native overlay then takes over seamlessly).
         splashScreen.setKeepOnScreenCondition(() -> !appReady);
 
+        // When the splash is about to exit (appReady just became true), remove it
+        // instantly instead of using the default slide/fade animation.
+        //
+        // Why: the default exit animation can briefly expose the window background
+        // between the splash layer and the native overlay, producing a single
+        // black frame on certain OEM devices.  By calling splashScreenView.remove()
+        // we dismiss the splash synchronously; the overlay (already fully opaque
+        // on screen from the showOverlay() call below) covers the WebView surface
+        // seamlessly.  The overlay then fades out on its own 300 ms schedule once
+        // the web app has signalled readiness via appReady().
+        splashScreen.setOnExitAnimationListener(splashScreenView -> splashScreenView.remove());
+
         // Set window background to the same light gray as the splash so there
         // is never a colour mismatch behind the overlay or between activity
         // transitions.

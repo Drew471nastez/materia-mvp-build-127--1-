@@ -140,6 +140,12 @@ public class StorelibWebViewClient extends BridgeWebViewClient {
         //    This is the safety net for any pre-hydration <a> clicks that still
         //    carry the old subdomain href.  The SmartLink client component converts
         //    these after hydration, but a fast tap can reach the raw server HTML first.
+        //
+        //    IMPORTANT: never call view.loadUrl() directly inside
+        //    shouldOverrideUrlLoading() — doing so starts a new navigation while the
+        //    current one is still being processed, which corrupts the WebView history
+        //    stack and causes "loses connection" errors after a few deep navigations.
+        //    Deferring via view.post() lets the current navigation unwind first.
         String host = uri.getHost();
         if (host != null && host.endsWith(".storelib.com") && !host.equals("storelib.com")) {
             String pathSeg = uri.getPath();
@@ -154,7 +160,8 @@ public class StorelibWebViewClient extends BridgeWebViewClient {
             } else {
                 internalPath = pathSeg;   // pass other paths through unchanged
             }
-            view.loadUrl("https://storelib.com" + internalPath);
+            final String targetUrl = "https://storelib.com" + internalPath;
+            view.post(() -> view.loadUrl(targetUrl));
             return true;
         }
 
