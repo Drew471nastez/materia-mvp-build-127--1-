@@ -14,6 +14,48 @@ interface ChangelogEntry {
 
 const changelogData: ChangelogEntry[] = [
   {
+    date: "March 4",
+    type: "fix",
+    category: "Navigation",
+    title: "Sign In Button Fix on Seller Pages",
+    description: "Fixed Sign In and Log In buttons on seller store pages (subdomains) to correctly redirect to storelib.com instead of staying on the seller subdomain.",
+  },
+  {
+    date: "March 4",
+    type: "improvement",
+    category: "Payouts",
+    title: "Revenue Chart Default & Net Indicator",
+    description: "Revenue chart now defaults to All Time view so lifetime revenue is always visible. Added Net earnings indicator to the chart legend alongside Revenue and Refunds.",
+  },
+  {
+    date: "March 4",
+    type: "improvement",
+    category: "Analytics",
+    title: "Refunds Visible in Revenue Chart",
+    description: "Refund data now appears on the analytics chart when viewing the Revenue metric, matching the payouts chart behavior.",
+  },
+  {
+    date: "March 4",
+    type: "fix",
+    category: "Payouts",
+    title: "First Payout Banner Logic",
+    description: "The first payout setup banner no longer shows after a successful payout has been completed.",
+  },
+  {
+    date: "March 4",
+    type: "improvement",
+    category: "Settings",
+    title: "Upgrade Page Improvements",
+    description: "Renamed Professional plan to Pro, added smooth loading skeleton, and ensured equal height pricing tier cards on the upgrade page.",
+  },
+  {
+    date: "March 4",
+    type: "improvement",
+    category: "Navigation",
+    title: "Updated Loading Skeletons",
+    description: "Improved loading skeleton structures for Explore, Analytics, and Upgrade pages to better match actual page layouts.",
+  },
+  {
     date: "February 4",
     type: "feature",
     category: "Settings",
@@ -85,7 +127,7 @@ const changelogData: ChangelogEntry[] = [
   },
 ]
 
-const categories = ["All", "Settings", "Analytics", "Dashboard", "Store Builder", "Profile", "Navigation", "Emails", "Products"]
+const categories = ["All", "Settings", "Analytics", "Dashboard", "Payouts", "Store Builder", "Profile", "Navigation", "Emails", "Products"]
 
 const getTypeLabel = (type: string) => {
   switch (type) {

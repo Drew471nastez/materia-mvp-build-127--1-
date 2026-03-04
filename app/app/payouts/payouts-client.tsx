@@ -803,6 +803,10 @@ function RevenueChart() {
               Refunds −{fmt(totalRefunds, currency)}
             </span>
           )}
+          <span className="flex items-center gap-1.5 text-[11px] text-[#6b7280]">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#10b981] shrink-0" />
+            Net {fmt(Math.max(0, total), currency)}
+          </span>
         </div>
       )}
 
@@ -1162,7 +1166,7 @@ function WithdrawPanel({
             </p>
           </div>
           <a
-            href="/help-center"
+            href="https://storelib.com/help"
             className="flex items-center justify-center gap-1.5 text-[13px] font-medium text-[#8b5cf6] hover:text-[#7c3aed] transition-colors"
           >
             Learn More <ArrowRight className="h-3.5 w-3.5" />
@@ -2719,7 +2723,7 @@ function OrderDetailsModal({
             transition: isDragging
               ? "none"
               : "transform 420ms cubic-bezier(0.32,0.72,0,1)",
-            maxHeight: "72vh",
+            maxHeight: "61vh",
             willChange: "transform",
           }}
         >
@@ -4452,15 +4456,6 @@ export function PayoutsClient({
     stripeExpressDashboardUrl: string | null;
   } | null>(initialData.taxData || null);
 
-  // Lifetime revenue stats (never affected by cashouts)
-  const lifetimeGross = initialData.totalEarnings;
-  const lifetimeFees = initialData.totalFees;
-  const lifetimeNet = initialData.netEarnings;
-  const lifetimeRefunds = initialOrders
-    .filter((o) => o.status === "refunded")
-    .reduce((s, o) => s + (o.refund_amount_cents ?? o.amount_cents ?? 0), 0);
-  const lifetimeCompletedCount = initialOrders.filter((o) => o.status === "completed").length;
-
   const sourceCurrency = (creator.default_currency || "usd").toLowerCase();
   const currency = "usd";
   const hasStripe = !!creator.stripe_account_id;
@@ -4828,7 +4823,8 @@ export function PayoutsClient({
         }
 
         // 6. First payout setup — account is ready but hasn't cashed out yet
-        if (latestPayoutStatus.totalPayouts === 0 && (availableBalance > 0 || pendingBalance > 0)) {
+        // Only show after balance data is fetched (balanceReady) so we have real payout counts
+        if (balanceReady && latestPayoutStatus.totalPayouts === 0 && (availableBalance > 0 || pendingBalance > 0)) {
           return (
             <div className="flex items-start gap-3 px-4 py-3.5 bg-[#f8f8f9] border border-[#e8e8ec] rounded-xl mb-5">
               <div className="w-7 h-7 rounded-lg bg-[#fef3c7] flex items-center justify-center shrink-0 mt-0.5">
@@ -4846,33 +4842,6 @@ export function PayoutsClient({
       })()}
 
       <div className="space-y-6">
-        {/* Lifetime revenue stats — never reset by cashouts */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4">
-            <p className="text-[11px] font-semibold text-[#9ca3af] tracking-widest uppercase">Gross Revenue</p>
-            <p className="text-[22px] font-bold text-[#1a1a2e] mt-1 tabular-nums">{fmt(lifetimeGross, currency)}</p>
-            <p className="text-[11px] text-[#9ca3af] mt-0.5">All time</p>
-          </div>
-          <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4">
-            <p className="text-[11px] font-semibold text-[#9ca3af] tracking-widest uppercase">Net Earnings</p>
-            <p className="text-[22px] font-bold text-[#8b5cf6] mt-1 tabular-nums">{fmt(lifetimeNet, currency)}</p>
-            <p className="text-[11px] text-[#9ca3af] mt-0.5">After platform fees</p>
-          </div>
-          <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4">
-            <p className="text-[11px] font-semibold text-[#9ca3af] tracking-widest uppercase">Platform Fees</p>
-            <p className="text-[22px] font-bold text-[#1a1a2e] mt-1 tabular-nums">{fmt(lifetimeFees, currency)}</p>
-            {lifetimeRefunds > 0 && (
-              <p className="text-[11px] text-rose-400 mt-0.5">+{fmt(lifetimeRefunds, currency)} refunded</p>
-            )}
-            {lifetimeRefunds === 0 && <p className="text-[11px] text-[#9ca3af] mt-0.5">Storelib processing</p>}
-          </div>
-          <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4">
-            <p className="text-[11px] font-semibold text-[#9ca3af] tracking-widest uppercase">Total Sales</p>
-            <p className="text-[22px] font-bold text-[#1a1a2e] mt-1 tabular-nums">{lifetimeCompletedCount}</p>
-            <p className="text-[11px] text-[#9ca3af] mt-0.5">Completed orders</p>
-          </div>
-        </div>
-
         {/* Chart + Withdraw panel side-by-side on desktop */}
         <div className="flex flex-col lg:flex-row gap-5">
           <RevenueChart />

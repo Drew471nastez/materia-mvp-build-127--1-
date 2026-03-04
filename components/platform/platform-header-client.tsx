@@ -1085,7 +1085,7 @@ export function PlatformHeaderClient() {
                   ) : (
                     <>
                       {/* Log In */}
-                      <Link href="/login">
+                      <Link href={getCanonicalOrRelativePath("/login")} onClick={(e) => onCanonicalNav(e, "/login")}>
                         <Button variant="ghost" className="h-11 px-5 rounded-lg text-[15px] font-medium text-white border border-white/70 hover:bg-white/10 hover:text-white cursor-pointer">
                           Log In
                         </Button>
@@ -1466,7 +1466,7 @@ export function PlatformHeaderClient() {
                   </Avatar>
                 </button>
               ) : (
-                <Link href="/login">
+                <Link href={getCanonicalOrRelativePath("/login")} onClick={(e) => onCanonicalNav(e, "/login")}>
                   <Button className="ml-2 h-9 px-5 rounded-lg text-sm font-semibold bg-white text-black hover:bg-white/90 gap-2">
                     <UserIcon className="h-4 w-4" />
                     Sign in

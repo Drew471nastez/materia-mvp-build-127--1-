@@ -158,7 +158,7 @@ export function UpgradePageClient({
         )}
 
         {/* Plan Cards — same visual style as /pricing page */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-[18px] md:gap-4 max-w-[960px] mx-auto md:items-center">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-[18px] md:gap-4 max-w-[960px] mx-auto md:items-stretch">
           {plans.map((plan: any) => {
             const isCurrentPlan = plan.id === currentPlanId
             const isPendingPlan = plan.id === pendingPlanId

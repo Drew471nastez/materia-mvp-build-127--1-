@@ -2513,7 +2513,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "orders") && (
                     <Area type="monotone" dataKey="sales" stroke={CHART_COLORS.orders} strokeWidth={2} fill="url(#gradOrders)" dot={false} activeDot={{ r: 4, fill: CHART_COLORS.orders, strokeWidth: 2, stroke: "#fff" }} name="sales" animationDuration={800} animationEasing="ease-in-out" animationBegin={0} />
                   )}
-                  {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "orders") && (
+                  {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "orders" || chartMetricFilter === "revenue") && (
                     <Area type="monotone" dataKey="refunds" stroke={CHART_COLORS.refunds} strokeWidth={2} fill="url(#gradRefunds)" dot={false} activeDot={{ r: 4, fill: CHART_COLORS.refunds, strokeWidth: 2, stroke: "#fff" }} name="refunds" animationDuration={800} animationEasing="ease-in-out" animationBegin={200} />
                   )}
                   {analyticsMode === "store" && (chartMetricFilter === "all" || chartMetricFilter === "revenue") && (

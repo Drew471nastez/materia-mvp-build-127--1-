@@ -1253,7 +1253,7 @@ function OrderDetailsModal({
             transition: isDragging
               ? "none"
               : "transform 360ms cubic-bezier(0.22, 0.9, 0.24, 1)",
-            maxHeight: "90vh",
+            maxHeight: "76vh",
           }}
         >
           {/* Handle bar area */}

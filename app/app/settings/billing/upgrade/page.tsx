@@ -27,7 +27,7 @@ const GROWTH_PLAN = {
 
 const PRO_PLAN = {
   id: "pro",
-  name: "Professional",
+  name: "Pro",
   price_cents: 9900,
   billing_period: "month",
   fee_percent: 0.015,
