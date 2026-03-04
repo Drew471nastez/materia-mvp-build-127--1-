@@ -235,7 +235,7 @@ function SignUpFormContent() {
 
         // Redirect to verify page
         navigateWithFallback(
-          `/signup/verify?userId=${data.user.id}&email=${encodeURIComponent(trimmedEmail)}`
+          `/signup/verify?userId=${data.user.id}&email=${encodeURIComponent(trimmedEmail)}&sent=1`
         )
         router.refresh()
       }

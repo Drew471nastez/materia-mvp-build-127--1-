@@ -29,12 +29,14 @@ function VerifyContent() {
   const userId = searchParams.get("userId") ?? ""
   const email = searchParams.get("email") ?? ""
 
+  const sent = searchParams.get("sent") === "1"
+
   const [code, setCode] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isVerifying, setIsVerifying] = useState(false)
   const [isRedirecting, setIsRedirecting] = useState(false)
   const [isResending, setIsResending] = useState(false)
-  const [resendCooldown, setResendCooldown] = useState(60) // start with cooldown from initial send
+  const [resendCooldown, setResendCooldown] = useState(sent ? 60 : 0) // cooldown only if email was already sent
 
   // Sign out and go back to signup (user wants a different email)
   const handleBackToSignup = async () => {
@@ -58,6 +60,16 @@ function VerifyContent() {
         }
       })
   }, [userId, router])
+
+  // Auto-send email on mount if not already sent (e.g. direct navigation to this URL)
+  useEffect(() => {
+    if (sent || !userId || !email) return
+    fetch("/api/auth/verify-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, email }),
+    }).then(() => setResendCooldown(60)).catch(() => {})
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Countdown timer for resend button
   useEffect(() => {
