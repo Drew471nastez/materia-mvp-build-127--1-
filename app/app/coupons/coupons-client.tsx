@@ -1,9 +1,9 @@
 "use client"
 
 import { useState } from "react"
-import { Plus, TicketPercent, Copy, Check, Pencil, Trash2, X, ChevronDown, Zap, Lock } from "lucide-react"
+import { Plus, TicketPercent, Copy, Check, Pencil, Trash2, X, ChevronDown, Zap } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { useToast } from "@/components/ui/use-toast"
+import { useToast } from "@/hooks/use-toast"
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 

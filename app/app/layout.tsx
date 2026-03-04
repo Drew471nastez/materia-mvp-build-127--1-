@@ -6,6 +6,8 @@ import { AppSidebar } from "@/components/app/sidebar"
 import { AppLayoutWrapper } from "@/components/app/app-layout-wrapper"
 import { Toaster } from "@/components/ui/toaster"
 import { NativeAuthGate } from "@/components/native-auth-gate"
+import { OfflineGuard } from "@/components/app/offline-guard"
+import { NativeBackHandler } from "@/components/app/native-back-handler"
 import AppDashboardLoading from "./loading"
 
 /**
@@ -159,6 +161,8 @@ export default async function AppLayout({
 
   return (
     <NativeAuthGate>
+    <OfflineGuard>
+    <NativeBackHandler />
     <AppLayoutWrapper>
       <div className="min-h-svh overflow-x-hidden bg-[#111111] md:bg-[#131316] app-no-scrollbar">
         <AppSidebar
@@ -183,6 +187,7 @@ export default async function AppLayout({
         <Toaster />
       </div>
     </AppLayoutWrapper>
+    </OfflineGuard>
     </NativeAuthGate>
   )
 }
