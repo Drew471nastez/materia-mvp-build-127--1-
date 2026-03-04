@@ -387,7 +387,9 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
       setRedirectFailed(true)
     }, 12000)
 
-    router.replace("/app")
+    // Use hard navigation so the server-side layout always reads fresh DB state
+    // after onboarding_completed is written — avoids bouncing back to /signup/success
+    window.location.replace("/app")
   }
 
   useEffect(() => {
@@ -919,7 +921,6 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
               youtube: onepageSocialLinks.youtube,
               // JSONB column (used by OnePage TypeScript type)
               social_links: onepageSocialLinks,
-              published: false,
               // Set to false so OnePage onboarding shows when user visits OnePage editor
               onboarding_completed: false,
             })
@@ -966,7 +967,6 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
               youtube: newCreatorSocialLinks.youtube,
               // JSONB column (used by OnePage TypeScript type)
               social_links: newCreatorSocialLinks,
-              published: false,
               // Set to false so OnePage onboarding shows when user visits OnePage editor
               onboarding_completed: false,
             })

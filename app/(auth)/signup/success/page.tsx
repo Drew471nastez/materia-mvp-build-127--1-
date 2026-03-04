@@ -195,9 +195,9 @@ export default function SignupSuccessPage() {
         })
         .eq("id", user.id)
 
-      // Show full-screen loader, then navigate to library
+      // Show full-screen loader, then navigate to library (hard navigation for fresh server state)
       setIsRouting(true)
-      router.replace("/library")
+      window.location.replace("/library")
     }
   }
 
