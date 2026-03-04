@@ -804,7 +804,7 @@ function RevenueChart() {
             </span>
           )}
           <span className="flex items-center gap-1.5 text-[11px] text-[#6b7280]">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#10b981] shrink-0" />
+            <span className="w-2.5 h-2.5 rounded-full bg-[#374151] shrink-0" />
             Net {fmt(Math.max(0, total), currency)}
           </span>
         </div>
