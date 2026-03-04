@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server"
 import { DashboardSidebar } from "@/components/dashboard/sidebar"
 import { PurchaseSyncProvider } from "@/components/checkout/purchase-sync-provider"
 import { NativeAuthGate } from "@/components/native-auth-gate"
+import LibraryLoading from "./loading"
 
 /**
  * Detect Capacitor WebView from the User-Agent header.
@@ -37,7 +38,7 @@ export default async function LibraryLayout({
       // the client will restore it asynchronously from Preferences.
       // Skip the redirect and let NativeAuthGate handle it.
       return (
-        <NativeAuthGate requireAuth>
+        <NativeAuthGate requireAuth loadingFallback={<LibraryLoading />}>
           {children}
         </NativeAuthGate>
       )

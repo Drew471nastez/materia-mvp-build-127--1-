@@ -59,9 +59,20 @@ export function NativeAuthGate({
         if (cancelled) return
 
         if (session) {
-          // Session found in Preferences — unblock and render children
-          setBlocked(false)
-          setAuthChecked(true)
+          // Session found in Preferences, but Next.js server components read
+          // cookies — not Preferences. Route through sync-session to write the
+          // session as Set-Cookie headers so the full server layout (sidebar,
+          // user data, etc.) renders correctly on the next request.
+          const currentPath = window.location.pathname + window.location.search
+          const syncUrl =
+            `/auth/sync-session` +
+            `?access_token=${encodeURIComponent(session.access_token)}` +
+            `&refresh_token=${encodeURIComponent(session.refresh_token)}` +
+            `&next=${encodeURIComponent(currentPath)}`
+          window.location.assign(syncUrl)
+          // Do not unblock — we are navigating away.
+          // The destination page's NativeAuthGate (mode 1) will call
+          // nativeAppReadyForce() once the full layout is painted.
         } else {
           // No session — redirect to login
           router.replace("/login")

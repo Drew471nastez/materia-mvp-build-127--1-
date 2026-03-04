@@ -25,7 +25,14 @@ export default async function StoreBuilderLayout({
   if (!user) {
     if (isNative) {
       return (
-        <NativeAuthGate requireAuth>
+        <NativeAuthGate
+          requireAuth
+          loadingFallback={
+            <div className="h-svh w-full bg-[#0f0f14] flex items-center justify-center">
+              <div className="h-8 w-8 rounded-full border-[3px] border-white/10 border-t-white/60 animate-spin" />
+            </div>
+          }
+        >
           {children}
         </NativeAuthGate>
       )
