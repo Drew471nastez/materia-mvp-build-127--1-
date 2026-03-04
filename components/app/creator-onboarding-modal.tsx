@@ -374,6 +374,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
   const [showConfetti, setShowConfetti] = useState(false)
   const [isRedirecting, setIsRedirecting] = useState(false)
   const [redirectFailed, setRedirectFailed] = useState(false)
+  const [setupError, setSetupError] = useState(false)
 
   const startDashboardRedirect = () => {
     setIsRedirecting(true)
@@ -1017,27 +1018,55 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
 
     await new Promise((resolve) => setTimeout(resolve, 2000))
 
-    // Phase 3: Almost ready... (2 seconds) — also call the finalize API now
-    // so the critical onboarding_completed flag is set via admin client (bypasses RLS)
-    // before we redirect to /app.
+    // Phase 3: Almost ready... — finalize API runs concurrently with the 2s delay.
+    // The finalize API uses the admin/service-role client (bypasses RLS) to guarantee
+    // onboarding_completed = true is written. We retry up to 3 times before giving up.
     setSetupPhase("almost")
-    await Promise.all([
-      new Promise((resolve) => setTimeout(resolve, 2000)),
-      fetch("/api/onboarding/finalize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role: "creator", creatorSlug: _slug }),
-      }).then(async (res) => {
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}))
-          console.error("[onboarding] finalize API error:", data)
+
+    const callFinalize = async (): Promise<boolean> => {
+      // Include the access token in the Authorization header so the finalize
+      // API can authenticate Capacitor users whose session lives in Preferences
+      // (not cookies) and would otherwise fail the server-side auth check.
+      let accessToken: string | undefined
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        accessToken = session?.access_token
+      } catch {}
+
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          if (attempt > 0) await new Promise(r => setTimeout(r, 1200))
+          const headers: Record<string, string> = { "Content-Type": "application/json" }
+          if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`
+          const res = await fetch("/api/onboarding/finalize", {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ role: "creator", creatorSlug: _slug }),
+          })
+          const data = await res.json().catch(() => ({ ok: false }))
+          if (data.ok) return true
+          console.error(`[onboarding] finalize attempt ${attempt + 1} failed:`, data.error)
+        } catch (err) {
+          console.error(`[onboarding] finalize attempt ${attempt + 1} network error:`, err)
         }
-      }).catch((err) => {
-        console.error("[onboarding] finalize API fetch error:", err)
-      }),
+      }
+      return false
+    }
+
+    const [, finalizeOk] = await Promise.all([
+      new Promise((resolve) => setTimeout(resolve, 2000)),
+      callFinalize(),
     ])
 
-    // Complete
+    if (!finalizeOk) {
+      // All retries failed — show error state instead of redirecting to a broken /app
+      setIsSettingUp(false)
+      setSetupPhase(null)
+      setSetupError(true)
+      return
+    }
+
+    // Complete — finalize succeeded, safe to redirect
     setIsSettingUp(false)
     setSetupPhase(null)
     setSetupComplete(true)
@@ -1374,6 +1403,24 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
                           Almost ready...
                         </h1>
                         <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600 animate-spin" />
+                      </div>
+                    ) : setupError ? (
+                      <div className="flex flex-col items-center justify-center gap-3 animate-in fade-in duration-300">
+                        <h1 className="text-lg sm:text-2xl font-bold text-red-600">
+                          Something went wrong
+                        </h1>
+                        <p className="text-sm text-gray-500 text-center max-w-xs">
+                          We couldn't save your profile. Please try again.
+                        </p>
+                        <button
+                          onClick={() => {
+                            setSetupError(false)
+                            startSetup()
+                          }}
+                          className="mt-2 px-6 py-2.5 rounded-xl bg-purple-600 text-white text-sm font-medium hover:bg-purple-700 transition-colors"
+                        >
+                          Try Again
+                        </button>
                       </div>
                     ) : setupComplete ? (
                       <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 animate-in fade-in zoom-in duration-500">

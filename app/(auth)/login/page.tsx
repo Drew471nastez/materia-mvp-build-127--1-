@@ -21,6 +21,7 @@ function LoginFormContent() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
+  const [isGoogleRedirecting, setIsGoogleRedirecting] = useState(false)
   const [isContinueLoading, setIsContinueLoading] = useState(false)
   const [isRedirecting, setIsRedirecting] = useState(false)
   const [showPasswordField, setShowPasswordField] = useState(false)
@@ -431,6 +432,9 @@ function LoginFormContent() {
         return // avoid the finally setIsGoogleLoading(false) below
       } else {
         // ── Web ───────────────────────────────────────────────────────
+        // Show full-page overlay immediately so the loading experience
+        // is visible from click until the OAuth redirect completes.
+        setIsGoogleRedirecting(true)
         window.location.href = `${canonicalUrl}/auth/start?provider=google&next=/app`
         return
       }
@@ -447,7 +451,7 @@ function LoginFormContent() {
     return <AuthResolvingScreen message={nativeAuthInProgress ? "Signing you in..." : undefined} />
   }
 
-  if (isRedirecting || gateSession) {
+  if (isRedirecting || gateSession || isGoogleRedirecting) {
     return <AuthResolvingScreen />
   }
 

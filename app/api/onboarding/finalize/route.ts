@@ -5,27 +5,20 @@ import { createAdminClient } from "@/lib/supabase/admin"
 /**
  * POST /api/onboarding/finalize
  *
- * Atomically writes the critical onboarding fields using the service-role
- * admin client (bypasses RLS). Called at the end of creator onboarding and
- * for buyer role selection so the writes cannot silently fail due to RLS.
+ * Writes the critical onboarding flags using the service-role admin client
+ * (bypasses RLS). Called at the end of creator onboarding and for buyer role
+ * selection so the writes cannot fail silently due to RLS.
  *
  * Body (JSON):
  *   role: "creator" | "buyer"
- *   creatorSlug?: string   (required when role = "creator")
+ *   creatorSlug?: string   (used when role = "creator" and no creator record exists yet)
  *
  * Returns:
  *   { ok: true, nextPath: "/app" | "/library" }
+ *   { ok: false, error: string }
  */
 export async function POST(request: NextRequest) {
   try {
-    // Verify the caller is authenticated
-    const supabase = await createClient()
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-
-    if (userError || !user) {
-      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 })
-    }
-
     const body = await request.json()
     const { role, creatorSlug } = body as { role: "creator" | "buyer"; creatorSlug?: string }
 
@@ -33,14 +26,38 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: false, error: "Invalid role" }, { status: 400 })
     }
 
+    // Verify the caller is authenticated via cookie-based session (web browsers).
+    // Capacitor apps store the session in Preferences (not cookies), so the server
+    // client may return null. In that case, fall back to the Authorization header.
+    const supabase = await createClient()
+    let userId: string | null = null
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      userId = user.id
+    } else {
+      // Capacitor / native fallback: client passes the access token in the header
+      const authHeader = request.headers.get("authorization")
+      const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null
+      if (token) {
+        const admin = createAdminClient()
+        const { data: { user: tokenUser } } = await admin.auth.getUser(token)
+        if (tokenUser) userId = tokenUser.id
+      }
+    }
+
+    if (!userId) {
+      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 })
+    }
+
     const admin = createAdminClient()
 
+    // ── Buyer ──────────────────────────────────────────────────────────────
     if (role === "buyer") {
-      // Mark profile as buyer with welcome completed
       const { error } = await admin
         .from("profiles")
         .update({ is_creator: false, welcome_completed: true })
-        .eq("id", user.id)
+        .eq("id", userId)
 
       if (error) {
         console.error("[finalize] buyer profile update error:", error)
@@ -50,23 +67,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true, nextPath: "/library" })
     }
 
-    // role === "creator"
-    const slug = creatorSlug || user.email?.split("@")[0] || "creator"
+    // ── Creator ─────────────────────────────────────────────────────────────
 
     // 1. Update profiles table
-    await admin
+    const { error: profileError } = await admin
       .from("profiles")
       .update({ is_creator: true, welcome_completed: true })
-      .eq("id", user.id)
+      .eq("id", userId)
 
-    // 2. Upsert creators record with onboarding_completed = true
+    if (profileError) {
+      console.error("[finalize] creator profile update error:", profileError)
+      return NextResponse.json({ ok: false, error: profileError.message }, { status: 500 })
+    }
+
+    // 2. Find existing creator record
     const { data: existingCreator } = await admin
       .from("creators")
       .select("id")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .maybeSingle()
 
     if (existingCreator) {
+      // UPDATE — only touch the critical gate flag; don't overwrite other fields
       const { error } = await admin
         .from("creators")
         .update({ onboarding_completed: true, store_published: true })
@@ -77,18 +99,43 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
       }
     } else {
-      const { error } = await admin
-        .from("creators")
-        .insert({
-          user_id: user.id,
-          slug,
-          onboarding_completed: true,
-          store_published: true,
-        })
+      // INSERT — no creator record yet; build a safe, unique slug
+      const baseSlug = (creatorSlug || "creator")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "") || "creator"
 
-      if (error) {
-        console.error("[finalize] creator insert error:", error)
-        return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+      // Resolve slug conflicts by appending a short random suffix
+      let slug = baseSlug
+      let insertError: { code?: string; message: string } | null = null
+
+      for (let attempt = 0; attempt < 5; attempt++) {
+        if (attempt > 0) {
+          slug = `${baseSlug}-${Math.random().toString(36).slice(2, 6)}`
+        }
+
+        const { error } = await admin
+          .from("creators")
+          .insert({
+            user_id: userId,
+            slug,
+            onboarding_completed: true,
+            store_published: true,
+          })
+
+        if (!error) { insertError = null; break }
+
+        // Retry only on unique constraint violations (slug conflict)
+        if (error.code !== "23505") {
+          insertError = error
+          break
+        }
+        insertError = error
+      }
+
+      if (insertError) {
+        console.error("[finalize] creator insert error:", insertError)
+        return NextResponse.json({ ok: false, error: insertError.message }, { status: 500 })
       }
     }
 

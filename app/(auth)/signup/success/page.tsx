@@ -202,15 +202,23 @@ function SuccessContent() {
       setShowCreatorOnboarding(true)
     } else {
       // Mark as buyer via the finalize API (admin client) so RLS cannot block the write.
-      // Falls back to a direct client write if the API call fails.
+      // Include the access token for Capacitor native (no cookies). Falls back to
+      // a direct client write if the API fails after retries.
+      let marked = false
       try {
+        const { data: { session } } = await supabase.auth.getSession()
+        const headers: Record<string, string> = { "Content-Type": "application/json" }
+        if (session?.access_token) headers["Authorization"] = `Bearer ${session.access_token}`
         const res = await fetch("/api/onboarding/finalize", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify({ role: "buyer" }),
         })
-        if (!res.ok) throw new Error("finalize API failed")
-      } catch {
+        const data = await res.json().catch(() => ({ ok: false }))
+        marked = data.ok
+      } catch {}
+
+      if (!marked) {
         // Fallback: direct client write
         await supabase
           .from("profiles")

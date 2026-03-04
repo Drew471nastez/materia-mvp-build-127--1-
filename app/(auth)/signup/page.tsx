@@ -24,6 +24,7 @@ function SignUpFormContent() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
+  const [isGoogleRedirecting, setIsGoogleRedirecting] = useState(false)
   const [isContinueLoading, setIsContinueLoading] = useState(false)
   const [isRedirecting, setIsRedirecting] = useState(false)
   const [showPasswordField, setShowPasswordField] = useState(false)
@@ -301,6 +302,9 @@ function SignUpFormContent() {
         localStorage.setItem("storelib_welcome_shown", "true")
       }
 
+      // Show full-page overlay immediately — the OAuth redirect is about to happen
+      setIsGoogleRedirecting(true)
+
       // Use canonical site URL to ensure OAuth redirects to correct domain
       const canonicalUrl = getCanonicalSiteUrl()
       const { error } = await supabase.auth.signInWithOAuth({
@@ -318,6 +322,7 @@ function SignUpFormContent() {
       setError(error instanceof Error ? error.message : "Failed to sign in with Google")
       ;(window as any).__oauthStarting = false
       setIsGoogleLoading(false)
+      setIsGoogleRedirecting(false)
       // OAuth init failed — dismiss overlay so the form is interactive again.
       nativeAppReady()
     }
@@ -328,7 +333,7 @@ function SignUpFormContent() {
     return <AuthResolvingScreen message={nativeAuthInProgress ? "Signing you in..." : undefined} />
   }
 
-  if (isRedirecting) {
+  if (isRedirecting || isGoogleRedirecting) {
     return <AuthResolvingScreen />
   }
 
