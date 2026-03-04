@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { Suspense, useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Loader2 } from "lucide-react"
@@ -24,7 +24,7 @@ const UserIcon = () => (
   </svg>
 )
 
-export default function SignupSuccessPage() {
+function SuccessContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [hoveredCard, setHoveredCard] = useState<"creator" | "buyer" | null>(null)
@@ -390,5 +390,13 @@ export default function SignupSuccessPage() {
         }
       />
     </>
+  )
+}
+
+export default function SignupSuccessPage() {
+  return (
+    <Suspense fallback={<AuthResolvingScreen />}>
+      <SuccessContent />
+    </Suspense>
   )
 }
