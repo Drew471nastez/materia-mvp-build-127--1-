@@ -480,7 +480,7 @@ function ChartTimeframeSheet({
 }
 
 function RevenueChart() {
-  const [timeframe, setTimeframe] = useState<ChartTimeframeValue>("last_7");
+  const [timeframe, setTimeframe] = useState<ChartTimeframeValue>("all_time");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -4452,6 +4452,15 @@ export function PayoutsClient({
     stripeExpressDashboardUrl: string | null;
   } | null>(initialData.taxData || null);
 
+  // Lifetime revenue stats (never affected by cashouts)
+  const lifetimeGross = initialData.totalEarnings;
+  const lifetimeFees = initialData.totalFees;
+  const lifetimeNet = initialData.netEarnings;
+  const lifetimeRefunds = initialOrders
+    .filter((o) => o.status === "refunded")
+    .reduce((s, o) => s + (o.refund_amount_cents ?? o.amount_cents ?? 0), 0);
+  const lifetimeCompletedCount = initialOrders.filter((o) => o.status === "completed").length;
+
   const sourceCurrency = (creator.default_currency || "usd").toLowerCase();
   const currency = "usd";
   const hasStripe = !!creator.stripe_account_id;
@@ -4837,6 +4846,33 @@ export function PayoutsClient({
       })()}
 
       <div className="space-y-6">
+        {/* Lifetime revenue stats — never reset by cashouts */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4">
+            <p className="text-[11px] font-semibold text-[#9ca3af] tracking-widest uppercase">Gross Revenue</p>
+            <p className="text-[22px] font-bold text-[#1a1a2e] mt-1 tabular-nums">{fmt(lifetimeGross, currency)}</p>
+            <p className="text-[11px] text-[#9ca3af] mt-0.5">All time</p>
+          </div>
+          <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4">
+            <p className="text-[11px] font-semibold text-[#9ca3af] tracking-widest uppercase">Net Earnings</p>
+            <p className="text-[22px] font-bold text-[#8b5cf6] mt-1 tabular-nums">{fmt(lifetimeNet, currency)}</p>
+            <p className="text-[11px] text-[#9ca3af] mt-0.5">After platform fees</p>
+          </div>
+          <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4">
+            <p className="text-[11px] font-semibold text-[#9ca3af] tracking-widest uppercase">Platform Fees</p>
+            <p className="text-[22px] font-bold text-[#1a1a2e] mt-1 tabular-nums">{fmt(lifetimeFees, currency)}</p>
+            {lifetimeRefunds > 0 && (
+              <p className="text-[11px] text-rose-400 mt-0.5">+{fmt(lifetimeRefunds, currency)} refunded</p>
+            )}
+            {lifetimeRefunds === 0 && <p className="text-[11px] text-[#9ca3af] mt-0.5">Storelib processing</p>}
+          </div>
+          <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4">
+            <p className="text-[11px] font-semibold text-[#9ca3af] tracking-widest uppercase">Total Sales</p>
+            <p className="text-[22px] font-bold text-[#1a1a2e] mt-1 tabular-nums">{lifetimeCompletedCount}</p>
+            <p className="text-[11px] text-[#9ca3af] mt-0.5">Completed orders</p>
+          </div>
+        </div>
+
         {/* Chart + Withdraw panel side-by-side on desktop */}
         <div className="flex flex-col lg:flex-row gap-5">
           <RevenueChart />
