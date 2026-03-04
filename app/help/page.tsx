@@ -18,6 +18,7 @@ import {
   Wallet,
   Search,
 } from "lucide-react"
+import { BackButton } from "@/components/back-button"
 
 export const metadata: Metadata = {
   title: "Help Center | Storelib",
@@ -130,33 +131,38 @@ const popularArticles = [
 export default function HelpPage() {
   return (
     <div className="min-h-screen bg-white">
-      {/* Header */}
+      {/* Page header — same structure as /terms and /privacy */}
       <div className="bg-gradient-to-b from-[#fafafa] to-white border-b border-[#e5e7eb]">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
-          <div className="text-center">
-            <h1 className="text-[32px] sm:text-[40px] font-bold text-[#1a1a2e] tracking-tight">
-              Help Center
-            </h1>
-            <p className="text-[16px] text-[#6b7280] mt-3 max-w-xl mx-auto">
-              Find answers to your questions and learn how to get the most out of Storelib.
-            </p>
-          </div>
-
-          {/* Search */}
-          <div className="mt-8 max-w-xl mx-auto">
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-[#9ca3af]" />
-              <input
-                type="text"
-                placeholder="Search for help articles..."
-                className="w-full h-12 pl-12 pr-4 rounded-xl border border-[#e5e7eb] text-[15px] focus:outline-none focus:ring-2 focus:ring-[#8b5cf6] focus:border-transparent"
-              />
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
+          <BackButton />
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-xl bg-[#8b5cf6]/10 flex items-center justify-center shrink-0 mt-1">
+              <HelpCircle className="h-6 w-6 text-[#8b5cf6]" />
+            </div>
+            <div className="flex-1">
+              <h1 className="text-[32px] sm:text-[42px] font-bold text-[#1a1a2e] tracking-tight leading-tight">
+                Help Center
+              </h1>
+              <p className="text-[14px] text-[#6b7280] mt-2">
+                Find answers and learn how to get the most out of Storelib.
+              </p>
+              {/* Search */}
+              <div className="mt-5 max-w-xl">
+                <div className="relative">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-[#9ca3af]" />
+                  <input
+                    type="text"
+                    placeholder="Search for help articles..."
+                    className="w-full h-11 pl-12 pr-4 rounded-xl border border-[#e5e7eb] text-[14px] focus:outline-none focus:ring-2 focus:ring-[#8b5cf6] focus:border-transparent bg-white"
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
         {/* Popular Articles */}
         <section className="mb-12">
           <h2 className="text-[18px] font-semibold text-[#1a1a2e] mb-4">Popular Articles</h2>

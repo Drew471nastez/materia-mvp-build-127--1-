@@ -65,7 +65,8 @@ export function ConditionalFooter() {
       pathname.startsWith("/blog") ||
       pathname.startsWith("/pricing") ||
       pathname.startsWith("/privacy") ||
-      pathname.startsWith("/terms")
+      pathname.startsWith("/terms") ||
+      pathname.startsWith("/help")
 
     setShowFooter(isPlatformPage)
   }, [pathname, searchParams, isHydrated])
