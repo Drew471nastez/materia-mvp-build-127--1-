@@ -939,7 +939,7 @@ export function PlatformHeaderClient() {
   const navigateReliably = useCallback(
     (targetPath: string) => {
       if (typeof window === "undefined") return
-      startNavigationLoading()
+      if (targetPath !== pathname) startNavigationLoading()
       // Seller subdomain: ALWAYS navigate to canonical storelib.com URL.
       // This check MUST come before isNativePlatform() — a Capacitor app on
       // sellername.storelib.com must also use canonical URLs, otherwise
@@ -964,7 +964,7 @@ export function PlatformHeaderClient() {
 
   const onCanonicalNav = useCallback(
     (e: React.MouseEvent<HTMLElement>, targetPath: string) => {
-      startNavigationLoading()
+      if (targetPath !== pathname) startNavigationLoading()
       // When on a seller subdomain (e.g. sellername.storelib.com), ALL navigation
       // to non-seller routes (/library, /app, /explore, /signup, etc.) MUST use
       // the canonical storelib.com URL. Relative paths would land on

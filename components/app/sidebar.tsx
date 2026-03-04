@@ -206,7 +206,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
       return (
         <button
           onClick={() => {
-            startNavigationLoading() // instant bar before route resolves
+            if (!isActive) startNavigationLoading() // instant bar before route resolves
             onClick?.()
             // In Capacitor, router.push preserves auth session (no full reload)
             // On web, force full reload for reliable cross-layout navigation
@@ -227,7 +227,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     return (
       <Link
         href={item.href}
-        onClick={() => { startNavigationLoading(); onClick?.() }}
+        onClick={() => { if (!isActive) startNavigationLoading(); onClick?.() }}
         className={baseClassName}
       >
         <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />
@@ -253,7 +253,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
       return (
         <button
           onClick={() => {
-            startNavigationLoading() // instant bar before route resolves
+            if (!isActive) startNavigationLoading() // instant bar before route resolves
             onClick?.()
             // In Capacitor, router.push preserves auth session (no full reload)
             // On web, force full reload for reliable cross-layout navigation
@@ -274,7 +274,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     return (
       <Link
         href={item.href}
-        onClick={() => { startNavigationLoading(); onClick?.() }}
+        onClick={() => { if (!isActive) startNavigationLoading(); onClick?.() }}
         className={baseClassName}
       >
         <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />
