@@ -758,6 +758,11 @@ export default function CheckoutPageClient({
   const [discountCode, setDiscountCode] = useState(() => loadSessionField(SESSION_KEYS.discountCode))
   const [discountApplied, setDiscountApplied] = useState(false)
   const [discountPercent, setDiscountPercent] = useState(0)
+  const [appliedDiscountCents, setAppliedDiscountCents] = useState<number | null>(null)
+  const [discountLabel, setDiscountLabel] = useState("")
+  const [isApplyingDiscount, setIsApplyingDiscount] = useState(false)
+  const [discountError, setDiscountError] = useState<string | null>(null)
+  const [appliedCouponId, setAppliedCouponId] = useState<string | null>(null)
 
   const [error, setError] = useState<string | null>(null)
   const [clientSecret, setClientSecret] = useState<string | null>(null)
@@ -803,7 +808,9 @@ export default function CheckoutPageClient({
   // Price calculations
   const subtotal = selectedVariant ? selectedVariant.priceCents : product.price_cents
   const tipCents = customTip ? Math.round(parseFloat(customTip) * 100) || 0 : Math.round(tipAmount * 100)
-  const discountCents = discountApplied ? Math.round(subtotal * (discountPercent / 100)) : 0
+  const discountCents = discountApplied
+    ? (appliedDiscountCents !== null ? appliedDiscountCents : Math.round(subtotal * (discountPercent / 100)))
+    : 0
   const total = Math.max(0, subtotal - discountCents + tipCents)
   const isFree = total === 0
 
@@ -821,8 +828,12 @@ export default function CheckoutPageClient({
 
   // Handle successful order: redirect to checkout/receipt page
   const completeOrder = useCallback(async (receiptToken: string, _newOrderId?: string) => {
+    // Fire-and-forget: increment coupon usage count after successful purchase
+    if (appliedCouponId) {
+      fetch(`/api/coupons/${appliedCouponId}/use`, { method: "POST" }).catch(() => {})
+    }
     router.push(`/checkout/receipt?token=${encodeURIComponent(receiptToken)}`)
-  }, [router])
+  }, [router, appliedCouponId])
 
   // Full form validation: includes terms
   const isFormValid = useMemo(() => {
@@ -1017,15 +1028,49 @@ export default function CheckoutPageClient({
     }
   }
 
-  const handleApplyDiscount = () => {
-    if (!discountCode.trim()) return
-    setDiscountApplied(true)
-    setDiscountPercent(10)
+  const handleApplyDiscount = async () => {
+    const code = discountCode.trim()
+    if (!code) return
+    setIsApplyingDiscount(true)
+    setDiscountError(null)
+    try {
+      const res = await fetch("/api/coupons/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code,
+          creator_id: creator.id,
+          product_id: product.id,
+          price_cents: subtotal,
+        }),
+      })
+      const data = await res.json()
+      if (!data.ok) {
+        setDiscountError(data.error || "Invalid coupon code")
+        return
+      }
+      const label = data.discount_type === "percentage"
+        ? `${data.discount_value}%`
+        : `$${Number(data.discount_value).toFixed(2)}`
+      setAppliedDiscountCents(data.discount_cents)
+      setDiscountLabel(label)
+      setAppliedCouponId(data.coupon_id)
+      setDiscountApplied(true)
+      setDiscountPercent(data.discount_type === "percentage" ? data.discount_value : 0)
+    } catch {
+      setDiscountError("Could not validate coupon. Please try again.")
+    } finally {
+      setIsApplyingDiscount(false)
+    }
   }
 
   const handleRemoveDiscount = () => {
     setDiscountApplied(false)
     setDiscountPercent(0)
+    setAppliedDiscountCents(null)
+    setDiscountLabel("")
+    setAppliedCouponId(null)
+    setDiscountError(null)
     setDiscountCode("")
   }
 
@@ -1060,16 +1105,21 @@ export default function CheckoutPageClient({
             <div className="flex items-center gap-2">
               <Check className="w-4 h-4 text-green-600" />
               <span className="text-sm font-medium text-green-700">{discountCode}</span>
-              <span className="text-xs text-green-600">(-{discountPercent}%)</span>
+              <span className="text-xs text-green-600">(-{discountLabel || `${discountPercent}%`})</span>
             </div>
             <button type="button" onClick={handleRemoveDiscount} className="text-green-600 hover:text-green-800 cursor-pointer">
               <X className="w-4 h-4" />
             </button>
           </div>
         ) : (
-          <div className="flex gap-2">
-            <Input placeholder="Enter discount code" value={discountCode} onChange={(e) => setDiscountCode(e.target.value)} className="flex-1 h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20" />
-            <Button variant="outline" onClick={handleApplyDiscount} disabled={!discountCode.trim()} className="h-11 px-5 rounded-xl border-gray-200">Apply</Button>
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <Input placeholder="Enter discount code" value={discountCode} onChange={(e) => { setDiscountCode(e.target.value); setDiscountError(null) }} className="flex-1 h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20" onKeyDown={(e) => e.key === "Enter" && handleApplyDiscount()} />
+              <Button variant="outline" onClick={handleApplyDiscount} disabled={!discountCode.trim() || isApplyingDiscount} className="h-11 px-5 rounded-xl border-gray-200">
+                {isApplyingDiscount ? <span className="flex items-center gap-1.5"><span className="w-3.5 h-3.5 rounded-full border-2 border-gray-400 border-t-transparent animate-spin inline-block" />Checking</span> : "Apply"}
+              </Button>
+            </div>
+            {discountError && <p className="text-xs text-red-500">{discountError}</p>}
           </div>
         )}
       </section>
@@ -1348,14 +1398,19 @@ export default function CheckoutPageClient({
                   <div className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-green-600" />
                     <span className="text-sm font-medium text-green-700">{discountCode}</span>
-                    <span className="text-xs text-green-600">(-{discountPercent}%)</span>
+                    <span className="text-xs text-green-600">(-{discountLabel || `${discountPercent}%`})</span>
                   </div>
                   <button type="button" onClick={handleRemoveDiscount} className="text-green-600 hover:text-green-800 cursor-pointer"><X className="w-4 h-4" /></button>
                 </div>
               ) : (
-                <div className="flex gap-2">
-                  <Input placeholder="Enter discount code" value={discountCode} onChange={(e) => setDiscountCode(e.target.value)} className="flex-1 h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20" />
-                  <Button variant="outline" onClick={handleApplyDiscount} disabled={!discountCode.trim()} className="h-11 px-5 rounded-xl border-gray-200">Apply</Button>
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <Input placeholder="Enter discount code" value={discountCode} onChange={(e) => { setDiscountCode(e.target.value); setDiscountError(null) }} className="flex-1 h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20" onKeyDown={(e) => e.key === "Enter" && handleApplyDiscount()} />
+                    <Button variant="outline" onClick={handleApplyDiscount} disabled={!discountCode.trim() || isApplyingDiscount} className="h-11 px-5 rounded-xl border-gray-200">
+                      {isApplyingDiscount ? <span className="flex items-center gap-1.5"><span className="w-3.5 h-3.5 rounded-full border-2 border-gray-400 border-t-transparent animate-spin inline-block" />Checking</span> : "Apply"}
+                    </Button>
+                  </div>
+                  {discountError && <p className="text-xs text-red-500">{discountError}</p>}
                 </div>
               )}
             </section>

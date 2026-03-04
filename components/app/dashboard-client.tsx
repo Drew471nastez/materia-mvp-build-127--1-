@@ -849,9 +849,11 @@ export function DashboardClient({
   const [chartExpanded, setChartExpanded] = useState(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("storelib_chart_expanded")
-      return saved !== null ? saved === "true" : true // default open
+      if (saved !== null) return saved === "true"
+      // Desktop: closed by default; Mobile: open by default
+      return window.innerWidth < 768
     }
-    return true
+    return false
   })
   // Persist chart expanded/collapsed preference
   useEffect(() => {
@@ -874,6 +876,55 @@ export function DashboardClient({
     prevPeriodRevenue: 0,
     prevConversionRate: 0,
   })
+  // Live orders — starts from SSR-fetched initialOrders, updated via Realtime
+  const [liveOrders, setLiveOrders] = useState<Order[]>(initialOrders)
+  const liveOrdersRef = useRef<Order[]>(initialOrders)
+
+  // Keep ref in sync so realtime handler always has latest array
+  useEffect(() => {
+    liveOrdersRef.current = liveOrders
+  }, [liveOrders])
+
+  // Subscribe to new/updated orders for this creator's products
+  useEffect(() => {
+    if (!productIds || productIds.length === 0) return
+    const supabase = createClient()
+    const channel = supabase
+      .channel("dashboard-orders")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "orders",
+        },
+        (payload) => {
+          const row = (payload.new || payload.old) as Order | undefined
+          if (!row || !productIds.includes(row.product_id)) return
+
+          setLiveOrders((prev) => {
+            if (payload.eventType === "INSERT") {
+              // Avoid duplicates
+              if (prev.some((o) => o.id === row.id)) return prev
+              return [row, ...prev]
+            }
+            if (payload.eventType === "UPDATE") {
+              return prev.map((o) => (o.id === row.id ? { ...o, ...row } : o))
+            }
+            if (payload.eventType === "DELETE") {
+              return prev.filter((o) => o.id !== row.id)
+            }
+            return prev
+          })
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [productIds.join(",")]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const [liveVisitors, setLiveVisitors] = useState(0)
   const { t } = useLanguage()
   const { toast } = useToast()
@@ -971,9 +1022,9 @@ export function DashboardClient({
 
       const prevPeriodViews = prevUniqueViewKeys.size || 0
 
-      // Filter orders from initialOrders — include both completed + refunded in order counts
-      const completedOrders = initialOrders.filter(o => o.status === "completed")
-      const allValidOrders = initialOrders.filter(o => o.status === "completed" || o.status === "refunded")
+      // Filter orders — include both completed + refunded in order counts
+      const completedOrders = liveOrders.filter(o => o.status === "completed")
+      const allValidOrders = liveOrders.filter(o => o.status === "completed" || o.status === "refunded")
 
       // Current period orders
       const periodOrdersData = allValidOrders.filter(o => {
@@ -1185,8 +1236,8 @@ export function DashboardClient({
 
       const { start, end } = option.getDates()
       // Use same filters as KPI display: completed+refunded for order counts, completed-only for revenue
-      const allValidOrders = initialOrders.filter(o => o.status === "completed" || o.status === "refunded")
-      const completedOrders = initialOrders.filter(o => o.status === "completed")
+      const allValidOrders = liveOrders.filter(o => o.status === "completed" || o.status === "refunded")
+      const completedOrders = liveOrders.filter(o => o.status === "completed")
 
       // For all_time, extend start to 2020
       const fetchStart = timeframe === "all_time" ? new Date(2020, 0, 1) : start
@@ -1307,6 +1358,51 @@ export function DashboardClient({
     fetchAnalytics(timeframe).finally(() => window.clearTimeout(safetyTimer))
     return () => window.clearTimeout(safetyTimer)
   }, [timeframe, creatorId])
+
+  // When liveOrders updates (realtime), recalculate order KPIs without re-fetching views
+  useEffect(() => {
+    // Skip on first render — fetchAnalytics will handle it
+    if (isFirstLoadRef.current) return
+
+    const option = timeframeOptions.find((o) => o.value === timeframe)
+    if (!option) return
+    const { start, end } = option.getDates()
+    const periodDuration = end.getTime() - start.getTime()
+    const prevEnd = new Date(start.getTime() - 1)
+    const prevStart = new Date(prevEnd.getTime() - periodDuration)
+
+    const completedOrders = liveOrders.filter(o => o.status === "completed")
+    const allValidOrders = liveOrders.filter(o => o.status === "completed" || o.status === "refunded")
+
+    const periodOrders = allValidOrders.filter(o => {
+      const d = new Date(o.created_at)
+      return d >= start && d <= end
+    }).length
+    const periodRevenue = completedOrders.filter(o => {
+      const d = new Date(o.created_at)
+      return d >= start && d <= end
+    }).reduce((s, o) => s + (o.amount_cents || 0), 0)
+    const prevPeriodOrders = allValidOrders.filter(o => {
+      const d = new Date(o.created_at)
+      return d >= prevStart && d <= prevEnd
+    }).length
+    const prevPeriodRevenue = completedOrders.filter(o => {
+      const d = new Date(o.created_at)
+      return d >= prevStart && d <= prevEnd
+    }).reduce((s, o) => s + (o.amount_cents || 0), 0)
+    const totalOrders = allValidOrders.length
+    const totalRevenue = completedOrders.reduce((s, o) => s + (o.amount_cents || 0), 0)
+
+    setAnalyticsData(prev => ({
+      ...prev,
+      totalOrders,
+      totalRevenue,
+      periodOrders,
+      periodRevenue,
+      prevPeriodOrders,
+      prevPeriodRevenue,
+    }))
+  }, [liveOrders]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Close dropdown when clicking outside (desktop only)
   const copyQuickAccessUrl = async (target: "onepage" | "store") => {
