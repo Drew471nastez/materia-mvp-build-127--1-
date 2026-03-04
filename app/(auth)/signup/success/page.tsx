@@ -50,96 +50,108 @@ export default function SignupSuccessPage() {
     const supabase = createClient()
     let cancelled = false
     let retryTimer: ReturnType<typeof setTimeout> | null = null
+    let running = false
+
+    // Safety timeout: if auth check stalls for any reason, show the page
+    const safetyTimer = setTimeout(() => {
+      if (!cancelled) setIsCheckingAuth(false)
+    }, 8000)
 
     const checkOnboardingStatus = async (retryCount = 0) => {
-      if (cancelled) return
+      if (cancelled || running) return
+      running = true
 
-      const { data: { user } } = await supabase.auth.getUser()
+      try {
+        const { data } = await supabase.auth.getUser()
+        const user = data?.user
 
-      if (!user) {
-        // Session might not be ready yet after OAuth redirect
-        // Retry up to 5 times with 1s delay before giving up
-        if (retryCount < 5) {
-          retryTimer = setTimeout(() => checkOnboardingStatus(retryCount + 1), 1000)
-          return
-        }
-        // After retries, try a hard reload first to force-refresh the session
-        // Only redirect to login as a last resort to avoid redirect loops
-        if (!cancelled) {
-          const reloadAttempted = sessionStorage.getItem("storelib_success_reload")
-          if (!reloadAttempted) {
-            sessionStorage.setItem("storelib_success_reload", "1")
-            window.location.reload()
+        if (!user) {
+          running = false
+          // Session might not be ready yet after OAuth redirect
+          // Retry up to 5 times with 1s delay before giving up
+          if (retryCount < 5) {
+            retryTimer = setTimeout(() => checkOnboardingStatus(retryCount + 1), 1000)
             return
           }
-          sessionStorage.removeItem("storelib_success_reload")
-          // Use window.location to do a hard navigation (avoids Next.js client-side loop)
-          window.location.href = "/login"
+          // After retries, try a hard reload first to force-refresh the session
+          if (!cancelled) {
+            const reloadAttempted = sessionStorage.getItem("storelib_success_reload")
+            if (!reloadAttempted) {
+              sessionStorage.setItem("storelib_success_reload", "1")
+              window.location.reload()
+              return
+            }
+            sessionStorage.removeItem("storelib_success_reload")
+            window.location.href = "/login"
+          }
+          return
         }
-        return
-      }
 
-      if (cancelled) return
+        if (cancelled) return
 
-      // Gate: redirect to verify page if email not yet verified
-      const { data: verifyProfile } = await supabase
-        .from("profiles")
-        .select("email_verified")
-        .eq("id", user.id)
-        .maybeSingle()
+        // Gate: redirect to verify page if email not yet verified
+        const { data: verifyProfile } = await supabase
+          .from("profiles")
+          .select("email_verified")
+          .eq("id", user.id)
+          .maybeSingle()
 
-      if (verifyProfile && !verifyProfile.email_verified) {
-        window.location.replace(
-          `/signup/verify?userId=${user.id}&email=${encodeURIComponent(user.email || "")}`
-        )
-        return
-      }
+        if (verifyProfile && !verifyProfile.email_verified) {
+          window.location.replace(
+            `/signup/verify?userId=${user.id}&email=${encodeURIComponent(user.email || "")}`
+          )
+          return
+        }
 
-      if (cancelled) return
+        if (cancelled) return
 
-      // Check database for creator record with onboarding completed
-      const { data: creator } = await supabase
-        .from("creators")
-        .select("onboarding_completed")
-        .eq("user_id", user.id)
-        .maybeSingle()
+        // Check database for creator record with onboarding completed
+        const { data: creator } = await supabase
+          .from("creators")
+          .select("onboarding_completed")
+          .eq("user_id", user.id)
+          .maybeSingle()
 
-      if (cancelled) return
+        if (cancelled) return
 
-      if (creator?.onboarding_completed === true) {
-        window.location.replace("/app")
-        return
-      }
+        if (creator?.onboarding_completed === true) {
+          window.location.replace("/app")
+          return
+        }
 
-      // Check for action=become-creator FIRST — a buyer explicitly wants to
-      // become a seller, so we must NOT redirect them back to /library.
-      const action = searchParams.get("action")
-      if (action === "become-creator") {
+        // Check for action=become-creator — a buyer explicitly wants to become a seller
+        const action = new URLSearchParams(window.location.search).get("action")
+        if (action === "become-creator") {
+          setIsCheckingAuth(false)
+          setShowCreatorOnboarding(true)
+          return
+        }
+
+        // Check profile for welcome_completed status (for buyers)
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("is_creator, welcome_completed")
+          .eq("id", user.id)
+          .maybeSingle()
+
+        if (cancelled) return
+
+        if (profile?.welcome_completed === true && profile?.is_creator === false) {
+          window.location.replace("/library")
+          return
+        }
+
+        // User needs to complete onboarding - show the page
         setIsCheckingAuth(false)
-        setShowCreatorOnboarding(true)
-        return
+      } catch {
+        // On any unexpected error, show the page rather than spinning forever
+        if (!cancelled) setIsCheckingAuth(false)
+      } finally {
+        running = false
       }
-
-      // Check profile for welcome_completed status (for buyers)
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("is_creator, welcome_completed")
-        .eq("id", user.id)
-        .maybeSingle()
-
-      if (cancelled) return
-
-      if (profile?.welcome_completed === true && profile?.is_creator === false) {
-        router.replace("/library")
-        return
-      }
-
-      // User needs to complete onboarding - show the page
-      setIsCheckingAuth(false)
     }
 
     // Listen for auth state changes (handles delayed session after OAuth).
-    // Skip if native OAuth callback is in progress — the handler owns navigation.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       try {
         if (sessionStorage.getItem("nativeAuthInProgress") === "1") return
@@ -154,10 +166,11 @@ export default function SignupSuccessPage() {
 
     return () => {
       cancelled = true
+      clearTimeout(safetyTimer)
       subscription.unsubscribe()
       if (retryTimer) clearTimeout(retryTimer)
     }
-  }, [router, searchParams])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleChoice = async (choice: "creator" | "buyer") => {
     const supabase = createClient()
