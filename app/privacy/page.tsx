@@ -1,6 +1,5 @@
-"use client"
-
-import { ArrowLeft, Shield } from "lucide-react"
+import { Shield } from "lucide-react"
+import { BackButton } from "@/components/back-button"
 
 const TOC = [
   { id: "s1", label: "1. Introduction" },
@@ -58,14 +57,7 @@ export default function PrivacyPolicyPage() {
       {/* Header */}
       <div className="bg-gradient-to-b from-[#fafafa] to-white border-b border-[#e5e7eb]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
-          <button
-            type="button"
-            onClick={() => window.history.back()}
-            className="inline-flex items-center gap-2 text-[14px] text-[#6b7280] hover:text-[#1a1a2e] transition-colors mb-6 cursor-pointer"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </button>
+          <BackButton />
           <div className="flex items-start gap-4">
             <div className="w-12 h-12 rounded-xl bg-[#8b5cf6]/10 flex items-center justify-center shrink-0 mt-1">
               <Shield className="h-6 w-6 text-[#8b5cf6]" />

@@ -209,9 +209,9 @@ export function MarketingFooter() {
               <Link href="/affiliate" className="block text-sm text-gray-400 hover:text-white transition-colors">
                 Affiliate Program
               </Link>
-              <Link href="/legal/terms" className="block text-sm text-gray-400 hover:text-white transition-colors">
+              <a href="https://storelib.com/terms" className="block text-sm text-gray-400 hover:text-white transition-colors">
                 Terms of Service
-              </Link>
+              </a>
               <Link href="/privacy" className="block text-sm text-gray-400 hover:text-white transition-colors">
                 Privacy Policy
               </Link>

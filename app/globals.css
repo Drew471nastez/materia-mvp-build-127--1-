@@ -275,10 +275,16 @@ html.capacitor {
   html.app-layout {
     scrollbar-width: none;
     -ms-overflow-style: none;
+    /* Dark bg eliminates the white-flash before React hydrates on /app in Capacitor */
+    background-color: #111111;
   }
 
   html.app-layout::-webkit-scrollbar {
     display: none;
+  }
+
+  html.app-layout body {
+    background-color: #111111;
   }
 
 }
