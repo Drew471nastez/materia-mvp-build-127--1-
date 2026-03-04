@@ -2,10 +2,7 @@ import { Suspense } from "react"
 import Link from "next/link"
 import { ConditionalHeader } from "@/components/marketing/conditional-header"
 import { ConditionalFooter } from "@/components/marketing/conditional-footer"
-import { ArrowLeft, Search, Compass, Home } from "lucide-react"
-
-const LOGO_URL =
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
+import { Compass } from "lucide-react"
 
 export default function NotFound() {
   return (
@@ -17,14 +14,9 @@ export default function NotFound() {
       <main className="flex-1 flex items-center justify-center px-4 py-16 sm:py-24">
         <div className="text-center max-w-lg mx-auto">
           {/* Big 404 */}
-          <div className="relative mb-6 select-none">
-            <p className="text-[120px] sm:text-[160px] font-black text-[#f3f4f6] leading-none tracking-tight">
-              404
-            </p>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <img src={LOGO_URL} alt="Storelib" className="h-8 sm:h-10 opacity-30" />
-            </div>
-          </div>
+          <p className="text-[120px] sm:text-[160px] font-black text-[#f3f4f6] leading-none tracking-tight mb-6 select-none">
+            404
+          </p>
 
           <h1 className="text-[26px] sm:text-[32px] font-bold text-[#1a1a2e] tracking-tight mb-3">
             Page not found
@@ -36,15 +28,8 @@ export default function NotFound() {
           {/* Action buttons */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
-              href="/"
-              className="inline-flex items-center gap-2 h-11 px-6 rounded-xl bg-[#1a1a2e] text-white text-[14px] font-semibold hover:bg-[#2d2d4e] transition-colors"
-            >
-              <Home className="h-4 w-4" />
-              Go Home
-            </Link>
-            <Link
               href="/explore"
-              className="inline-flex items-center gap-2 h-11 px-6 rounded-xl border border-[#e5e7eb] text-[#374151] text-[14px] font-semibold hover:bg-[#f9fafb] transition-colors"
+              className="inline-flex items-center gap-2 h-11 px-6 rounded-xl bg-[#1a1a2e] text-white text-[14px] font-semibold hover:bg-[#2d2d4e] transition-colors"
             >
               <Compass className="h-4 w-4" />
               Explore Storelib
