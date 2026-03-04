@@ -186,7 +186,9 @@ function SuccessContent() {
     setIsLoading(true)
 
     if (choice === "creator") {
-      // Mark as creator in profiles (onboarding will complete this)
+      // Pre-mark as creator so the onboarding modal context is correct.
+      // The critical onboarding_completed flag is set later by the modal
+      // via /api/onboarding/finalize (admin client, bypasses RLS).
       await supabase
         .from("profiles")
         .update({ is_creator: true })
@@ -199,14 +201,22 @@ function SuccessContent() {
       setIsLoading(false)
       setShowCreatorOnboarding(true)
     } else {
-      // Mark as buyer - set welcome_completed and ensure is_creator is false
-      await supabase
-        .from("profiles")
-        .update({
-          is_creator: false,
-          welcome_completed: true
+      // Mark as buyer via the finalize API (admin client) so RLS cannot block the write.
+      // Falls back to a direct client write if the API call fails.
+      try {
+        const res = await fetch("/api/onboarding/finalize", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ role: "buyer" }),
         })
-        .eq("id", user.id)
+        if (!res.ok) throw new Error("finalize API failed")
+      } catch {
+        // Fallback: direct client write
+        await supabase
+          .from("profiles")
+          .update({ is_creator: false, welcome_completed: true })
+          .eq("id", user.id)
+      }
 
       // Show full-screen loader, then navigate to library (hard navigation for fresh server state)
       setIsRouting(true)

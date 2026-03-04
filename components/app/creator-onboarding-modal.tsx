@@ -1017,9 +1017,25 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe }: Crea
 
     await new Promise((resolve) => setTimeout(resolve, 2000))
 
-    // Phase 3: Almost ready... (2 seconds)
+    // Phase 3: Almost ready... (2 seconds) — also call the finalize API now
+    // so the critical onboarding_completed flag is set via admin client (bypasses RLS)
+    // before we redirect to /app.
     setSetupPhase("almost")
-    await new Promise((resolve) => setTimeout(resolve, 2000))
+    await Promise.all([
+      new Promise((resolve) => setTimeout(resolve, 2000)),
+      fetch("/api/onboarding/finalize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: "creator", creatorSlug: _slug }),
+      }).then(async (res) => {
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}))
+          console.error("[onboarding] finalize API error:", data)
+        }
+      }).catch((err) => {
+        console.error("[onboarding] finalize API fetch error:", err)
+      }),
+    ])
 
     // Complete
     setIsSettingUp(false)
