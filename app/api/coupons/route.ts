@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
   if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 404 })
 
   const body = await request.json()
-  const { code, discount_type, discount_value, product_ids, usage_limit, starts_at, expires_at, is_active } = body
+  const { code, discount_type, discount_value, product_ids, usage_limit, starts_at, expires_at, min_purchase_cents, is_active } = body
 
   if (!code || !discount_type || discount_value == null) {
     return NextResponse.json({ error: "code, discount_type, and discount_value are required" }, { status: 400 })
@@ -79,6 +79,7 @@ export async function POST(request: NextRequest) {
       usage_limit: usage_limit || null,
       starts_at: starts_at || null,
       expires_at: expires_at || null,
+      min_purchase_cents: min_purchase_cents || null,
       is_active: is_active !== false,
     })
     .select()

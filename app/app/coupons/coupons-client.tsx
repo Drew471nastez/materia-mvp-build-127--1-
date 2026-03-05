@@ -430,7 +430,7 @@ function CouponModal({
                 type="checkbox"
                 checked={form.has_min_purchase}
                 onChange={e => set("has_min_purchase", e.target.checked)}
-                className="w-4 h-4 rounded border-gray-300 accent-gray-900 cursor-pointer shrink-0"
+                className="w-4 h-4 rounded border-gray-300 accent-violet-600 cursor-pointer shrink-0"
               />
               <Tooltip text="Coupon only applies when cart total meets this minimum" />
               <span className="text-sm font-medium text-gray-700 leading-none">Require minimum purchase amount</span>
@@ -439,17 +439,19 @@ function CouponModal({
               className="overflow-hidden transition-all duration-300 ease-out"
               style={{ maxHeight: form.has_min_purchase ? "64px" : "0px", opacity: form.has_min_purchase ? 1 : 0 }}
             >
-              <div className="px-4 pb-3 relative">
-                <span className="absolute left-7 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
-                <input
-                  type="number"
-                  value={form.min_purchase_amount}
-                  onChange={e => set("min_purchase_amount", e.target.value)}
-                  placeholder="10.00"
-                  min="0.01"
-                  step="0.01"
-                  className="w-full h-10 pl-6 pr-3.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-200 bg-white"
-                />
+              <div className="px-4 pb-3">
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-gray-400 pointer-events-none">$</span>
+                  <input
+                    type="number"
+                    value={form.min_purchase_amount}
+                    onChange={e => set("min_purchase_amount", e.target.value)}
+                    placeholder="10.00"
+                    min="0.01"
+                    step="0.01"
+                    className="w-full h-10 pl-7 pr-3.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-200 bg-white"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -461,7 +463,7 @@ function CouponModal({
                 type="checkbox"
                 checked={form.has_start_date}
                 onChange={e => set("has_start_date", e.target.checked)}
-                className="w-4 h-4 rounded border-gray-300 accent-gray-900 cursor-pointer shrink-0"
+                className="w-4 h-4 rounded border-gray-300 accent-violet-600 cursor-pointer shrink-0"
               />
               <Tooltip text="Coupon becomes valid on this date" />
               <span className="text-sm font-medium text-gray-700 leading-none">Set start date for coupon</span>
@@ -488,7 +490,7 @@ function CouponModal({
                 type="checkbox"
                 checked={form.has_expiry_date}
                 onChange={e => set("has_expiry_date", e.target.checked)}
-                className="w-4 h-4 rounded border-gray-300 accent-gray-900 cursor-pointer shrink-0"
+                className="w-4 h-4 rounded border-gray-300 accent-violet-600 cursor-pointer shrink-0"
               />
               <Tooltip text="Coupon expires after this date" />
               <span className="text-sm font-medium text-gray-700 leading-none">Set end date for coupon</span>
@@ -551,7 +553,7 @@ function CouponModal({
             type="button"
             onClick={handleSubmit}
             disabled={saving}
-            className="flex-1 h-11 rounded-xl bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 disabled:opacity-50 transition-colors cursor-pointer disabled:cursor-not-allowed"
+            className="flex-1 h-11 rounded-xl bg-[#8b5cf6] text-white text-sm font-medium hover:bg-[#7c3aed] disabled:opacity-50 transition-colors cursor-pointer disabled:cursor-not-allowed"
           >
             {saving ? "Saving…" : mode === "create" ? "Create coupon" : "Save changes"}
           </button>
@@ -785,7 +787,7 @@ export function CouponsClient({ creatorId, initialCoupons, products }: CouponsCl
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
+      <div className="max-w-[68rem] mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -795,7 +797,7 @@ export function CouponsClient({ creatorId, initialCoupons, products }: CouponsCl
           <button
             type="button"
             onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white text-sm font-medium rounded-full hover:bg-gray-700 transition-colors cursor-pointer shrink-0"
+            className="flex items-center gap-2 px-4 py-2.5 bg-[#8b5cf6] text-white text-sm font-medium rounded-full hover:bg-[#7c3aed] transition-colors cursor-pointer shrink-0"
           >
             <Plus className="w-4 h-4" />
             New coupon
@@ -824,7 +826,7 @@ export function CouponsClient({ creatorId, initialCoupons, products }: CouponsCl
             <button
               type="button"
               onClick={() => setShowModal(true)}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-gray-900 text-white text-sm font-medium rounded-full hover:bg-gray-700 transition-colors cursor-pointer"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#8b5cf6] text-white text-sm font-medium rounded-full hover:bg-[#7c3aed] transition-colors cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               Create coupon

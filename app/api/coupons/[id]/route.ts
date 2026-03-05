@@ -20,7 +20,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 404 })
 
   const body = await request.json()
-  const { code, discount_type, discount_value, product_ids, usage_limit, starts_at, expires_at, is_active } = body
+  const { code, discount_type, discount_value, product_ids, usage_limit, starts_at, expires_at, min_purchase_cents, is_active } = body
 
   if (discount_type && !["percentage", "fixed"].includes(discount_type)) {
     return NextResponse.json({ error: "discount_type must be 'percentage' or 'fixed'" }, { status: 400 })
@@ -34,6 +34,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   if (usage_limit !== undefined) updates.usage_limit = usage_limit || null
   if (starts_at !== undefined) updates.starts_at = starts_at || null
   if (expires_at !== undefined) updates.expires_at = expires_at || null
+  if (min_purchase_cents !== undefined) updates.min_purchase_cents = min_purchase_cents || null
   if (is_active !== undefined) updates.is_active = is_active
 
   const { data, error } = await supabase
