@@ -163,7 +163,6 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { href: "/app/products", label: t("nav.products"), icon: Package },
     { href: "/app/analytics", label: t("nav.analytics"), icon: BarChart3 },
     { href: "/app/orders", label: t("nav.sales"), icon: ShoppingCart },
-    { href: "/app/coupons", label: "Coupons", icon: TicketPercent },
     { href: "/app/onepage", label: t("nav.onepage"), icon: Link2, forceNavigation: true },
     { href: "/store-builder", label: t("nav.storeBuilder"), icon: Store, forceNavigation: true },
     { href: "/app/emails", label: t("nav.emails"), icon: Mail },
@@ -501,6 +500,23 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           ))}
         </div>
 
+        {/* Tools category */}
+        <div className="mt-5">
+          <p className="px-3 mb-1.5 text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">Tools</p>
+          <div className="space-y-0.5">
+            <NavItem item={{ href: "/app/coupons", label: "Coupons", icon: TicketPercent }} onClick={onItemClick} />
+            <div className="relative group">
+              <span className="flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14px] font-medium text-neutral-400 cursor-default select-none">
+                <Link2 className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />
+                <span>Link shortener</span>
+              </span>
+              <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-neutral-900 text-white text-xs font-medium rounded-lg whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50">
+                Coming soon
+              </div>
+            </div>
+          </div>
+        </div>
+
         {storeUrl && !storePublished && (
           <div className="mt-4 rounded-[10px] bg-amber-50/80 border border-amber-100/80 px-3 py-2.5">
             <p className="text-[12px] text-amber-700">Store is unpublished. Go to Settings to publish.</p>
@@ -545,6 +561,23 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           {mainNavItems.map((item) => (
             <NavItem key={item.href} item={item} onClick={onItemClick} />
           ))}
+        </div>
+
+        {/* Tools category */}
+        <div className="mt-5">
+          <p className="px-3 mb-1.5 text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">Tools</p>
+          <div className="space-y-0.5">
+            <NavItem item={{ href: "/app/coupons", label: "Coupons", icon: TicketPercent }} onClick={onItemClick} />
+            <div className="relative group">
+              <span className="flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14px] font-medium text-neutral-400 cursor-default select-none">
+                <Link2 className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />
+                <span>Link shortener</span>
+              </span>
+              <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-2.5 py-1.5 bg-neutral-900 text-white text-xs font-medium rounded-lg whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50">
+                Coming soon
+              </div>
+            </div>
+          </div>
         </div>
 
         {storeUrl && !storePublished && (
