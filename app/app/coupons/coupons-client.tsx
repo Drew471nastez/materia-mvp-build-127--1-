@@ -129,6 +129,53 @@ function couponStatus(coupon: Coupon): { label: string; color: string } {
   return { label: "Active", color: "bg-green-50 text-green-700" }
 }
 
+// ─── Top Pill Notification ────────────────────────────────────────────────────
+// Renders a centered pill at the top of the viewport via createPortal.
+// Slides down from above the header, stays 4 s, then fades out.
+
+function TopPill({ message, onDone }: { message: string; onDone: () => void }) {
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    // Double-rAF ensures the initial (hidden) paint has committed before we animate in
+    const raf = requestAnimationFrame(() => requestAnimationFrame(() => setVisible(true)))
+    const outTimer  = setTimeout(() => setVisible(false),  4000)
+    const doneTimer = setTimeout(() => onDone(),           4380)
+    return () => {
+      cancelAnimationFrame(raf)
+      clearTimeout(outTimer)
+      clearTimeout(doneTimer)
+    }
+  }, [onDone])
+
+  if (typeof document === "undefined") return null
+
+  return createPortal(
+    <div
+      aria-live="polite"
+      style={{
+        position: "fixed",
+        top: visible ? "74px" : "-8px",
+        left: "50%",
+        transform: "translateX(-50%)",
+        opacity: visible ? 1 : 0,
+        transition: "top 340ms cubic-bezier(0.32,0.72,0,1), opacity 300ms ease",
+        zIndex: 99999,
+        pointerEvents: "none",
+      }}
+    >
+      <div className="flex items-center gap-2 px-5 py-2.5 bg-neutral-900 text-white text-[13px] font-medium rounded-full shadow-xl whitespace-nowrap">
+        <svg viewBox="0 0 16 16" fill="none" className="w-3.5 h-3.5 shrink-0">
+          <circle cx="8" cy="8" r="7" fill="#22c55e" />
+          <path d="M5 8.5l2 2 4-4" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        {message}
+      </div>
+    </div>,
+    document.body
+  )
+}
+
 // ─── Form Modal ───────────────────────────────────────────────────────────────
 
 function CouponModal({
@@ -689,7 +736,10 @@ export function CouponsClient({ creatorId, initialCoupons, products }: CouponsCl
   const [showModal, setShowModal] = useState(false)
   const [editTarget, setEditTarget] = useState<Coupon | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [pill, setPill] = useState<{ message: string; id: number } | null>(null)
   const { toast } = useToast()
+
+  const showPill = useCallback((msg: string) => setPill({ message: msg, id: Date.now() }), [])
 
   // ── Create ──────────────────────────────────────────────────────────────────
 
@@ -713,7 +763,7 @@ export function CouponsClient({ creatorId, initialCoupons, products }: CouponsCl
     if (!res.ok) throw new Error(data.error || "Failed to create coupon")
     setCoupons(prev => [data.coupon, ...prev])
     setShowModal(false)
-    toast({ title: "Coupon created", description: `${data.coupon.code} is ready to share.` })
+    showPill(`${data.coupon.code} — Coupon created`)
   }
 
   // ── Edit ────────────────────────────────────────────────────────────────────
@@ -739,7 +789,7 @@ export function CouponsClient({ creatorId, initialCoupons, products }: CouponsCl
     if (!res.ok) throw new Error(data.error || "Failed to save coupon")
     setCoupons(prev => prev.map(c => c.id === editTarget.id ? data.coupon : c))
     setEditTarget(null)
-    toast({ title: "Coupon updated" })
+    showPill("Coupon updated")
   }
 
   // ── Toggle active ───────────────────────────────────────────────────────────
@@ -762,7 +812,7 @@ export function CouponsClient({ creatorId, initialCoupons, products }: CouponsCl
     if (!res.ok) { toast({ title: "Failed to delete coupon" }); return }
     setCoupons(prev => prev.filter(c => c.id !== id))
     setConfirmDelete(null)
-    toast({ title: "Coupon deleted" })
+    showPill("Coupon deleted")
   }
 
   // ── Convert coupon → edit form ──────────────────────────────────────────────
@@ -869,6 +919,9 @@ export function CouponsClient({ creatorId, initialCoupons, products }: CouponsCl
           onSave={handleEdit}
         />
       )}
+
+      {/* Top pill notification */}
+      {pill && <TopPill key={pill.id} message={pill.message} onDone={() => setPill(null)} />}
 
       {/* Delete confirm */}
       {confirmDelete && (
