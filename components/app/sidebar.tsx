@@ -836,15 +836,6 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             </div>
           </div>
 
-          {/* Help icon — desktop only, next to profile */}
-          <Link
-            href="/help"
-            title="Help center"
-            className="flex h-[34px] w-[34px] items-center justify-center rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-all shrink-0 ml-1"
-          >
-            <HelpCircle className="h-[18px] w-[18px]" strokeWidth={1.5} />
-          </Link>
-
           {/* Center: Search bar */}
           <div className="flex-1 flex justify-center px-6 relative" id="desktop-search-container">
             <button
