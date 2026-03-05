@@ -166,8 +166,7 @@ function TopPill({ message, onDone }: { message: string; onDone: () => void }) {
     >
       <div className="flex items-center gap-2 px-5 py-2.5 bg-neutral-900 text-white text-[13px] font-medium rounded-full shadow-xl whitespace-nowrap">
         <svg viewBox="0 0 16 16" fill="none" className="w-3.5 h-3.5 shrink-0">
-          <circle cx="8" cy="8" r="7" fill="#22c55e" />
-          <path d="M5 8.5l2 2 4-4" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M3.5 8.5l3 3 6-6" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
         {message}
       </div>
@@ -928,8 +927,8 @@ export function CouponsClient({ creatorId, initialCoupons, products }: CouponsCl
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setConfirmDelete(null)} />
           <div className="relative bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4">
-            <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
-              <Trash2 className="w-5 h-5 text-red-500" />
+            <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
+              <Trash2 className="w-5 h-5 text-gray-600" />
             </div>
             <h3 className="text-base font-semibold text-gray-900 text-center mb-1">Delete coupon?</h3>
             <p className="text-sm text-gray-500 text-center mb-5">
@@ -946,7 +945,7 @@ export function CouponsClient({ creatorId, initialCoupons, products }: CouponsCl
               <button
                 type="button"
                 onClick={() => handleDelete(confirmDelete)}
-                className="flex-1 h-11 rounded-xl bg-red-500 text-white text-sm font-medium hover:bg-red-600 transition-colors cursor-pointer"
+                className="flex-1 h-11 rounded-xl bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-800 transition-colors cursor-pointer"
               >
                 Delete
               </button>

@@ -337,6 +337,21 @@ function LoginFormContent() {
     setError(null)
     setGoogleOnlyEmail(null)
 
+    // Detect native synchronously (before any async work) so we can show
+    // the full-screen loading overlay on web immediately — without waiting
+    // for the dynamic import which adds a visible delay.
+    const isNativeSync =
+      typeof (window as any).Capacitor?.isNativePlatform === "function" &&
+      (window as any).Capacitor.isNativePlatform()
+
+    if (!isNativeSync) {
+      // Web: show full-screen loading overlay now so the user sees continuous
+      // feedback from click → OAuth redirect → callback → app. The page will
+      // navigate away in the next microtask, keeping this state alive until
+      // the browser navigates.
+      setIsGoogleRedirecting(true)
+    }
+
     try {
       // Use the current browser origin so /auth/start runs on the same host.
       // This is critical on Vercel preview deployments where the host differs
@@ -432,9 +447,8 @@ function LoginFormContent() {
         return // avoid the finally setIsGoogleLoading(false) below
       } else {
         // ── Web ───────────────────────────────────────────────────────
-        // Show full-page overlay immediately so the loading experience
-        // is visible from click until the OAuth redirect completes.
-        setIsGoogleRedirecting(true)
+        // Full-screen overlay already shown above (before dynamic import).
+        // Navigate to auth/start which redirects to Google OAuth.
         window.location.href = `${canonicalUrl}/auth/start?provider=google&next=/app`
         return
       }
