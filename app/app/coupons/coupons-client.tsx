@@ -6,6 +6,54 @@ import { Plus, TicketPercent, Copy, Check, Pencil, Trash2, X, ChevronDown, Zap, 
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 
+// ─── Portal Tooltip ───────────────────────────────────────────────────────────
+// Renders the tooltip via createPortal so it is never clipped by overflow on
+// the modal or sidebar. Position is computed from the trigger's bounding rect.
+
+function Tooltip({ text }: { text: string }) {
+  const [visible, setVisible] = useState(false)
+  const [pos, setPos] = useState({ x: 0, y: 0 })
+  const triggerRef = useRef<HTMLSpanElement>(null)
+
+  const show = () => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect()
+      setPos({ x: rect.left + rect.width / 2, y: rect.top })
+    }
+    setVisible(true)
+  }
+
+  const hide = () => setVisible(false)
+
+  return (
+    <span
+      ref={triggerRef}
+      onMouseEnter={show}
+      onMouseLeave={hide}
+      className="inline-flex items-center shrink-0"
+    >
+      <HelpCircle className="w-3.5 h-3.5 text-gray-400 cursor-help" />
+      {visible && typeof document !== "undefined" && createPortal(
+        <div
+          style={{
+            position: "fixed",
+            left: pos.x,
+            top: pos.y - 6,
+            transform: "translate(-50%, -100%)",
+            zIndex: 99999,
+            pointerEvents: "none",
+          }}
+          className="px-2.5 py-1 bg-neutral-900 text-white text-[11px] font-medium rounded-md whitespace-nowrap shadow-lg"
+        >
+          {text}
+          <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-[5px] border-r-[5px] border-t-[5px] border-l-transparent border-r-transparent border-t-neutral-900" />
+        </div>,
+        document.body
+      )}
+    </span>
+  )
+}
+
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 interface Coupon {
@@ -79,19 +127,6 @@ function couponStatus(coupon: Coupon): { label: string; color: string } {
   if (isScheduled(coupon)) return { label: "Scheduled", color: "bg-blue-50 text-blue-600" }
   if (coupon.usage_limit !== null && coupon.usage_count >= coupon.usage_limit) return { label: "Maxed out", color: "bg-orange-50 text-orange-600" }
   return { label: "Active", color: "bg-green-50 text-green-700" }
-}
-
-// ─── Tiny Tooltip ─────────────────────────────────────────────────────────────
-
-function Tooltip({ text }: { text: string }) {
-  return (
-    <span className="relative group inline-flex">
-      <HelpCircle className="w-3.5 h-3.5 text-gray-400 cursor-help" />
-      <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 bg-neutral-900 text-white text-[11px] font-medium rounded-md whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50">
-        {text}
-      </span>
-    </span>
-  )
 }
 
 // ─── Form Modal ───────────────────────────────────────────────────────────────
@@ -231,7 +266,7 @@ function CouponModal({
         className="hidden sm:flex items-center justify-center absolute inset-0 pointer-events-none"
       >
         <div
-          className="pointer-events-auto w-full max-w-lg bg-white rounded-2xl shadow-2xl max-h-[90dvh] flex flex-col"
+          className="pointer-events-auto w-full max-w-lg bg-white rounded-2xl shadow-2xl max-h-[90dvh] flex flex-col overflow-hidden"
           style={{
             opacity: isAnimating ? 1 : 0,
             transform: isAnimating ? "scale(1) translateY(0)" : "scale(0.96) translateY(8px)",
@@ -245,7 +280,7 @@ function CouponModal({
       {/* Mobile: bottom sheet */}
       <div
         ref={sheetRef}
-        className="sm:hidden absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl max-h-[92dvh] flex flex-col"
+        className="sm:hidden absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl max-h-[92dvh] flex flex-col overflow-hidden"
         style={{
           transform: isAnimating ? `translate3d(0,${dragY}px,0)` : "translate3d(0,100%,0)",
           transition: isDragging ? "none" : "transform 400ms cubic-bezier(0.32,0.72,0,1)",
@@ -276,7 +311,7 @@ function CouponModal({
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
+        <form onSubmit={handleSubmit} className="overflow-y-auto overflow-x-hidden flex-1 px-6 py-5 space-y-5">
           {/* Code */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Coupon code</label>
@@ -389,26 +424,23 @@ function CouponModal({
           </div>
 
           {/* Minimum purchase amount */}
-          <div className="rounded-xl bg-gray-50 p-4 space-y-3">
-            <label className="flex items-center gap-3 cursor-pointer select-none">
+          <div className="rounded-xl bg-gray-50 border border-gray-100 overflow-hidden">
+            <label className="flex items-center gap-2.5 px-4 py-3 cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={form.has_min_purchase}
                 onChange={e => set("has_min_purchase", e.target.checked)}
-                className="rounded border-gray-300 text-gray-900 focus:ring-gray-900 cursor-pointer"
+                className="w-4 h-4 rounded border-gray-300 accent-gray-900 cursor-pointer shrink-0"
               />
-              <span className="text-sm font-medium text-gray-700 flex-1">Require minimum purchase amount</span>
               <Tooltip text="Coupon only applies when cart total meets this minimum" />
+              <span className="text-sm font-medium text-gray-700 leading-none">Require minimum purchase amount</span>
             </label>
             <div
               className="overflow-hidden transition-all duration-300 ease-out"
-              style={{
-                maxHeight: form.has_min_purchase ? "60px" : "0px",
-                opacity: form.has_min_purchase ? 1 : 0,
-              }}
+              style={{ maxHeight: form.has_min_purchase ? "64px" : "0px", opacity: form.has_min_purchase ? 1 : 0 }}
             >
-              <div className="relative">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
+              <div className="px-4 pb-3 relative">
+                <span className="absolute left-7 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
                 <input
                   type="number"
                   value={form.min_purchase_amount}
@@ -416,65 +448,63 @@ function CouponModal({
                   placeholder="10.00"
                   min="0.01"
                   step="0.01"
-                  className="w-full h-11 pl-7 pr-3.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-200"
+                  className="w-full h-10 pl-6 pr-3.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-200 bg-white"
                 />
               </div>
             </div>
           </div>
 
           {/* Start date toggle */}
-          <div className="rounded-xl bg-gray-50 p-4 space-y-3">
-            <label className="flex items-center gap-3 cursor-pointer select-none">
+          <div className="rounded-xl bg-gray-50 border border-gray-100 overflow-hidden">
+            <label className="flex items-center gap-2.5 px-4 py-3 cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={form.has_start_date}
                 onChange={e => set("has_start_date", e.target.checked)}
-                className="rounded border-gray-300 text-gray-900 focus:ring-gray-900 cursor-pointer"
+                className="w-4 h-4 rounded border-gray-300 accent-gray-900 cursor-pointer shrink-0"
               />
-              <span className="text-sm font-medium text-gray-700 flex-1">Set start date for coupon</span>
               <Tooltip text="Coupon becomes valid on this date" />
+              <span className="text-sm font-medium text-gray-700 leading-none">Set start date for coupon</span>
             </label>
             <div
               className="overflow-hidden transition-all duration-300 ease-out"
-              style={{
-                maxHeight: form.has_start_date ? "60px" : "0px",
-                opacity: form.has_start_date ? 1 : 0,
-              }}
+              style={{ maxHeight: form.has_start_date ? "64px" : "0px", opacity: form.has_start_date ? 1 : 0 }}
             >
-              <input
-                type="datetime-local"
-                value={form.starts_at}
-                onChange={e => set("starts_at", e.target.value)}
-                className="w-full h-11 px-3.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-200"
-              />
+              <div className="px-4 pb-3">
+                <input
+                  type="datetime-local"
+                  value={form.starts_at}
+                  onChange={e => set("starts_at", e.target.value)}
+                  className="w-full h-10 px-3.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-200 bg-white"
+                />
+              </div>
             </div>
           </div>
 
           {/* Expiry date toggle */}
-          <div className="rounded-xl bg-gray-50 p-4 space-y-3">
-            <label className="flex items-center gap-3 cursor-pointer select-none">
+          <div className="rounded-xl bg-gray-50 border border-gray-100 overflow-hidden">
+            <label className="flex items-center gap-2.5 px-4 py-3 cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={form.has_expiry_date}
                 onChange={e => set("has_expiry_date", e.target.checked)}
-                className="rounded border-gray-300 text-gray-900 focus:ring-gray-900 cursor-pointer"
+                className="w-4 h-4 rounded border-gray-300 accent-gray-900 cursor-pointer shrink-0"
               />
-              <span className="text-sm font-medium text-gray-700 flex-1">Set end date for coupon</span>
               <Tooltip text="Coupon expires after this date" />
+              <span className="text-sm font-medium text-gray-700 leading-none">Set end date for coupon</span>
             </label>
             <div
               className="overflow-hidden transition-all duration-300 ease-out"
-              style={{
-                maxHeight: form.has_expiry_date ? "60px" : "0px",
-                opacity: form.has_expiry_date ? 1 : 0,
-              }}
+              style={{ maxHeight: form.has_expiry_date ? "64px" : "0px", opacity: form.has_expiry_date ? 1 : 0 }}
             >
-              <input
-                type="datetime-local"
-                value={form.expires_at}
-                onChange={e => set("expires_at", e.target.value)}
-                className="w-full h-11 px-3.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-200"
-              />
+              <div className="px-4 pb-3">
+                <input
+                  type="datetime-local"
+                  value={form.expires_at}
+                  onChange={e => set("expires_at", e.target.value)}
+                  className="w-full h-10 px-3.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-200 bg-white"
+                />
+              </div>
             </div>
           </div>
 

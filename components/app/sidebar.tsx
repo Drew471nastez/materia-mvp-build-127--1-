@@ -505,15 +505,11 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           <p className="px-3 mb-1.5 text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">Tools</p>
           <div className="space-y-0.5">
             <NavItem item={{ href: "/app/coupons", label: "Coupons", icon: TicketPercent }} onClick={onItemClick} />
-            <div className="relative group">
-              <span className="flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14px] font-medium text-neutral-400 cursor-default select-none">
-                <Link2 className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />
-                <span>Link shortener</span>
-              </span>
-              <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-neutral-900 text-white text-xs font-medium rounded-lg whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50">
-                Coming soon
-              </div>
-            </div>
+            <span className="flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14px] font-medium text-neutral-400 cursor-default select-none">
+              <Link2 className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />
+              <span className="flex-1">Link shortener</span>
+              <span className="text-[10px] font-medium text-neutral-400 bg-neutral-150 border border-neutral-200 rounded px-1.5 py-0.5 leading-none">Soon</span>
+            </span>
           </div>
         </div>
 
@@ -568,15 +564,11 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
           <p className="px-3 mb-1.5 text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">Tools</p>
           <div className="space-y-0.5">
             <NavItem item={{ href: "/app/coupons", label: "Coupons", icon: TicketPercent }} onClick={onItemClick} />
-            <div className="relative group">
-              <span className="flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14px] font-medium text-neutral-400 cursor-default select-none">
-                <Link2 className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />
-                <span>Link shortener</span>
-              </span>
-              <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-2.5 py-1.5 bg-neutral-900 text-white text-xs font-medium rounded-lg whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50">
-                Coming soon
-              </div>
-            </div>
+            <span className="flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[14px] font-medium text-neutral-400 cursor-default select-none">
+              <Link2 className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />
+              <span className="flex-1">Link shortener</span>
+              <span className="text-[10px] font-medium text-neutral-400 bg-neutral-150 border border-neutral-200 rounded px-1.5 py-0.5 leading-none">Soon</span>
+            </span>
           </div>
         </div>
 
@@ -681,35 +673,36 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         .sidebar-nav {
           scrollbar-width: thin;
           scrollbar-color: transparent transparent;
+          overflow-x: hidden !important;
         }
         .sidebar-nav:hover {
-          scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
+          scrollbar-color: rgba(0, 0, 0, 0.12) transparent;
         }
         .sidebar-nav::-webkit-scrollbar {
-          width: 4px;
+          width: 3px;
         }
         .sidebar-nav::-webkit-scrollbar-track {
           background: transparent;
         }
         .sidebar-nav::-webkit-scrollbar-thumb {
           background-color: transparent;
-          border-radius: 4px;
+          border-radius: 999px;
         }
         .sidebar-nav:hover::-webkit-scrollbar-thumb {
-          background-color: rgba(0, 0, 0, 0.15);
+          background-color: rgba(0, 0, 0, 0.12);
         }
         .sidebar-nav::-webkit-scrollbar-thumb:hover {
-          background-color: rgba(0, 0, 0, 0.25);
+          background-color: rgba(0, 0, 0, 0.22);
         }
         /* Dark scrollbar for mobile sidebar */
         .sidebar-nav-dark:hover {
-          scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+          scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
         }
         .sidebar-nav-dark:hover::-webkit-scrollbar-thumb {
-          background-color: rgba(255, 255, 255, 0.2);
+          background-color: rgba(255, 255, 255, 0.15);
         }
         .sidebar-nav-dark::-webkit-scrollbar-thumb:hover {
-          background-color: rgba(255, 255, 255, 0.3);
+          background-color: rgba(255, 255, 255, 0.25);
         }
       `}</style>
 
@@ -804,6 +797,15 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               </div>
             </div>
           </div>
+
+          {/* Help icon — desktop only, next to profile */}
+          <Link
+            href="/help"
+            title="Help center"
+            className="flex h-[34px] w-[34px] items-center justify-center rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-all shrink-0 ml-1"
+          >
+            <HelpCircle className="h-[18px] w-[18px]" strokeWidth={1.5} />
+          </Link>
 
           {/* Center: Search bar */}
           <div className="flex-1 flex justify-center px-6 relative" id="desktop-search-container">
