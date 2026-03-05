@@ -59,7 +59,8 @@ export function ConditionalHeader() {
       pathname.startsWith("/faq") ||
       pathname.startsWith("/privacy") ||
       pathname.startsWith("/terms") ||
-      pathname.startsWith("/help")
+      pathname.startsWith("/help") ||
+      pathname.startsWith("/account-deletion")
 
     setShowPlatformHeader(isPlatformPage)
   }, [pathname, searchParams, isHydrated])
