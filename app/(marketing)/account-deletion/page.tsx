@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { Mail, Trash2 } from "lucide-react"
+import { Mail } from "lucide-react"
 
 // Note: header and footer are injected by app/(marketing)/layout.tsx via
 // ConditionalHeader / ConditionalFooter — no extra wiring needed in this file.
@@ -12,22 +12,18 @@ export const metadata: Metadata = {
 
 const steps = [
   {
-    icon: LogIn,
     title: "Log in to your account",
     description: "Sign in to Storelib at storelib.com using your email and password or Google account.",
   },
   {
-    icon: Settings,
     title: "Go to Settings → Security",
     description: "Click your profile avatar in the top corner, then navigate to Settings and open the Security tab.",
   },
   {
-    icon: MousePointerClick,
     title: "Click Delete Account",
     description: "Scroll to the Danger Zone section and click the Delete Account button.",
   },
   {
-    icon: CheckCircle,
     title: "Confirm the deletion",
     description: "Type your confirmation and submit. Your request will be processed immediately.",
   },
