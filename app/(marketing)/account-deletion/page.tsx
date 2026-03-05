@@ -1,5 +1,8 @@
 import type { Metadata } from "next"
-import { Mail, Trash2, LogIn, Settings, MousePointerClick, CheckCircle } from "lucide-react"
+import { Mail, Trash2 } from "lucide-react"
+
+// Note: header and footer are injected by app/(marketing)/layout.tsx via
+// ConditionalHeader / ConditionalFooter — no extra wiring needed in this file.
 
 export const metadata: Metadata = {
   title: "Delete Your Account | Storelib",
@@ -42,9 +45,6 @@ export default function AccountDeletionPage() {
       {/* Hero */}
       <div className="border-b border-neutral-100 bg-neutral-50">
         <div className="mx-auto max-w-2xl px-6 py-16 text-center">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-neutral-100 mb-6">
-            <Trash2 className="w-6 h-6 text-neutral-600" strokeWidth={1.5} />
-          </div>
           <h1 className="text-3xl font-bold tracking-tight text-neutral-900 mb-3">
             Delete Your Storelib Account
           </h1>
