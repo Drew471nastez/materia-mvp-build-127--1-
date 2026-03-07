@@ -59,6 +59,30 @@ export function useAuthGate() {
     }
   }, [nativeAuthInProgress])
 
+  // Background poll: detect nativeAuthInProgress being set AFTER mount.
+  //
+  // handleOAuthCallback (native-oauth.ts) sets the sessionStorage flag when
+  // the deep-link code-exchange starts — this happens AFTER the login/signup
+  // page has already mounted with nativeAuthInProgress=false (because the
+  // flag is set by appUrlOpen which fires after the Custom Tab closes, not
+  // when the Google button is first tapped).
+  //
+  // Without this poll, the login/signup page would have no React-level guard
+  // to show <AuthResolvingScreen> during the several-second code exchange,
+  // so a form flash is possible if isGoogleLoading is cleared by browserFinished
+  // before appUrlOpen has had a chance to navigate away.
+  useEffect(() => {
+    if (nativeAuthInProgress) return // already handled by the effect above
+    const poll = window.setInterval(() => {
+      try {
+        if (sessionStorage.getItem("nativeAuthInProgress") === "1") {
+          setNativeAuthInProgress(true)
+        }
+      } catch { /* sessionStorage unavailable */ }
+    }, 200)
+    return () => window.clearInterval(poll)
+  }, [nativeAuthInProgress])
+
   // Boot: resolve getSession() once after native callback finishes (or immediately)
   useEffect(() => {
     // While native callback is running, don't boot — let the handler own the flow

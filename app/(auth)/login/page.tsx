@@ -20,7 +20,34 @@ function LoginFormContent() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false)
+  // Initialise from sessionStorage so the loading overlay survives a React
+  // remount (e.g. Strict Mode double-invoke, edge-case process restart on
+  // iOS where the Custom Tab is still open mid-auth).
+  const [isGoogleLoading, setIsGoogleLoadingRaw] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false
+    try {
+      const ts = parseInt(sessionStorage.getItem("storelib_oauth_ts") || "0")
+      return (
+        sessionStorage.getItem("storelib_oauth_pending") === "1" &&
+        Date.now() - ts < 120_000 // treat as stale after 2 min
+      )
+    } catch {
+      return false
+    }
+  })
+  /** Wrapper: keeps sessionStorage in sync with React state. */
+  const setIsGoogleLoading = (v: boolean) => {
+    try {
+      if (v) {
+        sessionStorage.setItem("storelib_oauth_pending", "1")
+        sessionStorage.setItem("storelib_oauth_ts", String(Date.now()))
+      } else {
+        sessionStorage.removeItem("storelib_oauth_pending")
+        sessionStorage.removeItem("storelib_oauth_ts")
+      }
+    } catch { /* ignore — sessionStorage unavailable */ }
+    setIsGoogleLoadingRaw(v)
+  }
   const [isGoogleRedirecting, setIsGoogleRedirecting] = useState(false)
   const [isContinueLoading, setIsContinueLoading] = useState(false)
   const [isRedirecting, setIsRedirecting] = useState(false)
@@ -350,6 +377,13 @@ function LoginFormContent() {
       // navigate away in the next microtask, keeping this state alive until
       // the browser navigates.
       setIsGoogleRedirecting(true)
+    } else {
+      // Native (Android / iOS): show the native shell overlay immediately so
+      // it is already visible before the Chrome Custom Tab / SFSafariViewController
+      // opens.  isGoogleLoading=true (set above) already triggers
+      // <AuthResolvingScreen> on the React side, covering the WebView on iOS
+      // where there is no StorelibNative bridge overlay.
+      nativeAuthStart()
     }
 
     try {
@@ -465,7 +499,19 @@ function LoginFormContent() {
     return <AuthResolvingScreen message={nativeAuthInProgress ? "Signing you in..." : undefined} />
   }
 
-  if (isRedirecting || gateSession || isGoogleRedirecting) {
+  // Show full-screen overlay for every Google auth state:
+  //  • isGoogleLoading    — button tapped; covers native (no browser redirect yet)
+  //                         and iOS (no StorelibNative bridge overlay)
+  //  • isGoogleRedirecting — web path: immediately before browser navigates
+  // Checking isGoogleLoading here keeps the overlay visible while the Chrome
+  // Custom Tab is open (React state is preserved across the Custom Tab ↔ WebView
+  // transition in Capacitor) and during the several-second PKCE code exchange
+  // that follows once the Custom Tab closes.
+  if (isGoogleLoading || isGoogleRedirecting) {
+    return <AuthResolvingScreen message="Signing in with Google…" />
+  }
+
+  if (isRedirecting || gateSession) {
     return <AuthResolvingScreen />
   }
 
