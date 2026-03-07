@@ -125,7 +125,7 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
     const supabase = createClient()
     await supabase.auth.signOut()
     if (isNativePlatform()) {
-      router.push("/")
+      window.location.replace("/")
     } else {
       router.push("/")
     }

@@ -153,7 +153,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     setMobileMenuOpen(false)
     setProfileDropdownOpen(false)
     if (isNativePlatform()) {
-      router.push("/")
+      window.location.replace("/")
     } else {
       // Hard navigation clears all client-side state so the session is truly
       // gone before the login page renders — router.push() leaves cached
