@@ -32,6 +32,7 @@ import { NextResponse } from "next/server"
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const next = searchParams.get("next") || "/app"
+  const isNative = searchParams.get("native") === "true"
   const canonicalUrl = process.env.NEXT_PUBLIC_SITE_URL || origin
 
   const supabase = await createClient()
@@ -71,5 +72,22 @@ export async function GET(request: Request) {
   // The Supabase client has already written the PKCE code-verifier cookie to
   // the cookie store (via setAll → cookieStore.set). That Set-Cookie header
   // will be present on THIS 302 response, so Chrome Custom Tab stores it.
-  return NextResponse.redirect(data.url)
+  const response = NextResponse.redirect(data.url)
+
+  // When opened from the native app (Browser.open), mark this as a native
+  // auth flow so /auth/callback can detect it via cookie instead of UA string.
+  // Chrome Custom Tab uses a standard Chrome UA (not "StorelibApp"), so without
+  // this cookie /auth/callback would fall through to the Android DB bridge-token
+  // path which requires App Links — those don't fire in Chrome Custom Tab.
+  if (isNative) {
+    response.cookies.set("storelib_native_auth", "1", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 600, // 10 minutes — long enough for slow OAuth flows
+      path: "/auth/callback",
+    })
+  }
+
+  return response
 }

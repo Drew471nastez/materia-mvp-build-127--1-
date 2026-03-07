@@ -289,9 +289,9 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
     // /auth/callback exchanges the code server-side and embeds the session
     // tokens directly in the storelib:// deep link so no further token
     // exchange is needed here — just call /auth/sync-session to write cookies.
-    const bridgeToken   = u.searchParams.get("token")
-    const bridgeRefresh = u.searchParams.get("refresh_token")
-    const nextPath      = u.searchParams.get("next") || "/app"
+    const bridgeToken    = u.searchParams.get("token")
+    const bridgeRefresh  = u.searchParams.get("refresh_token")
+    const bridgeNextPath = u.searchParams.get("next") || "/app"
 
     console.log(`${TAG} URL params:`)
     console.log(`${TAG}   code          : ${code ? `"${code.slice(0, 12)}…"` : "MISSING"}`)
@@ -314,13 +314,13 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
     // route through /auth/sync-session to write Set-Cookie headers into the
     // WebView's cookie jar before redirecting to the final destination.
     if (bridgeToken && bridgeRefresh) {
-      console.log(`${TAG} ── bridge token detected → sync-session → ${nextPath} ──`)
-      showToast(`Bridge → sync-session → ${nextPath}`, "ok")
+      console.log(`${TAG} ── bridge token detected → sync-session → ${bridgeNextPath} ──`)
+      showToast(`Bridge → sync-session → ${bridgeNextPath}`, "ok")
       const syncUrl =
         `/auth/sync-session` +
         `?access_token=${encodeURIComponent(bridgeToken)}` +
         `&refresh_token=${encodeURIComponent(bridgeRefresh)}` +
-        `&next=${encodeURIComponent(nextPath)}`
+        `&next=${encodeURIComponent(bridgeNextPath)}`
       console.log(`${TAG}   Navigating to ${syncUrl}`)
       window.location.assign(syncUrl)
       return
