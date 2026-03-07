@@ -397,87 +397,79 @@ function LoginFormContent() {
       const { Capacitor } = await import("@capacitor/core")
 
       if (Capacitor.isNativePlatform()) {
-        // ── Native (Android) — client-side PKCE flow ─────────────────
-        // 1. signInWithOAuth with skipBrowserRedirect stores the PKCE
-        //    code-verifier in Capacitor Preferences (SharedPreferences).
-        // 2. Browser.open() opens the OAuth URL in Chrome Custom Tab.
-        // 3. After OAuth, Supabase redirects to storelib://auth/callback?code=…
-        //    Android intent-filter intercepts → onNewIntent → appUrlOpen.
-        // 4. native-oauth.ts handler calls exchangeCodeForSession(url)
-        //    which reads the code-verifier from Preferences and exchanges
-        //    code + verifier for a session. Session stored in Preferences.
-        // 5. Safety nets ensure loading state always clears:
-        //    - browserFinished fires if the user dismisses the browser early.
-        //    - A 20 s timeout clears loading if nothing else fires first.
+        // ── Native (Android / iOS) — server-side PKCE via /auth/start ────
         //
-        // IMPORTANT: storelib://auth/callback must be added as a redirect
-        // URL in the Supabase dashboard:
-        //   Auth → URL Configuration → Redirect URLs
-        const supabase = createClient()
-        const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
-          provider: "google",
-          options: {
-            // Redirect directly to the deep link. Supabase will 302 to
-            // storelib://auth/callback?code=… after Google OAuth completes.
-            // No server bridge page needed — the PKCE code-verifier is in
-            // Capacitor Preferences which survives the Custom Tab round-trip.
-            redirectTo: "storelib://auth/callback",
-            queryParams: { access_type: "offline", prompt: "consent" },
-            skipBrowserRedirect: true,
-          },
-        })
-        if (oauthError || !data.url) throw oauthError ?? new Error("OAuth init failed")
+        // WHY NOT storelib://auth/callback as redirectTo:
+        //   Chrome Custom Tabs refuse server-side HTTP 302 redirects to custom
+        //   URI schemes → net::ERR_UNKNOWN_URL_SCHEME.  The OS intent-filter
+        //   only fires for custom schemes when the navigation is user-initiated
+        //   or triggered by JavaScript (not by a 302 response header).
+        //
+        // The fix — use /auth/start (the designed Android flow):
+        //   1. Open /auth/start?provider=google&native=true in Chrome Custom Tab.
+        //   2. /auth/start generates a PKCE verifier and writes it as Set-Cookie
+        //      on the 302 response → Chrome's cookie jar gets the verifier.
+        //   3. Chrome follows the Google OAuth flow entirely within the Custom Tab.
+        //   4. On callback, /auth/callback reads the verifier from Chrome's jar,
+        //      exchanges the code server-side, and embeds the tokens directly in
+        //      the redirect to /auth/app-callback (native=true path).
+        //   5. /auth/app-callback fires a client-side JS redirect (not a server
+        //      302) to storelib://auth/callback?token=…&refresh_token=…  — user
+        //      tap always works; JS redirect works on most Chrome versions too.
+        //   6. handleOAuthCallback in native-oauth.ts detects token+refresh_token
+        //      and routes through /auth/sync-session to write cookies in the
+        //      WebView's jar, then redirects to /app or /library.
+        //
+        // Safety nets:
+        //   - browserFinished: user dismissed the Custom Tab early → clear loading
+        //     (with 500 ms grace to let appUrlOpen arrive first on some devices).
+        //   - 120 s timeout: server-side flow is slower than client PKCE; give it
+        //     plenty of time before showing a "timed out" error.
 
         const { Browser } = await import("@capacitor/browser")
+        const startUrl = `${canonicalUrl}/auth/start?provider=google&native=true&next=/app`
 
-        // Listen for user dismissing the browser WITHOUT completing OAuth.
-        // The handle must be removed once we're done (success or error) to
-        // avoid leaking. CapacitorAuthHandler handles the success path and
-        // navigates away; the browserFinished listener covers the cancel path.
         let browserFinishedHandle: { remove: () => void } | undefined
         const timeoutId = window.setTimeout(() => {
-          // 20-second hard safety: if neither appUrlOpen nor browserFinished
-          // has fired, give up and let the user try again.
           browserFinishedHandle?.remove()
           ;(window as any).__oauthStarting = false
           setIsGoogleLoading(false)
+          nativeAppReady()
           setError("Sign in timed out. Please try again.")
-        }, 20_000)
+        }, 120_000)
 
         try {
           browserFinishedHandle = await Browser.addListener(
             "browserFinished",
             () => {
-              // Browser closed. If CapacitorAuthHandler already navigated
-              // away, this won't fire. If it fires, the user cancelled.
               window.clearTimeout(timeoutId)
               browserFinishedHandle?.remove()
-              // Small delay: appUrlOpen can arrive just after browserFinished
-              // on some Android versions. Only clear loading if we're still here.
+              // Grace period: appUrlOpen can still arrive after browserFinished.
+              // Only clear loading if handleOAuthCallback hasn't taken over yet.
               window.setTimeout(() => {
-                ;(window as any).__oauthStarting = false
-                setIsGoogleLoading(false)
-                // User cancelled — dismiss the native overlay so the form is
-                // interactive again (overlay was shown before Browser.open()).
-                nativeAppReady()
-              }, 400)
+                try {
+                  if (sessionStorage.getItem("nativeAuthInProgress") !== "1") {
+                    ;(window as any).__oauthStarting = false
+                    setIsGoogleLoading(false)
+                    nativeAppReady()
+                  }
+                } catch {
+                  ;(window as any).__oauthStarting = false
+                  setIsGoogleLoading(false)
+                  nativeAppReady()
+                }
+              }, 500)
             }
           )
         } catch {
           // addListener may throw if the plugin isn't loaded — ignore
         }
 
-        // Show the native loading overlay NOW, before the browser opens.
-        // When the Chrome Custom Tab closes and the WebView Activity resumes,
-        // the overlay will already be visible — preventing the brief flash of
-        // the login form between browser close and appUrlOpen handler start.
-        nativeAuthStart()
-
-        await Browser.open({ url: data.url, windowName: "_self" })
+        await Browser.open({ url: startUrl, windowName: "_self" })
 
         // isGoogleLoading stays true while the browser is open.
-        // It will be cleared by one of: CapacitorAuthHandler navigation,
-        // browserFinished, or the 20 s timeout above.
+        // It will be cleared by: handleOAuthCallback navigation,
+        // browserFinished (cancel), or the 120 s timeout above.
         return // avoid the finally setIsGoogleLoading(false) below
       } else {
         // ── Web ───────────────────────────────────────────────────────

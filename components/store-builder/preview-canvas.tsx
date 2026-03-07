@@ -795,7 +795,7 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
             left: canvasRect.left,
             width: canvasRect.width,
             bottom: 0,
-            zIndex: 9999,
+            zIndex: 100,
           }}
           className={cn(
             "transition-all duration-300 ease-out",

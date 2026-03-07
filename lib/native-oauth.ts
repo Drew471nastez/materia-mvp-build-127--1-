@@ -281,13 +281,22 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
 
     // ── LOG 3: parse URL for diagnostics ─────────────────────────────────────
     const u = new URL(rawUrl)
-    const code     = u.searchParams.get("code")
-    const oauthErr = u.searchParams.get("error")
-    const oauthErrDesc = u.searchParams.get("error_description")
+    const code          = u.searchParams.get("code")
+    const oauthErr      = u.searchParams.get("error")
+    const oauthErrDesc  = u.searchParams.get("error_description")
+    // Bridge-token params emitted by /auth/app-callback when the login page
+    // uses the /auth/start server-side PKCE flow (native=true path).
+    // /auth/callback exchanges the code server-side and embeds the session
+    // tokens directly in the storelib:// deep link so no further token
+    // exchange is needed here — just call /auth/sync-session to write cookies.
+    const bridgeToken   = u.searchParams.get("token")
+    const bridgeRefresh = u.searchParams.get("refresh_token")
+    const nextPath      = u.searchParams.get("next") || "/app"
 
     console.log(`${TAG} URL params:`)
-    console.log(`${TAG}   code  : ${code ? `"${code.slice(0, 12)}…"` : "MISSING"}`)
-    console.log(`${TAG}   error : ${oauthErr ?? "none"}`)
+    console.log(`${TAG}   code          : ${code ? `"${code.slice(0, 12)}…"` : "MISSING"}`)
+    console.log(`${TAG}   bridge token  : ${bridgeToken ? "present" : "absent"}`)
+    console.log(`${TAG}   error         : ${oauthErr ?? "none"}`)
 
     // ── Handle OAuth errors (user cancelled, etc.) ───────────────────────────
     if (oauthErr) {
@@ -295,6 +304,25 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
       console.error(`${TAG} OAuth provider returned error: "${desc}"`)
       showToast(`Error: ${desc}`, "err")
       window.location.assign(`/login?error=${encodeURIComponent(desc)}`)
+      return
+    }
+
+    // ── Bridge-token path (/auth/start → /auth/callback → /auth/app-callback) ─
+    // When the login page opens /auth/start in a Chrome Custom Tab, the server
+    // exchanges the PKCE code and embeds the session tokens directly in the
+    // storelib:// deep link.  No client-side code exchange is needed; we just
+    // route through /auth/sync-session to write Set-Cookie headers into the
+    // WebView's cookie jar before redirecting to the final destination.
+    if (bridgeToken && bridgeRefresh) {
+      console.log(`${TAG} ── bridge token detected → sync-session → ${nextPath} ──`)
+      showToast(`Bridge → sync-session → ${nextPath}`, "ok")
+      const syncUrl =
+        `/auth/sync-session` +
+        `?access_token=${encodeURIComponent(bridgeToken)}` +
+        `&refresh_token=${encodeURIComponent(bridgeRefresh)}` +
+        `&next=${encodeURIComponent(nextPath)}`
+      console.log(`${TAG}   Navigating to ${syncUrl}`)
+      window.location.assign(syncUrl)
       return
     }
 
@@ -307,16 +335,15 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
     }
 
     // ── LOG 4: exchange code for session (client-side PKCE) ──────────────────
-    // The PKCE code-verifier was stored in Capacitor Preferences by
-    // signInWithOAuth() on the login page.  exchangeCodeForSession() reads
-    // it from the same Preferences storage and sends both code + verifier
-    // to Supabase's token endpoint.
+    // Legacy / fallback path: signInWithOAuth with skipBrowserRedirect stored
+    // the PKCE code-verifier in Capacitor Preferences.  exchangeCodeForSession()
+    // reads it and sends code + verifier to Supabase's token endpoint.
     //
     // IMPORTANT: Pass ONLY the bare authorization code, NOT the full URL.
     // Passing the full deep-link URL causes supabase-js to misparse it
     // (custom scheme URLs like storelib:// aren't valid HTTP URLs) and
     // lose the PKCE flow state → "invalid flow state" error.
-    console.log(`${TAG} ── exchanging code for session (PKCE) ──────────────────`)
+    console.log(`${TAG} ── exchanging code for session (client PKCE fallback) ────`)
     console.log(`${TAG}   passing bare code to exchangeCodeForSession()`)
     showToast("Exchanging code…", "info")
 
