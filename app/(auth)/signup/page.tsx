@@ -9,7 +9,6 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useEffect, Suspense, useRef } from "react"
 import { Eye, EyeOff, Loader2 } from "lucide-react"
-import { getCanonicalSiteUrl } from "@/lib/url-helpers"
 import Image from "next/image"
 import { AuthLogo } from "@/components/auth/auth-logo"
 import { AuthResolvingScreen } from "@/components/auth/auth-resolving-screen"
@@ -280,40 +279,40 @@ function SignUpFormContent() {
   }
 
   const handleGoogleSignIn = async () => {
-    // Prevent rapid clicks that could cause rate limiting
     if (isGoogleLoading) return
-    // Single-flight lock: prevent double-tap from calling signInWithOAuth()
-    // twice, which would overwrite the stored PKCE code-verifier and cause
-    // "invalid flow state" on the callback.
+    // Single-flight lock: prevent double-tap from overwriting the PKCE verifier.
     if ((window as any).__oauthStarting) return
     ;(window as any).__oauthStarting = true
-
-    // Show the native loading overlay immediately — before any async work.
-    // The signup page uses the web PKCE / bridge-token flow (StorelibWebViewClient
-    // opens OAuth in a Chrome Custom Tab; the App Link /app/auth/callback brings
-    // the user back into the WebView). Showing the overlay here ensures the native
-    // shell covers the WebView for the entire OAuth journey.
-    // In a regular browser this is a no-op.
-    nativeAuthStart()
-
-    const supabase = createClient()
     setIsGoogleLoading(true)
     setError(null)
     setGoogleOnlyEmail(null)
 
+    // Detect native synchronously so we can show the correct loading state
+    // immediately — before the dynamic import delay.
+    const isNativeSync =
+      typeof (window as any).Capacitor?.isNativePlatform === "function" &&
+      (window as any).Capacitor.isNativePlatform()
+
+    if (!isNativeSync) {
+      // Web: show full-screen overlay now — the page will navigate away momentarily.
+      setIsGoogleRedirecting(true)
+    } else {
+      // Native: show native shell overlay so it covers the WebView while the
+      // Chrome Custom Tab / SFSafariViewController is open.
+      nativeAuthStart()
+    }
+
     try {
       // Store redirect URL in both localStorage and cookie for OAuth callback
-      // Cookie is more reliable for cross-subdomain OAuth flows
       if (redirectUrl) {
         const redirectData = {
           url: redirectUrl,
           pendingReview: pendingReview === "true",
-          autoBuyer: autoBuyer === "1", // Auto-select buyer account type
+          autoBuyer: autoBuyer === "1",
         }
         const redirectDataStr = JSON.stringify(redirectData)
         localStorage.setItem("storelib_auth_redirect", redirectDataStr)
 
-        // Also store in cookie for reliability (expires in 10 minutes)
         const mainDomain = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
         const isLocalhost = mainDomain.includes("localhost")
         let cookie = `storelib_auth_redirect=${encodeURIComponent(redirectDataStr)}; path=/; max-age=600; samesite=lax`
@@ -323,36 +322,84 @@ function SignUpFormContent() {
         document.cookie = cookie
       }
 
-      // If autoBuyer flag is set, pre-set user type as buyer
       if (autoBuyer === "1") {
         localStorage.setItem("storelib_user_type", "buyer")
         localStorage.setItem("storelib_welcome_shown", "true")
       }
 
-      // Show full-page overlay immediately — the OAuth redirect is about to happen
-      setIsGoogleRedirecting(true)
+      // Use current browser origin — PKCE cookies must be set and read on the
+      // same host. NEXT_PUBLIC_SITE_URL can differ on Vercel preview deploys.
+      const canonicalUrl = window.location.origin
 
-      // Use canonical site URL to ensure OAuth redirects to correct domain
-      const canonicalUrl = getCanonicalSiteUrl()
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: `${canonicalUrl}/auth/callback`,
-          queryParams: {
-            access_type: "offline",
-            prompt: "consent",
-          },
-        },
-      })
-      if (error) throw error
-    } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "Failed to sign in with Google")
-      ;(window as any).__oauthStarting = false
-      setIsGoogleLoading(false)
-      setIsGoogleRedirecting(false)
-      // OAuth init failed — dismiss overlay so the form is interactive again.
-      nativeAppReady()
+      const { Capacitor } = await import("@capacitor/core")
+
+      if (Capacitor.isNativePlatform()) {
+        // ── Native (Android / iOS) — server-side PKCE via /auth/start ────
+        //
+        // WHY: supabase.signInWithOAuth() stores the PKCE verifier in the
+        // WebView's cookie jar. Chrome Custom Tab uses a separate jar and
+        // cannot find the verifier → exchangeCodeForSession fails →
+        // "Session expired. Please try signing in again."
+        //
+        // Fix: open /auth/start in Chrome Custom Tab. The server generates
+        // the PKCE verifier and writes it as Set-Cookie on the 302 response
+        // directly into Chrome's jar. The entire OAuth flow stays in Chrome,
+        // the code exchange succeeds, and tokens are delivered to the native
+        // app via the storelib:// deep link + /auth/sync-session.
+        const { Browser } = await import("@capacitor/browser")
+        const startUrl = `${canonicalUrl}/auth/start?provider=google&native=true&next=/app`
+
+        let browserFinishedHandle: { remove: () => void } | undefined
+        const timeoutId = window.setTimeout(() => {
+          browserFinishedHandle?.remove()
+          ;(window as any).__oauthStarting = false
+          setIsGoogleLoading(false)
+          nativeAppReady()
+          setError("Sign in timed out. Please try again.")
+        }, 120_000)
+
+        try {
+          browserFinishedHandle = await Browser.addListener(
+            "browserFinished",
+            () => {
+              window.clearTimeout(timeoutId)
+              browserFinishedHandle?.remove()
+              // Grace period: appUrlOpen can still arrive after browserFinished.
+              window.setTimeout(() => {
+                try {
+                  if (sessionStorage.getItem("nativeAuthInProgress") !== "1") {
+                    ;(window as any).__oauthStarting = false
+                    setIsGoogleLoading(false)
+                    nativeAppReady()
+                  }
+                } catch {
+                  ;(window as any).__oauthStarting = false
+                  setIsGoogleLoading(false)
+                  nativeAppReady()
+                }
+              }, 500)
+            }
+          )
+        } catch {
+          // addListener may throw if the plugin isn't loaded — ignore
+        }
+
+        await Browser.open({ url: startUrl, windowName: "_self" })
+        // isGoogleLoading stays true while the browser is open.
+        // Cleared by: handleOAuthCallback, browserFinished, or 120 s timeout.
+        return
+      } else {
+        // ── Web — navigate to /auth/start which handles PKCE server-side ──
+        window.location.href = `${canonicalUrl}/auth/start?provider=google&next=/app`
+        return
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to sign in with Google")
     }
+    ;(window as any).__oauthStarting = false
+    setIsGoogleLoading(false)
+    setIsGoogleRedirecting(false)
+    nativeAppReady()
   }
 
   // Block rendering while auth state is resolving or redirect is in progress.

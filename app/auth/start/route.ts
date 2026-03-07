@@ -108,7 +108,9 @@ export async function GET(request: Request) {
       // ?next=... value, which caused Google to return 400 "malformed request".
       // /auth/callback already determines the correct destination (/app vs
       // /library) from the database, so the `next` hint is not needed.
-      redirectTo: `${callbackOrigin}/auth/callback`,
+      redirectTo: isNative
+        ? `${callbackOrigin}/auth/callback?native=true`
+        : `${callbackOrigin}/auth/callback`,
       queryParams: {
         access_type: "offline",
         prompt: "consent",
