@@ -1,4 +1,5 @@
-import { createClient } from "@/lib/supabase/server"
+import { createServerClient } from "@supabase/ssr"
+import { cookies, headers } from "next/headers"
 import { NextResponse } from "next/server"
 
 /**
@@ -19,23 +20,28 @@ import { NextResponse } from "next/server"
  *   and the code exchange succeeds.
  *
  * ANDROID FLOW:
- *   1. Login page sets window.location.href = /auth/start?provider=google
- *   2. StorelibWebViewClient intercepts storelib.com/auth/start → Custom Tab
- *   3. Chrome opens /auth/start → gets PKCE cookie → follows redirect to Supabase
- *   4. Google OAuth completes → Chrome lands on /auth/callback?code=...
- *   5. exchangeCodeForSession succeeds (Chrome has the PKCE verifier)
- *   6. /auth/callback generates a bridge_token and redirects to /app/auth/callback
- *   7. Android App Link fires → MainActivity loads /app/auth/callback in WebView
- *   8. /app/auth/callback validates bridge_token, sets session cookies in WebView
- *   9. Redirect to /app or /library — user is authenticated inside WebView ✅
+ *   1. Login page opens /auth/start?provider=google&native=true in Browser.open()
+ *   2. Chrome Custom Tab opens /auth/start → gets PKCE cookie → follows to Google
+ *   3. Google OAuth completes → Chrome lands on /auth/callback?code=...
+ *   4. exchangeCodeForSession succeeds (Chrome has the PKCE verifier cookie)
+ *   5. /auth/callback detects native via storelib_native_auth cookie → isStorelibApp=true
+ *   6. /auth/callback embeds session tokens in /auth/app-callback redirect
+ *   7. /auth/app-callback fires client-side JS deep link to storelib://auth/callback
+ *   8. handleOAuthCallback in native-oauth.ts calls /auth/sync-session with tokens
+ *   9. WebView gets session cookies → redirect to /app ✅
+ *
+ * WHY WE EXPLICITLY SET PKCE COOKIES ON THE RESPONSE:
+ *   Supabase writes the PKCE code-verifier via cookieStore.set() (Next.js cookie
+ *   store). In some Next.js runtime versions, cookies written this way are NOT
+ *   automatically merged into a NextResponse.redirect() response object.
+ *   We capture every cookie Supabase writes and explicitly call
+ *   response.cookies.set() to guarantee the Set-Cookie headers are present on
+ *   this 302 redirect — which is what Chrome Custom Tab stores.
  */
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
-  const next = searchParams.get("next") || "/app"
   const isNative = searchParams.get("native") === "true"
   const canonicalUrl = process.env.NEXT_PUBLIC_SITE_URL || origin
-
-  const supabase = await createClient()
 
   // CRITICAL: redirectTo MUST use `origin` (the actual request host), NOT
   // `canonicalUrl`.  The PKCE code-verifier cookie is scoped to the host that
@@ -43,6 +49,57 @@ export async function GET(request: Request) {
   // NEXT_PUBLIC_SITE_URL = storelib.com but we're on a Vercel preview deploy),
   // the callback won't find the cookie → "invalid flow state" error.
   const callbackOrigin = origin
+
+  const cookieStore = await cookies()
+  const headerStore = await headers()
+  const mainDomain = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
+  const requestHost = headerStore.get("host") || ""
+  const isLocalhost = mainDomain.includes("localhost") || requestHost.includes("localhost")
+  const hostWithoutPort = requestHost.split(":")[0]
+  // Match the domain logic from lib/supabase/server.ts so cookies are
+  // scoped consistently with the rest of the app.
+  const cookieDomain =
+    !isLocalhost &&
+    (hostWithoutPort === mainDomain || hostWithoutPort.endsWith(`.${mainDomain}`))
+      ? `.${mainDomain}`
+      : undefined
+
+  // Capture every cookie Supabase writes during signInWithOAuth so we can
+  // explicitly add them to the redirect response below.
+  const capturedCookies: Array<{
+    name: string
+    value: string
+    options: Record<string, unknown>
+  }> = []
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            const enhancedOptions = {
+              ...options,
+              domain: cookieDomain,
+              secure: isLocalhost ? (options?.secure ?? false) : true,
+              sameSite: (options?.sameSite ?? "lax") as "lax" | "strict" | "none",
+            }
+            // Write to Next.js cookie store (existing behaviour — may or may
+            // not reach the response headers depending on Next.js version)
+            try {
+              cookieStore.set(name, value, enhancedOptions)
+            } catch {}
+            // Also capture so we can explicitly call response.cookies.set()
+            capturedCookies.push({ name, value, options: enhancedOptions })
+          })
+        },
+      },
+    }
+  )
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
@@ -69,10 +126,18 @@ export async function GET(request: Request) {
     )
   }
 
-  // The Supabase client has already written the PKCE code-verifier cookie to
-  // the cookie store (via setAll → cookieStore.set). That Set-Cookie header
-  // will be present on THIS 302 response, so Chrome Custom Tab stores it.
   const response = NextResponse.redirect(data.url)
+
+  // Explicitly set PKCE and auth cookies on the response object.
+  // This guarantees they appear in the Set-Cookie headers of this 302 redirect
+  // so Chrome Custom Tab stores them before following to Google OAuth.
+  capturedCookies.forEach(({ name, value, options }) => {
+    response.cookies.set(
+      name,
+      value,
+      options as Parameters<typeof response.cookies.set>[2]
+    )
+  })
 
   // When opened from the native app (Browser.open), mark this as a native
   // auth flow so /auth/callback can detect it via cookie instead of UA string.
