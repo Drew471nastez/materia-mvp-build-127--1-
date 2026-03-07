@@ -57,7 +57,7 @@ export function DashboardSidebar() {
     await supabase.auth.signOut()
     setMobileMenuOpen(false)
     if (isNativePlatform()) {
-      window.location.assign("/")
+      router.push("/")
     } else {
       router.push("/")
     }

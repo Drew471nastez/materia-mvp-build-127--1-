@@ -1596,7 +1596,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     const supabase = createClient()
     await supabase.auth.signOut()
     if (isNativePlatform()) {
-      window.location.assign("/")
+      router.push("/")
     } else {
       router.push("/")
     }
@@ -1608,7 +1608,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
       const supabase = createClient()
       await supabase.auth.signOut({ scope: 'global' })
       if (isNativePlatform()) {
-        window.location.assign("/")
+        router.push("/")
       } else {
         router.push("/")
       }
@@ -1684,7 +1684,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
         const supabase = createClient()
         await supabase.auth.signOut()
         if (isNativePlatform()) {
-          window.location.assign("/")
+          router.push("/")
         } else {
           router.push("/")
         }

@@ -173,7 +173,7 @@ export function SettingsForm({ profile, creator }: SettingsFormProps) {
     const supabase = createClient()
     await supabase.auth.signOut()
     if (isNativePlatform()) {
-      window.location.assign("/")
+      router.push("/")
     } else {
       router.push("/")
     }
