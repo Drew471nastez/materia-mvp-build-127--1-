@@ -844,7 +844,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                           /* Mobile: smooth bottom sheet */
                           nicheSheetVisible && (
                             <div
-                              className="fixed inset-0 z-[200]"
+                              className="fixed inset-0 z-[10000]"
                               onTouchStart={handleNicheSheetTouchStart}
                               onTouchMove={handleNicheSheetTouchMove}
                               onTouchEnd={handleNicheSheetTouchEnd}

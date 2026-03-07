@@ -423,7 +423,7 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
             {/* Mobile bottom sheet for page selection */}
             {pageSheetVisible && (
               <div
-                className="fixed inset-0 z-[200]"
+                className="fixed inset-0 z-[10000]"
                 onTouchStart={handlePageSheetTouchStart}
                 onTouchMove={handlePageSheetTouchMove}
                 onTouchEnd={handlePageSheetTouchEnd}
