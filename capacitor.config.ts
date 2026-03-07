@@ -4,10 +4,6 @@ const config: CapacitorConfig = {
   appId: 'com.storelib.app',
   appName: 'Storelib',
   webDir: 'out',
-  server: {
-    url: 'https://storelib.com',
-    cleartext: false,
-  },
   android: {
     allowMixedContent: false,
   },
