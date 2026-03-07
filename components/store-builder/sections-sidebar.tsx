@@ -522,6 +522,87 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
   const [settingsTab, setSettingsTab] = useState<"basic" | "seo" | "badge" | "theme" | "social" | "domain">("basic")
   const [showNichePopup, setShowNichePopup] = useState(false)
   const [nicheSearch, setNicheSearch] = useState("")
+  const [isMobileDevice, setIsMobileDevice] = useState(false)
+
+  // Niche bottom sheet animation state (mobile)
+  const [nicheSheetVisible, setNicheSheetVisible] = useState(false)
+  const [nicheSheetAnimating, setNicheSheetAnimating] = useState(false)
+  const [nicheSheetDragY, setNicheSheetDragY] = useState(0)
+  const [nicheSheetDragging, setNicheSheetDragging] = useState(false)
+  const nicheSheetRef = useRef<HTMLDivElement>(null)
+  const nicheSheetStartY = useRef(0)
+  const nicheSheetLastY = useRef(0)
+  const nicheSheetLastTime = useRef(0)
+  const nicheSheetVelocity = useRef(0)
+
+  // Detect mobile device
+  useEffect(() => {
+    const check = () => setIsMobileDevice(window.innerWidth < 768)
+    check()
+    window.addEventListener("resize", check)
+    return () => window.removeEventListener("resize", check)
+  }, [])
+
+  // Niche sheet animation lifecycle
+  useEffect(() => {
+    if (showNichePopup && !nicheSheetVisible && isMobileDevice) {
+      setNicheSheetVisible(true)
+      document.body.style.overflow = "hidden"
+      requestAnimationFrame(() => requestAnimationFrame(() => setNicheSheetAnimating(true)))
+    } else if (!showNichePopup && nicheSheetVisible) {
+      setNicheSheetAnimating(false)
+      document.body.style.overflow = ""
+      const t = setTimeout(() => { setNicheSheetVisible(false); setNicheSheetDragY(0) }, 400)
+      return () => clearTimeout(t)
+    }
+    return () => { document.body.style.overflow = "" }
+  }, [showNichePopup, nicheSheetVisible, isMobileDevice])
+
+  const closeNicheSheet = () => {
+    setShowNichePopup(false)
+    setNicheSearch("")
+  }
+
+  const handleNicheSheetTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0]
+    const el = nicheSheetRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const touchYInSheet = touch.clientY - rect.top
+    if (touchYInSheet <= 0 || touchYInSheet <= 100) {
+      nicheSheetStartY.current = touch.clientY
+      nicheSheetLastY.current = touch.clientY
+      nicheSheetLastTime.current = Date.now()
+      nicheSheetVelocity.current = 0
+      setNicheSheetDragging(true)
+    }
+  }
+
+  const handleNicheSheetTouchMove = (e: React.TouchEvent) => {
+    if (!nicheSheetDragging) return
+    const currentY = e.touches[0].clientY
+    const diff = currentY - nicheSheetStartY.current
+    if (diff > 0) {
+      e.preventDefault()
+      const now = Date.now()
+      const dt = Math.max(1, now - nicheSheetLastTime.current)
+      nicheSheetVelocity.current = (currentY - nicheSheetLastY.current) / dt
+      nicheSheetLastY.current = currentY
+      nicheSheetLastTime.current = now
+      const resisted = diff <= 160 ? diff * 0.92 : 147 + (diff - 160) * 0.4
+      setNicheSheetDragY(resisted)
+    }
+  }
+
+  const handleNicheSheetTouchEnd = () => {
+    if (!nicheSheetDragging) return
+    setNicheSheetDragging(false)
+    if (nicheSheetDragY > 92 || nicheSheetVelocity.current > 0.55) {
+      closeNicheSheet()
+    } else {
+      setNicheSheetDragY(0)
+    }
+  }
 
   // ✅ Safety: if old configs ever saved Reviews as hidden, force it back on.
   useEffect(() => {
@@ -759,57 +840,128 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                           )}
                         </button>
 
-                        <Dialog open={showNichePopup} onOpenChange={(open) => {
-                          setShowNichePopup(open)
-                          if (!open) setNicheSearch("")
-                        }}>
-                          <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
-                            <div className="p-4 border-b flex flex-row items-center gap-3">
-                              <button
-                                onClick={() => { setShowNichePopup(false); setNicheSearch("") }}
-                                className="hover:bg-gray-100 p-1 rounded-lg transition-colors"
+                        {isMobileDevice ? (
+                          /* Mobile: smooth bottom sheet */
+                          nicheSheetVisible && (
+                            <div
+                              className="fixed inset-0 z-[200]"
+                              onTouchStart={handleNicheSheetTouchStart}
+                              onTouchMove={handleNicheSheetTouchMove}
+                              onTouchEnd={handleNicheSheetTouchEnd}
+                            >
+                              <div
+                                className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
+                                style={{
+                                  opacity: nicheSheetAnimating ? 1 : 0,
+                                  transition: nicheSheetDragging ? 'none' : 'opacity 400ms cubic-bezier(0.32, 0.72, 0, 1)',
+                                }}
+                                onClick={closeNicheSheet}
+                              />
+                              <div
+                                ref={nicheSheetRef}
+                                className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
+                                style={{
+                                  transform: nicheSheetAnimating ? `translate3d(0, ${nicheSheetDragY}px, 0)` : "translate3d(0, 100%, 0)",
+                                  transition: nicheSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
+                                  willChange: 'transform',
+                                  backfaceVisibility: 'hidden',
+                                  WebkitBackfaceVisibility: 'hidden' as any,
+                                }}
                               >
-                                <ChevronLeft className="h-5 w-5" />
-                              </button>
-                              <h2 className="text-base font-semibold flex-1 text-center pr-8">Select Niche</h2>
-                            </div>
-                            <div className="p-3 border-b">
-                              <div className="flex items-center gap-2 px-3 h-10 rounded-xl bg-gray-100">
-                                <Search className="w-4 h-4 text-gray-400 shrink-0" />
-                                <input
-                                  type="text"
-                                  value={nicheSearch}
-                                  onChange={(e) => setNicheSearch(e.target.value)}
-                                  placeholder="Search niches..."
-                                  className="flex-1 text-sm outline-none bg-transparent"
-                                />
+                                <div className="pt-3 pb-1 flex justify-center cursor-grab active:cursor-grabbing touch-none">
+                                  <div className="h-[5px] w-10 rounded-full bg-gray-300" />
+                                </div>
+                                <div className="px-4 pt-1 pb-2">
+                                  <h3 className="text-[16px] font-semibold text-gray-900 text-center mb-3">Select Niche</h3>
+                                  <div className="flex items-center gap-2 px-3 h-10 rounded-xl bg-gray-100 mb-3">
+                                    <Search className="w-4 h-4 text-gray-400 shrink-0" />
+                                    <input
+                                      type="text"
+                                      value={nicheSearch}
+                                      onChange={(e) => setNicheSearch(e.target.value)}
+                                      placeholder="Search niches..."
+                                      className="flex-1 text-sm outline-none bg-transparent"
+                                    />
+                                  </div>
+                                  <div className="flex flex-wrap gap-2 max-h-[50vh] overflow-y-auto overscroll-contain pb-2">
+                                    {filteredNiches.map((niche) => (
+                                      <button
+                                        key={niche}
+                                        type="button"
+                                        onClick={() => {
+                                          updateGlobalSettings({ storeNicheTags: [niche] })
+                                          closeNicheSheet()
+                                        }}
+                                        className={cn(
+                                          "px-3.5 py-2 rounded-full text-xs font-medium transition-all border-2",
+                                          currentTag === niche
+                                            ? "bg-gray-100 border-black text-black"
+                                            : "bg-gray-100 border-transparent text-gray-700 active:bg-gray-200"
+                                        )}
+                                      >
+                                        {niche}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div className="h-[env(safe-area-inset-bottom)]" />
                               </div>
                             </div>
-                            <div className="p-4 max-h-[360px] overflow-y-auto">
-                              <div className="flex flex-wrap gap-2">
-                                {filteredNiches.map((niche) => (
-                                  <button
-                                    key={niche}
-                                    type="button"
-                                    onClick={() => {
-                                      updateGlobalSettings({ storeNicheTags: [niche] })
-                                      setShowNichePopup(false)
-                                      setNicheSearch("")
-                                    }}
-                                    className={cn(
-                                      "px-3.5 py-2 rounded-full text-xs font-medium transition-all border-2",
-                                      currentTag === niche
-                                        ? "bg-gray-100 border-black text-black"
-                                        : "bg-gray-100 border-transparent text-gray-700 hover:bg-gray-200"
-                                    )}
-                                  >
-                                    {niche}
-                                  </button>
-                                ))}
+                          )
+                        ) : (
+                          /* Desktop: Dialog */
+                          <Dialog open={showNichePopup} onOpenChange={(open) => {
+                            setShowNichePopup(open)
+                            if (!open) setNicheSearch("")
+                          }}>
+                            <DialogContent className="w-[calc(100%-32px)] max-w-md p-0 gap-0 overflow-hidden rounded-2xl mx-auto">
+                              <div className="p-4 border-b flex flex-row items-center gap-3">
+                                <button
+                                  onClick={() => { setShowNichePopup(false); setNicheSearch("") }}
+                                  className="hover:bg-gray-100 p-1 rounded-lg transition-colors"
+                                >
+                                  <ChevronLeft className="h-5 w-5" />
+                                </button>
+                                <h2 className="text-base font-semibold flex-1 text-center pr-8">Select Niche</h2>
                               </div>
-                            </div>
-                          </DialogContent>
-                        </Dialog>
+                              <div className="p-3 border-b">
+                                <div className="flex items-center gap-2 px-3 h-10 rounded-xl bg-gray-100">
+                                  <Search className="w-4 h-4 text-gray-400 shrink-0" />
+                                  <input
+                                    type="text"
+                                    value={nicheSearch}
+                                    onChange={(e) => setNicheSearch(e.target.value)}
+                                    placeholder="Search niches..."
+                                    className="flex-1 text-sm outline-none bg-transparent"
+                                  />
+                                </div>
+                              </div>
+                              <div className="p-4 max-h-[360px] overflow-y-auto">
+                                <div className="flex flex-wrap gap-2">
+                                  {filteredNiches.map((niche) => (
+                                    <button
+                                      key={niche}
+                                      type="button"
+                                      onClick={() => {
+                                        updateGlobalSettings({ storeNicheTags: [niche] })
+                                        setShowNichePopup(false)
+                                        setNicheSearch("")
+                                      }}
+                                      className={cn(
+                                        "px-3.5 py-2 rounded-full text-xs font-medium transition-all border-2",
+                                        currentTag === niche
+                                          ? "bg-gray-100 border-black text-black"
+                                          : "bg-gray-100 border-transparent text-gray-700 hover:bg-gray-200"
+                                      )}
+                                    >
+                                      {niche}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                        )}
                       </>
                     )
                   })()}
@@ -1080,7 +1232,7 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                         <SelectTrigger className="w-full">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="z-[9999]">
                           {(Object.keys(verifiedBadgeLabels) as VerifiedBadgeType[]).map((type) => (
                             <SelectItem key={type} value={type}>
                               <div className="flex items-center gap-2">

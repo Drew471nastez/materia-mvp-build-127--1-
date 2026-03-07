@@ -11,7 +11,6 @@ import {
   Copy,
   Check,
   ChevronRight,
-  ChevronDown,
   Upload,
   Image as ImageIcon,
   CreditCard,
@@ -31,6 +30,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { getLinksUrl, getLinksUrlDisplay } from "@/lib/url-helpers"
 
 // Toggle component using theme-checkbox (same as Links tab)
@@ -93,7 +99,6 @@ export function SettingsTab() {
   // Verified badge states
   const [verifiedEnabled, setVerifiedEnabled] = useState((onepage?.settings as any)?.verified_badge_enabled ?? false)
   const [verifiedType, setVerifiedType] = useState<string>((onepage?.settings as any)?.verified_badge_type || "verified_creator")
-  const [showBadgeDropdown, setShowBadgeDropdown] = useState(false)
 
   // Update local state when onepage changes
   useEffect(() => {
@@ -699,7 +704,7 @@ export function SettingsTab() {
   }
 
   const renderVerified = () => {
-    const selectedBadge = BADGE_TYPES.find(b => b.id === verifiedType) || BADGE_TYPES[0]
+    const selectedBadgeLabel = (BADGE_TYPES.find(b => b.id === verifiedType) || BADGE_TYPES[0]).label
 
     return (
       <div className="space-y-6">
@@ -725,53 +730,28 @@ export function SettingsTab() {
             {/* Badge Type Dropdown */}
             <div className="space-y-3">
               <Label className="text-sm font-medium text-gray-700">Badge Type</Label>
-              <div className="relative">
-                <button
-                  onClick={() => setShowBadgeDropdown(!showBadgeDropdown)}
-                  className="w-full flex items-center justify-between p-3 rounded-xl border border-gray-200 bg-white hover:border-gray-300 transition-colors"
-                >
+              <Select
+                value={verifiedType}
+                onValueChange={(value) => updateVerifiedSettings(undefined, value)}
+              >
+                <SelectTrigger className="w-full rounded-xl border-gray-200 bg-white h-[52px]">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
                       <svg viewBox="0 0 22 22" className="w-5 h-5 text-blue-500" fill="currentColor">
                         <path d="M20.396 11c-.018-.646-.215-1.275-.57-1.816-.354-.54-.852-.972-1.438-1.246.223-.607.27-1.264.14-1.897-.131-.634-.437-1.218-.882-1.687-.47-.445-1.053-.75-1.687-.882-.633-.13-1.29-.083-1.897.14-.273-.587-.704-1.086-1.245-1.44S11.647 1.62 11 1.604c-.646.017-1.273.213-1.813.568s-.969.854-1.24 1.44c-.608-.223-1.267-.272-1.902-.14-.635.13-1.22.436-1.69.882-.445.47-.749 1.055-.878 1.688-.13.633-.08 1.29.144 1.896-.587.274-1.087.705-1.443 1.245-.356.54-.555 1.17-.574 1.817.02.647.218 1.276.574 1.817.356.54.856.972 1.443 1.245-.224.606-.274 1.263-.144 1.896.13.634.433 1.218.877 1.688.47.443 1.054.747 1.687.878.633.132 1.29.084 1.897-.136.274.586.705 1.084 1.246 1.439.54.354 1.17.551 1.816.569.647-.016 1.276-.213 1.817-.567s.972-.854 1.245-1.44c.604.239 1.266.296 1.903.164.636-.132 1.22-.447 1.68-.907.46-.46.776-1.044.908-1.681s.075-1.299-.165-1.903c.586-.274 1.084-.705 1.439-1.246.354-.54.551-1.17.569-1.816zM9.662 14.85l-3.429-3.428 1.293-1.302 2.072 2.072 4.4-4.794 1.347 1.246z"/>
                       </svg>
                     </div>
-                    <span className="font-medium text-sm text-gray-900">{selectedBadge.label}</span>
+                    <SelectValue />
                   </div>
-                  <ChevronDown className={cn("h-4 w-4 text-gray-400 transition-transform", showBadgeDropdown && "rotate-180")} />
-                </button>
-
-                {showBadgeDropdown && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border border-gray-200 shadow-lg z-10 overflow-hidden">
-                    {BADGE_TYPES.map((badge) => (
-                      <button
-                        key={badge.id}
-                        onClick={() => {
-                          updateVerifiedSettings(undefined, badge.id)
-                          setShowBadgeDropdown(false)
-                        }}
-                        className={cn(
-                          "w-full flex items-center gap-3 p-3 hover:bg-gray-50 transition-colors text-left",
-                          verifiedType === badge.id && "bg-blue-50"
-                        )}
-                      >
-                        <div className={cn(
-                          "w-8 h-8 rounded-full flex items-center justify-center",
-                          verifiedType === badge.id ? "bg-blue-100" : "bg-gray-100"
-                        )}>
-                          <svg viewBox="0 0 22 22" className={cn("w-5 h-5", verifiedType === badge.id ? "text-blue-500" : "text-gray-400")} fill="currentColor">
-                            <path d="M20.396 11c-.018-.646-.215-1.275-.57-1.816-.354-.54-.852-.972-1.438-1.246.223-.607.27-1.264.14-1.897-.131-.634-.437-1.218-.882-1.687-.47-.445-1.053-.75-1.687-.882-.633-.13-1.29-.083-1.897.14-.273-.587-.704-1.086-1.245-1.44S11.647 1.62 11 1.604c-.646.017-1.273.213-1.813.568s-.969.854-1.24 1.44c-.608-.223-1.267-.272-1.902-.14-.635.13-1.22.436-1.69.882-.445.47-.749 1.055-.878 1.688-.13.633-.08 1.29.144 1.896-.587.274-1.087.705-1.443 1.245-.356.54-.555 1.17-.574 1.817.02.647.218 1.276.574 1.817.356.54.856.972 1.443 1.245-.224.606-.274 1.263-.144 1.896.13.634.433 1.218.877 1.688.47.443 1.054.747 1.687.878.633.132 1.29.084 1.897-.136.274.586.705 1.084 1.246 1.439.54.354 1.17.551 1.816.569.647-.016 1.276-.213 1.817-.567s.972-.854 1.245-1.44c.604.239 1.266.296 1.903.164.636-.132 1.22-.447 1.68-.907.46-.46.776-1.044.908-1.681s.075-1.299-.165-1.903c.586-.274 1.084-.705 1.439-1.246.354-.54.551-1.17.569-1.816zM9.662 14.85l-3.429-3.428 1.293-1.302 2.072 2.072 4.4-4.794 1.347 1.246z"/>
-                          </svg>
-                        </div>
-                        <span className={cn(
-                          "font-medium text-sm",
-                          verifiedType === badge.id ? "text-blue-600" : "text-gray-900"
-                        )}>{badge.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+                </SelectTrigger>
+                <SelectContent className="z-[9999]">
+                  {BADGE_TYPES.map((badge) => (
+                    <SelectItem key={badge.id} value={badge.id}>
+                      {badge.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Preview */}
@@ -784,7 +764,7 @@ export function SettingsTab() {
                     <path d="M20.396 11c-.018-.646-.215-1.275-.57-1.816-.354-.54-.852-.972-1.438-1.246.223-.607.27-1.264.14-1.897-.131-.634-.437-1.218-.882-1.687-.47-.445-1.053-.75-1.687-.882-.633-.13-1.29-.083-1.897.14-.273-.587-.704-1.086-1.245-1.44S11.647 1.62 11 1.604c-.646.017-1.273.213-1.813.568s-.969.854-1.24 1.44c-.608-.223-1.267-.272-1.902-.14-.635.13-1.22.436-1.69.882-.445.47-.749 1.055-.878 1.688-.13.633-.08 1.29.144 1.896-.587.274-1.087.705-1.443 1.245-.356.54-.555 1.17-.574 1.817.02.647.218 1.276.574 1.817.356.54.856.972 1.443 1.245-.224.606-.274 1.263-.144 1.896.13.634.433 1.218.877 1.688.47.443 1.054.747 1.687.878.633.132 1.29.084 1.897-.136.274.586.705 1.084 1.246 1.439.54.354 1.17.551 1.816.569.647-.016 1.276-.213 1.817-.567s.972-.854 1.245-1.44c.604.239 1.266.296 1.903.164.636-.132 1.22-.447 1.68-.907.46-.46.776-1.044.908-1.681s.075-1.299-.165-1.903c.586-.274 1.084-.705 1.439-1.246.354-.54.551-1.17.569-1.816zM9.662 14.85l-3.429-3.428 1.293-1.302 2.072 2.072 4.4-4.794 1.347 1.246z"/>
                   </svg>
                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                    {selectedBadge.label}
+                    {selectedBadgeLabel}
                   </div>
                 </div>
               </div>

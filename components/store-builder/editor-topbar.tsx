@@ -1,11 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useStoreBuilder } from "./store-builder-context"
 import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -66,6 +65,18 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
   const [pendingBrowserBack, setPendingBrowserBack] = useState(false)
   const [isNavigating, setIsNavigating] = useState(false)
   const [connectedDomain, setConnectedDomain] = useState<string | null>(null)
+
+  // Mobile bottom sheet for page switcher
+  const [showPageSheet, setShowPageSheet] = useState(false)
+  const [pageSheetVisible, setPageSheetVisible] = useState(false)
+  const [pageSheetAnimating, setPageSheetAnimating] = useState(false)
+  const [pageSheetDragY, setPageSheetDragY] = useState(0)
+  const [pageSheetDragging, setPageSheetDragging] = useState(false)
+  const pageSheetRef = useRef<HTMLDivElement>(null)
+  const pageSheetStartY = useRef(0)
+  const pageSheetLastY = useRef(0)
+  const pageSheetLastTime = useRef(0)
+  const pageSheetVelocity = useRef(0)
 
   const hasUnsavedChanges = saveState === "unsaved"
 
@@ -182,6 +193,61 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
       await publish()
     } catch {
       // Error handled in context
+    }
+  }
+
+  // Page sheet animation lifecycle
+  useEffect(() => {
+    if (showPageSheet && !pageSheetVisible) {
+      setPageSheetVisible(true)
+      requestAnimationFrame(() => requestAnimationFrame(() => setPageSheetAnimating(true)))
+    } else if (!showPageSheet && pageSheetVisible) {
+      setPageSheetAnimating(false)
+      const t = setTimeout(() => { setPageSheetVisible(false); setPageSheetDragY(0) }, 400)
+      return () => clearTimeout(t)
+    }
+  }, [showPageSheet, pageSheetVisible])
+
+  const closePageSheet = () => setShowPageSheet(false)
+
+  const handlePageSheetTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0]
+    const el = pageSheetRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const touchYInSheet = touch.clientY - rect.top
+    if (touchYInSheet <= 0 || touchYInSheet <= 100) {
+      pageSheetStartY.current = touch.clientY
+      pageSheetLastY.current = touch.clientY
+      pageSheetLastTime.current = Date.now()
+      pageSheetVelocity.current = 0
+      setPageSheetDragging(true)
+    }
+  }
+
+  const handlePageSheetTouchMove = (e: React.TouchEvent) => {
+    if (!pageSheetDragging) return
+    const currentY = e.touches[0].clientY
+    const diff = currentY - pageSheetStartY.current
+    if (diff > 0) {
+      e.preventDefault()
+      const now = Date.now()
+      const dt = Math.max(1, now - pageSheetLastTime.current)
+      pageSheetVelocity.current = (currentY - pageSheetLastY.current) / dt
+      pageSheetLastY.current = currentY
+      pageSheetLastTime.current = now
+      const resisted = diff <= 160 ? diff * 0.92 : 147 + (diff - 160) * 0.4
+      setPageSheetDragY(resisted)
+    }
+  }
+
+  const handlePageSheetTouchEnd = () => {
+    if (!pageSheetDragging) return
+    setPageSheetDragging(false)
+    if (pageSheetDragY > 92 || pageSheetVelocity.current > 0.55) {
+      closePageSheet()
+    } else {
+      setPageSheetDragY(0)
     }
   }
 
@@ -344,21 +410,105 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
         </DropdownMenu>
 
         {/* Page Switcher */}
-        <Select value={currentPageType} onValueChange={(value) => setCurrentPageType(value as PageType)}>
-          <SelectTrigger
-            className={cn("h-9 border-border bg-background shrink-0 cursor-pointer", isMobile ? "w-[140px]" : "w-[200px]")}
-          >
-            <SelectValue>
-              <span className="truncate" title={pageLabel}>
-                {isMobile && pageLabel.length > 15 ? `${pageLabel.slice(0, 15)}...` : pageLabel}
-              </span>
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="shop">Home Page</SelectItem>
-            <SelectItem value="product">Product Page</SelectItem>
-          </SelectContent>
-        </Select>
+        {isMobile ? (
+          <>
+            <button
+              onClick={() => setShowPageSheet(true)}
+              className="h-9 flex items-center justify-between px-3 border border-border bg-background rounded-md gap-2 text-sm font-medium w-[140px] cursor-pointer shrink-0"
+            >
+              <span className="truncate text-sm">{pageLabel.length > 15 ? `${pageLabel.slice(0, 15)}...` : pageLabel}</span>
+              <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
+            </button>
+
+            {/* Mobile bottom sheet for page selection */}
+            {pageSheetVisible && (
+              <div
+                className="fixed inset-0 z-[200]"
+                onTouchStart={handlePageSheetTouchStart}
+                onTouchMove={handlePageSheetTouchMove}
+                onTouchEnd={handlePageSheetTouchEnd}
+              >
+                <div
+                  className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
+                  style={{
+                    opacity: pageSheetAnimating ? 1 : 0,
+                    transition: pageSheetDragging ? 'none' : 'opacity 400ms cubic-bezier(0.32, 0.72, 0, 1)',
+                  }}
+                  onClick={closePageSheet}
+                />
+                <div
+                  ref={pageSheetRef}
+                  className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
+                  style={{
+                    transform: pageSheetAnimating ? `translate3d(0, ${pageSheetDragY}px, 0)` : "translate3d(0, 100%, 0)",
+                    transition: pageSheetDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
+                    willChange: 'transform',
+                    backfaceVisibility: 'hidden',
+                    WebkitBackfaceVisibility: 'hidden' as any,
+                  }}
+                >
+                  <div className="pt-3 pb-1 flex justify-center cursor-grab active:cursor-grabbing touch-none">
+                    <div className="h-[5px] w-10 rounded-full bg-gray-300" />
+                  </div>
+                  <div className="px-4 pb-4">
+                    <h3 className="text-[16px] font-semibold text-gray-900 mb-4">Select Page</h3>
+                    <div className="space-y-1">
+                      <button
+                        onClick={() => { setCurrentPageType("shop"); closePageSheet() }}
+                        className={cn(
+                          "w-full text-left px-4 py-3 rounded-xl text-[15px] font-medium transition-colors",
+                          currentPageType === "shop" ? "bg-[#f5f3ff] text-[#8b5cf6]" : "text-[#374151] active:bg-[#f3f4f6]"
+                        )}
+                      >
+                        Home Page
+                      </button>
+                      <button
+                        onClick={() => { setCurrentPageType("product"); closePageSheet() }}
+                        className={cn(
+                          "w-full text-left px-4 py-3 rounded-xl text-[15px] font-medium transition-colors",
+                          currentPageType === "product" ? "bg-[#f5f3ff] text-[#8b5cf6]" : "text-[#374151] active:bg-[#f3f4f6]"
+                        )}
+                      >
+                        Product Page
+                      </button>
+                    </div>
+                  </div>
+                  <div className="h-[env(safe-area-inset-bottom)]" />
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                className="h-9 w-[200px] flex items-center justify-between px-3 bg-background cursor-pointer font-normal shrink-0"
+              >
+                <span className="truncate text-sm">{pageLabel}</span>
+                <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="z-[200]">
+              <DropdownMenuItem
+                onClick={() => setCurrentPageType("shop")}
+                className="cursor-pointer"
+              >
+                {currentPageType === "shop" && <Check className="mr-2 h-4 w-4 text-purple-600" />}
+                {currentPageType !== "shop" && <span className="mr-2 inline-block w-4 h-4" />}
+                Home Page
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setCurrentPageType("product")}
+                className="cursor-pointer"
+              >
+                {currentPageType === "product" && <Check className="mr-2 h-4 w-4 text-purple-600" />}
+                {currentPageType !== "product" && <span className="mr-2 inline-block w-4 h-4" />}
+                Product Page
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
 
         {/* Add Section Button - hide text on mobile */}
         <Button
