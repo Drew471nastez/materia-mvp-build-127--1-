@@ -358,7 +358,7 @@ export default function WelcomePage() {
         {/* CTA Buttons — bottom, safe-area aware */}
         <div
           className="shrink-0 px-4 flex flex-col gap-3"
-          style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 0.75rem)" }}
+          style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 9px)" }}
         >
           <button
             onClick={() => handleNav("signup", "/signup")}
