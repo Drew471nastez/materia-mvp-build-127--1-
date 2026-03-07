@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import dynamic from "next/dynamic"
 import { Hero } from "@/components/marketing/hero"
 import { BentoGrid } from "@/components/marketing/bento-grid"
@@ -19,9 +20,18 @@ const CtaSection = dynamic(() => import("@/components/marketing/cta-section").th
 const ProductMarquee = dynamic(() => import("@/components/marketing/product-marquee").then(m => ({ default: m.ProductMarquee })))
 
 export default function StorelibLanding() {
+  // Detect native platform AFTER hydration to avoid server/client mismatch.
+  // (isNativePlatform() checks window.Capacitor which doesn't exist on the
+  // server, so calling it directly at render time causes a hydration error
+  // when the Capacitor WebView loads the SSR'd marketing page.)
+  const [isNative, setIsNative] = useState(false)
+  useEffect(() => {
+    setIsNative(isNativePlatform())
+  }, [])
+
   // In the Capacitor app, show only the welcome screen (Hero) — not the full
   // marketing website. This is the screen users land on after logging out.
-  if (isNativePlatform()) {
+  if (isNative) {
     return (
       <div className="bg-white overflow-x-hidden">
         <Hero />
