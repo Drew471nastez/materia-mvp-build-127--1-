@@ -12,12 +12,6 @@ export default function CouponsLoading() {
           <div className="h-10 w-36 rounded-full bg-violet-100 animate-pulse shrink-0" />
         </div>
 
-        {/* Tip banner — matches the purple-50 rounded-2xl strip */}
-        <div className="rounded-2xl bg-purple-50/70 border border-purple-100/60 p-4 flex gap-3 items-center">
-          <div className="w-4 h-4 rounded bg-purple-200 animate-pulse shrink-0" />
-          <div className="flex-1 h-4 rounded-md bg-purple-100 animate-pulse" />
-        </div>
-
         {/* Coupon card skeletons */}
         <div className="space-y-3">
           {([1, 0.75, 0.5] as const).map((opacity, i) => (
@@ -38,7 +32,7 @@ export default function CouponsLoading() {
                   </div>
                   {/* Discount · applies to · used */}
                   <div className="flex gap-3">
-                    <div className="h-3 w-14 rounded bg-gray-150 animate-pulse" style={{ backgroundColor: "rgb(243 244 246)" }} />
+                    <div className="h-3 w-14 rounded animate-pulse" style={{ backgroundColor: "rgb(243 244 246)" }} />
                     <div className="h-3 w-20 rounded bg-gray-100 animate-pulse" />
                     <div className="h-3 w-11 rounded bg-gray-100 animate-pulse" />
                   </div>
