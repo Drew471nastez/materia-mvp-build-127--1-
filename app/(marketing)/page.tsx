@@ -4,6 +4,7 @@ import dynamic from "next/dynamic"
 import { Hero } from "@/components/marketing/hero"
 import { BentoGrid } from "@/components/marketing/bento-grid"
 import { StatsBar } from "@/components/marketing/stats-bar"
+import { isNativePlatform } from "@/lib/supabase/client"
 
 // Below-the-fold sections — dynamically imported to reduce initial JS bundle.
 // Hero + BentoGrid + StatsBar load eagerly (above the fold).
@@ -18,6 +19,16 @@ const CtaSection = dynamic(() => import("@/components/marketing/cta-section").th
 const ProductMarquee = dynamic(() => import("@/components/marketing/product-marquee").then(m => ({ default: m.ProductMarquee })))
 
 export default function StorelibLanding() {
+  // In the Capacitor app, show only the welcome screen (Hero) — not the full
+  // marketing website. This is the screen users land on after logging out.
+  if (isNativePlatform()) {
+    return (
+      <div className="bg-white overflow-x-hidden">
+        <Hero />
+      </div>
+    )
+  }
+
   return (
     <div className="bg-white overflow-x-hidden">
       {/* HERO SECTION */}
