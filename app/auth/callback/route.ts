@@ -3,59 +3,101 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { NextResponse } from "next/server"
 
 /**
- * GET /auth/callback?code=<code>&next=<path>
+ * GET /auth/callback?code=<code>&native=true
  *
- * Supabase redirects here after Google OAuth completes (inside Chrome Custom
- * Tab on Android, inside the browser on web).
+ * Supabase redirects here after Google OAuth completes (Chrome Custom Tab on
+ * Android, browser on web).
  *
  * Steps:
- *  1. Exchange the PKCE auth code for a session (succeeds because Chrome
- *     holds the PKCE verifier cookie set by /auth/start).
+ *  1. Exchange the PKCE auth code for a session.
  *  2. Upsert the user profile.
- *  3. Determine the post-login destination based on user type:
- *       creator / seller (has creators row or is_creator=true)  → /app
- *       buyer  (is_creator=false)                               → /library
- *  4a. Web/iOS: session is already in the browser's cookie jar from step 1
- *      → redirect straight to the destination.  No bridge token needed.
- *  4b. Android: generate a short-lived bridge_token (UUID stored in
- *      oauth_bridge_tokens) and redirect to /app/auth/callback?bridge_token=.
- *      The Android App Link fires, MainActivity loads that URL in the WebView,
- *      and /app/auth/callback exchanges the bridge token for session cookies
- *      in the WebView's jar, then redirects to the final destination.
+ *  3. Determine post-login destination from DB.
+ *  4a. Native (isStorelibApp): embed tokens in /auth/app-callback redirect →
+ *      JS fires storelib:// deep link → handleOAuthCallback → /auth/sync-session.
+ *  4b. Web: redirect straight to destination (session cookies already set).
+ *  4c. Android non-native: bridge token via DB → App Link → WebView setSession.
  */
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
-  const code = searchParams.get("code")
-  const error = searchParams.get("error")
+  const code             = searchParams.get("code")
+  const error            = searchParams.get("error")
   const errorDescription = searchParams.get("error_description")
-  // next hint forwarded from /auth/start; overridden server-side by user type
-  const nextHint = searchParams.get("next") || "/app"
+  const nextHint         = searchParams.get("next") || "/app"
 
-  // Use the actual request origin, not NEXT_PUBLIC_SITE_URL.  The PKCE
-  // code-verifier cookie is scoped to the host that served /auth/start, so the
-  // callback must run on the same host.  On Vercel preview deployments the
-  // origin differs from NEXT_PUBLIC_SITE_URL; using the env var here caused
-  // "invalid flow state" because the cookie domain didn't match.
+  // Use the actual request origin so PKCE verifier cookie domain matches.
   const canonicalUrl = origin
 
+  // ── DEBUG: log everything about the incoming request ─────────────────────
+  const userAgent = request.headers.get("user-agent") ?? ""
+  const nativeAuthCookie = request.cookies.get("storelib_native_auth")?.value === "1"
+  const nativeParam = searchParams.get("native") === "true"
+  const isStorelibApp = nativeParam || userAgent.includes("StorelibApp") || nativeAuthCookie
+
+  // Log all incoming cookies (names only — values omitted for security)
+  const allCookieNames = [...request.cookies.getAll().map(c => c.name)]
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""
+  const supabaseRef = supabaseUrl ? new URL(supabaseUrl).hostname.split(".")[0] : "unknown"
+  const pkceVerifierCookieName = `sb-${supabaseRef}-auth-token-code-verifier`
+  const hasPkceVerifier = allCookieNames.includes(pkceVerifierCookieName)
+
+  console.log(`[auth/callback] ▶ request received`)
+  console.log(`[auth/callback]   full URL       : ${request.url.slice(0, 200)}`)
+  console.log(`[auth/callback]   origin         : ${origin}`)
+  console.log(`[auth/callback]   code           : ${code ? `"${code.slice(0, 12)}…" (present)` : "MISSING"}`)
+  console.log(`[auth/callback]   error param    : ${error ?? "none"}`)
+  console.log(`[auth/callback]   native param   : ${nativeParam}`)
+  console.log(`[auth/callback]   native cookie  : ${nativeAuthCookie}`)
+  console.log(`[auth/callback]   isStorelibApp  : ${isStorelibApp}`)
+  console.log(`[auth/callback]   userAgent      : ${userAgent.slice(0, 100)}`)
+  console.log(`[auth/callback]   supabaseRef    : ${supabaseRef}`)
+  console.log(`[auth/callback]   pkceVerifier cookie name : ${pkceVerifierCookieName}`)
+  console.log(`[auth/callback]   pkceVerifier present     : ${hasPkceVerifier}`)
+  console.log(`[auth/callback]   all cookies    : [${allCookieNames.join(", ")}]`)
+
   if (error) {
-    console.error("OAuth error:", error, errorDescription)
+    console.error(`[auth/callback] ✗ OAuth provider error: ${error} — ${errorDescription}`)
     return NextResponse.redirect(
       `${canonicalUrl}/login?error=${encodeURIComponent(errorDescription || error)}`
     )
   }
 
   if (!code) {
+    console.error(`[auth/callback] ✗ No code in request`)
     return NextResponse.redirect(`${canonicalUrl}/auth/auth-code-error`)
   }
 
-  // ── 1. Exchange PKCE code for session ───────────────────────────────────
+  // ── 1. Exchange PKCE code for session ─────────────────────────────────────
+  console.log(`[auth/callback] Calling exchangeCodeForSession…`)
   const supabase = await createClient()
   const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
 
   if (exchangeError) {
-    console.error("Code exchange error:", exchangeError)
-    const errorMessage = exchangeError.message.includes("code verifier")
+    const isVerifierError =
+      exchangeError.message.toLowerCase().includes("code verifier") ||
+      exchangeError.message.toLowerCase().includes("pkce") ||
+      exchangeError.message.toLowerCase().includes("flow state") ||
+      exchangeError.message.toLowerCase().includes("invalid request")
+
+    console.error(`[auth/callback] ✗ exchangeCodeForSession FAILED`)
+    console.error(`[auth/callback]   error message  : ${exchangeError.message}`)
+    console.error(`[auth/callback]   error code     : ${(exchangeError as any).status ?? "N/A"}`)
+    console.error(`[auth/callback]   isVerifierError: ${isVerifierError}`)
+    console.error(`[auth/callback]   PKCE cookie present: ${hasPkceVerifier}`)
+    console.error(`[auth/callback]   native=true in URL : ${nativeParam}`)
+    console.error(`[auth/callback]   storelib_native_auth cookie: ${nativeAuthCookie}`)
+    console.error(`[auth/callback]   all cookie names: [${allCookieNames.join(", ")}]`)
+    console.error(`[auth/callback]   ── DIAGNOSIS ──────────────────────────────────`)
+    if (isVerifierError && !hasPkceVerifier) {
+      console.error(`[auth/callback]   ROOT CAUSE: PKCE verifier cookie "${pkceVerifierCookieName}" was NOT sent by Chrome.`)
+      console.error(`[auth/callback]   This is the cookie-jar cross-site block issue.`)
+      console.error(`[auth/callback]   /auth/start must have set it with SameSite=None.`)
+      console.error(`[auth/callback]   Check: did /auth/start run? Was the cookie present in the Set-Cookie response?`)
+    } else if (isVerifierError && hasPkceVerifier) {
+      console.error(`[auth/callback]   ROOT CAUSE: PKCE verifier cookie IS present but exchange still failed.`)
+      console.error(`[auth/callback]   Possible: wrong verifier value, code already used, or Supabase server error.`)
+    }
+
+    const errorMessage = isVerifierError
       ? "Session expired. Please try signing in again."
       : exchangeError.message
     return NextResponse.redirect(
@@ -64,10 +106,15 @@ export async function GET(request: Request) {
   }
 
   if (!data.user || !data.session) {
+    console.error(`[auth/callback] ✗ No user/session returned from exchange`)
     return NextResponse.redirect(`${canonicalUrl}/auth/auth-code-error`)
   }
 
-  // ── 2. Upsert profile ───────────────────────────────────────────────────
+  console.log(`[auth/callback] ✓ exchangeCodeForSession succeeded`)
+  console.log(`[auth/callback]   userId  : ${data.user.id}`)
+  console.log(`[auth/callback]   email   : ${data.user.email}`)
+
+  // ── 2. Upsert profile ──────────────────────────────────────────────────────
   const adminSupabase = createAdminClient()
   const { avatar_url: oauthAvatar = null, full_name, name, picture = null } =
     data.user.user_metadata ?? {}
@@ -82,7 +129,6 @@ export async function GET(request: Request) {
     .single()
 
   if (!existingProfile) {
-    // Google already verified the user's email, so mark email_verified=true
     const { error: profileError } = await adminSupabase.from("profiles").insert({
       id: data.user.id,
       email: data.user.email,
@@ -93,29 +139,22 @@ export async function GET(request: Request) {
       email_verified: true,
       email_verified_at: new Date().toISOString(),
     })
-    if (profileError) console.error("Profile creation error:", profileError)
+    if (profileError) console.error("[auth/callback] Profile creation error:", profileError)
+    else console.log(`[auth/callback]   ✓ new profile created`)
   } else {
-    // Existing profile — ensure email_verified is true for OAuth users
-    // (Google already verified their email) and update avatar if missing
     const updates: Record<string, unknown> = {}
-    if (!existingProfile.avatar_url && avatarUrl) {
-      updates.avatar_url = avatarUrl
-    }
+    if (!existingProfile.avatar_url && avatarUrl) updates.avatar_url = avatarUrl
     if (!(existingProfile as any).email_verified) {
       updates.email_verified = true
       updates.email_verified_at = new Date().toISOString()
     }
     if (Object.keys(updates).length > 0) {
-      await adminSupabase
-        .from("profiles")
-        .update(updates)
-        .eq("id", data.user.id)
+      await adminSupabase.from("profiles").update(updates).eq("id", data.user.id)
     }
+    console.log(`[auth/callback]   existing profile found`)
   }
 
-  // ── 3. Determine post-login destination ────────────────────────────────
-  // Only route to /app or /library if onboarding is complete.
-  // New / unboarded users MUST land on /signup/success (role chooser).
+  // ── 3. Determine post-login destination ───────────────────────────────────
   let nextPath = "/signup/success"
 
   if (existingProfile) {
@@ -126,78 +165,46 @@ export async function GET(request: Request) {
       .maybeSingle()
 
     if (creatorRow?.onboarding_completed) {
-      // Fully onboarded creator
       nextPath = "/app"
     } else if (existingProfile.welcome_completed && existingProfile.is_creator === false) {
-      // Returning buyer who already chose their role
       nextPath = "/library"
     } else if (existingProfile.welcome_completed && existingProfile.is_creator === true) {
-      // Creator who completed welcome but hasn't finished full onboarding
       nextPath = "/app"
     }
-    // else: welcome not completed → /signup/success (default)
   }
-  // New user (no existing profile, just inserted) → /signup/success (default)
 
-  // ── 4. Web vs Android path ──────────────────────────────────────────────
-  // The bridge-token dance is only needed on Android.  Chrome Custom Tab
-  // (Android) and WebView have separate cookie jars: once the Custom Tab
-  // completes OAuth, /auth/callback sets session cookies in Chrome's jar,
-  // but the WebView can't read them.  The bridge token transfers the tokens
-  // through the DB so /app/auth/callback can call setSession() inside the
-  // WebView's jar (triggered via the Android App Link on that URL).
-  //
-  // On web the browser making this request IS the browser the user will
-  // continue using, so the Set-Cookie headers from exchangeCodeForSession
-  // above are already in its jar — no bridge token needed.  Skipping it
-  // avoids a DB round-trip and eliminates the "Auth bridge failed" flash
-  // that occurred when the oauth_bridge_tokens table was unavailable.
-  //
-  // StorelibApp path: when the native Capacitor app opens the OAuth URL via
-  // Browser.open(), the Chrome Custom Tab sends our custom User-Agent string
-  // "StorelibApp".  In this case we skip the bridge-token DB round-trip and
-  // instead embed the tokens directly in the storelib:// deep-link URL.
-  // Android intercepts the redirect → fires appUrlOpen → native-oauth.ts
-  // calls setSession() with the embedded tokens inside the WebView context.
-  const userAgent = request.headers.get("user-agent") ?? ""
-  // Triple detection for native app flows:
-  //  1. ?native=true query param (explicit, forwarded by login page)
-  //  2. StorelibApp in UA (belt-and-suspenders; Chrome Custom Tab uses standard Chrome UA)
-  //  3. storelib_native_auth cookie set by /auth/start when ?native=true was present —
-  //     this is the primary signal for Browser.open() flows because Chrome Custom Tab
-  //     does NOT forward the WebView's custom UA, but it DOES carry cookies.
-  const nativeAuthCookie = request.cookies.get("storelib_native_auth")?.value === "1"
-  const isStorelibApp =
-    searchParams.get("native") === "true" ||
-    userAgent.includes("StorelibApp") ||
-    nativeAuthCookie
+  console.log(`[auth/callback]   nextPath       : ${nextPath}`)
+  console.log(`[auth/callback]   isStorelibApp  : ${isStorelibApp}`)
 
+  // ── 4. Route based on client type ─────────────────────────────────────────
   if (isStorelibApp) {
-    // Redirect to the client-side bridge page, NOT directly to storelib://.
-    // Chrome Custom Tab does not reliably follow server-side HTTP 302 redirects
-    // to custom schemes, but it DOES follow them when JS calls
-    // window.location.replace().  The bridge page renders instantly, detects
-    // the StorelibApp UA client-side, and fires the deep link from JS.
-    // It also shows a "Continue to App" fallback button after 2.5 s.
-    console.log("[auth/callback] Native app detected (native=true or StorelibApp UA) — redirecting to /auth/app-callback bridge")
+    // Native Capacitor app via Chrome Custom Tab:
+    //   /auth/callback can't redirect to storelib:// directly (Chrome blocks
+    //   server-side 302 → custom schemes). Instead redirect to the bridge page
+    //   which fires the deep link from client-side JS.
+    //   handleOAuthCallback in native-oauth.ts detects token+refresh_token params
+    //   and calls /auth/sync-session to write cookies in the WebView's jar.
     const bridgeUrl =
       `${canonicalUrl}/auth/app-callback` +
       `?token=${encodeURIComponent(data.session.access_token)}` +
       `&refresh_token=${encodeURIComponent(data.session.refresh_token)}` +
       `&next=${encodeURIComponent(nextPath)}` +
       `&native=true`
+
+    console.log(`[auth/callback] ✓ Native path → /auth/app-callback`)
+    console.log(`[auth/callback]   bridgeUrl (truncated): ${bridgeUrl.slice(0, 100)}…`)
     return NextResponse.redirect(bridgeUrl)
   }
 
   const isAndroid = userAgent.toLowerCase().includes("android")
 
   if (!isAndroid) {
-    // Web / iOS: session already live in this browser — go straight to dest.
+    // Web or iOS: session cookies already set in this browser → go straight.
+    console.log(`[auth/callback] ✓ Web path → ${nextPath}`)
     return NextResponse.redirect(`${canonicalUrl}${nextPath}`)
   }
 
-  // Android: create a short-lived bridge token so /app/auth/callback can
-  // call setSession() inside the WebView's cookie jar.
+  // Android non-native: bridge token via DB → App Link → WebView setSession.
   const { data: bridgeRow, error: bridgeError } = await adminSupabase
     .from("oauth_bridge_tokens")
     .insert({
@@ -209,16 +216,11 @@ export async function GET(request: Request) {
     .single()
 
   if (bridgeError || !bridgeRow) {
-    console.error("Bridge token creation error:", bridgeError)
-    // Fall back to direct redirect — on Android this means the WebView
-    // won't have the session, but it's still better than an error loop.
+    console.error("[auth/callback] Bridge token creation error:", bridgeError)
     return NextResponse.redirect(`${canonicalUrl}${nextPath}`)
   }
 
-  // ── 5. Redirect to App Link target ─────────────────────────────────────
-  // This URL triggers the Android App Link → MainActivity opens and loads
-  // it in the WebView, which then validates the bridge token and finalises
-  // the session.
+  console.log(`[auth/callback] ✓ Android bridge token path → /app/auth/callback`)
   return NextResponse.redirect(
     `${canonicalUrl}/app/auth/callback?bridge_token=${bridgeRow.id}&next=${encodeURIComponent(nextPath)}`
   )
