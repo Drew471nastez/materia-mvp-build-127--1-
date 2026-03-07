@@ -9,6 +9,12 @@ import { Switch } from "@/components/ui/switch"
 import { Slider } from "@/components/ui/slider"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { ImageUpload } from "@/components/app/image-upload"
 import { CoverImageEditor } from "./cover-image-editor"
 import { OnepageAvatarPicker } from "@/components/shared/onepage-avatar-picker"
@@ -28,6 +34,7 @@ import {
   FileText,
   Plus,
   ChevronLeft,
+  ChevronDown,
   Move,
   Package,
   ShoppingBag,
@@ -1073,21 +1080,31 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                   <>
                     <div className="space-y-2">
                       <Label>Badge Type</Label>
-                      <Select
-                        value={globalSettings.verifiedBadgeType || "verified_creator"}
-                        onValueChange={(value) => updateGlobalSettings({ verifiedBadgeType: value as VerifiedBadgeType })}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select badge type" />
-                        </SelectTrigger>
-                        <SelectContent className="z-[9999]">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className="w-full justify-between h-9 px-3 font-normal text-sm"
+                          >
+                            <span>{verifiedBadgeLabels[globalSettings.verifiedBadgeType || "verified_creator"]}</span>
+                            <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-[180px] z-[9999]">
                           {(Object.keys(verifiedBadgeLabels) as VerifiedBadgeType[]).map((type) => (
-                            <SelectItem key={type} value={type}>
+                            <DropdownMenuItem
+                              key={type}
+                              onClick={() => updateGlobalSettings({ verifiedBadgeType: type })}
+                              className={cn(
+                                "cursor-pointer",
+                                (globalSettings.verifiedBadgeType || "verified_creator") === type && "font-medium bg-accent"
+                              )}
+                            >
                               {verifiedBadgeLabels[type]}
-                            </SelectItem>
+                            </DropdownMenuItem>
                           ))}
-                        </SelectContent>
-                      </Select>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                       <p className="text-xs text-muted-foreground">
                         This text appears when hovering over the badge
                       </p>
