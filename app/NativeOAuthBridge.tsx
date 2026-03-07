@@ -50,14 +50,20 @@ export default function NativeOAuthBridge() {
   // nativeAppReady() internally checks nativeAuthInProgress before calling
   // the bridge, so no explicit guard is needed here.
   //
-  // IMPORTANT: skip /app and /library — those routes mount NativeAuthGate
-  // which calls nativeAppReadyForce() via requestAnimationFrame AFTER the
-  // session is verified and content is painted.  Firing here would dismiss
-  // the native overlay before NativeAuthGate has confirmed the session,
-  // causing the blank/white AuthResolvingScreen to flash briefly.
+  // IMPORTANT: skip routes that manage overlay dismissal themselves:
+  //  • /app and /library — have their own NativeAuthGate that calls
+  //    nativeAppReadyForce() after session is verified + content painted.
+  //  • /auth/native-loading — sets nativeAuthInProgress="1" synchronously,
+  //    so nativeAppReady() is already guarded; but also skipped here so the
+  //    overlay is never dismissed while auth is actively in progress.
+  //    The loading page's useEffect cleanup clears the flag when navigating.
   const pathname = usePathname()
   useEffect(() => {
-    if (pathname.startsWith("/app") || pathname.startsWith("/library")) return
+    if (
+      pathname.startsWith("/app") ||
+      pathname.startsWith("/library") ||
+      pathname.startsWith("/auth/native-loading")
+    ) return
     nativeAppReady()
   }, [pathname])
 

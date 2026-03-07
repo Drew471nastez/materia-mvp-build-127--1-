@@ -429,48 +429,28 @@ function LoginFormContent() {
         const { Browser } = await import("@capacitor/browser")
         const startUrl = `${canonicalUrl}/auth/start?provider=google&native=true&next=/app`
 
-        let browserFinishedHandle: { remove: () => void } | undefined
-        const timeoutId = window.setTimeout(() => {
-          browserFinishedHandle?.remove()
-          ;(window as any).__oauthStarting = false
-          setIsGoogleLoading(false)
-          nativeAppReady()
-          setError("Sign in timed out. Please try again.")
-        }, 120_000)
-
-        try {
-          browserFinishedHandle = await Browser.addListener(
-            "browserFinished",
-            () => {
-              window.clearTimeout(timeoutId)
-              browserFinishedHandle?.remove()
-              // Grace period: appUrlOpen can still arrive after browserFinished.
-              // Only clear loading if handleOAuthCallback hasn't taken over yet.
-              window.setTimeout(() => {
-                try {
-                  if (sessionStorage.getItem("nativeAuthInProgress") !== "1") {
-                    ;(window as any).__oauthStarting = false
-                    setIsGoogleLoading(false)
-                    nativeAppReady()
-                  }
-                } catch {
-                  ;(window as any).__oauthStarting = false
-                  setIsGoogleLoading(false)
-                  nativeAppReady()
-                }
-              }, 500)
-            }
-          )
-        } catch {
-          // addListener may throw if the plugin isn't loaded — ignore
-        }
-
+        // Open the Chrome Custom Tab for Google OAuth.
         await Browser.open({ url: startUrl, windowName: "_self" })
 
-        // isGoogleLoading stays true while the browser is open.
-        // It will be cleared by: handleOAuthCallback navigation,
-        // browserFinished (cancel), or the 120 s timeout above.
-        return // avoid the finally setIsGoogleLoading(false) below
+        // IMMEDIATELY navigate the WebView to the dedicated loading page.
+        //
+        // This is the key fix for the post-auth login-page flash:
+        //   Previously, the WebView stayed on /login while the Custom Tab was
+        //   open. When the tab closed and the app resumed, there was a race
+        //   between browserFinished (which cleared isGoogleLoading) and
+        //   appUrlOpen (which set nativeAuthInProgress). If browserFinished's
+        //   500 ms grace elapsed before appUrlOpen arrived, the login form
+        //   was briefly visible — the flash.
+        //
+        //   By replacing the WebView content with /auth/native-loading RIGHT
+        //   NOW, there is no login form to flash back to. The loading page
+        //   owns the browserFinished/cancel logic and stays until
+        //   handleOAuthCallback (global, in NativeOAuthBridge) fires and
+        //   navigates to /auth/sync-session → /app.
+        window.location.replace(
+          `/auth/native-loading?from=${encodeURIComponent(window.location.pathname)}`
+        )
+        return
       } else {
         // ── Web ───────────────────────────────────────────────────────
         // Full-screen overlay already shown above (before dynamic import).

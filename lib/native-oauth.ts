@@ -322,6 +322,10 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
         `&refresh_token=${encodeURIComponent(bridgeRefresh)}` +
         `&next=${encodeURIComponent(bridgeNextPath)}`
       console.log(`${TAG}   Navigating to ${syncUrl}`)
+      // DO NOT clear nativeAuthInProgress here — the /auth/native-loading page's
+      // useEffect cleanup (which runs when this navigation causes it to unmount)
+      // will clear it.  Clearing it here would let NativeOAuthBridge call
+      // nativeAppReady() and dismiss the native overlay before /app fully loads.
       window.location.assign(syncUrl)
       return
     }
@@ -455,13 +459,21 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
     const msg = err instanceof Error ? err.message : "Unexpected error."
     console.error(`${TAG} Handler threw:`, err)
     showToast(`Error: ${msg}`, "err")
+    // On error: clear flag immediately so the loading page shows its cancel UI
+    try { sessionStorage.removeItem('nativeAuthInProgress') } catch {}
     window.location.assign(`/login?error=${encodeURIComponent(msg)}`)
   } finally {
     isHandling = false
-    try { sessionStorage.removeItem('nativeAuthInProgress') } catch {}
-    // Always dismiss native loading overlay — covers success, catch,
-    // AND all early-return error paths inside try (OAuth error, no code,
-    // exchange failure, session not persisted).
+    // NOTE: we do NOT remove nativeAuthInProgress here on the success path.
+    // On success, window.location.assign() was already called above and the
+    // page is navigating away. The /auth/native-loading page's useEffect
+    // cleanup (fires on unmount = when the navigation is committed) removes
+    // the flag.  Removing it here (in finally, which runs synchronously after
+    // the assign call) would let NativeOAuthBridge call nativeAppReady() and
+    // dismiss the native overlay before /app has finished rendering.
+    //
+    // The catch block above handles the error path explicitly.
+    // The 15 s safety timeout in useAuthGate handles any stuck state.
     notifyNativeAuthDone()
   }
 }

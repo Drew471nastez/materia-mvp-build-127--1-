@@ -349,44 +349,15 @@ function SignUpFormContent() {
         const { Browser } = await import("@capacitor/browser")
         const startUrl = `${canonicalUrl}/auth/start?provider=google&native=true&next=/app`
 
-        let browserFinishedHandle: { remove: () => void } | undefined
-        const timeoutId = window.setTimeout(() => {
-          browserFinishedHandle?.remove()
-          ;(window as any).__oauthStarting = false
-          setIsGoogleLoading(false)
-          nativeAppReady()
-          setError("Sign in timed out. Please try again.")
-        }, 120_000)
-
-        try {
-          browserFinishedHandle = await Browser.addListener(
-            "browserFinished",
-            () => {
-              window.clearTimeout(timeoutId)
-              browserFinishedHandle?.remove()
-              // Grace period: appUrlOpen can still arrive after browserFinished.
-              window.setTimeout(() => {
-                try {
-                  if (sessionStorage.getItem("nativeAuthInProgress") !== "1") {
-                    ;(window as any).__oauthStarting = false
-                    setIsGoogleLoading(false)
-                    nativeAppReady()
-                  }
-                } catch {
-                  ;(window as any).__oauthStarting = false
-                  setIsGoogleLoading(false)
-                  nativeAppReady()
-                }
-              }, 500)
-            }
-          )
-        } catch {
-          // addListener may throw if the plugin isn't loaded — ignore
-        }
-
+        // Open the Chrome Custom Tab for Google OAuth.
         await Browser.open({ url: startUrl, windowName: "_self" })
-        // isGoogleLoading stays true while the browser is open.
-        // Cleared by: handleOAuthCallback, browserFinished, or 120 s timeout.
+
+        // IMMEDIATELY navigate the WebView to the dedicated loading page.
+        // This is identical to the login page's strategy — see login/page.tsx
+        // for the full explanation of WHY this eliminates the post-auth flash.
+        window.location.replace(
+          `/auth/native-loading?from=${encodeURIComponent(window.location.pathname)}`
+        )
         return
       } else {
         // ── Web — navigate to /auth/start which handles PKCE server-side ──
