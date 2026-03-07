@@ -282,7 +282,7 @@ function ResetPasswordContent() {
           try {
             (window as any).StorelibNative?.authDone?.()
           } catch {}
-          window.location.replace("/")
+          window.location.replace("/welcome")
         } else {
           router.push("/login")
         }

@@ -46,7 +46,7 @@ export function UserNav({ user, profile, isCreator }: UserNavProps) {
     const supabase = createClient()
     await supabase.auth.signOut()
     if (isNativePlatform()) {
-      window.location.replace("/")
+      window.location.replace("/welcome")
     } else {
       router.push("/")
       router.refresh()

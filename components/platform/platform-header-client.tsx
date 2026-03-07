@@ -880,7 +880,7 @@ export function PlatformHeaderClient() {
     setCachedAvatarUrl(null)
     try { localStorage.removeItem("_sl_avatar") } catch {}
     if (isNativePlatform()) {
-      window.location.replace("/")
+      window.location.replace("/welcome")
     } else {
       router.push("/")
       router.refresh()
