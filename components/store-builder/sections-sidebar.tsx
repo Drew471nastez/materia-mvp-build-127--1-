@@ -1074,22 +1074,16 @@ export function SectionsSidebar({ creatorId, profile, creator }: SectionsSidebar
                     <div className="space-y-2">
                       <Label>Badge Type</Label>
                       <Select
-                        value={globalSettings.verifiedBadgeType}
+                        value={globalSettings.verifiedBadgeType || "verified_creator"}
                         onValueChange={(value) => updateGlobalSettings({ verifiedBadgeType: value as VerifiedBadgeType })}
                       >
                         <SelectTrigger className="w-full">
-                          <SelectValue />
+                          <SelectValue placeholder="Select badge type" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="z-[9999]">
                           {(Object.keys(verifiedBadgeLabels) as VerifiedBadgeType[]).map((type) => (
                             <SelectItem key={type} value={type}>
-                              <div className="flex items-center gap-2">
-                                <BadgeCheck className={cn(
-                                  "h-4 w-4",
-                                  type === globalSettings.verifiedBadgeType ? "text-blue-500" : "text-muted-foreground"
-                                )} />
-                                {verifiedBadgeLabels[type]}
-                              </div>
+                              {verifiedBadgeLabels[type]}
                             </SelectItem>
                           ))}
                         </SelectContent>

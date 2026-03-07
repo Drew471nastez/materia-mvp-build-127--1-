@@ -87,7 +87,6 @@ function EditorLayout({
     redo,
     addSectionModalOpen,
     closeAddSectionModal,
-    currentPageType,
     showProductModeSelector,
     setShowProductModeSelector,
     saveState,
@@ -199,12 +198,6 @@ function EditorLayout({
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [canUndo, canRedo, undo, redo])
-
-  useEffect(() => {
-    if (currentPageType === "product") {
-      setShowProductModeSelector(true)
-    }
-  }, [currentPageType, setShowProductModeSelector])
 
   if (previewMode) {
     return (

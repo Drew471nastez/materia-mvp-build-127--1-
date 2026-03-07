@@ -1,11 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useStoreBuilder } from "./store-builder-context"
 import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,7 +25,6 @@ import {
   PanelLeft,
   ExternalLink,
 } from "lucide-react"
-import type { PageType } from "@/lib/store-builder/types"
 import { cn } from "@/lib/utils"
 import { UnsavedChangesDialog } from "./unsaved-changes-dialog"
 import { getStoreUrl, getStoreShareUrl, getProductUrl, getProductShareUrl, getStoreUrlWithCustomDomain, getProductUrlWithCustomDomain } from "@/lib/url-helpers"
@@ -58,6 +55,7 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
     selectedProductId,
     products,
     discardChanges,
+    setShowProductModeSelector,
   } = useStoreBuilder()
 
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false)
@@ -344,21 +342,40 @@ export function EditorTopbar({ creatorSlug, onPreview, onToggleSidebar, isMobile
         </DropdownMenu>
 
         {/* Page Switcher */}
-        <Select value={currentPageType} onValueChange={(value) => setCurrentPageType(value as PageType)}>
-          <SelectTrigger
-            className={cn("h-9 border-border bg-background shrink-0 cursor-pointer", isMobile ? "w-[140px]" : "w-[200px]")}
-          >
-            <SelectValue>
-              <span className="truncate" title={pageLabel}>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className={cn(
+                "h-9 border-border bg-background shrink-0 cursor-pointer justify-between gap-1.5",
+                isMobile ? "w-[140px]" : "w-[200px]"
+              )}
+            >
+              <span className="truncate flex-1 text-left text-sm font-normal" title={pageLabel}>
                 {isMobile && pageLabel.length > 15 ? `${pageLabel.slice(0, 15)}...` : pageLabel}
               </span>
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="shop">Home Page</SelectItem>
-            <SelectItem value="product">Product Page</SelectItem>
-          </SelectContent>
-        </Select>
+              <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="z-[100]">
+            <DropdownMenuItem
+              onClick={() => setCurrentPageType("shop")}
+              className="cursor-pointer"
+            >
+              Home Page
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => {
+                setCurrentPageType("product")
+                setShowProductModeSelector(true)
+              }}
+              className="cursor-pointer"
+            >
+              Product Page
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         {/* Add Section Button - hide text on mobile */}
         <Button
