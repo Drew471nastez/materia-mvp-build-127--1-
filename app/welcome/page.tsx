@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 
 // ─── Assets ────────────────────────────────────────────────────────────────
 const LOGO_SRC =
@@ -86,7 +87,15 @@ function useTyping(phrases: string[], typingSpeed = 70, deletingSpeed = 35, paus
 
 // ─── Page ──────────────────────────────────────────────────────────────────
 export default function WelcomePage() {
+  const router = useRouter()
   const typedText = useTyping(TYPING_PHRASES)
+  const [loadingBtn, setLoadingBtn] = useState<"signup" | "login" | null>(null)
+
+  const handleNav = (btn: "signup" | "login", href: string) => {
+    if (loadingBtn) return
+    setLoadingBtn(btn)
+    router.push(href)
+  }
 
   const [cardOrder, setCardOrder] = useState([0, 1, 2, 3, 4])
   const [transition, setTransition] = useState<{
@@ -216,6 +225,18 @@ export default function WelcomePage() {
           animation: w-shimmer 1.8s ease-in-out infinite;
         }
         .w-shimmer-overlay { transition: opacity 0.8s cubic-bezier(0.4,0,0.2,1); }
+        @keyframes btn-spin {
+          to { transform: rotate(360deg); }
+        }
+        .btn-spinner {
+          display: inline-block;
+          width: 20px; height: 20px;
+          border: 2.5px solid rgba(255,255,255,0.35);
+          border-top-color: #fff;
+          border-radius: 50%;
+          animation: btn-spin 0.7s linear infinite;
+          flex-shrink: 0;
+        }
         @media (prefers-reduced-motion: reduce) {
           .welcome-card { transition: none !important; animation: none !important; }
         }
@@ -339,20 +360,30 @@ export default function WelcomePage() {
           className="shrink-0 px-4 flex flex-col gap-3"
           style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 0.75rem)" }}
         >
-          <Link
-            href="/signup"
-            className="flex items-center justify-center w-full rounded-2xl bg-violet-600 text-white font-semibold"
-            style={{ height: "clamp(50px, 7vh, 58px)", fontSize: "clamp(15px, 4.5vw, 17px)" }}
+          <button
+            onClick={() => handleNav("signup", "/signup")}
+            disabled={!!loadingBtn}
+            className="flex items-center justify-center gap-2.5 w-full rounded-2xl bg-violet-600 text-white font-semibold transition-opacity duration-150"
+            style={{
+              height: "clamp(50px, 7vh, 58px)",
+              fontSize: "clamp(15px, 4.5vw, 17px)",
+              opacity: loadingBtn && loadingBtn !== "signup" ? 0.5 : 1,
+            }}
           >
-            Sign up
-          </Link>
-          <Link
-            href="/login"
-            className="flex items-center justify-center w-full rounded-2xl bg-neutral-900 text-white font-semibold"
-            style={{ height: "clamp(50px, 7vh, 58px)", fontSize: "clamp(15px, 4.5vw, 17px)" }}
+            {loadingBtn === "signup" ? <span className="btn-spinner" /> : "Sign up"}
+          </button>
+          <button
+            onClick={() => handleNav("login", "/login")}
+            disabled={!!loadingBtn}
+            className="flex items-center justify-center gap-2.5 w-full rounded-2xl bg-neutral-900 text-white font-semibold transition-opacity duration-150"
+            style={{
+              height: "clamp(50px, 7vh, 58px)",
+              fontSize: "clamp(15px, 4.5vw, 17px)",
+              opacity: loadingBtn && loadingBtn !== "login" ? 0.5 : 1,
+            }}
           >
-            Log in
-          </Link>
+            {loadingBtn === "login" ? <span className="btn-spinner" /> : "Log in"}
+          </button>
         </div>
       </div>
     </>
