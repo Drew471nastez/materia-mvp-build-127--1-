@@ -34,12 +34,7 @@ export function UserNavClient({ user, profile, isCreator }: UserNavClientProps) 
   const handleSignOut = async () => {
     const supabase = createClient()
     await supabase.auth.signOut()
-    if (isNativePlatform()) {
-      window.location.assign("storelib://logout")
-    } else {
-      router.push("/login")
-      router.refresh()
-    }
+    window.location.assign("/login")
   }
 
   const initials = profile?.display_name

@@ -879,12 +879,7 @@ export function PlatformHeaderClient() {
     setDesktopProfileOpen(false)
     setCachedAvatarUrl(null)
     try { localStorage.removeItem("_sl_avatar") } catch {}
-    if (isNativePlatform()) {
-      window.location.assign("storelib://logout")
-    } else {
-      router.push("/")
-      router.refresh()
-    }
+    window.location.assign("/login")
   }
 
   const onCategoryClick = (cat: string) => {

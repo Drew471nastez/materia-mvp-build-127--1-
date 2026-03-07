@@ -56,11 +56,7 @@ export function DashboardSidebar() {
     const supabase = createClient()
     await supabase.auth.signOut()
     setMobileMenuOpen(false)
-    if (isNativePlatform()) {
-      window.location.assign("storelib://logout")
-    } else {
-      router.push("/")
-    }
+    window.location.assign("/login")
   }
 
   const closeSidebar = useCallback(() => setMobileMenuOpen(false), [])

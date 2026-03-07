@@ -124,11 +124,7 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
     setSigningOut(true)
     const supabase = createClient()
     await supabase.auth.signOut()
-    if (isNativePlatform()) {
-      window.location.assign("storelib://logout")
-    } else {
-      router.push("/")
-    }
+    window.location.assign("/login")
   }, [router])
 
   const joinDate = new Date(createdAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })

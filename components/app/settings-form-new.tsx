@@ -1595,11 +1595,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
   const handleSignOut = async () => {
     const supabase = createClient()
     await supabase.auth.signOut()
-    if (isNativePlatform()) {
-      window.location.assign("storelib://logout")
-    } else {
-      router.push("/")
-    }
+    window.location.assign("/login")
   }
 
   const handleSignOutAllDevices = async () => {
@@ -1607,11 +1603,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     try {
       const supabase = createClient()
       await supabase.auth.signOut({ scope: 'global' })
-      if (isNativePlatform()) {
-        window.location.assign("storelib://logout")
-      } else {
-        router.push("/")
-      }
+      window.location.assign("/login")
     } catch {
       setSigningOutAll(false)
     }
@@ -1683,11 +1675,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
       if (response.ok) {
         const supabase = createClient()
         await supabase.auth.signOut()
-        if (isNativePlatform()) {
-          window.location.assign("storelib://logout")
-        } else {
-          router.push("/")
-        }
+        window.location.assign("/login")
       } else {
         setDeleteError(data.error || "Invalid verification code")
       }

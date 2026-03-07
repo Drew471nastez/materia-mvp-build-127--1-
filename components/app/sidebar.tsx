@@ -152,14 +152,10 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     await supabase.auth.signOut()
     setMobileMenuOpen(false)
     setProfileDropdownOpen(false)
-    if (isNativePlatform()) {
-      window.location.assign("storelib://logout")
-    } else {
-      // Hard navigation clears all client-side state so the session is truly
-      // gone before the login page renders — router.push() leaves cached
-      // state that can make it appear as if the sign-out did nothing.
-      window.location.assign("/login")
-    }
+    // Hard navigation clears all client-side state so the session is truly
+    // gone before the login page renders — router.push() leaves cached
+    // state that can make it appear as if the sign-out did nothing.
+    window.location.assign("/login")
   }
 
   const mainNavItems = [

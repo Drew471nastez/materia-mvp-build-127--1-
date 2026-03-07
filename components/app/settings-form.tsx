@@ -172,11 +172,7 @@ export function SettingsForm({ profile, creator }: SettingsFormProps) {
   const handleSignOut = async () => {
     const supabase = createClient()
     await supabase.auth.signOut()
-    if (isNativePlatform()) {
-      window.location.assign("storelib://logout")
-    } else {
-      router.push("/")
-    }
+    window.location.assign("/login")
   }
 
   // Email change handlers
