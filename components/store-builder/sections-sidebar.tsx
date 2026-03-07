@@ -34,7 +34,6 @@ import {
   FileText,
   Plus,
   ChevronLeft,
-  ChevronDown,
   Move,
   Package,
   ShoppingBag,
