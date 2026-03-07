@@ -103,7 +103,7 @@ export default function WelcomePage() {
   } | null>(null)
   const [loadedImages, setLoadedImages] = useState<Set<number>>(new Set())
   // carouselScale: derived from container height via ResizeObserver
-  const [carouselScale, setCarouselScale] = useState(0.88)
+  const [carouselScale, setCarouselScale] = useState(0.748)
 
   const autoplayRef   = useRef<ReturnType<typeof setInterval> | null>(null)
   const orderRef      = useRef(cardOrder)
@@ -119,7 +119,7 @@ export default function WelcomePage() {
     if (!el) return
     const obs = new ResizeObserver(([entry]) => {
       const h = entry.contentRect.height
-      if (h > 0) setCarouselScale(Math.min((h / CANVAS_H) * 0.98, 1.15))
+      if (h > 0) setCarouselScale(Math.min((h / CANVAS_H) * 0.833, 0.978))
     })
     obs.observe(el)
     return () => obs.disconnect()
@@ -345,7 +345,7 @@ export default function WelcomePage() {
         <div className="shrink-0 px-4 py-3 flex items-center justify-center">
           <p
             className="font-bold text-neutral-900 text-center leading-tight"
-            style={{ fontSize: "clamp(17px, 5vw, 24px)", minHeight: "2em" }}
+            style={{ fontSize: "clamp(21px, 5vw, 28px)", minHeight: "2em" }}
           >
             {typedText}
             <span
