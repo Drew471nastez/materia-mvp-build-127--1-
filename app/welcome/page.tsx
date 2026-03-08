@@ -237,10 +237,37 @@ export default function WelcomePage() {
           animation: btn-spin 0.7s linear infinite;
           flex-shrink: 0;
         }
+        @keyframes nav-spin {
+          to { transform: rotate(360deg); }
+        }
+        .nav-overlay {
+          position: fixed; inset: 0; z-index: 9999;
+          background: #f0f0f0;
+          display: flex; align-items: center; justify-content: center;
+          opacity: 0;
+          transition: opacity 0.18s ease;
+          pointer-events: none;
+        }
+        .nav-overlay.visible {
+          opacity: 1;
+          pointer-events: all;
+        }
+        .nav-spinner {
+          width: 36px; height: 36px;
+          border: 3px solid rgba(109,40,217,0.2);
+          border-top-color: #7c3aed;
+          border-radius: 50%;
+          animation: nav-spin 0.75s linear infinite;
+        }
         @media (prefers-reduced-motion: reduce) {
           .welcome-card { transition: none !important; animation: none !important; }
         }
       `}} />
+
+      {/* Full-screen nav overlay — covers blank flash during route transition */}
+      <div className={`nav-overlay${loadingBtn ? " visible" : ""}`}>
+        <span className="nav-spinner" />
+      </div>
 
       {/* Root: fills exact viewport, no scroll */}
       <div
@@ -258,7 +285,7 @@ export default function WelcomePage() {
         <div
           className="shrink-0 flex items-center justify-center gap-2.5"
           style={{
-            paddingTop: "calc(env(safe-area-inset-top, 0px) + 2rem)",
+            paddingTop: "calc(env(safe-area-inset-top, 0px) + 1.25rem)",
             paddingBottom: "0.75rem",
           }}
         >
@@ -358,7 +385,7 @@ export default function WelcomePage() {
         {/* CTA Buttons — bottom, safe-area aware */}
         <div
           className="shrink-0 px-4 flex flex-col gap-3"
-          style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 9px)" }}
+          style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 5px)" }}
         >
           <button
             onClick={() => handleNav("signup", "/signup")}
