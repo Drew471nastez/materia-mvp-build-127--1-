@@ -87,8 +87,18 @@ function showToast(msg: string, variant: "info" | "ok" | "err") {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+/**
+ * Accept both the Android scheme (storelib://auth/callback) and the iOS
+ * scheme (com.storelib.app://auth/callback).  Supabase dashboard must list
+ * BOTH as allowed redirect URLs:
+ *   storelib://auth/callback
+ *   com.storelib.app://auth/callback
+ */
 function isOAuthCallback(url: string): boolean {
-  return url.startsWith("storelib://auth/callback")
+  return (
+    url.startsWith("storelib://auth/callback") ||
+    url.startsWith("com.storelib.app://auth/callback")
+  )
 }
 
 /**

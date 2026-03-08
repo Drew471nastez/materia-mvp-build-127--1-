@@ -363,31 +363,44 @@ function LoginFormContent() {
       const { Capacitor } = await import("@capacitor/core")
 
       if (Capacitor.isNativePlatform()) {
-        // ── Native (Android) — client-side PKCE flow ─────────────────
+        // ── Native (iOS + Android) — client-side PKCE flow ───────────
         // 1. signInWithOAuth with skipBrowserRedirect stores the PKCE
-        //    code-verifier in Capacitor Preferences (SharedPreferences).
-        // 2. Browser.open() opens the OAuth URL in Chrome Custom Tab.
-        // 3. After OAuth, Supabase redirects to storelib://auth/callback?code=…
-        //    Android intent-filter intercepts → onNewIntent → appUrlOpen.
-        // 4. native-oauth.ts handler calls exchangeCodeForSession(url)
-        //    which reads the code-verifier from Preferences and exchanges
-        //    code + verifier for a session. Session stored in Preferences.
+        //    code-verifier in Capacitor Preferences (SharedPreferences /
+        //    NSUserDefaults).
+        // 2. Browser.open() opens the OAuth URL in SFSafariViewController
+        //    (iOS) or Chrome Custom Tab (Android).
+        // 3. After OAuth, Supabase redirects to the native callback URL:
+        //    iOS:     com.storelib.app://auth/callback?code=…
+        //    Android: storelib://auth/callback?code=…
+        //    The OS intercepts → Capacitor appUrlOpen event fires.
+        // 4. native-oauth.ts handler exchanges the code for a session.
         // 5. Safety nets ensure loading state always clears:
         //    - browserFinished fires if the user dismisses the browser early.
         //    - A 20 s timeout clears loading if nothing else fires first.
         //
-        // IMPORTANT: storelib://auth/callback must be added as a redirect
-        // URL in the Supabase dashboard:
-        //   Auth → URL Configuration → Redirect URLs
+        // IMPORTANT: BOTH URLs must be listed in Supabase dashboard:
+        //   Auth → URL Configuration → Redirect URLs:
+        //     storelib://auth/callback
+        //     com.storelib.app://auth/callback
+
+        // Platform-specific callback URL: iOS uses the bundle-ID scheme so
+        // the OS can route the redirect back into the app via Universal Links /
+        // custom URL scheme. Android uses the legacy storelib:// scheme.
+        const platform = Capacitor.getPlatform() // 'ios' | 'android' | 'web'
+        const nativeCallbackUrl =
+          platform === "ios"
+            ? "com.storelib.app://auth/callback"
+            : "storelib://auth/callback"
+
         const supabase = createClient()
         const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
           provider: "google",
           options: {
-            // Redirect directly to the deep link. Supabase will 302 to
-            // storelib://auth/callback?code=… after Google OAuth completes.
-            // No server bridge page needed — the PKCE code-verifier is in
-            // Capacitor Preferences which survives the Custom Tab round-trip.
-            redirectTo: "storelib://auth/callback",
+            // Supabase will 302 to nativeCallbackUrl?code=… after Google
+            // OAuth completes. PKCE code-verifier is stored in Capacitor
+            // Preferences and survives the SFSafariViewController /
+            // Chrome Custom Tab round-trip.
+            redirectTo: nativeCallbackUrl,
             queryParams: { access_type: "offline", prompt: "consent" },
             skipBrowserRedirect: true,
           },
