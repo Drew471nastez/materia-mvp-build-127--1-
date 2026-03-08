@@ -103,7 +103,7 @@ export default function WelcomePage() {
   } | null>(null)
   const [loadedImages, setLoadedImages] = useState<Set<number>>(new Set())
   // carouselScale: derived from container height via ResizeObserver
-  const [carouselScale, setCarouselScale] = useState(0.748)
+  const [carouselScale, setCarouselScale] = useState(0.65)
 
   const autoplayRef   = useRef<ReturnType<typeof setInterval> | null>(null)
   const orderRef      = useRef(cardOrder)
@@ -119,7 +119,7 @@ export default function WelcomePage() {
     if (!el) return
     const obs = new ResizeObserver(([entry]) => {
       const h = entry.contentRect.height
-      if (h > 0) setCarouselScale(Math.min((h / CANVAS_H) * 0.833, 0.978))
+      if (h > 0) setCarouselScale(Math.min((h / CANVAS_H) * 0.73, 0.86))
     })
     obs.observe(el)
     return () => obs.disconnect()
@@ -292,13 +292,13 @@ export default function WelcomePage() {
           <img
             src={LOGO_SRC}
             alt="Storelib"
-            width={46}
-            height={46}
-            style={{ width: 46, height: 46 }}
+            width={39}
+            height={39}
+            style={{ width: 39, height: 39 }}
           />
           <span
             className="font-bold tracking-tight text-neutral-900"
-            style={{ fontSize: "clamp(22px, 6.5vw, 30px)" }}
+            style={{ fontSize: "clamp(19px, 5.5vw, 26px)" }}
           >
             Storelib
           </span>
@@ -315,7 +315,7 @@ export default function WelcomePage() {
               left: "50%",
               top: 0,
               transformOrigin: "top center",
-              transform: `translateX(-50%) scale(${carouselScale})`,
+              transform: `translateX(-50%) translateY(5%) scale(${carouselScale})`,
             }}
           >
             {IMAGES.map((src, imageIdx) => {
@@ -369,7 +369,7 @@ export default function WelcomePage() {
         </div>
 
         {/* Typing text — centered below carousel */}
-        <div className="shrink-0 px-4 py-3 flex items-center justify-center">
+        <div className="shrink-0 px-4 py-1 flex items-center justify-center">
           <p
             className="font-bold text-neutral-900 text-center leading-tight"
             style={{ fontSize: "clamp(21px, 5vw, 28px)", minHeight: "2em" }}
