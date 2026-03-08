@@ -37,7 +37,7 @@ import { createPortal } from "react-dom"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { NotificationsModal, NotificationBadge } from "./notifications-modal"
 import { useLanguage } from "@/lib/i18n"
-import { isNativeApp, openExternal } from "@/lib/native-bridge"
+import { isNativeApp, nativeLogOut, openExternal } from "@/lib/native-bridge"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 
 // Progress circle component for setup widget
@@ -153,7 +153,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     setMobileMenuOpen(false)
     setProfileDropdownOpen(false)
     if (isNativePlatform()) {
-      window.location.replace("/welcome")
+      nativeLogOut()
     } else {
       // Hard navigation clears all client-side state so the session is truly
       // gone before the login page renders — router.push() leaves cached

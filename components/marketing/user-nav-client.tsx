@@ -13,6 +13,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Settings, LogOut, Library, LayoutDashboard, Sparkles } from "lucide-react"
 import Link from "next/link"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
+import { nativeLogOut } from "@/lib/native-bridge"
 import { useRouter } from "next/navigation"
 import type { User as SupabaseUser } from "@supabase/supabase-js"
 
@@ -35,7 +36,7 @@ export function UserNavClient({ user, profile, isCreator }: UserNavClientProps) 
     const supabase = createClient()
     await supabase.auth.signOut()
     if (isNativePlatform()) {
-      window.location.replace("/welcome")
+      nativeLogOut()
     } else {
       router.push("/login")
       router.refresh()

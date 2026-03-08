@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
+import { nativeLogOut } from "@/lib/native-bridge"
 
 interface BuyerSettingsProps {
   userId: string
@@ -125,7 +126,7 @@ export function BuyerSettings({ userId, email, displayName: initialName, avatarU
     const supabase = createClient()
     await supabase.auth.signOut()
     if (isNativePlatform()) {
-      window.location.replace("/welcome")
+      nativeLogOut()
     } else {
       router.push("/")
     }

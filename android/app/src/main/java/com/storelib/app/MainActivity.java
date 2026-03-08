@@ -151,6 +151,23 @@ public class MainActivity extends BridgeActivity {
                 // Fade out the native overlay — runs on the UI thread.
                 mainHandler.post(() -> hideOverlay());
             }
+
+            /**
+             * Called by the web app after signing out.
+             * Launches WelcomeActivity (fresh session-check + welcome screen)
+             * and removes MainActivity from the back stack so the user cannot
+             * navigate back into the authenticated app.
+             */
+            @JavascriptInterface
+            public void onLogOut() {
+                mainHandler.post(() -> {
+                    Intent intent = new Intent(MainActivity.this, WelcomeActivity.class);
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                    startActivity(intent);
+                    finish();
+                    overridePendingTransition(0, 0);
+                });
+            }
         }, "StorelibNative");
 
         // ── Route to the correct URL ─────────────────────────────────

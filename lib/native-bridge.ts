@@ -83,6 +83,28 @@ export function isNativeApp(): boolean {
   return /StorelibApp|Capacitor/.test(ua) || (/wv/.test(ua) && /Android/.test(ua))
 }
 
+// ── Log-out ──────────────────────────────────────────────────────────────────
+
+/**
+ * Signal the native shell to end the session and return to the welcome screen.
+ *
+ * On Android (Capacitor): calls StorelibNative.onLogOut() which starts
+ * WelcomeActivity and finishes MainActivity — the user sees the native
+ * welcome HTML file immediately with no white flash.
+ *
+ * Fallback (browser / old APK without the bridge method): hard-navigates to
+ * /welcome so the Next.js welcome page is shown instead.
+ */
+export function nativeLogOut(): void {
+  if (typeof window === "undefined") return
+  const br = (window as any).StorelibNative
+  if (typeof br?.onLogOut === "function") {
+    try { br.onLogOut() } catch { /* ignore */ }
+  } else {
+    window.location.replace("/welcome")
+  }
+}
+
 // ── External link handling ──────────────────────────────────────────────────
 
 /**

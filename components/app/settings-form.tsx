@@ -5,6 +5,7 @@ import type React from "react"
 import { useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
+import { nativeLogOut } from "@/lib/native-bridge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -173,7 +174,7 @@ export function SettingsForm({ profile, creator }: SettingsFormProps) {
     const supabase = createClient()
     await supabase.auth.signOut()
     if (isNativePlatform()) {
-      window.location.replace("/welcome")
+      nativeLogOut()
     } else {
       router.push("/")
     }

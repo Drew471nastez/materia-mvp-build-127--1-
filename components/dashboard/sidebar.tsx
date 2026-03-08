@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { useState, useEffect, useCallback } from "react"
-import { isNativeApp, openExternal } from "@/lib/native-bridge"
+import { isNativeApp, nativeLogOut, openExternal } from "@/lib/native-bridge"
 
 const LOGO_URL = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg"
 
@@ -57,7 +57,7 @@ export function DashboardSidebar() {
     await supabase.auth.signOut()
     setMobileMenuOpen(false)
     if (isNativePlatform()) {
-      window.location.replace("/welcome")
+      nativeLogOut()
     } else {
       router.push("/")
     }

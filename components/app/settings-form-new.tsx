@@ -4,6 +4,7 @@ import type React from "react"
 import { useState, useRef, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
+import { nativeLogOut } from "@/lib/native-bridge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -1596,7 +1597,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
     const supabase = createClient()
     await supabase.auth.signOut()
     if (isNativePlatform()) {
-      window.location.replace("/welcome")
+      nativeLogOut()
     } else {
       router.push("/")
     }
@@ -1608,7 +1609,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
       const supabase = createClient()
       await supabase.auth.signOut({ scope: 'global' })
       if (isNativePlatform()) {
-        window.location.replace("/welcome")
+        nativeLogOut()
       } else {
         router.push("/")
       }
@@ -1684,7 +1685,7 @@ export function SettingsFormNew({ profile, creator, storeBuilderAvatarUrl, onepa
         const supabase = createClient()
         await supabase.auth.signOut()
         if (isNativePlatform()) {
-          window.location.replace("/welcome")
+          nativeLogOut()
         } else {
           router.push("/")
         }
