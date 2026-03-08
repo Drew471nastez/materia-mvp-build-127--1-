@@ -242,7 +242,7 @@ export default function WelcomePage() {
         }
         .nav-overlay {
           position: fixed; inset: 0; z-index: 9999;
-          background: #f0f0f0;
+          background: #F3F4F6;
           display: flex; align-items: center; justify-content: center;
           opacity: 0;
           transition: opacity 0.18s ease;
@@ -274,7 +274,7 @@ export default function WelcomePage() {
         ref={sectionRef}
         className="flex flex-col overflow-hidden select-none"
         style={{
-          backgroundColor: "#f0f0f0",
+          backgroundColor: "#F3F4F6",
           height: "100dvh",
           // fallback for browsers that don't support dvh
           minHeight: "100vh",
@@ -313,9 +313,9 @@ export default function WelcomePage() {
               width: CANVAS_W,
               height: CANVAS_H,
               left: "50%",
-              top: 0,
-              transformOrigin: "top center",
-              transform: `translateX(-50%) translateY(5%) scale(${carouselScale})`,
+              top: "50%",
+              transformOrigin: "center center",
+              transform: `translate(-50%, -46%) scale(${carouselScale})`,
             }}
           >
             {IMAGES.map((src, imageIdx) => {

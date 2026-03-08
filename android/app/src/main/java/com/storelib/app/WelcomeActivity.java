@@ -50,7 +50,7 @@ public class WelcomeActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // ── Edge-to-edge dark chrome ────────────────────────────────
+        // ── Edge-to-edge light chrome (matches MainActivity #F3F4F6 splash) ──
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         getWindow().setStatusBarColor(Color.TRANSPARENT);
         getWindow().setNavigationBarColor(Color.TRANSPARENT);
@@ -58,14 +58,14 @@ public class WelcomeActivity extends AppCompatActivity {
 
         WindowInsetsControllerCompat ctrl =
                 WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
-        ctrl.setAppearanceLightStatusBars(false);      // white icons
-        ctrl.setAppearanceLightNavigationBars(false);
+        ctrl.setAppearanceLightStatusBars(true);       // dark icons on light bg
+        ctrl.setAppearanceLightNavigationBars(true);
 
         setContentView(R.layout.activity_welcome);
 
         // ── Prepare the hero WebView (hidden until needed) ──────────
         heroWebView = findViewById(R.id.heroWebView);
-        heroWebView.setBackgroundColor(Color.TRANSPARENT);
+        heroWebView.setBackgroundColor(0xFFF3F4F6); // matches window background — no dark flash
         heroWebView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
         heroWebView.getSettings().setJavaScriptEnabled(true);
         heroWebView.getSettings().setDomStorageEnabled(true);

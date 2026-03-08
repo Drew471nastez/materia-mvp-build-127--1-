@@ -9,7 +9,7 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{
   width:100%;height:100%;overflow:hidden;
-  background:#f0f0f0;
+  background:#F3F4F6;
   font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
   color:#171717;
   -webkit-font-smoothing:antialiased;
@@ -17,15 +17,15 @@ html,body{
   user-select:none;-webkit-user-select:none
 }
 
-/* ── Root flex column — fills full viewport ─────────────────────── */
+/* ── Root flex column ───────────────────────────────────────────── */
 .root{
   display:flex;flex-direction:column;
   height:100vh;height:100dvh;
   overflow:hidden;
-  background:#f0f0f0
+  background:#F3F4F6
 }
 
-/* ── Logo row ──────────────────────────────────────────────────── */
+/* ── Logo ──────────────────────────────────────────────────────── */
 .logo-row{
   flex-shrink:0;
   display:flex;align-items:center;justify-content:center;gap:10px;
@@ -43,25 +43,26 @@ html,body{
   flex:1;min-height:0;
   position:relative;overflow:hidden
 }
-/* Canvas: 1100×375 positioned top-center, scaled to fit */
+/* Canvas: 1100×375, centered via JS transform */
 .collage-inner{
   position:absolute;
   width:1100px;height:375px;
-  left:50%;top:0;
-  transform-origin:top center;
-  /* JS sets the full transform: translateX(-50%) translateY(5%) scale(s) */
+  left:50%;top:50%;
+  transform-origin:center center
+  /* JS sets: transform: translate(-50%, -46%) scale(s) */
 }
-/* Individual cards */
 .collage-card{
   position:absolute;border-radius:14px;overflow:hidden;
   will-change:transform,opacity;backface-visibility:hidden;
   box-shadow:0 2px 8px rgba(0,0,0,.10)
 }
-.collage-card img{width:100%;height:100%;object-fit:cover;display:block;
-  transition:opacity .7s ease}
+.collage-card img{
+  width:100%;height:100%;object-fit:cover;display:block;
+  transition:opacity .7s ease
+}
 .collage-card img.hidden-img{opacity:0}
 
-/* Shimmer skeleton */
+/* Shimmer */
 @keyframes shimmer{
   0%{background-position:-200% 0}
   100%{background-position:200% 0}
@@ -95,7 +96,7 @@ html,body{
 @keyframes cursorPulse{0%,100%{opacity:1}50%{opacity:.5}}
 .cursor{animation:cursorPulse 2s cubic-bezier(.4,0,.6,1) infinite}
 
-/* ── CTA Buttons ───────────────────────────────────────────────── */
+/* ── Buttons ───────────────────────────────────────────────────── */
 .btn-row{
   flex-shrink:0;
   padding:0 16px;
@@ -117,7 +118,7 @@ html,body{
 .btn:disabled{cursor:not-allowed}
 .btn-other-dim{opacity:.5}
 
-/* Loading spinner inside button */
+/* Spinner inside button */
 @keyframes btn-spin{to{transform:rotate(360deg)}}
 .btn-spinner{
   display:inline-block;
@@ -129,10 +130,10 @@ html,body{
   flex-shrink:0
 }
 
-/* Full-screen nav overlay (covers flash when MainActivity opens) */
+/* Full-screen nav overlay — #F3F4F6 matches MainActivity exactly */
 .nav-overlay{
   position:fixed;inset:0;z-index:9999;
-  background:#f0f0f0;
+  background:#F3F4F6;
   display:flex;align-items:center;justify-content:center;
   opacity:0;pointer-events:none;
   transition:opacity .18s ease
@@ -150,7 +151,7 @@ html,body{
 </head>
 <body>
 
-<!-- Nav overlay (shows while Android opens MainActivity) -->
+<!-- Nav overlay: shows while Android opens MainActivity, exact same #F3F4F6 color -->
 <div class="nav-overlay" id="navOverlay">
   <span class="nav-spinner"></span>
 </div>
@@ -165,7 +166,7 @@ html,body{
     <span class="logo-text">Storelib</span>
   </div>
 
-  <!-- Collage -->
+  <!-- Collage: canvas is centered vertically within this flex-1 zone -->
   <div class="collage-zone">
     <div class="collage-inner" id="collageInner"></div>
   </div>
@@ -197,17 +198,16 @@ var PHRASES=[
 (function(){
   var el=document.getElementById("typingTarget");
   var pi=0,ci=0,del=false;
-  var TYPING=70,DELETING=35,PAUSE=2000;
   function tick(){
     var p=PHRASES[pi];
     if(!del){
       ci++;el.textContent=p.substring(0,ci);
-      if(ci===p.length){del=true;setTimeout(tick,PAUSE);return}
-      setTimeout(tick,TYPING);
+      if(ci===p.length){del=true;setTimeout(tick,2000);return}
+      setTimeout(tick,70);
     } else {
       ci--;el.textContent=p.substring(0,ci);
       if(ci===0){del=false;pi=(pi+1)%PHRASES.length;setTimeout(tick,300);return}
-      setTimeout(tick,DELETING);
+      setTimeout(tick,35);
     }
   }
   setTimeout(tick,600);
@@ -228,14 +228,15 @@ var SLOTS=[
 var CANVAS_W=1100,CANVAS_H=375,TRANSITION_MS=1500,AUTOPLAY_MS=3800;
 
 var root=document.getElementById("collageInner");
-var cardEls=[],shimmerEls=[];
+var cardEls=[];
 
-/* Scale + shift collage to match Next.js approach */
+/* Scale collage to fit zone + center vertically with slight downward nudge */
 function scaleCollage(){
   var zone=root.parentElement;
   var h=zone.offsetHeight;
   var s=Math.min((h/CANVAS_H)*0.73, 0.86);
-  root.style.transform="translateX(-50%) translateY(5%) scale("+s+")";
+  /* translate(-50%, -46%): centered but ~15px below true center */
+  root.style.transform="translate(-50%, -46%) scale("+s+")";
 }
 scaleCollage();
 window.addEventListener("resize",scaleCollage);
@@ -251,15 +252,14 @@ for(var i=0;i<5;i++){
   img.src=BASE+"/"+IMG_NAMES[i]+"?width=280&height=350&resize=cover&quality=55";
   img.alt="";
   img.loading=(i>=1&&i<=3)?"eager":"lazy";
-  (function(w,sh,im){
+  (function(sh,im){
     im.onload=function(){im.classList.remove("hidden-img");sh.style.opacity="0"};
     im.onerror=function(){sh.style.opacity="0"};
-  })(wrap,shim,img);
+  })(shim,img);
   wrap.appendChild(shim);
   wrap.appendChild(img);
   root.appendChild(wrap);
   cardEls.push(wrap);
-  shimmerEls.push(shim);
 }
 
 function applySlot(el,s){
@@ -303,7 +303,7 @@ function startRotation(){
 setInterval(startRotation,AUTOPLAY_MS);
 
 /* ─── Button loading + Android bridge ───────────────────────────── */
-var loading=null;
+var loading=false;
 var overlay=document.getElementById("navOverlay");
 var btnS=document.getElementById("btnSignup");
 var btnL=document.getElementById("btnLogin");
@@ -315,16 +315,18 @@ function showSpinner(activeBtn,otherBtn){
   activeBtn.disabled=true;
   otherBtn.disabled=true;
   otherBtn.classList.add("btn-other-dim");
+  /* Show overlay — #F3F4F6 matches MainActivity exactly, zero visible flash */
   overlay.classList.add("visible");
   return true;
 }
 
+/* 220ms delay: overlay transition (180ms) + buffer = fully opaque before bridge call */
 btnS.addEventListener("click",function(){
   if(!showSpinner(btnS,btnL))return;
   setTimeout(function(){
     if(window.Android) Android.onSignUp();
     else location.href="https://storelib.com/signup";
-  },80);
+  },220);
 });
 
 btnL.addEventListener("click",function(){
@@ -332,7 +334,7 @@ btnL.addEventListener("click",function(){
   setTimeout(function(){
     if(window.Android) Android.onLogIn();
     else location.href="https://storelib.com/login";
-  },80);
+  },220);
 });
 </script>
 </body>
