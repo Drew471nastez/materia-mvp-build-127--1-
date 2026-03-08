@@ -369,10 +369,10 @@ export default function WelcomePage() {
         </div>
 
         {/* Typing text — centered below carousel */}
-        <div className="shrink-0 px-4 py-1 flex items-center justify-center">
+        <div className="shrink-0 px-4 pb-1 flex items-center justify-center">
           <p
             className="font-bold text-neutral-900 text-center leading-tight"
-            style={{ fontSize: "clamp(21px, 5vw, 28px)", minHeight: "2em" }}
+            style={{ fontSize: "clamp(23px, 5vw, 30px)", minHeight: "2em" }}
           >
             {typedText}
             <span
@@ -385,7 +385,7 @@ export default function WelcomePage() {
         {/* CTA Buttons — bottom, safe-area aware */}
         <div
           className="shrink-0 px-4 flex flex-col gap-3"
-          style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 5px)" }}
+          style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 7px)" }}
         >
           <button
             onClick={() => handleNav("signup", "/signup")}
