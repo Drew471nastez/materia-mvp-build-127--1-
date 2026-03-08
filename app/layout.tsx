@@ -9,6 +9,7 @@ import { NativeCookieKillSwitch } from "@/components/native-cookie-killswitch"
 import { SWRProvider } from "@/lib/swr-config"
 import { PrefetchLinks } from "@/components/shared/prefetch-links"
 import NativeOAuthBridge from "@/app/NativeOAuthBridge"
+import { NativeStartupRouter } from "@/components/native-startup-router"
 
 // Primary font — loaded eagerly with display swap for fast text rendering
 const inter = Inter({
@@ -134,6 +135,7 @@ export default function RootLayout({
         <BodyScrollRestorer />
         <NativeCookieKillSwitch />
         <CookieConsentBanner />
+        <NativeStartupRouter />
         <NativeOAuthBridge />
       </body>
     </html>
