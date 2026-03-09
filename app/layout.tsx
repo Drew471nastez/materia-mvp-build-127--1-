@@ -131,15 +131,6 @@ export default function RootLayout({
   return (
     <html lang="en" className="light" style={{ colorScheme: "light" }}>
       <body className={`${inter.variable} ${plusJakartaSans.variable} ${spaceGrotesk.variable} ${dmSans.variable} ${poppins.variable} ${montserrat.variable} font-sans antialiased bg-background text-foreground`}>
-        {/* Native app loading screen — hidden on web, shown instantly in Capacitor iOS via sync UA check */}
-        <div id="native-loading-screen" style={{position:"fixed",inset:0,background:"#f2f2f2",display:"none",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:"16px",zIndex:99999}}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/render/image/public/platform%20images/5135%20(1).svg?width=80&quality=80" width="40" height="40" alt="" />
-          <div style={{width:"24px",height:"24px",border:"2.5px solid #e0e0e0",borderTopColor:"#7c3aed",borderRadius:"50%",animation:"nlsSpin .7s linear infinite"}} />
-          <style>{`@keyframes nlsSpin{to{transform:rotate(360deg)}}`}</style>
-        </div>
-        {/* Sync script: runs before first paint — shows overlay only in Capacitor iOS, hides on load */}
-        <script dangerouslySetInnerHTML={{ __html: `(function(){if(navigator.userAgent.indexOf('StorelibCapacitor')!==-1){var e=document.getElementById('native-loading-screen');if(e)e.style.display='flex';}function h(){var e=document.getElementById('native-loading-screen');if(e){e.style.transition='opacity 0.2s';e.style.opacity='0';setTimeout(function(){e.remove();},200);}}if(document.readyState==='complete')h();else window.addEventListener('load',h);})();` }} />
         <SWRProvider><LocaleProvider>{children}</LocaleProvider></SWRProvider>
         <PrefetchLinks />
         <BodyScrollRestorer />

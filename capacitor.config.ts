@@ -33,7 +33,6 @@ const config: CapacitorConfig = {
     contentInset: 'automatic',
     scrollEnabled: true,
     allowsLinkPreview: false,
-    appendUserAgent: 'StorelibCapacitor',
   },
   android: {
     allowMixedContent: false,
