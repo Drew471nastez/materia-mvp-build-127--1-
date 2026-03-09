@@ -182,7 +182,9 @@ export default async function AppLayout({
         <main className="h-svh pt-[calc(68px_+_env(safe-area-inset-top,_0px))] md:pt-[calc(58px+env(safe-area-inset-top,_0px))] md:pl-[220px] bg-white rounded-t-[20px] md:rounded-none overflow-hidden app-main-content">
           {/* pb ensures content at scroll-bottom is never hidden under the iOS home indicator
               or Android gesture-nav bar. env() = 0 in browsers so this is a no-op there. */}
-          <div className="h-[calc(100svh_-_68px_-_env(safe-area-inset-top,_0px))] md:h-[calc(100svh-58px-env(safe-area-inset-top,_0px))] overflow-y-auto app-content-scroll pb-[env(safe-area-inset-bottom,_0px)]">{children}</div>
+          {/* pb-[env(safe-area-inset-bottom)] removed — globals.css already applies it
+              via html.capacitor .app-content-scroll to avoid double padding on iOS */}
+          <div className="h-[calc(100svh_-_68px_-_env(safe-area-inset-top,_0px))] md:h-[calc(100svh-58px-env(safe-area-inset-top,_0px))] overflow-y-auto app-content-scroll">{children}</div>
         </main>
         <Toaster />
       </div>

@@ -71,9 +71,6 @@ export function NativeStartupRouter() {
         }
 
         // Native app — check for an existing Supabase session.
-        // On Capacitor, sessions are stored in Capacitor Preferences
-        // (iOS: NSUserDefaults, Android: SharedPreferences) so getSession()
-        // is synchronous-like and very fast (no network needed).
         const supabase = createClient()
         const {
           data: { session },
@@ -82,8 +79,16 @@ export function NativeStartupRouter() {
         if (session) {
           // Already authenticated → go straight to the dashboard.
           window.location.replace("/app")
-        } else {
-          // Not authenticated → show the native welcome screen.
+          return
+        }
+
+        // getSession() returned null — the stored access token may have expired
+        // while the app was in the background. Try a silent token refresh: if a
+        // valid refresh token exists, this succeeds immediately (no login screen).
+        try {
+          const { data: { session: refreshed } } = await supabase.auth.refreshSession()
+          window.location.replace(refreshed ? "/app" : "/welcome")
+        } catch {
           window.location.replace("/welcome")
         }
       } catch {
