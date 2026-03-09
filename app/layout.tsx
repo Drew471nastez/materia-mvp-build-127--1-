@@ -129,6 +129,20 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="light" style={{ colorScheme: "light" }}>
+      <head>
+        {/* Synchronous native-app intercept — runs before React hydrates.
+            The current shipped iOS app loads "/" (no "Capacitor" in UA), so
+            proxy.ts can't catch it server-side. This script detects the
+            Capacitor JS bridge, hides the document instantly, and redirects
+            to /native-start before a single pixel of the homepage paints.
+            Once the next native build ships (server.url → /native-start +
+            appendUserAgent: 'Capacitor'), this script becomes a no-op. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{if(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()&&window.location.pathname==='/'){document.documentElement.style.visibility='hidden';window.location.replace('/native-start')}}catch(e){}`,
+          }}
+        />
+      </head>
       <body className={`${inter.variable} ${plusJakartaSans.variable} ${spaceGrotesk.variable} ${dmSans.variable} ${poppins.variable} ${montserrat.variable} font-sans antialiased bg-background text-foreground`}>
         <SWRProvider><LocaleProvider>{children}</LocaleProvider></SWRProvider>
         <PrefetchLinks />

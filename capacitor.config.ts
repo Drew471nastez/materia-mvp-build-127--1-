@@ -26,8 +26,13 @@ const config: CapacitorConfig = {
   appName: 'Storelib',
   webDir: 'out',
   server: {
-    url: 'https://storelib.com',
+    url: 'https://storelib.com/native-start',
     cleartext: false,
+    // Append "Capacitor" to the WKWebView User-Agent header so the
+    // server (proxy.ts) can detect native requests and redirect "/" → "/native-start"
+    // as a safety net. Without this, the default WKWebView UA is a plain
+    // Safari-like string with no way to distinguish native from browser.
+    appendUserAgent: 'Capacitor',
   },
   ios: {
     contentInset: 'automatic',
@@ -36,6 +41,14 @@ const config: CapacitorConfig = {
   },
   android: {
     allowMixedContent: false,
+  },
+  plugins: {
+    SplashScreen: {
+      // Do NOT auto-hide the splash — we call SplashScreen.hide() manually
+      // from the final destination page (/app, /library, /welcome) after
+      // the first stable paint, so the user never sees a loading flash.
+      launchAutoHide: false,
+    },
   },
 };
 
