@@ -54,6 +54,15 @@ html.capacitor {
   --sab: env(safe-area-inset-bottom);
 }
 
+/* Capacitor: disable iOS rubber-band overscroll on all pages.
+   Without this, bouncing at the top/bottom reveals the body background
+   (white) behind dark headers/footers — producing a jarring flash.
+   Native apps don't have browser-style bounce, so this feels correct. */
+html.capacitor,
+html.capacitor body {
+  overscroll-behavior: none;
+}
+
 .dark {
   --background: oklch(0.1 0 0);
   --foreground: oklch(0.98 0 0);

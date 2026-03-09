@@ -90,7 +90,15 @@ export function MarketingFooter() {
   }
 
   return (
-    <footer className="bg-[#0f0f0f] text-white">
+    <footer
+      className="bg-[#0f0f0f] text-white"
+      style={{
+        /* Extend dark bg into body's safe-area-inset-bottom padding so
+           there is no white strip above the iOS home indicator */
+        marginBottom: 'calc(-1 * env(safe-area-inset-bottom, 0px))',
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+      }}
+    >
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 pt-12 md:pt-16 pb-6 md:pb-8">
         {/* Main Footer Content */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-8 lg:gap-12">
