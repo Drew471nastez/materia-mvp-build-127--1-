@@ -11,6 +11,7 @@ import { PrefetchLinks } from "@/components/shared/prefetch-links"
 import NativeOAuthBridge from "@/app/NativeOAuthBridge"
 import { NativeStartupRouter } from "@/components/native-startup-router"
 import { NativeAuthHandler } from "@/components/native-auth-handler"
+import { SplashHide } from "@/components/splash-hide"
 
 // Primary font — loaded eagerly with display swap for fast text rendering
 const inter = Inter({
@@ -131,6 +132,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="light" style={{ colorScheme: "light" }}>
       <body className={`${inter.variable} ${plusJakartaSans.variable} ${spaceGrotesk.variable} ${dmSans.variable} ${poppins.variable} ${montserrat.variable} font-sans antialiased bg-background text-foreground`}>
+        <SplashHide />
         <SWRProvider><LocaleProvider>{children}</LocaleProvider></SWRProvider>
         <PrefetchLinks />
         <BodyScrollRestorer />
