@@ -58,7 +58,20 @@ const capacitorStorage = {
   async getItem(key: string): Promise<string | null> {
     const { Preferences } = await import("@capacitor/preferences")
     const { value } = await Preferences.get({ key })
-    return value
+    if (value !== null) return value
+    // Migration: check localStorage for sessions stored by older app versions
+    // (before the Preferences adapter was introduced). One-time migration to Preferences.
+    try {
+      if (typeof localStorage !== "undefined") {
+        const local = localStorage.getItem(key)
+        if (local !== null) {
+          await Preferences.set({ key, value: local })
+          localStorage.removeItem(key)
+          return local
+        }
+      }
+    } catch { /* localStorage unavailable or Preferences write failed */ }
+    return null
   },
   async setItem(key: string, value: string): Promise<void> {
     const { Preferences } = await import("@capacitor/preferences")

@@ -111,11 +111,19 @@ export function NativeStartupRouter() {
         // will sync cookies and refresh the token once the destination loads.
         const { Preferences } = await import("@capacitor/preferences")
         const projectRef = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!).hostname.split(".")[0]
-        const { value: rawSession } = await Preferences.get({
-          key: `sb-${projectRef}-auth-token`,
-        })
+        const authKey = `sb-${projectRef}-auth-token`
+        const { value: rawSession } = await Preferences.get({ key: authKey })
 
-        if (rawSession) {
+        // Also check localStorage — sessions from app versions before the
+        // Preferences storage adapter was added live here.
+        let rawLocalSession: string | null = null
+        try {
+          if (typeof localStorage !== "undefined") {
+            rawLocalSession = localStorage.getItem(authKey)
+          }
+        } catch { /* ignore */ }
+
+        if (rawSession || rawLocalSession) {
           // Session data present — user was logged in. Use cached home if
           // available, otherwise fall back to /app (safe for any account type;
           // NativeAuthGate on /app handles further routing if needed).
