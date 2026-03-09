@@ -57,10 +57,13 @@ html.capacitor {
 /* Capacitor: disable iOS rubber-band overscroll on all pages.
    Without this, bouncing at the top/bottom reveals the body background
    (white) behind dark headers/footers — producing a jarring flash.
-   Native apps don't have browser-style bounce, so this feels correct. */
+   Native apps don't have browser-style bounce, so this feels correct.
+   NOTE: iOS WKWebView ignores overscroll-behavior, so we also force
+   background-color to black so any bounce-reveal is dark, not white. */
 html.capacitor,
 html.capacitor body {
   overscroll-behavior: none;
+  background-color: #000000 !important;
 }
 
 .dark {

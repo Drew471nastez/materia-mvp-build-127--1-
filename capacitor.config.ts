@@ -35,12 +35,14 @@ const config: CapacitorConfig = {
     appendUserAgent: 'Capacitor',
   },
   ios: {
-    contentInset: 'automatic',
+    contentInset: 'never',
     scrollEnabled: true,
     allowsLinkPreview: false,
+    backgroundColor: '#000000',
   },
   android: {
     allowMixedContent: false,
+    backgroundColor: '#000000',
   },
   plugins: {
     SplashScreen: {
