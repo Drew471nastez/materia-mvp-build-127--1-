@@ -420,8 +420,10 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Auth routing for main domain only (no subdomain / custom domain rewrites)
-  if (!username) {
+  // Auth routing — only for the Capacitor iOS app (identified by UA suffix)
+  const isCapacitorApp = (request.headers.get("user-agent") ?? "").includes("StorelibCapacitor")
+
+  if (!username && isCapacitorApp) {
     const { pathname: p } = request.nextUrl
 
     // / → /welcome (unauthenticated) or cached home (authenticated)
