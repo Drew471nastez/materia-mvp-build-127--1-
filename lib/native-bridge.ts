@@ -86,23 +86,26 @@ export function isNativeApp(): boolean {
 // ── Log-out ──────────────────────────────────────────────────────────────────
 
 /**
- * Navigate to the app root after logout.
+ * Signal the native shell to end the session and return to the welcome screen.
  *
- * Native (iOS + Android):
- *   Replaces location with "/" — the local Capacitor bundled entry page
- *   (capacitor://localhost/). NativeStartupRouter runs there, detects no
- *   session, and routes to /welcome. Nothing opens Safari.
+ * Android:
+ *   Calls StorelibNative.onLogOut() → launches WelcomeActivity which shows
+ *   the local native welcome HTML (android/app/src/main/assets/welcome/index.html).
+ *   Zero flash — WelcomeActivity uses the same #f2f2f2 background.
+ *
+ * iOS (Capacitor WebView, no StorelibNative bridge):
+ *   Navigates directly to /welcome — the bundled Next.js welcome page at
+ *   capacitor://localhost/welcome. Skips "/" entirely so the marketing page
+ *   never appears even for a frame.
  *
  * Web browser:
- *   Replaces location with "/welcome" — the normal post-logout destination.
+ *   Same /welcome redirect as iOS.
  */
 export function nativeLogOut(): void {
   if (typeof window === "undefined") return
-  const cap = (window as any).Capacitor
-  const isNative =
-    typeof cap?.isNativePlatform === "function" && cap.isNativePlatform() === true
-  if (isNative) {
-    window.location.replace("/")
+  const br = (window as any).StorelibNative
+  if (typeof br?.onLogOut === "function") {
+    try { br.onLogOut() } catch { /* ignore */ }
   } else {
     window.location.replace("/welcome")
   }

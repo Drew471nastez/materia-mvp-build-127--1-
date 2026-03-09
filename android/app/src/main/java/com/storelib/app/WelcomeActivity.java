@@ -65,7 +65,7 @@ public class WelcomeActivity extends AppCompatActivity {
 
         // ── Prepare the hero WebView (hidden until needed) ──────────
         heroWebView = findViewById(R.id.heroWebView);
-        heroWebView.setBackgroundColor(0xFFF3F4F6); // matches window background — no dark flash
+        heroWebView.setBackgroundColor(0xFFF2F2F2); // matches window background — no dark flash
         heroWebView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
         heroWebView.getSettings().setJavaScriptEnabled(true);
         heroWebView.getSettings().setDomStorageEnabled(true);
