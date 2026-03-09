@@ -114,7 +114,7 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: "#ffffff",
+  themeColor: "#000000",
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
@@ -131,15 +131,16 @@ export default function RootLayout({
     <html lang="en" className="light" style={{ colorScheme: "light" }}>
       <head>
         {/* Synchronous native-app intercept — runs before React hydrates.
-            The current shipped iOS app loads "/" (no "Capacitor" in UA), so
-            proxy.ts can't catch it server-side. This script detects the
-            Capacitor JS bridge, hides the document instantly, and redirects
-            to /native-start before a single pixel of the homepage paints.
-            Once the next native build ships (server.url → /native-start +
-            appendUserAgent: 'Capacitor'), this script becomes a no-op. */}
+            1. If running inside Capacitor, immediately add the "capacitor" class
+               to <html> and force background-color black on both <html> and <body>
+               so the very first paint never shows a white flash or white bounce-
+               reveal behind the dark header/footer. The NativeCookieKillSwitch
+               useEffect also adds the class, but that fires too late (after paint).
+            2. Legacy "/" redirect: the old shipped iOS app loads "/" instead of
+               /native-start; hide + redirect before any pixel paints. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{if(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()&&window.location.pathname==='/'){document.documentElement.style.visibility='hidden';window.location.replace('/native-start')}}catch(e){}`,
+            __html: `try{if(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()){var h=document.documentElement;h.classList.add('capacitor');h.style.backgroundColor='#000000';document.body?document.body.style.backgroundColor='#000000':document.addEventListener('DOMContentLoaded',function(){document.body.style.backgroundColor='#000000'});if(window.location.pathname==='/'){h.style.visibility='hidden';window.location.replace('/native-start')}}}catch(e){}`,
           }}
         />
       </head>
