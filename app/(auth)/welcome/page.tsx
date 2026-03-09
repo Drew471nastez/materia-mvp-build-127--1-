@@ -23,28 +23,20 @@ export default function WelcomePage() {
   const charIndex   = useRef(0)
   const isDeleting  = useRef(false)
 
+  // ── Native startup: check session, then decide whether to hide splash ────────
+  // On native, /welcome is only the final destination for logged-out users.
+  // If a session exists, redirect silently — the destination page hides the splash.
+  // Only hide the splash here once we've confirmed there is no session.
   useEffect(() => {
-    async function hideSplash() {
-      try {
-        if ((window as any).Capacitor?.isNativePlatform?.()) {
-          const { SplashScreen } = await import("@capacitor/splash-screen")
-          await SplashScreen.hide({ fadeOutDuration: 200 })
-        }
-      } catch {}
-    }
-    hideSplash()
-  }, [])
-
-  // ── Session guard: if the native user is already logged in, skip this page ─
-  // This is a safety net for cases where NativeStartupRouter was bypassed
-  // (e.g. WebView restored at /welcome, OS killed the app during routing, etc.)
-  useEffect(() => {
-    // Fast synchronous check — reads localStorage before any async work.
-    try {
+    async function initNativeRoute() {
       const isNative =
         typeof (window as any).Capacitor?.isNativePlatform === "function" &&
         (window as any).Capacitor.isNativePlatform() === true
-      if (isNative) {
+
+      if (!isNative) return
+
+      // Layer 1: fast synchronous localStorage check
+      try {
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
         if (supabaseUrl) {
           const ref = new URL(supabaseUrl).hostname.split(".")[0]
@@ -52,19 +44,13 @@ export default function WelcomePage() {
           if (session) {
             const home = localStorage.getItem("sb-native-home") || "/app"
             window.location.replace(home)
-            return
+            return // splash stays — destination page will hide it
           }
         }
-      }
-    } catch { /* ignore */ }
+      } catch { /* ignore */ }
 
-    // Async fallback: check Supabase SDK + raw Preferences for edge cases
-    // (expired token that was in Preferences but not yet mirrored to localStorage)
-    async function redirectIfAuthenticated() {
+      // Layer 2: Supabase SDK session
       try {
-        const { Capacitor } = await import("@capacitor/core")
-        if (!Capacitor.isNativePlatform()) return
-
         const { createClient } = await import("@/lib/supabase/client")
         const { getCachedNativeHome } = await import("@/lib/native-bridge")
         const supabase = createClient()
@@ -73,10 +59,10 @@ export default function WelcomePage() {
         if (session) {
           const cached = await getCachedNativeHome()
           window.location.replace(cached || "/app")
-          return
+          return // splash stays — destination page will hide it
         }
 
-        // Raw Preferences + localStorage check (token expired + no network)
+        // Layer 3: raw Preferences + localStorage (expired token, no network)
         const { Preferences } = await import("@capacitor/preferences")
         const projectRef = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!).hostname.split(".")[0]
         const authKey    = `sb-${projectRef}-auth-token`
@@ -86,10 +72,17 @@ export default function WelcomePage() {
         if (rawPrefs || rawLocal) {
           const cached = await getCachedNativeHome()
           window.location.replace(cached || "/app")
+          return // splash stays — destination page will hide it
         }
-      } catch { /* non-native or unavailable — stay on /welcome */ }
+      } catch { /* ignore */ }
+
+      // No session found — /welcome IS the final destination, reveal it
+      try {
+        const { SplashScreen } = await import("@capacitor/splash-screen")
+        await SplashScreen.hide({ fadeOutDuration: 200 })
+      } catch { /* ignore */ }
     }
-    redirectIfAuthenticated()
+    initNativeRoute()
   }, [])
 
   // ── Typing animation ──────────────────────────────────────────────────────

@@ -1,5 +1,6 @@
 export default function LibraryLoading() {
   return (
+    <div className="min-h-screen" style={{ background: "#f2f2f2" }}>
     <div className="max-w-5xl mx-auto px-2 sm:px-0 animate-in fade-in-0 duration-300">
       {/* Profile header skeleton */}
       <div className="mb-6 rounded-2xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
@@ -41,6 +42,7 @@ export default function LibraryLoading() {
           </div>
         ))}
       </div>
+    </div>
     </div>
   )
 }

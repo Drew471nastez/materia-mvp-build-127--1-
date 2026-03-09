@@ -4,7 +4,7 @@
 // actual content all look the same during the transition.
 export default function AppDashboardLoading() {
   return (
-    <div className="h-full overflow-y-auto bg-[#f8f9fa] dashboard-scroll-container">
+    <div className="h-full overflow-y-auto dashboard-scroll-container" style={{ background: "#f2f2f2" }}>
       {/* Announcement bar placeholder — same height as the real purple bar */}
       <div className="h-[38px] sm:h-[42px] bg-[#8b5cf6]" />
 
