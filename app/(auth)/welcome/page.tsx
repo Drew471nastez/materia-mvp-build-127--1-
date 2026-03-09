@@ -23,6 +23,18 @@ export default function WelcomePage() {
   const charIndex   = useRef(0)
   const isDeleting  = useRef(false)
 
+  useEffect(() => {
+    async function hideSplash() {
+      try {
+        if ((window as any).Capacitor?.isNativePlatform?.()) {
+          const { SplashScreen } = await import("@capacitor/splash-screen")
+          await SplashScreen.hide({ fadeOutDuration: 200 })
+        }
+      } catch {}
+    }
+    hideSplash()
+  }, [])
+
   // ── Session guard: if the native user is already logged in, skip this page ─
   // This is a safety net for cases where NativeStartupRouter was bypassed
   // (e.g. WebView restored at /welcome, OS killed the app during routing, etc.)

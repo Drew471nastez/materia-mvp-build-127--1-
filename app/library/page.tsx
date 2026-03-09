@@ -5,6 +5,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { DownloadsGrid } from "@/components/library/downloads-grid"
 import { getLibraryDownloads } from "@/lib/library/get-library-downloads"
+import { LibrarySplashInit } from "@/components/library/splash-init"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -55,6 +56,7 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
 
   return (
     <div className="max-w-5xl mx-auto px-2 sm:px-0 animate-in fade-in-0 duration-300">
+      <LibrarySplashInit />
       {purchase === "success" && (
         <Alert className="mb-6 border-green-200 bg-green-50 text-green-800 rounded-xl">
           <CheckCircle className="h-4 w-4" />

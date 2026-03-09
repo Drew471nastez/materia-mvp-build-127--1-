@@ -830,6 +830,18 @@ export function DashboardClient({
   const profileAccessRef = useRef<HTMLDivElement | null>(null)
   const router = useRouter()
 
+  useEffect(() => {
+    async function hideSplash() {
+      try {
+        if ((window as any).Capacitor?.isNativePlatform?.()) {
+          const { SplashScreen } = await import("@capacitor/splash-screen")
+          await SplashScreen.hide({ fadeOutDuration: 200 })
+        }
+      } catch {}
+    }
+    hideSplash()
+  }, [])
+
   // Persist timeframe selection to localStorage
   useEffect(() => {
     localStorage.setItem("dashboard_timeframe", timeframe)

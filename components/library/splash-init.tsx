@@ -2,14 +2,11 @@
 
 import { useEffect } from "react"
 
-export function SplashHide() {
+export function LibrarySplashInit() {
   useEffect(() => {
     async function hideSplash() {
       try {
-        if (
-          typeof window !== "undefined" &&
-          (window as any).Capacitor?.isNativePlatform?.()
-        ) {
+        if ((window as any).Capacitor?.isNativePlatform?.()) {
           const { SplashScreen } = await import("@capacitor/splash-screen")
           await SplashScreen.hide({ fadeOutDuration: 200 })
         }
