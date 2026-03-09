@@ -102,6 +102,9 @@ export async function cacheNativeHome(destination: string): Promise<void> {
     if (!cap?.isNativePlatform?.()) return
     const { Preferences } = await import("@capacitor/preferences")
     await Preferences.set({ key: NATIVE_HOME_KEY, value: destination })
+    // Mirror in localStorage so the synchronous module-level startup check
+    // can read it without an async Preferences call on cold start.
+    try { localStorage.setItem(NATIVE_HOME_KEY, destination) } catch { /* ignore */ }
   } catch { /* ignore */ }
 }
 
@@ -131,6 +134,7 @@ async function clearNativeHome(): Promise<void> {
     if (!cap?.isNativePlatform?.()) return
     const { Preferences } = await import("@capacitor/preferences")
     await Preferences.remove({ key: NATIVE_HOME_KEY })
+    try { localStorage.removeItem(NATIVE_HOME_KEY) } catch { /* ignore */ }
   } catch { /* ignore */ }
 }
 
