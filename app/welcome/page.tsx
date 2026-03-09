@@ -91,6 +91,28 @@ export default function WelcomePage() {
   const typedText = useTyping(TYPING_PHRASES)
   const [loadingBtn, setLoadingBtn] = useState<"signup" | "login" | null>(null)
 
+  // Safety net: if the app resumes at /welcome while the user is already
+  // authenticated (e.g. NativeStartupRouter sent here due to a stale token
+  // that was later refreshed), skip straight to /app.
+  useEffect(() => {
+    async function redirectIfAuthenticated() {
+      try {
+        const { Capacitor } = await import("@capacitor/core")
+        if (!Capacitor.isNativePlatform()) return
+        const { createClient } = await import("@/lib/supabase/client")
+        const supabase = createClient()
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session) { window.location.replace("/app"); return }
+        // Also try a token refresh in case the access token expired
+        const { data: { session: refreshed } } = await supabase.auth.refreshSession()
+        if (refreshed) window.location.replace("/app")
+      } catch {
+        // Not native or Supabase unavailable — stay on welcome
+      }
+    }
+    redirectIfAuthenticated()
+  }, [])
+
   const handleNav = (btn: "signup" | "login", href: string) => {
     if (loadingBtn) return
     setLoadingBtn(btn)

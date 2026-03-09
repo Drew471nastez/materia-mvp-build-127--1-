@@ -271,12 +271,16 @@ html.capacitor {
     display: none;
   }
 
-  /* Hide html scrollbar on app dashboard pages */
+  /* Hide html scrollbar on app dashboard pages and prevent document-level
+     scroll. Without overflow:hidden the document scrolls when the user swipes
+     in the fixed header, revealing the dark #111111 body behind the white main
+     card on iOS. overflow:hidden on <html> is safe (not affected by the iOS
+     Safari body-overflow touch-scroll bug). */
   html.app-layout {
     scrollbar-width: none;
     -ms-overflow-style: none;
-    /* Dark bg eliminates the white-flash before React hydrates on /app in Capacitor */
     background-color: #111111;
+    overflow: hidden;
   }
 
   html.app-layout::-webkit-scrollbar {
@@ -285,6 +289,7 @@ html.capacitor {
 
   html.app-layout body {
     background-color: #111111;
+    overflow: hidden;
   }
 
 }
@@ -1009,7 +1014,13 @@ html.native-auth-lock .auth-card {
  * ──────────────────────────────────────────────────────────────────────────── */
 
 /* Main content scroll container in /app — ensures last content item is visible
-   above the iOS home indicator / Android gesture-nav bar. */
+   above the iOS home indicator / Android gesture-nav bar.
+   overscroll-behavior:none stops iOS rubber-band overscroll from revealing
+   the dark #111111 body at the top or white main background at the bottom. */
+.app-content-scroll {
+  overscroll-behavior: none;
+}
+
 html.capacitor .app-content-scroll {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
