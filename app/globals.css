@@ -57,13 +57,10 @@ html.capacitor {
 /* Capacitor: disable iOS rubber-band overscroll on all pages.
    Without this, bouncing at the top/bottom reveals the body background
    (white) behind dark headers/footers — producing a jarring flash.
-   Native apps don't have browser-style bounce, so this feels correct.
-   NOTE: iOS WKWebView ignores overscroll-behavior, so we also force
-   background-color to black so any bounce-reveal is dark, not white. */
+   Native apps don't have browser-style bounce, so this feels correct. */
 html.capacitor,
 html.capacitor body {
   overscroll-behavior: none;
-  background-color: #000000 !important;
 }
 
 .dark {
@@ -1064,6 +1061,26 @@ html.capacitor [data-safe-bottom] {
  * -webkit-tap-highlight-color is set to transparent to avoid the grey flash
  * on Android — our :active styles replace it.
  * ──────────────────────────────────────────────────────────────────────────── */
+
+/* Fixed black shield that covers the safe-area-inset-top zone.
+   The platform header is position:relative so during iOS rubber-band bounce
+   it moves down with the page, revealing the white body background above it.
+   This ::before creates a native-level fixed bar (black, matching the header)
+   that stays locked to the top of the screen and blocks any white bleed-through
+   in the status-bar / Dynamic Island area. Height = env(safe-area-inset-top)
+   which is the exact distance from screen edge to the readable content area.
+   On browser this is always 0px so it has zero visual effect. */
+html.capacitor::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: env(safe-area-inset-top, 0px);
+  background-color: #000000;
+  z-index: 9999;
+  pointer-events: none;
+}
 
 html.capacitor {
   touch-action: manipulation; /* removes 300 ms delay on double-tap-to-zoom */

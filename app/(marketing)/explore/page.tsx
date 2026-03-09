@@ -146,7 +146,7 @@ export default async function ExplorePage({
   const filteredProducts = productsWithCreators
 
   return (
-    <main className="min-h-screen">
+    <main className="min-h-screen bg-white">
       {/* Semantic page structure for SEO - matches header max-width (1400px) */}
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 pt-4 pb-6 sm:pt-5 sm:pb-8">
         {/* Hidden H1 for SEO - visible to screen readers and crawlers */}
