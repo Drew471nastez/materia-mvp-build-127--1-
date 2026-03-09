@@ -10,7 +10,7 @@ export default function MarketingLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="flex min-h-svh flex-col overflow-x-hidden">
+    <div className="flex min-h-svh flex-col [overflow-x:clip]">
       {/* Preconnect to image CDN — saves ~200-400ms on first image request */}
       <link rel="preconnect" href="https://skgtqglupjcnfhfscink.supabase.co" />
       <link rel="dns-prefetch" href="https://skgtqglupjcnfhfscink.supabase.co" />
