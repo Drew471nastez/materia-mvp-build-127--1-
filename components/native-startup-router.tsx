@@ -22,9 +22,9 @@
  *   Any other route on native               → no-op (already past startup)
  *
  * LOGOUT:
- *   nativeLogOut() in lib/native-bridge.ts already handles both platforms:
- *     Android: StorelibNative.onLogOut() → WelcomeActivity (native HTML)
- *     iOS:     fallback → window.location.replace("/welcome") ← this page
+ *   nativeLogOut() in lib/native-bridge.ts navigates to "/" on native.
+ *   This component intercepts that "/" load, checks the session (null after
+ *   signOut), and routes back to /welcome — same path as cold-start.
  *
  * ADD TO:
  *   app/layout.tsx — rendered once globally alongside NativeOAuthBridge
