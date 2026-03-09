@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Storelib</title>
+  <style>
+    html, body {
+      margin: 0; padding: 0;
+      height: 100%; width: 100%;
+      background: #F3F4F6;
+      overflow: hidden;
+    }
+  </style>
+</head>
+<body>
+<!--
+  Capacitor offline fallback / entry point.
+
+  When server.url is set in capacitor.config.ts, Capacitor loads from the
+  production server (https://storelib.com) and this file is never shown.
+
+  This file is only served when the device has no internet connection.
+  It performs a synchronous localStorage auth check and navigates to the
+  correct page. Because all navigation targets (/, /app, /library, /welcome)
+  live on the production server, an internet connection is required for them
+  to load — the offline experience for a marketplace app is intentionally
+  limited to this loading screen.
+-->
+<script>
+;(function () {
+  // Hide immediately — prevents any flash of this page.
+  document.documentElement.style.visibility = 'hidden';
+
+  try {
+    // Supabase project ref — derived from NEXT_PUBLIC_SUPABASE_URL at build time.
+    // This value matches the key written by capacitorStorage.setItem() in the app.
+    var SUPABASE_REF = 'skgtqglupjcnfhfscink';
+    var AUTH_KEY     = 'sb-' + SUPABASE_REF + '-auth-token';
+    var HOME_KEY     = 'sb-native-home';
+
+    var session  = localStorage.getItem(AUTH_KEY);
+    var home     = localStorage.getItem(HOME_KEY) || '/app';
+
+    if (session) {
+      // User is authenticated — send to their home screen.
+      window.location.replace(home);
+    } else {
+      // Not authenticated — send to the welcome / onboarding screen.
+      window.location.replace('/welcome');
+    }
+  } catch (e) {
+    // localStorage unavailable — fall back to welcome.
+    document.documentElement.style.visibility = '';
+    window.location.replace('/welcome');
+  }
+})();
+</script>
+</body>
+</html>
