@@ -234,6 +234,19 @@ export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl
   const host = request.headers.get("host") || ""
 
+  // Capacitor WebViews always include "Capacitor" in their User-Agent.
+  // Redirect the native app away from the marketing homepage before any
+  // page renders — the server redirect happens before a single byte of
+  // the marketing page is sent to the client.
+  if (
+    pathname === "/" &&
+    (request.headers.get("user-agent") || "").includes("Capacitor")
+  ) {
+    const url = request.nextUrl.clone()
+    url.pathname = "/welcome"
+    return NextResponse.redirect(url)
+  }
+
   // Extract username from subdomain
   let username = extractUsernameFromHost(host)
   let isCustomDomain = false
