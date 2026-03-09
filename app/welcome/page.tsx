@@ -96,6 +96,26 @@ export default function WelcomePage() {
   // at /welcome, or network not ready during token refresh), detect the session
   // and route to the correct home immediately.
   useEffect(() => {
+    // Synchronous fast check: if session data exists in localStorage,
+    // redirect immediately without waiting for any async operations.
+    try {
+      const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+      if (url) {
+        const isNative =
+          typeof (window as any).Capacitor?.isNativePlatform === "function" &&
+          (window as any).Capacitor.isNativePlatform() === true
+        if (isNative) {
+          const ref = new URL(url).hostname.split(".")[0]
+          const hasSession = localStorage.getItem(`sb-${ref}-auth-token`)
+          if (hasSession) {
+            const cachedHome = localStorage.getItem("sb-native-home")
+            window.location.replace(cachedHome || "/app")
+            return
+          }
+        }
+      }
+    } catch { /* ignore */ }
+
     async function redirectIfAuthenticated() {
       try {
         const { Capacitor } = await import("@capacitor/core")
@@ -113,16 +133,12 @@ export default function WelcomePage() {
           return
         }
 
-        // Layer 2: raw Preferences check — handles the "token expired + no
-        // network on cold start" case where getSession() returns null even
-        // though the user IS logged in (session data still in Preferences).
+        // Layer 2: raw Preferences + localStorage check
         const { Preferences } = await import("@capacitor/preferences")
         const projectRef = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!).hostname.split(".")[0]
         const authKey = `sb-${projectRef}-auth-token`
         const { value: rawSession } = await Preferences.get({ key: authKey })
 
-        // Also check localStorage — sessions from app versions before the
-        // Preferences adapter was added live here.
         let rawLocalSession: string | null = null
         try {
           if (typeof localStorage !== "undefined") {

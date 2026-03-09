@@ -56,30 +56,37 @@ export function isNativePlatform(): boolean {
  */
 const capacitorStorage = {
   async getItem(key: string): Promise<string | null> {
-    const { Preferences } = await import("@capacitor/preferences")
-    const { value } = await Preferences.get({ key })
-    if (value !== null) return value
-    // Migration: check localStorage for sessions stored by older app versions
-    // (before the Preferences adapter was introduced). One-time migration to Preferences.
+    // Try Preferences first (primary, process-safe storage).
+    try {
+      const { Preferences } = await import("@capacitor/preferences")
+      const { value } = await Preferences.get({ key })
+      if (value !== null) return value
+    } catch { /* Preferences unavailable — fall through to localStorage */ }
+    // Fallback: localStorage mirror (set by setItem below) or legacy sessions
+    // from older app versions that stored directly in localStorage.
     try {
       if (typeof localStorage !== "undefined") {
-        const local = localStorage.getItem(key)
-        if (local !== null) {
-          await Preferences.set({ key, value: local })
-          localStorage.removeItem(key)
-          return local
-        }
+        return localStorage.getItem(key)
       }
-    } catch { /* localStorage unavailable or Preferences write failed */ }
+    } catch { /* localStorage unavailable */ }
     return null
   },
   async setItem(key: string, value: string): Promise<void> {
-    const { Preferences } = await import("@capacitor/preferences")
-    await Preferences.set({ key, value })
+    // Write to Preferences (primary, survives process switches).
+    try {
+      const { Preferences } = await import("@capacitor/preferences")
+      await Preferences.set({ key, value })
+    } catch { /* ignore */ }
+    // Mirror to localStorage — enables synchronous reads on cold start
+    // (NativeStartupRouter Layer 0 checks localStorage before React mounts).
+    try { localStorage.setItem(key, value) } catch { /* ignore */ }
   },
   async removeItem(key: string): Promise<void> {
-    const { Preferences } = await import("@capacitor/preferences")
-    await Preferences.remove({ key })
+    try {
+      const { Preferences } = await import("@capacitor/preferences")
+      await Preferences.remove({ key })
+    } catch { /* ignore */ }
+    try { localStorage.removeItem(key) } catch { /* ignore */ }
   },
 }
 
