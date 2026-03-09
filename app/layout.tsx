@@ -9,7 +9,6 @@ import { NativeCookieKillSwitch } from "@/components/native-cookie-killswitch"
 import { SWRProvider } from "@/lib/swr-config"
 import { PrefetchLinks } from "@/components/shared/prefetch-links"
 import NativeOAuthBridge from "@/app/NativeOAuthBridge"
-import { NativeStartupRouter } from "@/components/native-startup-router"
 import { NativeAuthHandler } from "@/components/native-auth-handler"
 
 // Primary font — loaded eagerly with display swap for fast text rendering
@@ -136,7 +135,6 @@ export default function RootLayout({
         <BodyScrollRestorer />
         <NativeCookieKillSwitch />
         <CookieConsentBanner />
-        <NativeStartupRouter />
         <NativeAuthHandler />
         <NativeOAuthBridge />
       </body>

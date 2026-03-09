@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
+import { useHideNativeSplash } from "@/hooks/use-hide-native-splash"
 
 // ── Typing effect ────────────────────────────────────────────────────────────
 const PHRASES = [
@@ -23,66 +24,41 @@ export default function WelcomePage() {
   const charIndex   = useRef(0)
   const isDeleting  = useRef(false)
 
-  // ── Native startup: check session, then decide whether to hide splash ────────
-  // On native, /welcome is only the final destination for logged-out users.
-  // If a session exists, redirect silently — the destination page hides the splash.
-  // Only hide the splash here once we've confirmed there is no session.
+  // /welcome is the final destination for logged-out native users — hide splash here.
+  useHideNativeSplash()
+
+  // Safety-net: /native-start routes logged-in users away before reaching here.
+  // If somehow a logged-in user arrives at /welcome, redirect them silently.
   useEffect(() => {
-    async function initNativeRoute() {
+    async function checkSession() {
       const isNative =
         typeof (window as any).Capacitor?.isNativePlatform === "function" &&
         (window as any).Capacitor.isNativePlatform() === true
-
       if (!isNative) return
 
-      // Layer 1: fast synchronous localStorage check
       try {
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
         if (supabaseUrl) {
           const ref = new URL(supabaseUrl).hostname.split(".")[0]
           const session = localStorage.getItem(`sb-${ref}-auth-token`)
           if (session) {
-            const home = localStorage.getItem("sb-native-home") || "/app"
-            window.location.replace(home)
-            return // splash stays — destination page will hide it
+            window.location.replace(localStorage.getItem("sb-native-home") || "/app")
+            return
           }
         }
       } catch { /* ignore */ }
 
-      // Layer 2: Supabase SDK session
       try {
         const { createClient } = await import("@/lib/supabase/client")
         const { getCachedNativeHome } = await import("@/lib/native-bridge")
         const supabase = createClient()
-
         const { data: { session } } = await supabase.auth.getSession()
         if (session) {
-          const cached = await getCachedNativeHome()
-          window.location.replace(cached || "/app")
-          return // splash stays — destination page will hide it
+          window.location.replace((await getCachedNativeHome()) || "/app")
         }
-
-        // Layer 3: raw Preferences + localStorage (expired token, no network)
-        const { Preferences } = await import("@capacitor/preferences")
-        const projectRef = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!).hostname.split(".")[0]
-        const authKey    = `sb-${projectRef}-auth-token`
-        const { value: rawPrefs } = await Preferences.get({ key: authKey })
-        let   rawLocal: string | null = null
-        try { rawLocal = localStorage.getItem(authKey) } catch { /* ignore */ }
-        if (rawPrefs || rawLocal) {
-          const cached = await getCachedNativeHome()
-          window.location.replace(cached || "/app")
-          return // splash stays — destination page will hide it
-        }
-      } catch { /* ignore */ }
-
-      // No session found — /welcome IS the final destination, reveal it
-      try {
-        const { SplashScreen } = await import("@capacitor/splash-screen")
-        await SplashScreen.hide({ fadeOutDuration: 200 })
       } catch { /* ignore */ }
     }
-    initNativeRoute()
+    checkSession()
   }, [])
 
   // ── Typing animation ──────────────────────────────────────────────────────
