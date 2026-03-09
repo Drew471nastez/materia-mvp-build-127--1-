@@ -1001,6 +1001,19 @@ html.native-auth-lock .auth-card {
   touch-action: pan-y;               /* re-enable vertical touch scroll within card */
 }
 
+/* iOS Safari adds a native blue focus glow that extends ~4 px OUTSIDE the
+ * input element bounds. Because auth-card has overflow-y:auto (which forces
+ * overflow-x:auto too per CSS spec), this glow is clipped on the left and
+ * right edges, making the border appear cut off in the screenshot.
+ *
+ * Fix: -webkit-appearance:none removes the native control rendering
+ * (including the glow) while preserving all custom CSS border/bg styles.
+ * Scoped to native-auth-lock so web browser inputs are unaffected. */
+html.native-auth-lock .auth-card input {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
 /* ── Universal Capacitor safe-area guard ─────────────────────────────────────
  *
  * viewport-fit=cover (set in layout.tsx Viewport export) makes the WebView

@@ -3,37 +3,48 @@
 /**
  * components/native-startup-router.tsx
  *
- * Handles native Capacitor (iOS + Android) startup routing.
+ * Native Capacitor (iOS + Android) startup router.
  *
- * PROBLEM:
- *   When the native app cold-starts, Capacitor loads the static web export
- *   and lands on "/" — the marketing landing page. Native users should never
- *   see the marketing page; they should land on /welcome (not logged in) or
- *   /app (already logged in).
+ * WHY THIS EXISTS:
+ *   Capacitor always loads index.html ("/") on cold start. Native users must
+ *   never land on the marketing page; they need to reach /welcome (logged out)
+ *   or /app|/library (logged in) immediately.
  *
- * SOLUTION:
- *   1. Module-level synchronous code hides the document BEFORE React hydrates
- *      so the marketing page never flashes on native.
- *   2. useEffect checks the Supabase session and replaces the location.
+ * SESSION DETECTION — three-layer strategy:
+ *
+ *   Layer 1 — supabase.auth.getSession()
+ *     Reads from Capacitor Preferences (NSUserDefaults / SharedPreferences).
+ *     With autoRefreshToken:true, also silently refreshes an expired access
+ *     token via network. Returns a valid session object when successful.
+ *
+ *   Layer 2 — raw Capacitor Preferences read
+ *     getSession() returns null when the access token is expired AND the
+ *     network is not yet ready (common on iOS cold start immediately after
+ *     the app was killed). In this case the session DATA still exists in
+ *     Preferences — the user IS logged in, the refresh just couldn't fire.
+ *     We read the raw Supabase storage key directly. If it exists, the user
+ *     was authenticated; we route optimistically using the cached home route
+ *     and let NativeAuthGate handle cookie sync + token refresh on arrival.
+ *
+ *   Layer 3 — no session data anywhere → /welcome
+ *     Only reached when the user genuinely hasn't signed in (or explicitly
+ *     signed out, which calls clearNativeHome() and removes the session).
+ *
+ * ACCOUNT TYPE ROUTING:
+ *   After determining a live session (Layer 1), we query the DB once to
+ *   get creator vs buyer status and cache the result (sb-native-home) in
+ *   Capacitor Preferences. All subsequent cold starts use the cache —
+ *   zero DB queries.
  *
  * PLATFORMS:
- *   Native Capacitor (iOS / Android) at "/" → session check → /welcome or /app
- *   Web browser                              → complete no-op, marketing page renders normally
- *   Any other route on native               → no-op (already past startup)
- *
- * LOGOUT:
- *   nativeLogOut() in lib/native-bridge.ts navigates to "/" on native.
- *   This component intercepts that "/" load, checks the session (null after
- *   signOut), and routes back to /welcome — same path as cold-start.
- *
- * ADD TO:
- *   app/layout.tsx — rendered once globally alongside NativeOAuthBridge
+ *   Native Capacitor at "/" → this router runs, decides destination.
+ *   Web browser            → complete no-op, marketing page renders normally.
+ *   Any non-"/" route      → no-op (user is already navigating inside the app).
  */
 
-// ── Synchronous flash prevention ─────────────────────────────────────────────
+// ── Synchronous flash prevention ──────────────────────────────────────────────
 // Runs at JS bundle evaluation time — before React hydrates the DOM —
 // so the marketing page is never painted to native users.
-// Guard: only hides on native Capacitor at the root path.
 if (typeof window !== "undefined") {
   try {
     const isNative =
@@ -50,13 +61,13 @@ if (typeof window !== "undefined") {
 import { useEffect } from "react"
 import { usePathname } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
+import { cacheNativeHome, getCachedNativeHome } from "@/lib/native-bridge"
 
 export function NativeStartupRouter() {
   const pathname = usePathname()
 
   useEffect(() => {
-    // Only intercept the root path — the cold-start landing point for the app.
-    // All other routes mean the user is already navigating inside the app.
+    // Only intercept the root path — the cold-start landing point.
     if (pathname !== "/") return
 
     async function route() {
@@ -64,41 +75,66 @@ export function NativeStartupRouter() {
         const { Capacitor } = await import("@capacitor/core")
 
         if (!Capacitor.isNativePlatform()) {
-          // Web browser — restore visibility (belt-and-suspenders; the
-          // module-level guard would not have hidden it, but just in case).
+          // Web browser — restore visibility and let the marketing page render.
           document.documentElement.style.visibility = ""
           return
         }
 
-        // Native app — check for an existing Supabase session.
         const supabase = createClient()
-        const {
-          data: { session },
-        } = await supabase.auth.getSession()
+
+        // ── Layer 1: live session via Supabase SDK ───────────────────────────
+        // getSession() reads from Capacitor Preferences and auto-refreshes
+        // an expired access token if the network is available.
+        const { data: { session } } = await supabase.auth.getSession()
 
         if (session) {
-          // Already authenticated → go straight to the dashboard.
-          window.location.replace("/app")
+          // Valid session — use cached home route to avoid a DB query, or
+          // fall back to resolving from the DB (first launch after install).
+          const cached = await getCachedNativeHome()
+          if (cached) {
+            document.documentElement.style.visibility = ""
+            window.location.replace(cached)
+            return
+          }
+          // No cache yet — query DB, cache result, then navigate.
+          const dest = await resolveAndCacheHome(supabase, session.user.id)
+          document.documentElement.style.visibility = ""
+          window.location.replace(dest)
           return
         }
 
-        // getSession() returned null — the stored access token may have expired
-        // while the app was in the background. Try a silent token refresh: if a
-        // valid refresh token exists, this succeeds immediately (no login screen).
-        try {
-          const { data: { session: refreshed } } = await supabase.auth.refreshSession()
-          window.location.replace(refreshed ? "/app" : "/welcome")
-        } catch {
-          window.location.replace("/welcome")
+        // ── Layer 2: raw Preferences check ──────────────────────────────────
+        // getSession() returned null. This can happen when the access token
+        // expired AND the network wasn't ready yet (iOS cold start race).
+        // Check if session data still physically exists in Preferences. If
+        // so the user IS authenticated — route optimistically; NativeAuthGate
+        // will sync cookies and refresh the token once the destination loads.
+        const { Preferences } = await import("@capacitor/preferences")
+        const projectRef = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!).hostname.split(".")[0]
+        const { value: rawSession } = await Preferences.get({
+          key: `sb-${projectRef}-auth-token`,
+        })
+
+        if (rawSession) {
+          // Session data present — user was logged in. Use cached home if
+          // available, otherwise fall back to /app (safe for any account type;
+          // NativeAuthGate on /app handles further routing if needed).
+          const cached = await getCachedNativeHome()
+          document.documentElement.style.visibility = ""
+          window.location.replace(cached || "/app")
+          return
         }
+
+        // ── Layer 3: no session anywhere → welcome ───────────────────────────
+        document.documentElement.style.visibility = ""
+        window.location.replace("/welcome")
       } catch {
-        // Something went wrong — restore visibility so the user isn't
-        // stuck on a hidden page, and fall back to /welcome.
+        // Something went wrong — restore visibility so the user isn't stuck,
+        // and fall back to /welcome.
         document.documentElement.style.visibility = ""
         try {
           window.location.replace("/welcome")
         } catch {
-          // Last resort: hard reload
           window.location.reload()
         }
       }
@@ -108,4 +144,43 @@ export function NativeStartupRouter() {
   }, [pathname])
 
   return null
+}
+
+/**
+ * Query the DB to determine the user's home route, persist it in Capacitor
+ * Preferences, and return it. Falls back to /app on any error.
+ */
+async function resolveAndCacheHome(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+): Promise<string> {
+  try {
+    const { data: creator } = await supabase
+      .from("creators")
+      .select("onboarding_completed")
+      .eq("user_id", userId)
+      .maybeSingle()
+
+    if (creator?.onboarding_completed) {
+      await cacheNativeHome("/app")
+      return "/app"
+    }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("is_creator, welcome_completed")
+      .eq("id", userId)
+      .maybeSingle()
+
+    if (profile?.welcome_completed) {
+      const dest = profile.is_creator ? "/app" : "/library"
+      await cacheNativeHome(dest)
+      return dest
+    }
+
+    // New user who hasn't chosen a role yet
+    return "/signup/success"
+  } catch {
+    return "/app"
+  }
 }

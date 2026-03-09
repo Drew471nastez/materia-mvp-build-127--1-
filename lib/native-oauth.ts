@@ -30,6 +30,7 @@
  */
 
 import { createClient } from "@/lib/supabase/client"
+import { cacheNativeHome } from "@/lib/native-bridge"
 
 const TAG = "[NativeOAuth]"
 const DEBUG =
@@ -419,6 +420,12 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
     }
     console.log(`${TAG}   destination: ${nextPath}`)
 
+    // Cache the home route so NativeStartupRouter can use it on the next
+    // cold start without a DB query.
+    if (nextPath === "/app" || nextPath === "/library") {
+      cacheNativeHome(nextPath)
+    }
+
     // The native Capacitor client stores the session in Capacitor Preferences
     // (Android SharedPreferences), but Next.js server components read cookies.
     // Route through /auth/sync-session which calls setSession() server-side,
@@ -543,9 +550,14 @@ export async function setupNativeOAuthListeners(): Promise<() => void> {
             return
           }
           if (path === "/login" || path === "/signup") {
-            console.log(`${TAG}   SIGNED_IN on ${path} — forcing navigation to /app`)
-            showToast(`Session via authStateChange  ${session.user.email ?? ""}`, "ok")
-            window.location.assign("/app")
+            // For email/password sign-in: the login/signup page's own routing
+            // (determineAndRedirect) handles creator vs buyer routing correctly
+            // and routes through /auth/sync-session on native. Do NOT navigate
+            // here — it would race the page's routing and send buyers to /app.
+            // This branch only fires for email/password (OAuth sets isHandling=true
+            // which returns early above), so we let the page handle it.
+            console.log(`${TAG}   SIGNED_IN on ${path} — login page owns routing, skipping authStateChange nav`)
+            showToast(`Session via authStateChange  ${session.user.email ?? ""} — login page routing`, "info")
           } else {
             console.log(`${TAG}   SIGNED_IN but path is "${path}" — no redirect needed.`)
           }

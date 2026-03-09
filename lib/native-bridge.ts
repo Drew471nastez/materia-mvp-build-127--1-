@@ -83,6 +83,57 @@ export function isNativeApp(): boolean {
   return /StorelibApp|Capacitor/.test(ua) || (/wv/.test(ua) && /Android/.test(ua))
 }
 
+// ── Native home route cache ───────────────────────────────────────────────────
+// Persisted in Capacitor Preferences so NativeStartupRouter can route the user
+// to /app or /library on cold start without a DB round-trip on every launch.
+// Written after every successful login / OAuth. Cleared on logout.
+
+const NATIVE_HOME_KEY = "sb-native-home"
+
+/**
+ * Persist the user's home route (/app or /library) in Capacitor Preferences.
+ * Call after determining account type post-login or post-OAuth.
+ * No-op on web / SSR.
+ */
+export async function cacheNativeHome(destination: string): Promise<void> {
+  if (typeof window === "undefined") return
+  try {
+    const cap = (window as any).Capacitor
+    if (!cap?.isNativePlatform?.()) return
+    const { Preferences } = await import("@capacitor/preferences")
+    await Preferences.set({ key: NATIVE_HOME_KEY, value: destination })
+  } catch { /* ignore */ }
+}
+
+/**
+ * Read the cached home route from Capacitor Preferences.
+ * Returns null if not set or not on native.
+ */
+export async function getCachedNativeHome(): Promise<string | null> {
+  if (typeof window === "undefined") return null
+  try {
+    const cap = (window as any).Capacitor
+    if (!cap?.isNativePlatform?.()) return null
+    const { Preferences } = await import("@capacitor/preferences")
+    const { value } = await Preferences.get({ key: NATIVE_HOME_KEY })
+    return value
+  } catch { return null }
+}
+
+/**
+ * Remove the cached home route from Capacitor Preferences.
+ * Called on logout so the next login re-determines the route from the DB.
+ */
+async function clearNativeHome(): Promise<void> {
+  if (typeof window === "undefined") return
+  try {
+    const cap = (window as any).Capacitor
+    if (!cap?.isNativePlatform?.()) return
+    const { Preferences } = await import("@capacitor/preferences")
+    await Preferences.remove({ key: NATIVE_HOME_KEY })
+  } catch { /* ignore */ }
+}
+
 // ── Log-out ──────────────────────────────────────────────────────────────────
 
 /**
@@ -103,6 +154,8 @@ export function isNativeApp(): boolean {
  */
 export function nativeLogOut(): void {
   if (typeof window === "undefined") return
+  // Clear cached home so the next login re-determines route from DB
+  clearNativeHome()
   const br = (window as any).StorelibNative
   if (typeof br?.onLogOut === "function") {
     try { br.onLogOut() } catch { /* ignore */ }

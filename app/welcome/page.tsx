@@ -92,22 +92,42 @@ export default function WelcomePage() {
   const [loadingBtn, setLoadingBtn] = useState<"signup" | "login" | null>(null)
 
   // Safety net: if the app resumes at /welcome while the user is already
-  // authenticated (e.g. NativeStartupRouter sent here due to a stale token
-  // that was later refreshed), skip straight to /app.
+  // authenticated (e.g. NativeStartupRouter cold-start race, WebView restored
+  // at /welcome, or network not ready during token refresh), detect the session
+  // and route to the correct home immediately.
   useEffect(() => {
     async function redirectIfAuthenticated() {
       try {
         const { Capacitor } = await import("@capacitor/core")
         if (!Capacitor.isNativePlatform()) return
+
         const { createClient } = await import("@/lib/supabase/client")
+        const { getCachedNativeHome } = await import("@/lib/native-bridge")
         const supabase = createClient()
+
+        // Layer 1: live session (also auto-refreshes if network is available)
         const { data: { session } } = await supabase.auth.getSession()
-        if (session) { window.location.replace("/app"); return }
-        // Also try a token refresh in case the access token expired
-        const { data: { session: refreshed } } = await supabase.auth.refreshSession()
-        if (refreshed) window.location.replace("/app")
+        if (session) {
+          const cached = await getCachedNativeHome()
+          window.location.replace(cached || "/app")
+          return
+        }
+
+        // Layer 2: raw Preferences check — handles the "token expired + no
+        // network on cold start" case where getSession() returns null even
+        // though the user IS logged in (session data still in Preferences).
+        const { Preferences } = await import("@capacitor/preferences")
+        const projectRef = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!).hostname.split(".")[0]
+        const { value: rawSession } = await Preferences.get({
+          key: `sb-${projectRef}-auth-token`,
+        })
+        if (rawSession) {
+          const cached = await getCachedNativeHome()
+          window.location.replace(cached || "/app")
+        }
+        // else: genuinely logged out — stay on /welcome
       } catch {
-        // Not native or Supabase unavailable — stay on welcome
+        // Not native or error — stay on /welcome
       }
     }
     redirectIfAuthenticated()

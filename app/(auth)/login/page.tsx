@@ -12,7 +12,7 @@ import Image from "next/image"
 import { AuthLogo } from "@/components/auth/auth-logo"
 import { AuthResolvingScreen } from "@/components/auth/auth-resolving-screen"
 import { useAuthGate } from "@/lib/use-auth-gate"
-import { nativeAuthStart, nativeAppReady } from "@/lib/native-bridge"
+import { nativeAuthStart, nativeAppReady, cacheNativeHome } from "@/lib/native-bridge"
 import { useNativeScrollLock } from "@/lib/use-native-scroll-lock"
 
 function LoginFormContent() {
@@ -127,6 +127,11 @@ function LoginFormContent() {
       const isNative =
         typeof (window as any).Capacitor?.isNativePlatform === "function" &&
         (window as any).Capacitor.isNativePlatform()
+
+      // Cache home route so NativeStartupRouter can skip DB on next cold start
+      if (nextPath === "/app" || nextPath === "/library") {
+        cacheNativeHome(nextPath)
+      }
 
       if (isNative) {
         window.location.assign(
@@ -302,11 +307,13 @@ function LoginFormContent() {
           if (creator.onboarding_completed === false) {
             navigateWithFallback("/signup/success")
           } else {
+            cacheNativeHome("/app")
             navigateWithFallback("/app")
           }
         } else {
           // Buyer — welcome_completed is already true (passed gate 2)
           localStorage.setItem("storelib_welcome_shown", "true")
+          cacheNativeHome("/library")
           navigateWithFallback("/library")
         }
         router.refresh()
