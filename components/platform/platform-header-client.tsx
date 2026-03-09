@@ -1007,10 +1007,13 @@ export function PlatformHeaderClient() {
 
   return (
     <>
-      <div className="relative z-40 w-full bg-black backdrop-blur supports-[backdrop-filter]:bg-black pt-[env(safe-area-inset-top)]">
+      <div className="relative z-40 w-full bg-black backdrop-blur supports-[backdrop-filter]:bg-black">
     <header className={cn("w-full bg-black", !(isNativePlatform() && isSellerOrProductPage) && "border-b border-white/10")}>
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
-        <div className="flex h-[68px] md:h-[81px] items-center justify-between gap-4 md:py-[3px]">
+        <div
+          className="flex md:h-[81px] items-center justify-between gap-4 md:py-[3px] pb-3 md:pb-[3px]"
+          style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 14px)' }}
+        >
           {/* Desktop Homepage Layout - same style for /, /features, /pricing, /blog */}
           {isMarketingNavRoute ? (
             <>
