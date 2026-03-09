@@ -48,10 +48,18 @@
   --sab: 0px;
 }
 
-/* Native Capacitor: activate real safe-area env() values */
+/* Native Capacitor: activate real safe-area env() values.
+   background-color: #000 on the ROOT element paints to the full viewport
+   canvas (CSS spec: root element background covers the initial containing
+   block = full screen with viewport-fit:cover). This covers the safe-area
+   zone (y=0 → env(safe-area-inset-top), the Dynamic Island / status-bar
+   area) with black even when WKWebView's contentInset pushes the body
+   to start below the safe area. The body's own bg-background (white)
+   paints on top for all content areas, so page content stays white. */
 html.capacitor {
   --sat: env(safe-area-inset-top);
   --sab: env(safe-area-inset-bottom);
+  background-color: #000000;
 }
 
 /* Capacitor: disable iOS rubber-band overscroll on all pages.
