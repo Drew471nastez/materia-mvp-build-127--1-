@@ -1,0 +1,68 @@
+"use client"
+
+/**
+ * components/native-auth-handler.tsx
+ *
+ * Renders nothing. On mount (native only) registers a Capacitor `appUrlOpen`
+ * listener that catches the OAuth deep-link redirect after Google sign-in.
+ *
+ * Flow:
+ *  1. User taps "Continue with Google" on login/signup.
+ *  2. startNativeGoogleOAuth() opens SFSafariViewController / Chrome Custom Tab.
+ *  3. After consent, Supabase redirects to com.storelib.app://auth/callback?code=…
+ *  4. iOS / Android intercepts → fires Capacitor appUrlOpen event.
+ *  5. This component catches the event, calls handleNativeOAuthCallback(), and
+ *     routes based on the result:
+ *       creator  → /app
+ *       buyer    → /library
+ *       new user → /welcome  (no role chosen yet)
+ *       error    → /login?error=oauth_failed
+ */
+
+import { useEffect, useRef } from "react"
+import { useRouter } from "next/navigation"
+
+export function NativeAuthHandler() {
+  const router = useRouter()
+  const listenerRef = useRef<{ remove: () => void } | null>(null)
+  const registeredRef = useRef(false)
+
+  useEffect(() => {
+    async function register() {
+      // Only run inside the Capacitor native wrapper.
+      const { Capacitor } = await import("@capacitor/core")
+      if (!Capacitor.isNativePlatform()) return
+      if (registeredRef.current) return
+      registeredRef.current = true
+
+      const { App } = await import("@capacitor/app")
+      const { createClient } = await import("@/lib/supabase/client")
+      const { handleNativeOAuthCallback } = await import("@/lib/native-bridge")
+
+      listenerRef.current = await App.addListener("appUrlOpen", async ({ url }) => {
+        // Only handle URLs that look like our OAuth callback.
+        if (!url.includes("/auth/callback") && !url.includes("auth/callback")) return
+
+        try {
+          const supabase = createClient()
+          const { nextPath } = await handleNativeOAuthCallback(url, supabase)
+          // Use replace so the callback URL doesn't stay in history.
+          router.replace(nextPath)
+        } catch (err) {
+          console.error("[NativeAuthHandler] appUrlOpen error:", err)
+          router.replace("/login?error=oauth_failed")
+        }
+      })
+    }
+
+    register().catch(console.error)
+
+    return () => {
+      listenerRef.current?.remove()
+      listenerRef.current = null
+      registeredRef.current = false
+    }
+  }, [router])
+
+  return null
+}

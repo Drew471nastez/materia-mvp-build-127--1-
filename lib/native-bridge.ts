@@ -168,6 +168,118 @@ export function nativeLogOut(): void {
   }
 }
 
+// ── isNative / isIOS / isAndroid / OAuth helpers / nativeLogout ──────────────
+
+/** True when running inside the Capacitor native wrapper. Cleaner alias for isNativeApp(). */
+export function isNative(): boolean {
+  if (typeof window === "undefined") return false
+  const cap = (window as any).Capacitor
+  return typeof cap?.isNativePlatform === "function" && cap.isNativePlatform() === true
+}
+
+/** True when running on iOS inside the Capacitor native wrapper. */
+export function isIOS(): boolean {
+  return isNative() && (window as any).Capacitor?.getPlatform?.() === "ios"
+}
+
+/** True when running on Android inside the Capacitor native wrapper. */
+export function isAndroid(): boolean {
+  return isNative() && (window as any).Capacitor?.getPlatform?.() === "android"
+}
+
+/**
+ * Start native Google OAuth (PKCE + Browser.open).
+ * The OS intercepts the redirect back via custom URL scheme.
+ * NativeAuthHandler catches `appUrlOpen` and calls handleNativeOAuthCallback().
+ */
+export async function startNativeGoogleOAuth(
+  supabaseClient: import("@supabase/supabase-js").SupabaseClient,
+): Promise<void> {
+  const { Capacitor } = await import("@capacitor/core")
+  const callbackUrl =
+    Capacitor.getPlatform() === "ios"
+      ? "com.storelib.app://auth/callback"
+      : "storelib://auth/callback"
+
+  const { data, error } = await supabaseClient.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: callbackUrl,
+      queryParams: { access_type: "offline", prompt: "consent" },
+      skipBrowserRedirect: true,
+    },
+  })
+  if (error || !data.url) throw error ?? new Error("OAuth init failed")
+
+  const { Browser } = await import("@capacitor/browser")
+  await Browser.open({ url: data.url, windowName: "_self" })
+}
+
+/**
+ * Handle the deep-link URL from Capacitor's appUrlOpen event after OAuth.
+ * Exchanges the PKCE code for a session, resolves the user's home route, and
+ * returns { success, isCreator, nextPath }.
+ */
+export async function handleNativeOAuthCallback(
+  url: string,
+  supabaseClient: import("@supabase/supabase-js").SupabaseClient,
+): Promise<{ success: boolean; isCreator: boolean; nextPath: string }> {
+  try {
+    try { const { Browser } = await import("@capacitor/browser"); await Browser.close() } catch { /* ignore */ }
+
+    const parsed       = new URL(url)
+    const code         = parsed.searchParams.get("code")
+    const accessToken  = parsed.searchParams.get("token")
+    const refreshToken = parsed.searchParams.get("refresh_token")
+
+    let userId: string
+
+    if (accessToken && refreshToken) {
+      const { data, error } = await supabaseClient.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+      if (error || !data.session) throw error ?? new Error("setSession failed")
+      userId = data.session.user.id
+    } else if (code) {
+      const { data, error } = await supabaseClient.auth.exchangeCodeForSession(code)
+      if (error || !data.session) throw error ?? new Error("Code exchange failed")
+      userId = data.session.user.id
+    } else {
+      throw new Error("No auth code or tokens in URL")
+    }
+
+    const { data: creator } = await supabaseClient.from("creators")
+      .select("onboarding_completed").eq("user_id", userId).maybeSingle()
+    if (creator?.onboarding_completed) {
+      await cacheNativeHome("/app")
+      return { success: true, isCreator: true, nextPath: "/app" }
+    }
+
+    const { data: profile } = await supabaseClient.from("profiles")
+      .select("is_creator, welcome_completed").eq("id", userId).maybeSingle()
+    if (profile?.welcome_completed) {
+      const dest = profile.is_creator ? "/app" : "/library"
+      await cacheNativeHome(dest)
+      return { success: true, isCreator: !!profile.is_creator, nextPath: dest }
+    }
+    return { success: true, isCreator: false, nextPath: "/welcome" }
+  } catch (err) {
+    console.error("[handleNativeOAuthCallback]", err)
+    return { success: false, isCreator: false, nextPath: "/login?error=oauth_failed" }
+  }
+}
+
+/**
+ * Sign the user out and navigate home.
+ * Native → /welcome, Web → router.replace("/login").
+ */
+export async function nativeLogout(
+  supabaseClient: import("@supabase/supabase-js").SupabaseClient,
+  router: { replace: (url: string) => void },
+): Promise<void> {
+  try { await supabaseClient.auth.signOut() } catch { /* ignore */ }
+  try { localStorage.removeItem("sb-native-home") } catch { /* ignore */ }
+  isNative() ? window.location.replace("/welcome") : router.replace("/login")
+}
+
 // ── External link handling ──────────────────────────────────────────────────
 
 /**
