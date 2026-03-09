@@ -1,18 +1,8 @@
 "use client"
 
-import { useEffect } from "react"
+import { useHideNativeSplash } from "@/hooks/use-hide-native-splash"
 
 export function LibrarySplashInit() {
-  useEffect(() => {
-    async function hideSplash() {
-      try {
-        if ((window as any).Capacitor?.isNativePlatform?.()) {
-          const { SplashScreen } = await import("@capacitor/splash-screen")
-          await SplashScreen.hide({ fadeOutDuration: 200 })
-        }
-      } catch {}
-    }
-    hideSplash()
-  }, [])
+  useHideNativeSplash()
   return null
 }

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, type ReactNode } from "react"
+import { useHideNativeSplash } from "@/hooks/use-hide-native-splash"
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
@@ -830,17 +831,7 @@ export function DashboardClient({
   const profileAccessRef = useRef<HTMLDivElement | null>(null)
   const router = useRouter()
 
-  useEffect(() => {
-    async function hideSplash() {
-      try {
-        if ((window as any).Capacitor?.isNativePlatform?.()) {
-          const { SplashScreen } = await import("@capacitor/splash-screen")
-          await SplashScreen.hide({ fadeOutDuration: 200 })
-        }
-      } catch {}
-    }
-    hideSplash()
-  }, [])
+  useHideNativeSplash()
 
   // Persist timeframe selection to localStorage
   useEffect(() => {

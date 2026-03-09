@@ -24,6 +24,7 @@ const RESERVED_PATHS = [
   "/wishlist",
   "/marketplace",
   "/library",
+  "/native-start",
   "/receipt",
   "/_next",
   "/favicon.ico",
@@ -243,7 +244,7 @@ export async function proxy(request: NextRequest) {
     (request.headers.get("user-agent") || "").includes("Capacitor")
   ) {
     const url = request.nextUrl.clone()
-    url.pathname = "/welcome"
+    url.pathname = "/native-start"
     return NextResponse.redirect(url)
   }
 
