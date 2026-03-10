@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Loader2 } from "lucide-react"
+import { isNativeApp } from "@/lib/platform-utils"
 
 interface BuyButtonProps {
   productId: string
@@ -57,7 +58,6 @@ export function BuyButton({
       }
     }
 
-    // Use window.location.href for reliable navigation (works across subdomains)
     let checkoutUrl = `/checkout?productId=${productId}`
     if (variantId) {
       checkoutUrl += `&variantId=${variantId}`
@@ -66,7 +66,25 @@ export function BuyButton({
     if (customPriceCents !== null && customPriceCents !== undefined) {
       checkoutUrl += `&customPrice=${customPriceCents}`
     }
-    window.location.href = checkoutUrl
+
+    if (isNativeApp()) {
+      // On native (Capacitor WKWebView), Stripe Elements creates cross-origin iframes
+      // to js.stripe.com. Capacitor intercepts these iframe navigations and opens
+      // Safari instead of loading them in the WebView. To work around this, open
+      // checkout in an SFSafariViewController (in-app browser) which natively handles
+      // all cross-origin content without any navigation interception.
+      // The permanent fix is allowNavigation: ['*.stripe.com'] in capacitor.config.ts
+      // (already configured) which takes effect after the next native rebuild.
+      const { Browser } = await import("@capacitor/browser")
+      await Browser.open({
+        url: `${window.location.origin}${checkoutUrl}`,
+        presentationStyle: "fullscreen",
+        toolbarColor: "#000000",
+      })
+      setLoading(false)
+    } else {
+      window.location.href = checkoutUrl
+    }
   }
 
   // Display price - use custom price if provided, otherwise regular price
