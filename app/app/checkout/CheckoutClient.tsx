@@ -1,5 +1,6 @@
 "use client"
 
+import "@/lib/stripe-nav-guard"
 import { useEffect, useMemo, useState } from "react"
 import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"

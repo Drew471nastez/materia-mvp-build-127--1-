@@ -1,5 +1,6 @@
 "use client"
 
+import "@/lib/stripe-nav-guard"
 import { useCallback, useState } from "react"
 import { loadStripe } from "@stripe/stripe-js/pure"
 import {

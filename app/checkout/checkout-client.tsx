@@ -4,11 +4,14 @@ import { useState, useCallback, useEffect, useRef, useMemo } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
+// Prevent Stripe.js Link prewarm from opening Safari in Capacitor WebViews.
+// Must be imported before any loadStripe() call.
+import "@/lib/stripe-nav-guard"
+
 // IMPORTANT: import from "@stripe/stripe-js/pure" NOT "@stripe/stripe-js".
 // The default "@stripe/stripe-js" injects <script src="https://js.stripe.com/v3/">
 // at module import time — before loadStripe() is even called — which triggers
-// the Stripe Link prewarm experiment and navigates the browser to the Stripe
-// controller URL (js.stripe.com/v3/controller-with-preconnect-...).
+// the Stripe Link prewarm experiment and opens the browser.
 // /pure never touches the DOM until loadStripe() is explicitly invoked.
 import { loadStripe } from "@stripe/stripe-js/pure"
 import {
