@@ -118,8 +118,9 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
   let finalPriceCents = selectedVariant ? selectedVariant.price_cents : product.price_cents
 
   // Handle PWYW custom price
+  // NOTE: use != null && !== "" check (NOT truthy) so that customPrice="0" ($0) is treated as valid
   let customPriceCents: number | null = null
-  if (isPwywActive && customPrice) {
+  if (isPwywActive && customPrice != null && customPrice !== "") {
     customPriceCents = parseInt(customPrice, 10)
     if (!isNaN(customPriceCents) && customPriceCents >= pwywMinPriceCents) {
       finalPriceCents = customPriceCents
