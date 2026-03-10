@@ -63,7 +63,7 @@ function SuccessToast({
   if (!show) return null
 
   return (
-    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] w-full max-w-md px-4">
+    <div className="fixed left-1/2 -translate-x-1/2 z-[100] w-full max-w-md px-4" style={{ top: 'max(1rem, calc(env(safe-area-inset-top) + 0.5rem))' }}>
       <div
         className="bg-white border border-green-200 rounded-xl shadow-lg shadow-green-100/50 p-4 flex items-start gap-3 animate-in slide-in-from-top-2 fade-in duration-300"
         style={{
@@ -109,7 +109,7 @@ function ErrorToast({
   if (!show) return null
 
   return (
-    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] w-full max-w-md px-4">
+    <div className="fixed left-1/2 -translate-x-1/2 z-[100] w-full max-w-md px-4" style={{ top: 'max(1rem, calc(env(safe-area-inset-top) + 0.5rem))' }}>
       <div
         className="bg-white border border-red-200 rounded-xl shadow-lg shadow-red-100/50 p-4 flex items-start gap-3 animate-in slide-in-from-top-2 fade-in duration-300"
         style={{

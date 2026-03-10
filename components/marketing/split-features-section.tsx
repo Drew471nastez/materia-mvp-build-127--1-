@@ -74,10 +74,10 @@ export function SplitFeaturesSection() {
                     width={800}
                     height={450}
                     sizes="(max-width: 768px) 90vw, 700px"
-                    className="w-full aspect-video object-contain rounded-2xl"
-                    loading="lazy"
+                    className="w-full aspect-video object-cover rounded-2xl"
+                    loading="eager"
                     decoding="async"
-                    quality={28}
+                    unoptimized
                   />
                 </div>
 
