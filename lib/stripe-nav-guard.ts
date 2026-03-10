@@ -44,11 +44,29 @@
 
 let _applied = false
 
-/** Matches the Stripe controller URL but NOT card-element or other iframes. */
-const CONTROLLER_RE = /js\.stripe\.com[^#?]*controller/
+/**
+ * Matches the Stripe controller iframe src specifically.
+ * Used for layers 1–4 (iframe blocking) — we only suppress the controller
+ * iframe, not other js.stripe.com iframes like the card element inputs.
+ */
+const CONTROLLER_IFRAME_RE = /js\.stripe\.com[^#?]*controller/
+
+/**
+ * Matches ANY top-level navigation to js.stripe.com that isn't a card-element
+ * iframe path. Used for layer 5 (window.open / location.assign / replace).
+ * The card-element iframe paths (elements-inner-*) should never appear as
+ * top-level navigations; blocking all js.stripe.com top-level navigations is
+ * safe and also covers Stripe Link popup URLs (which use different patterns
+ * like js.stripe.com/v3/link-*).
+ */
+const STRIPE_NAV_RE = /^https?:\/\/js\.stripe\.com\//
 
 function isController(url: unknown): boolean {
-  return CONTROLLER_RE.test(String(url ?? ""))
+  return CONTROLLER_IFRAME_RE.test(String(url ?? ""))
+}
+
+function isStripeTopLevelNav(url: unknown): boolean {
+  return STRIPE_NAV_RE.test(String(url ?? ""))
 }
 
 export function applyStripeNavGuard(): void {
@@ -150,11 +168,34 @@ export function applyStripeNavGuard(): void {
   // ── 5. Navigation fallbacks (window.open / assign / replace) ─────────────────
   // Belt-and-suspenders: catch any top-level navigation attempt that somehow
   // escapes layers 1–4. These DO work in WebKit for non-href paths.
+  //
+  // We block ALL js.stripe.com top-level navigations here (not just controller),
+  // because Stripe Link uses different URL patterns (js.stripe.com/v3/link-*,
+  // js.stripe.com/v3/payment-element-*) that wouldn't match CONTROLLER_IFRAME_RE.
+  // Card-element iframe paths never appear as top-level navigations, so blocking
+  // the entire js.stripe.com origin for window.open/assign/replace is safe.
+  //
+  // For window.open: return a minimal fake window object instead of null.
+  // Returning null signals "popup blocked" to Stripe, which may cause it to
+  // fall back to window.location.href (the unforgeable href we can't intercept).
+  // A fake non-null window tells Stripe the popup "opened" — it will wait for a
+  // postMessage that never comes rather than falling back to a top-level redirect.
   try {
     const _open = window.open.bind(window)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ;(window as any).open = (url?: string | URL, target?: string, features?: string) => {
-      if (isController(url)) return null
+      if (isStripeTopLevelNav(url)) {
+        // Return a fake window so Stripe doesn't fall back to location.href
+        return {
+          closed: false,
+          close() { (this as any).closed = true },
+          focus() {},
+          blur() {},
+          postMessage() {},
+          location: { href: String(url ?? '') },
+          opener: window,
+        } as unknown as Window
+      }
       return _open(url, target, features)
     }
   } catch { /* ignore */ }
@@ -162,7 +203,7 @@ export function applyStripeNavGuard(): void {
   try {
     const _assign = window.location.assign.bind(window.location)
     window.location.assign = (url: string | URL) => {
-      if (isController(url)) return
+      if (isStripeTopLevelNav(url)) return
       _assign(String(url))
     }
   } catch { /* ignore */ }
@@ -170,7 +211,7 @@ export function applyStripeNavGuard(): void {
   try {
     const _replace = window.location.replace.bind(window.location)
     window.location.replace = (url: string | URL) => {
-      if (isController(url)) return
+      if (isStripeTopLevelNav(url)) return
       _replace(String(url))
     }
   } catch { /* ignore */ }
