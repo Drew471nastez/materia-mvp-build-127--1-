@@ -48,7 +48,7 @@ export function SplitFeaturesSection() {
   }, [])
 
   return (
-    <div>
+    <div className="overflow-x-hidden">
       {FEATURES.map((feature, idx) => (
         <section key={feature.title} className={`relative py-20 ${"reducedTopPadding" in feature && feature.reducedTopPadding ? "sm:pt-10 sm:pb-28" : "sm:py-28"} ${feature.sectionBg}`}>
           {/* Curved divider at the top of sections transitioning from white to gray */}
@@ -59,34 +59,34 @@ export function SplitFeaturesSection() {
               </svg>
             </div>
           )}
-          <div className="max-w-[1200px] mx-auto px-3 sm:px-6">
+          <div className="max-w-[1200px] mx-auto px-4 sm:px-6">
             <AnimateOnScroll variant={idx % 2 === 0 ? "slide-left" : "slide-right"}>
               <div
-                className={`flex flex-col md:flex-row items-center gap-6 md:gap-14 ${
+                className={`flex flex-col md:flex-row items-center gap-8 md:gap-10 lg:gap-16 ${
                   feature.imageLeft ? "" : "md:flex-row-reverse"
                 }`}
               >
-                {/* Image panel — full width, 16:9, image fills completely */}
-                <div className="w-full md:w-[60%]">
+                {/* Image panel — fixed 52% so remaining space is always enough for text */}
+                <div className="w-full md:w-[52%] shrink-0">
                   <Image
                     src={feature.src}
                     alt={feature.title}
-                    width={800}
-                    height={450}
-                    sizes="(max-width: 768px) 90vw, 700px"
-                    className="w-full aspect-video object-cover rounded-2xl"
+                    width={900}
+                    height={700}
+                    sizes="(max-width: 768px) 95vw, 52vw"
+                    className="w-full h-auto object-contain rounded-2xl"
                     loading="eager"
                     decoding="async"
                     unoptimized
                   />
                 </div>
 
-                {/* Text */}
-                <div className="w-full md:w-[35%] flex flex-col items-start px-6 md:px-0">
-                  <h3 className="text-[30px] sm:text-[38px] md:text-[46px] font-bold tracking-tight leading-[1.1] mb-4 text-neutral-900">
+                {/* Text — flex-1 + min-w-0 so it takes the remaining space and never overflows */}
+                <div className="w-full md:flex-1 md:min-w-0 flex flex-col items-start px-2 md:px-0">
+                  <h3 className="text-[30px] sm:text-[38px] md:text-[42px] lg:text-[46px] font-bold tracking-tight leading-[1.1] mb-4 text-neutral-900">
                     {feature.title}
                   </h3>
-                  <p className="text-base sm:text-[17px] text-neutral-500 leading-relaxed max-w-[85%] md:max-w-[420px]">
+                  <p className="text-base sm:text-[17px] text-neutral-500 leading-relaxed">
                     {feature.description}
                   </p>
                 </div>
