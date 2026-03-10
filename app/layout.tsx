@@ -138,7 +138,7 @@ export default function RootLayout({
                redirect before any pixel paints. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{if(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()){var h=document.documentElement;h.classList.add('capacitor');if(window.location.pathname==='/'){h.style.visibility='hidden';window.location.replace('/native-start')}}}catch(e){}`,
+            __html: `try{if(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform()){var h=document.documentElement;h.classList.add('capacitor');if(window.location.pathname==='/'){h.style.visibility='hidden';window.location.replace('/native-start')}var _ow=window.open;window.open=function(u,t,f){if(u&&/stripe\\.com/.test(String(u)))return null;return _ow.apply(window,arguments)};}}catch(e){}`,
           }}
         />
       </head>

@@ -1095,9 +1095,15 @@ html.capacitor {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* On pages with a white header (checkout) the fixed black safe-area shield
-   must match the header colour so no dark bar shows above it. */
+/* On pages with a white header (checkout, library) the fixed black safe-area
+   shield must match the header colour so no dark bar shows above it. */
 html.capacitor:has([data-page="checkout"])::before {
+  background-color: #ffffff;
+}
+
+/* Library uses DashboardSidebar whose mobile header is white (bg-background).
+   The ::before shield must also be white so no black bar appears above it. */
+html.capacitor:has([data-page="library"])::before {
   background-color: #ffffff;
 }
 

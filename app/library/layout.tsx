@@ -66,7 +66,7 @@ export default async function LibraryLayout({
 
   return (
     <NativeAuthGate>
-    <div className="min-h-svh bg-[#fafafa]">
+    <div className="min-h-svh bg-[#fafafa]" data-page="library">
       <PurchaseSyncProvider />
       <DashboardSidebar />
 

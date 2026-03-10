@@ -10,7 +10,7 @@ export default function MarketingLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="flex min-h-svh flex-col [overflow-x:clip]">
+    <div className="flex min-h-svh flex-col">
       {/* Preconnect to image CDN — saves ~200-400ms on first image request */}
       <link rel="preconnect" href="https://skgtqglupjcnfhfscink.supabase.co" />
       <link rel="dns-prefetch" href="https://skgtqglupjcnfhfscink.supabase.co" />
@@ -20,7 +20,7 @@ export default function MarketingLayout({
         <ConditionalHeader />
       </Suspense>
 
-      <main className="flex-1">{children}</main>
+      <main className="flex-1 [overflow-x:clip]">{children}</main>
 
       <Suspense fallback={null}>
         <ConditionalFooter />
