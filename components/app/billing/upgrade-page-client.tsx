@@ -105,17 +105,17 @@ export function UpgradePageClient({
   }
 
   return (
-    <div className="fixed inset-0 z-[60] bg-white overflow-y-auto">
-      {/* Smooth close overlay */}
+    <div className="relative bg-white min-h-full">
+      {/* Smooth close overlay — absolute so it stays within the scroll container */}
       {closing && (
-        <div className="fixed inset-0 z-[70] bg-white/90 backdrop-blur-sm flex items-center justify-center transition-opacity duration-300 animate-in fade-in">
+        <div className="absolute inset-0 z-[10] bg-white/90 backdrop-blur-sm flex items-center justify-center animate-in fade-in">
           <div className="flex flex-col items-center gap-3">
             <Loader2 className="h-6 w-6 text-[#7c3aed] animate-spin" />
             <p className="text-[13px] text-[#6b7280] font-medium">Going back...</p>
           </div>
         </div>
       )}
-      {/* Top bar */}
+      {/* Top bar — sticky within the app layout's overflow-y-auto scroll container */}
       <div className="sticky top-0 z-10 bg-white border-b border-[#e5e7eb]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14 sm:h-16">
           <button
