@@ -40,7 +40,6 @@ import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
 import { Checkbox } from "@/components/ui/checkbox"
 import { getProductUrl } from "@/lib/url-helpers"
-import { isNativeApp } from "@/lib/platform-utils"
 import {
   ArrowLeft,
   Package,
@@ -842,39 +841,6 @@ export default function CheckoutPageClient({
     trackCheckoutStart()
   }, [creator.id, product.id])
 
-  // ── Native (Capacitor) card payment ──────────────────────────────────────────
-  // In Capacitor's WKWebView, Stripe.js always tries to navigate the top frame
-  // to js.stripe.com/v3/controller-*.html and there is no reliable JS way to
-  // intercept `window.location.href = url` in WebKit (Location.href is
-  // LegacyUnforgeable — non-configurable per the WebIDL spec).
-  //
-  // Solution: never load Stripe.js inside the Capacitor WebView.  Instead,
-  // open the SAME checkout URL via @capacitor/browser (SFSafariViewController).
-  // SFSafariViewController is an IN-APP browser panel — the user never leaves
-  // the app.  It uses a standard Safari UA (no "Capacitor" token), so the page
-  // detects it is NOT native, mounts Stripe Elements immediately (directPay=1),
-  // and Stripe.js works without restrictions.
-  //
-  // Pre-filled fields (email / firstName / lastName) are passed as query params
-  // so the user does not need to retype them in the in-app browser.
-  const openNativeCardPayment = async () => {
-    const baseUrl = typeof window !== "undefined" ? window.location.origin : ""
-    const params = new URLSearchParams({ productId: product.id, directPay: "1" })
-    if (email)     params.set("email",     email)
-    if (firstName) params.set("firstName", firstName)
-    if (lastName)  params.set("lastName",  lastName)
-    if (selectedVariant?.id) params.set("variantId", selectedVariant.id)
-    if (discountCode && discountApplied) params.set("discountCode", discountCode)
-    const url = `${baseUrl}/checkout?${params.toString()}`
-    try {
-      const { Browser } = await import("@capacitor/browser")
-      await Browser.open({ url, presentationStyle: "popover" })
-    } catch {
-      // Fallback: open in same tab (web context or if Browser plugin unavailable)
-      window.location.href = url
-    }
-  }
-
   // Price calculations
   const subtotal = selectedVariant ? selectedVariant.priceCents : product.price_cents
   const tipCents = customTip ? Math.round(parseFloat(customTip) * 100) || 0 : Math.round(tipAmount * 100)
@@ -1432,12 +1398,12 @@ export default function CheckoutPageClient({
       <div className="space-y-4">
         {emailSectionContent("-gate")}
 
-        {/* Card placeholder — tapping activates Stripe (web) or opens in-app browser (native) */}
+        {/* Card placeholder — tapping activates Stripe Elements inline */}
         <div
           role="button"
           tabIndex={0}
-          onClick={() => isNativeApp() ? openNativeCardPayment() : setCardFormActive(true)}
-          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") isNativeApp() ? openNativeCardPayment() : setCardFormActive(true) }}
+          onClick={() => setCardFormActive(true)}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setCardFormActive(true) }}
           className="bg-white rounded-2xl border border-gray-200 p-5 cursor-pointer hover:border-blue-300 transition-colors group"
         >
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
@@ -1482,10 +1448,10 @@ export default function CheckoutPageClient({
           </div>
         </div>
 
-        {/* Pay button — native: opens in-app browser; web: activates card form */}
+        {/* Pay button — activates Stripe Elements inline on all platforms */}
         <button
           type="button"
-          onClick={() => isNativeApp() ? openNativeCardPayment() : setCardFormActive(true)}
+          onClick={() => setCardFormActive(true)}
           disabled={!agreedToTerms || !isContactValid}
           className="w-full flex items-center justify-center gap-2 h-14 rounded-2xl text-base font-semibold transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 bg-[#2563eb] hover:bg-[#1d4ed8] text-white shadow-lg shadow-blue-500/20"
         >

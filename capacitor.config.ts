@@ -33,17 +33,16 @@ const config: CapacitorConfig = {
     // as a safety net. Without this, the default WKWebView UA is a plain
     // Safari-like string with no way to distinguish native from browser.
     appendUserAgent: 'Capacitor',
-    // hooks.stripe.com — needed for 3DS bank-auth redirects so they stay
-    // in-app rather than opening Safari.
-    //
-    // js.stripe.com is intentionally EXCLUDED.  The JS nav guard in
-    // lib/stripe-nav-guard.ts intercepts every path Stripe uses to navigate
-    // the top frame to the controller URL (window.location.href, assign,
-    // replace, window.open, iframe.src, setAttribute).  Keeping js.stripe.com
-    // in allowNavigation would cause Capacitor to LOAD the controller page
-    // inside the WebView and replace the checkout if any guard layer ever
-    // missed — which is worse than a rejected navigation.
-    allowNavigation: ['hooks.stripe.com'],
+    // js.stripe.com  — required so Stripe Elements card-input iframes
+    //   (js.stripe.com/v3/elements-inner-card-*.html) load inside the WebView.
+    //   The Stripe controller iframe (controller-with-preconnect-*.html) that
+    //   triggers top-level navigation is blocked BEFORE it loads by the JS guard
+    //   in lib/stripe-nav-guard.ts (iframe.src setter + setAttribute + MutationObserver).
+    //   If the controller somehow escapes the guard, the WebView loads it internally
+    //   (replacing the checkout page) rather than opening the system Safari app —
+    //   the user can navigate back, which is far less disruptive.
+    // hooks.stripe.com — needed for 3DS bank-auth redirects so they stay in-app.
+    allowNavigation: ['js.stripe.com', 'hooks.stripe.com'],
   },
   ios: {
     contentInset: 'never',
