@@ -33,16 +33,21 @@ const config: CapacitorConfig = {
     // as a safety net. Without this, the default WKWebView UA is a plain
     // Safari-like string with no way to distinguish native from browser.
     appendUserAgent: 'Capacitor',
-    // js.stripe.com  — required so Stripe Elements card-input iframes
-    //   (js.stripe.com/v3/elements-inner-card-*.html) load inside the WebView.
-    //   The Stripe controller iframe (controller-with-preconnect-*.html) that
-    //   triggers top-level navigation is blocked BEFORE it loads by the JS guard
-    //   in lib/stripe-nav-guard.ts (iframe.src setter + setAttribute + MutationObserver).
-    //   If the controller somehow escapes the guard, the WebView loads it internally
-    //   (replacing the checkout page) rather than opening the system Safari app —
-    //   the user can navigate back, which is far less disruptive.
-    // hooks.stripe.com — needed for 3DS bank-auth redirects so they stay in-app.
-    allowNavigation: ['js.stripe.com', 'hooks.stripe.com'],
+    // hooks.stripe.com — needed for 3DS bank-auth redirect pages so they stay
+    //   in-app rather than opening the system Safari browser.
+    //
+    // js.stripe.com is intentionally NOT listed here.
+    //   • Stripe Elements card-input iframes (js.stripe.com/v3/elements-inner-card-*.html)
+    //     are sub-frame navigations and are NOT subject to allowNavigation — they load
+    //     regardless of this list, so card entry works normally.
+    //   • The Stripe controller iframe (controller-with-preconnect-*.html) that used to
+    //     navigate the main frame away from the checkout page is now prevented at the
+    //     Stripe.js level: loadStripe() is called with advancedFraudSignals: false in
+    //     Capacitor contexts, which stops the controller iframe from being created at all.
+    //   • Keeping js.stripe.com absent from this list means that even if the controller
+    //     somehow escapes (e.g., future Stripe.js change), Capacitor will cancel the
+    //     navigation rather than replacing the checkout page with the empty controller HTML.
+    allowNavigation: ['hooks.stripe.com'],
   },
   ios: {
     contentInset: 'never',

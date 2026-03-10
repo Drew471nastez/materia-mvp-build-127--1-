@@ -26,10 +26,36 @@ import {
 // Lazy Stripe loader — only calls loadStripe() when a paid checkout actually
 // needs it. Combined with the /pure import, Stripe.js is completely absent
 // on free checkout pages.
+//
+// In Capacitor WKWebView (native iOS/Android), Stripe.js normally creates a hidden
+// "controller" iframe (js.stripe.com/v3/controller-with-preconnect-*.html) for
+// advanced fraud signals collection. That iframe sends a postMessage to Stripe.js
+// which then sets window.location.href = controllerUrl — a [LegacyUnforgeable] WebIDL
+// property that cannot be intercepted in WKWebView. This navigates the main frame
+// away from the checkout page.
+//
+// Setting advancedFraudSignals: false prevents the controller iframe from being
+// created entirely, so window.location.href is never set. Card entry stays inline.
+// (The stripe-nav-guard.ts import above remains as a secondary defence.)
 let _stripePromise: ReturnType<typeof loadStripe> | null = null
 function getStripePromise() {
   if (!_stripePromise) {
-    _stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
+    // Detect Capacitor native context at call-time (runs client-side only)
+    const isNative = typeof window !== "undefined" && (() => {
+      const cap = (window as any).Capacitor
+      if (cap?.isNativePlatform?.()) return true
+      const ua = navigator.userAgent || ""
+      return /StorelibApp|Capacitor/.test(ua) || (/wv/.test(ua) && /Android/.test(ua))
+    })()
+
+    _stripePromise = loadStripe(
+      process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!,
+      // advancedFraudSignals is documented in the Stripe.js reference but not yet
+      // reflected in the @stripe/stripe-js TypeScript types — suppress the error.
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      isNative ? { advancedFraudSignals: false } : undefined,
+    )
   }
   return _stripePromise
 }

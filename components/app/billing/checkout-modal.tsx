@@ -9,8 +9,20 @@ import {
 } from "@stripe/react-stripe-js"
 import { X, ArrowLeft } from "lucide-react"
 
+// Disable Stripe's fraud-signals controller iframe in Capacitor WKWebView.
+// The controller iframe triggers window.location.href navigation which in WebKit
+// is [LegacyUnforgeable] and can't be intercepted by JS — preventing the controller
+// from being created is the only reliable solution.
+const _isNative = typeof window !== "undefined" && (() => {
+  const cap = (window as any).Capacitor
+  if (cap?.isNativePlatform?.()) return true
+  const ua = navigator.userAgent || ""
+  return /StorelibApp|Capacitor/.test(ua) || (/wv/.test(ua) && /Android/.test(ua))
+})()
 const stripePromise = loadStripe(
-  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ""
+  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "",
+  // @ts-ignore — advancedFraudSignals is valid but not yet in the TS types
+  _isNative ? { advancedFraudSignals: false } : undefined,
 )
 
 const STORELIB_LOGO_URL =
