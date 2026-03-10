@@ -715,6 +715,21 @@ export function PlatformHeaderClient() {
     }
   }, [])
 
+  // On native, track the header height as a CSS variable so <main> can
+  // add matching padding-top and the fixed header never overlaps content.
+  useEffect(() => {
+    if (!isNativePlatform()) return
+    const el = document.getElementById('platform-header-root')
+    if (!el) return
+    const update = () => {
+      document.documentElement.style.setProperty('--platform-header-height', el.offsetHeight + 'px')
+    }
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
   const fetchWishlistCount = useCallback(async () => {
     try {
       const guestId = typeof localStorage !== "undefined" ? localStorage.getItem("materia_guest_id") : null
@@ -1007,7 +1022,7 @@ export function PlatformHeaderClient() {
 
   return (
     <>
-      <div id="platform-header-root" className={cn("z-40 w-full bg-black backdrop-blur supports-[backdrop-filter]:bg-black", isNativePlatform() ? "sticky top-0" : "relative")}>
+      <div id="platform-header-root" className={cn("z-40 w-full bg-black backdrop-blur supports-[backdrop-filter]:bg-black", isNativePlatform() ? "fixed top-0 left-0 right-0" : "relative")}>
     <header className={cn("w-full bg-black", !(isNativePlatform() && isSellerOrProductPage) && "border-b border-white/10")}>
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
         <div

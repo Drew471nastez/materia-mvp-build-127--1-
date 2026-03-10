@@ -33,6 +33,9 @@ const config: CapacitorConfig = {
     // as a safety net. Without this, the default WKWebView UA is a plain
     // Safari-like string with no way to distinguish native from browser.
     appendUserAgent: 'Capacitor',
+    // Allow Stripe domains inside the WebView so 3DS bank-auth redirects and
+    // Stripe-hosted pages stay in-app instead of opening Safari.
+    allowNavigation: ['*.stripe.com', 'hooks.stripe.com'],
   },
   ios: {
     contentInset: 'never',

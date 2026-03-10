@@ -116,7 +116,7 @@ export function UpgradePageClient({
         </div>
       )}
       {/* Top bar */}
-      <div className="sticky top-0 z-10 bg-white border-b border-[#e5e7eb]" style={{ paddingTop: "env(safe-area-inset-top)" }}>
+      <div className="sticky top-0 z-10 bg-white border-b border-[#e5e7eb]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14 sm:h-16">
           <button
             onClick={goBack}

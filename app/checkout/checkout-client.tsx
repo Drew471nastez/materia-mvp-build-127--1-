@@ -835,6 +835,42 @@ export default function CheckoutPageClient({
     router.push(`/checkout/receipt?token=${encodeURIComponent(receiptToken)}`)
   }, [router, appliedCouponId])
 
+  // Handle return from Stripe 3DS redirect (bank auth page → return_url → back here)
+  useEffect(() => {
+    const piClientSecret = searchParams.get('payment_intent_client_secret')
+    const piId = searchParams.get('payment_intent')
+    if (!piClientSecret || !piId) return
+    setIsSubmitting(true)
+    stripePromise.then(async (stripe) => {
+      if (!stripe) { setIsSubmitting(false); return }
+      try {
+        const { paymentIntent } = await stripe.retrievePaymentIntent(piClientSecret)
+        if (paymentIntent?.status === 'succeeded') {
+          const res = await fetch('/api/checkout/confirm-payment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': CSRF_TOKEN },
+            body: JSON.stringify({ paymentIntentId: piId }),
+          })
+          const data = await res.json()
+          if (res.ok) {
+            const match = data.redirectUrl?.match(/\/receipt\/([^?]+)/)
+            router.push(`/checkout/receipt?token=${encodeURIComponent(match?.[1] || '')}`)
+          } else {
+            setError(data.error || 'Failed to complete order')
+            setIsSubmitting(false)
+          }
+        } else {
+          setError('Payment authentication failed or was cancelled. Please try again.')
+          setIsSubmitting(false)
+        }
+      } catch {
+        setError('Failed to verify payment. Please contact support.')
+        setIsSubmitting(false)
+      }
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // only run on mount — the params don't change after redirect
+
   // Full form validation: includes terms
   const isFormValid = useMemo(() => {
     return isContactValid && agreedToTerms
@@ -979,6 +1015,9 @@ export default function CheckoutPageClient({
             email: email,
           },
         },
+        // return_url is needed for redirect-based 3DS (some banks). After bank auth,
+        // Stripe redirects here with ?payment_intent=... so the page can complete the order.
+        return_url: typeof window !== 'undefined' ? window.location.href : undefined,
       })
 
       if (stripeError) {
@@ -1355,7 +1394,7 @@ export default function CheckoutPageClient({
   )
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50" data-page="checkout">
       {/* Header */}
       <header className="border-b border-gray-200 bg-white pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex h-14 max-w-[1400px] items-center justify-between px-6 sm:px-10 lg:px-16">

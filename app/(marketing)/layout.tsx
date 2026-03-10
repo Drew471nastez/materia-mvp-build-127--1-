@@ -20,7 +20,7 @@ export default function MarketingLayout({
         <ConditionalHeader />
       </Suspense>
 
-      <main className="flex-1">{children}</main>
+      <main className="flex-1 platform-main">{children}</main>
 
       <Suspense fallback={null}>
         <ConditionalFooter />

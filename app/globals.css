@@ -1095,6 +1095,20 @@ html.capacitor {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* On pages with a white header (checkout, upgrade-like) the fixed black
+   safe-area shield must match the header colour so no dark bar shows. */
+html.capacitor:has([data-page="checkout"])::before {
+  background-color: #ffffff;
+}
+
+/* When the platform header is position:fixed on native it leaves the flow,
+   so we push <main> down by the header height (set as a CSS var by the
+   platform-header-client ResizeObserver). Falls back to 0 on web where
+   the header is position:relative and stays in the document flow. */
+html.capacitor .platform-main {
+  padding-top: var(--platform-header-height, 0px);
+}
+
 /* Per-element touch-action so nested elements can't override the root setting */
 html.capacitor button,
 html.capacitor a,
