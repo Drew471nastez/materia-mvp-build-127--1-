@@ -10,7 +10,7 @@ const FEATURES = [
     title: "Build Your One Page",
     description:
       "Create a single page for coaching, digital products, courses, music, links, and more.",
-    src: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Visits%20(9).webp",
+    src: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Visits%20(14).webp",
     imageLeft: true,
     sectionBg: "bg-gray-50",
   },
