@@ -13,6 +13,18 @@ import {
   useStripe,
   useElements,
 } from "@stripe/react-stripe-js"
+
+// Lazy Stripe loader — only initialises Stripe.js when actually needed for a
+// paid checkout.  Calling loadStripe() at module level loads Stripe.js on
+// every checkout page including free ones, which triggers the Stripe Link
+// "prewarm" experiment and navigates the browser to the Stripe controller URL.
+let _stripePromise: ReturnType<typeof loadStripe> | null = null
+function getStripePromise() {
+  if (!_stripePromise) {
+    _stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
+  }
+  return _stripePromise
+}
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -37,8 +49,6 @@ import {
   Globe,
   Search,
 } from "lucide-react"
-
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
 // ---------- Types ----------
 interface SelectedVariant {
@@ -841,7 +851,7 @@ export default function CheckoutPageClient({
     const piId = searchParams.get('payment_intent')
     if (!piClientSecret || !piId) return
     setIsSubmitting(true)
-    stripePromise.then(async (stripe) => {
+    getStripePromise().then(async (stripe) => {
       if (!stripe) { setIsSubmitting(false); return }
       try {
         const { paymentIntent } = await stripe.retrievePaymentIntent(piClientSecret)
@@ -1224,7 +1234,7 @@ export default function CheckoutPageClient({
       setPaymentIntentId(result.paymentIntentId)
 
       // Confirm with the payment method from Google Pay
-      const stripeInstance = await stripePromise
+      const stripeInstance = await getStripePromise()
       if (!stripeInstance) throw new Error("Stripe not loaded")
 
       const { error: stripeError, paymentIntent: confirmedIntent } = await stripeInstance.confirmCardPayment(
@@ -1325,7 +1335,7 @@ export default function CheckoutPageClient({
 
   // Payment content - Elements renders immediately without clientSecret
   const paymentElementsContent = !isFree ? (
-    <Elements stripe={stripePromise}>
+    <Elements stripe={getStripePromise()}>
       <StripeCardForm
         onSubmit={handleSubmit}
         isSubmitting={isSubmitting}
