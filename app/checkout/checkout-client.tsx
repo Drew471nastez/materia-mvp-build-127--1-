@@ -40,6 +40,7 @@ import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
 import { Checkbox } from "@/components/ui/checkbox"
 import { getProductUrl } from "@/lib/url-helpers"
+import { isNativeApp } from "@/lib/platform-utils"
 import {
   ArrowLeft,
   Package,
@@ -756,9 +757,17 @@ export default function CheckoutPageClient({
   const searchParams = useSearchParams()
 
   const urlEmail = searchParams.get("email") || ""
+  // URL params used when re-opening the checkout inside SFSafariViewController
+  // (the native Browser plugin passes these so the form is pre-filled)
+  const urlFirstName = searchParams.get("firstName") || ""
+  const urlLastName  = searchParams.get("lastName")  || ""
+  // ?directPay=1  → skip Phase-1 placeholder and mount Stripe Elements immediately.
+  // Set when the Capacitor WebView opens this URL in the in-app browser so the
+  // user lands directly on the card form (standard Safari, no WebView restrictions).
+  const urlDirectPay = searchParams.get("directPay") === "1"
 
-  const [firstName, setFirstName] = useState(() => loadSessionField(SESSION_KEYS.firstName))
-  const [lastName, setLastName] = useState(() => loadSessionField(SESSION_KEYS.lastName))
+  const [firstName, setFirstName] = useState(() => urlFirstName || loadSessionField(SESSION_KEYS.firstName))
+  const [lastName,  setLastName]  = useState(() => urlLastName  || loadSessionField(SESSION_KEYS.lastName))
   const [email, setEmail] = useState(() => urlEmail || "")
   const [vatId, setVatId] = useState(() => loadSessionField(SESSION_KEYS.vatId))
   const [country, setCountry] = useState(() => loadSessionField(SESSION_KEYS.country) || "US")
@@ -773,7 +782,7 @@ export default function CheckoutPageClient({
   // Variant selection state
   const [selectedVariant, setSelectedVariant] = useState<SelectedVariant | null | undefined>(initialVariant)
 
-  const [discountCode, setDiscountCode] = useState(() => loadSessionField(SESSION_KEYS.discountCode))
+  const [discountCode, setDiscountCode] = useState(() => searchParams.get("discountCode") || loadSessionField(SESSION_KEYS.discountCode))
   const [discountApplied, setDiscountApplied] = useState(false)
   const [discountPercent, setDiscountPercent] = useState(0)
   const [appliedDiscountCents, setAppliedDiscountCents] = useState<number | null>(null)
@@ -789,9 +798,15 @@ export default function CheckoutPageClient({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showVariantModal, setShowVariantModal] = useState(false)
   // Deferred Stripe gate: Stripe.js must NOT load until the user explicitly
-  // activates the card form. Until then the checkout page is identical to a
-  // free-product page — no Stripe script, no Link prewarm, no Safari popup.
-  const [cardFormActive, setCardFormActive] = useState(false)
+  // activates the card form.
+  //
+  // urlDirectPay=true  → page was opened via Browser.open() from the Capacitor
+  //   WebView (SFSafariViewController, standard Safari UA).  Stripe Elements
+  //   loads immediately — there are no WKWebView restrictions here.
+  // urlDirectPay=false → standard web flow or initial Capacitor WebView load.
+  //   Stripe is never touched until the user taps Pay and the native in-app
+  //   browser opens (isNativeApp), or until the user taps the card area (web).
+  const [cardFormActive, setCardFormActive] = useState(urlDirectPay)
 
   // Reset payment intent when variant changes (price may differ)
   useEffect(() => {
@@ -826,6 +841,39 @@ export default function CheckoutPageClient({
     }
     trackCheckoutStart()
   }, [creator.id, product.id])
+
+  // ── Native (Capacitor) card payment ──────────────────────────────────────────
+  // In Capacitor's WKWebView, Stripe.js always tries to navigate the top frame
+  // to js.stripe.com/v3/controller-*.html and there is no reliable JS way to
+  // intercept `window.location.href = url` in WebKit (Location.href is
+  // LegacyUnforgeable — non-configurable per the WebIDL spec).
+  //
+  // Solution: never load Stripe.js inside the Capacitor WebView.  Instead,
+  // open the SAME checkout URL via @capacitor/browser (SFSafariViewController).
+  // SFSafariViewController is an IN-APP browser panel — the user never leaves
+  // the app.  It uses a standard Safari UA (no "Capacitor" token), so the page
+  // detects it is NOT native, mounts Stripe Elements immediately (directPay=1),
+  // and Stripe.js works without restrictions.
+  //
+  // Pre-filled fields (email / firstName / lastName) are passed as query params
+  // so the user does not need to retype them in the in-app browser.
+  const openNativeCardPayment = async () => {
+    const baseUrl = typeof window !== "undefined" ? window.location.origin : ""
+    const params = new URLSearchParams({ productId: product.id, directPay: "1" })
+    if (email)     params.set("email",     email)
+    if (firstName) params.set("firstName", firstName)
+    if (lastName)  params.set("lastName",  lastName)
+    if (selectedVariant?.id) params.set("variantId", selectedVariant.id)
+    if (discountCode && discountApplied) params.set("discountCode", discountCode)
+    const url = `${baseUrl}/checkout?${params.toString()}`
+    try {
+      const { Browser } = await import("@capacitor/browser")
+      await Browser.open({ url, presentationStyle: "popover" })
+    } catch {
+      // Fallback: open in same tab (web context or if Browser plugin unavailable)
+      window.location.href = url
+    }
+  }
 
   // Price calculations
   const subtotal = selectedVariant ? selectedVariant.priceCents : product.price_cents
@@ -1384,12 +1432,12 @@ export default function CheckoutPageClient({
       <div className="space-y-4">
         {emailSectionContent("-gate")}
 
-        {/* Card placeholder — tapping activates Stripe */}
+        {/* Card placeholder — tapping activates Stripe (web) or opens in-app browser (native) */}
         <div
           role="button"
           tabIndex={0}
-          onClick={() => setCardFormActive(true)}
-          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setCardFormActive(true) }}
+          onClick={() => isNativeApp() ? openNativeCardPayment() : setCardFormActive(true)}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") isNativeApp() ? openNativeCardPayment() : setCardFormActive(true) }}
           className="bg-white rounded-2xl border border-gray-200 p-5 cursor-pointer hover:border-blue-300 transition-colors group"
         >
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
@@ -1434,10 +1482,10 @@ export default function CheckoutPageClient({
           </div>
         </div>
 
-        {/* Pay button — activates card form, then user enters card details */}
+        {/* Pay button — native: opens in-app browser; web: activates card form */}
         <button
           type="button"
-          onClick={() => setCardFormActive(true)}
+          onClick={() => isNativeApp() ? openNativeCardPayment() : setCardFormActive(true)}
           disabled={!agreedToTerms || !isContactValid}
           className="w-full flex items-center justify-center gap-2 h-14 rounded-2xl text-base font-semibold transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 bg-[#2563eb] hover:bg-[#1d4ed8] text-white shadow-lg shadow-blue-500/20"
         >
