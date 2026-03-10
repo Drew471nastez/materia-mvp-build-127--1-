@@ -183,7 +183,7 @@ export function CarouselSection() {
             <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-wider text-violet-600 bg-violet-50 px-4 py-1.5 rounded-full mb-4">
               🔗 OnePage
             </span>
-            <h2 className="text-[clamp(27px,3.6vw,40px)] lg:text-[60px] font-semibold leading-[1.15] tracking-tight mb-3.5">
+            <h2 className="text-[clamp(29px,3.6vw,40px)] lg:text-[60px] font-semibold leading-[1.15] tracking-tight mb-3.5">
               The OnePage creators love
             </h2>
             <p className="text-[15px] text-neutral-500 max-w-[460px] mx-auto">
@@ -214,7 +214,7 @@ export function CarouselSection() {
                       <div className="w-[140px] sm:w-[216px] mx-auto sm:mx-0">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                          src={slide.phoneImage + "?width=432&quality=70"}
+                          src={slide.phoneImage + "?width=300&quality=42"}
                           alt={slide.name}
                           width={216}
                           height={432}

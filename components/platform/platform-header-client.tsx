@@ -1011,8 +1011,8 @@ export function PlatformHeaderClient() {
     <header className={cn("w-full bg-black", !(isNativePlatform() && isSellerOrProductPage) && "border-b border-white/10")}>
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
         <div
-          className="flex md:h-[81px] items-center justify-between gap-4 md:py-[3px] pb-3 md:pb-[3px]"
-          style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 14px)' }}
+          className="flex md:h-[81px] items-center justify-between gap-4 pt-[14px] md:pt-[3px] pb-3 md:pb-[3px]"
+          style={isNativePlatform() ? { paddingTop: 'max(env(safe-area-inset-top, 0px), 14px)' } : undefined}
         >
           {/* Desktop Homepage Layout - same style for /, /features, /pricing, /blog */}
           {isMarketingNavRoute ? (

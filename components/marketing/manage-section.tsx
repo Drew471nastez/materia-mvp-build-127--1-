@@ -71,7 +71,7 @@ function ManagedImageCarousel() {
       img.decoding = "async"
       img.onload = () => markLoaded(i)
       img.onerror = () => markLoaded(i)
-      img.src = getOptimized(url, 600, 35)
+      img.src = getOptimized(url, 420, 20)
     })
   }, [markLoaded])
 
@@ -119,8 +119,8 @@ function ManagedImageCarousel() {
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
             key={i}
-            src={getOptimized(url, 600, 35)}
-            srcSet={`${getOptimized(url, 360, 30)} 360w, ${getOptimized(url, 600, 35)} 600w`}
+            src={getOptimized(url, 420, 20)}
+            srcSet={`${getOptimized(url, 280, 18)} 360w, ${getOptimized(url, 420, 20)} 600w`}
             alt={`Storelib Dashboard view ${i + 1}`}
             width={600}
             height={338}
@@ -177,7 +177,7 @@ export function ManageSection() {
       if ("imgSrc" in icon && icon.imgSrc) {
         const img = new window.Image()
         img.decoding = "async"
-        img.src = icon.imgSrc + "?width=80&quality=60&format=webp"
+        img.src = icon.imgSrc + "?width=80&quality=35&format=webp"
       }
     })
   }, [])
@@ -214,7 +214,7 @@ export function ManageSection() {
                   {"imgSrc" in icon && icon.imgSrc ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
                     <img
-                      src={icon.imgSrc + "?width=80&quality=60&format=webp"}
+                      src={icon.imgSrc + "?width=80&quality=35&format=webp"}
                       alt={icon.label}
                       className={`object-cover rounded-full ${icon.label === "Digital Products" ? "w-[80%] h-[80%]" : icon.label === "Marketplace" ? "w-[130%] h-[130%]" : "w-full h-full"}`}
                       width={74}

@@ -148,8 +148,8 @@ export function ToolStackSection() {
             <div className="text-center max-w-[640px] mx-auto mb-9 sm:mb-[50px]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Visits%20(12).webp?width=264&quality=45"
-                srcSet="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Visits%20(12).webp?width=204&quality=40 204w, https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Visits%20(12).webp?width=264&quality=45 264w"
+                src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Visits%20(12).webp?width=190&quality=28"
+                srcSet="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Visits%20(12).webp?width=150&quality=25 204w, https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Visits%20(12).webp?width=190&quality=28 264w"
                 alt="Compare tools"
                 width={277}
                 height={56}

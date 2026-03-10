@@ -77,7 +77,7 @@ export function SplitFeaturesSection() {
                     className="w-full aspect-video object-contain rounded-2xl"
                     loading="lazy"
                     decoding="async"
-                    quality={65}
+                    quality={40}
                   />
                 </div>
 

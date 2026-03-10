@@ -5,6 +5,7 @@ import { useEffect, useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { Star, Download } from "lucide-react"
+import { isNativeApp } from "@/lib/platform-utils"
 import { stickyAddToCartButtonPresets } from "@/lib/store-builder/defaults"
 import { downloadEntitledFile } from "@/components/download-button"
 import { getCanonicalSiteUrl } from "@/lib/url-helpers"
@@ -94,7 +95,7 @@ export function EditorStickyAddToCart({
     e.stopPropagation()
   }
 
-  const handleButtonClick = (e: React.MouseEvent) => {
+  const handleButtonClick = async (e: React.MouseEvent) => {
     e.stopPropagation()
     if (isEditorPreview) return
     if (isPurchased) {
@@ -104,7 +105,16 @@ export function EditorStickyAddToCart({
     if (product.selectedVariantId) {
       checkoutUrl += `&variantId=${product.selectedVariantId}`
     }
-    window.location.href = checkoutUrl
+    if (isNativeApp()) {
+      const { Browser } = await import("@capacitor/browser")
+      await Browser.open({
+        url: `${window.location.origin}${checkoutUrl}`,
+        presentationStyle: "fullscreen",
+        toolbarColor: "#000000",
+      })
+    } else {
+      window.location.href = checkoutUrl
+    }
   }
 
   const handleWrapperClick = () => {
@@ -362,7 +372,7 @@ export function LiveStickyAddToCart({
   const reviewsAverage = product.reviews_average || 0
   const hasReviews = reviewsCount > 0
 
-  const handleClick = () => {
+  const handleClick = async () => {
     if (isPurchased) {
       if (downloadFiles.length > 1) {
         setShowFilesModal(true)
@@ -384,7 +394,16 @@ export function LiveStickyAddToCart({
       if (product.selectedVariantId) {
         checkoutUrl += `&variantId=${product.selectedVariantId}`
       }
-      window.location.href = checkoutUrl
+      if (isNativeApp()) {
+        const { Browser } = await import("@capacitor/browser")
+        await Browser.open({
+          url: `${window.location.origin}${checkoutUrl}`,
+          presentationStyle: "fullscreen",
+          toolbarColor: "#000000",
+        })
+      } else {
+        window.location.href = checkoutUrl
+      }
     }
   }
 
