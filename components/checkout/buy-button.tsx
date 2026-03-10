@@ -69,13 +69,30 @@ export function BuyButton({
 
     if (isNativeApp()) {
       // On native (Capacitor WKWebView), Stripe Elements creates cross-origin iframes
-      // to js.stripe.com. Capacitor intercepts these iframe navigations and opens
-      // Safari instead of loading them in the WebView. To work around this, open
-      // checkout in an SFSafariViewController (in-app browser) which natively handles
-      // all cross-origin content without any navigation interception.
-      // The permanent fix is allowNavigation: ['*.stripe.com'] in capacitor.config.ts
-      // (already configured) which takes effect after the next native rebuild.
+      // to js.stripe.com which Capacitor intercepts and opens in Safari.
+      // Fix: open checkout in SFSafariViewController (in-app browser) which handles
+      // all cross-origin content natively. The permanent fix is allowNavigation in
+      // capacitor.config.ts (already configured) — takes effect after native rebuild.
       const { Browser } = await import("@capacitor/browser")
+
+      // Listen for the in-app browser closing. When the user closes it (or checkout
+      // redirects out), check whether a purchase was completed. If yes, navigate to
+      // the library so the new item appears immediately.
+      const listener = await Browser.addListener("browserFinished", async () => {
+        listener.remove()
+        setLoading(false)
+        try {
+          const res = await fetch(`/api/native/checkout-status?productId=${productId}`)
+          const data = await res.json()
+          if (data.purchased) {
+            // Purchase confirmed — take user to library to see their new item
+            window.location.href = "/library/products"
+          }
+        } catch {
+          // Network error or not logged in — stay on current page
+        }
+      })
+
       await Browser.open({
         url: `${window.location.origin}${checkoutUrl}`,
         presentationStyle: "fullscreen",

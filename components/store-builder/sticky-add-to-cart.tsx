@@ -107,6 +107,20 @@ export function EditorStickyAddToCart({
     }
     if (isNativeApp()) {
       const { Browser } = await import("@capacitor/browser")
+
+      const listener = await Browser.addListener("browserFinished", async () => {
+        listener.remove()
+        try {
+          const res = await fetch(`/api/native/checkout-status?productId=${product.id}`)
+          const data = await res.json()
+          if (data.purchased) {
+            window.location.href = "/library/products"
+          }
+        } catch {
+          // Network error or not logged in — stay on current page
+        }
+      })
+
       await Browser.open({
         url: `${window.location.origin}${checkoutUrl}`,
         presentationStyle: "fullscreen",
@@ -396,6 +410,20 @@ export function LiveStickyAddToCart({
       }
       if (isNativeApp()) {
         const { Browser } = await import("@capacitor/browser")
+
+        const listener = await Browser.addListener("browserFinished", async () => {
+          listener.remove()
+          try {
+            const res = await fetch(`/api/native/checkout-status?productId=${product.id}`)
+            const data = await res.json()
+            if (data.purchased) {
+              window.location.href = "/library/products"
+            }
+          } catch {
+            // Network error or not logged in — stay on current page
+          }
+        })
+
         await Browser.open({
           url: `${window.location.origin}${checkoutUrl}`,
           presentationStyle: "fullscreen",
