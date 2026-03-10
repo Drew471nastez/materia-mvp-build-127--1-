@@ -4,7 +4,6 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Loader2, Download } from "lucide-react"
 import { downloadEntitledFile } from "@/components/download-button"
-import { isNativeApp } from "@/lib/platform-utils"
 
 interface SmartBuyButtonProps {
   productId: string
@@ -159,32 +158,7 @@ export function SmartBuyButton({
       checkoutUrl += `&variantId=${variantId}`
     }
 
-    if (isNativeApp()) {
-      const { Browser } = await import("@capacitor/browser")
-
-      const listener = await Browser.addListener("browserFinished", async () => {
-        listener.remove()
-        setLoading(false)
-        try {
-          const res = await fetch(`/api/native/checkout-status?productId=${productId}`)
-          const data = await res.json()
-          if (data.purchased) {
-            window.location.href = "/library/products"
-          }
-        } catch {
-          // Network error or not logged in — stay on current page
-        }
-      })
-
-      await Browser.open({
-        url: `${window.location.origin}${checkoutUrl}`,
-        presentationStyle: "fullscreen",
-        toolbarColor: "#000000",
-      })
-      setLoading(false)
-    } else {
-      window.location.href = checkoutUrl
-    }
+    window.location.href = checkoutUrl
   }
 
   const handleDownloadClick = async () => {

@@ -3,7 +3,6 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Loader2 } from "lucide-react"
-import { isNativeApp } from "@/lib/platform-utils"
 
 interface BuyButtonProps {
   productId: string
@@ -67,41 +66,7 @@ export function BuyButton({
       checkoutUrl += `&customPrice=${customPriceCents}`
     }
 
-    if (isNativeApp()) {
-      // On native (Capacitor WKWebView), Stripe Elements creates cross-origin iframes
-      // to js.stripe.com which Capacitor intercepts and opens in Safari.
-      // Fix: open checkout in SFSafariViewController (in-app browser) which handles
-      // all cross-origin content natively. The permanent fix is allowNavigation in
-      // capacitor.config.ts (already configured) — takes effect after native rebuild.
-      const { Browser } = await import("@capacitor/browser")
-
-      // Listen for the in-app browser closing. When the user closes it (or checkout
-      // redirects out), check whether a purchase was completed. If yes, navigate to
-      // the library so the new item appears immediately.
-      const listener = await Browser.addListener("browserFinished", async () => {
-        listener.remove()
-        setLoading(false)
-        try {
-          const res = await fetch(`/api/native/checkout-status?productId=${productId}`)
-          const data = await res.json()
-          if (data.purchased) {
-            // Purchase confirmed — take user to library to see their new item
-            window.location.href = "/library/products"
-          }
-        } catch {
-          // Network error or not logged in — stay on current page
-        }
-      })
-
-      await Browser.open({
-        url: `${window.location.origin}${checkoutUrl}`,
-        presentationStyle: "fullscreen",
-        toolbarColor: "#000000",
-      })
-      setLoading(false)
-    } else {
-      window.location.href = checkoutUrl
-    }
+    window.location.href = checkoutUrl
   }
 
   // Display price - use custom price if provided, otherwise regular price

@@ -5,7 +5,6 @@ import { useEffect, useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { Star, Download } from "lucide-react"
-import { isNativeApp } from "@/lib/platform-utils"
 import { stickyAddToCartButtonPresets } from "@/lib/store-builder/defaults"
 import { downloadEntitledFile } from "@/components/download-button"
 import { getCanonicalSiteUrl } from "@/lib/url-helpers"
@@ -105,30 +104,7 @@ export function EditorStickyAddToCart({
     if (product.selectedVariantId) {
       checkoutUrl += `&variantId=${product.selectedVariantId}`
     }
-    if (isNativeApp()) {
-      const { Browser } = await import("@capacitor/browser")
-
-      const listener = await Browser.addListener("browserFinished", async () => {
-        listener.remove()
-        try {
-          const res = await fetch(`/api/native/checkout-status?productId=${product.id}`)
-          const data = await res.json()
-          if (data.purchased) {
-            window.location.href = "/library/products"
-          }
-        } catch {
-          // Network error or not logged in — stay on current page
-        }
-      })
-
-      await Browser.open({
-        url: `${window.location.origin}${checkoutUrl}`,
-        presentationStyle: "fullscreen",
-        toolbarColor: "#000000",
-      })
-    } else {
-      window.location.href = checkoutUrl
-    }
+    window.location.href = checkoutUrl
   }
 
   const handleWrapperClick = () => {
@@ -408,30 +384,7 @@ export function LiveStickyAddToCart({
       if (product.selectedVariantId) {
         checkoutUrl += `&variantId=${product.selectedVariantId}`
       }
-      if (isNativeApp()) {
-        const { Browser } = await import("@capacitor/browser")
-
-        const listener = await Browser.addListener("browserFinished", async () => {
-          listener.remove()
-          try {
-            const res = await fetch(`/api/native/checkout-status?productId=${product.id}`)
-            const data = await res.json()
-            if (data.purchased) {
-              window.location.href = "/library/products"
-            }
-          } catch {
-            // Network error or not logged in — stay on current page
-          }
-        })
-
-        await Browser.open({
-          url: `${window.location.origin}${checkoutUrl}`,
-          presentationStyle: "fullscreen",
-          toolbarColor: "#000000",
-        })
-      } else {
-        window.location.href = checkoutUrl
-      }
+      window.location.href = checkoutUrl
     }
   }
 
