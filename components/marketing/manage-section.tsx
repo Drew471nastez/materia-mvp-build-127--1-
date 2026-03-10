@@ -119,8 +119,8 @@ function ManagedImageCarousel() {
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
             key={i}
-            src={getOptimized(url, 420, 20)}
-            srcSet={`${getOptimized(url, 280, 18)} 360w, ${getOptimized(url, 420, 20)} 600w`}
+            src={getOptimized(url, 380, 16)}
+            srcSet={`${getOptimized(url, 240, 13)} 360w, ${getOptimized(url, 380, 16)} 600w`}
             alt={`Storelib Dashboard view ${i + 1}`}
             width={600}
             height={338}

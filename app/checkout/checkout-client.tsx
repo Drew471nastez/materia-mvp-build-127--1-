@@ -788,6 +788,10 @@ export default function CheckoutPageClient({
   const [mobileOrderOpen, setMobileOrderOpen] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showVariantModal, setShowVariantModal] = useState(false)
+  // Deferred Stripe gate: Stripe.js must NOT load until the user explicitly
+  // activates the card form. Until then the checkout page is identical to a
+  // free-product page — no Stripe script, no Link prewarm, no Safari popup.
+  const [cardFormActive, setCardFormActive] = useState(false)
 
   // Reset payment intent when variant changes (price may differ)
   useEffect(() => {
@@ -1341,27 +1345,119 @@ export default function CheckoutPageClient({
     </>
   )
 
-  // Payment content - Elements renders immediately without clientSecret
+  // Payment content.
+  // For paid products we use a two-phase approach:
+  //   Phase 1 (cardFormActive=false): render the full checkout form BUT with a
+  //     card-placeholder instead of the real Stripe Elements. Stripe.js is never
+  //     loaded. No Link prewarm, no controller iframe, no Safari popup — exactly
+  //     the same behaviour as a free product.
+  //   Phase 2 (cardFormActive=true): the user has explicitly tapped the card
+  //     area or the Pay button. Only NOW do we call getStripePromise() and mount
+  //     <Elements>. Stripe.js loads, card inputs appear, user enters details and
+  //     pays. The email/contact values captured in Phase 1 are preserved in
+  //     parent state and shown pre-filled inside StripeCardForm.
   const paymentElementsContent = !isFree ? (
-    <Elements stripe={getStripePromise()}>
-      <StripeCardForm
-        onSubmit={handleSubmit}
-        isSubmitting={isSubmitting}
-        isFree={isFree}
-        total={total}
-        error={error}
-        setError={setError}
-        nameOnCard={nameOnCard}
-        setNameOnCard={setNameOnCard}
-        agreedToTerms={agreedToTerms}
-        setAgreedToTerms={setAgreedToTerms}
-        isContactValid={isContactValid}
-        productTitle={product.title}
-        onGooglePaySubmit={handleGooglePayPayment}
-        emailContent={emailSectionContent("")}
-        contactContent={contactSectionContent("")}
-      />
-    </Elements>
+    cardFormActive ? (
+      // Phase 2 — real Stripe card form (Stripe.js loads here for the first time)
+      <Elements stripe={getStripePromise()}>
+        <StripeCardForm
+          onSubmit={handleSubmit}
+          isSubmitting={isSubmitting}
+          isFree={isFree}
+          total={total}
+          error={error}
+          setError={setError}
+          nameOnCard={nameOnCard}
+          setNameOnCard={setNameOnCard}
+          agreedToTerms={agreedToTerms}
+          setAgreedToTerms={setAgreedToTerms}
+          isContactValid={isContactValid}
+          productTitle={product.title}
+          onGooglePaySubmit={handleGooglePayPayment}
+          emailContent={emailSectionContent("")}
+          contactContent={contactSectionContent("")}
+        />
+      </Elements>
+    ) : (
+      // Phase 1 — Stripe-free placeholder. Collects email/contact so values
+      // are already in state when Phase 2 mounts.
+      <div className="space-y-4">
+        {emailSectionContent("-gate")}
+
+        {/* Card placeholder — tapping activates Stripe */}
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => setCardFormActive(true)}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setCardFormActive(true) }}
+          className="bg-white rounded-2xl border border-gray-200 p-5 cursor-pointer hover:border-blue-300 transition-colors group"
+        >
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+            Payment details
+          </p>
+          <div className="space-y-3 pointer-events-none select-none">
+            <div className="h-11 px-3 flex items-center rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-300 group-hover:border-blue-200 transition-colors">
+              Card number
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="h-11 px-3 flex items-center rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-300 group-hover:border-blue-200 transition-colors">
+                MM / YY
+              </div>
+              <div className="h-11 px-3 flex items-center rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-300 group-hover:border-blue-200 transition-colors">
+                CVC
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center justify-center gap-1.5 mt-4">
+            <Lock className="w-3 h-3 text-blue-400" />
+            <span className="text-xs text-blue-500 font-medium">Tap to enter card details securely</span>
+          </div>
+        </div>
+
+        {contactSectionContent("-gate")}
+
+        {/* Terms */}
+        <div className="bg-white rounded-2xl border border-gray-200 p-5">
+          <div className="flex items-start gap-3">
+            <Checkbox
+              id="terms-gate"
+              checked={agreedToTerms}
+              onCheckedChange={(checked) => setAgreedToTerms(checked as boolean)}
+              className="mt-0.5 shrink-0 data-[state=checked]:bg-black data-[state=checked]:border-black"
+            />
+            <Label htmlFor="terms-gate" className="cursor-pointer text-sm leading-relaxed text-gray-600">
+              I agree to the{" "}
+              <Link href="/terms" className="text-gray-900 hover:text-black underline underline-offset-2" target="_blank">
+                Terms and Conditions
+              </Link>{" "}*
+            </Label>
+          </div>
+        </div>
+
+        {/* Pay button — activates card form, then user enters card details */}
+        <button
+          type="button"
+          onClick={() => setCardFormActive(true)}
+          disabled={!agreedToTerms || !isContactValid}
+          className="w-full flex items-center justify-center gap-2 h-14 rounded-2xl text-base font-semibold transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 bg-[#2563eb] hover:bg-[#1d4ed8] text-white shadow-lg shadow-blue-500/20"
+        >
+          <Lock className="w-4 h-4" />
+          Pay {formatPrice(total)}
+        </button>
+
+        <div className="flex items-center justify-center gap-1.5 pt-2">
+          <Shield className="w-3 h-3 text-gray-300" />
+          <span className="text-[11px] text-gray-300 font-medium">Secured checkout by Stripe</span>
+        </div>
+        <div className="flex items-center justify-center gap-3 pt-1">
+          <Link href="/terms" target="_blank" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Terms</Link>
+          <span className="text-gray-300 text-[8px]">&middot;</span>
+          <Link href="/privacy" target="_blank" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Privacy</Link>
+          <span className="text-gray-300 text-[8px]">&middot;</span>
+          <Link href="/refund-policy" target="_blank" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Refund Policy</Link>
+        </div>
+      </div>
+    )
   ) : (
     <div className="space-y-4">
       {/* Email + opt-in for free products */}
