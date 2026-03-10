@@ -4,7 +4,13 @@ import { useState, useCallback, useEffect, useRef, useMemo } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { loadStripe } from "@stripe/stripe-js"
+// IMPORTANT: import from "@stripe/stripe-js/pure" NOT "@stripe/stripe-js".
+// The default "@stripe/stripe-js" injects <script src="https://js.stripe.com/v3/">
+// at module import time — before loadStripe() is even called — which triggers
+// the Stripe Link prewarm experiment and navigates the browser to the Stripe
+// controller URL (js.stripe.com/v3/controller-with-preconnect-...).
+// /pure never touches the DOM until loadStripe() is explicitly invoked.
+import { loadStripe } from "@stripe/stripe-js/pure"
 import {
   Elements,
   CardNumberElement,
@@ -14,10 +20,9 @@ import {
   useElements,
 } from "@stripe/react-stripe-js"
 
-// Lazy Stripe loader — only initialises Stripe.js when actually needed for a
-// paid checkout.  Calling loadStripe() at module level loads Stripe.js on
-// every checkout page including free ones, which triggers the Stripe Link
-// "prewarm" experiment and navigates the browser to the Stripe controller URL.
+// Lazy Stripe loader — only calls loadStripe() when a paid checkout actually
+// needs it. Combined with the /pure import, Stripe.js is completely absent
+// on free checkout pages.
 let _stripePromise: ReturnType<typeof loadStripe> | null = null
 function getStripePromise() {
   if (!_stripePromise) {

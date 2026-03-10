@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useState } from "react"
-import { loadStripe } from "@stripe/stripe-js"
+import { loadStripe } from "@stripe/stripe-js/pure"
 import {
   EmbeddedCheckoutProvider,
   EmbeddedCheckout,

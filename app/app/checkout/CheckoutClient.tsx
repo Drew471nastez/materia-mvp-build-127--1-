@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
-import { loadStripe } from "@stripe/stripe-js"
+import { loadStripe } from "@stripe/stripe-js/pure"
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js"
 import { createClient } from "@/lib/supabase/client"
 
