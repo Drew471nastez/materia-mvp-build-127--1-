@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react"
+import { createPortal } from "react-dom"
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -2050,10 +2051,13 @@ function OrderSummaryContent({
 }) {
   const [variantOpen, setVariantOpen] = useState(false)
   const [sheetVisible, setSheetVisible] = useState(false)
+  const [portalMounted, setPortalMounted] = useState(false)
   const variantRef = useRef<HTMLDivElement>(null)
   const sheetDragStartY = useRef(0)
   const [sheetDragY, setSheetDragY] = useState(0)
   const [sheetIsDragging, setSheetIsDragging] = useState(false)
+
+  useEffect(() => { setPortalMounted(true) }, [])
 
   // Close variant dropdown on outside click (desktop only)
   useEffect(() => {
@@ -2168,19 +2172,23 @@ function OrderSummaryContent({
                       </div>
                     </div>
                   )}
-                  {/* Mobile bottom sheet */}
-                  {sheetVisible && (
-                    <div className="lg:hidden fixed inset-0 z-[100]">
+                  {/* Mobile bottom sheet – rendered via portal so fixed covers the true viewport */}
+                  {sheetVisible && portalMounted && createPortal(
+                    <div className="fixed inset-0 z-[9999] flex flex-col justify-end">
+                      {/* Backdrop */}
                       <div
                         className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
                         onClick={closeSheet}
                       />
+                      {/* Sheet */}
                       <div
-                        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-2xl animate-in slide-in-from-bottom duration-300 max-h-[80vh] flex flex-col"
+                        className="relative bg-white rounded-t-3xl shadow-2xl w-full max-h-[80vh] flex flex-col animate-in slide-in-from-bottom duration-300"
                         style={{
                           transform: sheetDragY > 0 ? `translateY(${sheetDragY}px)` : undefined,
                           transition: sheetIsDragging ? "none" : "transform 0.3s ease-out",
+                          paddingBottom: "env(safe-area-inset-bottom)",
                         }}
+                        onClick={(e) => e.stopPropagation()}
                       >
                         {/* Drag handle */}
                         <div
@@ -2208,35 +2216,36 @@ function OrderSummaryContent({
                               className={`w-full flex items-center justify-between p-4 rounded-2xl border-2 text-sm transition-all cursor-pointer ${
                                 selectedVariant?.id === v.id
                                   ? "border-black bg-gray-50"
-                                  : "border-gray-200 bg-white hover:border-gray-300"
+                                  : "border-gray-200 bg-white active:border-gray-300"
                               }`}
                             >
                               <span className="flex items-center gap-3">
-                                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                                <div className={`w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center shrink-0 ${
                                   selectedVariant?.id === v.id ? "border-black" : "border-gray-300"
                                 }`}>
-                                  {selectedVariant?.id === v.id && <div className="w-2 h-2 rounded-full bg-black" />}
+                                  {selectedVariant?.id === v.id && <div className="w-2.5 h-2.5 rounded-full bg-black" />}
                                 </div>
-                                <span className={`font-medium ${selectedVariant?.id === v.id ? "text-gray-900" : "text-gray-700"}`}>{v.name}</span>
+                                <span className={`font-medium text-[15px] ${selectedVariant?.id === v.id ? "text-gray-900" : "text-gray-700"}`}>{v.name}</span>
                               </span>
-                              <span className={`font-semibold shrink-0 ${selectedVariant?.id === v.id ? "text-gray-900" : "text-gray-500"}`}>
+                              <span className={`font-semibold text-[15px] shrink-0 ${selectedVariant?.id === v.id ? "text-gray-900" : "text-gray-500"}`}>
                                 {v.priceCents === 0 ? "Free" : formatPrice(v.priceCents)}
                               </span>
                             </button>
                           ))}
                         </div>
                         {/* Done button */}
-                        <div className="px-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))] shrink-0 border-t border-gray-100">
+                        <div className="px-4 pt-2 pb-4 shrink-0">
                           <button
                             type="button"
                             onClick={closeSheet}
-                            className="w-full h-12 rounded-2xl bg-black text-white font-semibold text-sm transition-colors hover:bg-gray-900 cursor-pointer mt-2"
+                            className="w-full h-[52px] rounded-2xl bg-black text-white font-semibold text-[15px] transition-colors active:bg-gray-900 cursor-pointer"
                           >
                             Done
                           </button>
                         </div>
                       </div>
-                    </div>
+                    </div>,
+                    document.body
                   )}
                 </>
               ) : (
