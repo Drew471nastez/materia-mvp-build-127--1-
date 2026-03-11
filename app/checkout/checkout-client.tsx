@@ -2051,13 +2051,16 @@ function OrderSummaryContent({
 }) {
   const [variantOpen, setVariantOpen] = useState(false)
   const [sheetVisible, setSheetVisible] = useState(false)
+  const [sheetClosing, setSheetClosing] = useState(false)
   const [portalMounted, setPortalMounted] = useState(false)
   const variantRef = useRef<HTMLDivElement>(null)
   const sheetDragStartY = useRef(0)
   const [sheetDragY, setSheetDragY] = useState(0)
   const [sheetIsDragging, setSheetIsDragging] = useState(false)
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => { setPortalMounted(true) }, [])
+  useEffect(() => () => { if (closeTimerRef.current) clearTimeout(closeTimerRef.current) }, [])
 
   // Close variant dropdown on outside click (desktop only)
   useEffect(() => {
@@ -2075,11 +2078,17 @@ function OrderSummaryContent({
 
   // Mobile bottom sheet open/close with smooth animation
   const openSheet = () => {
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
+    setSheetClosing(false)
     setSheetVisible(true)
   }
   const closeSheet = () => {
-    setSheetVisible(false)
+    setSheetClosing(true)
     setSheetDragY(0)
+    closeTimerRef.current = setTimeout(() => {
+      setSheetVisible(false)
+      setSheetClosing(false)
+    }, 320)
   }
 
   const handleSheetTouchStart = (e: React.TouchEvent) => {
@@ -2177,16 +2186,26 @@ function OrderSummaryContent({
                     <div className="fixed inset-0 z-[9999] flex flex-col justify-end">
                       {/* Backdrop */}
                       <div
-                        className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
+                        className="absolute inset-0 backdrop-blur-sm"
+                        style={{
+                          backgroundColor: "rgba(0,0,0,0.5)",
+                          opacity: sheetClosing ? 0 : 1,
+                          transition: "opacity 0.3s ease",
+                        }}
                         onClick={closeSheet}
                       />
                       {/* Sheet */}
                       <div
-                        className="relative bg-white rounded-t-3xl shadow-2xl w-full max-h-[80vh] flex flex-col animate-in slide-in-from-bottom duration-300"
+                        className="relative bg-white rounded-t-3xl shadow-2xl w-full max-h-[80vh] flex flex-col"
                         style={{
-                          transform: sheetDragY > 0 ? `translateY(${sheetDragY}px)` : undefined,
-                          transition: sheetIsDragging ? "none" : "transform 0.3s ease-out",
+                          transform: sheetClosing
+                            ? "translateY(100%)"
+                            : sheetDragY > 0
+                            ? `translateY(${sheetDragY}px)`
+                            : "translateY(0%)",
+                          transition: sheetIsDragging ? "none" : "transform 0.32s cubic-bezier(0.32,0.72,0,1)",
                           paddingBottom: "env(safe-area-inset-bottom)",
+                          animation: !sheetClosing && sheetDragY === 0 ? "sheetSlideUp 0.32s cubic-bezier(0.32,0.72,0,1)" : undefined,
                         }}
                         onClick={(e) => e.stopPropagation()}
                       >

@@ -1107,6 +1107,11 @@ html.capacitor:has([data-page="library"])::before {
   background-color: #ffffff;
 }
 
+@keyframes sheetSlideUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0%); }
+}
+
 /* Per-element touch-action so nested elements can't override the root setting */
 html.capacitor button,
 html.capacitor a,
