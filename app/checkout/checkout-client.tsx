@@ -1651,11 +1651,11 @@ export default function CheckoutPageClient({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label htmlFor={`firstName${idSuffix}`} className="text-xs font-medium text-gray-600">First Name *</Label>
-              <Input id={`firstName${idSuffix}`} type="text" placeholder="John" value={firstName} onChange={(e) => setFirstName(e.target.value)} className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20" required />
+              <Input id={`firstName${idSuffix}`} type="text" placeholder="First name" value={firstName} onChange={(e) => setFirstName(e.target.value)} className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20" required />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor={`lastName${idSuffix}`} className="text-xs font-medium text-gray-600">Last Name *</Label>
-              <Input id={`lastName${idSuffix}`} type="text" placeholder="Doe" value={lastName} onChange={(e) => setLastName(e.target.value)} className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20" required />
+              <Input id={`lastName${idSuffix}`} type="text" placeholder="Last name" value={lastName} onChange={(e) => setLastName(e.target.value)} className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20" required />
             </div>
           </div>
           <div className="space-y-1.5">
