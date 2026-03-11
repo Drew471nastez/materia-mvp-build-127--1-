@@ -434,6 +434,32 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
+  // ── Stripe controller CSP (Capacitor WKWebView only) ────────────────────────
+  // When Stripe.js initialises it creates a hidden controller iframe at
+  // js.stripe.com/v3/controller-with-preconnect-*.html. That iframe sends a
+  // postMessage; Stripe.js reacts by setting window.location.href = controllerUrl.
+  // In WebKit, window.location.href is [LegacyUnforgeable] — no JS patch can
+  // intercept it. The WebView navigates away from the checkout page.
+  //
+  // Fix: inject a Content-Security-Policy frame-src that only allows the Stripe
+  // iframe URL patterns actually needed. The controller URL does not match, so
+  // the browser engine blocks it before any JS runs. No postMessage is ever
+  // sent; window.location.href is never touched.
+  //
+  // The CSP is delivered on every HTML response for Capacitor requests. Because
+  // Next.js is a SPA, the CSP from the initial page load applies for the full
+  // session, covering client-side navigations to checkout too.
+  if ((request.headers.get("user-agent") || "").includes("Capacitor")) {
+    supabaseResponse.headers.set(
+      "Content-Security-Policy",
+      // elements-*    — CardNumberElement / CardExpiryElement / CardCvcElement
+      // three-ds-2-*  — 3DS bank-auth challenge iframes
+      // hooks.stripe.com — 3DS redirect return-URL host
+      // controller-with-preconnect-* is intentionally absent → blocked
+      "frame-src 'self' https://js.stripe.com/v3/elements-* https://js.stripe.com/v3/three-ds-2-* https://hooks.stripe.com",
+    )
+  }
+
   return supabaseResponse
 }
 
