@@ -1011,7 +1011,7 @@ html.native-auth-lock .auth-shell {
 html.native-auth-lock .auth-card {
   width: 100%;
   max-width: 420px;
-  max-height: calc(100dvh - 48px); /* viewport minus safe-area buffer */
+  max-height: calc(100dvh - env(safe-area-inset-top) - 16px); /* viewport minus notch + buffer */
   overflow-y: auto;
   -webkit-overflow-scrolling: touch; /* native momentum scroll on iOS WKWebView */
   overscroll-behavior: contain;      /* bounce stays inside the card, not the page */
@@ -1110,6 +1110,15 @@ html.capacitor:has([data-page="library"])::before {
 @keyframes sheetSlideUp {
   from { transform: translateY(100%); }
   to   { transform: translateY(0%); }
+}
+
+/* Auth pages (login / signup): push content below the iOS notch/status-bar.
+   The html.capacitor root is painted black to cover the safe-area zone, so
+   auth pages must (a) fill their outer wrapper with white and (b) offset their
+   scrollable column by the safe-area-inset-top so text isn't hidden under the
+   Dynamic Island / status bar. */
+html.capacitor .auth-shell {
+  padding-top: env(safe-area-inset-top);
 }
 
 /* Per-element touch-action so nested elements can't override the root setting */
