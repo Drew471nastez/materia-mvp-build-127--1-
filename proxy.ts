@@ -442,21 +442,29 @@ export async function proxy(request: NextRequest) {
   // intercept it. The WebView navigates away from the checkout page.
   //
   // Fix: inject a Content-Security-Policy frame-src that only allows the Stripe
-  // iframe URL patterns actually needed. The controller URL does not match, so
-  // the browser engine blocks it before any JS runs. No postMessage is ever
-  // sent; window.location.href is never touched.
+  // iframe URL patterns actually needed. The controller URL (controller-with-
+  // preconnect-*.html) is intentionally absent → the browser engine blocks it
+  // before any JS runs → no postMessage is ever sent → window.location.href
+  // is never set → checkout stays inline.
   //
-  // The CSP is delivered on every HTML response for Capacitor requests. Because
-  // Next.js is a SPA, the CSP from the initial page load applies for the full
-  // session, covering client-side navigations to checkout too.
+  // Allowed patterns (all live under js.stripe.com/v3/):
+  //   elements-*        CardNumberElement / CardExpiryElement / CardCvcElement
+  //   payment-request-* Apple Pay / Google Pay availability check iframe
+  //   three-ds-*        3DS v2 bank-auth challenge iframes
+  //   link-*            Stripe Link authentication iframes
+  //   hooks.stripe.com  3DS redirect-return host
+  //
+  // NOT allowed (intentionally blocked):
+  //   controller-with-preconnect-*  ← the cause of the top-level navigation
   if ((request.headers.get("user-agent") || "").includes("Capacitor")) {
     supabaseResponse.headers.set(
       "Content-Security-Policy",
-      // elements-*    — CardNumberElement / CardExpiryElement / CardCvcElement
-      // three-ds-2-*  — 3DS bank-auth challenge iframes
-      // hooks.stripe.com — 3DS redirect return-URL host
-      // controller-with-preconnect-* is intentionally absent → blocked
-      "frame-src 'self' https://js.stripe.com/v3/elements-* https://js.stripe.com/v3/three-ds-2-* https://hooks.stripe.com",
+      "frame-src 'self'" +
+      " https://js.stripe.com/v3/elements-*" +
+      " https://js.stripe.com/v3/payment-request-*" +
+      " https://js.stripe.com/v3/three-ds-*" +
+      " https://js.stripe.com/v3/link-*" +
+      " https://hooks.stripe.com",
     )
   }
 
