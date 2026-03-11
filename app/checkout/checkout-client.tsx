@@ -538,6 +538,34 @@ function NativeCardForm({
 
   return (
     <div className="space-y-4">
+      {/* Express Checkout */}
+      {!isFree && (
+        <div>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3 text-center">Express checkout</p>
+          <div className="grid grid-cols-2 gap-3">
+            {/* Google Pay */}
+            <div className="relative group">
+              <button type="button" disabled className="w-full flex items-center justify-center h-[48px] rounded-xl bg-black opacity-50 cursor-not-allowed">
+                <GooglePayIcon className="h-[22px] w-auto" />
+              </button>
+              <div className="absolute inset-0 flex items-center justify-center rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/75 pointer-events-none">
+                <span className="text-xs text-white font-medium">Not available now</span>
+              </div>
+            </div>
+            {/* PayPal */}
+            <div className="relative group">
+              <button type="button" disabled className="w-full flex items-center justify-center h-[48px] rounded-xl bg-[#FFC439] border border-[#F0B72A] cursor-not-allowed overflow-hidden">
+                <PayPalIcon className="h-[35px] w-auto" />
+              </button>
+              <div className="absolute inset-0 flex items-center justify-center rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/75 pointer-events-none">
+                <span className="text-xs text-white font-medium">Not available now</span>
+              </div>
+            </div>
+          </div>
+          <div className="mt-5 mb-1 h-px bg-gray-100" />
+        </div>
+      )}
+
       {/* Email input + marketing opt-in */}
       {emailContent}
 
@@ -2144,11 +2172,11 @@ function OrderSummaryContent({
                   {sheetVisible && (
                     <div className="lg:hidden fixed inset-0 z-[100]">
                       <div
-                        className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200"
+                        className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
                         onClick={closeSheet}
                       />
                       <div
-                        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl animate-in slide-in-from-bottom duration-300 max-h-[70vh] flex flex-col"
+                        className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-2xl animate-in slide-in-from-bottom duration-300 max-h-[80vh] flex flex-col"
                         style={{
                           transform: sheetDragY > 0 ? `translateY(${sheetDragY}px)` : undefined,
                           transition: sheetIsDragging ? "none" : "transform 0.3s ease-out",
@@ -2156,18 +2184,56 @@ function OrderSummaryContent({
                       >
                         {/* Drag handle */}
                         <div
-                          className="flex justify-center pt-3 pb-2 cursor-grab active:cursor-grabbing"
+                          className="flex justify-center pt-3 pb-1 shrink-0 cursor-grab active:cursor-grabbing"
                           onTouchStart={handleSheetTouchStart}
                           onTouchMove={handleSheetTouchMove}
                           onTouchEnd={handleSheetTouchEnd}
                         >
                           <div className="w-10 h-1 bg-gray-300 rounded-full" />
                         </div>
-                        <div className="px-4 pb-3">
+                        {/* Header */}
+                        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 shrink-0">
                           <h3 className="text-base font-semibold text-gray-900">Select variant</h3>
+                          <button type="button" onClick={closeSheet} className="p-1.5 rounded-full hover:bg-gray-100 transition-colors cursor-pointer">
+                            <X className="w-5 h-5 text-gray-400" />
+                          </button>
                         </div>
-                        <div className="flex-1 overflow-y-auto px-2 pb-[max(1rem,env(safe-area-inset-bottom))]">
-                          {variantListItems}
+                        {/* Variant list */}
+                        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+                          {allVariants?.map((v) => (
+                            <button
+                              key={v.id}
+                              type="button"
+                              onClick={() => { onVariantChange?.(v); closeSheet() }}
+                              className={`w-full flex items-center justify-between p-4 rounded-2xl border-2 text-sm transition-all cursor-pointer ${
+                                selectedVariant?.id === v.id
+                                  ? "border-black bg-gray-50"
+                                  : "border-gray-200 bg-white hover:border-gray-300"
+                              }`}
+                            >
+                              <span className="flex items-center gap-3">
+                                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                                  selectedVariant?.id === v.id ? "border-black" : "border-gray-300"
+                                }`}>
+                                  {selectedVariant?.id === v.id && <div className="w-2 h-2 rounded-full bg-black" />}
+                                </div>
+                                <span className={`font-medium ${selectedVariant?.id === v.id ? "text-gray-900" : "text-gray-700"}`}>{v.name}</span>
+                              </span>
+                              <span className={`font-semibold shrink-0 ${selectedVariant?.id === v.id ? "text-gray-900" : "text-gray-500"}`}>
+                                {v.priceCents === 0 ? "Free" : formatPrice(v.priceCents)}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                        {/* Done button */}
+                        <div className="px-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))] shrink-0 border-t border-gray-100">
+                          <button
+                            type="button"
+                            onClick={closeSheet}
+                            className="w-full h-12 rounded-2xl bg-black text-white font-semibold text-sm transition-colors hover:bg-gray-900 cursor-pointer mt-2"
+                          >
+                            Done
+                          </button>
                         </div>
                       </div>
                     </div>
