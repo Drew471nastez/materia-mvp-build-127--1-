@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 // Prevent Stripe.js Link prewarm from opening Safari in Capacitor WebViews.
 // Must be imported before any loadStripe() call.
 import "@/lib/stripe-nav-guard"
+import { isNativeApp } from "@/lib/platform-utils"
 
 // IMPORTANT: import from "@stripe/stripe-js/pure" NOT "@stripe/stripe-js".
 // The default "@stripe/stripe-js" injects <script src="https://js.stripe.com/v3/">
@@ -474,6 +475,191 @@ function OrderSummaryMobileToggle({
   )
 }
 
+// ---------- Native Card Form (no Stripe.js) ----------
+// Used inside Capacitor WKWebView. Card inputs are plain HTML — no iframes,
+// no Stripe.js controller, no window.location.href navigation possible.
+function NativeCardForm({
+  onSubmit,
+  isSubmitting,
+  isFree,
+  total,
+  error,
+  setError,
+  nameOnCard,
+  setNameOnCard,
+  agreedToTerms,
+  setAgreedToTerms,
+  isContactValid,
+  cardNumber,
+  setCardNumber,
+  cardExpiry,
+  setCardExpiry,
+  cardCvc,
+  setCardCvc,
+  emailContent,
+  contactContent,
+}: {
+  onSubmit: () => void
+  isSubmitting: boolean
+  isFree: boolean
+  total: number
+  error: string | null
+  setError: (e: string | null) => void
+  nameOnCard: string
+  setNameOnCard: (v: string) => void
+  agreedToTerms: boolean
+  setAgreedToTerms: (v: boolean) => void
+  isContactValid: boolean
+  cardNumber: string
+  setCardNumber: (v: string) => void
+  cardExpiry: string
+  setCardExpiry: (v: string) => void
+  cardCvc: string
+  setCardCvc: (v: string) => void
+  emailContent?: React.ReactNode
+  contactContent?: React.ReactNode
+}) {
+  // Format card number: groups of 4 separated by spaces
+  const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const digits = e.target.value.replace(/\D/g, "").slice(0, 16)
+    setCardNumber(digits.replace(/(.{4})/g, "$1 ").trim())
+  }
+
+  // Format expiry: MM/YY
+  const handleExpiryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/\D/g, "").slice(0, 4)
+    if (raw.length <= 2) setCardExpiry(raw)
+    else setCardExpiry(`${raw.slice(0, 2)}/${raw.slice(2)}`)
+  }
+
+  const isCardComplete = cardNumber.replace(/\s/g, "").length >= 13 &&
+    /^\d{2}\/\d{2}$/.test(cardExpiry) &&
+    cardCvc.length >= 3
+
+  return (
+    <div className="space-y-4">
+      {/* Email input + marketing opt-in */}
+      {emailContent}
+
+      {/* Card Fields */}
+      {!isFree && (
+        <div className="bg-white rounded-2xl border border-gray-200 p-5 space-y-4">
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-gray-600">Card number</Label>
+            <Input
+              type="tel"
+              inputMode="numeric"
+              autoComplete="cc-number"
+              placeholder="1234 5678 9012 3456"
+              value={cardNumber}
+              onChange={handleCardNumberChange}
+              className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20 font-mono tracking-wider"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-gray-600">Expiry (MM/YY)</Label>
+              <Input
+                type="tel"
+                inputMode="numeric"
+                autoComplete="cc-exp"
+                placeholder="MM/YY"
+                value={cardExpiry}
+                onChange={handleExpiryChange}
+                maxLength={5}
+                className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20 font-mono"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-gray-600">CVC</Label>
+              <Input
+                type="tel"
+                inputMode="numeric"
+                autoComplete="cc-csc"
+                placeholder="123"
+                value={cardCvc}
+                onChange={(e) => setCardCvc(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                maxLength={4}
+                className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20 font-mono"
+              />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-gray-600">Name on card</Label>
+            <Input
+              placeholder="John Doe"
+              autoComplete="cc-name"
+              value={nameOnCard}
+              onChange={(e) => setNameOnCard(e.target.value)}
+              className="h-11 rounded-xl border-gray-200 focus-visible:border-gray-400 focus-visible:ring-gray-400/20"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Contact Info + VAT */}
+      {contactContent}
+
+      {/* Error message */}
+      {error && (
+        <div className="flex items-start gap-2.5 bg-red-50 border border-red-200 rounded-xl p-4 animate-in fade-in slide-in-from-top-2 duration-200">
+          <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+          <p className="text-sm text-red-600">{error}</p>
+        </div>
+      )}
+
+      {/* Terms & Conditions */}
+      <div className="bg-white rounded-2xl border border-gray-200 p-5">
+        <div className="flex items-start gap-3">
+          <Checkbox
+            id="terms-native"
+            checked={agreedToTerms}
+            onCheckedChange={(checked) => setAgreedToTerms(checked as boolean)}
+            className="mt-0.5 shrink-0 data-[state=checked]:bg-black data-[state=checked]:border-black"
+          />
+          <Label htmlFor="terms-native" className="cursor-pointer text-sm leading-relaxed text-gray-600">
+            I agree to the{" "}
+            <Link href="/terms" className="text-gray-900 hover:text-black underline underline-offset-2" target="_blank">
+              Terms and Conditions
+            </Link>{" "}
+            *
+          </Label>
+        </div>
+      </div>
+
+      {/* Pay Button */}
+      <button
+        type="button"
+        onClick={() => { setError(null); onSubmit() }}
+        disabled={isSubmitting || !agreedToTerms || !isContactValid || (!isFree && !isCardComplete)}
+        className="w-full flex items-center justify-center gap-2 h-14 rounded-2xl text-base font-semibold transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 bg-[#2563eb] hover:bg-[#1d4ed8] text-white shadow-lg shadow-blue-500/20"
+      >
+        {isSubmitting ? (
+          <><Loader2 className="h-5 w-5 animate-spin" />Processing...</>
+        ) : isFree ? (
+          <>Get for Free <span className="ml-1">&rarr;</span></>
+        ) : (
+          <>Pay {formatPrice(total)}</>
+        )}
+      </button>
+
+      {/* Secured by Stripe */}
+      <div className="flex items-center justify-center gap-1.5 pt-2">
+        <Shield className="w-3 h-3 text-gray-300" />
+        <span className="text-[11px] text-gray-300 font-medium">Secured checkout by Stripe</span>
+      </div>
+
+      <div className="flex items-center justify-center gap-3 pt-1">
+        <Link href="/terms" target="_blank" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Terms</Link>
+        <span className="text-gray-300 text-[8px]">&middot;</span>
+        <Link href="/privacy" target="_blank" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Privacy</Link>
+        <span className="text-gray-300 text-[8px]">&middot;</span>
+        <Link href="/refund-policy" target="_blank" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Refund Policy</Link>
+      </div>
+    </div>
+  )
+}
+
 // ---------- Stripe Card Form ----------
 // This renders INSIDE <Elements> but does NOT require clientSecret to render card inputs.
 // Card Elements render immediately. clientSecret is only needed for confirmCardPayment().
@@ -824,14 +1010,19 @@ export default function CheckoutPageClient({
   const [showVariantModal, setShowVariantModal] = useState(false)
   // Deferred Stripe gate: Stripe.js must NOT load until the user explicitly
   // activates the card form.
-  //
-  // urlDirectPay=true  → page was opened via Browser.open() from the Capacitor
-  //   WebView (SFSafariViewController, standard Safari UA).  Stripe Elements
-  //   loads immediately — there are no WKWebView restrictions here.
-  // urlDirectPay=false → standard web flow or initial Capacitor WebView load.
-  //   Stripe is never touched until the user taps Pay and the native in-app
-  //   browser opens (isNativeApp), or until the user taps the card area (web).
   const [cardFormActive, setCardFormActive] = useState(urlDirectPay)
+
+  // ── Native app: plain card inputs ────────────────────────────────────────────
+  // In Capacitor WKWebView, Stripe.js is completely bypassed. Card data is
+  // entered in plain HTML inputs and POSTed directly to the Stripe REST API
+  // (api.stripe.com/v1/payment_methods) using the publishable key — same
+  // security model as Stripe Elements (card data never reaches our server).
+  // No Stripe.js = no controller iframe = no window.location.href navigation.
+  const [nativeApp, setNativeApp] = useState(false)
+  useEffect(() => { setNativeApp(isNativeApp()) }, [])
+  const [nativeCardNumber, setNativeCardNumber] = useState("")
+  const [nativeCardExpiry, setNativeCardExpiry] = useState("")
+  const [nativeCardCvc, setNativeCardCvc]       = useState("")
 
   // Reset payment intent when variant changes (price may differ)
   useEffect(() => {
@@ -1032,6 +1223,102 @@ export default function CheckoutPageClient({
 
     return { clientSecret: data.clientSecret, paymentIntentId: data.paymentIntentId }
   }, [product.id, firstName, lastName, email, tipCents, isGift, selectedVariant, isPwyw, customPriceCents, emailOptIn])
+
+  // ── Native paid checkout — no Stripe.js ──────────────────────────────────────
+  // 1. POSTs card data directly to api.stripe.com/v1/payment_methods (publishable
+  //    key only, card data never touches our server — PCI SAQ A-EP equivalent).
+  // 2. Calls /api/checkout/stripe-session to create the PaymentIntent.
+  // 3. Calls /api/checkout/confirm-with-pm to confirm server-side.
+  // 4. If 3DS required: navigates to hooks.stripe.com challenge page (in-app).
+  // 5. After 3DS: existing useEffect on mount handles the return and completes.
+  const handleNativePaidCheckout = async () => {
+    if (!isFormValid) {
+      if (!firstName.trim()) return setError("Please enter your first name")
+      if (!lastName.trim())  return setError("Please enter your last name")
+      if (!validateEmail(email)) return setError("Please enter a valid email address")
+      if (!agreedToTerms)    return setError("Please agree to the Terms and Conditions")
+      return
+    }
+
+    // Basic native card validation
+    const rawCard = nativeCardNumber.replace(/\s/g, "")
+    if (rawCard.length < 13 || rawCard.length > 19) return setError("Please enter a valid card number")
+    const [expMo, expYr] = nativeCardExpiry.split("/")
+    if (!expMo || !expYr || expMo.length !== 2 || expYr.length !== 2) return setError("Please enter a valid expiry date (MM/YY)")
+    if (!nativeCardCvc || nativeCardCvc.length < 3) return setError("Please enter a valid CVC")
+
+    if (isRateLimited()) { setError("Please wait a moment before trying again"); return }
+
+    setIsSubmitting(true)
+    setError(null)
+
+    try {
+      // Step 1 — create PaymentMethod via Stripe REST API (no Stripe.js)
+      const pmParams = new URLSearchParams()
+      pmParams.set("type", "card")
+      pmParams.set("card[number]", rawCard)
+      pmParams.set("card[exp_month]", expMo.trim())
+      pmParams.set("card[exp_year]", `20${expYr.trim()}`)
+      pmParams.set("card[cvc]", nativeCardCvc.trim())
+      const cardholderName = (nameOnCard || `${firstName} ${lastName}`).trim()
+      if (cardholderName) pmParams.set("billing_details[name]", cardholderName)
+
+      const pmRes = await fetch("https://api.stripe.com/v1/payment_methods", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: pmParams.toString(),
+      })
+      const pmData = await pmRes.json()
+      if (!pmRes.ok) throw new Error(pmData.error?.message || "Card declined. Please check your card details.")
+      const paymentMethodId: string = pmData.id
+
+      // Step 2 — create PaymentIntent server-side
+      let secret = clientSecret
+      let piId = paymentIntentId
+      if (!secret) {
+        const result = await createPaymentIntent()
+        secret = result.clientSecret
+        piId = result.paymentIntentId
+        setClientSecret(secret)
+        setPaymentIntentId(piId)
+      }
+
+      // Step 3 — confirm server-side
+      const returnUrl = typeof window !== "undefined" ? window.location.href : ""
+      const confirmRes = await fetch("/api/checkout/confirm-with-pm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": CSRF_TOKEN },
+        body: JSON.stringify({ paymentIntentId: piId, paymentMethodId, returnUrl }),
+      })
+      const confirmData = await confirmRes.json()
+      if (!confirmRes.ok) throw new Error(confirmData.error || "Payment failed. Please try again.")
+
+      if (confirmData.status === "succeeded") {
+        // Step 4 — create order record
+        const completeRes = await fetch("/api/checkout/confirm-payment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-CSRF-Token": CSRF_TOKEN },
+          body: JSON.stringify({ paymentIntentId: piId }),
+        })
+        const completeData = await completeRes.json()
+        if (!completeRes.ok) throw new Error(completeData.error || "Failed to complete order")
+        const tokenMatch = completeData.redirectUrl?.match(/\/receipt\/([^?]+)/)
+        await completeOrder(tokenMatch?.[1] || "")
+      } else if (confirmData.status === "requires_action" && confirmData.actionUrl) {
+        // Step 5 — 3DS: stay in WKWebView (hooks.stripe.com is in allowNavigation)
+        window.location.href = confirmData.actionUrl
+      } else {
+        throw new Error("Payment could not be completed. Please try again.")
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Payment failed. Please try again.")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
 
   // Handle paid checkout
   const handlePaidCheckout = async (stripe: any, elements: any) => {
@@ -1397,7 +1684,30 @@ export default function CheckoutPageClient({
   //     pays. The email/contact values captured in Phase 1 are preserved in
   //     parent state and shown pre-filled inside StripeCardForm.
   const paymentElementsContent = !isFree ? (
-    cardFormActive ? (
+    nativeApp ? (
+      // Native app path — plain HTML inputs + direct Stripe REST API, no Stripe.js, no iframes
+      <NativeCardForm
+        onSubmit={handleNativePaidCheckout}
+        isSubmitting={isSubmitting}
+        isFree={isFree}
+        total={total}
+        error={error}
+        setError={setError}
+        nameOnCard={nameOnCard}
+        setNameOnCard={setNameOnCard}
+        agreedToTerms={agreedToTerms}
+        setAgreedToTerms={setAgreedToTerms}
+        isContactValid={isContactValid}
+        cardNumber={nativeCardNumber}
+        setCardNumber={setNativeCardNumber}
+        cardExpiry={nativeCardExpiry}
+        setCardExpiry={setNativeCardExpiry}
+        cardCvc={nativeCardCvc}
+        setCardCvc={setNativeCardCvc}
+        emailContent={emailSectionContent("")}
+        contactContent={contactSectionContent("")}
+      />
+    ) : cardFormActive ? (
       // Phase 2 — real Stripe card form (Stripe.js loads here for the first time)
       <Elements stripe={getStripePromise()}>
         <StripeCardForm
