@@ -83,12 +83,6 @@ interface CardDef {
   scale?: number
 }
 
-interface CardTransition {
-  from: number[]
-  to: number[]
-  progress: number
-}
-
 // Card aspect ratio = 4:5 (1080×1350). Cards slightly overlapping. Depth scale restored.
 // Positions derived by working outward from center (canvas center = 550).
 // tx = left + width*(1−scale)/2  →  rendered_left/right verified below.
@@ -135,7 +129,8 @@ const ease = (t: number) => t < 0.5 ? 8 * t * t * t * t : 1 - Math.pow(-2 * t + 
 export function Hero() {
   const typedText = useTypingEffect(TYPING_PHRASES)
   const [cardOrder, setCardOrder] = useState([0, 1, 2, 3, 4])
-  const [transition, setTransition] = useState<CardTransition | null>(null)
+  // transition state removed — animation is now driven imperatively via cardRefs
+  // to eliminate ~90 React re-renders per rotation on iOS/Android.
   const [isMobile, setIsMobile] = useState(false)
   const [loadedImages, setLoadedImages] = useState<Set<number>>(new Set())
   // imagesLoaded (all-5 flag) removed — text is now shown immediately without waiting
@@ -150,6 +145,9 @@ export function Hero() {
   const animatingRef = useRef(false)
   const rafRef = useRef<number | null>(null)
   const loadedImageSetRef = useRef(new Set<number>())
+  // Refs for imperative card DOM updates — bypasses React reconciler during animation
+  const cardRefs = useRef<(HTMLDivElement | null)[]>([null, null, null, null, null])
+  const isMobileRef = useRef(false)
 
   const clearAutoplay = useCallback(() => {
     if (autoplayRef.current) {
@@ -158,15 +156,43 @@ export function Hero() {
     }
   }, [])
 
-  // Cancel any in-progress RAF animation and reset the animating lock.
+  // Apply a card's computed position directly to its DOM element — no React re-render.
+  // This keeps all animation work off the React reconciler (crucial on iOS/Android).
+  const applyCardStyle = useCallback((imageIdx: number, order: number[], t: number, fromOrder: number[], toOrder: number[]) => {
+    const el = cardRefs.current[imageIdx]
+    if (!el) return
+    const cards = isMobileRef.current ? MOBILE_CARDS : DESKTOP_CARDS
+    const fromPos = fromOrder.indexOf(imageIdx)
+    const toPos = toOrder.indexOf(imageIdx)
+    const fromCard = cards[fromPos]
+    const toCard = cards[toPos]
+    const left    = lerp(fromCard.left,         toCard.left,         t)
+    const top     = lerp(fromCard.top,          toCard.top,          t)
+    const width   = lerp(fromCard.width,        toCard.width,        t)
+    const height  = lerp(fromCard.height,       toCard.height,       t)
+    const scale   = lerp(fromCard.scale  ?? 1,  toCard.scale  ?? 1,  t)
+    const opacity = lerp(fromCard.opacity ?? 1, toCard.opacity ?? 1, t)
+    const zIndex  = Math.round(lerp(fromCard.zIndex, toCard.zIndex, t))
+    const tx = left + width * (1 - scale) / 2
+    const ty = top  + height * (1 - scale) / 2
+    el.style.width   = `${width}px`
+    el.style.height  = `${height}px`
+    el.style.zIndex  = String(zIndex)
+    el.style.opacity = String(opacity)
+    el.style.transform = `translate3d(${tx}px,${ty}px,0) scale(${scale})`
+  }, [])
+
+  // Cancel any in-progress RAF animation and snap cards to current order.
   const cancelAnimation = useCallback(() => {
     if (rafRef.current !== null) {
       cancelAnimationFrame(rafRef.current)
       rafRef.current = null
     }
     animatingRef.current = false
-    setTransition(null)
-  }, [])
+    // Snap all cards to their resting position in current order
+    const cur = orderRef.current
+    IMAGES.forEach((_, idx) => applyCardStyle(idx, cur, 1, cur, cur))
+  }, [applyCardStyle])
 
   const startRotation = useCallback((direction: 1 | -1 = 1) => {
     if (animatingRef.current) return
@@ -187,22 +213,25 @@ export function Hero() {
 
     const tick = (now: number) => {
       const raw = Math.min(1, (now - start) / CARD_TRANSITION_MS)
-      setTransition({ from, to, progress: ease(raw) })
+      const t = ease(raw)
+
+      // Imperatively update each card's DOM style — ZERO React re-renders per frame.
+      IMAGES.forEach((_, imageIdx) => applyCardStyle(imageIdx, [], t, from, to))
 
       if (raw < 1) {
         rafRef.current = requestAnimationFrame(tick)
         return
       }
 
+      // Animation done — one React state update to register the new order.
       orderRef.current = to
       setCardOrder(to)
-      setTransition(null)
       animatingRef.current = false
       rafRef.current = null
     }
 
     rafRef.current = requestAnimationFrame(tick)
-  }, [])
+  }, [applyCardStyle])
 
   const restartAutoplay = useCallback(() => {
     clearAutoplay()
@@ -210,7 +239,11 @@ export function Hero() {
   }, [clearAutoplay, startRotation])
 
   useEffect(() => {
-    const update = () => setIsMobile(window.innerWidth < 640)
+    const update = () => {
+      const m = window.innerWidth < 640
+      setIsMobile(m)
+      isMobileRef.current = m
+    }
     update()
     window.addEventListener("resize", update)
     return () => window.removeEventListener("resize", update)
@@ -352,16 +385,13 @@ export function Hero() {
 
   // Ensure currently visible cards are always loaded — load directly, no queue overhead
   useEffect(() => {
-    const fromOrder = transition?.from ?? cardOrder
-    const toOrder = transition?.to ?? cardOrder
     const prioritized = new Set<number>([
-      fromOrder[1], fromOrder[2], fromOrder[3],
-      toOrder[1],   toOrder[2],   toOrder[3],
+      cardOrder[1], cardOrder[2], cardOrder[3],
     ])
     for (const idx of prioritized) {
       if (typeof idx === "number") loadImageByIndex(idx)
     }
-  }, [cardOrder, loadImageByIndex, transition])
+  }, [cardOrder, loadImageByIndex])
 
   // Preload partner logos
   useEffect(() => {
@@ -466,44 +496,30 @@ export function Hero() {
             style={{ width: CANVAS_W, height: CANVAS_H }}
           >
             {IMAGES.map((src, imageIdx) => {
-              const fromPos = transition ? transition.from.indexOf(imageIdx) : cardOrder.indexOf(imageIdx)
-              const toPos = transition ? transition.to.indexOf(imageIdx) : fromPos
-              const fromCard = activeCards[fromPos]
-              const toCard = activeCards[toPos]
-              const t = transition?.progress ?? 1
-
-              const left = lerp(fromCard.left, toCard.left, t)
-              const top = lerp(fromCard.top, toCard.top, t)
-              const width = lerp(fromCard.width, toCard.width, t)
-              const height = lerp(fromCard.height, toCard.height, t)
-              const scale = lerp(fromCard.scale ?? 1, toCard.scale ?? 1, t)
-              const opacity = lerp(fromCard.opacity ?? 1, toCard.opacity ?? 1, t)
-              const zIndex = Math.round(lerp(fromCard.zIndex, toCard.zIndex, t))
-              // saturation removed — was lerped from 0.96→1, imperceptible difference
-              // but caused a CSS filter repaint on every RAF tick (60fps × 5 cards)
-
-              // Move position into transform so layout is never triggered during animation.
-              // translate3d(x, y, 0) is handled entirely by the GPU compositor —
-              // equivalent visual to `left/top` but skips layout + paint each RAF tick.
-              // Adjustment matches the original scale-from-center (50% 50%) behaviour:
-              //   tx = left + width*(1-scale)/2
-              //   ty = top  + height*(1-scale)/2
-              const tx = left + width * (1 - scale) / 2
-              const ty = top + height * (1 - scale) / 2
+              // During animation, imperative code drives these styles directly on the DOM
+              // via cardRefs — no React re-render needed per frame. React only renders
+              // the RESTING position from cardOrder (applied once per rotation end).
+              const pos   = cardOrder.indexOf(imageIdx)
+              const card  = activeCards[pos]
+              const scale = card.scale ?? 1
+              const tx = card.left + card.width * (1 - scale) / 2
+              const ty = card.top  + card.height * (1 - scale) / 2
 
               return (
                 <div
                   key={imageIdx}
+                  ref={el => { cardRefs.current[imageIdx] = el }}
                   className="collage-card absolute rounded-[14px] overflow-hidden shadow-sm shadow-black/10"
                   style={{
                     left: 0,
                     top: 0,
-                    width,
-                    height,
-                    zIndex,
-                    opacity,
-                    transform: `translate3d(${tx}px, ${ty}px, 0) scale(${scale})`,
+                    width:  card.width,
+                    height: card.height,
+                    zIndex: card.zIndex,
+                    opacity: card.opacity ?? 1,
+                    transform: `translate3d(${tx}px,${ty}px,0) scale(${scale})`,
                     transformOrigin: "0 0",
+                    willChange: "transform, opacity",
                   }}
                 >
                   {/* Gradient shimmer overlay — sits on top of the image and

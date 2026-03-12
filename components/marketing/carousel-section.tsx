@@ -73,7 +73,10 @@ export function CarouselSection() {
   const snapToSlide = useCallback(() => {
     if (!trackRef.current) return
     if (isMobile()) {
-      trackRef.current.style.transform = `translate3d(-${current * 100}%, 0, 0)`
+      // Use pixels (matching applyTransform) — translate(-N*100%) is wrong because
+      // % resolves against the track's own width (= slides × containerWidth), not containerWidth.
+      const containerWidth = containerRef.current?.offsetWidth ?? window.innerWidth
+      trackRef.current.style.transform = `translate3d(${-(current * containerWidth)}px, 0, 0)`
     } else {
       const offset = getDesktopOffset(current)
       trackRef.current.style.transform = `translate3d(-${offset}px, 0, 0)`
@@ -121,6 +124,18 @@ export function CarouselSection() {
     goTo(n)
     resetAutoplay()
   }, [goTo, resetAutoplay])
+
+  // Attach native touchmove with passive:false so we can preventDefault() during
+  // horizontal swipes — React synthetic handlers are passive and can't do this.
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const prevent = (e: TouchEvent) => {
+      if (isHorizontalSwipe.current === true) e.preventDefault()
+    }
+    el.addEventListener("touchmove", prevent, { passive: false })
+    return () => el.removeEventListener("touchmove", prevent)
+  }, [])
 
   /* ── Touch handlers for smooth finger-follow drag ── */
 
@@ -181,9 +196,9 @@ export function CarouselSection() {
         <AnimateOnScroll variant="blur-in" className="px-6">
           <div className="text-center mb-10 sm:mb-12">
             <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-wider text-violet-600 bg-violet-50 px-4 py-1.5 rounded-full mb-4">
-              🔗 OnePage
+              🔗 Link In Bio
             </span>
-            <h2 className="text-[clamp(28px,4vw,44px)] font-semibold leading-[1.15] tracking-tight mb-3.5">
+            <h2 className="text-[30px] sm:text-[clamp(28px,4vw,44px)] font-semibold leading-[1.15] tracking-tight mb-3.5">
               The OnePage creators love
             </h2>
             <p className="text-[15px] text-neutral-500 max-w-[460px] mx-auto">
