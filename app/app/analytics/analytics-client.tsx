@@ -2011,6 +2011,45 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
   const displaySummary = showSampleData && !hasRealData ? ANALYTICS_SAMPLE_SUMMARY : summary
   const displayOnePageMetrics = showSampleData && !hasRealData ? ANALYTICS_SAMPLE_ONEPAGE : onePageMetrics
   const chartDisplayData = showSampleData && !hasRealData ? ANALYTICS_SAMPLE_TREND : rawChartData
+  const SAMPLE_TRAFFIC_SOURCES: TrafficSource[] = [
+    { source: "instagram", views: 145, orders: 8, conversionRate: 5.5 },
+    { source: "tiktok", views: 98, orders: 4, conversionRate: 4.1 },
+    { source: "youtube", views: 72, orders: 3, conversionRate: 4.2 },
+    { source: "direct", views: 89, orders: 5, conversionRate: 5.6 },
+    { source: "twitter", views: 48, orders: 2, conversionRate: 4.2 },
+  ]
+  const SAMPLE_DEVICE_DATA: DeviceData[] = [
+    { device: "mobile", views: 285, orders: 12, conversionRate: 4.2 },
+    { device: "desktop", views: 142, orders: 14, conversionRate: 9.9 },
+    { device: "tablet", views: 25, orders: 2, conversionRate: 8.0 },
+  ]
+  const SAMPLE_BROWSER_DATA = [
+    { browser: "Chrome", views: 198 },
+    { browser: "Safari", views: 165 },
+    { browser: "Firefox", views: 45 },
+    { browser: "Edge", views: 44 },
+  ]
+  const SAMPLE_TOP_PRODUCTS: TopProductData[] = [
+    { id: "sp1", title: "Sample Pack Vol. 3", thumbnail_url: null, views: 142, orders: 12, revenue: 28800, conversionRate: 8.5 },
+    { id: "sp2", title: "Beat Kit (50 beats)", thumbnail_url: null, views: 98, orders: 8, revenue: 39200, conversionRate: 8.2 },
+    { id: "sp3", title: "Mix Template", thumbnail_url: null, views: 76, orders: 5, revenue: 0, conversionRate: 6.6 },
+  ]
+  const SAMPLE_COUNTRY_DATA: CountryData[] = [
+    { code: "US", name: "United States", views: 198, orders: 11, revenue: 26800, conversionRate: 5.6 },
+    { code: "GB", name: "United Kingdom", views: 87, orders: 5, revenue: 12200, conversionRate: 5.7 },
+    { code: "CA", name: "Canada", views: 56, orders: 3, revenue: 7400, conversionRate: 5.4 },
+    { code: "AU", name: "Australia", views: 42, orders: 3, revenue: 5800, conversionRate: 7.1 },
+    { code: "DE", name: "Germany", views: 29, orders: 2, revenue: 4800, conversionRate: 6.9 },
+  ]
+  const displayTrafficSources = showSampleData && !hasRealData ? SAMPLE_TRAFFIC_SOURCES : trafficSources
+  const displayTrafficPieData = displayTrafficSources.slice(0, 6).map(s => ({ name: formatSourceName(s.source), value: s.views }))
+  const displayTotalTrafficViews = displayTrafficSources.reduce((sum, s) => sum + s.views, 0)
+  const displayDeviceData = showSampleData && !hasRealData ? SAMPLE_DEVICE_DATA : deviceData
+  const displayTotalDeviceViews = displayDeviceData.reduce((sum, d) => sum + d.views, 0)
+  const displayBrowserData = showSampleData && !hasRealData ? SAMPLE_BROWSER_DATA : browserData
+  const displayTotalBrowserViews = displayBrowserData.reduce((sum, b) => sum + b.views, 0)
+  const displayTopProducts = showSampleData && !hasRealData ? SAMPLE_TOP_PRODUCTS : topProducts
+  const displayCountryData = showSampleData && !hasRealData ? SAMPLE_COUNTRY_DATA : countryData
 
   // KPI Modal Chart component (matching Dashboard UI exactly)
   const KPIModalChart = ({ kpiType, label }: { kpiType: KPIType; label: string }) => {
@@ -2473,34 +2512,9 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
 
           {/* Chart Area - always open */}
           <div className="border-t border-[#e5e7eb]/60 px-2 py-3 sm:px-4 sm:py-4">
-            {!hasRealData && !showSampleData ? (
-              <div className="h-[200px] flex flex-col items-center justify-center gap-3">
-                <span className="text-[12px] text-[#d1d5db] font-medium">No activity yet</span>
-                <button
-                  onClick={() => setShowSampleData(true)}
-                  className="flex items-center gap-2 text-[11px] text-[#b0b7c3] hover:text-[#6b7280] transition-colors group"
-                  aria-label="Show sample data"
-                >
-                  <span className="relative inline-flex h-4 w-7 rounded-full bg-[#e9ecef] transition-colors group-hover:bg-[#d1d5db]">
-                    <span className="inline-block h-3 w-3 rounded-full bg-white shadow-sm my-0.5 translate-x-0.5" />
-                  </span>
-                  Show sample data
-                </button>
-              </div>
-            ) : (
-              <div className={`relative transition-opacity duration-300 ${showSampleData && !hasRealData ? "opacity-50" : "opacity-100"}`}>
-                {showSampleData && !hasRealData && (
-                  <button
-                    onClick={() => setShowSampleData(false)}
-                    className="absolute top-0 right-0 z-10 flex items-center gap-1.5 text-[10px] text-[#c0c8d4] hover:text-[#6b7280] transition-colors pb-1"
-                    aria-label="Hide sample data"
-                  >
-                    Sample data
-                    <span className="relative inline-flex h-4 w-7 rounded-full bg-indigo-300/70">
-                      <span className="inline-block h-3 w-3 rounded-full bg-white shadow-sm my-0.5 translate-x-3.5" />
-                    </span>
-                  </button>
-                )}
+            {(
+              <div className="relative">
+                <div className={`transition-opacity duration-300 ${showSampleData && !hasRealData ? "opacity-50" : "opacity-100"}`}>
               <ResponsiveContainer width="100%" height={200}>
                 <AreaChart data={chartDisplayData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
                   <defs>
@@ -2600,6 +2614,21 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   )}
                 </AreaChart>
               </ResponsiveContainer>
+                </div>
+                {!hasRealData && (
+                  <div className="absolute bottom-2 right-2 flex items-center gap-1.5 z-10">
+                    <span className="text-[11px] text-[#c8ccd4]">
+                      {showSampleData ? "Sample data" : "No activity yet"}
+                    </span>
+                    <button
+                      onClick={() => setShowSampleData(prev => !prev)}
+                      className={`relative inline-flex h-4 w-7 rounded-full transition-colors cursor-pointer ${showSampleData ? "bg-indigo-300/80" : "bg-[#e9ecef]"}`}
+                      aria-label={showSampleData ? "Hide sample data" : "Show sample data"}
+                    >
+                      <span className={`inline-block h-3 w-3 rounded-full bg-white shadow-sm my-0.5 transition-transform ${showSampleData ? "translate-x-3.5" : "translate-x-0.5"}`} />
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -2607,7 +2636,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
 
         {/* Traffic & Device Distribution */}
         <div className="grid gap-4 lg:grid-cols-2">
-          <Card className="border-[#e5e7eb] bg-white">
+          <Card className={`border-[#e5e7eb] bg-white transition-opacity duration-300 ${showSampleData && !hasRealData ? "opacity-60" : ""}`}>
             <CardHeader className="pb-0 pt-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">Traffic Distribution</CardTitle>
@@ -2628,14 +2657,14 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
               </div>
             </CardHeader>
             <CardContent className="pt-2">
-              {trafficPieData.length > 0 ? (
+              {displayTrafficPieData.length > 0 ? (
                 <div className="relative">
                   <div className={`transition-all duration-300 ease-out ${trafficViewMode === "chart" ? "opacity-100 h-auto" : "opacity-0 h-0 overflow-hidden absolute inset-0"}`}>
                     <div className="h-[200px]">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
-                          <Pie data={trafficPieData} cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={2} dataKey="value" animationBegin={0} animationDuration={600}>
-                            {trafficPieData.map((entry, index) => (
+                          <Pie data={displayTrafficPieData} cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={2} dataKey="value" animationBegin={0} animationDuration={600}>
+                            {displayTrafficPieData.map((entry, index) => (
                               <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                             ))}
                           </Pie>
@@ -2651,8 +2680,8 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   </div>
                   <div className={`transition-all duration-300 ease-out ${trafficViewMode === "list" ? "opacity-100 h-auto" : "opacity-0 h-0 overflow-hidden absolute inset-0"}`}>
                     <div className="space-y-1.5 max-h-[220px] overflow-y-auto">
-                      {trafficSources.slice(0, 10).map((source, idx) => {
-                        const percentage = totalTrafficViews > 0 ? (source.views / totalTrafficViews) * 100 : 0
+                      {displayTrafficSources.slice(0, 10).map((source, idx) => {
+                        const percentage = displayTotalTrafficViews > 0 ? (source.views / displayTotalTrafficViews) * 100 : 0
                         return (
                           <div key={source.source} className="flex items-center gap-3 p-2 bg-[#f9fafb] rounded-lg">
                             <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `${PIE_COLORS[idx % PIE_COLORS.length]}15` }}>
@@ -2677,7 +2706,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
             </CardContent>
           </Card>
 
-          <Card className="border-[#e5e7eb] bg-white">
+          <Card className={`border-[#e5e7eb] bg-white transition-opacity duration-300 ${showSampleData && !hasRealData ? "opacity-60" : ""}`}>
             <CardHeader className="pb-0 pt-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">
@@ -2702,10 +2731,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
             <CardContent className="pt-2">
                 <div className="transition-opacity duration-300 ease-out" key={deviceTabMode}>
                   {deviceTabMode === "device" ? (
-                    deviceData.length > 0 ? (
+                    displayDeviceData.length > 0 ? (
                       <div className="space-y-2">
-                        {deviceData.map((device) => {
-                          const percentage = totalDeviceViews > 0 ? (device.views / totalDeviceViews) * 100 : 0
+                        {displayDeviceData.map((device) => {
+                          const percentage = displayTotalDeviceViews > 0 ? (device.views / displayTotalDeviceViews) * 100 : 0
                           return (
                             <div key={device.device} className="flex items-center gap-3 p-3 bg-[#f9fafb] rounded-lg">
                               <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center shadow-sm">
@@ -2728,10 +2757,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                       </div>
                     )
                   ) : (
-                    browserData.length > 0 ? (
+                    displayBrowserData.length > 0 ? (
                       <div className="space-y-2">
-                        {browserData.map((browser) => {
-                          const percentage = totalBrowserViews > 0 ? (browser.views / totalBrowserViews) * 100 : 0
+                        {displayBrowserData.map((browser) => {
+                          const percentage = displayTotalBrowserViews > 0 ? (browser.views / displayTotalBrowserViews) * 100 : 0
                           return (
                             <div key={browser.browser} className="flex items-center gap-3 p-3 bg-[#f9fafb] rounded-lg">
                               <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center shadow-sm">
@@ -2760,7 +2789,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
         </div>
 
         {/* Top Products / Most Clicked */}
-        <Card className="border-[#e5e7eb] bg-white">
+        <Card className={`border-[#e5e7eb] bg-white transition-opacity duration-300 ${showSampleData && !hasRealData ? "opacity-60" : ""}`}>
           <CardHeader className="pb-0 pt-3">
             <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">
               {analyticsMode === "store" ? "Top Products" : "Most Clicked"}
@@ -2768,9 +2797,9 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
           </CardHeader>
           <CardContent className="pt-2">
             {analyticsMode === "store" ? (
-              topProducts.length > 0 ? (
+              displayTopProducts.length > 0 ? (
                 <div className="space-y-2">
-                  {topProducts.slice(0, 5).map((product, idx) => (
+                  {displayTopProducts.slice(0, 5).map((product, idx) => (
                     <div key={product.id} className="flex items-center gap-3 p-3 bg-[#f9fafb] rounded-lg hover:bg-[#f3f4f6] transition-colors">
                       <div className="w-10 h-10 rounded-lg bg-[#e5e7eb] flex items-center justify-center overflow-hidden flex-shrink-0">
                         {product.thumbnail_url ? (
@@ -3092,12 +3121,12 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
         </Card>
 
         {/* Visitors by Country */}
-        <Card className="border-[#e5e7eb] bg-white">
+        <Card className={`border-[#e5e7eb] bg-white transition-opacity duration-300 ${showSampleData && !hasRealData ? "opacity-60" : ""}`}>
           <CardHeader className="pb-0 pt-3">
             <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">Visitors by Country</CardTitle>
           </CardHeader>
           <CardContent className="pt-2">
-            {countryData.length > 0 ? (
+            {displayCountryData.length > 0 ? (
               <>
                 {/* Country Table */}
                 <div className="overflow-x-auto">
@@ -3115,7 +3144,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                       </tr>
                     </thead>
                     <tbody>
-                      {countryData.map((country) => (
+                      {displayCountryData.map((country) => (
                         <tr key={country.code} className="border-b border-[#f3f4f6] last:border-0">
                           <td className="py-2.5">
                             <div className="flex items-center gap-2">

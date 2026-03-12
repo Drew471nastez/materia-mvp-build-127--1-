@@ -2001,34 +2001,9 @@ export function DashboardClient({
                     />
                   ))}
                 </div>
-              ) : !hasRealData && !showSampleData ? (
-                <div className="h-[200px] flex flex-col items-center justify-center gap-3">
-                  <span className="text-[12px] text-[#d1d5db] font-medium">No activity yet</span>
-                  <button
-                    onClick={() => setShowSampleData(true)}
-                    className="flex items-center gap-2 text-[11px] text-[#b0b7c3] hover:text-[#6b7280] transition-colors group"
-                    aria-label="Show sample data"
-                  >
-                    <span className="relative inline-flex h-4 w-7 rounded-full bg-[#e9ecef] transition-colors group-hover:bg-[#d1d5db]">
-                      <span className="inline-block h-3 w-3 rounded-full bg-white shadow-sm my-0.5 translate-x-0.5" />
-                    </span>
-                    Show sample data
-                  </button>
-                </div>
               ) : (
-                <div className={`relative transition-opacity duration-500 ease-out ${isChartLoading ? "opacity-40" : showSampleData && !hasRealData ? "opacity-50" : "opacity-100"}`}>
-                  {showSampleData && !hasRealData && (
-                    <button
-                      onClick={() => setShowSampleData(false)}
-                      className="absolute top-0 right-0 z-10 flex items-center gap-1.5 text-[10px] text-[#c0c8d4] hover:text-[#6b7280] transition-colors pb-1"
-                      aria-label="Hide sample data"
-                    >
-                      Sample data
-                      <span className="relative inline-flex h-4 w-7 rounded-full bg-indigo-300/70">
-                        <span className="inline-block h-3 w-3 rounded-full bg-white shadow-sm my-0.5 translate-x-3.5" />
-                      </span>
-                    </button>
-                  )}
+                <div className="relative">
+                  <div className={`transition-opacity duration-500 ease-out ${isChartLoading ? "opacity-40" : showSampleData && !hasRealData ? "opacity-50" : "opacity-100"}`}>
                   <LazyAreaChart data={displayChartData}>
                     {({ AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer }) => (
                       <ResponsiveContainer width="100%" height={200}>
@@ -2090,6 +2065,21 @@ export function DashboardClient({
                       </ResponsiveContainer>
                     )}
                   </LazyAreaChart>
+                  </div>
+                  {!hasRealData && (
+                    <div className="absolute bottom-2 right-2 flex items-center gap-1.5 z-10">
+                      <span className="text-[11px] text-[#c8ccd4]">
+                        {showSampleData ? "Sample data" : "No activity yet"}
+                      </span>
+                      <button
+                        onClick={() => setShowSampleData(prev => !prev)}
+                        className={`relative inline-flex h-4 w-7 rounded-full transition-colors cursor-pointer ${showSampleData ? "bg-indigo-300/80" : "bg-[#e9ecef]"}`}
+                        aria-label={showSampleData ? "Hide sample data" : "Show sample data"}
+                      >
+                        <span className={`inline-block h-3 w-3 rounded-full bg-white shadow-sm my-0.5 transition-transform ${showSampleData ? "translate-x-3.5" : "translate-x-0.5"}`} />
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
