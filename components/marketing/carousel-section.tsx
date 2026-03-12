@@ -125,70 +125,95 @@ export function CarouselSection() {
     resetAutoplay()
   }, [goTo, resetAutoplay])
 
-  // Attach native touchmove with passive:false so we can preventDefault() during
-  // horizontal swipes — React synthetic handlers are passive and can't do this.
+  /* ── Native touch handlers (passive:false for reliable preventDefault) ──
+   *
+   * All touch handling is done via native addEventListener — NOT React synthetic
+   * events. Why: React synthetic events are passive, so e.preventDefault() is
+   * a no-op. A separate native listener fires BEFORE React's handler, so the
+   * isHorizontalSwipe flag isn't set yet and the first frame of scrolling leaks
+   * through. By handling everything in a single native handler we can detect
+   * horizontal swipe AND call preventDefault() in the same frame.
+   */
+
+  // Refs to hold the latest callback values without re-attaching listeners
+  const currentRef = useRef(current)
+  currentRef.current = current
+  const handleGoToRef = useRef(handleGoTo)
+  handleGoToRef.current = handleGoTo
+  const snapToSlideRef = useRef(snapToSlide)
+  snapToSlideRef.current = snapToSlide
+  const applyTransformRef = useRef(applyTransform)
+  applyTransformRef.current = applyTransform
+
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
-    const prevent = (e: TouchEvent) => {
-      if (isHorizontalSwipe.current === true) e.preventDefault()
-    }
-    el.addEventListener("touchmove", prevent, { passive: false })
-    return () => el.removeEventListener("touchmove", prevent)
-  }, [])
 
-  /* ── Touch handlers for smooth finger-follow drag ── */
-
-  const onTouchStart = useCallback((e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX
-    touchStartY.current = e.touches[0].clientY
-    dragOffset.current = 0
-    isDragging.current = true
-    isHorizontalSwipe.current = null
-    if (trackRef.current) {
-      trackRef.current.style.transition = "none"
-    }
-  }, [])
-
-  const onTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!isDragging.current) return
-    const dx = e.touches[0].clientX - touchStartX.current
-    const dy = e.touches[0].clientY - touchStartY.current
-
-    // Determine swipe direction on first significant move
-    if (isHorizontalSwipe.current === null) {
-      if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
-        isHorizontalSwipe.current = Math.abs(dx) > Math.abs(dy)
+    const onStart = (e: TouchEvent) => {
+      touchStartX.current = e.touches[0].clientX
+      touchStartY.current = e.touches[0].clientY
+      dragOffset.current = 0
+      isDragging.current = true
+      isHorizontalSwipe.current = null
+      if (trackRef.current) {
+        trackRef.current.style.transition = "none"
       }
-      return
     }
 
-    // If vertical scroll, bail out
-    if (!isHorizontalSwipe.current) return
+    const onMove = (e: TouchEvent) => {
+      if (!isDragging.current) return
+      const dx = e.touches[0].clientX - touchStartX.current
+      const dy = e.touches[0].clientY - touchStartY.current
 
-    dragOffset.current = dx
-    cancelAnimationFrame(rafRef.current)
-    rafRef.current = requestAnimationFrame(() => {
-      applyTransform(dx)
-    })
-  }, [applyTransform])
+      // Determine swipe direction on first significant move
+      if (isHorizontalSwipe.current === null) {
+        if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
+          isHorizontalSwipe.current = Math.abs(dx) > Math.abs(dy)
+        }
+        if (!isHorizontalSwipe.current) return
+      }
 
-  const onTouchEnd = useCallback(() => {
-    isDragging.current = false
-    const diff = dragOffset.current
-    dragOffset.current = 0
+      // Vertical scroll — bail
+      if (!isHorizontalSwipe.current) return
 
-    if (trackRef.current) {
-      trackRef.current.style.transition = "transform 600ms cubic-bezier(0.25, 0.1, 0.25, 1)"
+      // Horizontal swipe — prevent page scroll and move the track
+      e.preventDefault()
+      dragOffset.current = dx
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = requestAnimationFrame(() => {
+        applyTransformRef.current(dx)
+      })
     }
 
-    if (isHorizontalSwipe.current && Math.abs(diff) > 50) {
-      handleGoTo(diff < 0 ? current + 1 : current - 1)
-    } else {
-      snapToSlide()
+    const onEnd = () => {
+      if (!isDragging.current) return
+      isDragging.current = false
+      const diff = dragOffset.current
+      dragOffset.current = 0
+
+      if (trackRef.current) {
+        trackRef.current.style.transition = "transform 600ms cubic-bezier(0.25, 0.1, 0.25, 1)"
+      }
+
+      if (isHorizontalSwipe.current && Math.abs(diff) > 40) {
+        handleGoToRef.current(diff < 0 ? currentRef.current + 1 : currentRef.current - 1)
+      } else {
+        snapToSlideRef.current()
+      }
+      isHorizontalSwipe.current = null
     }
-    isHorizontalSwipe.current = null
-  }, [current, handleGoTo, snapToSlide])
+
+    el.addEventListener("touchstart", onStart, { passive: true })
+    el.addEventListener("touchmove", onMove, { passive: false })
+    el.addEventListener("touchend", onEnd, { passive: true })
+    el.addEventListener("touchcancel", onEnd, { passive: true })
+    return () => {
+      el.removeEventListener("touchstart", onStart)
+      el.removeEventListener("touchmove", onMove)
+      el.removeEventListener("touchend", onEnd)
+      el.removeEventListener("touchcancel", onEnd)
+    }
+  }, []) // stable — all values read from refs
 
   return (
     <section className="py-16 sm:py-22 bg-white">
@@ -213,9 +238,6 @@ export function CarouselSection() {
               ref={trackRef}
               className="flex gap-0 sm:gap-6 py-4"
               style={{ willChange: "transform", backfaceVisibility: "hidden" }}
-              onTouchStart={onTouchStart}
-              onTouchMove={onTouchMove}
-              onTouchEnd={onTouchEnd}
             >
               {SLIDES.map((slide) => (
                 <div

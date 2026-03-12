@@ -224,7 +224,7 @@ export function ManageSection() {
                     />
                   ) : ("emoji" in icon ? icon.emoji : null)}
                 </div>
-                <span className={`block text-[10px] md:text-[12px] font-bold uppercase tracking-wider text-neutral-600 ${icon.label === "Marketplace" ? "hidden md:block" : ""}`}>
+                <span className={`block text-[10px] md:text-[12px] font-bold uppercase tracking-wider text-neutral-600 ${icon.label === "Marketplace" || icon.label === "OnePage" ? "hidden md:block" : ""}`}>
                   {icon.label}
                 </span>
               </div>

@@ -79,6 +79,21 @@ interface ChartDataPoint {
 
 type KPIType = "views" | "orders" | "revenue" | "conversion" | null
 
+// ── Sample data shown when the creator has zero real activity ─────────────
+const SAMPLE_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+const SAMPLE_CHART: Record<string, ChartDataPoint[]> = {
+  views: SAMPLE_DAYS.map((d, i) => ({ label: d, value: [45, 78, 35, 92, 63, 88, 51][i], secondaryValue: [12, 22, 9, 31, 18, 28, 15][i] })),
+  orders: SAMPLE_DAYS.map((d, i) => ({ label: d, value: [2, 5, 1, 7, 3, 6, 4][i], refunds: [0, 0, 0, 1, 0, 0, 0][i] })),
+  revenue: SAMPLE_DAYS.map((d, i) => ({ label: d, value: [12.5, 34, 9, 45, 25, 38, 20][i] })),
+  conversion: SAMPLE_DAYS.map((d, i) => ({ label: d, value: [4.2, 6.1, 2.8, 7.5, 4.8, 6.8, 7.8][i] })),
+}
+const SAMPLE_KPI = {
+  periodViews: 452, totalViews: 1660, prevPeriodViews: 380,
+  periodOrders: 28, totalOrders: 95, prevPeriodOrders: 22,
+  periodRevenue: 34500, totalRevenue: 125000, prevPeriodRevenue: 28900,
+  conversionRate: 6.2, prevConversionRate: 5.8,
+}
+
 // Icon mapping for setup steps
 const stepIcons: Record<string, any> = {
   welcome: User,
@@ -865,6 +880,8 @@ export function DashboardClient({
 
   const [chartData, setChartData] = useState<ChartDataPoint[]>([])
   const [isChartLoading, setIsChartLoading] = useState(false)
+  // Sample data toggle — session-only, resets on page refresh
+  const [showSampleData, setShowSampleData] = useState(false)
   const [analyticsData, setAnalyticsData] = useState({
     totalViews: 0,
     totalOrders: initialTotalOrders,
@@ -927,6 +944,17 @@ export function DashboardClient({
       supabase.removeChannel(channel)
     }
   }, [productIds.join(",")]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Sample data logic ─────────────────────────────────────────────────────
+  // Show toggle when the creator has absolutely zero real data
+  const hasRealData = analyticsData.totalViews > 0 || analyticsData.totalOrders > 0 || analyticsData.totalRevenue > 0
+  // Effective analytics values — overlay sample data when toggled on
+  const displayAnalytics = showSampleData && !hasRealData
+    ? { ...analyticsData, ...SAMPLE_KPI }
+    : analyticsData
+  const displayChartData = showSampleData && !hasRealData && openKPIModal
+    ? SAMPLE_CHART[openKPIModal] ?? chartData
+    : chartData
 
   const [liveVisitors, setLiveVisitors] = useState(0)
   const { t } = useLanguage()
@@ -1881,6 +1909,32 @@ export function DashboardClient({
 
         {/* Stats Cards + Chart Section */}
         <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] mb-8 overflow-hidden">
+          {/* Sample data toggle + badge — only when creator has zero real data */}
+          {!hasRealData && (
+            <div className="flex items-center justify-between px-3 py-2 sm:px-4 border-b border-[#e5e7eb]/40 bg-[#fafbff]">
+              <div className="flex items-center gap-2">
+                {showSampleData && (
+                  <span className="inline-flex items-center text-[11px] font-medium text-indigo-500/80 bg-indigo-50 px-2.5 py-0.5 rounded-full">
+                    Sample data
+                  </span>
+                )}
+                <span className="text-[11px] text-[#9ca3af]">
+                  {showSampleData ? "Viewing sample data" : "No activity yet"}
+                </span>
+              </div>
+              <button
+                onClick={() => setShowSampleData(prev => !prev)}
+                className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-200 cursor-pointer ${
+                  showSampleData ? "bg-indigo-400" : "bg-gray-200"
+                }`}
+              >
+                <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                  showSampleData ? "translate-x-[18px]" : "translate-x-[3px]"
+                }`} />
+              </button>
+            </div>
+          )}
+
           {/* KPI Metric Tabs - horizontally scrollable on mobile */}
           <div className="relative flex overflow-x-auto scrollbar-hide md:grid md:grid-cols-4 divide-x divide-[#e5e7eb]/60">
             {/* Views */}
@@ -1893,10 +1947,10 @@ export function DashboardClient({
               {openKPIModal === "views" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
               <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "views" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("dashboard.views")}</span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.periodViews)}</span>
-                <PercentChangeIndicator current={analyticsData.periodViews} previous={analyticsData.prevPeriodViews} />
+                <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-all duration-300 ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(displayAnalytics.periodViews)}</span>
+                <PercentChangeIndicator current={displayAnalytics.periodViews} previous={displayAnalytics.prevPeriodViews} />
               </div>
-              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.totalViews)} {t("dashboard.allTime")}</p>
+              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(displayAnalytics.totalViews)} {t("dashboard.allTime")}</p>
             </button>
 
             {/* Revenue */}
@@ -1909,10 +1963,10 @@ export function DashboardClient({
               {openKPIModal === "revenue" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
               <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "revenue" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("dashboard.revenue")}</span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCurrency(analyticsData.periodRevenue)}</span>
-                <PercentChangeIndicator current={analyticsData.periodRevenue} previous={analyticsData.prevPeriodRevenue} />
+                <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-all duration-300 ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCurrency(displayAnalytics.periodRevenue)}</span>
+                <PercentChangeIndicator current={displayAnalytics.periodRevenue} previous={displayAnalytics.prevPeriodRevenue} />
               </div>
-              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCurrency(analyticsData.totalRevenue)} {t("dashboard.allTime")}</p>
+              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCurrency(displayAnalytics.totalRevenue)} {t("dashboard.allTime")}</p>
             </button>
 
             {/* Orders */}
@@ -1925,10 +1979,10 @@ export function DashboardClient({
               {openKPIModal === "orders" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
               <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "orders" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("dashboard.orders")}</span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.periodOrders)}</span>
-                <PercentChangeIndicator current={analyticsData.periodOrders} previous={analyticsData.prevPeriodOrders} />
+                <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-all duration-300 ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(displayAnalytics.periodOrders)}</span>
+                <PercentChangeIndicator current={displayAnalytics.periodOrders} previous={displayAnalytics.prevPeriodOrders} />
               </div>
-              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(analyticsData.totalOrders)} {t("dashboard.allTime")}</p>
+              <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(displayAnalytics.totalOrders)} {t("dashboard.allTime")}</p>
             </button>
 
             {/* Conversion Rate - clickable */}
@@ -1941,8 +1995,8 @@ export function DashboardClient({
               {openKPIModal === "conversion" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
               <span className={`text-[11px] sm:text-[12px] font-medium ${openKPIModal === "conversion" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("dashboard.conversionRate")}</span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{Math.round(analyticsData.conversionRate)}%</span>
-                <PercentChangeIndicator current={analyticsData.conversionRate} previous={analyticsData.prevConversionRate} />
+                <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-all duration-300 ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{Math.round(displayAnalytics.conversionRate)}%</span>
+                <PercentChangeIndicator current={displayAnalytics.conversionRate} previous={displayAnalytics.prevConversionRate} />
               </div>
               <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{t("dashboard.viewsToOrders")}</p>
             </button>
@@ -1966,7 +2020,7 @@ export function DashboardClient({
           {/* Shared Chart Area - smooth line chart, toggleable */}
           <div className={`overflow-hidden transition-all duration-500 ease-out ${chartExpanded && openKPIModal ? "max-h-[300px] opacity-100" : "max-h-0 opacity-0"}`}>
             <div className="border-t border-[#e5e7eb]/60 px-2 py-3 sm:px-4 sm:py-4">
-              {isChartLoading && chartData.length === 0 ? (
+              {isChartLoading && displayChartData.length === 0 ? (
                 <div className="h-[200px] flex items-end gap-1.5 px-6 pb-6 pt-4">
                   {Array.from({ length: 10 }).map((_, i) => (
                     <div
@@ -1977,11 +2031,11 @@ export function DashboardClient({
                   ))}
                 </div>
               ) : (
-                <div className={`transition-opacity duration-500 ease-out ${isChartLoading ? "opacity-40" : "opacity-100"}`}>
-                  <LazyAreaChart data={chartData}>
+                <div className={`transition-opacity duration-500 ease-out ${isChartLoading ? "opacity-40" : "opacity-100"} ${showSampleData && !hasRealData ? "opacity-60" : ""}`}>
+                  <LazyAreaChart data={displayChartData}>
                     {({ AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer }) => (
                       <ResponsiveContainer width="100%" height={200}>
-                        <AreaChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                        <AreaChart data={displayChartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
                           <defs>
                             <linearGradient id="kpiGrad" x1="0" y1="0" x2="0" y2="1">
                               <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.15} />
