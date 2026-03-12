@@ -2067,7 +2067,7 @@ export function DashboardClient({
                   </LazyAreaChart>
                   </div>
                   {!hasRealData && (
-                    <div className="absolute bottom-2 right-2 flex items-center gap-1.5 z-10">
+                    <div className="absolute top-2 right-2 flex items-center gap-1.5 z-10">
                       <span className="text-[11px] text-[#c8ccd4]">
                         {showSampleData ? "Sample data" : "No activity yet"}
                       </span>

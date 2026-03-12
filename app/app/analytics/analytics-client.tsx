@@ -2616,7 +2616,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
               </ResponsiveContainer>
                 </div>
                 {!hasRealData && (
-                  <div className="absolute bottom-2 right-2 flex items-center gap-1.5 z-10">
+                  <div className="absolute top-2 right-2 flex items-center gap-1.5 z-10">
                     <span className="text-[11px] text-[#c8ccd4]">
                       {showSampleData ? "Sample data" : "No activity yet"}
                     </span>
@@ -2639,7 +2639,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
           <Card className={`border-[#e5e7eb] bg-white transition-opacity duration-300 ${showSampleData && !hasRealData ? "opacity-60" : ""}`}>
             <CardHeader className="pb-0 pt-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">Traffic Distribution</CardTitle>
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">Traffic Distribution</CardTitle>
+                  {showSampleData && !hasRealData && <span className="text-[10px] font-medium text-indigo-400/80 bg-indigo-50 px-2 py-0.5 rounded-full">Sample</span>}
+                </div>
                 <div className="flex items-center bg-[#f3f4f6] rounded-lg p-0.5">
                   <button
                     onClick={() => setTrafficViewMode("chart")}
@@ -2709,9 +2712,12 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
           <Card className={`border-[#e5e7eb] bg-white transition-opacity duration-300 ${showSampleData && !hasRealData ? "opacity-60" : ""}`}>
             <CardHeader className="pb-0 pt-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">
-                  {deviceTabMode === "device" ? "Device Breakdown" : "Browser Breakdown"}
-                </CardTitle>
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">
+                    {deviceTabMode === "device" ? "Device Breakdown" : "Browser Breakdown"}
+                  </CardTitle>
+                  {showSampleData && !hasRealData && <span className="text-[10px] font-medium text-indigo-400/80 bg-indigo-50 px-2 py-0.5 rounded-full">Sample</span>}
+                </div>
                 <div className="flex items-center bg-[#f3f4f6] rounded-lg p-0.5">
                   <button
                     onClick={() => setDeviceTabMode("device")}
@@ -2791,9 +2797,12 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
         {/* Top Products / Most Clicked */}
         <Card className={`border-[#e5e7eb] bg-white transition-opacity duration-300 ${showSampleData && !hasRealData ? "opacity-60" : ""}`}>
           <CardHeader className="pb-0 pt-3">
-            <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">
-              {analyticsMode === "store" ? "Top Products" : "Most Clicked"}
-            </CardTitle>
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">
+                {analyticsMode === "store" ? "Top Products" : "Most Clicked"}
+              </CardTitle>
+              {showSampleData && !hasRealData && analyticsMode === "store" && <span className="text-[10px] font-medium text-indigo-400/80 bg-indigo-50 px-2 py-0.5 rounded-full">Sample</span>}
+            </div>
           </CardHeader>
           <CardContent className="pt-2">
             {analyticsMode === "store" ? (
@@ -3123,7 +3132,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
         {/* Visitors by Country */}
         <Card className={`border-[#e5e7eb] bg-white transition-opacity duration-300 ${showSampleData && !hasRealData ? "opacity-60" : ""}`}>
           <CardHeader className="pb-0 pt-3">
-            <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">Visitors by Country</CardTitle>
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-[15px] font-semibold text-[#1a1a2e]">Visitors by Country</CardTitle>
+              {showSampleData && !hasRealData && <span className="text-[10px] font-medium text-indigo-400/80 bg-indigo-50 px-2 py-0.5 rounded-full">Sample</span>}
+            </div>
           </CardHeader>
           <CardContent className="pt-2">
             {displayCountryData.length > 0 ? (
