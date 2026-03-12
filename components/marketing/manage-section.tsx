@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import { AnimateOnScroll } from "./bento-grid"
 
 const FLOATING_ICONS = [
-  { label: "OnePage", pos: "md:top-[-4px] top-[4px] left-[5%] md:left-[-2%]", delay: "0s", zClass: "z-[2]", imgSrc: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(38).webp" },
+  { label: "OnePage", pos: "md:top-[-4px] top-[-16px] left-[5%] md:left-[-2%]", delay: "0s", zClass: "z-[2]", imgSrc: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(38).webp" },
   { label: "Digital Products", pos: "md:top-[34%] md:left-[-11%] bottom-[50px] left-[4%]", delay: "0.5s", zClass: "z-[2]", imgSrc: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(37).webp" },
   { label: "Marketplace", pos: "md:top-[-16px] top-[-36px] right-[2%]", delay: "1s", zClass: "z-[5]", imgSrc: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(39).webp" },
   { emoji: "🎓", label: "Courses", pos: "bottom-[60px] left-0 md:left-[-7%]", delay: "1.5s", hideMobile: true, zClass: "z-[2]" },
@@ -71,7 +71,7 @@ function ManagedImageCarousel() {
       img.decoding = "async"
       img.onload = () => markLoaded(i)
       img.onerror = () => markLoaded(i)
-      img.src = getOptimized(url, 336, 16)
+      img.src = getOptimized(url, 420, 20)
     })
   }, [markLoaded])
 
@@ -119,11 +119,11 @@ function ManagedImageCarousel() {
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
             key={i}
-            src={getOptimized(url, 300, 13)}
-            srcSet={`${getOptimized(url, 190, 10)} 360w, ${getOptimized(url, 300, 13)} 600w`}
+            src={getOptimized(url, 380, 16)}
+            srcSet={`${getOptimized(url, 240, 13)} 360w, ${getOptimized(url, 380, 16)} 600w`}
             alt={`Storelib Dashboard view ${i + 1}`}
-            width={480}
-            height={270}
+            width={600}
+            height={338}
             className="absolute inset-0 w-full h-full rounded-xl sm:rounded-2xl object-cover object-top"
             style={{
               opacity: i === current && loadedSet.has(i) ? 1 : 0,
@@ -224,7 +224,7 @@ export function ManageSection() {
                     />
                   ) : ("emoji" in icon ? icon.emoji : null)}
                 </div>
-                <span className={`block text-[10px] md:text-[12px] font-bold uppercase tracking-wider text-neutral-600 ${icon.label === "Marketplace" || icon.label === "OnePage" ? "hidden md:block" : ""}`}>
+                <span className={`text-[10px] md:text-[12px] font-bold uppercase tracking-wider text-neutral-500 ${icon.label === "Marketplace" || icon.label === "OnePage" ? "hidden md:block" : ""}`}>
                   {icon.label}
                 </span>
               </div>

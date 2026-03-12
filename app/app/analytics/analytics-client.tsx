@@ -228,6 +228,26 @@ type TimeframeOption = {
   getDates: () => { start: Date; end: Date }
 }
 
+// ── Sample data for analytics chart ───────────────────────────────────────
+const ANALYTICS_SAMPLE_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+const ANALYTICS_SAMPLE_TREND = ANALYTICS_SAMPLE_DAYS.map((d, i) => ({
+  date: d,
+  views:       [45, 78, 35, 92, 63, 88, 51][i],
+  sales:       [2, 5, 1, 7, 3, 6, 4][i],
+  revenue:     [1250, 3400, 900, 4500, 2500, 3800, 2000][i],
+  clicks:      [12, 22, 9, 31, 18, 28, 15][i],
+  subscribers: [1, 2, 0, 3, 1, 2, 1][i],
+  refunds:     0,
+  conversion:  0,
+  ctr:         0,
+}))
+const ANALYTICS_SAMPLE_SUMMARY: Summary = {
+  totalViews: 452, totalOrders: 28, totalRevenue: 34500,
+  conversionRate: 6.2, avgOrderValue: 1232, uniqueVisitors: 310,
+  prevPeriodViews: 380, prevPeriodOrders: 22, prevPeriodRevenue: 28900,
+  allTimeViews: 1660, allTimeOrders: 95, allTimeRevenue: 125000,
+}
+
 const timeframeOptions: TimeframeOption[] = [
   {
     value: "today",
@@ -777,6 +797,9 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
   const [openKPIModal, setOpenKPIModal] = useState<KPIType>(null)
   const [kpiChartData, setKpiChartData] = useState<ChartDataPoint[]>([])
   const [isKpiChartLoading, setIsKpiChartLoading] = useState(false)
+
+  // Sample data toggle — session only, resets on page refresh
+  const [showSampleData, setShowSampleData] = useState(false)
 
   const [summary, setSummary] = useState<Summary>({
     totalViews: 0,
@@ -1971,11 +1994,16 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
   const totalRevenueInChart = summary.totalRevenue
 
   // Compute chart data with conversion rate and CTR added
-  const chartDisplayData = trendData.map(d => ({
+  const rawChartData = trendData.map(d => ({
     ...d,
     conversion: d.views > 0 ? Number(((d.sales / d.views) * 100).toFixed(2)) : 0,
     ctr: d.views > 0 && d.clicks ? Number(((d.clicks / d.views) * 100).toFixed(2)) : 0,
   }))
+
+  // ── Sample data overlay ─────────────────────────────────────────────────
+  const hasRealData = summary.allTimeViews > 0 || summary.allTimeOrders > 0 || summary.allTimeRevenue > 0
+  const displaySummary = showSampleData && !hasRealData ? ANALYTICS_SAMPLE_SUMMARY : summary
+  const chartDisplayData = showSampleData && !hasRealData ? ANALYTICS_SAMPLE_TREND : rawChartData
 
   // KPI Modal Chart component (matching Dashboard UI exactly)
   const KPIModalChart = ({ kpiType, label }: { kpiType: KPIType; label: string }) => {
@@ -2307,6 +2335,27 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
 
         {/* Unified KPI Tabs + Chart Card */}
         <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+          {/* Sample data banner — only when no real data */}
+          {!hasRealData && (
+            <div className="flex items-center justify-between px-3 py-2 sm:px-4 border-b border-[#e5e7eb]/40 bg-[#fafbff]">
+              <div className="flex items-center gap-2">
+                <span className={`inline-flex items-center text-[11px] font-medium px-2.5 py-0.5 rounded-full transition-all duration-300 ${showSampleData ? "text-indigo-500/80 bg-indigo-50 opacity-100" : "opacity-0 pointer-events-none"}`}>
+                  Sample data
+                </span>
+                <span className="text-[11px] text-[#9ca3af]">
+                  {showSampleData ? "Viewing sample data" : "No activity yet"}
+                </span>
+              </div>
+              <button
+                onClick={() => setShowSampleData(prev => !prev)}
+                aria-label={showSampleData ? "Hide sample data" : "Show sample data"}
+                className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors duration-200 cursor-pointer focus-visible:outline-none ${showSampleData ? "bg-indigo-400" : "bg-[#d1d5db]"}`}
+              >
+                <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm ring-0 transition-transform duration-200 my-0.5 ${showSampleData ? "translate-x-4" : "translate-x-0.5"}`} />
+              </button>
+            </div>
+          )}
+
           {/* KPI Metric Tabs */}
           <div className="relative flex overflow-x-auto scrollbar-hide md:grid md:grid-cols-4 divide-x divide-[#e5e7eb]/60">
             {analyticsMode === "store" ? (
@@ -2321,10 +2370,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   {chartMetricFilter === "views" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
                   <span className={`text-[11px] sm:text-[12px] font-medium ${chartMetricFilter === "views" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("analytics.totalViews")}</span>
                   <div className="flex items-baseline gap-1.5 mt-0.5">
-                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(summary.totalViews)}</span>
-                    {<PercentChangeIndicator current={summary.totalViews} previous={summary.prevPeriodViews} />}
+                    <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-all duration-300 ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(displaySummary.totalViews)}</span>
+                    {<PercentChangeIndicator current={displaySummary.totalViews} previous={displaySummary.prevPeriodViews} />}
                   </div>
-                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(summary.allTimeViews)} {t("dashboard.allTime")}</p>
+                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(displaySummary.allTimeViews)} {t("dashboard.allTime")}</p>
                 </button>
                 {/* Revenue */}
                 <button
@@ -2336,10 +2385,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   {chartMetricFilter === "revenue" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
                   <span className={`text-[11px] sm:text-[12px] font-medium ${chartMetricFilter === "revenue" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("analytics.totalRevenue")}</span>
                   <div className="flex items-baseline gap-1.5 mt-0.5">
-                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatPrice(summary.totalRevenue)}</span>
-                    {<PercentChangeIndicator current={summary.totalRevenue} previous={summary.prevPeriodRevenue} />}
+                    <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-all duration-300 ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatPrice(displaySummary.totalRevenue)}</span>
+                    {<PercentChangeIndicator current={displaySummary.totalRevenue} previous={displaySummary.prevPeriodRevenue} />}
                   </div>
-                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatPrice(summary.allTimeRevenue)} {t("dashboard.allTime")}</p>
+                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatPrice(displaySummary.allTimeRevenue)} {t("dashboard.allTime")}</p>
                 </button>
                 {/* Orders */}
                 <button
@@ -2351,10 +2400,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   {chartMetricFilter === "orders" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
                   <span className={`text-[11px] sm:text-[12px] font-medium ${chartMetricFilter === "orders" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("analytics.totalOrders")}</span>
                   <div className="flex items-baseline gap-1.5 mt-0.5">
-                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(summary.totalOrders)}</span>
-                    {<PercentChangeIndicator current={summary.totalOrders} previous={summary.prevPeriodOrders} />}
+                    <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-all duration-300 ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(displaySummary.totalOrders)}</span>
+                    {<PercentChangeIndicator current={displaySummary.totalOrders} previous={displaySummary.prevPeriodOrders} />}
                   </div>
-                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(summary.allTimeOrders)} {t("dashboard.allTime")}</p>
+                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(displaySummary.allTimeOrders)} {t("dashboard.allTime")}</p>
                 </button>
                 {/* Conversion */}
                 <button
@@ -2366,7 +2415,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   {chartMetricFilter === "conversion" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
                   <span className={`text-[11px] sm:text-[12px] font-medium ${chartMetricFilter === "conversion" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("analytics.conversionRate")}</span>
                   <div className="flex items-baseline gap-1.5 mt-0.5">
-                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{Math.round(summary.conversionRate)}%</span>
+                    <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-all duration-300 ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{Math.round(displaySummary.conversionRate)}%</span>
                   </div>
                   <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{t("dashboard.viewsToOrders")}</p>
                 </button>
@@ -2437,7 +2486,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
           </div>
 
           {/* Chart Area - always open */}
-          <div className="border-t border-[#e5e7eb]/60 px-2 py-3 sm:px-4 sm:py-4">
+          <div className={`border-t border-[#e5e7eb]/60 px-2 py-3 sm:px-4 sm:py-4 transition-opacity duration-300 ${showSampleData && !hasRealData ? "opacity-50" : "opacity-100"}`}>
               <ResponsiveContainer width="100%" height={200}>
                 <AreaChart data={chartDisplayData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
                   <defs>

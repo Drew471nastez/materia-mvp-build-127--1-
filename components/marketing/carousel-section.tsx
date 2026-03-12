@@ -36,13 +36,7 @@ export function CarouselSection() {
   const [current, setCurrent] = useState(0)
   const containerRef = useRef<HTMLDivElement>(null)
   const trackRef = useRef<HTMLDivElement>(null)
-  const touchStartX = useRef(0)
-  const touchStartY = useRef(0)
-  const dragOffset = useRef(0)
-  const isDragging = useRef(false)
-  const isHorizontalSwipe = useRef<boolean | null>(null)
   const autoplayRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const rafRef = useRef<number>(0)
 
   const isMobile = useCallback(() => {
     return typeof window !== "undefined" && window.matchMedia("(max-width: 639px)").matches
@@ -58,41 +52,39 @@ export function CarouselSection() {
     return Math.min(idx * slideWidth, maxOffset)
   }, [])
 
-  const applyTransform = useCallback((extraPx = 0) => {
+  const snapToSlide = useCallback((idx: number) => {
     if (!trackRef.current) return
     if (isMobile()) {
       const containerWidth = containerRef.current?.offsetWidth ?? window.innerWidth
-      const basePx = current * containerWidth
-      trackRef.current.style.transform = `translate3d(${-(basePx - extraPx)}px, 0, 0)`
+      trackRef.current.style.transform = `translate3d(${-(idx * containerWidth)}px, 0, 0)`
     } else {
-      const offset = getDesktopOffset(current)
-      trackRef.current.style.transform = `translate3d(${-(offset - extraPx)}px, 0, 0)`
-    }
-  }, [current, isMobile, getDesktopOffset])
-
-  const snapToSlide = useCallback(() => {
-    if (!trackRef.current) return
-    if (isMobile()) {
-      // Use pixels (matching applyTransform) — translate(-N*100%) is wrong because
-      // % resolves against the track's own width (= slides × containerWidth), not containerWidth.
-      const containerWidth = containerRef.current?.offsetWidth ?? window.innerWidth
-      trackRef.current.style.transform = `translate3d(${-(current * containerWidth)}px, 0, 0)`
-    } else {
-      const offset = getDesktopOffset(current)
+      const offset = getDesktopOffset(idx)
       trackRef.current.style.transform = `translate3d(-${offset}px, 0, 0)`
     }
-  }, [current, isMobile, getDesktopOffset])
+  }, [isMobile, getDesktopOffset])
 
   const goTo = useCallback((n: number) => {
-    setCurrent(((n % SLIDES.length) + SLIDES.length) % SLIDES.length)
-  }, [])
+    const next = ((n % SLIDES.length) + SLIDES.length) % SLIDES.length
+    setCurrent(next)
+    if (trackRef.current) {
+      trackRef.current.style.transition = "transform 600ms cubic-bezier(0.25, 0.1, 0.25, 1)"
+    }
+    snapToSlide(next)
+  }, [snapToSlide])
 
   const resetAutoplay = useCallback(() => {
     if (autoplayRef.current) clearInterval(autoplayRef.current)
     autoplayRef.current = setInterval(() => {
-      setCurrent((prev) => (prev + 1) % SLIDES.length)
+      setCurrent((prev) => {
+        const next = (prev + 1) % SLIDES.length
+        if (trackRef.current) {
+          trackRef.current.style.transition = "transform 600ms cubic-bezier(0.25, 0.1, 0.25, 1)"
+        }
+        snapToSlide(next)
+        return next
+      })
     }, 6000)
-  }, [])
+  }, [snapToSlide])
 
   useEffect(() => {
     resetAutoplay()
@@ -100,16 +92,10 @@ export function CarouselSection() {
   }, [resetAutoplay])
 
   useEffect(() => {
-    if (!trackRef.current) return
-    trackRef.current.style.transition = "transform 600ms cubic-bezier(0.25, 0.1, 0.25, 1)"
-    snapToSlide()
-  }, [current, snapToSlide])
-
-  useEffect(() => {
     const onResize = () => {
       if (!trackRef.current) return
       trackRef.current.style.transition = "none"
-      snapToSlide()
+      snapToSlide(current)
       requestAnimationFrame(() => {
         if (trackRef.current) {
           trackRef.current.style.transition = "transform 600ms cubic-bezier(0.25, 0.1, 0.25, 1)"
@@ -118,102 +104,12 @@ export function CarouselSection() {
     }
     window.addEventListener("resize", onResize)
     return () => window.removeEventListener("resize", onResize)
-  }, [snapToSlide])
+  }, [current, snapToSlide])
 
   const handleGoTo = useCallback((n: number) => {
     goTo(n)
     resetAutoplay()
   }, [goTo, resetAutoplay])
-
-  /* ── Native touch handlers (passive:false for reliable preventDefault) ──
-   *
-   * All touch handling is done via native addEventListener — NOT React synthetic
-   * events. Why: React synthetic events are passive, so e.preventDefault() is
-   * a no-op. A separate native listener fires BEFORE React's handler, so the
-   * isHorizontalSwipe flag isn't set yet and the first frame of scrolling leaks
-   * through. By handling everything in a single native handler we can detect
-   * horizontal swipe AND call preventDefault() in the same frame.
-   */
-
-  // Refs to hold the latest callback values without re-attaching listeners
-  const currentRef = useRef(current)
-  currentRef.current = current
-  const handleGoToRef = useRef(handleGoTo)
-  handleGoToRef.current = handleGoTo
-  const snapToSlideRef = useRef(snapToSlide)
-  snapToSlideRef.current = snapToSlide
-  const applyTransformRef = useRef(applyTransform)
-  applyTransformRef.current = applyTransform
-
-  useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
-
-    const onStart = (e: TouchEvent) => {
-      touchStartX.current = e.touches[0].clientX
-      touchStartY.current = e.touches[0].clientY
-      dragOffset.current = 0
-      isDragging.current = true
-      isHorizontalSwipe.current = null
-      if (trackRef.current) {
-        trackRef.current.style.transition = "none"
-      }
-    }
-
-    const onMove = (e: TouchEvent) => {
-      if (!isDragging.current) return
-      const dx = e.touches[0].clientX - touchStartX.current
-      const dy = e.touches[0].clientY - touchStartY.current
-
-      // Determine swipe direction on first significant move
-      if (isHorizontalSwipe.current === null) {
-        if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
-          isHorizontalSwipe.current = Math.abs(dx) > Math.abs(dy)
-        }
-        if (!isHorizontalSwipe.current) return
-      }
-
-      // Vertical scroll — bail
-      if (!isHorizontalSwipe.current) return
-
-      // Horizontal swipe — prevent page scroll and move the track
-      e.preventDefault()
-      dragOffset.current = dx
-      cancelAnimationFrame(rafRef.current)
-      rafRef.current = requestAnimationFrame(() => {
-        applyTransformRef.current(dx)
-      })
-    }
-
-    const onEnd = () => {
-      if (!isDragging.current) return
-      isDragging.current = false
-      const diff = dragOffset.current
-      dragOffset.current = 0
-
-      if (trackRef.current) {
-        trackRef.current.style.transition = "transform 600ms cubic-bezier(0.25, 0.1, 0.25, 1)"
-      }
-
-      if (isHorizontalSwipe.current && Math.abs(diff) > 40) {
-        handleGoToRef.current(diff < 0 ? currentRef.current + 1 : currentRef.current - 1)
-      } else {
-        snapToSlideRef.current()
-      }
-      isHorizontalSwipe.current = null
-    }
-
-    el.addEventListener("touchstart", onStart, { passive: true })
-    el.addEventListener("touchmove", onMove, { passive: false })
-    el.addEventListener("touchend", onEnd, { passive: true })
-    el.addEventListener("touchcancel", onEnd, { passive: true })
-    return () => {
-      el.removeEventListener("touchstart", onStart)
-      el.removeEventListener("touchmove", onMove)
-      el.removeEventListener("touchend", onEnd)
-      el.removeEventListener("touchcancel", onEnd)
-    }
-  }, []) // stable — all values read from refs
 
   return (
     <section className="py-16 sm:py-22 bg-white">
@@ -221,9 +117,9 @@ export function CarouselSection() {
         <AnimateOnScroll variant="blur-in" className="px-6">
           <div className="text-center mb-10 sm:mb-12">
             <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-wider text-violet-600 bg-violet-50 px-4 py-1.5 rounded-full mb-4">
-              🔗 Link In Bio
+              🔗 OnePage
             </span>
-            <h2 className="text-[30px] sm:text-[clamp(28px,4vw,44px)] font-semibold leading-[1.15] tracking-tight mb-3.5">
+            <h2 className="text-[clamp(28px,4vw,44px)] font-semibold leading-[1.15] tracking-tight mb-3.5">
               The OnePage creators love
             </h2>
             <p className="text-[15px] text-neutral-500 max-w-[460px] mx-auto">
@@ -233,7 +129,8 @@ export function CarouselSection() {
         </AnimateOnScroll>
 
         <AnimateOnScroll variant="fade-up-scale" delay={150}>
-          <div ref={containerRef} className="relative overflow-hidden sm:px-6 sm:pl-10">
+          {/* touch-action: none disables all browser touch gestures on this area */}
+          <div ref={containerRef} className="relative overflow-hidden sm:px-6 sm:pl-10" style={{ touchAction: "none" }}>
             <div
               ref={trackRef}
               className="flex gap-0 sm:gap-6 py-4"
@@ -302,7 +199,7 @@ export function CarouselSection() {
           </div>
         </AnimateOnScroll>
 
-        {/* Controls */}
+        {/* Controls — only way to navigate: buttons + dots */}
         <div className="flex items-center justify-center gap-3 mt-7 px-6">
           <button
             onClick={() => handleGoTo(current - 1)}

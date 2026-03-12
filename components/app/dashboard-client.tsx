@@ -79,12 +79,12 @@ interface ChartDataPoint {
 
 type KPIType = "views" | "orders" | "revenue" | "conversion" | null
 
-// ── Sample data shown when the creator has zero real activity ─────────────
+// ── Sample data shown when the creator has zero real activity ──────────────
 const SAMPLE_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 const SAMPLE_CHART: Record<string, ChartDataPoint[]> = {
-  views: SAMPLE_DAYS.map((d, i) => ({ label: d, value: [45, 78, 35, 92, 63, 88, 51][i], secondaryValue: [12, 22, 9, 31, 18, 28, 15][i] })),
-  orders: SAMPLE_DAYS.map((d, i) => ({ label: d, value: [2, 5, 1, 7, 3, 6, 4][i], refunds: [0, 0, 0, 1, 0, 0, 0][i] })),
-  revenue: SAMPLE_DAYS.map((d, i) => ({ label: d, value: [12.5, 34, 9, 45, 25, 38, 20][i] })),
+  views:      SAMPLE_DAYS.map((d, i) => ({ label: d, value: [45, 78, 35, 92, 63, 88, 51][i], secondaryValue: [12, 22, 9, 31, 18, 28, 15][i] })),
+  orders:     SAMPLE_DAYS.map((d, i) => ({ label: d, value: [2, 5, 1, 7, 3, 6, 4][i], refunds: [0, 0, 0, 1, 0, 0, 0][i] })),
+  revenue:    SAMPLE_DAYS.map((d, i) => ({ label: d, value: [12.5, 34, 9, 45, 25, 38, 20][i] })),
   conversion: SAMPLE_DAYS.map((d, i) => ({ label: d, value: [4.2, 6.1, 2.8, 7.5, 4.8, 6.8, 7.8][i] })),
 }
 const SAMPLE_KPI = {
@@ -880,7 +880,7 @@ export function DashboardClient({
 
   const [chartData, setChartData] = useState<ChartDataPoint[]>([])
   const [isChartLoading, setIsChartLoading] = useState(false)
-  // Sample data toggle — session-only, resets on page refresh
+  // Sample data toggle — session-only (resets on page refresh, no localStorage)
   const [showSampleData, setShowSampleData] = useState(false)
   const [analyticsData, setAnalyticsData] = useState({
     totalViews: 0,
@@ -945,15 +945,12 @@ export function DashboardClient({
     }
   }, [productIds.join(",")]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Sample data logic ─────────────────────────────────────────────────────
-  // Show toggle when the creator has absolutely zero real data
+  // ── Sample data overlay ────────────────────────────────────────────────────
+  // True once any real metric exists — toggle and badge disappear permanently
   const hasRealData = analyticsData.totalViews > 0 || analyticsData.totalOrders > 0 || analyticsData.totalRevenue > 0
-  // Effective analytics values — overlay sample data when toggled on
-  const displayAnalytics = showSampleData && !hasRealData
-    ? { ...analyticsData, ...SAMPLE_KPI }
-    : analyticsData
+  const displayAnalytics = showSampleData && !hasRealData ? { ...analyticsData, ...SAMPLE_KPI } : analyticsData
   const displayChartData = showSampleData && !hasRealData && openKPIModal
-    ? SAMPLE_CHART[openKPIModal] ?? chartData
+    ? (SAMPLE_CHART[openKPIModal] ?? chartData)
     : chartData
 
   const [liveVisitors, setLiveVisitors] = useState(0)
@@ -1909,28 +1906,24 @@ export function DashboardClient({
 
         {/* Stats Cards + Chart Section */}
         <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] mb-8 overflow-hidden">
-          {/* Sample data toggle + badge — only when creator has zero real data */}
+          {/* Sample data banner — only shown when creator has zero real data */}
           {!hasRealData && (
             <div className="flex items-center justify-between px-3 py-2 sm:px-4 border-b border-[#e5e7eb]/40 bg-[#fafbff]">
               <div className="flex items-center gap-2">
-                {showSampleData && (
-                  <span className="inline-flex items-center text-[11px] font-medium text-indigo-500/80 bg-indigo-50 px-2.5 py-0.5 rounded-full">
-                    Sample data
-                  </span>
-                )}
+                <span className={`inline-flex items-center text-[11px] font-medium px-2.5 py-0.5 rounded-full transition-all duration-300 ${showSampleData ? "text-indigo-500/80 bg-indigo-50 opacity-100" : "opacity-0 pointer-events-none"}`}>
+                  Sample data
+                </span>
                 <span className="text-[11px] text-[#9ca3af]">
                   {showSampleData ? "Viewing sample data" : "No activity yet"}
                 </span>
               </div>
+              {/* Toggle pill */}
               <button
                 onClick={() => setShowSampleData(prev => !prev)}
-                className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-200 cursor-pointer ${
-                  showSampleData ? "bg-indigo-400" : "bg-gray-200"
-                }`}
+                aria-label={showSampleData ? "Hide sample data" : "Show sample data"}
+                className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 ${showSampleData ? "bg-indigo-400" : "bg-[#d1d5db]"}`}
               >
-                <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform duration-200 ${
-                  showSampleData ? "translate-x-[18px]" : "translate-x-[3px]"
-                }`} />
+                <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm ring-0 transition-transform duration-200 my-0.5 ${showSampleData ? "translate-x-4" : "translate-x-0.5"}`} />
               </button>
             </div>
           )}
@@ -2031,7 +2024,7 @@ export function DashboardClient({
                   ))}
                 </div>
               ) : (
-                <div className={`transition-opacity duration-500 ease-out ${isChartLoading ? "opacity-40" : "opacity-100"} ${showSampleData && !hasRealData ? "opacity-60" : ""}`}>
+                <div className={`transition-opacity duration-500 ease-out ${isChartLoading ? "opacity-40" : showSampleData && !hasRealData ? "opacity-50" : "opacity-100"}`}>
                   <LazyAreaChart data={displayChartData}>
                     {({ AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer }) => (
                       <ResponsiveContainer width="100%" height={200}>
