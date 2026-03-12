@@ -121,16 +121,6 @@ interface TimelineItem {
   status: "completed" | "pending" | "upcoming";
 }
 
-// ── Sample data for payouts revenue chart ──────────────────────────────────
-const PAYOUT_SAMPLE_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-const PAYOUT_SAMPLE_DATA: ChartPoint[] = PAYOUT_SAMPLE_DAYS.map((d, i) => ({
-  date: d,
-  gross: [12.5, 34, 9, 45, 25, 38, 20][i],
-  revenue: [12.5, 34, 9, 45, 25, 38, 20][i],
-  refundsAbs: [0, 0, 0, 5, 0, 0, 0][i],
-  count: [1, 3, 1, 4, 2, 3, 2][i],
-}))
-
 interface ChartPoint {
   date: string;
   revenue: number;
@@ -502,8 +492,6 @@ function RevenueChart() {
   const [isHourly, setIsHourly] = useState(false); // true for today/yesterday (hourly buckets)
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // Sample data toggle — session only, resets on refresh
-  const [showSampleData, setShowSampleData] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -577,10 +565,6 @@ function RevenueChart() {
     revenue: Math.max(0, d.revenue),
   }));
   const hasData = chartData.some((d) => d.gross > 0 || d.refundsAbs > 0);
-  const displayChartData = showSampleData && !hasData ? PAYOUT_SAMPLE_DATA : chartData;
-  const displayTotalGross = showSampleData && !hasData
-    ? PAYOUT_SAMPLE_DATA.reduce((s, d) => s + d.gross, 0)
-    : totalGross;
   const selectedLabel =
     CHART_TIMEFRAMES.find((t) => t.value === timeframe)?.label ?? "Last 7 days";
 
@@ -633,11 +617,6 @@ function RevenueChart() {
         <div>
           <div className="flex items-center gap-1.5">
             <p className="text-[13px] font-medium text-[#6b7280]">Revenue</p>
-            {showSampleData && !hasData && (
-              <span className="inline-flex items-center text-[11px] font-medium text-indigo-500/80 bg-indigo-50 px-2 py-0.5 rounded-full">
-                Sample data
-              </span>
-            )}
             <div className="relative group/tip">
               <Info className="h-3.5 w-3.5 text-[#9ca3af] cursor-help hover:text-[#6b7280] transition-colors" />
               <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-3 py-2 bg-[#1a1a2e] text-white text-[11px] leading-relaxed rounded-lg shadow-lg opacity-0 invisible group-hover/tip:opacity-100 group-hover/tip:visible transition-all duration-200 whitespace-nowrap z-50 pointer-events-none">
@@ -649,8 +628,8 @@ function RevenueChart() {
           {!numReady ? (
             <div className="h-7 w-32 mt-1 rounded-lg bg-gray-200 animate-pulse" />
           ) : (
-            <p className={`text-[24px] sm:text-[28px] font-semibold tracking-tight ${showSampleData && !hasData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"}`}>
-              {fmt(Math.max(0, displayTotalGross), currency)}
+            <p className="text-[24px] sm:text-[28px] font-semibold tracking-tight text-[#1a1a2e]">
+              {fmt(Math.max(0, totalGross), currency)}
             </p>
           )}
         </div>
@@ -703,43 +682,11 @@ function RevenueChart() {
           <p className="text-[13px] text-rose-500">{error}</p>
         </div>
       ) : !hasData && !isHourly ? (
-        /* Daily mode, no sales yet — empty state with sample data toggle */
-        showSampleData ? (
-          /* Show sample chart */
-          <div className="opacity-50">
-            <ResponsiveContainer width="100%" height={200}>
-              <AreaChart data={PAYOUT_SAMPLE_DATA} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="revGradSample" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.18} />
-                    <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-                <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#9ca3af" }} tickLine={false} axisLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} tickLine={false} axisLine={false} domain={[0, "auto"]} tickFormatter={(v) => fmtCompact(v, currency)} width={40} />
-                <Area type="monotone" dataKey="gross" stroke="#8b5cf6" strokeWidth={2} fill="url(#revGradSample)" dot={false} animationDuration={600} />
-              </AreaChart>
-            </ResponsiveContainer>
-            {/* Toggle off button */}
-            <div className="flex justify-center mt-2">
-              <button onClick={() => setShowSampleData(false)} className="text-[11px] text-[#9ca3af] hover:text-[#6b7280] underline underline-offset-2 transition-colors cursor-pointer">
-                Hide sample data
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="h-48 flex flex-col items-center justify-center gap-2 text-center">
-            <TrendingUp className="h-8 w-8 text-[#d1d5db]" />
-            <p className="text-[14px] text-[#6b7280]">No revenue in this period yet</p>
-            <button
-              onClick={() => setShowSampleData(true)}
-              className="mt-1 inline-flex items-center gap-1.5 text-[12px] font-medium text-indigo-500 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-full transition-colors cursor-pointer"
-            >
-              <span>Show sample data</span>
-            </button>
-          </div>
-        )
+        /* Daily mode, no sales yet — empty state */
+        <div className="h-48 flex flex-col items-center justify-center gap-2 text-center">
+          <TrendingUp className="h-8 w-8 text-[#d1d5db]" />
+          <p className="text-[14px] text-[#6b7280]">No revenue in this period yet</p>
+        </div>
       ) : !isHourly && chartData.length <= 1 ? (
         /* Daily mode, single data point — a lone dot looks odd;
            show a clean centered stat instead of the area chart */

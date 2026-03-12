@@ -1677,8 +1677,6 @@ export function SalesClient({
   const [progressWidth, setProgressWidth] = useState(0);
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
   const [isChartLoading, setIsChartLoading] = useState(false);
-  // Sample data toggle — session only, resets on page refresh
-  const [showSampleData, setShowSampleData] = useState(false);
   const { t } = useLanguage();
 
   const [summary, setSummary] = useState(initialSummary);
@@ -2868,16 +2866,7 @@ export function SalesClient({
   // Check if there are any orders in selected timeframe or any orders all time
   const hasOrders =
     orders.length > 0 || initialOrders.length > 0 || summary.totalOrders > 0;
-  // ── Sample data overlay ─────────────────────────────────────────────────
-  const hasRealOrders = summary.totalOrders > 0 || initialOrders.length > 0;
-  const SALES_SAMPLE_SUMMARY = { totalSales: 34500, totalOrders: 28, avgOrderValue: 1232, refundCount: 1, refundAmount: 1000 };
-  const SALES_SAMPLE_CHART: ChartDataPoint[] = [
-    { label: "Mon", value: 12.5 }, { label: "Tue", value: 34 }, { label: "Wed", value: 9 },
-    { label: "Thu", value: 45 }, { label: "Fri", value: 25 }, { label: "Sat", value: 38 }, { label: "Sun", value: 20 },
-  ];
-  const displaySummary = showSampleData && !hasRealOrders ? SALES_SAMPLE_SUMMARY : summary;
-  const displayChartData = showSampleData && !hasRealOrders ? SALES_SAMPLE_CHART : chartData;
-  const hasChartData = displayChartData.some((d) => d.value > 0);
+  const hasChartData = chartData.some((d) => d.value > 0);
 
   return (
     <div className="h-full overflow-y-auto bg-[#f8f9fa] sales-scroll-container">
@@ -3335,27 +3324,6 @@ export function SalesClient({
           onClear={handleClearFilters}
         />
 
-        {/* Sample data banner — only when no real orders */}
-        {!hasRealOrders && (
-          <div className="flex items-center justify-between px-3 py-2 sm:px-4 mb-4 bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-            <div className="flex items-center gap-2">
-              <span className={`inline-flex items-center text-[11px] font-medium px-2.5 py-0.5 rounded-full transition-all duration-300 ${showSampleData ? "text-indigo-500/80 bg-indigo-50 opacity-100" : "opacity-0 pointer-events-none"}`}>
-                Sample data
-              </span>
-              <span className="text-[11px] text-[#9ca3af]">
-                {showSampleData ? "Viewing sample data" : "No orders yet"}
-              </span>
-            </div>
-            <button
-              onClick={() => setShowSampleData(prev => !prev)}
-              aria-label={showSampleData ? "Hide sample data" : "Show sample data"}
-              className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors duration-200 cursor-pointer focus-visible:outline-none ${showSampleData ? "bg-indigo-400" : "bg-[#d1d5db]"}`}
-            >
-              <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm ring-0 transition-transform duration-200 my-0.5 ${showSampleData ? "translate-x-4" : "translate-x-0.5"}`} />
-            </button>
-          </div>
-        )}
-
         {/* KPI Cards */}
         <div
           className={`grid gap-4 grid-cols-2 lg:grid-cols-4 mb-8 ${isLoading ? "opacity-60" : ""}`}
@@ -3418,10 +3386,10 @@ export function SalesClient({
                   <div className="h-[80px] flex items-end gap-[2px]">
                     {(() => {
                       const maxValue = Math.max(
-                        ...displayChartData.map((d) => d.value),
+                        ...chartData.map((d) => d.value),
                         1,
                       );
-                      return displayChartData.map((point, index) => {
+                      return chartData.map((point, index) => {
                         const barHeight = Math.max(
                           (point.value / maxValue) * 65,
                           3,
@@ -3458,7 +3426,7 @@ export function SalesClient({
                 <div
                   className={`text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}
                 >
-                  {formatPrice(displaySummary.totalSales)}
+                  {formatPrice(summary.totalSales)}
                 </div>
                 <p
                   className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}
@@ -3527,10 +3495,10 @@ export function SalesClient({
                   <div className="h-[80px] flex items-end gap-[2px]">
                     {(() => {
                       const maxValue = Math.max(
-                        ...displayChartData.map((d) => d.value),
+                        ...chartData.map((d) => d.value),
                         1,
                       );
-                      return displayChartData.map((point, index) => {
+                      return chartData.map((point, index) => {
                         const barHeight = Math.max(
                           (point.value / maxValue) * 65,
                           3,
@@ -3567,7 +3535,7 @@ export function SalesClient({
                 <div
                   className={`text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}
                 >
-                  {formatCompactNumber(displaySummary.totalOrders)}
+                  {formatCompactNumber(summary.totalOrders)}
                 </div>
                 <p
                   className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}
@@ -3636,10 +3604,10 @@ export function SalesClient({
                   <div className="h-[80px] flex items-end gap-[2px]">
                     {(() => {
                       const maxValue = Math.max(
-                        ...displayChartData.map((d) => d.value),
+                        ...chartData.map((d) => d.value),
                         1,
                       );
-                      return displayChartData.map((point, index) => {
+                      return chartData.map((point, index) => {
                         const barHeight = Math.max(
                           (point.value / maxValue) * 65,
                           3,
@@ -3695,7 +3663,7 @@ export function SalesClient({
                 <div
                   className={`text-[24px] sm:text-[28px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}
                 >
-                  {formatPrice(displaySummary.avgOrderValue)}
+                  {formatPrice(summary.avgOrderValue)}
                 </div>
                 <div className="flex items-center gap-1.5 mt-1">
                   <p
@@ -3733,12 +3701,12 @@ export function SalesClient({
             <div
               className={`text-[24px] sm:text-[28px] font-semibold text-rose-500 tracking-tight transition-all duration-300 ${isLoading ? "blur-[2px]" : "blur-0"}`}
             >
-              {formatCompactNumber(displaySummary.refundCount)}
+              {formatCompactNumber(summary.refundCount)}
             </div>
             <p
               className={`text-[11px] sm:text-[12px] text-[#9ca3af] mt-1 transition-all duration-300 ${isLoading ? "blur-[1px]" : "blur-0"}`}
             >
-              {formatPrice(displaySummary.refundAmount)} refunded
+              {formatPrice(summary.refundAmount)} refunded
             </p>
           </div>
         </div>

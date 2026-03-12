@@ -2001,8 +2001,15 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
   }))
 
   // ── Sample data overlay ─────────────────────────────────────────────────
+  const ANALYTICS_SAMPLE_ONEPAGE = {
+    views: 245, clicks: 89, subscribers: 12, ctr: 36.3,
+    prevViews: 198, prevClicks: 72, prevSubscribers: 9,
+    allTimeViews: 890, allTimeClicks: 312, allTimeSubscribers: 47,
+  }
   const hasRealData = summary.allTimeViews > 0 || summary.allTimeOrders > 0 || summary.allTimeRevenue > 0
+    || onePageMetrics.allTimeViews > 0 || onePageMetrics.allTimeClicks > 0
   const displaySummary = showSampleData && !hasRealData ? ANALYTICS_SAMPLE_SUMMARY : summary
+  const displayOnePageMetrics = showSampleData && !hasRealData ? ANALYTICS_SAMPLE_ONEPAGE : onePageMetrics
   const chartDisplayData = showSampleData && !hasRealData ? ANALYTICS_SAMPLE_TREND : rawChartData
 
   // KPI Modal Chart component (matching Dashboard UI exactly)
@@ -2335,27 +2342,6 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
 
         {/* Unified KPI Tabs + Chart Card */}
         <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-          {/* Sample data banner — only when no real data */}
-          {!hasRealData && (
-            <div className="flex items-center justify-between px-3 py-2 sm:px-4 border-b border-[#e5e7eb]/40 bg-[#fafbff]">
-              <div className="flex items-center gap-2">
-                <span className={`inline-flex items-center text-[11px] font-medium px-2.5 py-0.5 rounded-full transition-all duration-300 ${showSampleData ? "text-indigo-500/80 bg-indigo-50 opacity-100" : "opacity-0 pointer-events-none"}`}>
-                  Sample data
-                </span>
-                <span className="text-[11px] text-[#9ca3af]">
-                  {showSampleData ? "Viewing sample data" : "No activity yet"}
-                </span>
-              </div>
-              <button
-                onClick={() => setShowSampleData(prev => !prev)}
-                aria-label={showSampleData ? "Hide sample data" : "Show sample data"}
-                className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors duration-200 cursor-pointer focus-visible:outline-none ${showSampleData ? "bg-indigo-400" : "bg-[#d1d5db]"}`}
-              >
-                <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm ring-0 transition-transform duration-200 my-0.5 ${showSampleData ? "translate-x-4" : "translate-x-0.5"}`} />
-              </button>
-            </div>
-          )}
-
           {/* KPI Metric Tabs */}
           <div className="relative flex overflow-x-auto scrollbar-hide md:grid md:grid-cols-4 divide-x divide-[#e5e7eb]/60">
             {analyticsMode === "store" ? (
@@ -2432,10 +2418,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   {onePageChartFilter === "views" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
                   <span className={`text-[11px] sm:text-[12px] font-medium ${onePageChartFilter === "views" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("dashboard.views")}</span>
                   <div className="flex items-baseline gap-1.5 mt-0.5">
-                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.views)}</span>
-                    {<PercentChangeIndicator current={onePageMetrics.views} previous={onePageMetrics.prevViews} />}
+                    <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-all duration-300 ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(displayOnePageMetrics.views)}</span>
+                    {<PercentChangeIndicator current={displayOnePageMetrics.views} previous={displayOnePageMetrics.prevViews} />}
                   </div>
-                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.allTimeViews)} {t("dashboard.allTime")}</p>
+                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(displayOnePageMetrics.allTimeViews)} {t("dashboard.allTime")}</p>
                 </button>
                 {/* Clicks */}
                 <button
@@ -2447,10 +2433,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   {onePageChartFilter === "clicks" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
                   <span className={`text-[11px] sm:text-[12px] font-medium ${onePageChartFilter === "clicks" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("analytics.clicks")}</span>
                   <div className="flex items-baseline gap-1.5 mt-0.5">
-                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.clicks)}</span>
-                    {<PercentChangeIndicator current={onePageMetrics.clicks} previous={onePageMetrics.prevClicks} />}
+                    <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-all duration-300 ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(displayOnePageMetrics.clicks)}</span>
+                    {<PercentChangeIndicator current={displayOnePageMetrics.clicks} previous={displayOnePageMetrics.prevClicks} />}
                   </div>
-                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.allTimeClicks)} {t("dashboard.allTime")}</p>
+                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(displayOnePageMetrics.allTimeClicks)} {t("dashboard.allTime")}</p>
                 </button>
                 {/* Subscribers */}
                 <button
@@ -2462,10 +2448,10 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   {onePageChartFilter === "subscribers" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
                   <span className={`text-[11px] sm:text-[12px] font-medium ${onePageChartFilter === "subscribers" ? "text-[#374151]" : "text-[#6b7280]"}`}>{t("analytics.subscribers")}</span>
                   <div className="flex items-baseline gap-1.5 mt-0.5">
-                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.subscribers)}</span>
-                    {<PercentChangeIndicator current={onePageMetrics.subscribers} previous={onePageMetrics.prevSubscribers} />}
+                    <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-all duration-300 ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{formatCompactNumber(displayOnePageMetrics.subscribers)}</span>
+                    {<PercentChangeIndicator current={displayOnePageMetrics.subscribers} previous={displayOnePageMetrics.prevSubscribers} />}
                   </div>
-                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(onePageMetrics.allTimeSubscribers)} {t("dashboard.allTime")}</p>
+                  <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{formatCompactNumber(displayOnePageMetrics.allTimeSubscribers)} {t("dashboard.allTime")}</p>
                 </button>
                 {/* CTR */}
                 <button
@@ -2477,7 +2463,7 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   {onePageChartFilter === "ctr" && <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-[#d1d5db]" />}
                   <span className={`text-[11px] sm:text-[12px] font-medium ${onePageChartFilter === "ctr" ? "text-[#374151]" : "text-[#6b7280]"}`}>CTR</span>
                   <div className="flex items-baseline gap-1.5 mt-0.5">
-                    <span className={`text-[18px] sm:text-[22px] font-semibold text-[#1a1a2e] tracking-tight transition-all duration-300 ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{Math.round(onePageMetrics.ctr)}%</span>
+                    <span className={`text-[18px] sm:text-[22px] font-semibold tracking-tight transition-all duration-300 ${showSampleData && !hasRealData ? "text-[#1a1a2e]/50" : "text-[#1a1a2e]"} ${isRefreshing ? "blur-[2px]" : "blur-0"}`}>{Math.round(displayOnePageMetrics.ctr)}%</span>
                   </div>
                   <p className={`text-[10px] sm:text-[11px] text-[#9ca3af] whitespace-nowrap transition-all duration-300 ${isRefreshing ? "blur-[1px]" : "blur-0"}`}>{t("analytics.clicksToViews")}</p>
                 </button>
@@ -2486,7 +2472,35 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
           </div>
 
           {/* Chart Area - always open */}
-          <div className={`border-t border-[#e5e7eb]/60 px-2 py-3 sm:px-4 sm:py-4 transition-opacity duration-300 ${showSampleData && !hasRealData ? "opacity-50" : "opacity-100"}`}>
+          <div className="border-t border-[#e5e7eb]/60 px-2 py-3 sm:px-4 sm:py-4">
+            {!hasRealData && !showSampleData ? (
+              <div className="h-[200px] flex flex-col items-center justify-center gap-3">
+                <span className="text-[12px] text-[#d1d5db] font-medium">No activity yet</span>
+                <button
+                  onClick={() => setShowSampleData(true)}
+                  className="flex items-center gap-2 text-[11px] text-[#b0b7c3] hover:text-[#6b7280] transition-colors group"
+                  aria-label="Show sample data"
+                >
+                  <span className="relative inline-flex h-4 w-7 rounded-full bg-[#e9ecef] transition-colors group-hover:bg-[#d1d5db]">
+                    <span className="inline-block h-3 w-3 rounded-full bg-white shadow-sm my-0.5 translate-x-0.5" />
+                  </span>
+                  Show sample data
+                </button>
+              </div>
+            ) : (
+              <div className={`relative transition-opacity duration-300 ${showSampleData && !hasRealData ? "opacity-50" : "opacity-100"}`}>
+                {showSampleData && !hasRealData && (
+                  <button
+                    onClick={() => setShowSampleData(false)}
+                    className="absolute top-0 right-0 z-10 flex items-center gap-1.5 text-[10px] text-[#c0c8d4] hover:text-[#6b7280] transition-colors pb-1"
+                    aria-label="Hide sample data"
+                  >
+                    Sample data
+                    <span className="relative inline-flex h-4 w-7 rounded-full bg-indigo-300/70">
+                      <span className="inline-block h-3 w-3 rounded-full bg-white shadow-sm my-0.5 translate-x-3.5" />
+                    </span>
+                  </button>
+                )}
               <ResponsiveContainer width="100%" height={200}>
                 <AreaChart data={chartDisplayData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
                   <defs>
@@ -2586,6 +2600,8 @@ export function AnalyticsClient({ creatorId, userId, products, initialOrders }: 
                   )}
                 </AreaChart>
               </ResponsiveContainer>
+              </div>
+            )}
           </div>
         </div>
 

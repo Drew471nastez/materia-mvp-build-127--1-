@@ -1906,28 +1906,6 @@ export function DashboardClient({
 
         {/* Stats Cards + Chart Section */}
         <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] mb-8 overflow-hidden">
-          {/* Sample data banner — only shown when creator has zero real data */}
-          {!hasRealData && (
-            <div className="flex items-center justify-between px-3 py-2 sm:px-4 border-b border-[#e5e7eb]/40 bg-[#fafbff]">
-              <div className="flex items-center gap-2">
-                <span className={`inline-flex items-center text-[11px] font-medium px-2.5 py-0.5 rounded-full transition-all duration-300 ${showSampleData ? "text-indigo-500/80 bg-indigo-50 opacity-100" : "opacity-0 pointer-events-none"}`}>
-                  Sample data
-                </span>
-                <span className="text-[11px] text-[#9ca3af]">
-                  {showSampleData ? "Viewing sample data" : "No activity yet"}
-                </span>
-              </div>
-              {/* Toggle pill */}
-              <button
-                onClick={() => setShowSampleData(prev => !prev)}
-                aria-label={showSampleData ? "Hide sample data" : "Show sample data"}
-                className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 ${showSampleData ? "bg-indigo-400" : "bg-[#d1d5db]"}`}
-              >
-                <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm ring-0 transition-transform duration-200 my-0.5 ${showSampleData ? "translate-x-4" : "translate-x-0.5"}`} />
-              </button>
-            </div>
-          )}
-
           {/* KPI Metric Tabs - horizontally scrollable on mobile */}
           <div className="relative flex overflow-x-auto scrollbar-hide md:grid md:grid-cols-4 divide-x divide-[#e5e7eb]/60">
             {/* Views */}
@@ -2023,8 +2001,34 @@ export function DashboardClient({
                     />
                   ))}
                 </div>
+              ) : !hasRealData && !showSampleData ? (
+                <div className="h-[200px] flex flex-col items-center justify-center gap-3">
+                  <span className="text-[12px] text-[#d1d5db] font-medium">No activity yet</span>
+                  <button
+                    onClick={() => setShowSampleData(true)}
+                    className="flex items-center gap-2 text-[11px] text-[#b0b7c3] hover:text-[#6b7280] transition-colors group"
+                    aria-label="Show sample data"
+                  >
+                    <span className="relative inline-flex h-4 w-7 rounded-full bg-[#e9ecef] transition-colors group-hover:bg-[#d1d5db]">
+                      <span className="inline-block h-3 w-3 rounded-full bg-white shadow-sm my-0.5 translate-x-0.5" />
+                    </span>
+                    Show sample data
+                  </button>
+                </div>
               ) : (
-                <div className={`transition-opacity duration-500 ease-out ${isChartLoading ? "opacity-40" : showSampleData && !hasRealData ? "opacity-50" : "opacity-100"}`}>
+                <div className={`relative transition-opacity duration-500 ease-out ${isChartLoading ? "opacity-40" : showSampleData && !hasRealData ? "opacity-50" : "opacity-100"}`}>
+                  {showSampleData && !hasRealData && (
+                    <button
+                      onClick={() => setShowSampleData(false)}
+                      className="absolute top-0 right-0 z-10 flex items-center gap-1.5 text-[10px] text-[#c0c8d4] hover:text-[#6b7280] transition-colors pb-1"
+                      aria-label="Hide sample data"
+                    >
+                      Sample data
+                      <span className="relative inline-flex h-4 w-7 rounded-full bg-indigo-300/70">
+                        <span className="inline-block h-3 w-3 rounded-full bg-white shadow-sm my-0.5 translate-x-3.5" />
+                      </span>
+                    </button>
+                  )}
                   <LazyAreaChart data={displayChartData}>
                     {({ AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer }) => (
                       <ResponsiveContainer width="100%" height={200}>
