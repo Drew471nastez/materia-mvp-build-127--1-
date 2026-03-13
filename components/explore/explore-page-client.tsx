@@ -370,29 +370,16 @@ function MobileFilterSheet({
   const startY = useRef(0)
   const sheetRef = useRef<HTMLDivElement>(null)
 
-  const hasBodyScrollLock = useRef(false)
-
   useEffect(() => {
     if (!isOpen) return
 
     setIsVisible(true)
-    if (!hasBodyScrollLock.current) {
-      lockBodyScroll()
-      hasBodyScrollLock.current = true
-    }
 
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         setIsAnimating(true)
       })
     })
-
-    return () => {
-      if (hasBodyScrollLock.current) {
-        unlockBodyScroll()
-        hasBodyScrollLock.current = false
-      }
-    }
   }, [isOpen])
 
   useEffect(() => {
@@ -452,7 +439,7 @@ function MobileFilterSheet({
   if (!isVisible) return null
 
   return (
-    <div className="fixed inset-0 z-[100] md:hidden" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+    <div className="fixed inset-0 z-[100] md:hidden" style={{ touchAction: 'none' }} onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
       <div
         className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity ease-out ${isAnimating ? "opacity-100" : "opacity-0"}`}
         style={{ transitionDuration: '400ms' }}
@@ -462,8 +449,11 @@ function MobileFilterSheet({
         ref={sheetRef}
         className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl flex flex-col"
         style={{
-          transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)",
+          transform: isAnimating ? `translate3d(0, ${dragY}px, 0)` : "translate3d(0, 100%, 0)",
           transition: isDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
+          willChange: 'transform',
+          backfaceVisibility: 'hidden',
+          WebkitBackfaceVisibility: 'hidden',
           maxHeight: '85vh',
         }}
       >
@@ -482,7 +472,7 @@ function MobileFilterSheet({
           )}
         </div>
 
-        <div className="overflow-y-auto overscroll-contain p-4 space-y-6 flex-1 min-h-0">
+        <div className="overflow-y-auto overscroll-contain p-4 space-y-6 flex-1 min-h-0" style={{ touchAction: 'pan-y' }}>
           {availableSubcategories.length > 0 && (
             <div>
               <h4 className="text-sm font-semibold text-neutral-900 mb-3">Subcategories</h4>
@@ -587,30 +577,17 @@ function CategorySelectorModal({
   const startY = useRef(0)
   const sheetRef = useRef<HTMLDivElement>(null)
 
-  const hasBodyScrollLock = useRef(false)
-
   useEffect(() => {
     if (!isOpen) return
 
     setIsVisible(true)
     setExpandedCategory(null)
-    if (!hasBodyScrollLock.current) {
-      lockBodyScroll()
-      hasBodyScrollLock.current = true
-    }
 
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         setIsAnimating(true)
       })
     })
-
-    return () => {
-      if (hasBodyScrollLock.current) {
-        unlockBodyScroll()
-        hasBodyScrollLock.current = false
-      }
-    }
   }, [isOpen])
 
   useEffect(() => {

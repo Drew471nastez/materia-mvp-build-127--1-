@@ -124,6 +124,7 @@ function ResetPasswordContent() {
   const [error, setError] = useState<string | null>(null)
   const [userEmail, setUserEmail] = useState<string>("")
   const [deepLink, setDeepLink] = useState<string | null>(null)
+  const [pendingBridgeCode, setPendingBridgeCode] = useState<string | null>(null)
   const initRef = useRef(false)
 
   const establishSessionAndShowForm = useCallback(
@@ -188,9 +189,15 @@ function ResetPasswordContent() {
           // Build a deep link that includes the bridge code for the app
           const appLink = `storelib://reset-password?code=${encodeURIComponent(bridgeCode)}`
           setDeepLink(appLink)
+          setPendingBridgeCode(bridgeCode)
           setPhase("handoff")
           window.location.href = appLink
 
+          // Wait 6 s before falling back to browser exchange.
+          // The longer window prevents the race where the Android/iOS "Open in
+          // app?" prompt is still visible when the timer fires — which would
+          // consume the one-time bridge code BEFORE the native app can use it,
+          // causing "link expired" inside the app.
           const timer = setTimeout(async () => {
             // App not installed — continue in browser
             const result = await exchangeBridgeCode(bridgeCode)
@@ -201,15 +208,14 @@ function ResetPasswordContent() {
             } else {
               await establishSessionAndShowForm(result.accessToken, result.refreshToken)
             }
-          }, 1200)
+          }, 6000)
 
-          const handleVisibility = () => {
-            if (document.hidden) clearTimeout(timer)
-          }
-          document.addEventListener("visibilitychange", handleVisibility)
+          // Cancel the auto-fallback when user taps "Allow" and leaves the page
+          const cancelTimer = () => clearTimeout(timer)
+          document.addEventListener("visibilitychange", () => { if (document.hidden) cancelTimer() })
+          window.addEventListener("pagehide", cancelTimer, { once: true })
           return () => {
-            clearTimeout(timer)
-            document.removeEventListener("visibilitychange", handleVisibility)
+            cancelTimer()
           }
         }
 
@@ -396,7 +402,19 @@ function ResetPasswordContent() {
             </Button>
             <button
               onClick={async () => {
-                // Extract tokens from the deep link we built
+                // Bridge-code flow: exchange the code directly in browser
+                if (pendingBridgeCode) {
+                  const result = await exchangeBridgeCode(pendingBridgeCode)
+                  if (result.error || !result.accessToken || !result.refreshToken) {
+                    setPhase("expired")
+                    setError(result.error || "This reset link has expired. Please request a new one.")
+                    dismissNativeOverlay()
+                  } else {
+                    await establishSessionAndShowForm(result.accessToken, result.refreshToken)
+                  }
+                  return
+                }
+                // Legacy hash-fragment flow: extract tokens from the deep link
                 if (deepLink) {
                   const url = new URL(deepLink)
                   const at = url.searchParams.get("access_token")
@@ -472,7 +490,7 @@ function ResetPasswordContent() {
 
   // ── Render: Reset form ───────────────────────────────────────────
   return (
-    <div className="flex min-h-svh w-full items-center justify-center px-6 py-12">
+    <div data-page="reset-password" className="flex min-h-svh w-full items-center justify-center px-6 py-12">
       <div className="w-full max-w-[440px] text-center">
         <AuthLogo />
         <h1 className="mb-4 text-[32px] font-bold tracking-tight text-neutral-900">

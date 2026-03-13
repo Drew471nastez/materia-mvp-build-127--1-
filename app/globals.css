@@ -1116,6 +1116,9 @@ html.capacitor {
    Pages that need white use their own wrapper elements on top of this. */
 html.capacitor body {
   background-color: #f2f2f2;
+  /* Prevent pull-to-refresh and overscroll bounce in Capacitor WebView.
+     The native app handles refresh natively; browser overscroll is unwanted. */
+  overscroll-behavior-y: none;
 }
 
 /* On pages with a white header (checkout, library, auth) the fixed black
@@ -1123,8 +1126,24 @@ html.capacitor body {
 html.capacitor:has([data-page="checkout"])::before,
 html.capacitor:has([data-page="login"])::before,
 html.capacitor:has([data-page="signup"])::before,
-html.capacitor:has([data-page="reset-password"])::before {
+html.capacitor:has([data-page="reset-password"])::before,
+html.capacitor:has([data-page="auth"])::before {
   background-color: #ffffff;
+}
+
+/* Auth pages (login, signup, reset-password, verify-email) in Capacitor:
+   prevent document-level vertical scroll — these are full-screen centered
+   pages that don't need scrolling, and overscroll shows jarring white gaps. */
+html.capacitor:has([data-page="auth"]) body {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+/* Prevent vertical scroll from initiating within the platform header.
+   The header is sticky/fixed — touching it should not scroll the page.
+   pan-x allows the horizontal category bar to scroll left/right. */
+html.capacitor #platform-header-root {
+  touch-action: pan-x manipulation;
 }
 
 /* Library uses DashboardSidebar whose mobile header is white (bg-background).
