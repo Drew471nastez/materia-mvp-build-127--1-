@@ -684,7 +684,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
             <img
               src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
               alt="Storelib"
-              className="h-8 w-8"
+              className="h-8 w-8 rounded-[7px]"
             />
             <span className="text-[17px] font-semibold text-neutral-900">Storelib</span>
           </Link>
@@ -889,7 +889,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
               <img
                 src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
                 alt="Storelib"
-                className="h-7 w-7"
+                className="h-7 w-7 rounded-[7px]"
               />
               <span className="text-[15px] font-semibold text-white">Storelib</span>
             </Link>
