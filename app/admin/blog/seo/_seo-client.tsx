@@ -54,7 +54,7 @@ const SEO_PAGES: PageSeoData[] = [
   { url: "/explore", title: "Explore / Marketplace", description: "CollectionPage JSON-LD, absolute canonical, OG tags", hasCanonical: true, hasOgTags: true, hasJsonLd: true, schemaTypes: ["CollectionPage"], score: 95, editableTitle: "Explore Digital Products | Storelib", editableDescription: "Browse thousands of digital products — templates, tools, courses, music, and more from independent creators." },
   { url: "/explore/[category]", title: "Category Pages (×14)", description: "CollectionPage JSON-LD + generateMetadata per category, canonical per category", hasCanonical: true, hasOgTags: true, hasJsonLd: true, schemaTypes: ["CollectionPage"], score: 95, editableTitle: "{Category} Digital Products | Storelib", editableDescription: "Browse {category} digital products on Storelib — curated tools, templates, and resources from top creators." },
   { url: "/p/[slug]", title: "Product Pages", description: "Product JSON-LD with offers + BreadcrumbList, canonical, per-product OG image", hasCanonical: true, hasOgTags: true, hasJsonLd: true, schemaTypes: ["Product", "BreadcrumbList"], score: 98, editableTitle: "{Product Name} by {Seller} | Storelib", editableDescription: "{Product description excerpt} — available on Storelib." },
-  { url: "/u/[username]", title: "Seller Storefronts", description: "ProfilePage + Person + BreadcrumbList JSON-LD, canonical per creator", hasCanonical: true, hasOgTags: true, hasJsonLd: true, schemaTypes: ["ProfilePage", "BreadcrumbList"], score: 95, editableTitle: "{Creator Name} — Digital Store | Storelib", editableDescription: "Shop {Creator Name}'s digital products on Storelib." },
+  { url: "/u/[username]", title: "Seller Storefronts", description: "ProfilePage + Person + BreadcrumbList JSON-LD, canonical per creator", hasCanonical: true, hasOgTags: true, hasJsonLd: true, schemaTypes: ["ProfilePage", "BreadcrumbList"], score: 95, editableTitle: "{Creator Name} | Storelib", editableDescription: "Shop {Creator Name}'s digital products on Storelib." },
   { url: "/blog", title: "Blog Index", description: "Blog JSON-LD, OG tags, Twitter card, canonical", hasCanonical: true, hasOgTags: true, hasJsonLd: true, schemaTypes: ["Blog"], score: 98, editableTitle: "Blog — Storelib", editableDescription: "Creator tips, digital product strategies, and platform updates from the Storelib team." },
   { url: "/blog/[slug]", title: "Blog Articles", description: "BlogPosting + BreadcrumbList JSON-LD, per-post seo_title/seo_description fields, canonical", hasCanonical: true, hasOgTags: true, hasJsonLd: true, schemaTypes: ["BlogPosting", "BreadcrumbList"], score: 100, editableTitle: "{SEO Title} | Storelib Blog", editableDescription: "{SEO description from post}" },
   { url: "/pricing", title: "Pricing Page", description: "Title template, OG tags, canonical — no JSON-LD schema (opportunity)", hasCanonical: true, hasOgTags: true, hasJsonLd: false, schemaTypes: [], score: 80, editableTitle: "Pricing — Storelib", editableDescription: "Simple, transparent pricing for creators. Start free, upgrade when you're ready." },
@@ -124,8 +124,25 @@ export default function SeoAdminClient() {
   const loadMetrics = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch("/api/admin/blog/seo-metrics")
-      if (res.ok) setMetrics(await res.json())
+      const [metricsRes, settingsRes] = await Promise.all([
+        fetch("/api/admin/blog/seo-metrics"),
+        fetch("/api/admin/blog/seo-settings"),
+      ])
+      if (metricsRes.ok) setMetrics(await metricsRes.json())
+      if (settingsRes.ok) {
+        const { settings } = await settingsRes.json()
+        const creatorMap: Record<string, { seo_title: string; seo_description: string }> = {}
+        const pageMap: Record<string, { title: string; description: string }> = {}
+        for (const s of (settings || [])) {
+          if (s.type === "creator") {
+            creatorMap[s.identifier] = { seo_title: s.seo_title || "", seo_description: s.seo_description || "" }
+          } else if (s.type === "page") {
+            pageMap[s.identifier] = { title: s.seo_title || "", description: s.seo_description || "" }
+          }
+        }
+        setCreatorEdits(creatorMap)
+        setPageEdits(pageMap)
+      }
     } catch {}
     setLoading(false)
   }, [])
@@ -417,7 +434,7 @@ export default function SeoAdminClient() {
                             <input
                               value={edits.seo_title}
                               onChange={e => setCreatorEdits(p => ({ ...p, [creator.username || ""]: { ...p[creator.username || ""], seo_title: e.target.value } }))}
-                              placeholder={`${creator.display_name || creator.username} — Digital Store | Storelib`}
+                              placeholder={`${creator.display_name || creator.username} | Storelib`}
                               className="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg outline-none focus:ring-2 focus:ring-purple-200"
                             />
                             <p className="text-[10px] text-neutral-400 mt-1">Leave blank → auto-generated from display name</p>

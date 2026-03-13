@@ -107,8 +107,8 @@ export const metadata: Metadata = {
     images: ["https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/89.jpg"],
   },
   icons: {
-    icon: "/icon.svg",
-    apple: "/icon.svg",
+    icon: "/favicon.svg",
+    apple: "/favicon.svg",
   },
   metadataBase: new URL("https://storelib.com"),
 }

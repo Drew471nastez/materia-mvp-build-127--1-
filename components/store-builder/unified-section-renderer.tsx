@@ -2554,7 +2554,8 @@ function UnifiedFeaturedProductsSection({
                         src={product.thumbnail_url || "/placeholder.svg"}
                         alt={product.title}
                         fill
-                        className="object-cover transition-transform group-hover:scale-105"
+                        className="object-cover transition-all duration-500 group-hover:scale-105 opacity-0"
+                        onLoad={e => { (e.target as HTMLImageElement).style.opacity = "1" }}
                         sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                       />
                     ) : (
@@ -2761,13 +2762,14 @@ export function UnifiedShopHeader({
           <img
             src={coverImageUrl}
             alt={`${profile?.display_name || "Creator"} cover`}
-            className="absolute inset-0 w-full h-full object-cover"
+            className="absolute inset-0 w-full h-full object-cover opacity-0 transition-opacity duration-700"
             style={{
               objectPosition: settings.coverFocalPoint
                 ? `${settings.coverFocalPoint.x}% ${settings.coverFocalPoint.y}%`
                 : undefined,
               filter: `brightness(${settings.coverBrightness ?? 1.0})`,
             }}
+            onLoad={e => { (e.target as HTMLImageElement).style.opacity = "1" }}
           />
 
           {settings.showSocialMedia && settings.socialLinks && (!isMobile || settings.showSocialIconsOnMobile) && (
@@ -4146,7 +4148,8 @@ export function UnifiedProductsGrid({
                     src={product.thumbnail_url || "/placeholder.svg"}
                     alt={product.title}
                     fill
-                    className="object-cover transition-transform group-hover:scale-105"
+                    className="object-cover transition-all duration-500 group-hover:scale-105 opacity-0"
+                        onLoad={e => { (e.target as HTMLImageElement).style.opacity = "1" }}
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center">
@@ -4321,7 +4324,8 @@ function UnifiedMoreFromSellerSection({
                     src={product.thumbnail_url || "/placeholder.svg"}
                     alt={product.title}
                     fill
-                    className="object-cover transition-transform group-hover:scale-105"
+                    className="object-cover transition-all duration-500 group-hover:scale-105 opacity-0"
+                        onLoad={e => { (e.target as HTMLImageElement).style.opacity = "1" }}
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center">
