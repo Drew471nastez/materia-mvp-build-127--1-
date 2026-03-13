@@ -111,7 +111,7 @@ export function MarketingFooter() {
                 alt="Storelib"
                 width={40}
                 height={40}
-                className="h-10 w-10 rounded-lg"
+                className="h-10 w-10 rounded-[7px]"
               />
               <span className="text-xl font-bold text-white">Storelib</span>
             </Link>

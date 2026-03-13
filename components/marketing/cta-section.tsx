@@ -100,7 +100,7 @@ export function CtaSection() {
                 alt="Storelib"
                 width={46}
                 height={46}
-                className="w-[46px] h-[46px] rounded-lg"
+                className="w-[46px] h-[46px] rounded-[7px]"
               />
             </div>
 

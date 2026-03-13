@@ -1007,7 +1007,7 @@ export function PlatformHeaderClient() {
 
   return (
     <>
-      <div id="platform-header-root" className={cn("z-40 w-full bg-black backdrop-blur supports-[backdrop-filter]:bg-black sticky top-0")} style={{ willChange: 'transform', transform: 'translateZ(0)' }}>
+      <div id="platform-header-root" className={cn("z-40 w-full bg-black backdrop-blur supports-[backdrop-filter]:bg-black", !pathname.startsWith("/p/") && "sticky top-0")} style={{ willChange: 'transform', transform: 'translateZ(0)' }}>
     <header className={cn("w-full bg-black", !(isNativePlatform() && isSellerOrProductPage) && "border-b border-white/10")}>
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
         <div
@@ -1026,7 +1026,7 @@ export function PlatformHeaderClient() {
                     alt="Storelib"
                     width={138}
                     height={46}
-                    className="h-[46px] w-auto rounded-lg"
+                    className="h-[46px] w-auto rounded-[7px]"
                     priority
                   />
                   <span className="text-[22px] font-bold text-white tracking-tight">Storelib</span>
@@ -1114,7 +1114,7 @@ export function PlatformHeaderClient() {
                       alt="Storelib"
                       width={126}
                       height={42}
-                      className="h-[42px] w-auto rounded-lg"
+                      className="h-[42px] w-auto rounded-[7px]"
                       priority
                     />
                     <span className="text-[20px] font-bold text-white tracking-tight">Storelib</span>
@@ -1144,7 +1144,7 @@ export function PlatformHeaderClient() {
                     alt="Storelib"
                     width={138}
                     height={46}
-                    className="h-[46px] w-auto rounded-lg"
+                    className="h-[46px] w-auto rounded-[7px]"
                     priority
                   />
                   <span className="text-[22px] font-bold text-white tracking-tight">Storelib</span>
@@ -1421,7 +1421,7 @@ export function PlatformHeaderClient() {
                   alt="Storelib"
                   width={114}
                   height={38}
-                  className="h-[38px] w-auto rounded-lg"
+                  className="h-[38px] w-auto rounded-[7px]"
                   priority
                 />
                 <span className="text-[19px] font-bold text-white tracking-tight">Storelib</span>

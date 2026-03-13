@@ -99,7 +99,7 @@ export function CheckoutModal({
           <img
             src={STORELIB_LOGO_URL}
             alt="Storelib"
-            className="h-6 sm:h-7 absolute left-1/2 -translate-x-1/2 rounded-lg"
+            className="h-6 sm:h-7 absolute left-1/2 -translate-x-1/2 rounded-[7px]"
           />
 
           {/* Close button */}
