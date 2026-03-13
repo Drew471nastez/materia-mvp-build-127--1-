@@ -11,6 +11,7 @@ import { Eye, EyeOff, Loader2 } from "lucide-react"
 import Image from "next/image"
 import { AuthLogo } from "@/components/auth/auth-logo"
 import { AuthResolvingScreen } from "@/components/auth/auth-resolving-screen"
+import { AppleSignInButton } from "@/components/auth/apple-sign-in-button"
 import { useAuthGate } from "@/lib/use-auth-gate"
 import { nativeAuthStart, nativeAppReady, cacheNativeHome } from "@/lib/native-bridge"
 import { useNativeScrollLock } from "@/lib/use-native-scroll-lock"
@@ -22,6 +23,8 @@ function LoginFormContent() {
   const [isLoading, setIsLoading] = useState(false)
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
   const [isGoogleRedirecting, setIsGoogleRedirecting] = useState(false)
+  const [isAppleLoading, setIsAppleLoading] = useState(false)
+  const [isAppleRedirecting, setIsAppleRedirecting] = useState(false)
   const [isContinueLoading, setIsContinueLoading] = useState(false)
   const [isRedirecting, setIsRedirecting] = useState(false)
   const [showPasswordField, setShowPasswordField] = useState(false)
@@ -59,6 +62,7 @@ function LoginFormContent() {
     if (oauthError) {
       setError(oauthError)
       setIsGoogleLoading(false)
+      setIsAppleLoading(false)
     }
   }, [authGateLoading, nativeAuthInProgress]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -479,13 +483,101 @@ function LoginFormContent() {
     setIsGoogleLoading(false)
   }
 
+  const handleAppleSignIn = async () => {
+    // Single-flight lock — prevents double-tap and conflicts with Google flow
+    if (isAppleLoading || (window as any).__appleOAuthStarting || (window as any).__oauthStarting) return
+    ;(window as any).__appleOAuthStarting = true
+    setIsAppleLoading(true)
+    setError(null)
+    setGoogleOnlyEmail(null)
+
+    // Detect native synchronously before any async work so we can show the
+    // full-screen loading overlay on web without waiting for the dynamic import.
+    const isNativeSync =
+      typeof (window as any).Capacitor?.isNativePlatform === "function" &&
+      (window as any).Capacitor.isNativePlatform()
+
+    if (!isNativeSync) {
+      setIsAppleRedirecting(true)
+    }
+
+    try {
+      const canonicalUrl = window.location.origin
+      const { Capacitor } = await import("@capacitor/core")
+
+      if (Capacitor.isNativePlatform()) {
+        // ── Native (iOS + Android) — client-side PKCE flow ───────────────
+        // Same pattern as Google: store PKCE verifier in Capacitor Preferences,
+        // open the OAuth URL in SFSafariViewController (iOS) or Chrome Custom
+        // Tab (Android), then let native-oauth.ts exchange the code on callback.
+        const platform = Capacitor.getPlatform() // 'ios' | 'android'
+        const nativeCallbackUrl =
+          platform === "ios"
+            ? "com.storelib.app://auth/callback"
+            : "storelib://auth/callback"
+
+        const supabase = createClient()
+        const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+          provider: "apple",
+          options: {
+            redirectTo: nativeCallbackUrl,
+            // No queryParams for Apple — access_type / prompt are Google-specific
+            skipBrowserRedirect: true,
+          },
+        })
+        if (oauthError || !data.url) throw oauthError ?? new Error("OAuth init failed")
+
+        const { Browser } = await import("@capacitor/browser")
+
+        let browserFinishedHandle: { remove: () => void } | undefined
+        const timeoutId = window.setTimeout(() => {
+          browserFinishedHandle?.remove()
+          ;(window as any).__appleOAuthStarting = false
+          setIsAppleLoading(false)
+          setError("Sign in timed out. Please try again.")
+        }, 20_000)
+
+        try {
+          browserFinishedHandle = await Browser.addListener("browserFinished", () => {
+            // Browser closed by user before completing OAuth (cancel path)
+            window.clearTimeout(timeoutId)
+            browserFinishedHandle?.remove()
+            window.setTimeout(() => {
+              ;(window as any).__appleOAuthStarting = false
+              setIsAppleLoading(false)
+              nativeAppReady()
+            }, 400)
+          })
+        } catch {
+          // addListener may throw if the plugin isn't loaded — ignore
+        }
+
+        nativeAuthStart()
+        await Browser.open({ url: data.url, windowName: "_self" })
+        // isAppleLoading stays true while browser is open.
+        // Cleared by: CapacitorAuthHandler navigation, browserFinished, or timeout.
+        return
+      } else {
+        // ── Web — server-side PKCE via /auth/start ────────────────────────
+        // /auth/start writes the PKCE cookie on the server and redirects to
+        // the Apple OAuth URL. Full-screen overlay already shown above.
+        window.location.href = `${canonicalUrl}/auth/start?provider=apple&next=/app`
+        return
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to sign in with Apple")
+    }
+    ;(window as any).__appleOAuthStarting = false
+    setIsAppleLoading(false)
+  }
+
   // Block rendering while auth state is resolving or redirect is in progress.
   // This guarantees the login form is never shown after auth succeeds.
   if (authGateLoading || nativeAuthInProgress) {
     return <AuthResolvingScreen message={nativeAuthInProgress ? "Signing you in..." : undefined} />
   }
 
-  if (isRedirecting || gateSession || isGoogleRedirecting) {
+  if (isRedirecting || gateSession || isGoogleRedirecting || isAppleRedirecting) {
     return <AuthResolvingScreen />
   }
 
@@ -565,7 +657,7 @@ function LoginFormContent() {
               type="button"
               variant="outline"
               onClick={handleGoogleSignIn}
-              disabled={isGoogleLoading}
+              disabled={isGoogleLoading || isAppleLoading}
               className="h-12 w-full rounded-lg border-neutral-200 bg-white text-[15px] font-medium text-neutral-700 hover:bg-neutral-50 cursor-pointer disabled:cursor-not-allowed disabled:opacity-80 transition-opacity"
             >
               {isGoogleLoading ? (
@@ -592,6 +684,12 @@ function LoginFormContent() {
               )}
               {isGoogleLoading ? "Connecting..." : "Continue with Google"}
             </Button>
+
+            <AppleSignInButton
+              isLoading={isAppleLoading}
+              disabled={isGoogleLoading || isAppleLoading}
+              onClick={handleAppleSignIn}
+            />
           </div>
 
           <div className="mt-4 text-center">
