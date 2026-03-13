@@ -106,10 +106,6 @@ export const metadata: Metadata = {
     description: "The all-in-one ecommerce platform to sell digital products, build your online store & grow your audience.",
     images: ["https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/89.jpg"],
   },
-  icons: {
-    icon: "/favicon.svg",
-    apple: "/favicon.svg",
-  },
   metadataBase: new URL("https://storelib.com"),
 }
 

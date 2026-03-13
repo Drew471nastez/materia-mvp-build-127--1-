@@ -2555,6 +2555,7 @@ function UnifiedFeaturedProductsSection({
                         alt={product.title}
                         fill
                         className="object-cover transition-all duration-500 group-hover:scale-105 opacity-0"
+                        ref={el => { if ((el as any)?.complete) (el as any).style.opacity = "1" }}
                         onLoad={e => { (e.target as HTMLImageElement).style.opacity = "1" }}
                         sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                       />
@@ -2769,6 +2770,7 @@ export function UnifiedShopHeader({
                 : undefined,
               filter: `brightness(${settings.coverBrightness ?? 1.0})`,
             }}
+            ref={el => { if (el?.complete) el.style.opacity = "1" }}
             onLoad={e => { (e.target as HTMLImageElement).style.opacity = "1" }}
           />
 
@@ -4149,6 +4151,7 @@ export function UnifiedProductsGrid({
                     alt={product.title}
                     fill
                     className="object-cover transition-all duration-500 group-hover:scale-105 opacity-0"
+                        ref={el => { if ((el as any)?.complete) (el as any).style.opacity = "1" }}
                         onLoad={e => { (e.target as HTMLImageElement).style.opacity = "1" }}
                   />
                 ) : (
@@ -4325,6 +4328,7 @@ function UnifiedMoreFromSellerSection({
                     alt={product.title}
                     fill
                     className="object-cover transition-all duration-500 group-hover:scale-105 opacity-0"
+                        ref={el => { if ((el as any)?.complete) (el as any).style.opacity = "1" }}
                         onLoad={e => { (e.target as HTMLImageElement).style.opacity = "1" }}
                   />
                 ) : (
