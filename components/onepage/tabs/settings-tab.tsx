@@ -312,6 +312,26 @@ export function SettingsTab() {
 
       setOgImage(publicUrl)
       setShowOgImageModal(false)
+
+      // Immediately persist the new image URL to the database so it survives
+      // a page refresh — don't wait for the user to manually click "Save".
+      const updatedSettings = {
+        ...((onepage?.settings as any) || {}),
+        social_image_url: publicUrl,
+        // Preserve existing focal point if already set
+        social_image_position_x: (onepage?.settings as any)?.social_image_position_x ?? 50,
+        social_image_position_y: (onepage?.settings as any)?.social_image_position_y ?? 50,
+      }
+      await fetch("/api/onepage", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...onepage, settings: updatedSettings }),
+      })
+      updateSettings({
+        social_image_url: publicUrl,
+        social_image_position_x: updatedSettings.social_image_position_x,
+        social_image_position_y: updatedSettings.social_image_position_y,
+      } as any)
     } catch (error: any) {
       console.error("Upload error:", error)
       const msg = error?.message || error?.error_description || JSON.stringify(error)
@@ -323,8 +343,25 @@ export function SettingsTab() {
     }
   }
 
-  const removeOgImage = () => {
+  const removeOgImage = async () => {
     setOgImage("")
+    // Also clear from the database immediately
+    const updatedSettings = {
+      ...((onepage?.settings as any) || {}),
+      social_image_url: null,
+      social_image_position_x: null,
+      social_image_position_y: null,
+    }
+    await fetch("/api/onepage", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...onepage, settings: updatedSettings }),
+    })
+    updateSettings({
+      social_image_url: null,
+      social_image_position_x: null,
+      social_image_position_y: null,
+    } as any)
   }
 
   // Sidebar navigation item component

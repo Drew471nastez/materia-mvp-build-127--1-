@@ -13,6 +13,7 @@ import { getCanonicalSiteUrl } from "@/lib/url-helpers"
 import Image from "next/image"
 import { AuthLogo } from "@/components/auth/auth-logo"
 import { AuthResolvingScreen } from "@/components/auth/auth-resolving-screen"
+import { AppleSignInButton } from "@/components/auth/apple-sign-in-button"
 import { useAuthGate } from "@/lib/use-auth-gate"
 import { nativeAuthStart, nativeAppReady } from "@/lib/native-bridge"
 import { useNativeScrollLock } from "@/lib/use-native-scroll-lock"
@@ -25,6 +26,8 @@ function SignUpFormContent() {
   const [isLoading, setIsLoading] = useState(false)
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
   const [isGoogleRedirecting, setIsGoogleRedirecting] = useState(false)
+  const [isAppleLoading, setIsAppleLoading] = useState(false)
+  const [isAppleRedirecting, setIsAppleRedirecting] = useState(false)
   const [isContinueLoading, setIsContinueLoading] = useState(false)
   const [isRedirecting, setIsRedirecting] = useState(false)
   const [showPasswordField, setShowPasswordField] = useState(false)
@@ -320,12 +323,87 @@ function SignUpFormContent() {
     }
   }
 
+  const handleAppleSignIn = async () => {
+    if (isAppleLoading || (window as any).__appleOAuthStarting || (window as any).__oauthStarting) return
+    ;(window as any).__appleOAuthStarting = true
+    setIsAppleLoading(true)
+    setError(null)
+    setGoogleOnlyEmail(null)
+
+    const isNativeSync =
+      typeof (window as any).Capacitor?.isNativePlatform === "function" &&
+      (window as any).Capacitor.isNativePlatform()
+
+    if (!isNativeSync) {
+      setIsAppleRedirecting(true)
+    }
+
+    try {
+      const canonicalUrl = window.location.origin
+      const { Capacitor } = await import("@capacitor/core")
+
+      if (Capacitor.isNativePlatform()) {
+        const platform = Capacitor.getPlatform()
+        const nativeCallbackUrl =
+          platform === "ios"
+            ? "com.storelib.app://auth/callback"
+            : "storelib://auth/callback"
+
+        const supabase = createClient()
+        const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+          provider: "apple",
+          options: {
+            redirectTo: nativeCallbackUrl,
+            skipBrowserRedirect: true,
+          },
+        })
+        if (oauthError || !data.url) throw oauthError ?? new Error("OAuth init failed")
+
+        const { Browser } = await import("@capacitor/browser")
+
+        let browserFinishedHandle: { remove: () => void } | undefined
+        const timeoutId = window.setTimeout(() => {
+          browserFinishedHandle?.remove()
+          ;(window as any).__appleOAuthStarting = false
+          setIsAppleLoading(false)
+          setError("Sign in timed out. Please try again.")
+        }, 20_000)
+
+        try {
+          browserFinishedHandle = await Browser.addListener("browserFinished", () => {
+            window.clearTimeout(timeoutId)
+            browserFinishedHandle?.remove()
+            window.setTimeout(() => {
+              ;(window as any).__appleOAuthStarting = false
+              setIsAppleLoading(false)
+              nativeAppReady()
+            }, 400)
+          })
+        } catch {
+          // addListener may throw if plugin not loaded
+        }
+
+        nativeAuthStart()
+        await Browser.open({ url: data.url, windowName: "_self" })
+        return
+      } else {
+        window.location.href = `${canonicalUrl}/auth/start?provider=apple&next=/app`
+        return
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to sign in with Apple")
+    }
+    ;(window as any).__appleOAuthStarting = false
+    setIsAppleLoading(false)
+    setIsAppleRedirecting(false)
+  }
+
   // Block rendering while auth state is resolving or redirect is in progress.
   if (authGateLoading || nativeAuthInProgress) {
     return <AuthResolvingScreen message={nativeAuthInProgress ? "Signing you in..." : undefined} />
   }
 
-  if (isRedirecting || isGoogleRedirecting) {
+  if (isRedirecting || isGoogleRedirecting || isAppleRedirecting) {
     return <AuthResolvingScreen />
   }
 
@@ -434,7 +512,7 @@ function SignUpFormContent() {
               type="button"
               variant="outline"
               onClick={handleGoogleSignIn}
-              disabled={isGoogleLoading}
+              disabled={isGoogleLoading || isAppleLoading}
               className="h-12 w-full rounded-lg border-neutral-200 bg-white text-[15px] font-medium text-neutral-700 hover:bg-neutral-50 cursor-pointer disabled:cursor-not-allowed disabled:opacity-80 transition-opacity"
             >
               {isGoogleLoading ? (
@@ -461,6 +539,11 @@ function SignUpFormContent() {
               )}
               {isGoogleLoading ? "Connecting..." : "Continue with Google"}
             </Button>
+            <AppleSignInButton
+              onClick={handleAppleSignIn}
+              isLoading={isAppleLoading}
+              disabled={isGoogleLoading || isAppleLoading}
+            />
           </div>
 
           <p className="mt-6 text-center text-[14px] text-neutral-500">
