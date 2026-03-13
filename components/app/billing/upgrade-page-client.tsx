@@ -130,7 +130,7 @@ export function UpgradePageClient({
           <img
             src={STORELIB_LOGO_URL}
             alt="Storelib"
-            className="h-6 sm:h-7 absolute left-1/2 -translate-x-1/2 pointer-events-none"
+            className="h-6 sm:h-7 absolute left-1/2 -translate-x-1/2 pointer-events-none rounded-lg"
           />
 
           <button

@@ -11,7 +11,7 @@ const logoInner = (
     <img
       src={LOGO_SRC}
       alt="Storelib"
-      className="h-[46px] w-[46px] md:h-[38px] md:w-[38px] lg:h-[40px] lg:w-[40px]"
+      className="h-[46px] w-[46px] md:h-[38px] md:w-[38px] lg:h-[40px] lg:w-[40px] rounded-lg"
     />
     <span className="text-[29px] md:text-[23px] lg:text-[24px] font-bold tracking-tight text-neutral-900">
       Storelib

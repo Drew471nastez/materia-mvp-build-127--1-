@@ -91,7 +91,7 @@ export function MarketingFooter() {
 
   return (
     <footer
-      className="bg-[#0f0f0f] text-white rounded-t-lg"
+      className="bg-[#0f0f0f] text-white"
       style={{
         /* Extend dark bg into body's safe-area-inset-bottom padding so
            there is no white strip above the iOS home indicator */
@@ -111,7 +111,7 @@ export function MarketingFooter() {
                 alt="Storelib"
                 width={40}
                 height={40}
-                className="h-10 w-10"
+                className="h-10 w-10 rounded-lg"
               />
               <span className="text-xl font-bold text-white">Storelib</span>
             </Link>

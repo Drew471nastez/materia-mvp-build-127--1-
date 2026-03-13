@@ -80,7 +80,7 @@ export function DashboardSidebar() {
             alt="Storelib"
             width={37}
             height={37}
-            className="h-[37px] w-[37px] shrink-0"
+            className="h-[37px] w-[37px] shrink-0 rounded-lg"
           />
           <span className="text-xl font-semibold tracking-tight truncate">Storelib</span>
         </Link>
@@ -173,7 +173,7 @@ export function DashboardSidebar() {
             alt="Storelib"
             width={37}
             height={37}
-            className="h-[37px] w-[37px] shrink-0"
+            className="h-[37px] w-[37px] shrink-0 rounded-lg"
           />
           <span className="text-lg font-semibold tracking-tight">Storelib</span>
         </Link>

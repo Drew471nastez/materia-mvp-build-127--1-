@@ -45,7 +45,7 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
           <img
             src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
             alt="Storelib"
-            className="h-[15px] w-auto"
+            className="h-[15px] w-auto rounded-lg"
           />
           <span className="text-[12px] font-semibold text-gray-700 tracking-tight leading-none">Storelib</span>
         </a>
@@ -83,7 +83,7 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
           <img
             src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
             alt="Storelib"
-            className="h-[18px] w-auto"
+            className="h-[18px] w-auto rounded-lg"
           />
           <span className="text-sm font-semibold text-gray-700 tracking-tight leading-none">Storelib</span>
         </a>
@@ -123,7 +123,7 @@ export function SellerFooter({ isMobile }: SellerFooterProps = {}) {
           <img
             src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
             alt="Storelib"
-            className="h-[15px] sm:h-[18px] w-auto"
+            className="h-[15px] sm:h-[18px] w-auto rounded-lg"
           />
           <span className="text-[12px] sm:text-sm font-semibold text-gray-700 tracking-tight leading-none">Storelib</span>
         </a>

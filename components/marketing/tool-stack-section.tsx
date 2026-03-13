@@ -249,7 +249,7 @@ export function ToolStackSection() {
                     alt="Storelib"
                     width={31}
                     height={31}
-                    className="w-[31px] h-[31px]"
+                    className="w-[31px] h-[31px] rounded-lg"
                   />
                 </span>
                 <div className="flex-1 min-w-0">

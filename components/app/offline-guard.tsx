@@ -75,7 +75,7 @@ export function OfflineGuard({ children }: { children: ReactNode }) {
             <img
               src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(512%20x%20512%20px).svg"
               alt="Storelib"
-              className="w-8 h-8 mx-auto mb-3"
+              className="w-8 h-8 mx-auto mb-3 rounded-lg"
             />
           </div>
 

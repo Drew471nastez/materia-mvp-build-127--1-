@@ -25,7 +25,7 @@ export function PublicWishlistShell() {
           </button>
 
           <div className="flex items-center gap-2">
-            <Image src={LOGO_URL} alt="Storelib" width={32} height={32} className="h-8 w-8" />
+            <Image src={LOGO_URL} alt="Storelib" width={32} height={32} className="h-8 w-8 rounded-lg" />
             <span className="text-sm font-semibold text-neutral-900">Storelib</span>
           </div>
 
