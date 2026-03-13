@@ -305,19 +305,11 @@ function SignUpFormContent() {
       // Show full-page overlay immediately — the OAuth redirect is about to happen
       setIsGoogleRedirecting(true)
 
-      // Use canonical site URL to ensure OAuth redirects to correct domain
+      // Route through /auth/start which handles PKCE cookie scoping correctly
+      // (uses the actual request origin, not NEXT_PUBLIC_SITE_URL)
       const canonicalUrl = getCanonicalSiteUrl()
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: `${canonicalUrl}/auth/callback`,
-          queryParams: {
-            access_type: "offline",
-            prompt: "consent",
-          },
-        },
-      })
-      if (error) throw error
+      window.location.href = `${canonicalUrl}/auth/start?provider=google&next=/app`
+      return
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "Failed to sign in with Google")
       ;(window as any).__oauthStarting = false

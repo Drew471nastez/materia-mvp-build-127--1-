@@ -39,6 +39,11 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     updates.author_name = updates.author
     delete updates.author
   }
+  // Strip read-only / non-DB fields that the editor sends
+  delete updates.id
+  delete updates.created_at
+  delete updates.updated_at
+  delete updates.views
 
   const { data, error } = await supabase
     .from("blog_posts")
