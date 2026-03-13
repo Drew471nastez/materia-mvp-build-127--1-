@@ -412,19 +412,19 @@ export function CreateCouponClient({ products }: CreateCouponClientProps) {
       <div className="shrink-0 bg-white border-t border-gray-100 px-4 sm:px-6 py-3 z-10"
         style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom, 0px))" }}
       >
-        <div className="max-w-2xl mx-auto flex gap-3">
+        <div className="max-w-2xl mx-auto flex items-center justify-between gap-3">
           <button
             type="button"
             onClick={() => router.push("/app/coupons")}
-            className="flex-1 h-11 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
+            className="h-9 px-4 rounded-xl border border-gray-200 text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-colors cursor-pointer"
           >
             Cancel
           </button>
           <button
             type="submit"
             form="create-coupon-form"
-            disabled={saving}
-            className="flex-1 h-11 rounded-xl bg-[#8b5cf6] text-white text-sm font-medium hover:bg-[#7c3aed] disabled:opacity-60 transition-colors cursor-pointer disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            disabled={saving || !form.code.trim()}
+            className="h-10 px-6 rounded-xl bg-[#8b5cf6] text-white text-sm font-medium hover:bg-[#7c3aed] disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer flex items-center gap-2"
           >
             {saving && <Loader2 className="w-4 h-4 animate-spin" />}
             {saving ? "Creating…" : "Create coupon"}
