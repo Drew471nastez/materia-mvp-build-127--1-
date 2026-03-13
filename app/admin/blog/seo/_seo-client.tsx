@@ -136,13 +136,24 @@ export default function SeoAdminClient() {
 
   async function saveCreatorSeo(username: string) {
     setSavingCreator(username)
-    const edits = creatorEdits[username] || { seo_title: "", seo_description: "" }
-    await fetch("/api/admin/blog/seo-settings", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "creator", username, ...edits }),
-    })
-    setSavingCreator(null)
+    try {
+      const edits = creatorEdits[username] || { seo_title: "", seo_description: "" }
+      const res = await fetch("/api/admin/blog/seo-settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "creator", username, ...edits }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        alert(`Failed to save creator SEO: ${err.error || "Unknown error"}`)
+        return
+      }
+    } catch {
+      alert("Network error saving creator SEO")
+      return
+    } finally {
+      setSavingCreator(null)
+    }
     setSavedCreators(s => new Set([...s, username]))
     setEditingCreator(null)
     setTimeout(() => setSavedCreators(s => { const n = new Set(s); n.delete(username); return n }), 3000)
@@ -150,13 +161,24 @@ export default function SeoAdminClient() {
 
   async function savePageSeo(url: string) {
     setSavingPage(url)
-    const edits = pageEdits[url] || {}
-    await fetch("/api/admin/blog/seo-settings", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "page", url, ...edits }),
-    })
-    setSavingPage(null)
+    try {
+      const edits = pageEdits[url] || {}
+      const res = await fetch("/api/admin/blog/seo-settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "page", url, ...edits }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        alert(`Failed to save page SEO: ${err.error || "Unknown error"}`)
+        return
+      }
+    } catch {
+      alert("Network error saving page SEO")
+      return
+    } finally {
+      setSavingPage(null)
+    }
     setSavedPages(s => new Set([...s, url]))
     setEditingPage(null)
     setTimeout(() => setSavedPages(s => { const n = new Set(s); n.delete(url); return n }), 3000)
@@ -164,14 +186,25 @@ export default function SeoAdminClient() {
 
   async function savePostSeo(post: BlogPost) {
     setSavingPost(post.id)
-    const edits = postEdits[post.id] || { seo_title: post.seo_title || "", seo_description: post.seo_description || "" }
-    await fetch(`/api/admin/blog/posts/${post.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ seo_title: edits.seo_title || null, seo_description: edits.seo_description || null }),
-    })
-    setMetrics(m => m ? { ...m, recentPosts: m.recentPosts.map(p => p.id === post.id ? { ...p, seo_title: edits.seo_title || null, seo_description: edits.seo_description || null } : p) } : m)
-    setSavingPost(null)
+    try {
+      const edits = postEdits[post.id] || { seo_title: post.seo_title || "", seo_description: post.seo_description || "" }
+      const res = await fetch(`/api/admin/blog/posts/${post.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ seo_title: edits.seo_title || null, seo_description: edits.seo_description || null }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        alert(`Failed to save post SEO: ${err.error || "Unknown error"}`)
+        return
+      }
+      setMetrics(m => m ? { ...m, recentPosts: m.recentPosts.map(p => p.id === post.id ? { ...p, seo_title: edits.seo_title || null, seo_description: edits.seo_description || null } : p) } : m)
+    } catch {
+      alert("Network error saving post SEO")
+      return
+    } finally {
+      setSavingPost(null)
+    }
     setSavedPosts(s => new Set([...s, post.id]))
     setEditingPost(null)
     setTimeout(() => setSavedPosts(s => { const n = new Set(s); n.delete(post.id); return n }), 3000)

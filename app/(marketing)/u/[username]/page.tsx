@@ -71,15 +71,27 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
     socialPreviewImage = profile.avatar_url || undefined
   }
 
+  // Check for admin SEO overrides
+  const { data: seoOverride } = await supabase
+    .from("seo_overrides")
+    .select("seo_title, seo_description")
+    .eq("type", "creator")
+    .eq("identifier", username)
+    .maybeSingle()
+
   const siteUrl = `https://${username}.storelib.com`
   const displayTitle = profile.display_name || profile.username || "Creator"
-  const description = `Check out ${profile.display_name || profile.username}'s products on Storelib`
+  const defaultDescription = `Check out ${profile.display_name || profile.username}'s products on Storelib`
+
+  // Use SEO overrides if set, otherwise use defaults
+  const title = seoOverride?.seo_title || `${displayTitle} | Storelib`
+  const description = seoOverride?.seo_description || defaultDescription
 
   return {
-    title: displayTitle,
+    title,
     description,
     openGraph: {
-      title: `${displayTitle} | Storelib`,
+      title,
       description,
       type: "website",
       url: siteUrl,
@@ -96,7 +108,7 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
     },
     twitter: {
       card: socialPreviewImage ? "summary_large_image" : "summary",
-      title: `${displayTitle} | Storelib`,
+      title,
       description,
       images: socialPreviewImage ? [socialPreviewImage] : undefined,
     },
