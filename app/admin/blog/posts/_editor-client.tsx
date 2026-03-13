@@ -44,7 +44,7 @@ export default function BlogPostEditorClient({ mode, postId }: { mode: "new" | "
     cover_image_url: "",
     category: "Getting Started",
     read_time: "5 min read",
-    author: "Storelib Team",
+    author: "Anisia - Head of Marketing",
     seo_title: "",
     seo_description: "",
     seo_keywords: "",
@@ -66,6 +66,12 @@ export default function BlogPostEditorClient({ mode, postId }: { mode: "new" | "
         .then(data => {
           setPost({
             ...data,
+            author: data.author_name || data.author || "Anisia - Head of Marketing",
+            seo_title: data.seo_title ?? "",
+            seo_description: data.seo_description ?? "",
+            seo_keywords: data.seo_keywords ?? "",
+            excerpt: data.excerpt ?? "",
+            cover_image_url: data.cover_image_url ?? "",
             content: Array.isArray(data.content) ? data.content : [],
           })
           setSlugManual(true) // Don't auto-update slug when editing
@@ -345,7 +351,7 @@ export default function BlogPostEditorClient({ mode, postId }: { mode: "new" | "
               />
               <div className="flex justify-between mt-1">
                 <span className="text-[10px] text-neutral-400">Falls back to post title</span>
-                <span className={`text-[10px] font-medium ${post.seo_title.length > 60 ? "text-amber-500" : "text-neutral-400"}`}>{post.seo_title.length}/60</span>
+                <span className={`text-[10px] font-medium ${(post.seo_title?.length ?? 0) > 60 ? "text-amber-500" : "text-neutral-400"}`}>{post.seo_title?.length ?? 0}/60</span>
               </div>
             </div>
 
@@ -361,7 +367,7 @@ export default function BlogPostEditorClient({ mode, postId }: { mode: "new" | "
               />
               <div className="flex justify-between mt-1">
                 <span className="text-[10px] text-neutral-400">Falls back to excerpt</span>
-                <span className={`text-[10px] font-medium ${post.seo_description.length > 160 ? "text-amber-500" : "text-neutral-400"}`}>{post.seo_description.length}/160</span>
+                <span className={`text-[10px] font-medium ${(post.seo_description?.length ?? 0) > 160 ? "text-amber-500" : "text-neutral-400"}`}>{post.seo_description?.length ?? 0}/160</span>
               </div>
             </div>
 

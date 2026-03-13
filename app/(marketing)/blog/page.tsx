@@ -10,8 +10,11 @@ export const metadata: Metadata = {
     description: "Practical advice for digital product creators on selling, growth, and strategy.",
     url: "https://storelib.com/blog",
     type: "website",
+    siteName: "Storelib",
   },
+  twitter: { card: "summary_large_image", title: "Storelib Blog", description: "Practical advice for digital product creators on selling, growth, and strategy." },
   alternates: { canonical: "https://storelib.com/blog" },
+  robots: { index: true, follow: true, googleBot: { index: true, follow: true } },
 }
 
 const STATIC_POSTS: BlogPost[] = [

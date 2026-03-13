@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { categoryToSlug } from "@/lib/blog-categories"
 import BlogPostTracker from "./_tracker"
 import ShareButtons from "./_share-buttons"
+import ReadingProgress from "./_reading-progress"
 
 // ─── Hardcoded fallback posts ──────────────────────────────────────────────
 const BLOG_POSTS: Record<string, {
@@ -54,9 +55,9 @@ const BLOG_POSTS: Record<string, {
 
 // ─── Author profiles ───────────────────────────────────────────────────────
 const DEFAULT_AUTHOR = {
-  name: "Storelib Team",
+  name: "Anisia - Head of Marketing",
   bio: "Practical guides for digital product creators — on selling, growing an audience, and building a sustainable creator business.",
-  avatar: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/5135%20(1).svg",
+  avatar: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/onepage-assets/ee48b026-347c-4372-8589-eea3863b443c/avatars/avatar-1770910695542.jpg",
   twitter: "https://twitter.com/storelib",
   linkedin: "https://linkedin.com/company/storelib",
   website: "https://storelib.com",
@@ -244,7 +245,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
     published_at: (dbPost?.published_at || staticData?.published_at) as string,
     read_time: (dbPost?.read_time || staticData?.read_time) as string,
     cover_image_url: dbPost?.cover_image_url as string | undefined,
-    author: (dbPost?.author || "Storelib Team") as string,
+    author: (dbPost?.author_name || dbPost?.author || DEFAULT_AUTHOR.name) as string,
     content: dbPost?.content as Block[] | undefined,
     legacyContent: !dbPost ? staticData?.content : undefined,
   }
@@ -257,15 +258,29 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
     headline: post.title,
     description: post.excerpt,
     datePublished: post.published_at,
-    author: { "@type": "Organization", name: post.author },
-    publisher: { "@type": "Organization", name: "Storelib", url: "https://storelib.com" },
+    dateModified: post.published_at,
+    author: { "@type": "Person", name: post.author || DEFAULT_AUTHOR.name },
+    publisher: { "@type": "Organization", name: "Storelib", url: "https://storelib.com", logo: { "@type": "ImageObject", url: "https://storelib.com/favicon.ico" } },
     url: `https://storelib.com/blog/${slug}`,
-    ...(post.cover_image_url ? { image: post.cover_image_url } : {}),
+    mainEntityOfPage: { "@type": "WebPage", "@id": `https://storelib.com/blog/${slug}` },
+    ...(post.cover_image_url ? { image: { "@type": "ImageObject", url: post.cover_image_url, width: 1200, height: 630 } } : {}),
+  }
+
+  const breadcrumbLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Blog", item: "https://storelib.com/blog" },
+      { "@type": "ListItem", position: 2, name: post.category, item: `https://storelib.com/blog/explore/categories/${categoryToSlug(post.category)}` },
+      { "@type": "ListItem", position: 3, name: post.title, item: `https://storelib.com/blog/${slug}` },
+    ],
   }
 
   return (
     <div className="min-h-screen bg-white">
+      <ReadingProgress />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
       {post.id && <BlogPostTracker postId={post.id} />}
 
       {/* Article container */}
