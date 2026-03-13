@@ -229,8 +229,20 @@ export async function handleNativeOAuthCallback(
 
     const parsed       = new URL(url)
     const code         = parsed.searchParams.get("code")
-    const accessToken  = parsed.searchParams.get("token")
+    // Supabase recovery emails use "token" as the key; normalise to "access_token"
+    const accessToken  = parsed.searchParams.get("access_token") ?? parsed.searchParams.get("token")
     const refreshToken = parsed.searchParams.get("refresh_token")
+    const nextParam    = parsed.searchParams.get("next") ?? ""
+
+    // Recovery / password-reset flow: store the full URL for reset-password page to consume
+    if (nextParam.includes("/reset-password") || parsed.hash.includes("type=recovery")) {
+      try {
+        // Normalise fragment tokens into search params for consistent parsing
+        const normalized = url.includes("#") ? url.replace("#", "?").replace(/\?([^?]*)$/, "?$1") : url
+        sessionStorage.setItem("nativeRecoveryUrl", normalized)
+      } catch { /* ignore */ }
+      return { success: true, isCreator: false, nextPath: "/reset-password" }
+    }
 
     let userId: string
 

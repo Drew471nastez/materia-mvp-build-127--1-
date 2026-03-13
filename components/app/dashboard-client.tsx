@@ -1921,30 +1921,6 @@ export function DashboardClient({
           </div>
         </div>
 
-        {/* Mobile Bottom Sheet */}
-        <TimeframeBottomSheet
-          isOpen={isMobileSheetOpen}
-          onClose={() => setIsMobileSheetOpen(false)}
-          options={timeframeOptions}
-          selectedValue={timeframe}
-          onSelect={setTimeframe}
-          t={t}
-        />
-        <QuickAccessBottomSheet
-          isOpen={isQuickAccessMobileOpen}
-          onClose={() => setIsQuickAccessMobileOpen(false)}
-          onePageUrl={hasOnePageSetup ? publicOnePageUrl : "Set up your OnePage to create a link"}
-          storeUrl={publicStoreUrl}
-          navOnePageUrl={hasOnePageSetup ? navOnePageUrl : undefined}
-          navStoreUrl={navStoreUrl}
-          isOnePageCopied={copiedTarget === "onepage"}
-          isStoreCopied={copiedTarget === "store"}
-          onCopyOnePage={() => copyQuickAccessUrl("onepage")}
-          onCopyStore={() => copyQuickAccessUrl("store")}
-          isOnePageReady={hasOnePageSetup}
-          onSetupOnePage={() => router.push("/app/onepage")}
-        />
-
         {/* Stats Cards + Chart Section */}
         <div className="bg-white rounded-2xl border border-[#e5e7eb]/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] mb-8 overflow-hidden">
           {/* KPI Metric Tabs - horizontally scrollable on mobile */}
@@ -2437,6 +2413,30 @@ export function DashboardClient({
         }
       `}</style>
       </div>{/* end content translateY wrapper */}
+
+      {/* Bottom sheets rendered OUTSIDE transform wrapper — iOS position:fixed requires no ancestor transform */}
+      <TimeframeBottomSheet
+        isOpen={isMobileSheetOpen}
+        onClose={() => setIsMobileSheetOpen(false)}
+        options={timeframeOptions}
+        selectedValue={timeframe}
+        onSelect={setTimeframe}
+        t={t}
+      />
+      <QuickAccessBottomSheet
+        isOpen={isQuickAccessMobileOpen}
+        onClose={() => setIsQuickAccessMobileOpen(false)}
+        onePageUrl={hasOnePageSetup ? publicOnePageUrl : "Set up your OnePage to create a link"}
+        storeUrl={publicStoreUrl}
+        navOnePageUrl={hasOnePageSetup ? navOnePageUrl : undefined}
+        navStoreUrl={navStoreUrl}
+        isOnePageCopied={copiedTarget === "onepage"}
+        isStoreCopied={copiedTarget === "store"}
+        onCopyOnePage={() => copyQuickAccessUrl("onepage")}
+        onCopyStore={() => copyQuickAccessUrl("store")}
+        isOnePageReady={hasOnePageSetup}
+        onSetupOnePage={() => router.push("/app/onepage")}
+      />
     </div>
   )
 }

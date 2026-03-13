@@ -681,7 +681,7 @@ function CategorySelectorModal({
   if (!isVisible) return null
 
   return (
-    <div className="fixed inset-0 z-[100]" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+    <div className="fixed inset-0 z-[100]">
       <div
         className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity ease-out ${isAnimating ? "opacity-100" : "opacity-0"}`}
         style={{ transitionDuration: '400ms' }}
@@ -770,8 +770,13 @@ function CategorySelectorModal({
           maxHeight: '70vh',
         }}
       >
-        <div className="pt-3 pb-2">
-          <button onClick={handleClose} className="w-full flex justify-center py-2 cursor-pointer touch-none">
+        <div
+          className="pt-3 pb-2 touch-none"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
+          <button onClick={handleClose} className="w-full flex justify-center py-2 cursor-pointer">
             <div className="w-10 h-1.5 bg-gray-300 rounded-full" />
           </button>
         </div>
