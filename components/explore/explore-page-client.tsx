@@ -449,11 +449,12 @@ function MobileFilterSheet({
         ref={sheetRef}
         className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl flex flex-col"
         style={{
-          transform: isAnimating ? `translate3d(0, ${dragY}px, 0)` : "translate3d(0, 100%, 0)",
+          transform: !isAnimating
+            ? 'translate3d(0, 100%, 0)'
+            : dragY > 0
+              ? `translate3d(0, ${dragY}px, 0)`
+              : 'none',
           transition: isDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
-          willChange: 'transform',
-          backfaceVisibility: 'hidden',
-          WebkitBackfaceVisibility: 'hidden',
           maxHeight: '85vh',
         }}
       >
@@ -742,11 +743,12 @@ function CategorySelectorModal({
         ref={sheetRef}
         className="md:hidden absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
         style={{
-          transform: isAnimating ? `translate3d(0, ${dragY}px, 0)` : "translate3d(0, 100%, 0)",
+          transform: !isAnimating
+            ? 'translate3d(0, 100%, 0)'
+            : dragY > 0
+              ? `translate3d(0, ${dragY}px, 0)`
+              : 'none',
           transition: isDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
-          willChange: 'transform',
-          backfaceVisibility: 'hidden',
-          WebkitBackfaceVisibility: 'hidden',
           maxHeight: '70vh',
         }}
       >

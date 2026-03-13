@@ -1639,7 +1639,6 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
 
   return (
     <div
-      data-page="product"
       className="min-h-screen w-full"
       style={{
         background: defaultPageBackgroundColor || "var(--background)",

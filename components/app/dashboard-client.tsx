@@ -476,7 +476,6 @@ function TimeframeBottomSheet({
   useEffect(() => {
     if (isOpen && !isVisible) {
       setIsVisible(true)
-      document.body.style.overflow = "hidden"
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           setIsAnimating(true)
@@ -484,17 +483,13 @@ function TimeframeBottomSheet({
       })
     } else if (!isOpen && isVisible) {
       setIsAnimating(false)
-      // Restore body scroll; CSS class rules (html.app-layout body) re-assert after.
-      document.body.style.overflow = ""
       const timer = setTimeout(() => {
         setIsVisible(false)
         setDragY(0)
       }, 400)
       return () => clearTimeout(timer)
     }
-    return () => {
-      document.body.style.overflow = ""
-    }
+    return undefined
   }, [isOpen, isVisible])
 
   const handleClose = () => {
@@ -556,7 +551,7 @@ function TimeframeBottomSheet({
   return (
     <div
       className="fixed inset-0 z-[100] md:hidden"
-      style={{ pointerEvents: isAnimating ? "auto" : "none", touchAction: "none" }}
+      style={{ pointerEvents: isVisible ? "auto" : "none", touchAction: "none" }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -568,7 +563,7 @@ function TimeframeBottomSheet({
           opacity: isAnimating ? 1 : 0,
           transition: isDragging ? 'none' : 'opacity 400ms cubic-bezier(0.32, 0.72, 0, 1)',
         }}
-        onClick={handleClose}
+        onClick={isAnimating ? handleClose : undefined}
       />
       {/* Bottom Sheet - GPU accelerated */}
       <div
@@ -654,20 +649,16 @@ function QuickAccessBottomSheet({
   useEffect(() => {
     if (isOpen && !isVisible) {
       setIsVisible(true)
-      document.body.style.overflow = "hidden"
       requestAnimationFrame(() => requestAnimationFrame(() => setIsAnimating(true)))
     } else if (!isOpen && isVisible) {
       setIsAnimating(false)
-      document.body.style.overflow = ""
       const timer = setTimeout(() => {
         setIsVisible(false)
         setDragY(0)
       }, 400)
       return () => clearTimeout(timer)
     }
-    return () => {
-      document.body.style.overflow = ""
-    }
+    return undefined
   }, [isOpen, isVisible])
 
   const handleClose = () => {
@@ -718,7 +709,7 @@ function QuickAccessBottomSheet({
   return (
     <div
       className="fixed inset-0 z-[110] md:hidden"
-      style={{ pointerEvents: isAnimating ? "auto" : "none", touchAction: "none" }}
+      style={{ pointerEvents: isVisible ? "auto" : "none", touchAction: "none" }}
     >
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
@@ -726,7 +717,7 @@ function QuickAccessBottomSheet({
           opacity: isAnimating ? 1 : 0,
           transition: isDragging ? 'none' : 'opacity 400ms cubic-bezier(0.32, 0.72, 0, 1)',
         }}
-        onClick={handleClose}
+        onClick={isAnimating ? handleClose : undefined}
       />
       <div
         ref={sheetRef}

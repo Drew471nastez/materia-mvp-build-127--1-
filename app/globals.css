@@ -1139,12 +1139,6 @@ html.capacitor:has([data-page="auth"]) body {
   overscroll-behavior: none;
 }
 
-/* Prevent vertical scroll from initiating within the platform header.
-   The header is sticky/fixed — touching it should not scroll the page.
-   pan-x allows the horizontal category bar to scroll left/right. */
-html.capacitor #platform-header-root {
-  touch-action: pan-x manipulation;
-}
 
 /* Library uses DashboardSidebar whose mobile header is white (bg-background).
    The ::before shield must also be white so no black bar appears above it. */
