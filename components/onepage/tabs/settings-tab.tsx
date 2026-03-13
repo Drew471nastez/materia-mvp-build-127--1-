@@ -65,7 +65,7 @@ const BADGE_TYPES = [
 ]
 
 export function SettingsTab() {
-  const { onepage, updateProfile, updateSettings, updateSlug, save, saveState } = useOnePage()
+  const { onepage, updateProfile, updateSettings, updateSlug, save, saveState, markDirty } = useOnePage()
   const [activeSection, setActiveSection] = useState("basic")
   const [copied, setCopied] = useState(false)
   const [showOgImageModal, setShowOgImageModal] = useState(false)
@@ -274,9 +274,10 @@ export function SettingsTab() {
 
       setOgImage(publicUrl)
       setShowOgImageModal(false)
-    } catch (error) {
+    } catch (error: any) {
       console.error("Upload error:", error)
-      alert("Upload failed. Please try again.")
+      const msg = error?.message || error?.error_description || JSON.stringify(error)
+      alert(`Upload failed: ${msg}`)
     } finally {
       setIsUploading(false)
       // Reset input
@@ -331,7 +332,7 @@ export function SettingsTab() {
         <Label className="text-sm font-medium text-gray-700">Page Name</Label>
         <Input
           value={pageName}
-          onChange={(e) => setPageName(e.target.value)}
+          onChange={(e) => { setPageName(e.target.value); markDirty() }}
           placeholder="My OnePage"
           className="h-10 rounded-lg border-gray-200 focus:border-gray-400 focus:ring-gray-400"
         />
@@ -342,7 +343,7 @@ export function SettingsTab() {
         <Label className="text-sm font-medium text-gray-700">Page Slug</Label>
         <Input
           value={pageSlug}
-          onChange={(e) => setPageSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+          onChange={(e) => { setPageSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '')); markDirty() }}
           placeholder="your-page"
           className="h-10 rounded-lg border-gray-200 focus:border-gray-400 focus:ring-gray-400"
         />
@@ -392,7 +393,7 @@ export function SettingsTab() {
         <Label className="text-sm font-medium text-gray-700">Page Title</Label>
         <Input
           value={metaTitle}
-          onChange={(e) => setMetaTitle(e.target.value)}
+          onChange={(e) => { setMetaTitle(e.target.value); markDirty() }}
           placeholder="My Page Title"
           className="h-10 rounded-lg border-gray-200"
         />
@@ -404,7 +405,7 @@ export function SettingsTab() {
         <Label className="text-sm font-medium text-gray-700">Meta Description</Label>
         <Textarea
           value={metaDescription}
-          onChange={(e) => setMetaDescription(e.target.value)}
+          onChange={(e) => { setMetaDescription(e.target.value); markDirty() }}
           placeholder="A brief description..."
           className="rounded-lg resize-none border-gray-200"
           rows={3}

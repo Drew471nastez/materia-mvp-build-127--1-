@@ -345,7 +345,38 @@ function EditorLayout() {
     updateSettings,
   } = useOnePage()
 
-  const [activeTab, setActiveTab] = useState<TabType>("links")
+  // --- Hash-based tab navigation ---
+  const HASH_TO_TAB: Record<string, TabType> = {
+    links: "links",
+    design: "design",
+    products: "products",
+    settings: "settings",
+  }
+  const getInitialTab = (): TabType => {
+    if (typeof window === "undefined") return "links"
+    const hash = window.location.hash.replace("#", "")
+    return (HASH_TO_TAB[hash] as TabType) || "links"
+  }
+  const [activeTab, setActiveTab] = useState<TabType>(getInitialTab)
+
+  const handleTabChange = useCallback((tab: TabType) => {
+    setActiveTab(tab)
+    if (typeof window !== "undefined") {
+      window.history.pushState(null, "", `#${tab}`)
+    }
+  }, [])
+
+  // Sync tab when browser back/forward changes the hash
+  useEffect(() => {
+    const onPopState = () => {
+      const hash = window.location.hash.replace("#", "")
+      const tab = (HASH_TO_TAB[hash] as TabType) || "links"
+      setActiveTab(tab)
+    }
+    window.addEventListener("popstate", onPopState)
+    return () => window.removeEventListener("popstate", onPopState)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [copied, setCopied] = useState(false)
   const [showMobilePreview, setShowMobilePreview] = useState(false)
   const [showLinkModal, setShowLinkModal] = useState(false)
@@ -759,7 +790,7 @@ function EditorLayout() {
                   <button
                     key={tab.id}
                     data-tab={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
+                    onClick={() => handleTabChange(tab.id)}
                     className={cn(
                       "flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium transition-all whitespace-nowrap cursor-pointer",
                       activeTab === tab.id
@@ -776,7 +807,7 @@ function EditorLayout() {
 
             {/* Settings Button - Desktop */}
             <button
-              onClick={() => setActiveTab("settings")}
+              onClick={() => handleTabChange("settings")}
               title="Settings"
               className={cn(
                 "hidden md:flex w-10 h-10 rounded-xl items-center justify-center border transition-all duration-200 cursor-pointer",
@@ -924,7 +955,7 @@ function EditorLayout() {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => handleTabChange(tab.id)}
                   className={cn(
                     "flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2.5 sm:py-2.5 rounded-[7px] sm:rounded-xl text-xs sm:text-sm font-medium transition-all flex-1 justify-center min-w-0",
                     activeTab === tab.id
@@ -939,7 +970,7 @@ function EditorLayout() {
             })}
             {/* Settings Button - Mobile - same height as other tab buttons */}
             <button
-              onClick={() => setActiveTab("settings")}
+              onClick={() => handleTabChange("settings")}
               className={cn(
                 "flex items-center justify-center min-w-[40px] w-10 py-2.5 sm:w-11 sm:py-2.5 rounded-[7px] sm:rounded-xl transition-all shrink-0",
                 activeTab === "settings"

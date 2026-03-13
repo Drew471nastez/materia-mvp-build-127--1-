@@ -53,6 +53,7 @@ interface OnePageContextType {
 
   updateSettings: (updates: Partial<OnePage["settings"]>) => void
   updateSlug: (slug: string) => void
+  markDirty: () => void
 
   undo: () => void
   redo: () => void
@@ -600,6 +601,7 @@ export function OnePageProvider({ children, initialOnePage }: OnePageProviderPro
         toggleBlockEnabled,
         updateSettings,
         updateSlug,
+        markDirty,
         undo,
         redo,
         save,
