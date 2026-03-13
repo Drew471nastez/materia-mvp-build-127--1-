@@ -15,7 +15,7 @@ function slugify(text: string) {
     .slice(0, 80)
 }
 
-const CATEGORIES = ["Getting Started", "Creator Tips", "Growth", "Strategy", "Product Updates", "Case Studies", "Tutorials", "News"]
+const CATEGORIES = ["Getting Started", "Creator Tips", "Growth", "Strategy", "Product Updates", "Case Studies", "Tutorials", "Announcements"]
 
 interface PostData {
   id?: string
