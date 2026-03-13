@@ -2554,8 +2554,8 @@ function UnifiedFeaturedProductsSection({
                         src={product.thumbnail_url || "/placeholder.svg"}
                         alt={product.title}
                         fill
-                        className="object-cover transition-all duration-500 group-hover:scale-105 opacity-0"
-                        ref={el => { if ((el as any)?.complete) (el as any).style.opacity = "1" }}
+                        className="object-cover transition-all duration-500 group-hover:scale-105"
+                        ref={el => { if (el && !(el as any).complete) (el as any).style.opacity = "0" }}
                         onLoad={e => { (e.target as HTMLImageElement).style.opacity = "1" }}
                         sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                       />
@@ -2763,14 +2763,14 @@ export function UnifiedShopHeader({
           <img
             src={coverImageUrl}
             alt={`${profile?.display_name || "Creator"} cover`}
-            className="absolute inset-0 w-full h-full object-cover opacity-0 transition-opacity duration-700"
+            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700"
             style={{
               objectPosition: settings.coverFocalPoint
                 ? `${settings.coverFocalPoint.x}% ${settings.coverFocalPoint.y}%`
                 : undefined,
               filter: `brightness(${settings.coverBrightness ?? 1.0})`,
             }}
-            ref={el => { if (el?.complete) el.style.opacity = "1" }}
+            ref={el => { if (el && !el.complete) el.style.opacity = "0" }}
             onLoad={e => { (e.target as HTMLImageElement).style.opacity = "1" }}
           />
 
