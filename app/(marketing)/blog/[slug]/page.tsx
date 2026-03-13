@@ -269,7 +269,18 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
       {post.id && <BlogPostTracker postId={post.id} />}
 
       {/* Article container */}
-      <div className="max-w-2xl mx-auto px-5 sm:px-6 pt-10 pb-20">
+      <div className="max-w-2xl lg:max-w-[806px] mx-auto px-5 sm:px-6 pt-10 pb-20">
+        {/* Breadcrumb */}
+        <div className="mb-7">
+          <Link
+            href={post.category ? `/blog/explore/categories/${categoryToSlug(post.category)}` : "/blog"}
+            className="inline-flex items-center gap-1.5 text-sm text-neutral-400 hover:text-neutral-600 transition-colors"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            {post.category || "All Articles"}
+          </Link>
+        </div>
+
         {/* Category pill */}
         <div className="mb-5">
           <Link
