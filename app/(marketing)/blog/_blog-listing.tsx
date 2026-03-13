@@ -34,7 +34,7 @@ export default function BlogListing({
     <div className="min-h-screen bg-white">
       {/* Title area */}
       <div className="max-w-7xl mx-auto px-6 lg:px-10 pt-14 pb-10">
-        <h1 className="text-5xl sm:text-6xl font-bold text-neutral-900 tracking-tight mb-3">
+        <h1 className="text-[46px] sm:text-[58px] font-semibold text-neutral-900 tracking-tight mb-3">
           {title}
         </h1>
         <p className="text-neutral-500 text-base max-w-xs leading-relaxed">{subtitle}</p>

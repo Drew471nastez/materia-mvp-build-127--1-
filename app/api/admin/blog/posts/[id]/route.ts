@@ -29,11 +29,16 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
   const supabase = createAdminClient()
 
   // If toggling to published for the first time, set published_at
-  const updates = { ...body }
+  const updates: Record<string, unknown> = { ...body }
   if (updates.is_published && updates._set_published_at) {
     updates.published_at = new Date().toISOString()
   }
   delete updates._set_published_at
+  // Map editor field "author" → DB column "author_name"
+  if ("author" in updates) {
+    updates.author_name = updates.author
+    delete updates.author
+  }
 
   const { data, error } = await supabase
     .from("blog_posts")

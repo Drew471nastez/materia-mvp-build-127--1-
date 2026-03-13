@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
       cover_image_url: body.cover_image_url || null,
       category: body.category || "General",
       read_time: body.read_time || "5 min read",
-      author: body.author || "Storelib Team",
+      author_name: body.author || "Storelib Team",
       seo_title: body.seo_title || null,
       seo_description: body.seo_description || null,
       seo_keywords: body.seo_keywords || null,

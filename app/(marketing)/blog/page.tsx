@@ -62,8 +62,8 @@ export default async function BlogPage() {
       <BlogListing
         posts={allPosts}
         activeCategory={null}
-        title="Storelib Blog"
-        subtitle="The latest from Storelib — creator tips, platform news, and strategies to grow your digital product business."
+        title="Blog"
+        subtitle="The latest from Storelib — tips, platform news, and strategies to grow your business."
       />
     </>
   )
