@@ -1,6 +1,8 @@
 "use client"
 
-import { useState, useEffect, useRef, type ReactNode } from "react"
+import { useState, useEffect, useRef, useCallback, type ReactNode } from "react"
+import { usePullToRefresh } from "@/hooks/use-pull-to-refresh"
+import { PullToRefreshIndicator } from "./pull-to-refresh-indicator"
 import { useHideNativeSplash } from "@/hooks/use-hide-native-splash"
 import Link from "next/link"
 import Image from "next/image"
@@ -988,6 +990,8 @@ export function DashboardClient({
     return num.toLocaleString()
   }
 
+  const scrollRef = useRef<HTMLDivElement>(null)
+
   const isFirstLoadRef = useRef(true)
   const fetchAnalytics = async (selectedTimeframe: string) => {
     if (isFirstLoadRef.current) {
@@ -1545,8 +1549,46 @@ export function DashboardClient({
     setExpandedStep(expandedStep === stepId ? null : stepId)
   }
 
+  // ── Pull-to-refresh ───────────────────────────────────────────────────────
+  // Wraps the dashboard's own scroll container so we can intercept touch events
+  // with { passive: false } — the only reliable way to block iOS rubber-band
+  // bounce on a child overflow-scroll element.
+  const handlePullRefresh = useCallback(async () => {
+    await fetchAnalytics(timeframe)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeframe])
+
+  const { pullDistance, phase: pullPhase } = usePullToRefresh(scrollRef, handlePullRefresh)
+
+  // Content translateY: slides down while pulling, snaps back when done
+  const contentTranslateY =
+    pullPhase === "pulling" || pullPhase === "ready"
+      ? pullDistance
+      : pullPhase === "refreshing"
+        ? 52 // 44px pill + 8px gap — keeps indicator visible
+        : 0
+
+  const contentTransition =
+    pullPhase === "idle" || pullPhase === "refreshing"
+      ? "transform 0.32s cubic-bezier(0.32, 0.72, 0, 1)"
+      : "none"
+
   return (
-    <div className="h-full overflow-y-auto bg-[#f8f9fa] dashboard-scroll-container">
+    <div
+      ref={scrollRef}
+      className="h-full overflow-y-auto bg-[#f8f9fa] dashboard-scroll-container relative"
+    >
+      {/* Pull-to-refresh indicator floats above content */}
+      <PullToRefreshIndicator pullDistance={pullDistance} phase={pullPhase} />
+
+      {/* Content wrapper that slides down during pull */}
+      <div
+        style={{
+          transform: `translateY(${contentTranslateY}px)`,
+          transition: contentTransition,
+          willChange: "transform",
+        }}
+      >
       {/* Announcement Bar - positioned normally in document flow */}
       <div className="bg-[#8b5cf6] text-white">
         <div className="py-2 px-4 md:py-2.5">
@@ -2395,6 +2437,7 @@ export function DashboardClient({
           }
         }
       `}</style>
+      </div>{/* end content translateY wrapper */}
     </div>
   )
 }

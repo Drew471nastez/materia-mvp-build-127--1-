@@ -1051,6 +1051,16 @@ html.native-auth-lock .auth-card input {
   overscroll-behavior: none;
 }
 
+/* Dashboard inner scroll container.
+   We use a JS touch-intercept hook for the custom pull-to-refresh, which calls
+   e.preventDefault() on touchmove when scrollTop === 0.  The CSS rule is a
+   belt-and-suspenders fallback for non-iOS or when the hook isn't mounted yet.
+   The background matches the dashboard so any brief overscroll gap looks clean. */
+.dashboard-scroll-container {
+  overscroll-behavior: none;
+  background-color: #f8f9fa; /* same as the dashboard body — no white flash */
+}
+
 html.capacitor .app-content-scroll {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
