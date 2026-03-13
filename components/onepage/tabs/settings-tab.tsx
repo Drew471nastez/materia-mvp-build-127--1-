@@ -23,7 +23,7 @@ import {
   BadgeCheck,
   Send,
 } from "lucide-react"
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
 import {
   Dialog,
@@ -81,6 +81,10 @@ export function SettingsTab() {
   const [metaTitle, setMetaTitle] = useState(onepage?.settings?.seo_title || onepage?.title || "")
   const [metaDescription, setMetaDescription] = useState(onepage?.settings?.seo_description || onepage?.bio || "")
   const [ogImage, setOgImage] = useState(onepage?.settings?.social_image_url || "")
+  const [ogPosX, setOgPosX] = useState<number>(onepage?.settings?.social_image_position_x ?? 50)
+  const [ogPosY, setOgPosY] = useState<number>(onepage?.settings?.social_image_position_y ?? 50)
+  const [isDraggingFocal, setIsDraggingFocal] = useState(false)
+  const focalContainerRef = useRef<HTMLDivElement>(null)
 
   // Subscribe states
   const [subscribeEnabled, setSubscribeEnabled] = useState(onepage?.settings?.subscribe_enabled ?? true)
@@ -103,6 +107,8 @@ export function SettingsTab() {
       setMetaTitle(onepage.settings?.seo_title || onepage.title || "")
       setMetaDescription(onepage.settings?.seo_description || onepage.bio || "")
       setOgImage(onepage.settings?.social_image_url || "")
+      setOgPosX(onepage.settings?.social_image_position_x ?? 50)
+      setOgPosY(onepage.settings?.social_image_position_y ?? 50)
       setSubscribeEnabled(onepage.settings?.subscribe_enabled ?? true)
       setSubscribeStyle(onepage.settings?.subscribe_style || "glass")
       setShareEnabled(onepage.settings?.share_enabled ?? true)
@@ -140,6 +146,16 @@ export function SettingsTab() {
     }
   }
 
+  const computeFocalFromEvent = useCallback((clientX: number, clientY: number) => {
+    if (!focalContainerRef.current) return
+    const rect = focalContainerRef.current.getBoundingClientRect()
+    const x = Math.round(Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100)))
+    const y = Math.round(Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100)))
+    setOgPosX(x)
+    setOgPosY(y)
+    markDirty()
+  }, [])
+
   const handleSaveSeo = async () => {
     setLocalSaveState("saving")
     try {
@@ -147,7 +163,9 @@ export function SettingsTab() {
         seo_title: metaTitle,
         seo_description: metaDescription,
         social_image_url: ogImage || null,
-      })
+        social_image_position_x: ogImage ? ogPosX : null,
+        social_image_position_y: ogImage ? ogPosY : null,
+      } as any)
       await save()
       setLocalSaveState("saved")
       setTimeout(() => setLocalSaveState("idle"), 2000)
@@ -417,20 +435,78 @@ export function SettingsTab() {
       <div className="space-y-2">
         <Label className="text-sm font-medium text-gray-700">Social Image</Label>
         {ogImage ? (
-          <div className="relative aspect-video rounded-lg overflow-hidden border border-gray-200">
-            <img src={ogImage} alt="Social preview" className="w-full h-full object-cover" />
-            <button
-              onClick={removeOgImage}
-              className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/70 rounded-full transition-colors"
+          <div className="space-y-2">
+            {/* Draggable focal-point container */}
+            <div
+              ref={focalContainerRef}
+              className="relative aspect-video rounded-lg overflow-hidden border border-gray-200 cursor-crosshair select-none touch-none"
+              onMouseDown={(e) => {
+                e.preventDefault()
+                setIsDraggingFocal(true)
+                computeFocalFromEvent(e.clientX, e.clientY)
+              }}
+              onMouseMove={(e) => {
+                if (!isDraggingFocal) return
+                computeFocalFromEvent(e.clientX, e.clientY)
+              }}
+              onMouseUp={() => setIsDraggingFocal(false)}
+              onMouseLeave={() => setIsDraggingFocal(false)}
+              onTouchStart={(e) => {
+                setIsDraggingFocal(true)
+                computeFocalFromEvent(e.touches[0].clientX, e.touches[0].clientY)
+              }}
+              onTouchMove={(e) => {
+                if (!isDraggingFocal) return
+                e.preventDefault()
+                computeFocalFromEvent(e.touches[0].clientX, e.touches[0].clientY)
+              }}
+              onTouchEnd={() => setIsDraggingFocal(false)}
             >
-              <X className="h-4 w-4 text-white" />
-            </button>
-            <button
-              onClick={() => setShowOgImageModal(true)}
-              className="absolute bottom-2 right-2 px-3 py-1.5 bg-white/90 hover:bg-white rounded-lg text-sm font-medium transition-colors"
-            >
-              Change
-            </button>
+              <img
+                src={ogImage}
+                alt="Social preview"
+                className="w-full h-full object-cover pointer-events-none"
+                style={{ objectPosition: `${ogPosX}% ${ogPosY}%` }}
+                draggable={false}
+              />
+              {/* Crosshair focal indicator */}
+              <div
+                className="absolute pointer-events-none -translate-x-1/2 -translate-y-1/2"
+                style={{ left: `${ogPosX}%`, top: `${ogPosY}%` }}
+              >
+                {/* Outer ring */}
+                <div className={cn(
+                  "w-7 h-7 rounded-full border-2 border-white shadow-[0_0_0_1.5px_rgba(0,0,0,0.4)] transition-transform",
+                  isDraggingFocal ? "scale-125" : "scale-100"
+                )} />
+                {/* Center dot */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-1.5 h-1.5 rounded-full bg-white shadow-sm" />
+                </div>
+              </div>
+              {/* Drag hint */}
+              {!isDraggingFocal && (
+                <div className="absolute bottom-2 left-2 pointer-events-none">
+                  <span className="text-[11px] bg-black/55 text-white px-2 py-1 rounded-md font-medium">
+                    Drag to set focal point
+                  </span>
+                </div>
+              )}
+              {/* Top-right controls */}
+              <button
+                onClick={(e) => { e.stopPropagation(); removeOgImage() }}
+                className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/70 rounded-full transition-colors"
+              >
+                <X className="h-4 w-4 text-white" />
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowOgImageModal(true) }}
+                className="absolute bottom-2 right-2 px-3 py-1.5 bg-white/90 hover:bg-white rounded-lg text-sm font-medium transition-colors"
+              >
+                Change
+              </button>
+            </div>
+            <p className="text-xs text-gray-400">Click or drag anywhere on the image to set the focal point for cropping.</p>
           </div>
         ) : (
           <button
@@ -450,7 +526,12 @@ export function SettingsTab() {
         <div className="border border-gray-200 rounded-lg overflow-hidden">
           <div className="aspect-video bg-gray-100 flex items-center justify-center">
             {ogImage ? (
-              <img src={ogImage} alt="Preview" className="w-full h-full object-cover" />
+              <img
+                src={ogImage}
+                alt="Preview"
+                className="w-full h-full object-cover"
+                style={{ objectPosition: `${ogPosX}% ${ogPosY}%` }}
+              />
             ) : onepage?.avatar_url ? (
               <img src={onepage.avatar_url} alt="Avatar preview" className="w-full h-full object-cover" />
             ) : (

@@ -60,6 +60,8 @@ export interface OnePageSettings {
   seo_title?: string | null
   seo_description?: string | null
   social_image_url?: string | null
+  social_image_position_x?: number | null
+  social_image_position_y?: number | null
   custom_domain?: string | null
   analytics_enabled: boolean
   subscribe_enabled?: boolean

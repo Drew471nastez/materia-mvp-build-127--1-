@@ -142,9 +142,9 @@ export function CreateCouponClient({ products }: CreateCouponClientProps) {
   }
 
   return (
-    <div className="h-full overflow-y-auto bg-gray-50/40">
+    <div className="h-full flex flex-col bg-gray-50/40">
       {/* Sticky header */}
-      <div className="bg-white border-b border-gray-100 sticky top-0 z-10">
+      <div className="bg-white border-b border-gray-100 shrink-0 z-10">
         <div className="max-w-2xl mx-auto px-4 sm:px-6 h-14 flex items-center gap-3">
           <button
             type="button"
@@ -158,8 +158,9 @@ export function CreateCouponClient({ products }: CreateCouponClientProps) {
         </div>
       </div>
 
-      {/* Form */}
-      <form onSubmit={handleSubmit} className="max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      {/* Scrollable form area */}
+      <div className="flex-1 overflow-y-auto">
+      <form id="create-coupon-form" onSubmit={handleSubmit} className="max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-100">
 
           {/* ── Coupon code ─────────────────────────────────────── */}
@@ -402,8 +403,16 @@ export function CreateCouponClient({ products }: CreateCouponClientProps) {
           </div>
         )}
 
-        {/* Action buttons */}
-        <div className="flex gap-3 mt-4 pb-8">
+        {/* Bottom spacer so content isn't hidden behind sticky bar */}
+        <div className="h-4" />
+      </form>
+      </div>
+
+      {/* Sticky bottom action bar */}
+      <div className="shrink-0 bg-white border-t border-gray-100 px-4 sm:px-6 py-3 z-10"
+        style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom, 0px))" }}
+      >
+        <div className="max-w-2xl mx-auto flex gap-3">
           <button
             type="button"
             onClick={() => router.push("/app/coupons")}
@@ -413,6 +422,7 @@ export function CreateCouponClient({ products }: CreateCouponClientProps) {
           </button>
           <button
             type="submit"
+            form="create-coupon-form"
             disabled={saving}
             className="flex-1 h-11 rounded-xl bg-[#8b5cf6] text-white text-sm font-medium hover:bg-[#7c3aed] disabled:opacity-60 transition-colors cursor-pointer disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
@@ -420,7 +430,7 @@ export function CreateCouponClient({ products }: CreateCouponClientProps) {
             {saving ? "Creating…" : "Create coupon"}
           </button>
         </div>
-      </form>
+      </div>
     </div>
   )
 }
