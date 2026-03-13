@@ -20,6 +20,42 @@ import { useEffect } from "react"
 export default function NativeStartPage() {
   useEffect(() => {
     async function resolve() {
+      // ── PRIORITY: handle reset-password / recovery deep links first ───────
+      // Must run BEFORE the synchronous localStorage fast-path to prevent
+      // Layer 1 from navigating to /app before the deep link can be processed.
+      try {
+        const { App } = await import("@capacitor/app")
+        const launch = await App.getLaunchUrl()
+        if (launch?.url) {
+          const lu = launch.url
+          const isBridgeReset =
+            (lu.startsWith("storelib://reset-password") ||
+              lu.startsWith("com.storelib.app://reset-password")) &&
+            lu.includes("code=")
+          const isRecovery =
+            (lu.startsWith("storelib://auth/callback") ||
+              lu.startsWith("com.storelib.app://auth/callback")) &&
+            lu.includes("type=recovery") &&
+            lu.includes("access_token=")
+          if (isBridgeReset || isRecovery) {
+            try { sessionStorage.setItem("nativeAuthInProgress", "1") } catch { /* ignore */ }
+            if (isBridgeReset) {
+              try {
+                const code = new URL(lu).searchParams.get("code")
+                if (code) {
+                  window.location.replace(`/reset-password?code=${encodeURIComponent(code)}`)
+                  return
+                }
+              } catch { /* ignore */ }
+            } else {
+              try { sessionStorage.setItem("nativeRecoveryUrl", lu) } catch { /* ignore */ }
+            }
+            window.location.replace("/reset-password")
+            return
+          }
+        }
+      } catch { /* Capacitor not available */ }
+
       // ── Layer 1: synchronous localStorage fast-path ───────────────────────
       // Only redirect here if we have BOTH a valid session token AND a cached
       // destination.  If there is a session but no cached home (e.g. first

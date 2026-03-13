@@ -681,7 +681,7 @@ function CategorySelectorModal({
   if (!isVisible) return null
 
   return (
-    <div className="fixed inset-0 z-[100]">
+    <div className="fixed inset-0 z-[100]" style={{ touchAction: 'none' }}>
       <div
         className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity ease-out ${isAnimating ? "opacity-100" : "opacity-0"}`}
         style={{ transitionDuration: '400ms' }}
@@ -765,8 +765,11 @@ function CategorySelectorModal({
         ref={sheetRef}
         className="md:hidden absolute bottom-0 left-0 right-0 bg-white rounded-t-[24px] shadow-2xl"
         style={{
-          transform: isAnimating ? `translateY(${dragY}px)` : "translateY(100%)",
+          transform: isAnimating ? `translate3d(0, ${dragY}px, 0)` : "translate3d(0, 100%, 0)",
           transition: isDragging ? 'none' : 'transform 400ms cubic-bezier(0.32, 0.72, 0, 1)',
+          willChange: 'transform',
+          backfaceVisibility: 'hidden',
+          WebkitBackfaceVisibility: 'hidden',
           maxHeight: '70vh',
         }}
       >
@@ -785,7 +788,7 @@ function CategorySelectorModal({
           <h3 className="text-lg font-semibold text-neutral-900">Select Category</h3>
         </div>
 
-        <div className="overflow-y-auto overscroll-contain p-3" style={{ maxHeight: 'calc(70vh - 80px)' }}>
+        <div className="overflow-y-auto overscroll-contain p-3" style={{ maxHeight: 'calc(70vh - 80px)', touchAction: 'pan-y' }}>
           {CATEGORIES.map((cat) => {
             const Icon = cat.icon
             const isSelected = selectedCategory === cat.id && !selectedSubcategory

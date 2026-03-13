@@ -133,13 +133,21 @@ async function handleBridgeCodeResetLink(rawUrl: string): Promise<void> {
   try {
     const u = new URL(rawUrl)
     const code = u.searchParams.get("code")
-    if (code) {
-      window.location.assign(`/reset-password?code=${encodeURIComponent(code)}`)
-    } else {
-      window.location.assign("/reset-password")
+    const dest = code ? `/reset-password?code=${encodeURIComponent(code)}` : "/reset-password"
+    // Guard: already on reset-password — don't navigate again (prevents reload loop
+    // when setupNativeOAuthListeners() re-runs on the mounted page after cold-start fix).
+    if (window.location.pathname === "/reset-password") {
+      console.log(`${TAG}   Already on /reset-password — dispatching nativeRecoveryTokensReady`)
+      window.dispatchEvent(new CustomEvent("nativeRecoveryTokensReady"))
+      return
     }
+    window.location.assign(dest)
   } catch {
-    window.location.assign("/reset-password")
+    if (window.location.pathname !== "/reset-password") {
+      window.location.assign("/reset-password")
+    } else {
+      window.dispatchEvent(new CustomEvent("nativeRecoveryTokensReady"))
+    }
   }
 }
 

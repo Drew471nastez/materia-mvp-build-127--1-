@@ -556,7 +556,7 @@ function TimeframeBottomSheet({
   return (
     <div
       className="fixed inset-0 z-[100] md:hidden"
-      style={{ pointerEvents: isAnimating ? "auto" : "none" }}
+      style={{ pointerEvents: isAnimating ? "auto" : "none", touchAction: "none" }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -588,7 +588,7 @@ function TimeframeBottomSheet({
         </div>
         <div className="px-4 pb-4">
           <h3 className="text-[16px] font-semibold text-[#1a1a2e] mb-4">{t("time.selectPeriod")}</h3>
-          <div className="space-y-1 max-h-[50vh] overflow-y-auto overscroll-contain">
+          <div className="space-y-1 max-h-[50vh] overflow-y-auto overscroll-contain" style={{ touchAction: 'pan-y' }}>
             {options.map((option) => (
               <button
                 key={option.value}
@@ -718,7 +718,7 @@ function QuickAccessBottomSheet({
   return (
     <div
       className="fixed inset-0 z-[110] md:hidden"
-      style={{ pointerEvents: isAnimating ? "auto" : "none" }}
+      style={{ pointerEvents: isAnimating ? "auto" : "none", touchAction: "none" }}
     >
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
