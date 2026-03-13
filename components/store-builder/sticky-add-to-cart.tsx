@@ -452,12 +452,22 @@ export function LiveStickyAddToCart({
         backgroundColor: settings.backgroundColor || "#ffffff",
         backdropFilter: "none",
         borderColor: settings.borderColor || undefined,
-        paddingBottom: "var(--sab, 0px)",
+        // env(safe-area-inset-bottom) keeps content above the iOS home indicator.
+        // --sab was never defined anywhere; use the native env() directly.
+        paddingBottom: "env(safe-area-inset-bottom)",
       }}
     >
       {/* Mobile version - NO STARS */}
-      <div className="sm:hidden py-3 px-[7px]">
-        <div className="mx-auto w-full max-w-[calc(100%-10px)] flex items-center justify-between gap-3">
+      <div
+        className="sm:hidden py-3"
+        style={{
+          // Keep content clear of rounded-corner areas on all modern phones.
+          // max(12px, ...) guarantees a comfortable minimum even when insets are 0.
+          paddingLeft: "max(12px, env(safe-area-inset-left))",
+          paddingRight: "max(12px, env(safe-area-inset-right))",
+        }}
+      >
+        <div className="mx-auto w-full flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <PriceBadge />
             <p
