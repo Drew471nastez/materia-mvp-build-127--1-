@@ -23,7 +23,7 @@ import {
   BadgeCheck,
   Send,
 } from "lucide-react"
-import { useState, useRef, useEffect, useCallback } from "react"
+import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from "react"
 import { createClient } from "@/lib/supabase/client"
 import {
   Dialog,
@@ -64,7 +64,11 @@ const BADGE_TYPES = [
   { id: "verified_artist", label: "Verified Artist" },
 ]
 
-export function SettingsTab() {
+export interface SettingsTabRef {
+  saveSeo: () => Promise<void>
+}
+
+export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, ref) {
   const { onepage, updateProfile, updateSettings, updateSlug, save, saveState, markDirty } = useOnePage()
   const [activeSection, setActiveSection] = useState("basic")
   const [copied, setCopied] = useState(false)
@@ -194,6 +198,11 @@ export function SettingsTab() {
       setTimeout(() => setLocalSaveState("idle"), 3000)
     }
   }
+
+  // Expose saveSeo so the global Save button in the editor can call it
+  useImperativeHandle(ref, () => ({
+    saveSeo: handleSaveSeo,
+  }))
 
   const handleSaveSubscribe = async () => {
     setLocalSaveState("saving")
@@ -1093,4 +1102,4 @@ export function SettingsTab() {
       `}} />
     </div>
   )
-}
+})

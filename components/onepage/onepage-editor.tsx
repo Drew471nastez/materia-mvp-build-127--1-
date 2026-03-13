@@ -5,7 +5,7 @@ import { PhonePreview, MobilePreviewContent } from "./phone-preview"
 import { DesignTab } from "./tabs/design-tab"
 import { LinksTab } from "./tabs/links-tab"
 import { ProductsTab } from "./tabs/products-tab"
-import { SettingsTab } from "./tabs/settings-tab"
+import { SettingsTab, type SettingsTabRef } from "./tabs/settings-tab"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import {
@@ -419,6 +419,7 @@ function EditorLayout() {
 
   const [onboardingChecked, setOnboardingChecked] = useState(false) // Track if we've checked
   const completedThisSessionRef = useRef(false)
+  const settingsTabRef = useRef<SettingsTabRef>(null)
   
   // Check onboarding status directly from database on mount
   useEffect(() => {
@@ -499,10 +500,15 @@ function EditorLayout() {
       return
     }
 
-    // No Pro features or user has Pro, proceed with save
+    // If on the settings tab, sync SEO/settings local state to context+API first
+    if (activeTab === "settings") {
+      await settingsTabRef.current?.saveSeo()
+    }
+
+    // Proceed with global save (persists all context state)
     await save()
     setSaveToastSequence((prev) => prev + 1)
-  }, [hasProFeaturesEnabled, save])
+  }, [hasProFeaturesEnabled, save, activeTab])
 
   // Handle upgrading to Pro — auto-saves non-pro changes, then sends user to pricing page
   const handleUpgradeToPro = useCallback(async () => {
@@ -622,6 +628,9 @@ function EditorLayout() {
     }
 
     setIsSavingForNav(true)
+    if (activeTab === "settings") {
+      await settingsTabRef.current?.saveSeo()
+    }
     await save()
     setIsSavingForNav(false)
     setShowUnsavedDialog(false)
@@ -632,7 +641,7 @@ function EditorLayout() {
       window.history.go(-2) // Go back 2 because we pushed a state
     }
     setPendingNavigation(null)
-  }, [save, pendingNavigation, hasProFeaturesEnabled])
+  }, [save, pendingNavigation, hasProFeaturesEnabled, activeTab])
 
   const handleDiscardAndNavigate = useCallback(() => {
     setShowUnsavedDialog(false)
@@ -914,7 +923,7 @@ function EditorLayout() {
             {activeTab === "design" && <DesignTab userPlan={userPlan} />}
             {activeTab === "links" && <LinksTab />}
             {activeTab === "products" && <ProductsTab />}
-            {activeTab === "settings" && <SettingsTab />}
+            {activeTab === "settings" && <SettingsTab ref={settingsTabRef} />}
           </div>
         </div>
 
