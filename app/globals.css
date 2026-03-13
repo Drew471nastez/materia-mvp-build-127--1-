@@ -1013,9 +1013,13 @@ html.native-auth-lock .auth-card {
   max-width: 420px;
   max-height: calc(100dvh - env(safe-area-inset-top) - 16px); /* viewport minus notch + buffer */
   overflow-y: auto;
+  overflow-x: clip; /* clip without creating an x-scroll container — preserves focus ring */
   -webkit-overflow-scrolling: touch; /* native momentum scroll on iOS WKWebView */
   overscroll-behavior: contain;      /* bounce stays inside the card, not the page */
   touch-action: pan-y;               /* re-enable vertical touch scroll within card */
+  /* Extra horizontal breathing room so focus outlines aren't clipped */
+  padding-left: 3px;
+  padding-right: 3px;
 }
 
 /* iOS Safari adds a native blue focus glow that extends ~4 px OUTSIDE the
@@ -1114,9 +1118,12 @@ html.capacitor body {
   background-color: #f2f2f2;
 }
 
-/* On pages with a white header (checkout, library) the fixed black safe-area
-   shield must match the header colour so no dark bar shows above it. */
-html.capacitor:has([data-page="checkout"])::before {
+/* On pages with a white header (checkout, library, auth) the fixed black
+   safe-area shield must match the header colour so no dark bar shows. */
+html.capacitor:has([data-page="checkout"])::before,
+html.capacitor:has([data-page="login"])::before,
+html.capacitor:has([data-page="signup"])::before,
+html.capacitor:has([data-page="reset-password"])::before {
   background-color: #ffffff;
 }
 
@@ -1124,6 +1131,12 @@ html.capacitor:has([data-page="checkout"])::before {
    The ::before shield must also be white so no black bar appears above it. */
 html.capacitor:has([data-page="library"])::before {
   background-color: #ffffff;
+}
+
+/* Hide the floating creator quick-nav button on iOS/Android — native apps
+   have their own sidebar navigation so the floating button is redundant. */
+html.capacitor .creator-quick-nav {
+  display: none !important;
 }
 
 /* Welcome page: safe-area shield matches the page background so no black bar

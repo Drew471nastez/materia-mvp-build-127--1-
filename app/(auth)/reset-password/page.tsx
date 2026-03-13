@@ -367,7 +367,7 @@ function ResetPasswordContent() {
   // ── Render: Full-screen loader while initializing ────────────────
   if (phase === "initializing") {
     return (
-      <div className="flex min-h-svh w-full items-center justify-center px-6 py-12">
+      <div data-page="reset-password" className="flex min-h-svh w-full items-center justify-center px-6 py-12">
         <div className="w-full max-w-[440px] text-center">
           <AuthLogo />
           <Loader2 className="h-8 w-8 animate-spin mx-auto text-neutral-400" />
@@ -380,7 +380,7 @@ function ResetPasswordContent() {
   // ── Render: App handoff (trying to open native app) ──────────────
   if (phase === "handoff") {
     return (
-      <div className="flex min-h-svh w-full items-center justify-center px-6 py-12">
+      <div data-page="reset-password" className="flex min-h-svh w-full items-center justify-center px-6 py-12">
         <div className="w-full max-w-[440px] text-center">
           <AuthLogo />
           <Loader2 className="h-8 w-8 animate-spin mx-auto text-neutral-400" />
@@ -419,7 +419,7 @@ function ResetPasswordContent() {
   // ── Render: Success ──────────────────────────────────────────────
   if (phase === "success") {
     return (
-      <div className="flex min-h-svh w-full items-center justify-center px-6 py-12">
+      <div data-page="reset-password" className="flex min-h-svh w-full items-center justify-center px-6 py-12">
         <div className="w-full max-w-[440px] text-center">
           <AuthLogo />
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
@@ -440,7 +440,7 @@ function ResetPasswordContent() {
   // ── Render: Expired / invalid link ───────────────────────────────
   if (phase === "expired") {
     return (
-      <div className="flex min-h-svh w-full items-center justify-center px-6 py-12">
+      <div data-page="reset-password" className="flex min-h-svh w-full items-center justify-center px-6 py-12">
         <div className="w-full max-w-[440px] text-center">
           <AuthLogo />
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">

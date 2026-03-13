@@ -477,8 +477,6 @@ function TimeframeBottomSheet({
     if (isOpen && !isVisible) {
       setIsVisible(true)
       document.body.style.overflow = "hidden"
-      document.documentElement.style.overscrollBehavior = 'none'
-      document.body.style.overscrollBehavior = 'none'
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           setIsAnimating(true)
@@ -486,9 +484,8 @@ function TimeframeBottomSheet({
       })
     } else if (!isOpen && isVisible) {
       setIsAnimating(false)
+      // Restore body scroll; CSS class rules (html.app-layout body) re-assert after.
       document.body.style.overflow = ""
-      document.documentElement.style.overscrollBehavior = ''
-      document.body.style.overscrollBehavior = ''
       const timer = setTimeout(() => {
         setIsVisible(false)
         setDragY(0)
@@ -497,8 +494,6 @@ function TimeframeBottomSheet({
     }
     return () => {
       document.body.style.overflow = ""
-      document.documentElement.style.overscrollBehavior = ''
-      document.body.style.overscrollBehavior = ''
     }
   }, [isOpen, isVisible])
 
@@ -561,6 +556,7 @@ function TimeframeBottomSheet({
   return (
     <div
       className="fixed inset-0 z-[100] md:hidden"
+      style={{ pointerEvents: isAnimating ? "auto" : "none" }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -659,14 +655,10 @@ function QuickAccessBottomSheet({
     if (isOpen && !isVisible) {
       setIsVisible(true)
       document.body.style.overflow = "hidden"
-      document.documentElement.style.overscrollBehavior = 'none'
-      document.body.style.overscrollBehavior = 'none'
       requestAnimationFrame(() => requestAnimationFrame(() => setIsAnimating(true)))
     } else if (!isOpen && isVisible) {
       setIsAnimating(false)
       document.body.style.overflow = ""
-      document.documentElement.style.overscrollBehavior = ''
-      document.body.style.overscrollBehavior = ''
       const timer = setTimeout(() => {
         setIsVisible(false)
         setDragY(0)
@@ -675,8 +667,6 @@ function QuickAccessBottomSheet({
     }
     return () => {
       document.body.style.overflow = ""
-      document.documentElement.style.overscrollBehavior = ''
-      document.body.style.overscrollBehavior = ''
     }
   }, [isOpen, isVisible])
 
@@ -726,7 +716,10 @@ function QuickAccessBottomSheet({
   if (!isVisible) return null
 
   return (
-    <div className="fixed inset-0 z-[110] md:hidden">
+    <div
+      className="fixed inset-0 z-[110] md:hidden"
+      style={{ pointerEvents: isAnimating ? "auto" : "none" }}
+    >
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
         style={{
@@ -1503,7 +1496,8 @@ export function DashboardClient({
     setProgressTarget(0)
     const raf = requestAnimationFrame(() => requestAnimationFrame(() => setProgressTarget(100)))
 
-    // Rotate announcements
+    // Rotate announcements — 360 ms matches the CSS transition-duration (300 ms)
+    // plus a safety margin so opacity is fully 0 before content swaps.
     const rotateTimer = setTimeout(() => {
       setAnnouncementVisible(false)
       setTimeout(() => {
@@ -1521,7 +1515,7 @@ export function DashboardClient({
         })
         setProgressTarget(0)
         setAnnouncementVisible(true)
-      }, 300)
+      }, 360)
     }, DURATION)
 
     return () => {

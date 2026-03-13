@@ -408,7 +408,7 @@ function SignUpFormContent() {
   }
 
   return (
-    <div className="flex min-h-svh w-full bg-white lg:h-[100dvh] lg:max-h-[100dvh] lg:overflow-hidden">
+    <div data-page="signup" className="flex min-h-svh w-full bg-white lg:h-[100dvh] lg:max-h-[100dvh] lg:overflow-hidden">
       <div className="flex w-full flex-col justify-start px-6 py-8 sm:py-10 lg:w-1/2 lg:h-[100dvh] lg:overflow-y-auto page-scroll lg:px-16 lg:py-10 xl:px-24 auth-stack auth-shell">
         <div className="mx-auto w-full max-w-[400px] py-2 sm:py-3 lg:py-4 animate-fade-in-up auth-card">
           <AuthLogo />
