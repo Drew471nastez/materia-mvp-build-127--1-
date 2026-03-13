@@ -32,8 +32,11 @@ export default function BlogListing({
 }) {
   return (
     <div className="min-h-screen bg-white">
-      {/* Title area */}
-      <div className="max-w-7xl mx-auto px-6 lg:px-10 pt-14 pb-10">
+      {/* Title area — subtle fade-up on load */}
+      <div
+        className="max-w-7xl mx-auto px-6 lg:px-10 pt-14 pb-10 blog-fade-up"
+        style={{ animationDelay: "0ms" }}
+      >
         <h1 className="text-[46px] sm:text-[58px] font-semibold text-neutral-900 tracking-tight mb-3">
           {title}
         </h1>
@@ -41,7 +44,10 @@ export default function BlogListing({
       </div>
 
       {/* Mobile: category pills row */}
-      <div className="lg:hidden max-w-7xl mx-auto px-6 pb-6 overflow-x-auto">
+      <div
+        className="lg:hidden max-w-7xl mx-auto px-6 pb-6 overflow-x-auto blog-fade-up"
+        style={{ animationDelay: "60ms" }}
+      >
         <div className="flex gap-2 whitespace-nowrap min-w-0">
           <Link
             href="/blog"
@@ -64,8 +70,11 @@ export default function BlogListing({
       {/* Desktop: sidebar + grid */}
       <div className="max-w-7xl mx-auto px-6 lg:px-10 pb-24">
         <div className="flex gap-0">
-          {/* Category sidebar — desktop only */}
-          <aside className="hidden lg:block w-52 xl:w-60 flex-shrink-0 border-r border-neutral-200 pr-8 mr-12 sticky top-20 self-start">
+          {/* Category sidebar — desktop only, shifted down ~10% */}
+          <aside
+            className="hidden lg:block w-52 xl:w-60 flex-shrink-0 border-r border-neutral-200 pr-8 mr-12 sticky self-start blog-fade-up"
+            style={{ top: "calc(5rem + 2.4rem)", animationDelay: "80ms" }}
+          >
             <nav className="flex flex-col gap-5">
               <Link
                 href="/blog"
@@ -88,14 +97,19 @@ export default function BlogListing({
           {/* Post grid */}
           <main className="flex-1 min-w-0">
             {posts.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-24 text-neutral-400">
+              <div className="flex flex-col items-center justify-center py-24 text-neutral-400 blog-fade-up" style={{ animationDelay: "100ms" }}>
                 <p className="text-lg font-medium">No articles yet in this category.</p>
                 <p className="text-sm mt-1">Check back soon.</p>
               </div>
             ) : (
               <div className="grid sm:grid-cols-2 gap-x-8 gap-y-14">
-                {posts.map(post => (
-                  <Link key={post.id} href={`/blog/${post.slug}`} className="group block">
+                {posts.map((post, i) => (
+                  <Link
+                    key={post.id}
+                    href={`/blog/${post.slug}`}
+                    className="group block blog-fade-up"
+                    style={{ animationDelay: `${100 + i * 55}ms` }}
+                  >
                     <article>
                       {/* Cover image */}
                       <div className="aspect-[16/10] rounded-xl overflow-hidden bg-neutral-100 mb-5 group-hover:scale-[1.005] transition-transform duration-500 ease-out">

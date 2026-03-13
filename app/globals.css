@@ -1140,3 +1140,12 @@ html.capacitor [tabindex="0"]:active {
   /* scale(0.97) removed: transform on :active can trigger a relayout that delays
      the subsequent click event by one frame in some Android WebViews */
 }
+
+/* Blog page subtle entrance animations */
+@keyframes blog-fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.blog-fade-up {
+  animation: blog-fade-up 0.45s ease-out both;
+}
