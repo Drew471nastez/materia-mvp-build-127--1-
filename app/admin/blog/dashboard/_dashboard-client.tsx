@@ -49,13 +49,21 @@ export default function BlogDashboardClient() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const [postsRes, analyticsRes] = await Promise.all([
-      fetch("/api/admin/blog/posts"),
-      fetch("/api/admin/blog/analytics"),
-    ])
-    if (postsRes.status === 401) { router.push("/admin/blog"); return }
-    setPosts(await postsRes.json())
-    if (analyticsRes.ok) setAnalytics(await analyticsRes.json())
+    try {
+      const [postsRes, analyticsRes] = await Promise.all([
+        fetch("/api/admin/blog/posts"),
+        fetch("/api/admin/blog/analytics"),
+      ])
+      if (postsRes.status === 401) { router.push("/admin/blog"); return }
+      const postsData = await postsRes.json()
+      setPosts(Array.isArray(postsData) ? postsData : [])
+      if (analyticsRes.ok) {
+        const analyticsData = await analyticsRes.json()
+        if (analyticsData && !analyticsData.error) setAnalytics(analyticsData)
+      }
+    } catch {
+      // network error — stay on page, show empty state
+    }
     setLoading(false)
   }, [router])
 

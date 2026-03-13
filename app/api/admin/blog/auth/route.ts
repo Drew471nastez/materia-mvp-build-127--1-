@@ -5,7 +5,16 @@ const USERNAME = "storelib"
 const PASSWORD = "Amfetamina11"
 
 export async function POST(req: NextRequest) {
-  const { username, password } = await req.json()
+  let username: string | undefined
+  let password: string | undefined
+
+  try {
+    const body = await req.json()
+    username = typeof body.username === "string" ? body.username.trim() : ""
+    password = typeof body.password === "string" ? body.password : ""
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
+  }
 
   if (username !== USERNAME || password !== PASSWORD) {
     return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
