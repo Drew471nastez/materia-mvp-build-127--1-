@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { randomBytes } from "crypto"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendEmail, isSmtpConfigured } from "@/lib/mail"
@@ -34,7 +35,7 @@ export async function POST(request: Request) {
       )
     }
 
-    // Generate Supabase recovery link with HTTPS redirectTo
+    // Generate Supabase recovery link (creates the OTP in Supabase's DB)
     const redirectTo = "https://storelib.com/reset-password"
     const { data: linkData, error: linkError } = await adminSupabase.auth.admin.generateLink({
       type: "recovery",
@@ -47,16 +48,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Failed to create reset request" }, { status: 500 })
     }
 
-    const resetUrl = linkData.properties.action_link
+    // Bridge code: query-param based link that works through all email clients
+    const bridgeCode = randomBytes(48).toString("base64url")
 
-    // Record the request for rate limiting
     await adminSupabase.from("password_reset_requests").insert({
       user_id: user.id,
       email: user.email,
-      token: `supabase_recovery_${Date.now()}`,
+      token: bridgeCode,
       expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
       used: false,
     })
+
+    const resetUrl = `https://storelib.com/reset-password?code=${encodeURIComponent(bridgeCode)}`
 
     // Send password reset email
     if (isSmtpConfigured()) {

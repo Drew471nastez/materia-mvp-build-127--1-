@@ -29,7 +29,7 @@ export function usePullToRefresh(
   onRefresh: () => Promise<void>,
   options: Options = {}
 ) {
-  const { threshold = 72, maxPull = 96 } = options
+  const { threshold = 60, maxPull = 90 } = options
 
   const [pullDistance, setPullDistance] = useState(0)
   const [phase, setPhase] = useState<PullPhase>("idle")

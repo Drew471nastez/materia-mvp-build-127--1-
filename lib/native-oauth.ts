@@ -103,6 +103,47 @@ function isOAuthCallback(url: string): boolean {
 }
 
 /**
+ * Detect if a URL is a bridge-code reset deep link.
+ * These arrive when the user taps the email link on a phone with the app installed:
+ *   storelib://reset-password?code=<bridge_code>
+ */
+function isBridgeCodeResetLink(url: string): boolean {
+  try {
+    return (
+      (url.startsWith("storelib://reset-password") ||
+       url.startsWith("com.storelib.app://reset-password")) &&
+      new URL(url).searchParams.has("code")
+    )
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Handle a bridge-code reset deep link inside the native app.
+ * Navigates to /reset-password?code=<code> so the page can exchange it.
+ */
+async function handleBridgeCodeResetLink(rawUrl: string): Promise<void> {
+  console.log(`${TAG} ▶ Bridge-code reset deep link detected`)
+  showToast(`Bridge reset link\n${rawUrl.slice(0, 80)}`, "info")
+
+  notifyNativeAuthStart()
+  try { sessionStorage.setItem("nativeAuthInProgress", "1") } catch {}
+
+  try {
+    const u = new URL(rawUrl)
+    const code = u.searchParams.get("code")
+    if (code) {
+      window.location.assign(`/reset-password?code=${encodeURIComponent(code)}`)
+    } else {
+      window.location.assign("/reset-password")
+    }
+  } catch {
+    window.location.assign("/reset-password")
+  }
+}
+
+/**
  * Detect if a URL is an HTTPS reset-password App Link / Universal Link.
  * These arrive when the OS intercepts the Supabase redirect:
  *   https://storelib.com/reset-password#access_token=...&type=recovery
@@ -494,6 +535,12 @@ export async function setupNativeOAuthListeners(): Promise<() => void> {
     const appHandle = await App.addListener("appUrlOpen", ({ url }) => {
       console.log(`${TAG} ← appUrlOpen event received, url="${url}"`)
 
+      // Bridge-code reset links (storelib://reset-password?code=XXX)
+      if (isBridgeCodeResetLink(url)) {
+        handleBridgeCodeResetLink(url)
+        return
+      }
+
       // HTTPS reset-password links from App Link / Universal Link
       if (isHttpsResetPasswordUrl(url)) {
         handleHttpsResetPasswordLink(url)
@@ -513,7 +560,10 @@ export async function setupNativeOAuthListeners(): Promise<() => void> {
       const launchResult = await App.getLaunchUrl()
       if (launchResult?.url) {
         console.log(`${TAG}   Launch URL detected: "${launchResult.url.slice(0, 120)}"`)
-        if (isHttpsResetPasswordUrl(launchResult.url)) {
+        if (isBridgeCodeResetLink(launchResult.url)) {
+          console.log(`${TAG}   Cold-start: processing bridge-code reset launch URL`)
+          handleBridgeCodeResetLink(launchResult.url)
+        } else if (isHttpsResetPasswordUrl(launchResult.url)) {
           console.log(`${TAG}   Cold-start: processing HTTPS reset-password launch URL`)
           handleHttpsResetPasswordLink(launchResult.url)
         } else if (isOAuthCallback(launchResult.url) && isRecoveryCallback(launchResult.url)) {

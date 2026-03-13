@@ -500,9 +500,10 @@ function EditorLayout() {
       return
     }
 
-    // If on the settings tab, sync SEO/settings local state to context+API first
+    // If on the settings tab, sync ALL local settings state to context+API first
+    // (basic info, SEO, subscribe, share, verified badge)
     if (activeTab === "settings") {
-      await settingsTabRef.current?.saveSeo()
+      await settingsTabRef.current?.saveAllSettings()
     }
 
     // Proceed with global save (persists all context state)

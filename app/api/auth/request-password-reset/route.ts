@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { randomBytes } from "crypto"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendEmail, isSmtpConfigured } from "@/lib/mail"
 
@@ -105,9 +106,19 @@ export async function POST(request: Request) {
       )
     }
 
-    // Generate Supabase recovery link with HTTPS redirectTo.
-    // This creates a verification link that, when clicked, redirects to
-    // https://storelib.com/reset-password#access_token=...&refresh_token=...&type=recovery
+    // ── Bridge code approach ──────────────────────────────────────────
+    // Instead of sending the user to Supabase's verification URL (which
+    // appends tokens in a #hash fragment that email clients / Gmail proxy
+    // can strip), we generate our OWN one-time code, store it, and send
+    // a link like: https://storelib.com/reset-password?code=<bridge_code>
+    //
+    // When the page loads with ?code=, it calls /api/auth/exchange-reset-code
+    // which verifies the code + calls Supabase's verify endpoint server-side
+    // (where hash fragments are never at risk) and returns the tokens.
+    //
+    // We also keep the Supabase generateLink call so the OTP exists in
+    // Supabase's DB — exchange-reset-code will call the verify URL later.
+
     const redirectTo = "https://storelib.com/reset-password"
     const { data: linkData, error: linkError } = await adminSupabase.auth.admin.generateLink({
       type: "recovery",
@@ -120,16 +131,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Failed to create reset request" }, { status: 500 })
     }
 
-    const resetUrl = linkData.properties.action_link
+    // Generate a cryptographically secure bridge code (48 bytes = 64 URL-safe chars)
+    const bridgeCode = randomBytes(48).toString("base64url")
 
-    // Record the request for rate limiting (no custom token needed — Supabase manages it)
+    // Record the bridge code + the Supabase action_link so the exchange
+    // endpoint can call Supabase's verify URL server-side.
     await adminSupabase.from("password_reset_requests").insert({
       user_id: user.id,
       email: cleanEmail,
-      token: `supabase_recovery_${Date.now()}`,
+      token: bridgeCode,
       expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
       used: false,
     })
+
+    // The primary link the user clicks — uses a query param, never a hash fragment.
+    // Works reliably through Gmail proxy, Outlook SafeLinks, and every email client.
+    const resetUrl = `https://storelib.com/reset-password?code=${encodeURIComponent(bridgeCode)}`
 
     // Send password reset email
     if (isSmtpConfigured()) {

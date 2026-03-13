@@ -66,6 +66,8 @@ const BADGE_TYPES = [
 
 export interface SettingsTabRef {
   saveSeo: () => Promise<void>
+  /** Sync ALL local settings state to context + API before global save */
+  saveAllSettings: () => Promise<void>
 }
 
 export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, ref) {
@@ -199,9 +201,62 @@ export const SettingsTab = forwardRef<SettingsTabRef>(function SettingsTab(_, re
     }
   }
 
-  // Expose saveSeo so the global Save button in the editor can call it
+  // Sync ALL local settings state to context + API so the global Save button
+  // persists every section (basic info, SEO, subscribe, share, verified badge)
+  const handleSaveAllSettings = async () => {
+    // 1. Basic info — update context (slug + title)
+    updateProfile({ title: pageName })
+    if (pageSlug !== onepage.slug) {
+      updateSlug(pageSlug)
+    }
+
+    // 2. Merge every settings section into one object and persist via API
+    const mergedSettings = {
+      ...((onepage?.settings as any) || {}),
+      // SEO
+      seo_title: metaTitle,
+      seo_description: metaDescription,
+      social_image_url: ogImage || null,
+      social_image_position_x: ogImage ? ogPosX : null,
+      social_image_position_y: ogImage ? ogPosY : null,
+      // Subscribe
+      subscribe_enabled: subscribeEnabled,
+      subscribe_style: subscribeStyle,
+      // Share
+      share_enabled: shareEnabled,
+      share_style: shareStyle,
+      // Verified badge
+      verified_badge_enabled: verifiedEnabled,
+      verified_badge_type: verifiedType,
+    }
+
+    const res = await fetch("/api/onepage", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...onepage, settings: mergedSettings }),
+    })
+    if (!res.ok) throw new Error("Failed to save settings")
+
+    // Keep context in sync so live preview reflects persisted values
+    updateSettings({
+      seo_title: metaTitle,
+      seo_description: metaDescription,
+      social_image_url: ogImage || null,
+      social_image_position_x: ogImage ? ogPosX : null,
+      social_image_position_y: ogImage ? ogPosY : null,
+      subscribe_enabled: subscribeEnabled,
+      subscribe_style: subscribeStyle,
+      share_enabled: shareEnabled,
+      share_style: shareStyle,
+      verified_badge_enabled: verifiedEnabled,
+      verified_badge_type: verifiedType,
+    } as any)
+  }
+
+  // Expose save methods so the global Save button in the editor can call them
   useImperativeHandle(ref, () => ({
     saveSeo: handleSaveSeo,
+    saveAllSettings: handleSaveAllSettings,
   }))
 
   const handleSaveSubscribe = async () => {

@@ -77,6 +77,33 @@ function parseRecoveryTokens(): {
 }
 
 /**
+ * Exchange a bridge code (?code= query param) for recovery tokens.
+ * This is the PRIMARY flow: email links use ?code=<bridge_code> which is
+ * a query param (never stripped by email clients, unlike hash fragments).
+ * The API verifies the code server-side and returns fresh tokens.
+ */
+async function exchangeBridgeCode(code: string): Promise<{
+  accessToken: string | null
+  refreshToken: string | null
+  error: string | null
+}> {
+  try {
+    const res = await fetch("/api/auth/exchange-reset-code", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code }),
+    })
+    const data = await res.json()
+    if (!res.ok || !data.access_token) {
+      return { accessToken: null, refreshToken: null, error: data.error || "Invalid reset code" }
+    }
+    return { accessToken: data.access_token, refreshToken: data.refresh_token, error: null }
+  } catch {
+    return { accessToken: null, refreshToken: null, error: "Network error. Please try again." }
+  }
+}
+
+/**
  * Dismiss native auth loading overlay and clear the nativeAuthInProgress flag.
  * Called when the reset-password page is ready to display content.
  */
@@ -146,12 +173,65 @@ function ResetPasswordContent() {
     initRef.current = true
 
     const init = async () => {
+      const searchParams = new URLSearchParams(window.location.search)
+      const bridgeCode = searchParams.get("code")
+      const isInCapacitor = isNativePlatform() || isNativeApp()
+
+      // ── PRIMARY FLOW: Bridge code (?code= query param) ─────────────
+      // Email links now use ?code=<bridge_code> which survives all email
+      // client proxies (Gmail, Outlook SafeLinks, etc.).
+      if (bridgeCode) {
+        console.log("[ResetPassword] Bridge code detected — exchanging for tokens")
+
+        // On mobile browser: try to hand off to the native app first
+        if (isMobileBrowser() && !isInCapacitor) {
+          // Build a deep link that includes the bridge code for the app
+          const appLink = `storelib://reset-password?code=${encodeURIComponent(bridgeCode)}`
+          setDeepLink(appLink)
+          setPhase("handoff")
+          window.location.href = appLink
+
+          const timer = setTimeout(async () => {
+            // App not installed — continue in browser
+            const result = await exchangeBridgeCode(bridgeCode)
+            if (result.error || !result.accessToken || !result.refreshToken) {
+              setPhase("expired")
+              setError(result.error || "This reset link has expired. Please request a new one.")
+              dismissNativeOverlay()
+            } else {
+              await establishSessionAndShowForm(result.accessToken, result.refreshToken)
+            }
+          }, 1200)
+
+          const handleVisibility = () => {
+            if (document.hidden) clearTimeout(timer)
+          }
+          document.addEventListener("visibilitychange", handleVisibility)
+          return () => {
+            clearTimeout(timer)
+            document.removeEventListener("visibilitychange", handleVisibility)
+          }
+        }
+
+        // Inside Capacitor or desktop browser — exchange directly
+        const result = await exchangeBridgeCode(bridgeCode)
+        if (result.error || !result.accessToken || !result.refreshToken) {
+          setPhase("expired")
+          setError(result.error || "This reset link has expired. Please request a new one.")
+          dismissNativeOverlay()
+          return
+        }
+        await establishSessionAndShowForm(result.accessToken, result.refreshToken)
+        return
+      }
+
+      // ── LEGACY FLOW: Hash fragment tokens ──────────────────────────
+      // Keeps backward compatibility with any previously sent emails
+      // that used the old Supabase action_link redirect approach.
       const tokens = parseRecoveryTokens()
 
-      // No tokens found — check if this is a legacy custom-token link
       if (!tokens.accessToken || !tokens.refreshToken) {
         // Check for old ?token= param (legacy flow)
-        const searchParams = new URLSearchParams(window.location.search)
         if (searchParams.get("token")) {
           setPhase("expired")
           setError("This reset link uses an older format. Please request a new one.")
@@ -160,13 +240,8 @@ function ResetPasswordContent() {
         }
 
         // On native, tokens may arrive AFTER page mount via appUrlOpen event.
-        // Wait briefly before showing expired — the nativeRecoveryTokensReady
-        // event listener (below) will handle late-arriving tokens.
-        const isInCapacitor = isNativePlatform() || isNativeApp()
         if (isInCapacitor) {
           console.log("[ResetPassword] No tokens yet in Capacitor — waiting for appUrlOpen delivery")
-          // Stay in "initializing" phase; the event listener below will handle it.
-          // Safety timeout: if no tokens arrive within 5 seconds, show expired.
           setTimeout(() => {
             setPhase((prev) => {
               if (prev === "initializing") {
@@ -187,33 +262,22 @@ function ResetPasswordContent() {
       }
 
       const { accessToken, refreshToken } = tokens
-      const isInCapacitor = isNativePlatform() || isNativeApp()
 
-      // ── App handoff logic ────────────────────────────────────────────
-      // If running in a normal mobile browser (NOT inside Capacitor),
-      // try to open the native app via deep link.
+      // ── App handoff logic (legacy hash-fragment flow) ──────────────
       if (isMobileBrowser() && !isInCapacitor) {
         const link = `storelib://auth/callback?type=recovery&access_token=${encodeURIComponent(accessToken)}&refresh_token=${encodeURIComponent(refreshToken)}`
         setDeepLink(link)
         setPhase("handoff")
-
-        // Attempt to open the app
         window.location.href = link
 
-        // If the page is still visible after 1200ms, the app isn't installed.
-        // Continue with the web reset flow.
         const timer = setTimeout(async () => {
           await establishSessionAndShowForm(accessToken, refreshToken)
         }, 1200)
 
-        // If the app opens, the page becomes hidden — clear the timer
         const handleVisibility = () => {
-          if (document.hidden) {
-            clearTimeout(timer)
-          }
+          if (document.hidden) clearTimeout(timer)
         }
         document.addEventListener("visibilitychange", handleVisibility)
-
         return () => {
           clearTimeout(timer)
           document.removeEventListener("visibilitychange", handleVisibility)

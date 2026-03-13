@@ -75,6 +75,16 @@
                     android:pathPrefix="/callback" />
             </intent-filter>
 
+            <!-- Custom scheme deep link for password reset with bridge code -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="storelib"
+                    android:host="reset-password" />
+            </intent-filter>
+
             <!--
                 App Links: intercept password-reset email links so they open
                 inside the Storelib app instead of the system browser.

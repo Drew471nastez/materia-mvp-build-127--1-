@@ -1560,17 +1560,22 @@ export function DashboardClient({
 
   const { pullDistance, phase: pullPhase } = usePullToRefresh(scrollRef, handlePullRefresh)
 
-  // Content translateY: slides down while pulling, snaps back when done
+  // Content translateY: slides down while pulling, snaps back when done.
+  // Small offset (34px) when refreshing — just enough to show the 20px spinner
+  // with breathing room, matching the compact iOS-style indicator.
   const contentTranslateY =
     pullPhase === "pulling" || pullPhase === "ready"
       ? pullDistance
       : pullPhase === "refreshing"
-        ? 52 // 44px pill + 8px gap — keeps indicator visible
+        ? 34
         : 0
 
+  // Ultra-smooth spring-like ease for the snap-back / pin animation.
+  // 0.4s with cubic-bezier(0.25,1,0.5,1) gives that native iOS feel:
+  // fast start, gentle deceleration, no bounce.
   const contentTransition =
     pullPhase === "idle" || pullPhase === "refreshing"
-      ? "transform 0.32s cubic-bezier(0.32, 0.72, 0, 1)"
+      ? "transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)"
       : "none"
 
   return (
