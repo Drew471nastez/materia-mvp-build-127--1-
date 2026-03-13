@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { createPortal } from "react-dom"
-import { Plus, TicketPercent, Copy, Check, Pencil, Trash2, X, ChevronDown, Zap, HelpCircle } from "lucide-react"
+import { Plus, TicketPercent, Copy, Check, Pencil, Trash2, X, ChevronDown, HelpCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 
@@ -851,15 +851,6 @@ export function CouponsClient({ creatorId, initialCoupons, products }: CouponsCl
             <Plus className="w-4 h-4" />
             New coupon
           </button>
-        </div>
-
-        {/* Tips — shortened on mobile */}
-        <div className="rounded-2xl bg-purple-50 border border-purple-100 p-4 flex gap-3 items-start">
-          <Zap className="w-4 h-4 text-purple-600 mt-0.5 shrink-0" />
-          <p className="text-sm text-purple-800">
-            <span className="hidden sm:inline">Share coupon codes with your audience to offer discounts at checkout. Buyers enter the code on the payment page.</span>
-            <span className="sm:hidden">Share discount codes with buyers for checkout.</span>
-          </p>
         </div>
 
         {/* List */}
