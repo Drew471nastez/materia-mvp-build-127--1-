@@ -131,6 +131,7 @@ export default function WelcomePage() {
       `}} />
 
       <div
+        data-page="welcome"
         className="fixed inset-0 flex flex-col items-center overflow-hidden select-none"
         style={{
           background:    "#f2f2f2",
@@ -150,7 +151,7 @@ export default function WelcomePage() {
             alt="Storelib"
             width={34}
             height={34}
-            style={{ width: 34, height: 34 }}
+            style={{ width: 34, height: 34, borderRadius: 5 }}
           />
           <span className="text-[23px] font-bold tracking-tight text-[#0a0a0a]">
             Storelib
@@ -172,7 +173,7 @@ export default function WelcomePage() {
         >
           <p
             className="font-bold text-[#0a0a0a] leading-tight"
-            style={{ fontSize: "clamp(19px, 6vw, 30px)", minHeight: "1.4em" }}
+            style={{ fontSize: "clamp(19px, 6vw, 30px)", minHeight: "2.8em" }}
           >
             {typedText}
             <span
@@ -184,7 +185,7 @@ export default function WelcomePage() {
 
         {/* Buttons */}
         <div className="wlc-fade-up-late shrink-0 w-full px-5 pb-4 flex flex-col items-center">
-          <div className="w-full max-w-[400px] flex flex-col gap-[10px]">
+          <div className="w-full max-w-[400px] flex flex-col gap-[16px]">
             <button
               onClick={goToSignup}
               className="w-full rounded-[10px] bg-[#7c3aed] text-white font-semibold text-base py-[15px] active:scale-[0.97] active:opacity-85 transition-transform border-none cursor-pointer"

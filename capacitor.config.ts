@@ -47,11 +47,11 @@ const config: CapacitorConfig = {
     contentInset: 'never',
     scrollEnabled: true,
     allowsLinkPreview: false,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#f2f2f2',
   },
   android: {
     allowMixedContent: false,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#f2f2f2',
   },
   plugins: {
     SplashScreen: {

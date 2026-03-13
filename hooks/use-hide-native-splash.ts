@@ -1,6 +1,6 @@
 "use client"
 import { useEffect } from "react"
-export function useHideNativeSplash(delay = 120) {
+export function useHideNativeSplash(delay = 400) {
   useEffect(() => {
     let cancelled = false
     async function hideSplash() {
@@ -13,7 +13,7 @@ export function useHideNativeSplash(delay = 120) {
           await new Promise((resolve) => setTimeout(resolve, delay))
           if (cancelled) return
           const { SplashScreen } = await import("@capacitor/splash-screen")
-          await SplashScreen.hide({ fadeOutDuration: 180 })
+          await SplashScreen.hide({ fadeOutDuration: 500 })
         }
       } catch {}
     }

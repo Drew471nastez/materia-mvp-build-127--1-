@@ -1105,6 +1105,15 @@ html.capacitor {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Prevent the white body flash during page transitions in Capacitor.
+   When Next.js swaps routes the bare <body> is briefly visible; setting its
+   background to the app's neutral colour (#f2f2f2) instead of white means
+   any mid-transition gap looks like the loading skeleton, not a jarring flash.
+   Pages that need white use their own wrapper elements on top of this. */
+html.capacitor body {
+  background-color: #f2f2f2;
+}
+
 /* On pages with a white header (checkout, library) the fixed black safe-area
    shield must match the header colour so no dark bar shows above it. */
 html.capacitor:has([data-page="checkout"])::before {
@@ -1115,6 +1124,15 @@ html.capacitor:has([data-page="checkout"])::before {
    The ::before shield must also be white so no black bar appears above it. */
 html.capacitor:has([data-page="library"])::before {
   background-color: #ffffff;
+}
+
+/* Welcome page: safe-area shield matches the page background so no black bar
+   appears at the top. Also lock scroll since the page is fixed/full-screen. */
+html.capacitor:has([data-page="welcome"])::before {
+  background-color: #f2f2f2;
+}
+html.capacitor:has([data-page="welcome"]) {
+  overflow: hidden !important;
 }
 
 @keyframes sheetSlideUp {
