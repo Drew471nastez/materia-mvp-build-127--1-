@@ -159,6 +159,26 @@ export function SettingsTab() {
   const handleSaveSeo = async () => {
     setLocalSaveState("saving")
     try {
+      // Build the complete updated settings inline, using current local state values
+      // This avoids any async React state timing issues with updateSettings + save()
+      const updatedSettings = {
+        ...((onepage?.settings as any) || {}),
+        seo_title: metaTitle,
+        seo_description: metaDescription,
+        social_image_url: ogImage || null,
+        social_image_position_x: ogImage ? ogPosX : null,
+        social_image_position_y: ogImage ? ogPosY : null,
+      }
+
+      // Persist directly to the API with explicit values
+      const res = await fetch("/api/onepage", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...onepage, settings: updatedSettings }),
+      })
+      if (!res.ok) throw new Error("Failed to save")
+
+      // Also update context state so live preview and other handlers stay in sync
       updateSettings({
         seo_title: metaTitle,
         seo_description: metaDescription,
@@ -166,7 +186,7 @@ export function SettingsTab() {
         social_image_position_x: ogImage ? ogPosX : null,
         social_image_position_y: ogImage ? ogPosY : null,
       } as any)
-      await save()
+
       setLocalSaveState("saved")
       setTimeout(() => setLocalSaveState("idle"), 2000)
     } catch {
